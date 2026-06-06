@@ -1,6 +1,6 @@
 import type { InterfaceLanguage, ReaderSettings } from '../types';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../yomitan';
-import { LOOKUP_PILL_COLOR_TOKENS } from '../color-tokens';
+import { LOOKUP_PILL_COLOR_TOKENS } from '../theme/color-tokens';
 
 const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
 const HIDDEN_LOCAL_TERM_TAGS = new Set(['0', '1', '2', '3', '4', '5']);

@@ -233,8 +233,9 @@ function renderAnkiRenderedCardPreview(note: AnkiExistingNote, card: AnkiRendere
     if (!showHeading) {
         return `<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`;
     }
+    const title = renderedCardTitle(card, index);
     return `<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index === 0 ? ' open' : ''}>
-        <summary class="jpdb-reader-anki-rendered-card-title">${escapeHtml(renderedCardTitle(card, index))}</summary>
+        <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml(title)}">${escapeHtml(title)}</summary>
         ${content}
     </details>`;
 }
@@ -246,7 +247,9 @@ function orderedRenderedCards(note: AnkiExistingNote): AnkiRenderedCard[] {
 }
 
 function renderedCardTitle(card: AnkiRenderedCard, index: number): string {
-    return [card.deckName, `#${card.cardId || index + 1}`].filter(Boolean).join(' ');
+    const id = `#${card.cardId || index + 1}`;
+    if (card.cardName) return [card.deckName, `${card.cardName} ${id}`].filter(Boolean).join(' · ');
+    return [card.deckName, id].filter(Boolean).join(' ');
 }
 
 function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[], language: InterfaceLanguage, options = POPOVER_ANKI_SANITIZE): string[] {
@@ -676,10 +679,31 @@ function ankiAudioLabel(filename: string, language: InterfaceLanguage): string {
 }
 
 function ankiCardReviewTargetLabel(note: AnkiExistingNote, language: InterfaceLanguage): string {
-    const target = [note.deckNames.join(', ') || note.modelName || 'Anki', note.primaryCardId ? `#${note.primaryCardId}` : '']
-        .filter(Boolean)
-        .join(' ');
+    const target = ankiCardReviewTargetName(note);
     return formatUiText(language, 'gradeAnkiCardTarget', { target });
+}
+
+function ankiCardReviewTargetName(note: AnkiExistingNote): string {
+    const primaryCard = primaryRenderedAnkiCard(note);
+    const deck = ankiReviewTargetDeck(note, primaryCard);
+    const cardLabel = ankiReviewTargetCardLabel(note, primaryCard);
+    return cardLabel.includes('#') || primaryCard?.cardName
+        ? [deck, cardLabel].filter(Boolean).join(primaryCard?.cardName ? ' · ' : ' ')
+        : deck;
+}
+
+function primaryRenderedAnkiCard(note: AnkiExistingNote): AnkiRenderedCard | null {
+    if (!note.primaryCardId) return null;
+    return note.renderedCards?.find(card => card.cardId === note.primaryCardId) ?? null;
+}
+
+function ankiReviewTargetDeck(note: AnkiExistingNote, primaryCard: AnkiRenderedCard | null): string {
+    return primaryCard?.deckName || note.deckNames.join(', ') || note.modelName || 'Anki';
+}
+
+function ankiReviewTargetCardLabel(note: AnkiExistingNote, primaryCard: AnkiRenderedCard | null): string {
+    const cardId = note.primaryCardId ? `#${note.primaryCardId}` : '';
+    return primaryCard?.cardName ? `${primaryCard.cardName} ${cardId}`.trim() : cardId;
 }
 
 function displayAnkiFieldLabel(label: string): string {

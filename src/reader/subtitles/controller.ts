@@ -146,6 +146,14 @@ import type { JPDBToken, ReaderSettings } from '../types';
 
 export { requestSubtitleText } from './subtitle-request';
 
+const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
+    'yt-navigate-finish',
+    'yt-page-data-updated',
+    'yt-page-type-changed',
+    'popstate',
+    'hashchange',
+] as const;
+
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: SubtitleParseOptions) => Promise<JPDBToken[]>;
@@ -426,6 +434,9 @@ export class SubtitlePlayerController {
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
+        for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
+            window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
+        }
         document.addEventListener('fullscreenchange', () => {
             this.fullscreen = Boolean(document.fullscreenElement);
             this.syncFullscreenState();
@@ -439,6 +450,14 @@ export class SubtitlePlayerController {
         this.discoverVideo();
         this.tick();
         log.info('Subtitle controller initialized');
+    }
+
+    private handleYouTubeNavigation(): void {
+        if (!isYouTubePage()) return;
+        this.lastYouTubeTrackDiscoveryAt = 0;
+        this.scheduleDiscoverVideo();
+        void this.discoverYouTubeTracksThrottled(true);
+        this.scheduleAlignToVideo();
     }
 
     destroy(): void {

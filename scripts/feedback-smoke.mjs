@@ -3,11 +3,11 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { createYomuPaths } from './paths.mjs';
 import { assert, closeServer, serveFile, startLoopbackServer } from './smoke-harness.mjs';
 import { installUserscriptCssResource } from './smoke-test-helpers.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
+const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const SCRIPT_PATH = path.join(ROOT, 'dist', 'yomu.user.js');
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
@@ -319,15 +319,7 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     const popupStyle = await readKeyboardPopupStyle(page);
     assertKeyboardPopupStyle(popupStyle);
 
-    await page.evaluate(() => {
-        const words = [...document.querySelectorAll('.jpdb-reader-word')];
-        const range = document.createRange();
-        range.setStartBefore(words[1]);
-        range.setEndAfter(words[2]);
-        const selection = window.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-    });
+    await selectKeyboardWordRange(page, 1, 2);
     await pressWordNavigationShortcut(page, 'ArrowLeft');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '犬');
     await pressWordNavigationShortcut(page, 'ArrowLeft');
@@ -393,6 +385,22 @@ async function pressWordNavigationShortcut(page, key) {
     await page.keyboard.up('Alt');
 }
 
+async function selectKeyboardWordRange(page, startIndex, endIndex) {
+    await page.evaluate(({ selector, start, end }) => {
+        const selectedWords = Array.from(document.querySelectorAll(selector)).slice(start, end + 1);
+        const firstWord = selectedWords[0];
+        const lastWord = selectedWords.at(-1);
+        const selection = window.getSelection();
+        if (!firstWord || !lastWord || !selection) return;
+
+        const range = document.createRange();
+        range.setStartBefore(firstWord);
+        range.setEndAfter(lastWord);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }, { selector: '.jpdb-reader-word', start: startIndex, end: endIndex });
+}
+
 async function verifyHostedSubtitleFlow(page, baseUrl) {
     await openHostedVideoPlayer(page, baseUrl);
     await assertHostedBrandIcon(page);
@@ -451,6 +459,24 @@ async function openHostedSettingsFromOverflow(page) {
     assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the Yomu settings dialog', hostedSettings);
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+    const closeState = await page.evaluate(() => {
+        let clicked = false;
+        const probe = document.createElement('button');
+        probe.type = 'button';
+        probe.textContent = 'probe';
+        probe.addEventListener('click', () => { clicked = true; });
+        document.body.append(probe);
+        probe.click();
+        probe.remove();
+        return {
+            clicked,
+            settingsVisible: Boolean(document.querySelector('.jpdb-reader-settings')),
+            inertRoots: Array.from(document.body.children)
+                .filter(element => element instanceof HTMLElement && (element.inert || element.getAttribute('aria-hidden') === 'true'))
+                .map(element => element.tagName.toLowerCase()),
+        };
+    });
+    assert(closeState.clicked === true && closeState.inertRoots.length === 0, 'Closing Settings left the page unresponsive', closeState);
 }
 
 async function readHostedSettingsState(page) {

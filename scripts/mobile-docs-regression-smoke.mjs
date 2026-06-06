@@ -1,0 +1,588 @@
+#!/usr/bin/env node
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { chromium } from 'playwright';
+import {
+    addGmStorageBridgeInitScript,
+    assert,
+    assertBuiltArtifacts,
+    closeServer,
+    createSmokePaths,
+    jsonHttpResponse,
+    launchSmokeBrowser,
+    mockJpdbParseFromVocabulary,
+    routeMockedHttpRequests,
+    serveFile,
+    startLoopbackServer,
+    YOMU_SETTINGS_KEY,
+} from './smoke-harness.mjs';
+
+const {
+    root: ROOT,
+    artifacts: ARTIFACTS,
+    scriptPath: SCRIPT_PATH,
+    cssPath: CSS_PATH,
+    newTabDir: NEWTAB_DIR,
+} = createSmokePaths(import.meta.dirname);
+
+const SETTINGS_KEY = YOMU_SETTINGS_KEY;
+const JPDB_API_ORIGIN = 'https://jpdb.io';
+const JPDB_API_PREFIX = '/api/v1/';
+const DOCS_PATH = '/docs-try-me.html';
+const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const BUILT_ARTIFACTS = [
+    SCRIPT_PATH,
+    CSS_PATH,
+    path.join(NEWTAB_DIR, 'index.html'),
+    path.join(NEWTAB_DIR, 'app.js'),
+    path.join(NEWTAB_DIR, 'styles.css'),
+];
+const STATIC_CONTENT_TYPES = new Map([
+    ['.js', 'text/javascript; charset=utf-8'],
+    ['.css', 'text/css; charset=utf-8'],
+    ['.svg', 'image/svg+xml'],
+    ['.png', 'image/png'],
+]);
+
+const docsSettings = {
+    onboardingSeen: true,
+    apiKey: 'mock-jpdb-token',
+    interfaceLanguage: 'en',
+    jpdbDefinitionsEnabled: true,
+    localDictionariesEnabled: false,
+    ankiEnabled: false,
+    ankiSectionEnabled: false,
+    newTabAnkiEnabled: false,
+    audioEnabled: false,
+    autoPlayAudio: false,
+    immersionKitEnabled: false,
+    studyTranslationEnabled: false,
+    studyGrammarEnabled: false,
+    lookupOnClick: true,
+    lookupOnHover: true,
+    hoverOpenDelayMs: 0,
+    hoverCloseDelayMs: 120,
+    popupActivationMode: 'click',
+    showFloatingButton: true,
+    showFurigana: true,
+    showPitchAccent: true,
+    wordHighlightColorSource: 'jpdb',
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'jpdb',
+    popupMode: 'auto',
+    enableLogging: false,
+};
+
+const noApiNewTabSettings = {
+    onboardingSeen: true,
+    interfaceLanguage: 'en',
+    apiKey: '',
+    jitenApiKey: '',
+    ankiEnabled: false,
+    ankiSectionEnabled: false,
+    newTabEnabled: true,
+    newTabAnkiEnabled: false,
+    newTabSource: 'auto',
+    jpdbMiningEnabled: false,
+    jpdbDefinitionsEnabled: false,
+    localDictionariesEnabled: false,
+    audioEnabled: false,
+    autoPlayAudio: false,
+    immersionKitEnabled: false,
+    studyTranslationEnabled: false,
+    studyGrammarEnabled: false,
+    showFloatingButton: false,
+    enableLogging: false,
+};
+
+const docsVocabulary = [
+    ['青空', '青空', 'あおぞら', 'blue sky', ['n'], 4500, ['known'], ['LHHH']],
+    ['下', '下', 'した', 'below', ['n'], 400, ['due'], ['LH']],
+    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['learning'], ['LHHH']],
+    ['読む', '読む', 'よむ', 'read', ['v5m'], 500, ['known'], ['LH']],
+    ['今日は', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
+    ['静かな', '静か', 'しずか', 'quiet', ['na-adj'], 700, ['new'], ['LHH']],
+    ['喫茶店', '喫茶店', 'きっさてん', 'coffee shop', ['n'], 1800, ['due'], ['LHHH']],
+    ['新しい', '新しい', 'あたらしい', 'new', ['adj-i'], 650, ['learning'], ['LHHHH']],
+    ['本', '本', 'ほん', 'book', ['n'], 200, ['known'], ['LH']],
+    ['読みました', '読む', 'よみました', 'read', ['v5m'], 500, ['known'], ['LH']],
+    ['音声', '音声', 'おんせい', 'audio', ['n'], 1200, ['new'], ['LHHH']],
+    ['色', '色', 'いろ', 'color', ['n'], 900, ['learning'], ['LH']],
+    ['見えます', '見える', 'みえます', 'be visible', ['v1'], 1100, ['due'], ['LHH']],
+];
+
+mkdirSync(ARTIFACTS, { recursive: true });
+assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
+
+const fixture = await createFixtureServer();
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+try {
+    const docs = await runDocsTryMeSmoke(browser, fixture);
+    const mobileSettings = await runMobileSettingsSmoke(browser, fixture);
+    const newtab = await runMobileNewTabFallbackSmoke(browser, fixture);
+    const report = { ok: true, docs, mobileSettings, newtab };
+    writeFileSync(path.join(ARTIFACTS, 'mobile-docs-regression-smoke.json'), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report, null, 2));
+} finally {
+    await browser.close().catch(() => undefined);
+    await closeServer(fixture.server);
+}
+
+async function createFixtureServer() {
+    return startLoopbackServer(handleFixtureRequest, 'Could not bind mobile/docs smoke server');
+}
+
+function handleFixtureRequest(request, response) {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    const route = fixtureRoute(url.pathname);
+    if (route) return route(url, response);
+    serveNotFound(response);
+}
+
+function fixtureRoute(pathname) {
+    if (pathname === DOCS_PATH) return (_url, response) => serveDocsFixture(response);
+    if (['/newtab', '/newtab/', '/newtab/index.html'].includes(pathname)) return (_url, response) => serveNewTabIndex(response);
+    if (pathname.startsWith('/newtab/')) return serveNewTabAsset;
+    if (pathname === '/yomu-icon.svg') return (_url, response) => serveOptionalFile(response, path.join(ROOT, 'dist', 'yomu-icon.svg'), 'image/svg+xml');
+    return null;
+}
+
+function serveDocsFixture(response) {
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(`<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>よむ docs regression smoke</title>
+  <style>
+    :root { --vp-c-text-1: #f4f7fb; --vp-c-text-2: #b7c0cc; --jpdb-reader-hover: rgba(255,255,255,.12); }
+    body { margin: 0; min-height: 100vh; background: #2f3a40; color: var(--vp-c-text-1); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 960px; margin: 0 auto; padding: 42px 20px 120px; }
+    .vp-doc { display: grid; gap: 18px; }
+    .vp-doc p { margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.75; }
+    .yomu-try-me { display: grid; gap: 18px; margin-top: 32px; }
+    .yomu-try-me > strong { font-size: 24px; }
+    .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
+    .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+    .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
+    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <article class="vp-doc">
+      <p data-smoke-docs-text>日本語の文章を読むと音声と色が見えます。</p>
+      <div class="yomu-try-me">
+        <strong>Try me</strong>
+        <div class="yomu-try-me-text">
+          <h3>青空の下で日本語を読む</h3>
+          <p>今日は静かな喫茶店で新しい本を読みました。</p>
+        </div>
+      </div>
+    </article>
+  </main>
+</body>
+</html>`);
+}
+
+function serveNewTabIndex(response) {
+    serveFile(response, path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8');
+}
+
+function serveNewTabAsset(url, response) {
+    const filePath = path.join(NEWTAB_DIR, url.pathname.slice('/newtab/'.length));
+    if (serveOptionalFile(response, filePath, contentTypeForFile(filePath))) return;
+    serveNotFound(response);
+}
+
+function serveOptionalFile(response, filePath, contentType) {
+    if (!existsSync(filePath)) return false;
+    serveFile(response, filePath, contentType);
+    return true;
+}
+
+function serveNotFound(response) {
+    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Not found');
+}
+
+function contentTypeForFile(filePath) {
+    return [...STATIC_CONTENT_TYPES].find(([extension]) => filePath.endsWith(extension))?.[1]
+        ?? 'application/octet-stream';
+}
+
+async function runDocsTryMeSmoke(browser, fixtureServer) {
+    const requests = [];
+    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests);
+    try {
+        await page.goto(`${fixtureServer.origin}${DOCS_PATH}`, { waitUntil: 'domcontentloaded' });
+        await page.addStyleTag({ path: CSS_PATH });
+        await page.addScriptTag({ path: SCRIPT_PATH });
+        await page.waitForFunction(() => document.querySelectorAll('[data-smoke-docs-text] .jpdb-reader-word').length >= 3, null, { timeout: 12_000 });
+        await page.waitForFunction(() => document.querySelectorAll('.yomu-try-me .jpdb-reader-word').length >= 5, null, { timeout: 12_000 });
+
+        const snapshot = await page.evaluate(docsTryMeSnapshotFromDom);
+        assertParsedSurface(snapshot.docs, 'docs Japanese text');
+        assertParsedSurface(snapshot.tryMe, 'Try Me text');
+        assert(snapshot.tryMe.down?.expression === '下', 'Try Me 下 was not a normal reader-word lookup target', snapshot);
+        assert(snapshot.tryMe.down?.pointExpression === '下', 'Try Me hit target is missing the 下 reader word', snapshot.tryMe.down);
+        assert(snapshot.tryMe.down?.display === 'inline', 'Try Me reader word did not keep inline docs layout', snapshot.tryMe.down);
+        assert(snapshot.tryMe.down?.whiteSpace === 'nowrap', 'Try Me reader word inherited wrapping that can move the hitbox', snapshot.tryMe.down);
+
+        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-docs-try-me-smoke.png'), fullPage: false });
+        return {
+            docs: snapshot.docs.summary,
+            tryMe: snapshot.tryMe.summary,
+            jpdbEndpoints: requests.filter(request => request.kind === 'jpdb').map(request => request.endpoint),
+        };
+    } finally {
+        await context.close();
+    }
+}
+
+async function runMobileSettingsSmoke(browser, fixtureServer) {
+    const requests = [];
+    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, {
+        isMobile: true,
+        hasTouch: true,
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+    });
+    try {
+        await page.goto(`${fixtureServer.origin}${DOCS_PATH}?mobile-settings=1`, { waitUntil: 'domcontentloaded' });
+        await page.addStyleTag({ path: CSS_PATH });
+        await page.addScriptTag({ path: SCRIPT_PATH });
+        await page.waitForSelector('.jpdb-reader-fab', { timeout: 8_000 });
+        const puck = await page.evaluate(visiblePuckSnapshotFromDom);
+        assert(puck.visible, 'Mobile settings puck was not visible on first install settings', puck);
+
+        await page.locator('.jpdb-reader-fab').click();
+        await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
+        assert(await page.locator('.jpdb-reader-quick').count() === 0, 'Mobile puck opened removed quick controls instead of settings');
+
+        const form = await page.evaluate(mobileSettingsSnapshotFromDom);
+        assert(form.riskyControls.length === 0, 'Mobile settings have controls below 16px and may trigger iOS zoom', form);
+        assert(form.parsedSettingsWords >= 1, 'Settings dialog no longer exposes parseable reader-word content for AJATT-style ruby', form);
+        assert(form.visualViewportScaleStable, 'Focusing a settings input changed visual viewport scale in mobile smoke', form);
+
+        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-settings-puck-smoke.png'), fullPage: false });
+        return { puck, controlCount: form.controlCount, parsedSettingsWords: form.parsedSettingsWords };
+    } finally {
+        await context.close();
+    }
+}
+
+async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {
+    const context = await browser.newContext({
+        bypassCSP: true,
+        viewport: MOBILE_VIEWPORT,
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+    });
+    const page = await context.newPage();
+    const requests = [];
+    await page.exposeFunction('__yomuMobileNewTabSmokeRequest', request => mockedNewTabRequest(request, requests));
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: noApiNewTabSettings,
+        requestBridgeName: '__yomuMobileNewTabSmokeRequest',
+    });
+    await page.route('https://jpdb.io/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body><main></main></body></html>',
+    }));
+    try {
+        await page.goto(`${fixtureServer.origin}/newtab/index.html?mobile-fallback=${Date.now()}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
+        await page.waitForFunction(newTabFallbackReadyFromDom, null, { timeout: 12_000 });
+
+        const snapshot = await page.evaluate(newTabMobileSnapshotFromDom);
+        assert(snapshot.hasCard, 'No-API/no-Anki newtab did not render a fallback card', snapshot);
+        assert(/[一-龯ぁ-んァ-ン]/u.test(snapshot.prompt), 'No-API/no-Anki fallback prompt is not a Japanese study word', snapshot);
+        assert(!/No review cards ready|No cards|Add dictionary|Start with a dictionary|Loading words/i.test(snapshot.body), 'No-API/no-Anki fallback regressed to setup/empty/loading copy', snapshot);
+        assert(!snapshot.layout.overlaps.length, 'Newtab mobile tabs overlap brand or controls', snapshot.layout);
+        assert(snapshot.layout.modeButtons.every(button => button.visible && button.width >= 44 && button.height >= 32), 'Newtab mobile mode buttons are cramped or hidden', snapshot.layout);
+
+        await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-newtab-fallback-smoke.png'), fullPage: false });
+        return {
+            prompt: snapshot.prompt,
+            status: snapshot.status,
+            layout: snapshot.layout,
+            requests,
+        };
+    } finally {
+        await context.close();
+    }
+}
+
+async function newSmokeContextPage(browser, settings, viewport, requests, contextOptions = {}) {
+    const context = await browser.newContext({
+        bypassCSP: true,
+        viewport,
+        deviceScaleFactor: contextOptions.isMobile ? 2 : 1,
+        ...contextOptions,
+    });
+    const page = await context.newPage();
+    await routeMockedHttpRequests(page, {
+        requests,
+        mockHttpRequest: mockedDocsRequest,
+        isMockedApiOrigin: url => url.origin === JPDB_API_ORIGIN && url.pathname.startsWith(JPDB_API_PREFIX),
+    });
+    await page.exposeFunction('__yomuMobileDocsSmokeRequest', request => mockedDocsRequest(request, requests));
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: settings,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuMobileDocsSmokeRequest',
+    });
+    return { context, page };
+}
+
+function mockedDocsRequest(request, requests) {
+    const url = new URL(request.url);
+    if (url.origin !== JPDB_API_ORIGIN || !url.pathname.startsWith(JPDB_API_PREFIX)) return null;
+    const endpoint = url.pathname.slice(JPDB_API_PREFIX.length);
+    const body = readRequestJson(request.data);
+    const handler = mockedDocsResponseHandlers(body)[endpoint];
+    requests.push({ kind: 'jpdb', endpoint, body });
+    return jsonHttpResponse(handler ? handler() : {});
+}
+
+function mockedDocsResponseHandlers(body) {
+    return {
+        parse: () => mockJpdbParseFromVocabulary(body, docsVocabulary),
+        'deck/list-vocabulary': () => ({ vocabulary: [] }),
+        'list-user-decks': () => ({ decks: [] }),
+    };
+}
+
+function mockedNewTabRequest(request, requests) {
+    const url = new URL(request.url);
+    requests.push({ method: request.method ?? 'GET', url: request.url });
+    if (url.origin === JPDB_API_ORIGIN) return {
+        status: 200,
+        responseText: '<!doctype html><html><body><main></main></body></html>',
+        bytes: [...Buffer.from('<!doctype html><html><body><main></main></body></html>')],
+        contentType: 'text/html; charset=utf-8',
+    };
+    throw new Error(`Unexpected mobile newtab smoke request: ${request.method ?? 'GET'} ${request.url}`);
+}
+
+function readRequestJson(data) {
+    if (!data) return {};
+    if (typeof data === 'string') return JSON.parse(data);
+    if (data.kind === 'arraybuffer') return JSON.parse(Buffer.from(data.bytes ?? []).toString('utf8'));
+    return data;
+}
+
+function docsTryMeSnapshotFromDom() {
+    return {
+        rootClasses: document.documentElement.className,
+        docs: surfaceSnapshot(document.querySelector('[data-smoke-docs-text]')),
+        tryMe: {
+            ...surfaceSnapshot(document.querySelector('.yomu-try-me')),
+            down: downSnapshot(),
+        },
+    };
+
+    function surfaceSnapshot(root) {
+        const words = [...(root?.querySelectorAll('.jpdb-reader-word') ?? [])];
+        return {
+            summary: {
+                count: words.length,
+                rubyCount: root?.querySelectorAll('ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby').length ?? 0,
+                pitchCount: words.filter(word => wordClass(word, /^jpdb-pitch-/)).length,
+                statusCount: words.filter(word => wordClass(word, /^(?:jpdb-(?:known|learning|due|new|never-forget|failed|locked|not-in-deck)|anki-)/)).length,
+                sourceMode: sourceModeClasses(),
+            },
+            words: words.map(word => ({
+                text: compactText(word),
+                expression: word.getAttribute('data-expression') ?? '',
+                reading: word.getAttribute('data-reading') ?? '',
+                classes: [...word.classList],
+                color: getComputedStyle(word).color,
+                display: getComputedStyle(word).display,
+                whiteSpace: getComputedStyle(word).whiteSpace,
+            })).slice(0, 12),
+        };
+    }
+
+    function downSnapshot() {
+        const word = [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
+            .find(item => compactText(item).includes('下'));
+        if (!word) return null;
+        const rect = word.getBoundingClientRect();
+        const x = rect.x + rect.width / 2;
+        const y = rect.y + rect.height / 2;
+        const hit = document.elementFromPoint(x, y)?.closest?.('.jpdb-reader-word');
+        return {
+            text: compactText(word),
+            expression: word.getAttribute('data-expression') ?? '',
+            pointExpression: hit?.getAttribute('data-expression') ?? '',
+            display: getComputedStyle(word).display,
+            whiteSpace: getComputedStyle(word).whiteSpace,
+            rect: rectSnapshot(rect),
+        };
+    }
+
+    function rectSnapshot(rect) {
+        return {
+            x: Math.round(rect.x * 100) / 100,
+            y: Math.round(rect.y * 100) / 100,
+            width: Math.round(rect.width * 100) / 100,
+            height: Math.round(rect.height * 100) / 100,
+            left: Math.round(rect.left * 100) / 100,
+            right: Math.round(rect.right * 100) / 100,
+            top: Math.round(rect.top * 100) / 100,
+            bottom: Math.round(rect.bottom * 100) / 100,
+        };
+    }
+
+    function sourceModeClasses() {
+        return [...document.documentElement.classList].filter(className => /^jpdb-reader-word-(?:text|highlight|underline)-/.test(className));
+    }
+
+    function wordClass(word, pattern) {
+        return [...word.classList].some(className => pattern.test(className));
+    }
+
+    function compactText(node) {
+        return node.textContent?.replace(/\s+/g, '').trim() ?? '';
+    }
+}
+
+function assertParsedSurface(surface, label) {
+    assert(surface.summary.count >= 3, `${label} did not render enough reader words`, surface);
+    assert(surface.summary.rubyCount >= 1, `${label} did not render ruby/furigana`, surface);
+    assert(surface.summary.pitchCount >= 1, `${label} did not render pitch classes`, surface);
+    assert(surface.summary.statusCount >= 1, `${label} did not render status classes`, surface);
+    assert(surface.summary.sourceMode.length >= 2, `${label} did not enable color/source mode classes`, surface);
+}
+
+function visiblePuckSnapshotFromDom() {
+    const puck = document.querySelector('.jpdb-reader-fab');
+    const rect = puck?.getBoundingClientRect();
+    const style = puck ? getComputedStyle(puck) : null;
+    return {
+        exists: Boolean(puck),
+        visible: isVisibleRect(rect, style),
+        text: puck?.textContent ?? '',
+        rect: rect ? rectSnapshot(rect) : null,
+        position: style?.position ?? '',
+    };
+}
+
+async function mobileSettingsSnapshotFromDom() {
+    const controls = [...document.querySelectorAll('.jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"]):not([type="file"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea')];
+    const riskyControls = controls
+        .map(control => ({
+            tag: control.tagName,
+            name: control.getAttribute('name') ?? '',
+            type: control.getAttribute('type') ?? '',
+            fontSize: Number.parseFloat(getComputedStyle(control).fontSize),
+            visible: isVisible(control),
+        }))
+        .filter(control => control.visible && control.fontSize < 16);
+    const scaleBefore = window.visualViewport?.scale ?? 1;
+    const first = controls.find(isVisible);
+    first?.focus();
+    await new Promise(resolve => window.setTimeout(resolve, 80));
+    const scaleAfter = window.visualViewport?.scale ?? scaleBefore;
+    return {
+        controlCount: controls.filter(isVisible).length,
+        riskyControls,
+        visualViewportScaleBefore: scaleBefore,
+        visualViewportScaleAfter: scaleAfter,
+        visualViewportScaleStable: Math.abs(scaleAfter - scaleBefore) < 0.01,
+        parsedSettingsWords: document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word').length,
+    };
+
+    function isVisible(element) {
+        if (!(element instanceof Element)) return false;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+    }
+}
+
+function newTabFallbackReadyFromDom() {
+    const prompt = document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '';
+    const body = document.body.textContent ?? '';
+    return Boolean(document.querySelector('[data-newtab-card]'))
+        && /[一-龯ぁ-んァ-ン]/u.test(prompt)
+        && !/Loading words|Loading\.\.\.|No review cards ready|Start with a dictionary|Add dictionary/i.test(body);
+}
+
+function newTabMobileSnapshotFromDom() {
+    return {
+        hasCard: Boolean(document.querySelector('[data-newtab-card]')),
+        prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
+        status: document.querySelector('[data-newtab-status]')?.textContent?.trim() ?? '',
+        body: document.body.textContent ?? '',
+        layout: newTabMobileLayoutSnapshot(),
+    };
+}
+
+function newTabMobileLayoutSnapshot() {
+    const brandRect = elementRect(document.querySelector('.jpdb-reader-newtab-brand'));
+    const modeRect = elementRect(document.querySelector('.jpdb-reader-newtab-mode'));
+    const controlsRect = elementRect(document.querySelector('.jpdb-reader-newtab-theme-controls'));
+    return {
+        viewportWidth: innerWidth,
+        brand: brandRect,
+        mode: modeRect,
+        controls: controlsRect,
+        overlaps: overlappingNewTabHeaderParts(modeRect, brandRect, controlsRect),
+        modeButtons: [...document.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
+            .map(newTabModeButtonSnapshot),
+    };
+}
+
+function overlappingNewTabHeaderParts(modeRect, brandRect, controlsRect) {
+    return [
+        ['mode-brand', modeRect, brandRect],
+        ['mode-controls', modeRect, controlsRect],
+    ]
+        .filter(([, first, second]) => first && second && rectsOverlap(first, second))
+        .map(([label]) => label);
+}
+
+function newTabModeButtonSnapshot(button) {
+    const rect = button.getBoundingClientRect();
+    return {
+        text: button.textContent?.trim() ?? '',
+        visible: isVisibleRect(rect, getComputedStyle(button)),
+        ...rectSnapshot(rect),
+    };
+}
+
+function elementRect(element) {
+    return element ? rectSnapshot(element.getBoundingClientRect()) : null;
+}
+
+function rectSnapshot(rect) {
+    return {
+        x: roundRectValue(rect.x),
+        y: roundRectValue(rect.y),
+        width: roundRectValue(rect.width),
+        height: roundRectValue(rect.height),
+        left: roundRectValue(rect.left),
+        right: roundRectValue(rect.right),
+        top: roundRectValue(rect.top),
+        bottom: roundRectValue(rect.bottom),
+    };
+}
+
+function roundRectValue(value) {
+    return Math.round(value * 100) / 100;
+}
+
+function isVisibleRect(rect, style) {
+    return Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden');
+}
+
+function rectsOverlap(a, b) {
+    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}

@@ -4,7 +4,6 @@ import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from './dom';
-import { JitenApiClient } from './jiten';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
 import { clearNewTabOfflineCache } from './new-tab-cache';
@@ -33,7 +32,6 @@ import {
     renderDictionarySourceRows,
     renderRecommendedDictionaries,
     renderSettingsForm,
-    jitenStatusLineForSettings,
     jpdbStatusLineForSettings,
     syncAudioSourceRow,
     syncBrowserTtsVoiceOptions,
@@ -104,7 +102,6 @@ type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
 type AnkiStatusSetter = (message: string, tone: AnkiStatusTone, action?: SettingsStatusAction) => void;
-type SettingsToneStatusSetter = (message: string, tone: SettingsStatusLine['tone']) => void;
 type AnkiScanConfidence = 'high' | 'medium' | 'low';
 
 interface AnkiScanFormControls {
@@ -235,14 +232,6 @@ function ankiStatusSetter(status: HTMLElement | null): AnkiStatusSetter {
         if (!status) return;
         status.dataset.statusTone = tone;
         setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
-    };
-}
-
-function settingsToneStatusSetter(status: HTMLElement | null): SettingsToneStatusSetter {
-    return (message, tone) => {
-        if (!status) return;
-        status.dataset.statusTone = tone;
-        status.textContent = formatSettingsStatusLine({ message, tone }, statusLanguage(status));
     };
 }
 
@@ -484,7 +473,6 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
-        this.syncJitenStatus(form);
         void this.refreshAnkiConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
@@ -498,7 +486,6 @@ export class SettingsDialogController {
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
-        this.syncJitenStatus(form);
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
@@ -562,6 +549,7 @@ export class SettingsDialogController {
     private dismissSettings(): void {
         const restoreTarget = this.previouslyFocusedElement;
         this.previouslyFocusedElement = undefined;
+        this.currentForm = undefined;
         this.restoreBackgroundFromModal();
         this.dependencies.dismiss();
         if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
@@ -593,6 +581,20 @@ export class SettingsDialogController {
             element.inert = inert;
         });
         this.modalSiblingState = undefined;
+    }
+
+    /**
+     * Clear the `aria-hidden`/`inert` the modal placed on background siblings.
+     * The controller's own close paths (Escape, Cancel, Save) already restore,
+     * but the dialog can also be torn down from outside the controller — a
+     * backdrop click, factory reset, or the close-popup shortcut all route
+     * through ReaderApp.dismiss(). Those paths call this so the page is never
+     * stranded `inert` (which silently swallows every click until reload).
+     * Idempotent: a no-op once the background has been released.
+     */
+    releaseModalBackground(): void {
+        if (!this.currentForm?.isConnected) this.currentForm = undefined;
+        this.restoreBackgroundFromModal();
     }
 
     private trapFocus(form: HTMLFormElement, event: KeyboardEvent): void {
@@ -790,13 +792,9 @@ export class SettingsDialogController {
         });
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiKey"]');
+        const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiCredential"]');
         apiKeyInput?.addEventListener('input', () => this.syncJpdbStatus(form));
         apiKeyInput?.addEventListener('change', () => void this.refreshDeckControls(form));
-        form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')?.addEventListener('input', () => {
-            this.syncJpdbStatus(form);
-            this.syncJitenStatus(form);
-        });
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
@@ -905,9 +903,10 @@ export class SettingsDialogController {
         const container = form.querySelector<HTMLElement>('[data-jpdb-decks]');
         if (!container) return;
         this.syncJpdbStatus(form);
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')?.value.trim() ?? this.settings.apiKey.trim();
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const apiKey = formSettings.apiKey.trim();
         if (!apiKey) {
-            setInnerHtml(container, renderDeckControls(this.settings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+            setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
             this.refreshSettingsJapaneseParse(form);
             return;
@@ -917,10 +916,10 @@ export class SettingsDialogController {
         this.settings.apiKey = apiKey;
         try {
             const decks = await this.dependencies.jpdb.listDecks();
-            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+            setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         } catch (error) {
             log.warn('Deck controls failed to load', error);
-            setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+            setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         } finally {
             this.settings.apiKey = originalKey;
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -937,15 +936,6 @@ export class SettingsDialogController {
         );
         status.dataset.statusTone = line.tone;
         status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    }
-
-    private syncJitenStatus(form: HTMLFormElement): void {
-        const status = form.querySelector<HTMLElement>('[data-jiten-status]');
-        if (!status) return;
-        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const line = jitenStatusLineForSettings(readFormSettings(new FormData(form), this.settings), language);
-        status.dataset.statusTone = line.tone;
-        status.textContent = formatSettingsStatusLine(line, language);
     }
 
     private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {
@@ -1188,39 +1178,8 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsConnectionOrSupportAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (await this.handleJitenConnectionAction(form, action, control)) return true;
         if (await this.handleSettingsConnectionAction(form, action, control)) return true;
         return await this.handleSettingsSupportAction(action, control, setStatus);
-    }
-
-    private async handleJitenConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
-        if (action !== 'check-jiten-api') return false;
-        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const button = settingsActionButton(control);
-        const setJitenStatus = settingsToneStatusSetter(form.querySelector<HTMLElement>('[data-jiten-status]'));
-        const formSettings = readFormSettings(new FormData(form), this.settings);
-        if (!formSettings.jitenApiKey.trim()) {
-            setJitenStatus(uiText(language, 'jitenApiKeyMissing'), 'pending');
-            return true;
-        }
-
-        button?.setAttribute('disabled', 'true');
-        setJitenStatus(uiText(language, 'jitenCheckingConnection'), 'pending');
-        try {
-            await new JitenApiClient(() => formSettings.jitenApiKey, {
-                proxyUrl: () => formSettings.corsProxyUrl,
-            }).ping();
-            setJitenStatus(uiText(language, 'jitenConnectionReady'), 'success');
-            log.info('Jiten settings check ok');
-        } catch (error) {
-            const message = errorMessage(error, uiText(language, 'jitenConnectionFailed'));
-            log.warn('Jiten settings check failed', error);
-            setJitenStatus(message, 'error');
-            this.dependencies.toast(message);
-        } finally {
-            button?.removeAttribute('disabled');
-        }
-        return true;
     }
 
     private handleSettingsEditorAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): boolean {

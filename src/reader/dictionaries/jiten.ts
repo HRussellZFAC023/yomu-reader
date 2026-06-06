@@ -2,7 +2,7 @@ import { requestHttp } from '../reader-http-request';
 import type { ReaderHttpOptions } from '../reader-http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../pitch-accent';
-import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken } from '../types';
+import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken, ReviewGradeInterval, ReviewGradeIntervals } from '../types';
 
 export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 
@@ -79,6 +79,14 @@ interface JitenRawVocabulary {
     meaningsPartOfSpeech?: string[][] | string[];
     knownState?: number[];
     pitchAccents?: number[] | null;
+    reviewButtons?: unknown;
+    reviewGradeIntervals?: unknown;
+    nextReviewIntervals?: unknown;
+    nextIntervals?: unknown;
+    nextReviews?: unknown;
+    reviewIntervals?: unknown;
+    srsIntervals?: unknown;
+    ratingIntervals?: unknown;
 }
 
 interface JitenStudyBatchResponse {
@@ -105,6 +113,14 @@ interface JitenStudyCardDto {
     frequencyRank?: number | null;
     exampleSentence?: JitenStudyExampleSentenceDto | null;
     sourceDeckName?: string | null;
+    reviewButtons?: unknown;
+    reviewGradeIntervals?: unknown;
+    nextReviewIntervals?: unknown;
+    nextIntervals?: unknown;
+    nextReviews?: unknown;
+    reviewIntervals?: unknown;
+    srsIntervals?: unknown;
+    ratingIntervals?: unknown;
 }
 
 interface JitenStudyReadingDto {
@@ -274,13 +290,15 @@ export function validateJitenApiKey(apiKey: string, options?: JitenApiClientOpti
 }
 
 function jitenParseResultToTokens(paragraphs: string[], result: JitenParseResult): JPDBToken[][] {
-    const vocabulary = Array.isArray(result.vocabulary) ? result.vocabulary : [];
+    const payload: Record<string, unknown> = isJsonRecord(result) ? result : {};
+    const vocabulary = jitenVocabularyEntries(payload.vocabulary);
     const cardByKey = new Map(vocabulary.map(entry => [jitenLookupKey(entry.wordId, entry.readingIndex), jitenCardFromVocabulary(entry)]));
     const vocabByKey = new Map(vocabulary.map(entry => [jitenLookupKey(entry.wordId, entry.readingIndex), entry]));
-    const tokens: JPDBToken[][] = (Array.isArray(result.tokens) ? result.tokens : []).map((group, paragraphIndex) => {
+    const rawTokens = Array.isArray(payload.tokens) ? payload.tokens : [];
+    const tokens: JPDBToken[][] = paragraphs.map((paragraph, paragraphIndex) => {
         let lastPitchClass = '';
         const parsed: JPDBToken[] = [];
-        for (const token of Array.isArray(group) ? group : []) {
+        for (const token of jitenTokenEntries(rawTokens[paragraphIndex])) {
             const card = cardByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
             if (!card) continue;
             const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
@@ -295,7 +313,7 @@ function jitenParseResultToTokens(paragraphs: string[], result: JitenParseResult
                 length: token.length,
                 rubies,
                 pitchClass: lastPitchClass,
-                sentence: paragraphs[paragraphIndex] ?? '',
+                sentence: paragraph,
             });
         }
         return parsed;
@@ -322,9 +340,8 @@ export function jitenRatingForGrade(grade: JPDBGrade): number {
 
 function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
     const reading = cleanJitenAnnotatedReading(vocabulary.reading);
-    const pitchAccent = (vocabulary.pitchAccents ?? [])
-        .map(position => pitchPatternFromPosition(reading, position))
-        .filter(Boolean);
+    const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
+    const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
     return {
         vid: vocabulary.wordId,
         sid: vocabulary.readingIndex,
@@ -333,7 +350,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
         reading,
         frequencyRank: typeof vocabulary.frequencyRank === 'number' ? vocabulary.frequencyRank : null,
         partOfSpeech: arrayOfStrings(vocabulary.partsOfSpeech),
-        meanings: (vocabulary.meaningsChunks ?? []).map((glosses, index) => ({
+        meanings: (Array.isArray(vocabulary.meaningsChunks) ? vocabulary.meaningsChunks : []).map((glosses, index) => ({
             glosses: arrayOfStrings(glosses),
             partOfSpeech: jitenMeaningPartOfSpeech(vocabulary.meaningsPartOfSpeech, index),
         })),
@@ -344,6 +361,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
         reviewSource: 'jiten-api',
         jitenWordId: vocabulary.wordId,
         jitenReadingIndex: vocabulary.readingIndex,
+        ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
     };
 }
 
@@ -359,6 +377,7 @@ function jitenCardFromStudyCard(card: JitenStudyCardDto): JPDBCard | null {
     const readingIndex = finiteJitenInteger(card.readingIndex);
     if (wordId === undefined || readingIndex === undefined) return null;
     const reading = jitenStudyCardReading(card);
+    const reviewGradeIntervals = jitenReviewGradeIntervals(card);
     return {
         vid: wordId,
         sid: readingIndex,
@@ -376,13 +395,12 @@ function jitenCardFromStudyCard(card: JitenStudyCardDto): JPDBCard | null {
         reviewSource: 'jiten-api',
         jitenWordId: wordId,
         jitenReadingIndex: readingIndex,
+        ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
     };
 }
 
 function jitenStudyCardPitchAccent(card: JitenStudyCardDto, reading: string): string[] {
-    return (card.pitchAccents ?? [])
-        .map(position => pitchPatternFromPosition(reading, position))
-        .filter(Boolean);
+    return jitenPitchAccentPatterns(card.pitchAccents, reading);
 }
 
 function jitenStudyCardFrequencyRank(card: JitenStudyCardDto): number | null {
@@ -429,8 +447,8 @@ function cleanJitenAnnotatedReading(value: string): string {
     return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, '$2');
 }
 
-function jitenKnownStateToCardStates(states: number[] | undefined): CardState[] {
-    const mapped = (states ?? [])
+function jitenKnownStateToCardStates(states: unknown): CardState[] {
+    const mapped = jitenStateNumbers(states)
         .map(state => JITEN_CARD_STATE_MAP[state])
         .filter((state): state is CardState => Boolean(state));
     return mapped.length ? mapped : ['known'];
@@ -534,6 +552,258 @@ function arrayOfStrings(value: unknown): string[] {
     return typeof value === 'string' ? [value] : [];
 }
 
+function jitenVocabularyEntries(value: unknown): JitenRawVocabulary[] {
+    return Array.isArray(value) ? value.filter(isJitenRawVocabulary) : [];
+}
+
+function isJitenRawVocabulary(value: unknown): value is JitenRawVocabulary {
+    if (!isJsonRecord(value)) return false;
+    const wordId = finiteJitenInteger(value.wordId);
+    const readingIndex = finiteJitenInteger(value.readingIndex);
+    return wordId !== undefined
+        && wordId > 0
+        && readingIndex !== undefined
+        && readingIndex >= 0
+        && typeof value.spelling === 'string'
+        && typeof value.reading === 'string';
+}
+
+function jitenTokenEntries(value: unknown): JitenRawToken[] {
+    return Array.isArray(value) ? value.filter(isJitenRawToken) : [];
+}
+
+function isJitenRawToken(value: unknown): value is JitenRawToken {
+    if (!isJsonRecord(value)) return false;
+    return [
+        hasPositiveJitenInteger(value.wordId),
+        hasNonNegativeJitenInteger(value.readingIndex),
+        hasNonNegativeJitenInteger(value.start),
+        hasPositiveJitenInteger(value.length),
+        hasJitenRawTokenEndAfterStart(value),
+    ].every(Boolean);
+}
+
+function hasPositiveJitenInteger(value: unknown): boolean {
+    const parsed = finiteJitenInteger(value);
+    return parsed !== undefined && parsed > 0;
+}
+
+function hasNonNegativeJitenInteger(value: unknown): boolean {
+    const parsed = finiteJitenInteger(value);
+    return parsed !== undefined && parsed >= 0;
+}
+
+function hasJitenRawTokenEndAfterStart(value: Record<string, unknown>): boolean {
+    const start = finiteJitenInteger(value.start);
+    const end = finiteJitenInteger(value.end);
+    return start !== undefined && end !== undefined && end > start;
+}
+
+function jitenPitchAccentPatterns(value: unknown, reading: string): string[] {
+    return jitenStateNumbers(value)
+        .map(position => pitchPatternFromPosition(reading, position))
+        .filter(Boolean);
+}
+
+function jitenStateNumbers(value: unknown): number[] {
+    return Array.isArray(value)
+        ? value.map(finiteJitenInteger).filter((item): item is number => item !== undefined)
+        : [];
+}
+
+function jitenReviewGradeIntervals(payload: object): ReviewGradeIntervals | undefined {
+    const record = payload as Record<string, unknown>;
+    for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
+        const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
+        if (parsed) return parsed;
+    }
+    return undefined;
+}
+
+function jitenReviewGradeIntervalsFromValue(value: unknown): ReviewGradeIntervals | undefined {
+    if (Array.isArray(value)) return jitenReviewGradeIntervalsFromArray(value);
+    if (isJsonRecord(value)) return jitenReviewGradeIntervalsFromRecord(value);
+    return undefined;
+}
+
+function jitenReviewGradeIntervalsFromArray(values: unknown[]): ReviewGradeIntervals | undefined {
+    const intervals: ReviewGradeIntervals = {};
+    values.forEach((value, index) => {
+        const meta = isJsonRecord(value) ? jitenReviewRatingMetaFromRecord(value) : undefined;
+        addJitenReviewInterval(intervals, meta ?? JITEN_REVIEW_RATINGS[index], value);
+    });
+    return Object.keys(intervals).length ? intervals : undefined;
+}
+
+function jitenReviewGradeIntervalsFromRecord(record: Record<string, unknown>): ReviewGradeIntervals | undefined {
+    const intervals: ReviewGradeIntervals = {};
+    for (const meta of JITEN_REVIEW_RATINGS) {
+        const value = meta.keys.map(key => record[key]).find(candidate => candidate !== undefined);
+        addJitenReviewInterval(intervals, meta, value);
+    }
+    return Object.keys(intervals).length ? intervals : undefined;
+}
+
+function addJitenReviewInterval(
+    intervals: ReviewGradeIntervals,
+    meta: JitenReviewRatingMeta | undefined,
+    value: unknown,
+): void {
+    if (!meta) return;
+    const interval = jitenReviewInterval(value, meta);
+    if (!interval) return;
+    for (const grade of meta.grades) intervals[grade] = interval;
+}
+
+function jitenReviewInterval(value: unknown, meta: JitenReviewRatingMeta): ReviewGradeInterval | null {
+    const record = isJsonRecord(value) ? value : null;
+    const buttonLabel = jitenReviewButtonLabel(record, meta);
+    const intervalLabel = jitenReviewIntervalLabel(value, record);
+    if (!intervalLabel) return null;
+    return {
+        buttonLabel,
+        intervalLabel,
+        label: prefixedReviewIntervalLabel(buttonLabel, intervalLabel),
+        source: 'jiten-study-batch',
+    };
+}
+
+function jitenReviewButtonLabel(record: Record<string, unknown> | null, meta: JitenReviewRatingMeta): string {
+    return firstString(record, ['buttonLabel', 'gradeLabel', 'ratingLabel', 'name']) ?? meta.buttonLabel;
+}
+
+function jitenReviewIntervalLabel(value: unknown, record: Record<string, unknown> | null): string {
+    if (typeof value === 'string') return normalizeIntervalLabel(value);
+    const explicit = firstString(record, [
+        'intervalLabel',
+        'nextReviewLabel',
+        'nextIntervalLabel',
+        'nextReviewInterval',
+        'nextInterval',
+        'interval',
+        'duration',
+        'time',
+        'label',
+        'text',
+    ]);
+    if (explicit) return normalizeIntervalLabel(explicit);
+    return jitenReviewIntervalNumberLabel(record) ?? '';
+}
+
+function jitenReviewIntervalNumberLabel(record: Record<string, unknown> | null): string | null {
+    if (!record) return null;
+    for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
+        const value = finiteJitenNumber(record[key]);
+        if (value !== undefined) return formatJitenInterval(value, unit);
+    }
+    return null;
+}
+
+function jitenReviewRatingMetaFromRecord(record: Record<string, unknown>): JitenReviewRatingMeta | undefined {
+    const rating = finiteJitenInteger(record.rating)
+        ?? finiteJitenInteger(record.ease)
+        ?? finiteJitenInteger(record.button)
+        ?? finiteJitenInteger(record.value);
+    if (rating !== undefined) return JITEN_REVIEW_RATINGS.find(meta => meta.rating === rating);
+    const label = firstString(record, ['grade', 'key', 'id', 'name', 'buttonLabel', 'gradeLabel', 'ratingLabel']);
+    return label ? JITEN_REVIEW_RATINGS.find(meta => meta.keys.includes(normalizeJitenReviewKey(label))) : undefined;
+}
+
+function firstString(record: Record<string, unknown> | null, keys: string[]): string | null {
+    if (!record) return null;
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+}
+
+function normalizeIntervalLabel(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+}
+
+function prefixedReviewIntervalLabel(buttonLabel: string, intervalLabel: string): string {
+    return intervalLabel.toLocaleLowerCase().startsWith(buttonLabel.toLocaleLowerCase())
+        ? intervalLabel
+        : `${buttonLabel} ${intervalLabel}`;
+}
+
+function normalizeJitenReviewKey(value: string): string {
+    return value.replace(/[_\s-]+/g, '').toLocaleLowerCase();
+}
+
+function formatJitenInterval(value: number, unit: JitenReviewIntervalUnit): string {
+    if (unit === 'seconds') return formatJitenSeconds(value);
+    if (unit === 'minutes') return `${formatJitenIntervalNumber(value)}m`;
+    if (unit === 'hours') return `${formatJitenIntervalNumber(value)}h`;
+    if (unit === 'days') return `${formatJitenIntervalNumber(value)}d`;
+    if (unit === 'months') return `${formatJitenIntervalNumber(value)}mo`;
+    return `${formatJitenIntervalNumber(value)}y`;
+}
+
+function formatJitenSeconds(seconds: number): string {
+    if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
+    const minutes = seconds / 60;
+    if (minutes < 60) return `${formatJitenIntervalNumber(minutes)}m`;
+    const hours = minutes / 60;
+    if (hours < 24) return `${formatJitenIntervalNumber(hours)}h`;
+    const days = hours / 24;
+    if (days < 365) return `${formatJitenIntervalNumber(days)}d`;
+    return `${formatJitenIntervalNumber(days / 365)}y`;
+}
+
+function formatJitenIntervalNumber(value: number): string {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+}
+
+type JitenReviewIntervalUnit = 'seconds' | 'minutes' | 'hours' | 'days' | 'months' | 'years';
+
+interface JitenReviewRatingMeta {
+    rating: number;
+    buttonLabel: string;
+    grades: JPDBGrade[];
+    keys: string[];
+}
+
+const JITEN_REVIEW_INTERVAL_KEYS = [
+    'reviewButtons',
+    'reviewGradeIntervals',
+    'nextReviewIntervals',
+    'nextIntervals',
+    'nextReviews',
+    'reviewIntervals',
+    'srsIntervals',
+    'ratingIntervals',
+];
+
+const JITEN_REVIEW_RATINGS: JitenReviewRatingMeta[] = [
+    { rating: 1, buttonLabel: 'Again', grades: ['nothing', 'fail'], keys: ['1', 'rating1', 'again', 'nothing', 'fail'] },
+    { rating: 2, buttonLabel: 'Hard', grades: ['something', 'hard'], keys: ['2', 'rating2', 'hard', 'something'] },
+    { rating: 3, buttonLabel: 'Good', grades: ['okay', 'pass'], keys: ['3', 'rating3', 'good', 'okay', 'pass'] },
+    { rating: 4, buttonLabel: 'Easy', grades: ['easy'], keys: ['4', 'rating4', 'easy'] },
+];
+
+const JITEN_REVIEW_INTERVAL_NUMERIC_KEYS: Array<[string, JitenReviewIntervalUnit]> = [
+    ['intervalSeconds', 'seconds'],
+    ['nextIntervalSeconds', 'seconds'],
+    ['nextReviewSeconds', 'seconds'],
+    ['intervalMinutes', 'minutes'],
+    ['nextIntervalMinutes', 'minutes'],
+    ['nextReviewMinutes', 'minutes'],
+    ['intervalHours', 'hours'],
+    ['nextIntervalHours', 'hours'],
+    ['nextReviewHours', 'hours'],
+    ['intervalDays', 'days'],
+    ['nextIntervalDays', 'days'],
+    ['nextReviewDays', 'days'],
+    ['intervalMonths', 'months'],
+    ['nextIntervalMonths', 'months'],
+    ['nextReviewMonths', 'months'],
+    ['intervalYears', 'years'],
+    ['nextIntervalYears', 'years'],
+    ['nextReviewYears', 'years'],
+];
+
 function jitenLookupKey(wordId: number, readingIndex: number): string {
     return `${wordId}:${readingIndex}`;
 }
@@ -623,6 +893,10 @@ function normalizeJitenStudyDeckId(value: string | number): number {
 
 function finiteJitenInteger(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
+}
+
+function finiteJitenNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function isMissingJitenApiKeyError(error: unknown): error is JitenApiError {

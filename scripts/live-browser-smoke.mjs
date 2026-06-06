@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
 import pkg from '../package.json' with { type: 'json' };
+import { createYomuPaths } from './paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     addGmXmlHttpRequestBridgeInitScript,
@@ -16,9 +18,10 @@ import {
     startLoopbackServer,
 } from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const require = createRequire(import.meta.url);
+const { assertNoRemoteExecutableMetadata } = require('./userscript-build-utils.cjs');
+const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hrussellzfac023.github.io/yomu-reader/').replace(/\/+$/, '');
 const EXPECTED_LIVE_VERSION = process.env.YOMU_LIVE_EXPECT_VERSION
     || (process.env.YOMU_LIVE_EXPECT_PACKAGE_VERSION === '1' ? pkg.version : '');
@@ -176,7 +179,7 @@ function assertLiveUserscriptAsset(userscript, deployedVersion) {
     assert(userscript.status === 200, 'Live userscript did not load', { status: userscript.status });
     assert(userscript.text.startsWith('// ==UserScript=='), 'Live userscript did not load as a raw userscript', { status: userscript.status });
     assert(userscript.text.includes(`// @version      ${deployedVersion}`), 'Live userscript version does not match the live newtab build version', { deployedVersion });
-    assert(!/^\/\/ @require\s+/m.test(userscript.text), 'Live userscript unexpectedly contains remote executed @require code');
+    assertNoRemoteExecutableMetadata(userscript.text);
     assert(!assetsHasUserscriptUpdateUrl(userscript.text), 'Live userscript should not advertise alternate update/download URLs');
 }
 

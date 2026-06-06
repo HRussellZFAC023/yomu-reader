@@ -461,47 +461,50 @@
 }
 .jpdb-reader-settings .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px 14px;
+  /* Responsive by construction: as many equal columns as fit at >=220px,
+     collapsing 4 -> 3 -> 2 -> 1 as the dialog narrows. No manual breakpoints. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: stretch;
+  gap: 14px 16px;
 }
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
-.jpdb-reader-settings .jpdb-reader-color-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
-}
-.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px 12px;
-  width: 100%;
-  max-width: 100%;
-}
-.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+/* Every label-above field (select, text, number, color) shares one structure:
+   the label sits at the top and the control is pinned to the bottom of the
+   cell, so every control on a row lines up regardless of how many lines the
+   label above it wraps to. */
+.jpdb-reader-settings .grid > label:not(.inline) {
+  display: flex;
+  flex-direction: column;
   align-items: stretch;
-  gap: 8px;
-  width: 100%;
-  max-width: 100%;
+  gap: 6px;
+  margin: 0;
 }
-.jpdb-reader-settings .grid > .jpdb-reader-settings-field-number > input[type="number"] {
-  width: 8ch;
-  max-width: 8ch;
-  min-width: 0;
+.jpdb-reader-settings .grid > label:not(.inline) > input,
+.jpdb-reader-settings .grid > label:not(.inline) > select,
+.jpdb-reader-settings .grid > label:not(.inline) > textarea,
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display {
+  margin-top: auto;
 }
+.jpdb-reader-settings .jpdb-reader-color-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+/* Number and color fields are just label-above fields: they fill the cell
+   width like every other control. The color swatch keeps a taller body. */
 .jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] {
   width: 100%;
   min-width: 0;
   height: 40px;
+  padding: 4px;
 }
+/* A checkbox/toggle keeps its box-beside-text row, but that row drops to the
+   bottom of the cell inside a control-height band, so the box and its label
+   sit on the same line as the dropdowns and inputs beside them. */
 .jpdb-reader-settings .grid > label.inline {
-  align-items: start;
-}
-.jpdb-reader-settings .grid > label.inline input[type="checkbox"],
-.jpdb-reader-settings .grid > label.inline input[type="radio"] {
-  margin-top: 1px;
+  align-content: end;
+  grid-auto-rows: minmax(38px, auto);
+  margin: 0;
 }
 .jpdb-reader-settings .jpdb-reader-radio-group {
   grid-column: 1 / -1;
@@ -1532,7 +1535,9 @@
     padding: 11px;
   }
 
-  .jpdb-reader-settings .grid,
+  /* .grid is intentionally omitted: its auto-fit track sizing already
+     collapses to a single column on narrow dialogs, based on the real
+     dialog width rather than the viewport. */
   .jpdb-reader-settings-actions,
   .jpdb-reader-anki-layout,
   .jpdb-reader-anki-choice-grid,

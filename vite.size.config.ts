@@ -1,6 +1,6 @@
 // Wraps the userscript build with a per-module rendered-size reporter.
-// Usage: npm run size:modules  (writes dist/module-sizes.json and prints a
-// diff against .module-sizes-baseline.json, if present).
+// Usage: npm run size:modules  (writes ../../artifacts/yomu-reader/module-sizes.json
+// and prints a diff against module-sizes-baseline.json, if present).
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
@@ -11,13 +11,16 @@ const base = (baseConfigFn as (env: { command: string; mode: string }) => Record
     mode: 'production',
 });
 
-const snapshotFile = path.resolve(__dirname, '.module-sizes.json');
-const baselineFile = path.resolve(__dirname, '.module-sizes-baseline.json');
+const artifactsRoot = process.env.YOMU_ARTIFACTS_ROOT
+    ? path.resolve(process.env.YOMU_ARTIFACTS_ROOT)
+    : path.resolve(__dirname, '..', '..', 'artifacts', 'yomu-reader');
+const snapshotFile = path.join(artifactsRoot, 'module-sizes.json');
+const baselineFile = path.join(artifactsRoot, 'module-sizes-baseline.json');
 
 // Build into a scratch directory so size reporting never disturbs real dist
 // artifacts (yomu.css, compliance annotations, newtab build).
 const baseBuild = (base as { build: Record<string, unknown> }).build;
-baseBuild.outDir = '.size-report';
+baseBuild.outDir = path.join(artifactsRoot, 'size-report');
 baseBuild.emptyOutDir = true;
 
 interface ModuleSizeRow {
@@ -99,7 +102,7 @@ function signedNumber(value: number): string {
 }
 
 function missingBaselineReport(): string {
-    return 'No baseline snapshot; copy dist/module-sizes.json to .module-sizes-baseline.json to diff future runs.';
+    return `No baseline snapshot; copy ${path.relative(__dirname, snapshotFile)} to ${path.relative(__dirname, baselineFile)} to diff future runs.`;
 }
 
 (base as { plugins: Plugin[] }).plugins.push(moduleSizeReporter());

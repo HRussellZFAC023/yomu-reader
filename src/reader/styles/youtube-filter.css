@@ -86,9 +86,250 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     color: var(--jpdb-reader-muted);
 }
 
+.jpdb-youtube-channel-shelf {
+    display: block;
+    grid-column: 1 / -1;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 4px 0 20px;
+    padding: 14px 0 4px;
+    border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+    border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    font: 400 14px/1.35 Roboto, Arial, sans-serif;
+}
+
+.jpdb-youtube-channel-shelf-head,
+.jpdb-youtube-channel-shelf-foot {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 4px 10px;
+}
+
+.jpdb-youtube-channel-shelf-copy {
+    min-width: 0;
+}
+
+.jpdb-youtube-channel-shelf-eyebrow {
+    margin-bottom: 3px;
+    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    font-size: 12px;
+}
+
+.jpdb-youtube-channel-shelf h2 {
+    margin: 0;
+    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    font: 500 20px/1.25 Roboto, Arial, sans-serif;
+    letter-spacing: 0;
+}
+
+.jpdb-youtube-channel-shelf p,
+.jpdb-youtube-channel-description,
+.jpdb-youtube-channel-meta,
+.jpdb-youtube-channel-shelf-status {
+    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+}
+
+.jpdb-youtube-channel-shelf p {
+    margin: 4px 0 0;
+    font-size: 13px;
+}
+
+.jpdb-youtube-channel-shelf-actions,
+.jpdb-youtube-channel-shelf-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.jpdb-youtube-channel-shelf-actions {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.jpdb-youtube-channel-shelf button {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
+    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    font: 500 14px/1 Roboto, Arial, sans-serif;
+    cursor: pointer;
+}
+
+.jpdb-youtube-channel-shelf button:hover,
+.jpdb-youtube-channel-shelf button:focus-visible {
+    background: var(--yt-spec-button-chip-background-hover, rgba(0, 0, 0, 0.1));
+}
+
+.jpdb-youtube-channel-shelf button:focus-visible {
+    outline: 2px solid var(--yt-spec-call-to-action, var(--jpdb-reader-accent));
+    outline-offset: 2px;
+}
+
+.jpdb-youtube-channel-shelf button:disabled {
+    cursor: progress;
+    opacity: 0.62;
+}
+
+.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-visible"],
+.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-all"],
+.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-one"] {
+    background: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    color: var(--yt-spec-text-primary-inverse, var(--jpdb-reader-bg));
+}
+
+.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="dismiss"],
+.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="never"] {
+    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+}
+
+.jpdb-youtube-channel-shelf-filters {
+    padding: 0 4px 10px;
+    overflow-x: auto;
+}
+
+.jpdb-youtube-channel-shelf-filters[hidden] {
+    display: none;
+}
+
+.jpdb-youtube-channel-shelf-filters button[aria-pressed="true"] {
+    background: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    color: var(--yt-spec-text-primary-inverse, var(--jpdb-reader-bg));
+}
+
+.jpdb-youtube-channel-shelf-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 0 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.jpdb-youtube-channel-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 10px 4px;
+    border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.08));
+}
+
+.jpdb-youtube-channel-avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.08));
+    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    font: 500 15px/1 Roboto, Arial, sans-serif;
+    text-decoration: none;
+}
+
+.jpdb-youtube-channel-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.jpdb-youtube-channel-body {
+    min-width: 0;
+}
+
+.jpdb-youtube-channel-name {
+    display: block;
+    overflow: hidden;
+    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    font: 500 14px/1.25 Roboto, Arial, sans-serif;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jpdb-youtube-channel-meta,
+.jpdb-youtube-channel-description {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jpdb-youtube-channel-description {
+    margin-top: 2px;
+}
+
+.jpdb-youtube-channel-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.jpdb-youtube-channel-tags span {
+    max-width: 120px;
+    overflow: hidden;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
+    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jpdb-youtube-channel-shelf-foot {
+    align-items: center;
+    padding-top: 10px;
+}
+
+.jpdb-youtube-channel-shelf-status {
+    min-width: 0;
+    font-size: 12px;
+}
+
 @media (max-width: 768px), (pointer: coarse) {
     .jpdb-youtube-filter-bar {
         bottom: max(76px, calc(60px + env(safe-area-inset-bottom)));
         border-radius: 12px;
+    }
+
+    .jpdb-youtube-channel-shelf {
+        margin-bottom: 16px;
+        padding-top: 12px;
+    }
+
+    .jpdb-youtube-channel-shelf-head,
+    .jpdb-youtube-channel-shelf-foot {
+        flex-direction: column;
+    }
+
+    .jpdb-youtube-channel-shelf-actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .jpdb-youtube-channel-shelf button {
+        min-height: 40px;
+    }
+
+    .jpdb-youtube-channel-row {
+        grid-template-columns: 40px minmax(0, 1fr);
+    }
+
+    .jpdb-youtube-channel-row [data-yomu-youtube-channel-action="subscribe-one"] {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: 4px;
     }
 }

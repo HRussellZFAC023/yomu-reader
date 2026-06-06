@@ -2,12 +2,14 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
+import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
-import { ANKI_STATUS_INDEX_STORAGE_KEY, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
+import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
 import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
+import { existingAnkiNote, renderExistingAnkiNote } from './helpers/anki-render';
 
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 
@@ -17,8 +19,17 @@ afterEach(() => {
 
 type MockAnkiAction = {
     action: string;
-    params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[]; decks?: string[] };
+    params?: {
+        actions?: Array<{ action: string; params?: Record<string, unknown> }>;
+        cards?: number[];
+        decks?: string[];
+        notes?: number[];
+        query?: string;
+    };
 };
+
+type RecordedMockAnkiAction = { body: MockAnkiAction; query: string };
+type MockAnkiConnectRequest = { action: string; params: Record<string, unknown> };
 
 function parseMockAnkiAction(init?: RequestInit): MockAnkiAction {
     return JSON.parse(String(init?.body ?? '{}')) as MockAnkiAction;
@@ -29,6 +40,107 @@ function ankiJsonResponse(result: unknown) {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
     });
+}
+
+function stubGmAnkiConnect(resultByAction: Record<string, unknown>): MockAnkiConnectRequest[] {
+    const requests: MockAnkiConnectRequest[] = [];
+    vi.stubGlobal('GM', {
+        xmlHttpRequest: ({ data }: { data: string }) => {
+            const request = JSON.parse(data) as MockAnkiConnectRequest;
+            requests.push(request);
+            return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+        },
+    });
+    return requests;
+}
+
+function stubBrowserAnkiConnectCheck(href: string): {
+    client: AnkiConnectClient;
+    fetchMock: ReturnType<typeof vi.fn<[], Promise<Response>>>;
+} {
+    vi.stubGlobal('location', { href });
+    const fetchMock = vi.fn(async () => ankiJsonResponse(6));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+    return { client, fetchMock };
+}
+
+function recordedMockAnkiAction(init: RequestInit | undefined, actions: string[]): RecordedMockAnkiAction {
+    const body = parseMockAnkiAction(init);
+    const query = String(body.params?.query ?? '');
+    actions.push(mockAnkiActionLabel(body, query));
+    return { body, query };
+}
+
+function mockAnkiActionLabel(body: MockAnkiAction, query: string): string {
+    return body.action === 'findCards' ? `findCards:${query}` : body.action;
+}
+
+function exactStatusLookupFetchMock(actions: string[], broadScanMessage: string) {
+    return vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const { body, query } = recordedMockAnkiAction(init, actions);
+        rejectDeckWideExactLookup(body, query, broadScanMessage);
+        if (body.action !== 'multi') throw new Error(`Unexpected Anki action: ${body.action}`);
+        return ankiJsonResponse(emptyMultiActionResults(body));
+    });
+}
+
+function activeRebuildExactStatusLookupFetchMock(actions: string[]) {
+    return vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const { body, query } = recordedMockAnkiAction(init, actions);
+        const handler = activeRebuildExactStatusLookupHandlers(body)[body.action];
+        if (handler) return ankiJsonResponse(handler());
+        rejectDeckWideExactLookup(body, query, 'active rebuild status lookup should not scan deck:*');
+        throw new Error(`Unexpected Anki action: ${body.action}`);
+    });
+}
+
+function rejectDeckWideExactLookup(body: MockAnkiAction, query: string, message: string): void {
+    if (body.action === 'findCards' && query === 'deck:*') throw new Error(message);
+}
+
+function emptyMultiActionResults(body: MockAnkiAction): Array<{ result: unknown[]; error: null }> {
+    return (body.params?.actions ?? []).map(() => ({ result: [], error: null }));
+}
+
+function activeRebuildExactStatusLookupHandlers(body: MockAnkiAction): Record<string, () => unknown> {
+    return {
+        multi: () => (body.params?.actions ?? []).map(activeRebuildMultiActionResult),
+        notesInfo: () => activeRebuildNotesInfo(body),
+        cardsInfo: () => activeRebuildCardsInfo(body),
+        areDue: () => [true],
+    };
+}
+
+function activeRebuildMultiActionResult(action: { params?: Record<string, unknown> }): { result: number[]; error: null } {
+    const query = String(action.params?.query ?? '');
+    return { result: /動画|どうが/.test(query) ? [55] : [], error: null };
+}
+
+function activeRebuildNotesInfo(body: MockAnkiAction) {
+    expect(body.params?.notes).toEqual([55]);
+    return [mockAnkiNoteInfo({ noteId: 55, word: '動画', reading: 'どうが', cardId: 7701 })];
+}
+
+function activeRebuildCardsInfo(body: MockAnkiAction) {
+    expect(body.params?.cards).toEqual([7701]);
+    return [mockAnkiCardInfo({
+        cardId: 7701,
+        noteId: 55,
+        deckName: 'Anime::Mining',
+        queue: 2,
+        type: 2,
+        reps: 16,
+    })];
+}
+
+function noteIdsForLibraryScanQuery(query: string): number[] {
+    const match = [
+        ['Core 2k/6k', 101],
+        ['Kaishi', 201],
+        ['RRTK', 301],
+    ].find(([needle]) => query.includes(String(needle)));
+    return match ? [Number(match[1])] : [];
 }
 
 function statusIndexWarmupActionResult(
@@ -219,18 +331,9 @@ describe('AnkiConnect browser fetch eligibility', () => {
     });
 
     it('uses direct fetch for local file-preview AnkiConnect checks when no bridge exists', async () => {
-        vi.stubGlobal('location', {
-            href: 'file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html',
-        });
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-        vi.stubGlobal('fetch', fetchMock);
+        const { client, fetchMock } = stubBrowserAnkiConnectCheck('file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html');
 
         try {
-            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
-
             await expect(client.isConnected()).resolves.toBe(true);
             expect(fetchMock).toHaveBeenCalledWith(
                 'http://127.0.0.1:8765',
@@ -242,18 +345,9 @@ describe('AnkiConnect browser fetch eligibility', () => {
     });
 
     it('uses direct fetch for local app-root AnkiConnect checks when no bridge exists', async () => {
-        vi.stubGlobal('location', {
-            href: 'http://0.0.0.0:5174/yomu-reader/',
-        });
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-        vi.stubGlobal('fetch', fetchMock);
+        const { client, fetchMock } = stubBrowserAnkiConnectCheck('http://0.0.0.0:5174/yomu-reader/');
 
         try {
-            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
-
             await expect(client.isConnected()).resolves.toBe(true);
             expect(fetchMock).toHaveBeenCalledWith(
                 'http://127.0.0.1:8765',
@@ -266,19 +360,11 @@ describe('AnkiConnect browser fetch eligibility', () => {
 
     it('does not direct-fetch hosted loopback AnkiConnect checks when no bridge exists', async () => {
         vi.useFakeTimers();
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-        });
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ result: 6, error: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-        vi.stubGlobal('fetch', fetchMock);
+        const { client, fetchMock } = stubBrowserAnkiConnectCheck('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html');
 
         try {
-            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
             const connected = client.isConnected();
-            await vi.advanceTimersByTimeAsync(1600);
+            await vi.advanceTimersByTimeAsync(5100);
 
             await expect(connected).resolves.toBe(false);
             expect(fetchMock).not.toHaveBeenCalled();
@@ -288,7 +374,8 @@ describe('AnkiConnect browser fetch eligibility', () => {
         }
     });
 
-    it('waits briefly for the hosted userscript bridge before marking loopback Anki unavailable', async () => {
+    it('waits for a delayed hosted userscript bridge before marking loopback Anki unavailable', async () => {
+        vi.useFakeTimers();
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
         });
@@ -304,6 +391,7 @@ describe('AnkiConnect browser fetch eligibility', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
             const connected = client.isConnected();
+            await vi.advanceTimersByTimeAsync(2000);
             vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
             window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
 
@@ -314,6 +402,7 @@ describe('AnkiConnect browser fetch eligibility', () => {
             }));
             expect(fetchMock).not.toHaveBeenCalled();
         } finally {
+            vi.useRealTimers();
             vi.unstubAllGlobals();
         }
     });
@@ -398,42 +487,218 @@ describe('AnkiConnect browser fetch eligibility', () => {
 });
 
 describe('Anki note creation', () => {
-    it('checks duplicates without media before adding the media-bearing note', async () => {
-        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: ({ data }: { data: string }) => {
-                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
-                requests.push(request);
-                const resultByAction: Record<string, unknown> = {
-                    createDeck: null,
-                    modelNames: ['よむ Japanese'],
-                    modelFieldNames: YOMU_MODEL_FIELDS,
-                    updateModelTemplates: null,
-                    updateModelStyling: null,
-                    canAddNotes: [true],
-                    addNote: 42,
-                    notesInfo: [{
-                        noteId: 42,
-                        modelName: 'よむ Japanese',
-                        tags: [],
-                        fields: {
-                            Expression: { value: '日本語' },
-                            Reading: { value: 'にほんご' },
-                        },
-                        cards: [99],
-                    }],
-                    cardsInfo: [{
-                        cardId: 99,
-                        note: 42,
-                        deckName: 'よむ',
-                        queue: 0,
-                        type: 0,
-                        reps: 0,
-                        lapses: 0,
-                    }],
-                };
-                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+    it('scans Core Kaishi and RRTK-style models into confident automatic mappings', async () => {
+        const ankiConnectUrl = `${window.location.origin}/anki-library-scan`;
+        const fieldsByModel: Record<string, string[]> = {
+            'Core 2k/6k Optimized Japanese Vocabulary': ['Vocabulary-Kanji', 'Vocabulary-Kana', 'Vocabulary-English', 'Sentence', 'Audio', 'Picture'],
+            'Kaishi 1.5k': ['Word', 'Kana', 'Meaning', 'Example Sentence', 'Word Audio', 'Picture'],
+            'RRTK Recognition Remembering The Kanji v2': ['Kanji', 'Keyword', 'Story'],
+        };
+        const notesById: Record<number, unknown> = {
+            101: {
+                noteId: 101,
+                modelName: 'Core 2k/6k Optimized Japanese Vocabulary',
+                tags: [],
+                fields: {
+                    'Vocabulary-Kanji': { value: '始める' },
+                    'Vocabulary-Kana': { value: 'はじめる' },
+                    'Vocabulary-English': { value: 'to start' },
+                    Sentence: { value: '勉強を始める。' },
+                    Audio: { value: '[sound:core-start.mp3]' },
+                    Picture: { value: '<img src="start.jpg">' },
+                },
+                cards: [1001],
             },
+            201: {
+                noteId: 201,
+                modelName: 'Kaishi 1.5k',
+                tags: [],
+                fields: {
+                    Word: { value: '泳ぐ' },
+                    Kana: { value: 'およぐ' },
+                    Meaning: { value: 'to swim' },
+                    'Example Sentence': { value: '海で泳ぐ。' },
+                    'Word Audio': { value: '[sound:kaishi-swim.mp3]' },
+                    Picture: { value: '<img src="swim.webp">' },
+                },
+                cards: [2001],
+            },
+            301: {
+                noteId: 301,
+                modelName: 'RRTK Recognition Remembering The Kanji v2',
+                tags: [],
+                fields: {
+                    Kanji: { value: '読' },
+                    Keyword: { value: 'read' },
+                    Story: { value: 'A personal mnemonic story.' },
+                },
+                cards: [3001],
+            },
+        };
+        vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = parseMockAnkiAction(init);
+            const modelName = String((body.params as { modelName?: string } | undefined)?.modelName ?? '');
+            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
+            const actionHandlers: Record<string, () => unknown> = {
+                deckNames: () => ['Core 2k/6k', 'Kaishi 1.5k', 'RRTK Recognition Remembering The Kanji v2'],
+                modelNames: () => Object.keys(fieldsByModel),
+                modelFieldNames: () => fieldsByModel[modelName] ?? [],
+                findNotes: () => noteIdsForLibraryScanQuery(query),
+                notesInfo: () => (body.params?.notes ?? []).map(noteId => notesById[Number(noteId)]).filter(Boolean),
+            };
+            const resultForAction = (): unknown => {
+                const handler = actionHandlers[body.action];
+                if (handler) return handler();
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return ankiJsonResponse(resultForAction());
+        }));
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
+            const scan = await client.scanLibrary();
+            const model = (name: string) => scan.models.find(item => item.modelName === name);
+            const suggestion = (name: string, role: string) => model(name)?.suggestions.find(item => item.role === role);
+
+            expect(suggestion('Core 2k/6k Optimized Japanese Vocabulary', 'expression')).toMatchObject({ fieldName: 'Vocabulary-Kanji', confidence: 'high' });
+            expect(suggestion('Core 2k/6k Optimized Japanese Vocabulary', 'reading')).toMatchObject({ fieldName: 'Vocabulary-Kana', confidence: 'high' });
+            expect(suggestion('Kaishi 1.5k', 'sentence')).toMatchObject({ fieldName: 'Example Sentence', confidence: 'high' });
+            expect(suggestion('RRTK Recognition Remembering The Kanji v2', 'expression')).toMatchObject({ fieldName: 'Kanji', confidence: 'high' });
+            expect(suggestion('RRTK Recognition Remembering The Kanji v2', 'meaning')).toMatchObject({ fieldName: 'Keyword', confidence: 'high' });
+            expect(suggestion('RRTK Recognition Remembering The Kanji v2', 'sentence')?.fieldName).toBeNull();
+            expect(scan.deckNames).toEqual(['Core 2k/6k', 'Kaishi 1.5k', 'RRTK Recognition Remembering The Kanji v2']);
+            client.destroy();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('retargets new cards to Kaishi-style fields without a manual mapping scan', async () => {
+        const requests = stubGmAnkiConnect({
+            createDeck: null,
+            modelNames: ['Kaishi 1.5k'],
+            modelFieldNames: ['Word', 'Kana', 'Definition', 'Example Sentence', 'Word Audio', 'Picture'],
+            canAddNotes: [true],
+            addNote: 42,
+            notesInfo: [{
+                noteId: 42,
+                modelName: 'Kaishi 1.5k',
+                tags: [],
+                fields: {
+                    Word: { value: '始める' },
+                    Kana: { value: 'はじめる' },
+                    Definition: { value: 'to start' },
+                },
+                cards: [99],
+            }],
+            cardsInfo: [{
+                cardId: 99,
+                note: 42,
+                deckName: 'Kaishi 1.5k',
+                queue: 0,
+                type: 0,
+                reps: 0,
+                lapses: 0,
+            }],
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiDeck: 'Kaishi 1.5k',
+                ankiModel: 'Kaishi 1.5k',
+                ankiMobileHandoff: false,
+            }));
+            await client.addCard(jpdbCard({
+                spelling: '始める',
+                reading: 'はじめる',
+                meanings: [{ glosses: ['to start'], partOfSpeech: [] }],
+            }), '勉強を始める。', {
+                wordAudioDataUrl: 'data:audio/mpeg;base64,word-audio',
+                imageDataUrl: 'data:image/jpeg;base64,image-data',
+            });
+
+            const addNote = requests.find(request => request.action === 'addNote')?.params.note as {
+                audio?: Array<Record<string, unknown>>;
+                picture?: Array<Record<string, unknown>>;
+                fields: Record<string, string>;
+            };
+            expect(addNote.fields.Word).toBe('始める');
+            expect(addNote.fields.Kana).toBe('はじめる');
+            expect(addNote.fields.Definition).toContain('to start');
+            expect(addNote.fields['Example Sentence']).toContain('始める');
+            expect(addNote.audio?.[0]).toMatchObject({ fields: ['Word Audio'], data: 'word-audio' });
+            expect(addNote.picture?.[0]).toMatchObject({ fields: ['Picture'], data: 'image-data' });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('merges missing RRTK Kanji and Keyword fields without writing Yomu kanji-definition HTML into the kanji slot', async () => {
+        const requests = stubGmAnkiConnect({
+            notesInfo: [{
+                noteId: 77,
+                modelName: 'RRTK Recognition Remembering The Kanji v2',
+                tags: ['rrtk'],
+                fields: {
+                    Kanji: { value: '' },
+                    Keyword: { value: '' },
+                    Story: { value: 'Keep my mnemonic.' },
+                },
+                cards: [7700],
+            }],
+            updateNoteFields: null,
+        });
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+            await client.mergeYomuData(77, jpdbCard({
+                spelling: '読',
+                reading: '',
+                meanings: [{ glosses: ['read'], partOfSpeech: [] }],
+            }));
+
+            const update = requests.find(request => request.action === 'updateNoteFields')?.params.note as {
+                fields: Record<string, string>;
+            };
+            expect(update.fields.Kanji).toBe('読');
+            expect(update.fields.Keyword).toContain('read');
+            expect(update.fields.Story).toBeUndefined();
+            expect(update.fields.Kanji).not.toContain('yomu-kanji-entry');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('checks duplicates without media before adding the media-bearing note', async () => {
+        const requests = stubGmAnkiConnect({
+            createDeck: null,
+            modelNames: ['よむ Japanese'],
+            modelFieldNames: YOMU_MODEL_FIELDS,
+            updateModelTemplates: null,
+            updateModelStyling: null,
+            canAddNotes: [true],
+            addNote: 42,
+            notesInfo: [{
+                noteId: 42,
+                modelName: 'よむ Japanese',
+                tags: [],
+                fields: {
+                    Expression: { value: '日本語' },
+                    Reading: { value: 'にほんご' },
+                },
+                cards: [99],
+            }],
+            cardsInfo: [{
+                cardId: 99,
+                note: 42,
+                deckName: 'よむ',
+                queue: 0,
+                type: 0,
+                reps: 0,
+                lapses: 0,
+            }],
         });
 
         try {
@@ -461,21 +726,13 @@ describe('Anki note creation', () => {
     });
 
     it('stops before addNote when Anki reports the note is a duplicate', async () => {
-        const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: ({ data }: { data: string }) => {
-                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
-                requests.push(request);
-                const resultByAction: Record<string, unknown> = {
-                    createDeck: null,
-                    modelNames: ['よむ Japanese'],
-                    modelFieldNames: YOMU_MODEL_FIELDS,
-                    updateModelTemplates: null,
-                    updateModelStyling: null,
-                    canAddNotes: [false],
-                };
-                return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
-            },
+        const requests = stubGmAnkiConnect({
+            createDeck: null,
+            modelNames: ['よむ Japanese'],
+            modelFieldNames: YOMU_MODEL_FIELDS,
+            updateModelTemplates: null,
+            updateModelStyling: null,
+            canAddNotes: [false],
         });
 
         try {
@@ -524,6 +781,8 @@ describe('Anki existing-card lookup', () => {
                         due: 0,
                         reps: 12,
                         lapses: 1,
+                        buttons: [1, 2, 3, 4],
+                        nextReviews: ['1m', '5m', '10m', '4.1y'],
                         question: '<div>読む</div>',
                         answer: '<div>to read</div>',
                     }];
@@ -545,6 +804,12 @@ describe('Anki existing-card lookup', () => {
         expect(result.primary?.noteId).toBe(959);
         expect(result.primary?.fields.Japanese_Word).toBe('読む');
         expect(result.primary?.fields.Readings).toBe('よむ');
+        expect(result.primary?.reviewGradeIntervals).toMatchObject({
+            nothing: { label: 'Again 1m', source: 'anki-next-reviews' },
+            hard: { label: 'Hard 5m', source: 'anki-next-reviews' },
+            okay: { label: 'Good 10m', source: 'anki-next-reviews' },
+            easy: { label: 'Easy 4.1y', source: 'anki-next-reviews' },
+        });
         expect(fetchMock).toHaveBeenCalledWith(
             ankiConnectUrl,
             expect.objectContaining({ method: 'POST' }),
@@ -903,18 +1168,7 @@ describe('Anki status-only lookup cache', () => {
         localStorage.clear();
         const ankiConnectUrl = `${window.location.origin}/anki-missing-status`;
         const actions: string[] = [];
-        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = parseMockAnkiAction(init);
-            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
-            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
-            if (body.action === 'multi') {
-                return ankiJsonResponse((body.params?.actions ?? []).map(() => ({ result: [], error: null })));
-            }
-            if (body.action === 'findCards' && query === 'deck:*') {
-                throw new Error('missing status index lookup should not scan deck:*');
-            }
-            throw new Error(`Unexpected Anki action: ${body.action}`);
-        });
+        const fetchMock = exactStatusLookupFetchMock(actions, 'missing status index lookup should not scan deck:*');
         vi.stubGlobal('fetch', fetchMock);
         const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
         const internals = client as unknown as { statusIndexRefreshQueued: boolean };
@@ -937,22 +1191,45 @@ describe('Anki status-only lookup cache', () => {
         }
     });
 
+    it('uses a batched exact lookup for status misses while a status index rebuild lease is active', async () => {
+        vi.useFakeTimers();
+        localStorage.clear();
+        const ankiConnectUrl = `${window.location.origin}/anki-active-rebuild`;
+        const settingsKey = JSON.stringify({ url: ankiConnectUrl });
+        const actions: string[] = [];
+        const fetchMock = activeRebuildExactStatusLookupFetchMock(actions);
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            expect(claimAnkiStatusIndexRebuildLease(settingsKey)).toBeTruthy();
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
+
+            await expect(client.findCachedStatusBatch([
+                jpdbCard({ vid: 13, sid: 4, spelling: '動画', reading: 'どうが' }),
+            ])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 16,
+                },
+            }]);
+            expect(actions).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            expect(actions).not.toContain('findCards:deck:*');
+            client.destroy();
+        } finally {
+            localStorage.clear();
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('uses a batched exact lookup for max-stale status misses without broad scans', async () => {
         vi.useFakeTimers();
         const ankiConnectUrl = `${window.location.origin}/anki-stale-status`;
         const actions: string[] = [];
-        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = parseMockAnkiAction(init);
-            const query = String((body.params as { query?: string } | undefined)?.query ?? '');
-            actions.push(body.action === 'findCards' ? `findCards:${query}` : body.action);
-            if (body.action === 'multi') {
-                return ankiJsonResponse((body.params?.actions ?? []).map(() => ({ result: [], error: null })));
-            }
-            if (body.action === 'findCards' && query === 'deck:*') {
-                throw new Error('stale status miss lookup should not scan deck:*');
-            }
-            throw new Error(`Unexpected Anki action: ${body.action}`);
-        });
+        const fetchMock = exactStatusLookupFetchMock(actions, 'stale status miss lookup should not scan deck:*');
         vi.stubGlobal('fetch', fetchMock);
         const now = Date.now();
         const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
@@ -1297,6 +1574,57 @@ describe('Anki rendered card details', () => {
         expect(section.querySelector('.jpdb-reader-anki-rendered-side-body')?.textContent).toContain('Japanese');
     });
 
+    it('keeps Anki card template names from card details for duplicate targets', () => {
+        const note = ankiExistingNoteFromInfo({
+            noteId: 201,
+            modelName: 'Sentence Mining',
+            tags: [],
+            cards: [456],
+            fields: {
+                Expression: { value: '日本語' },
+                Reading: { value: 'にほんご' },
+                Meaning: { value: 'Japanese language' },
+            },
+        }, [{
+            cardId: 456,
+            deckName: 'Mining',
+            card: 'Production',
+            ord: 1,
+            queue: 2,
+            type: 2,
+            note: 201,
+            question: '<div>日本語</div>',
+            answer: '<div>Japanese language</div>',
+        }]);
+
+        expect(note.renderedCards?.[0]).toMatchObject({
+            cardId: 456,
+            deckName: 'Mining',
+            cardName: 'Production',
+        });
+    });
+
+    it('uses Anki template names in collapsible card headings and grade target labels', () => {
+        const note = existingAnkiNote({
+            primaryCardId: 456,
+            cardIds: [123, 456],
+            renderedCards: [
+                { cardId: 123, deckName: 'Mining', cardName: 'Recognition', question: '<div>日本語</div>', answer: '<div>Japanese</div>' },
+                { cardId: 456, deckName: 'Mining', cardName: 'Production', question: '<div>Japanese</div>', answer: '<div>日本語</div>' },
+            ],
+        });
+        const section = renderExistingAnkiSection(note, { ...ankiRenderSettings(), enableReviews: true });
+        const titles = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-card-title')]
+            .map(element => element.textContent?.trim());
+        const target = section.querySelector<HTMLElement>('.jpdb-reader-review-target');
+        const easy = section.querySelector<HTMLButtonElement>('[data-grade="easy"]');
+
+        expect(titles).toEqual(['Mining · Production #456', 'Mining · Recognition #123']);
+        expect(target?.textContent).toBe('Grades Anki card: Mining · Production #456');
+        expect(easy?.dataset.ankiCardId).toBe('456');
+        expect(easy?.getAttribute('aria-label')).toBe('Easy: Grades Anki card: Mining · Production #456');
+    });
+
     it('caps oversized Anki inline font declarations without flattening normal card text', () => {
         const note = existingAnkiNote({
             renderedCards: [{
@@ -1404,12 +1732,7 @@ describe('Anki rendered card details', () => {
 });
 
 function renderExistingAnkiSection(note: AnkiExistingNote, settings: ReaderSettings = ankiRenderSettings()): HTMLElement {
-    const lookup: AnkiLookupResult = { state: note.state, notes: [note], primary: note, trusted: true };
-    const container = document.createElement('div');
-    container.innerHTML = renderAnkiExistingSection(lookup, null, settings);
-    const section = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing');
-    if (!section) throw new Error('Expected rendered Anki section');
-    return section;
+    return renderExistingAnkiNote(note, settings);
 }
 
 function ankiRenderSettings(): ReaderSettings {
@@ -1421,26 +1744,6 @@ function ankiRenderSettings(): ReaderSettings {
     };
 }
 
-function existingAnkiNote(overrides: Partial<AnkiExistingNote> = {}): AnkiExistingNote {
-    return {
-        noteId: 99,
-        modelName: 'Yomu Japanese',
-        deckNames: ['Mining'],
-        cardIds: [123],
-        primaryCardId: 123,
-        state: 'due',
-        fields: {
-            Expression: '日本語',
-            Reading: 'にほんご',
-            Meaning: 'Japanese language',
-        },
-        renderedCards: [],
-        tags: [],
-        reps: 3,
-        lapses: 0,
-        ...overrides,
-    };
-}
 
 function jpdbCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {

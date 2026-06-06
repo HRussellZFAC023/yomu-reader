@@ -121,7 +121,7 @@ function injectedPagePreferenceSource(enabled: boolean): string {
 }
 
 function applySitePreferenceCookies(): void {
-    const hostname = location.hostname.toLowerCase();
+    const hostname = currentLocationHostname();
     if (/(^|\.)youtube\.com$/.test(hostname)) {
         mergeCookie('PREF', {
             hl: JAPANESE_LANGUAGE,
@@ -138,9 +138,13 @@ function applySitePreferenceCookies(): void {
 }
 
 function clearSitePreferenceCookies(): void {
-    const hostname = location.hostname.toLowerCase();
+    const hostname = currentLocationHostname();
     if (/(^|\.)youtube\.com$/.test(hostname)) clearCookieValues('PREF', ['hl', 'gl', 'tz'], '.youtube.com');
     if (/(^|\.)google\./.test(hostname)) clearCookieValues('PREF', ['hl', 'gl']);
+}
+
+function currentLocationHostname(): string {
+    return typeof location.hostname === 'string' ? location.hostname.toLowerCase() : '';
 }
 
 function mergeCookie(name: string, values: Record<string, string>, domain?: string): void {

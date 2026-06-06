@@ -41,6 +41,22 @@ const youtubeTimedText = `<timedtext><body>
 <p t="4500" d="1800"><s t="0">梅干しをセロハンテープで貼る話。</s></p>
 </body></timedtext>`;
 
+function youtubePlayerResponse(videoId = 'feature123') {
+    return {
+        videoDetails: { videoId },
+        captions: {
+            playerCaptionsTracklistRenderer: {
+                captionTracks: [{
+                    baseUrl: `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja`,
+                    languageCode: 'ja',
+                    vssId: '.ja',
+                    name: { simpleText: 'Japanese' },
+                }],
+            },
+        },
+    };
+}
+
 function youtubeHomeHtml() {
     return `<!doctype html>
 <html>
@@ -91,19 +107,7 @@ function youtubeHomeHtml() {
 }
 
 function youtubeWatchHtml() {
-    const playerResponse = {
-        videoDetails: { videoId: 'feature123' },
-        captions: {
-            playerCaptionsTracklistRenderer: {
-                captionTracks: [{
-                    baseUrl: 'https://www.youtube.com/api/timedtext?v=feature123&lang=ja',
-                    languageCode: 'ja',
-                    vssId: '.ja',
-                    name: { simpleText: 'Japanese' },
-                }],
-            },
-        },
-    };
+    const playerResponse = youtubePlayerResponse('feature123');
     return `<!doctype html>
 <html>
 <head>
@@ -154,6 +158,13 @@ function youtubeWatchHtml() {
             <span class="more-button" slot="more-button"><span>続きを読む</span></span>
           </ytd-comment-view-model>
         </section>
+        <yt-live-chat-app>
+          <yt-live-chat-text-message-renderer>
+            <span id="author-name">先生</span>
+            <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
+            <button type="button" aria-label="返信">返信</button>
+          </yt-live-chat-text-message-renderer>
+        </yt-live-chat-app>
       </section>
       <aside id="secondary">
         <ytd-compact-video-renderer data-case="side-jp">
@@ -290,6 +301,12 @@ function youtubeShortsWatchHtml() {
   <ytd-shorts>
     <ytd-reel-video-renderer data-case="shorts-watch-current" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
       <a id="video-title" href="/shorts/watch-en">English short in snap feed</a>
+    </ytd-reel-video-renderer>
+    <ytd-reel-video-renderer data-case="shorts-watch-next-en" data-expected-language="en">
+      <a id="video-title" href="/shorts/watch-next-en">Desk setup Short</a>
+    </ytd-reel-video-renderer>
+    <ytd-reel-video-renderer data-case="shorts-watch-next-jp" data-expected-language="jp">
+      <a id="video-title" href="/shorts/watch-next-jp">大阪で食べ歩き</a>
     </ytd-reel-video-renderer>
   </ytd-shorts>
 </body>
@@ -559,6 +576,13 @@ async function installUserscriptContext(context) {
                 filtered: queryCount('.jpdb-youtube-filtered'),
                 visible: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model').length,
                 hiddenCases: hiddenCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+                visibleCases: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+                visibleJapanese: visibleExpectedLanguages('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
+                    .filter(language => language === 'jp').length,
+                visibleNonCurrentEnglish: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
+                    .filter(caseName => caseName !== 'shorts-watch-current')
+                    .map(caseName => document.querySelector(`[data-case="${caseName}"]`)?.dataset.expectedLanguage)
+                    .filter(language => language === 'en').length,
             };
         };
         window.__yomuFeatureReadWatchState = function yomuFeatureReadWatchState() {
@@ -568,6 +592,9 @@ async function installUserscriptContext(context) {
                 parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
                 descriptionWords: queryCount('ytd-watch-metadata #description-inline-expander .jpdb-reader-word'),
                 commentWords: queryCount('ytd-comment-view-model #content-text .jpdb-reader-word'),
+                commentMorePassive: element('ytd-comment-view-model .more-button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+                liveChatWords: queryCount('yt-live-chat-text-message-renderer .jpdb-reader-word'),
+                liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
                 titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
                 sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
                 rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
@@ -660,6 +687,64 @@ async function runHomepageCheck(page) {
     return { beforeReveal, afterReveal };
 }
 
+async function runSpaWatchNavigationCheck(page) {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('ytd-rich-item-renderer[data-case="jp"]', { timeout: 10000 });
+    await page.evaluate(({ playerResponse }) => {
+        history.pushState({}, '', '/watch?v=feature123');
+        window.ytInitialPlayerResponse = playerResponse;
+        Array.from(document.body.children)
+            .filter(element => !(element instanceof HTMLElement && element.dataset.jpdbReaderRoot === 'true'))
+            .forEach(element => element.remove());
+        document.body.insertAdjacentHTML('afterbegin', `
+          <ytd-watch-flexy video-id="feature123">
+            <main id="page">
+              <section id="primary">
+                <div id="player"><div id="movie_player">
+                  <video controls muted style="width:960px;height:540px;background:#000"></video>
+                  <div class="ytp-caption-window-container"><span class="ytp-caption-segment">先生いつもありがとうございました。</span></div>
+                </div></div>
+                <ytd-watch-metadata>
+                  <h1><yt-formatted-string title="日本語タイトル">日本語タイトル</yt-formatted-string></h1>
+                  <div id="description-inline-expander">
+                    <yt-attributed-string id="attributed-snippet-text">復習用のPodcastでは、日本語で説明しています。</yt-attributed-string>
+                  </div>
+                </ytd-watch-metadata>
+                <ytd-comment-view-model>
+                  <yt-attributed-string id="content-text">先生いつもありがとうございました。</yt-attributed-string>
+                </ytd-comment-view-model>
+              </section>
+            </main>
+          </ytd-watch-flexy>
+        `);
+        const player = document.querySelector('#movie_player');
+        const video = document.querySelector('video');
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'duration', { configurable: true, value: 10 });
+        player.getVideoData = () => ({ video_id: 'feature123' });
+        player.getAudioTrack = () => ({ captionTracks: window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks });
+        player.getOption = () => window.ytInitialPlayerResponse.captions.playerCaptionsTracklistRenderer.captionTracks;
+        player.setOption = () => {};
+        player.loadModule = () => {};
+        window.dispatchEvent(new Event('yt-navigate-finish'));
+    }, { playerResponse: youtubePlayerResponse('feature123') });
+    await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 12000 });
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length >= 3, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
+        && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    const spaWatch = await readWatchState(page);
+    assert(spaWatch.rows >= 3, 'YouTube SPA navigation did not render transcript rows', spaWatch);
+    assert(spaWatch.parsedRowWords > 0, 'YouTube SPA navigation transcript rows were not parsed', spaWatch);
+    assert(spaWatch.descriptionWords > 0, 'YouTube SPA navigation watch text was not parsed', spaWatch);
+    return {
+        rows: spaWatch.rows,
+        parsedRowWords: spaWatch.parsedRowWords,
+        descriptionWords: spaWatch.descriptionWords,
+    };
+}
+
 async function runMobileHomeLoadingCheck(page) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(MOBILE_HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -712,9 +797,12 @@ async function runShortsWatchCheck(page) {
     await page.waitForTimeout(700);
 
     const shortsWatch = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
-    assert(shortsWatch.cards === 1, 'Shorts watch feed did not render the snap item', shortsWatch);
-    assert(shortsWatch.filtered === 0, 'Shorts watch feed was filtered, which would break snap scrolling', shortsWatch);
-    assert(shortsWatch.visible === 1, 'Shorts watch feed item is not visible', shortsWatch);
+    assert(shortsWatch.cards === 3, 'Shorts watch feed did not render the snap sequence', shortsWatch);
+    assert(includesText(shortsWatch.visibleCases.join(','), 'shorts-watch-current'), 'Shorts watch current snap item was hidden', shortsWatch);
+    assert(includesText(shortsWatch.hiddenCases.join(','), 'shorts-watch-next-en'), 'Shorts watch next English item was not hidden', shortsWatch);
+    assert(includesText(shortsWatch.visibleCases.join(','), 'shorts-watch-next-jp'), 'Shorts watch next Japanese item was not left available', shortsWatch);
+    assert(shortsWatch.visibleJapanese >= 1, 'Shorts watch feed did not leave a Japanese next item visible', shortsWatch);
+    assert(shortsWatch.visibleNonCurrentEnglish === 0, 'Shorts watch feed still shows a non-current English item', shortsWatch);
     return shortsWatch;
 }
 
@@ -745,7 +833,8 @@ async function waitForWatchFeatureReady(page) {
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length >= 3, null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
-        && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+        && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0
+        && document.querySelectorAll('yt-live-chat-text-message-renderer .jpdb-reader-word').length > 0, null, { timeout: 30000 });
 }
 
 async function readWatchState(page) {
@@ -770,6 +859,9 @@ function assertWatchTranscriptState(initial) {
 function assertWatchPageParsing(initial) {
     assert(initial.descriptionWords > 0, 'YouTube watch description was not parsed', initial);
     assert(initial.commentWords > 0, 'YouTube comment text was not parsed', initial);
+    assert(initial.commentMorePassive === true, 'YouTube comment UI control was not parsed passively', initial);
+    assert(initial.liveChatWords > 0, 'YouTube live chat text was not parsed', initial);
+    assert(initial.liveChatButtonPassive === true, 'YouTube live chat UI control was not parsed passively', initial);
 }
 
 function assertWatchTextExclusions(initial) {
@@ -927,11 +1019,12 @@ try {
     const page = await context.newPage();
     await installRoutes(page);
     const homepage = await runHomepageCheck(page);
+    const spaWatch = await runSpaWatchNavigationCheck(page);
     const watch = await runWatchCheck(page);
     const mobileHome = await runMobileHomeLoadingCheck(page);
     const shortsGallery = await runShortsGalleryCheck(page);
     const shortsWatch = await runShortsWatchCheck(page);
-    console.log(JSON.stringify({ homepage, watch, mobileHome, shortsGallery, shortsWatch }, null, 2));
+    console.log(JSON.stringify({ homepage, spaWatch, watch, mobileHome, shortsGallery, shortsWatch }, null, 2));
 } finally {
     await browser.close();
 }

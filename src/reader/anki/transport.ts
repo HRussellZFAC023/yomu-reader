@@ -8,7 +8,7 @@ interface UserscriptHttpResponse {
     response: unknown;
 }
 
-const ANKI_USERSCRIPT_BRIDGE_WAIT_MS = 1_500;
+const ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS = 1_500;
 
 export async function postAnkiJson<T>(url: string, body: string, timeoutMs: number): Promise<T> {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -16,7 +16,7 @@ export async function postAnkiJson<T>(url: string, body: string, timeoutMs: numb
 
     if (!canFetchAnkiConnect(url)) {
         const delayedUserscriptRequest = needsHostedAnkiConnectSetupHint(url)
-            ? await waitForUserscriptAnkiBridge(ANKI_USERSCRIPT_BRIDGE_WAIT_MS)
+            ? await waitForUserscriptAnkiBridge(hostedAnkiBridgeWaitMs(timeoutMs))
             : undefined;
         if (delayedUserscriptRequest) return await postAnkiJsonWithUserscript<T>(delayedUserscriptRequest, url, body, timeoutMs);
         return Promise.reject(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
@@ -96,6 +96,10 @@ function waitForUserscriptAnkiBridge(timeoutMs: number): Promise<UserscriptHttpR
         addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
         const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
     });
+}
+
+function hostedAnkiBridgeWaitMs(timeoutMs: number): number {
+    return Math.max(ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS, Math.max(0, timeoutMs));
 }
 
 function canFetchAnkiConnect(url: string): boolean {

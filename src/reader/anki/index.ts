@@ -2,7 +2,7 @@ import { runLimited } from '../core/async-utils';
 import { escapeHtml } from '../dom';
 import type { AnkiWordAudioMedia } from './audio';
 import { isAppleTouchBrowser } from '../browser-platform';
-import { ANKI_CARD_COLOR_TOKENS } from '../color-tokens';
+import { ANKI_CARD_COLOR_TOKENS } from '../theme/color-tokens';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../pos';
 import { resolveUiLanguage, uiText } from '../i18n';
 import { formatMetaFrequency, groupTermEntriesByDictionary } from '../local-dictionary-groups';
@@ -125,6 +125,7 @@ const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5_000;
 const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1_500;
 const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15_000;
 const ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS = 60_000;
+const ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS = 2_500;
 const ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT = 24;
 const ANKI_MODEL_SCAN_CONCURRENCY = 3;
 const ANKI_STATUS_INDEX_CARD_CHUNK_SIZE = 500;
@@ -202,6 +203,14 @@ interface PendingLookupBatches {
     inFlight: Array<[PendingAnkiLookupGroup, Promise<AnkiLookupResult>]>;
     uncached: PendingAnkiLookupGroup[];
     pendingByCacheKey: Map<string, PendingAnkiLookupGroup>;
+}
+
+interface CachedStatusLookupContext {
+    canTrustStatusMiss: boolean;
+    canUseStatusIndexHits: boolean;
+    hasActiveRebuildLease: boolean;
+    statusEntries: Map<string, AnkiStatusIndexEntry> | null;
+    statusIndex: AnkiStatusIndex | null;
 }
 
 interface StatusIndexRebuildContext {
@@ -289,7 +298,6 @@ export class AnkiConnectClient {
     }
 
     // Used by settings library scan through the Anki client dependency.
-    // fallow-ignore-next-line unused-class-member
     async scanLibrary(): Promise<AnkiLibraryScanResult> {
         const [deckNames, modelNames] = await Promise.all([
             this.deckNames().catch((): string[] => []),
@@ -339,23 +347,17 @@ export class AnkiConnectClient {
         const pending = this.collectPendingLookupGroups(cards, results, cacheKey => this.readStatusLookupCache(cacheKey));
         if (!pending.length) return results;
 
-        const statusIndex = await this.loadStatusIndex();
+        const context = await this.cachedStatusLookupContext(pending);
         if (this.isDestroyed) return cards.map(() => untrustedEmpty);
-        if (statusIndex) this.queueStatusIndexRefreshForLookup(statusIndex);
-        const statusEntries = await this.loadStatusEntriesForCards(statusIndex, pending.map(item => item.card));
-        if (this.isDestroyed) return results;
-        const canUseStatusIndexHits = Boolean(statusIndex && this.statusIndexHasEntries(statusIndex));
-        const hasActiveRebuildLease = Boolean(activeAnkiStatusIndexRebuildLease(statusIndex?.settingsKey));
-        const canTrustStatusMiss = statusIndex !== null
-            && canUseStatusIndexHits
-            && this.isStatusIndexFreshForMissTrust(statusIndex)
-            && !this.hasPendingStatusIndexRefresh()
-            && !this.statusIndexNeedsCountCheck(statusIndex)
-            && !this.statusIndexIsTooStale(statusIndex)
-            && !hasActiveRebuildLease
-            && this.hasStatusIndexMissCoverage(statusIndex, statusEntries);
-        const unresolved = this.applyCachedStatusLookupPlan(pending, results, statusIndex, statusEntries, canUseStatusIndexHits, canTrustStatusMiss, empty);
-        if (hasActiveRebuildLease) return results;
+        const unresolved = this.applyCachedStatusLookupPlan(
+            pending,
+            results,
+            context.statusIndex,
+            context.statusEntries,
+            context.canUseStatusIndexHits,
+            context.canTrustStatusMiss,
+            empty,
+        );
         await this.resolveUncachedStatusLookups(unresolved, results, empty);
         return results;
     }
@@ -370,6 +372,46 @@ export class AnkiConnectClient {
         if (!statusIndex || this.statusIndexNeedsCountCheck(statusIndex) || this.statusIndexIsTooStale(statusIndex)) {
             this.queueStatusIndexRefresh({ rebuildIfMissing: false });
         }
+    }
+
+    private async cachedStatusLookupContext(pending: PendingAnkiLookupGroup[]): Promise<CachedStatusLookupContext> {
+        const statusIndex = await this.loadStatusIndex();
+        if (statusIndex) this.queueStatusIndexRefreshForLookup(statusIndex);
+        const statusEntries = await this.loadStatusEntriesForCards(statusIndex, pending.map(item => item.card));
+        const canUseStatusIndexHits = this.canUseStatusIndexHits(statusIndex);
+        const hasActiveRebuildLease = this.hasActiveStatusIndexRebuildLease(statusIndex);
+        return {
+            statusIndex,
+            statusEntries,
+            canUseStatusIndexHits,
+            hasActiveRebuildLease,
+            canTrustStatusMiss: this.canTrustStatusIndexMiss(statusIndex, {
+                canUseStatusIndexHits,
+                hasActiveRebuildLease,
+                statusEntries,
+            }),
+        };
+    }
+
+    private canUseStatusIndexHits(statusIndex: AnkiStatusIndex | null): boolean {
+        return Boolean(statusIndex && this.statusIndexHasEntries(statusIndex));
+    }
+
+    private hasActiveStatusIndexRebuildLease(statusIndex: AnkiStatusIndex | null): boolean {
+        return Boolean(activeAnkiStatusIndexRebuildLease(statusIndex?.settingsKey));
+    }
+
+    private canTrustStatusIndexMiss(
+        statusIndex: AnkiStatusIndex | null,
+        context: Pick<CachedStatusLookupContext, 'canUseStatusIndexHits' | 'hasActiveRebuildLease' | 'statusEntries'>,
+    ): boolean {
+        if (!statusIndex) return false;
+        if (!context.canUseStatusIndexHits || context.hasActiveRebuildLease) return false;
+        if (!this.isStatusIndexFreshForMissTrust(statusIndex)) return false;
+        if (this.hasPendingStatusIndexRefresh()) return false;
+        if (this.statusIndexNeedsCountCheck(statusIndex)) return false;
+        if (this.statusIndexIsTooStale(statusIndex)) return false;
+        return this.hasStatusIndexMissCoverage(statusIndex, context.statusEntries);
     }
 
     private isStatusIndexFreshForMissTrust(statusIndex: AnkiStatusIndex): boolean {
@@ -805,7 +847,7 @@ export class AnkiConnectClient {
             });
         };
         if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
-            window.setTimeout(run, 0);
+            window.setTimeout(run, ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS);
         } else {
             void Promise.resolve().then(run);
         }
@@ -1396,7 +1438,6 @@ export class AnkiConnectClient {
     }
 
     // Used by card action controls to merge mining context into existing Anki notes.
-    // fallow-ignore-next-line unused-class-member
     async mergeYomuData(noteId: number, card: JPDBCard, sentence = '', options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode } = {}): Promise<AnkiMergeYomuResult> {
         const [note] = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [noteId] });
         if (!note) throw new Error(this.text('ankiNoteNotFound'));
@@ -1981,7 +2022,7 @@ function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture | null {
 function mergedYomuFields(fieldNames: string[], existingFields: Record<string, string>, yomuFields: Record<string, string>, canOwnYomuFields: boolean, mapping?: AnkiFieldMapping): Record<string, string> {
     const fields: Record<string, string> = {};
     for (const fieldName of fieldNames) {
-        const value = yomuValueForExistingField(fieldName, yomuFields, mapping);
+        const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
         if (!value) continue;
         if (!canOwnYomuFields && existingFields[fieldName]) continue;
         fields[fieldName] = value;
@@ -1989,10 +2030,12 @@ function mergedYomuFields(fieldNames: string[], existingFields: Record<string, s
     return fields;
 }
 
-function yomuValueForExistingField(fieldName: string, yomuFields: Record<string, string>, mapping?: AnkiFieldMapping): string {
+function yomuValueForExistingField(fieldName: string, yomuFields: Record<string, string>, mapping: AnkiFieldMapping | undefined, canOwnYomuFields: boolean): string {
     const mappedRole = mappedRoleForField(fieldName, mapping);
     if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? '';
-    return yomuFields[fieldName] ?? yomuFields[yomuFieldAlias(fieldName)] ?? '';
+    const alias = yomuFieldAlias(fieldName);
+    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? '';
+    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? '' : '');
 }
 
 function yomuFieldAlias(fieldName: string): string {
@@ -2000,9 +2043,9 @@ function yomuFieldAlias(fieldName: string): string {
 }
 
 const YOMU_FIELD_ALIASES: Record<string, string> = Object.fromEntries([
-    ...yomuAliasEntries('Expression', 'baseform|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|lemma|searchterm|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularyexpression|vocabularykanji|term|front'),
+    ...yomuAliasEntries('Expression', 'baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front'),
     ...yomuAliasEntries('Reading', 'expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi'),
-    ...yomuAliasEntries('Meaning', 'def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|jlabdictionarylookup|jlabremarks|jlabtranslation|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back'),
+    ...yomuAliasEntries('Meaning', 'def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back'),
     ...yomuAliasEntries('Sentence', 'example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext'),
     ...yomuAliasEntries('Url', 'sourceurl|url'),
     ...yomuAliasEntries('PartOfSpeech', 'pos|partofspeech'),

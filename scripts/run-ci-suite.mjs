@@ -88,30 +88,50 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
         context.timeout.unref?.();
         active.set(child, context);
         child.on('exit', code => {
-            clearTimeout(context.timeout);
-            clearTimeout(context.killTimer);
-            active.delete(child);
-            const status = context.timedOut ? 124 : code ?? 1;
-            const suffix = context.timedOut ? 'timed out' : code === 0 ? 'passed' : `failed with exit ${status}`;
-            console.log(`[ci-suite] Finished ${label} in ${formatDuration(Date.now() - startedAt)} (${suffix}).`);
-            if (status !== 0 && !failureStatus) {
-                failureStatus = status;
-                stopOtherActiveShards(active, child);
-            }
-            onDone();
+            failureStatus = handleShardExit({ active, child, code, context, failureStatus, onDone });
         });
         child.on('error', error => {
-            clearTimeout(context.timeout);
-            clearTimeout(context.killTimer);
-            active.delete(child);
-            console.error(error);
-            if (!failureStatus) {
-                failureStatus = 1;
-                stopOtherActiveShards(active, child);
-            }
-            onDone();
+            failureStatus = handleShardError({ active, child, error, context, failureStatus, onDone });
         });
     }
+}
+
+function handleShardExit({ active, child, code, context, failureStatus, onDone }) {
+    finishShard(active, child, context);
+    const status = shardExitStatus(code, context);
+    logShardExit(code, context, status);
+    const nextFailureStatus = shardFailureStatus(status, failureStatus, active, child);
+    onDone();
+    return nextFailureStatus;
+}
+
+function handleShardError({ active, child, error, context, failureStatus, onDone }) {
+    finishShard(active, child, context);
+    console.error(error);
+    const nextFailureStatus = shardFailureStatus(1, failureStatus, active, child);
+    onDone();
+    return nextFailureStatus;
+}
+
+function finishShard(active, child, context) {
+    clearTimeout(context.timeout);
+    clearTimeout(context.killTimer);
+    active.delete(child);
+}
+
+function shardExitStatus(code, context) {
+    return context.timedOut ? 124 : code ?? 1;
+}
+
+function logShardExit(code, context, status) {
+    const suffix = context.timedOut ? 'timed out' : code === 0 ? 'passed' : `failed with exit ${status}`;
+    console.log(`[ci-suite] Finished ${context.label} in ${formatDuration(Date.now() - context.startedAt)} (${suffix}).`);
+}
+
+function shardFailureStatus(status, failureStatus, active, child) {
+    if (status === 0 || failureStatus) return failureStatus;
+    stopOtherActiveShards(active, child);
+    return status;
 }
 
 function stopOtherActiveShards(active, failedChild) {

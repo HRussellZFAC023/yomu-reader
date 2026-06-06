@@ -23,6 +23,7 @@ interface HoverLookupInternals {
     handleHoverPointerOut(event: PointerEvent): void;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
+    dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
@@ -207,6 +208,104 @@ describe('hover lookup', () => {
             );
 
             expectNoHoverLookup(hoverLookup);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('dismisses a modal popover on outside pointerdown', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.textContent = '辞書';
+        const outside = document.createElement('button');
+        outside.textContent = 'outside';
+        document.body.append(popover, outside);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(outside, 'mouse', 'pointerdown'));
+
+            expect(popover.isConnected).toBe(false);
+            expect(internals.activePopover).toBeUndefined();
+            expect(internals.activePopoverMode).toBeUndefined();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps a modal popover when outside pointerdown lands in an owned reader overlay', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.textContent = '辞書';
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-ocr-layer';
+        overlay.dataset.jpdbReaderRoot = 'true';
+        overlay.textContent = 'overlay';
+        document.body.append(popover, overlay);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(overlay, 'mouse', 'pointerdown'));
+
+            expect(popover.isConnected).toBe(true);
+            expect(internals.activePopover).toBe(popover);
+            expect(internals.activePopoverMode).toBe('modal');
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('still dismisses a modal popover when outside pointerdown lands on its backdrop', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const backdrop = document.createElement('div');
+        backdrop.className = 'jpdb-reader-backdrop';
+        backdrop.dataset.jpdbReaderRoot = 'true';
+        document.body.append(popover, backdrop);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(backdrop, 'mouse', 'pointerdown'));
+
+            expect(popover.isConnected).toBe(false);
+            expect(backdrop.isConnected).toBe(false);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps a modal popover when outside pointerdown lands on a review control', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const form = document.createElement('form');
+        form.setAttribute('action', '/review');
+        const review = document.createElement('button');
+        review.textContent = 'Good';
+        form.append(review);
+        document.body.append(popover, form);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(review, 'mouse', 'pointerdown'));
+
+            expect(popover.isConnected).toBe(true);
+            expect(internals.activePopover).toBe(popover);
         } finally {
             cleanupReaderApp(app);
         }

@@ -47,10 +47,24 @@ function userscriptMetadataValues(code, key) {
   return Array.from(code.matchAll(pattern), match => match[1].trim());
 }
 
+function allowedRequireUrls() {
+  const packageAllowlist = pkg.yomu?.allowedRequireUrls;
+  const envAllowlist = process.env.YOMU_ALLOWED_USERSCRIPT_REQUIRE_URLS;
+  return [
+    ...(Array.isArray(packageAllowlist) ? packageAllowlist : []),
+    ...(envAllowlist ? envAllowlist.split(',') : []),
+  ].map(url => String(url).trim()).filter(Boolean);
+}
+
+function isAllowedRequireUrl(url) {
+  return allowedRequireUrls().includes(url);
+}
+
 function assertNoRemoteExecutableMetadata(code) {
   const requireUrls = userscriptMetadataValues(code, 'require');
-  if (requireUrls.length) {
-    fail(`userscript must not download remote executed code with @require; found: ${requireUrls.join(', ')}`);
+  const disallowedRequireUrls = requireUrls.filter(url => !isAllowedRequireUrl(url));
+  if (disallowedRequireUrls.length) {
+    fail(`userscript must not download unapproved remote executed code with @require; found: ${disallowedRequireUrls.join(', ')}. Add first-party Greasy Fork library URLs to package.json yomu.allowedRequireUrls only after review.`);
   }
 }
 
@@ -70,7 +84,7 @@ function assertNoRemoteExecutableLoaders(code) {
 
 function failIfGreasyForkSizeExceeded(size) {
   if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {
-    fail(`${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes).`);
+    fail(`${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes). Run npm run size:greasyfork-plan to refresh the policy-safe companion-script extraction budget.`);
   }
 }
 
@@ -98,6 +112,7 @@ module.exports = {
   DIST_READER_CSS_PATH,
   DIST_USERSCRIPT_PATH,
   DOCS_USERSCRIPT_PATH,
+  GREASY_FORK_SIZE_LIMIT_BYTES,
   READER_CSS_RELATIVE_PATH,
   ROOT,
   USERSCRIPT_METADATA_END,

@@ -2,10 +2,10 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { createYomuPaths } from './paths.mjs';
 import { assert, launchSmokeBrowser } from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
+const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
 
 mkdirSync(ARTIFACTS, { recursive: true });

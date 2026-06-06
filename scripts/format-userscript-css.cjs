@@ -7,6 +7,18 @@ const {
 } = require('./userscript-build-utils.cjs');
 
 const code = readBuiltUserscript();
+const SIMPLE_ESCAPES = {
+  "'": "'",
+  '"': '"',
+  '\\': '\\',
+  b: '\b',
+  f: '\f',
+  n: '\n',
+  r: '\r',
+  t: '\t',
+  v: '\v',
+  0: '\0',
+};
 
 let replacements = 0;
 const formatted = code.replace(/\bconst\s+([A-Za-z_$][\w$]*Css)\s*=\s*('(?:\\.|[^'\\])*');/g, (match, name, literal) => {
@@ -33,66 +45,75 @@ function escapeTemplateLiteral(value) {
 }
 
 function parseSingleQuotedStringLiteral(literal) {
-  if (!literal.startsWith("'") || !literal.endsWith("'")) return null;
+  if (!isSingleQuotedStringLiteral(literal)) return null;
   let value = '';
-  for (let index = 1; index < literal.length - 1; index += 1) {
-    const char = literal[index];
-    if (char !== '\\') {
-      value += char;
-      continue;
-    }
-
-    index += 1;
-    if (index >= literal.length - 1) return null;
-    const escaped = literal[index];
-    if (escaped === '\n') continue;
-    if (escaped === '\r') {
-      if (literal[index + 1] === '\n') index += 1;
-      continue;
-    }
-    const decoded = decodeStringEscape(literal, index);
+  let index = 1;
+  const end = literal.length - 1;
+  while (index < end) {
+    const decoded = readStringLiteralChar(literal, index, end);
     if (!decoded) return null;
     value += decoded.value;
-    index = decoded.index;
+    index = decoded.nextIndex;
   }
   return value;
 }
 
+function isSingleQuotedStringLiteral(literal) {
+  return literal.startsWith("'") && literal.endsWith("'");
+}
+
+function readStringLiteralChar(literal, index, end) {
+  if (literal[index] !== '\\') return { value: literal[index], nextIndex: index + 1 };
+  return readEscapedStringLiteralChar(literal, index + 1, end);
+}
+
+function readEscapedStringLiteralChar(literal, index, end) {
+  if (index >= end) return null;
+  const lineContinuation = readLineContinuation(literal, index);
+  if (lineContinuation) return lineContinuation;
+  const decoded = decodeStringEscape(literal, index);
+  return decoded ? { value: decoded.value, nextIndex: decoded.index + 1 } : null;
+}
+
+function readLineContinuation(literal, index) {
+  if (literal[index] === '\n') return { value: '', nextIndex: index + 1 };
+  if (literal[index] === '\r') return { value: '', nextIndex: literal[index + 1] === '\n' ? index + 2 : index + 1 };
+  return null;
+}
+
 function decodeStringEscape(literal, index) {
   const escaped = literal[index];
-  const simpleEscapes = {
-    "'": "'",
-    '"': '"',
-    '\\': '\\',
-    b: '\b',
-    f: '\f',
-    n: '\n',
-    r: '\r',
-    t: '\t',
-    v: '\v',
-    0: '\0',
-  };
-  if (Object.prototype.hasOwnProperty.call(simpleEscapes, escaped)) {
-    return { value: simpleEscapes[escaped], index };
-  }
-  if (escaped === 'x') {
-    const hex = literal.slice(index + 1, index + 3);
-    if (!/^[0-9a-fA-F]{2}$/.test(hex)) return null;
-    return { value: String.fromCharCode(Number.parseInt(hex, 16)), index: index + 2 };
-  }
+  if (Object.prototype.hasOwnProperty.call(SIMPLE_ESCAPES, escaped)) return { value: SIMPLE_ESCAPES[escaped], index };
+  if (escaped === 'x') return decodeHexEscape(literal, index);
   if (escaped === 'u') return decodeUnicodeEscape(literal, index);
   return { value: escaped, index };
 }
 
+function decodeHexEscape(literal, index) {
+  const hex = literal.slice(index + 1, index + 3);
+  if (!isFixedHex(hex, 2)) return null;
+  return { value: String.fromCharCode(Number.parseInt(hex, 16)), index: index + 2 };
+}
+
 function decodeUnicodeEscape(literal, index) {
-  if (literal[index + 1] === '{') {
-    const end = literal.indexOf('}', index + 2);
-    if (end === -1) return null;
-    const codePoint = literal.slice(index + 2, end);
-    if (!/^[0-9a-fA-F]+$/.test(codePoint)) return null;
-    return { value: String.fromCodePoint(Number.parseInt(codePoint, 16)), index: end };
-  }
+  if (literal[index + 1] === '{') return decodeCodePointEscape(literal, index);
   const hex = literal.slice(index + 1, index + 5);
-  if (!/^[0-9a-fA-F]{4}$/.test(hex)) return null;
+  if (!isFixedHex(hex, 4)) return null;
   return { value: String.fromCharCode(Number.parseInt(hex, 16)), index: index + 4 };
+}
+
+function decodeCodePointEscape(literal, index) {
+  const end = literal.indexOf('}', index + 2);
+  if (end === -1) return null;
+  const codePoint = literal.slice(index + 2, end);
+  if (!isHex(codePoint)) return null;
+  return { value: String.fromCodePoint(Number.parseInt(codePoint, 16)), index: end };
+}
+
+function isFixedHex(value, length) {
+  return value.length === length && isHex(value);
+}
+
+function isHex(value) {
+  return /^[0-9a-fA-F]+$/.test(value);
 }

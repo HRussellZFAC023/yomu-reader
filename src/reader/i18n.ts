@@ -57,20 +57,17 @@ const COPY = {
         anki: 'Anki',
         jpdb: 'JPDB',
         api: 'API',
+        apiCredential: 'API key',
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Add a JPDB API key or a Jiten API key. JPDB-backed cards use the JPDB key; Jiten-backed cards use the Jiten key.',
+        apiAccessHelp: 'Paste one JPDB or Jiten API key. Jiten keys start with ak_.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
-        jpdbApiKeyConfigured: 'JPDB key set. Reviews: {reviews}. Deck changes: {deckSync}.',
-        jpdbApiKeyMissing: 'No JPDB key. Public lookup works; reviews and deck changes do not.',
-        jitenApiKeyConfigured: 'Jiten key configured. Check the connection before using Jiten Reader API workflows.',
-        jitenApiKeyMissing: 'Add a Jiten API key to use Jiten Reader API workflows.',
-        checkJitenApi: 'Check Jiten connection',
-        jitenCheckingConnection: 'Checking Jiten connection...',
-        jitenConnectionReady: 'Connected. Jiten Reader API is reachable.',
-        jitenConnectionFailed: 'Jiten connection failed.',
+        jpdbApiKeyConfigured: 'JPDB key set.',
+        jpdbApiKeyMissing: 'No JPDB key.',
+        jitenApiKeyConfigured: 'Jiten key set.',
+        jitenApiKeyMissing: 'No Jiten key.',
         statusEnabled: 'enabled',
         statusDisabled: 'disabled',
         statusReady: 'Ready',
@@ -85,7 +82,7 @@ const COPY = {
         jpdbPageEnhancementsEnabled: 'Enhance JPDB pages',
         jpdbPageWordEnhancementsEnabled: 'Add sources to JPDB word/search pages',
         jpdbPageKanjiEnhancementsEnabled: 'Add sources to JPDB kanji pages',
-        jpdbPageEnhancementsHelp: 'Uses your Dictionaries and Kanji source order.',
+        jpdbPageEnhancementsHelp: 'Uses your source order.',
         fivePoint: 'Five point: NOTHING to EASY',
         twoPoint: 'Two point: FAIL / PASS',
         settingsLanguage: 'Settings language',
@@ -120,18 +117,18 @@ const COPY = {
         popupFontWeight: 'Popup Japanese weight',
         enableLogging: 'Enable diagnostic logging',
         diagnostics: 'Diagnostics',
-        diagnosticsHelp: 'Troubleshooting only. Prints diagnostics to the console.',
+        diagnosticsHelp: 'Print diagnostics to the console.',
         accentColor: 'Accent color',
         newTab: 'New tab',
         newTabEnabled: 'Enable Yomu new tab study page',
         newTabAnkiEnabled: 'Enable Anki cards on new tab',
         newTabAnkiReviewDecks: 'Anki review decks',
-        newTabAnkiReviewDecksHelp: 'New decks are included automatically. Uncheck decks to skip.',
+        newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'New tab review source',
         newTabAuto: 'Auto: API/Anki, then study words',
         newTabApiSrs: 'API SRS (JPDB / Jiten)',
         dictionaryFallback: 'Dictionary fallback',
-        newTabJpdbReviewMode: 'JPDB review mode',
+        newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
         newTabLiveReview: 'Live JPDB review session',
         newTabApiVocabulary: 'API vocabulary only',
@@ -147,7 +144,7 @@ const COPY = {
         newTabOfflineEnabled: 'Cache new tab for offline use',
         newTabOfflineLimit: 'Offline review cache limit',
         newTabUrl: 'New tab address',
-        newTabOfflineHelp: 'New-tab/iPad use. Caches online; queues grades offline.',
+        newTabOfflineHelp: 'Saves recent reviews for offline study.',
         newTabJpdbDeck: 'New tab JPDB deck',
         openNewTabPage: 'Open new tab page',
         copyAddress: 'Copy address',
@@ -176,7 +173,7 @@ const COPY = {
         colorSourceJpdb: 'JPDB status',
         colorSourceAnki: 'Anki status',
         colorSourcePitch: 'Pitch accent',
-        colorChannelsHelp: 'Choose which status colors drive each channel.',
+        colorChannelsHelp: 'Choose each color source.',
         interfaceHelp: '',
         parseSelection: 'Look up selected text',
         lookupOnClick: 'Look up on tap or click',
@@ -191,7 +188,7 @@ const COPY = {
         furiganaAllParsed: 'All parsed words',
         showPitchAccent: 'Show pitch accent',
         hideKnownFurigana: 'Hide furigana for known cards only',
-        readerHelp: 'Set hover keys. Leave blank for plain hover; middle-hold scans.',
+        readerHelp: 'Set a hover key. Blank means plain hover.',
         hoverLookupSettings: 'Hover lookup',
         kanjiOriginKanjiMapEnabled: 'Show kanji facts and component graph',
         kanjiOriginGraphEnabled: 'Show component graph',
@@ -200,7 +197,7 @@ const COPY = {
         loadingSimilarWords: 'Loading words...',
         openToLoadSimilarWords: 'Open to load words.',
         noSimilarWords: 'No additional words found.',
-        kanjiHelp: 'Click popup kanji for details. Toggle and reorder kanji sources here.',
+        kanjiHelp: 'Click popup kanji for details.',
         audioEnabled: 'Enable term audio',
         autoPlayAudio: 'Auto-play term audio',
         suppressAutoAudioOnVideo: 'Disable lookup audio auto-play on video pages',
@@ -216,7 +213,7 @@ const COPY = {
         audioTtsSourceOrder: 'Follow source order / shuffle',
         audioTimeoutMs: 'Audio timeout (ms)',
         previewAudio: 'Preview audio',
-        audioHelp: 'Tokens: {term}, {reading}, {language}. See the Yomitan audio guide.',
+        audioHelp: 'URL tokens: {term}, {reading}, {language}.',
         audioSource: 'Audio source',
         urlVoice: 'URL / voice',
         addAudioSource: 'Add audio source',
@@ -371,10 +368,11 @@ const COPY = {
         subtitleFontWeight: 'Subtitle font weight',
         subtitleSeekPadding: 'Subtitle seek padding (s)',
         subtitlePreview: 'Live subtitle preview',
-        youtubeImmersionEnabled: 'Only show Japanese YouTube videos',
+        youtubeImmersionEnabled: 'Japanese YouTube only',
         preferJapaneseSiteLanguage: 'Prefer Japanese site language and location',
-        youtubeShowFilterNotice: 'Show a temporary hidden-video notice',
-        youtubeHelp: 'Requests Japanese UI and Japan-local content where possible.',
+        youtubeShowChannelRecommendations: 'Show Japanese channel suggestions',
+        youtubeShowFilterNotice: 'Show hidden-video notice',
+        youtubeHelp: 'Prefer Japanese UI and Japan-local content.',
         youtubeFilterOn: 'YouTube filter on',
         youtubeFilterOff: 'YouTube filter off',
         youtubeShowHiddenVideos: 'Show hidden videos',
@@ -462,7 +460,7 @@ const COPY = {
         exportDictionaries: 'Export dictionaries',
         dictionaryImportHelp: 'Import Yomitan settings, ZIPs, or backups.',
         lookupPills: 'Lookup pills',
-        lookupPillsHelp: 'External dictionary links. Use {query}, {word}, {reading}.',
+        lookupPillsHelp: 'External links. Tokens: {query}, {word}, {reading}.',
         copiesCurrentWord: 'Copies the current word',
         lookupPillLabel: 'Lookup pill label',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -764,9 +762,9 @@ const COPY = {
         koohiiStories: 'Koohii stories',
         add: 'Add',
         addToMining: 'Add to deck',
-        addToMiningHint: 'Add this card to your selected JPDB deck.',
+        addToMiningHint: 'Add to selected API SRS deck.',
         addToDeck: 'Add to deck',
-        addToDeckHint: 'Add this card to the selected JPDB deck without grading it.',
+        addToDeckHint: 'Add without grading.',
         deck: 'Deck',
         deckActions: 'Deck actions',
         reviewAddsToDeck: 'Reviewing will add new words to',
@@ -795,7 +793,7 @@ const COPY = {
         ankiNewCard: 'New card',
         ankiMatches: 'Anki matches',
         gradeAnkiCardTarget: 'Grades Anki card: {target}',
-        gradeJpdbCardTarget: 'Grades JPDB card',
+        gradeJpdbCardTarget: 'Grades API SRS card',
         ankiMergeNeedsDesktop: 'Merging existing Anki notes needs AnkiConnect on desktop.',
         ankiNoteNotFound: 'Anki note not found.',
         mergeYomu: 'Merge Yomu',
@@ -1164,7 +1162,7 @@ stateRedundant	重複
 stateInDeck	デッキ内
 stateNotInDeck	デッキ外
 gradeAnkiCardTarget	Ankiカードを採点: {target}
-gradeJpdbCardTarget	JPDBカードを採点
+gradeJpdbCardTarget	API SRSカードを採点
 ankiReviewSingular	回復習
 ankiReviewPlural	回復習
 ankiLapseSingular	回失敗
@@ -1329,7 +1327,7 @@ heisigComment	Heisigコメント
 koohiiStories	Koohiiストーリー
 add	追加
 addToDeck	デッキに追加
-addToDeckHint	選択したJPDBデッキにこのカードを追加します。
+addToDeckHint	採点せずに追加します。
 deck	デッキ
 deckActions	デッキ操作
 reviewAddsToDeck	レビューすると新しい単語を追加します:
@@ -1487,20 +1485,17 @@ youTube	YouTube
 anki	Anki
 jpdb	JPDB
 api	API
+apiCredential	APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JPDBまたはJiten APIキーを追加できます。JPDB由来のカードにはJPDBキー、Jiten由来のカードにはJitenキーを使います。
+apiAccessHelp	JPDBまたはJiten APIキーを1つ貼り付けます。Jitenキーはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
-jpdbApiKeyConfigured	JPDBキーあり。復習: {reviews}。デッキ変更: {deckSync}。
-jpdbApiKeyMissing	JPDBキーなし。公開検索のみ使えます。
-jitenApiKeyConfigured	Jitenキーあり。Jiten Reader APIワークフローを使う前に接続を確認してください。
-jitenApiKeyMissing	Jiten Reader APIワークフローを使うにはJiten APIキーを追加してください。
-checkJitenApi	Jiten接続を確認
-jitenCheckingConnection	Jiten接続を確認中...
-jitenConnectionReady	接続しました。Jiten Reader APIに到達できます。
-jitenConnectionFailed	Jiten接続に失敗しました。
+jpdbApiKeyConfigured	JPDBキーあり。
+jpdbApiKeyMissing	JPDBキーなし。
+jitenApiKeyConfigured	Jitenキーあり。
+jitenApiKeyMissing	Jitenキーなし。
 statusEnabled	有効
 statusDisabled	無効
 statusReady	準備完了
@@ -1515,7 +1510,7 @@ jpdbPageEnhancements	JPDBページ拡張
 jpdbPageEnhancementsEnabled	JPDBページを拡張
 jpdbPageWordEnhancementsEnabled	JPDBの単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	JPDBの漢字ページにソースを追加
-jpdbPageEnhancementsHelp	辞書と漢字パネルのソース順を使います。
+jpdbPageEnhancementsHelp	ソース順を使います。
 fivePoint	5段階: 全く覚えていないから簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -1545,18 +1540,18 @@ customFontFamily	カスタムフォントスタック
 popupFontWeight	ポップアップの日本語の太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
-diagnosticsHelp	診断情報をブラウザコンソールへ出力します。
+diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	新規タブ
 newTabEnabled	よむの新規タブ学習ページを有効にする
 newTabAnkiEnabled	新規タブのAnkiカードを有効にする
 newTabAnkiReviewDecks	Anki復習デッキ
-newTabAnkiReviewDecksHelp	新しいデッキは自動対象です。不要なものだけ外します。
+newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
 newTabSource	新規タブの復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
 newTabApiSrs	API SRS（JPDB / Jiten）
 dictionaryFallback	辞書フォールバック
-newTabJpdbReviewMode	JPDB復習モード
+newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
 newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ
@@ -1572,7 +1567,7 @@ newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	新規タブをオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabUrl	新規タブのアドレス
-newTabOfflineHelp	新規タブ/iPad用。オンライン更新、オフライン採点を同期。
+newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	新規タブのJPDBデッキ
 openNewTabPage	新規タブページを開く
 copyAddress	アドレスをコピー
@@ -1601,7 +1596,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
-colorChannelsHelp	各表示に使う状態色を選びます。
+colorChannelsHelp	各色のソースを選びます。
 interfaceHelp	インターフェイス設定です。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
@@ -1616,13 +1611,13 @@ furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 hideKnownFurigana	既知カードのみふりがなを非表示
-readerHelp	ホバー用キーを設定。空欄なら通常ホバーです。
+readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	ポップアップ内の漢字で詳細表示。ソースも並べ替えます。
+kanjiHelp	ポップアップ内の漢字で詳細表示。
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生する
 suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
@@ -1638,7 +1633,7 @@ audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
 audioTimeoutMs	音声タイムアウト (ms)
 previewAudio	音声を試聴
-audioHelp	{term}、{reading}、{language}が使えます。詳しくはYomitan音声ガイドへ。
+audioHelp	URLトークン: {term}、{reading}、{language}。
 audioSource	音声ソース
 urlVoice	URL / 音声
 addAudioSource	音声ソースを追加
@@ -1770,10 +1765,11 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
-youtubeImmersionEnabled	日本語のYouTube動画だけ表示
+youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
-youtubeShowFilterNotice	非表示動画の通知を一時的に出す
-youtubeHelp	可能な範囲で日本語UIと日本向け内容を要求します。
+youtubeShowChannelRecommendations	日本語チャンネル候補を表示
+youtubeShowFilterNotice	非表示動画の通知を表示
+youtubeHelp	日本語UIと日本向け内容を優先します。
 youtubeFilterOn	YouTubeフィルター: オン
 youtubeFilterOff	YouTubeフィルター: オフ
 youtubeShowHiddenVideos	非表示動画を表示
@@ -1858,7 +1854,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部辞書リンクです。{query}、{word}、{reading}が使えます。
+lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -1926,7 +1922,7 @@ donate	寄付
 discord	Discord
 documentation	ドキュメント
 addToMining	デッキに追加
-addToMiningHint	このカードを選択中のJPDBデッキに追加します。
+addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
 displayName	表示名

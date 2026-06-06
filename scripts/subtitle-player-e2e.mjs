@@ -3,11 +3,13 @@ import http from 'node:http';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './smoke-harness.mjs';
+import { createYomuPaths } from './paths.mjs';
 import { dragTranscriptResizeHandle, panelSizeDelta } from './subtitle-layout-test-utils.mjs';
 
+const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
 const readerCssPath = resolve(process.env.YOMU_E2E_READER_CSS ?? 'dist/yomu.css');
-const artifactsDir = resolve(process.env.YOMU_E2E_ARTIFACTS ?? 'qa-artifacts/subtitle-e2e/latest');
+const artifactsDir = resolve(process.env.YOMU_E2E_ARTIFACTS ?? join(qaArtifactsRoot, 'subtitle-e2e/latest'));
 const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s';
 const fixtureVideoUrl = process.env.YOMU_E2E_VIDEO_URL ?? '';
 const useYouTubeFixture = process.env.YOMU_E2E_YOUTUBE_FIXTURE === '1';

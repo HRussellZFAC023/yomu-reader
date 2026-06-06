@@ -54,7 +54,7 @@ import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMa
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/source-sections';
 import { StudySourceController } from '../../src/reader/study-sources';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../src/reader/study-tools';
-import { loadReaderCssFallback, READER_CSS, readerCssFallbackUrls, readerCssNeedsFallback } from '../../src/reader/styles';
+import { READER_CSS, readerCssNeedsFallback } from '../../src/reader/styles';
 import { findActiveSubtitleCue, normalizeSubtitleCues, parseSubtitleText } from '../../src/reader/subtitles/subtitle-cues';
 import { computeSubtitleDrawerLayout } from '../../src/reader/subtitles/subtitle-layout';
 import { collectPageSubtitleSources } from '../../src/reader/subtitles/subtitle-sources';
@@ -106,6 +106,16 @@ function jitenTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
+function readingTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    return {
+        ...card,
+        spelling: '読む',
+        reading: 'よむ',
+        meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+        ...overrides,
+    };
+}
+
 afterEach(() => {
     uninstallUserscriptHttpBridge();
 });
@@ -130,7 +140,49 @@ type TestAnkiConnectResponse = { status: number; response: { result: unknown; er
 type TestAnkiConnectResult = unknown | Promise<unknown>;
 type TestAnkiConnectMultiAction = { action: string; params: { query: string } };
 type TestAnkiQueryRoute = { matches: string[]; result: unknown };
+type LargeAnkiStatusIndexFixture = {
+    allIds: number[];
+    cardInfoBatchSizes: number[];
+    noteInfoBatchSizes: number[];
+    targetCardId: number;
+};
+type TestLocationStub = { href: string; origin: string; hostname: string };
+type TestPointerTextCandidate = { text: string; offset: number; start: number; end: number; anchor: HTMLElement };
+type TestPointerTextTrigger = 'modal' | 'hover';
+type TestPointerTextOptions = { userGesture?: boolean };
+type TestPointerParserStub = {
+    parse?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
+    fallbackCardFromText?: (text: string) => JPDBCard;
+    isJpdbBackedCard?: (card: JPDBCard) => boolean;
+};
+type TestPointerTextInternals = {
+    settings: ReaderSettings;
+    parser: TestPointerParserStub;
+    parseJapanese?: (paragraphs: string[], options?: unknown) => Promise<JPDBToken[][]>;
+    dictionaries?: { lookup: (text: string, reading: string, limit: number, preferences?: unknown) => Promise<YomitanTermEntry[]> };
+    showLocalPointerTextCandidate?: (
+        candidate: TestPointerTextCandidate,
+        sentence: string,
+        trigger: TestPointerTextTrigger,
+        options: TestPointerTextOptions,
+    ) => Promise<boolean>;
+    showPointerTextCard: (
+        lookupCard: JPDBCard,
+        sentence: string,
+        candidate: TestPointerTextCandidate,
+        range: { start: number; end: number },
+        trigger: TestPointerTextTrigger,
+        options: TestPointerTextOptions,
+    ) => Promise<void>;
+    showFirstPointerTextCandidate(
+        candidate: TestPointerTextCandidate,
+        sentence: string,
+        trigger: TestPointerTextTrigger,
+        options: TestPointerTextOptions,
+    ): Promise<void>;
+};
 type KanjiGraphPoint = { x: number; y: number };
+type KanjiGraphGeometry = KanjiGraphPoint & { rx: number; ry: number };
 type JpdbVocabularyPair = [number, number];
 type JpdbDeckRequestBody = { id?: unknown; list?: JpdbVocabularyPair[] };
 type TestCardRenderDataLoaderOptions = {
@@ -156,6 +208,10 @@ type TestImmersionPopoverInternals = {
 
 const JPDB_DECK_LIST_VOCABULARY_API = 'https://jpdb.io/api/v1/deck/list-vocabulary';
 const JPDB_LOOKUP_VOCABULARY_API = 'https://jpdb.io/api/v1/lookup-vocabulary';
+const TEST_IOS_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const TEST_IPAD_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const TEST_IPADOS_DESKTOP_SAFARI_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+const TEST_ANDROID_CHROME_USER_AGENT = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
 
 function createStackedReaderSettingsFixture(app: ReaderApp) {
     const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
@@ -301,6 +357,20 @@ function createKanjiLocalParserFixture(options: {
     };
 }
 
+async function expectKanjiLocalFallbackAfterTimeout(
+    parser: ReaderParser,
+    findTermMatches: ReturnType<typeof vi.fn>,
+    options: Parameters<ReaderParser['parse']>[1],
+    timeoutMs: number,
+): Promise<void> {
+    const parsed = parser.parse(['漢字を書く'], options);
+    await vi.advanceTimersByTimeAsync(timeoutMs);
+    const [tokens] = await parsed;
+
+    expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
+    expect(tokens[0].card.spelling).toBe('漢字');
+}
+
 function emptyCardRenderData(overrides: Partial<CardRenderData & { loading: boolean }> = {}): CardRenderData & { loading: boolean } {
     return {
         localEntries: [],
@@ -311,6 +381,37 @@ function emptyCardRenderData(overrides: Partial<CardRenderData & { loading: bool
         ankiDecks: [],
         jpdbVocabularyInfo: null,
         loading: false,
+        ...overrides,
+    };
+}
+
+function testAnkiExistingNote(overrides: Partial<AnkiExistingNote> = {}): AnkiExistingNote {
+    const cardId = overrides.primaryCardId ?? overrides.cardIds?.[0] ?? 777;
+    return {
+        noteId: 55,
+        primaryCardId: cardId,
+        cardIds: [cardId],
+        state: 'known',
+        deckNames: ['Anime::Mining'],
+        modelName: 'Imported Core',
+        fields: { Word: '動画' },
+        tags: [],
+        reps: 8,
+        lapses: 1,
+        ...overrides,
+    };
+}
+
+function testAnkiLookup(overrides: Partial<AnkiLookupResult> = {}): AnkiLookupResult {
+    const primary = overrides.primary === undefined
+        ? (overrides.state === 'not-in-deck'
+            ? null
+            : testAnkiExistingNote(overrides.state === undefined ? {} : { state: overrides.state }))
+        : overrides.primary;
+    return {
+        state: primary?.state ?? 'not-in-deck',
+        notes: primary ? [primary] : [],
+        primary,
         ...overrides,
     };
 }
@@ -732,6 +833,21 @@ function mockElementBoundingClientRect(rect: TestDomRectInit = {}) {
     return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(testDomRect(rect));
 }
 
+function stubInstantIntersectionObserver(): void {
+    vi.stubGlobal('IntersectionObserver', class {
+        constructor(private readonly callback: IntersectionObserverCallback) {}
+        observe(target: Element): void {
+            this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+        }
+        unobserve(): void {}
+        disconnect(): void {}
+        takeRecords(): IntersectionObserverEntry[] { return []; }
+        root = null;
+        rootMargin = '0px';
+        thresholds = [0];
+    });
+}
+
 const YOUTUBE_WATCH_TEST_URL = 'https://www.youtube.com/watch?v=TAorfFcb8_g';
 
 function collectYouTubeTargets(html: string, url: string, limit: number | undefined) {
@@ -809,6 +925,222 @@ function testAnkiQueryRouteResult(request: TestAnkiConnectRequest, routes: Map<s
     if (!route) return undefined;
     const query = String(request.params.query ?? '');
     return route.matches.some(match => query === match || query.includes(match)) ? route.result : [];
+}
+
+function largeAnkiStatusIndexResult(fixture: LargeAnkiStatusIndexFixture): (request: TestAnkiConnectRequest) => unknown {
+    const handlers: Record<string, (request: TestAnkiConnectRequest) => unknown> = {
+        findCards: request => largeAnkiStatusIndexFindCards(request, fixture),
+        findNotes: () => fixture.allIds,
+        cardsInfo: request => largeAnkiStatusIndexCardsInfo(request, fixture),
+        notesInfo: request => largeAnkiStatusIndexNotesInfo(request, fixture),
+    };
+    return request => handlers[request.action]?.(request) ?? [];
+}
+
+function largeAnkiStatusIndexFindCards(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): number[] {
+    const query = String(request.params.query ?? '');
+    if (query === 'deck:*') return fixture.allIds;
+    return query.includes('is:due') ? [fixture.targetCardId] : [];
+}
+
+function largeAnkiStatusIndexCardsInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
+    const cards = requestNumberArray(request.params.cards);
+    fixture.cardInfoBatchSizes.push(cards.length);
+    return cards.map(cardId => ({
+        cardId,
+        note: cardId,
+        deckName: 'Imported Core',
+        queue: cardId === fixture.targetCardId ? 2 : 0,
+        type: cardId === fixture.targetCardId ? 2 : 0,
+        reps: 0,
+        lapses: 0,
+    }));
+}
+
+function largeAnkiStatusIndexNotesInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
+    const notes = requestNumberArray(request.params.notes);
+    fixture.noteInfoBatchSizes.push(notes.length);
+    return notes.map(noteId => ({
+        noteId,
+        modelName: 'Imported Core',
+        tags: [],
+        fields: {
+            Word: { value: `語${noteId}` },
+        },
+        cards: [noteId],
+    }));
+}
+
+function requestNumberArray(value: unknown): number[] {
+    return Array.isArray(value) ? value.map(Number) : [];
+}
+
+function testLocationStub(href: string): TestLocationStub {
+    const url = new URL(href);
+    return { href, origin: url.origin, hostname: url.hostname };
+}
+
+function hostedNewTabLocationStub(): TestLocationStub {
+    return testLocationStub('https://hrussellzfac023.github.io/yomu-reader/newtab.html');
+}
+
+function pointerTextCandidate(sentence: string, anchor: HTMLElement, offset: number): TestPointerTextCandidate {
+    return {
+        text: sentence,
+        offset,
+        start: 0,
+        end: sentence.length,
+        anchor,
+    };
+}
+
+function pointerTextInternals(app: ReaderApp): TestPointerTextInternals {
+    return app as unknown as TestPointerTextInternals;
+}
+
+function testIsJpdbBackedCard(lookupCard: JPDBCard): boolean {
+    return lookupCard.source === 'jpdb' && lookupCard.vid > 0;
+}
+
+function expectDefaultPointerParse(parse: unknown, sentence: string): void {
+    expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({
+        allowJpdbTimeoutFallback: true,
+        includeLocalPitch: false,
+        jpdbTimeoutMs: 450,
+        requireJpdb: false,
+    }));
+}
+
+function stubLocalPointerTextInternals(
+    app: ReaderApp,
+    lookup: (text: string, reading: string, limit: number, preferences?: unknown) => Promise<YomitanTermEntry[]>,
+    settings: Partial<ReaderSettings> = {},
+) {
+    const showPointerTextCard = vi.fn(async () => undefined);
+    const internals = pointerTextInternals(app);
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        apiKey: '',
+        jpdbDefinitionsEnabled: false,
+        showPitchAccent: false,
+        localDictionariesEnabled: true,
+        ...settings,
+    };
+    internals.parseJapanese = vi.fn(async () => [[]]);
+    internals.dictionaries = { lookup };
+    internals.showPointerTextCard = showPointerTextCard;
+    return { internals, showPointerTextCard };
+}
+
+function stubMobileAnkiHandoffEnvironment(options: {
+    userAgent: string;
+    platform?: string;
+    maxTouchPoints?: number;
+    href?: string;
+    stubFetch?: boolean;
+}) {
+    const originalUserAgent = navigator.userAgent;
+    const originalPlatform = navigator.platform;
+    const originalMaxTouchPoints = navigator.maxTouchPoints;
+    const locationStub = testLocationStub(options.href ?? 'https://reader.test/article');
+    const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    Object.defineProperty(window.navigator, 'userAgent', { value: options.userAgent, configurable: true });
+    if (options.platform !== undefined) {
+        Object.defineProperty(window.navigator, 'platform', { value: options.platform, configurable: true });
+    }
+    if (options.maxTouchPoints !== undefined) {
+        Object.defineProperty(window.navigator, 'maxTouchPoints', { value: options.maxTouchPoints, configurable: true });
+    }
+    vi.stubGlobal('location', locationStub);
+    if (options.stubFetch !== false) vi.stubGlobal('fetch', fetchMock);
+
+    return {
+        locationStub,
+        fetchMock,
+        confirmSpy,
+        restore: () => {
+            confirmSpy.mockRestore();
+            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
+            Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
+            Object.defineProperty(window.navigator, 'maxTouchPoints', { value: originalMaxTouchPoints, configurable: true });
+            vi.unstubAllGlobals();
+        },
+    };
+}
+
+function stubHostedProxyFetch(target: string, html: string, proxyUrl = 'https://yomu-proxy.example/fetch') {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
+        return Promise.resolve(new Response(html, { status: 200 }));
+    });
+    vi.stubGlobal('location', hostedNewTabLocationStub());
+    vi.stubGlobal('fetch', fetchMock);
+    return { proxyUrl, fetchMock };
+}
+
+function stubJpdbFetchRoutes(routes: Record<string, string>) {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = unproxiedFetchTarget(input);
+        const html = routes[url];
+        if (html === undefined) return Promise.reject(new Error(`unexpected fetch: ${url}`));
+        return Promise.resolve(new Response(html, { status: 200 }));
+    });
+    vi.stubGlobal('location', {
+        href: 'https://jpdb.io/',
+        origin: 'https://jpdb.io',
+        hostname: 'jpdb.io',
+        pathname: '/',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+}
+
+async function mountTestUchisenCarousel(
+    kanji: string,
+    images: Parameters<typeof installUchisenCarousel>[2],
+    options?: Parameters<typeof installUchisenCarousel>[3],
+) {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
+    const mount = document.createElement('div');
+    document.body.append(mount);
+    const cleanupCarousel = await installUchisenCarousel(mount, kanji, images, options);
+    return {
+        mount,
+        cleanup: () => {
+            cleanupCarousel();
+            mount.remove();
+            vi.unstubAllGlobals();
+        },
+    };
+}
+
+function graphNodeDataPosition(html: string, id: string): KanjiGraphPoint {
+    return {
+        x: graphNodeNumberAttribute(html, id, 'x'),
+        y: graphNodeNumberAttribute(html, id, 'y'),
+    };
+}
+
+function graphNodeDataGeometry(html: string, id: string): KanjiGraphGeometry {
+    return {
+        ...graphNodeDataPosition(html, id),
+        rx: graphNodeNumberAttribute(html, id, 'rx'),
+        ry: graphNodeNumberAttribute(html, id, 'ry'),
+    };
+}
+
+function graphNodeNumberAttribute(html: string, id: string, attribute: string): number {
+    const match = new RegExp(`data-graph-node="${id}"[^>]+data-${attribute}="([^"]+)"`, 'u').exec(html);
+    expect(match).not.toBeNull();
+    return Number(match?.[1]);
+}
+
+function graphNodeStylePosition(html: string, id: string): KanjiGraphPoint {
+    const match = new RegExp(`data-graph-node="${id}"[^>]+style="left:([\\d.]+)%;top:([\\d.]+)%`, 'u').exec(html);
+    expect(match).not.toBeNull();
+    return { x: Number(match?.[1]), y: Number(match?.[2]) };
 }
 
 function testAnkiClient(settings: Partial<typeof DEFAULT_SETTINGS> = {}): AnkiConnectClient {
@@ -1191,6 +1523,26 @@ function stubCustomJsonAudioRequests(options: {
     });
 }
 
+function stubCustomJsonBlobPlayback() {
+    const played: string[] = [];
+    const requests = { source: 0, blob: 0 };
+    const restoreMedia = mockHtmlAudioPlayback(played);
+    const restoreObjectUrls = mockObjectUrls(() => 'blob:http://localhost/audio.mp3');
+    stubCustomJsonAudioRequests({
+        onSourceRequest: () => { requests.source += 1; },
+        onBlobRequest: () => { requests.blob += 1; },
+    });
+    return {
+        played,
+        requests,
+        restore: () => {
+            restoreObjectUrls();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        },
+    };
+}
+
 function mockAudioPlaybackEnvironment(
     played: string[],
     options: MockAudioPlaybackEnvironmentOptions = {},
@@ -1292,6 +1644,32 @@ function resolveUserscriptBlobResponse(
     type = 'audio/mpeg',
 ): void {
     details.onload?.({ status: 200, response: new Blob(body, { type }) });
+}
+
+function stubJishoAudioPlayback(objectUrl: string, responseText: string) {
+    const played: string[] = [];
+    const requested: string[] = [];
+    const restoreMedia = mockHtmlAudioPlayback(played);
+    const restoreObjectUrls = mockObjectUrls(() => objectUrl);
+    vi.stubGlobal('GM', {
+        xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+            requested.push(details.url);
+            if (details.responseType === 'text') {
+                resolveUserscriptTextResponse(details, responseText);
+                return;
+            }
+            resolveUserscriptBlobResponse(details);
+        },
+    });
+    return {
+        played,
+        requested,
+        restore: () => {
+            restoreObjectUrls();
+            restoreMedia();
+            vi.unstubAllGlobals();
+        },
+    };
 }
 
 function testBlobAudioPlayerForSources(audioSources: AudioSourceSetting | AudioSourceSetting[]): AudioPlayer {
@@ -2045,31 +2423,6 @@ describe('reader helpers', () => {
         expect(normalizedCss).not.toContain('text-decoration: none !important; color: inherit !important; pointer-events: auto;');
     });
 
-    it('detects when userscript GM resource CSS is unavailable', () => {
-        expect(READER_CSS).toBe('');
-        expect(readerCssNeedsFallback(READER_CSS)).toBe(true);
-    });
-
-    it('loads the hosted full reader CSS without userscript GM resource APIs', async () => {
-        const fullCss = '.jpdb-reader-popover{} .jpdb-reader-settings{} .jpdb-reader-source-card{} .jpdb-subtitle-player{} .jpdb-ocr-layer{}';
-        const fetcher = vi.fn(async () => ({
-            ok: true,
-            text: async () => fullCss,
-        } as Response));
-
-        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://hrussellzfac023.github.io/yomu-reader/'))
-            .resolves.toBe(fullCss);
-
-        expect(fetcher).toHaveBeenCalledWith('https://hrussellzfac023.github.io/yomu-reader/yomu.css', expect.objectContaining({
-            credentials: 'omit',
-        }));
-    });
-
-    it('falls back to the raw CSS asset off the hosted site', () => {
-        expect(readerCssFallbackUrls('https://example.com/article'))
-            .toEqual(['https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css']);
-    });
-
     it('resolves subtitle color channels on each parsed word', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
         const subtitleSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
@@ -2135,7 +2488,7 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode) .jpdb-reader-newtab-shell { padding-bottom: max(124px, calc(30px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini, .jpdb-reader-newtab-install { min-height: 44px !important; }');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls:has(button[data-grade]) button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls:has(button[data-grade]) button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch { min-height: 24px !important; } .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch::after { content: ""; position: absolute; inset: -10px 0; border-radius: 999px; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-install { justify-self: end; display: inline-flex; align-items: center;');
         expect(normalizedStatsCss).toContain('@media (pointer: coarse) { .jpdb-reader-stats-refresh, .jpdb-reader-stats-tabs button, .jpdb-reader-stats-activity-tabs button, .jpdb-reader-stats-panel-button, .jpdb-reader-stats-deck-toggle, .jpdb-reader-stats-connection-actions button { min-height: 44px; touch-action: manipulation; }');
@@ -3060,16 +3413,7 @@ describe('reader helpers', () => {
         };
         statusOnly.notes = [statusOnly.primary!];
 
-        document.body.innerHTML = renderer.render(card, '食べる。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: statusOnly,
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-        });
+        document.body.innerHTML = renderModalCard(renderer, card, '食べる。', { ankiLookup: statusOnly });
 
         expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent)
             .toContain('showing cached status');
@@ -3085,21 +3429,7 @@ describe('reader helpers', () => {
             ankiModel: 'Japanese',
         });
 
-        document.body.innerHTML = renderer.render({
-            ...card,
-            spelling: '読む',
-            reading: 'よむ',
-            meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
-        }, '今日は本を読む。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-        });
+        document.body.innerHTML = renderModalCard(renderer, readingTestCard(), '今日は本を読む。');
 
         const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-new .jpdb-reader-anki-card-preview')!;
         const summary = document.querySelector<HTMLElement>('.jpdb-reader-anki-new summary small')!;
@@ -3132,21 +3462,7 @@ describe('reader helpers', () => {
             },
         });
 
-        document.body.innerHTML = renderer.render({
-            ...card,
-            spelling: '読む',
-            reading: 'よむ',
-            meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
-        }, '今日は本を読む。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-        });
+        document.body.innerHTML = renderModalCard(renderer, readingTestCard(), '今日は本を読む。');
 
         const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-new .jpdb-reader-anki-card-preview')!;
         const labels = [...preview.querySelectorAll<HTMLElement>('.jpdb-reader-anki-field strong')]
@@ -3249,11 +3565,9 @@ describe('reader helpers', () => {
         container.innerHTML = jpdbOnly;
         expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
 
-        const ankiBacked = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', emptyCardRenderData({
-            ankiLookup: {
-                state: 'due',
-                notes: [],
-                primary: {
+        const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
+            ankiLookup: testAnkiLookup({
+                primary: testAnkiExistingNote({
                     noteId: 10,
                     primaryCardId: 20,
                     cardIds: [20],
@@ -3261,12 +3575,11 @@ describe('reader helpers', () => {
                     deckNames: ['Yomu'],
                     modelName: 'Yomu Japanese',
                     fields: {},
-                    tags: [],
                     reps: 1,
                     lapses: 0,
-                },
-            },
-        }));
+                }),
+            }),
+        });
         expect(ankiBacked).toContain('data-action="grade"');
         expect(ankiBacked).toContain('data-anki-card-id="20"');
         expect(ankiBacked).not.toContain('This JPDB card is locked');
@@ -3281,30 +3594,8 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderer.render({ ...card, cardState: ['due'] }, '動画を見る。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-            ankiLookup: {
-                state: 'known',
-                notes: [],
-                primary: {
-                    noteId: 55,
-                    primaryCardId: 777,
-                    cardIds: [777],
-                    state: 'known',
-                    deckNames: ['Anime::Mining'],
-                    modelName: 'Imported Core',
-                    fields: { Word: '動画' },
-                    tags: [],
-                    reps: 8,
-                    lapses: 1,
-                },
-            },
+        document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['due'] }, '動画を見る。', {
+            ankiLookup: testAnkiLookup(),
         });
 
         const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
@@ -3333,36 +3624,25 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderer.render({
+        document.body.innerHTML = renderModalCard(renderer, {
             ...card,
             spelling: 'よむ',
             reading: 'よむ',
             frequencyRank: 20200,
             cardState: ['redundant'],
-        }, 'よむ。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-            ankiLookup: {
-                state: 'due',
-                notes: [],
-                primary: {
+        }, 'よむ。', {
+            ankiLookup: testAnkiLookup({
+                primary: testAnkiExistingNote({
                     noteId: 56,
                     primaryCardId: 778,
                     cardIds: [778],
                     state: 'due',
                     deckNames: ['Mining'],
-                    modelName: 'Imported Core',
                     fields: { Word: 'よむ', Reading: 'よむ' },
-                    tags: [],
                     reps: 3,
                     lapses: 0,
-                },
-            },
+                }),
+            }),
         });
 
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
@@ -3384,30 +3664,8 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderer.render({ ...card, cardState: ['not-in-deck'] }, '動画を見る。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-            ankiLookup: {
-                state: 'known',
-                notes: [],
-                primary: {
-                    noteId: 55,
-                    primaryCardId: 777,
-                    cardIds: [777],
-                    state: 'known',
-                    deckNames: ['Anime::Mining'],
-                    modelName: 'Imported Core',
-                    fields: { Word: '動画' },
-                    tags: [],
-                    reps: 8,
-                    lapses: 1,
-                },
-            },
+        document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['not-in-deck'] }, '動画を見る。', {
+            ankiLookup: testAnkiLookup(),
         });
 
         const metaText = document.querySelector('.jpdb-reader-meta')?.textContent ?? '';
@@ -3448,30 +3706,20 @@ describe('reader helpers', () => {
             enableReviews: true,
         });
 
-        document.body.innerHTML = renderer.render({ ...card, spelling: '日本語', reading: 'にほんご', frequencyRank: 250, cardState: ['not-in-deck'] }, '日本語です。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-            ankiLookup: {
-                state: 'due',
-                notes: [],
-                primary: {
-                    noteId: 55,
-                    primaryCardId: 777,
-                    cardIds: [777],
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '日本語',
+            reading: 'にほんご',
+            frequencyRank: 250,
+            cardState: ['not-in-deck'],
+        }, '日本語です。', {
+            ankiLookup: testAnkiLookup({
+                primary: testAnkiExistingNote({
                     state: 'due',
                     deckNames: ['Mining'],
-                    modelName: 'Imported Core',
                     fields: { Word: '日本語', Reading: 'にほんご' },
-                    tags: [],
-                    reps: 8,
-                    lapses: 1,
-                },
-            },
+                }),
+            }),
         });
 
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
@@ -3576,6 +3824,31 @@ describe('reader helpers', () => {
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
         expect(html).toContain('--chip-bg:#13845f');
+        expect(html).not.toContain('>Immersion Kit ');
+        expect(html).not.toContain('>Uchisen ');
+    });
+
+    it('renders optional Immersion Kit and Uchisen lookup pills with provider colors', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local').map(link => (
+                    link.id === 'immersion-kit' || link.id === 'uchisen' ? { ...link, enabled: true } : link
+                )),
+            },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('>Immersion Kit ');
+        expect(html).toContain('>Uchisen ');
+        expect(html).toContain('https://www.immersionkit.com/dictionary?keyword=');
+        expect(html).toContain('https://uchisen.com/kanji/');
+        expect(html).toContain('--chip-bg:#0e7490');
+        expect(html).toContain('--chip-bg:#9a3412');
     });
 
     it('uses the hosted new-tab review fallback when a dictionary card is gradeable outside JPDB API lookup', () => {
@@ -4777,12 +5050,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const parsed = parser.parse(['漢字を書く'], { allowJpdbTimeoutFallback: true });
-            await vi.advanceTimersByTimeAsync(6000);
-            const [tokens] = await parsed;
-
-            expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
-            expect(tokens[0].card.spelling).toBe('漢字');
+            await expectKanjiLocalFallbackAfterTimeout(parser, findTermMatches, { allowJpdbTimeoutFallback: true }, 6000);
         } finally {
             vi.useRealTimers();
         }
@@ -4830,12 +5098,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const parsed = parser.parse(['漢字を書く'], { allowApiTimeoutFallback: true, apiTimeoutMs: 800 });
-            await vi.advanceTimersByTimeAsync(800);
-            const [tokens] = await parsed;
-
-            expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
-            expect(tokens[0].card.spelling).toBe('漢字');
+            await expectKanjiLocalFallbackAfterTimeout(parser, findTermMatches, { allowApiTimeoutFallback: true, apiTimeoutMs: 800 }, 800);
         } finally {
             vi.useRealTimers();
         }
@@ -4849,12 +5112,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const parsed = parser.parse(['漢字を書く'], { allowApiTimeoutFallback: true, apiTimeoutMs: 800 });
-            await vi.advanceTimersByTimeAsync(800);
-            const [tokens] = await parsed;
-
-            expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
-            expect(tokens[0].card.spelling).toBe('漢字');
+            await expectKanjiLocalFallbackAfterTimeout(parser, findTermMatches, { allowApiTimeoutFallback: true, apiTimeoutMs: 800 }, 800);
         } finally {
             vi.useRealTimers();
         }
@@ -4997,18 +5255,7 @@ describe('reader helpers', () => {
             origin: 'http://127.0.0.1:5177',
             hostname: '127.0.0.1',
         });
-        vi.stubGlobal('IntersectionObserver', class {
-            constructor(private readonly callback: IntersectionObserverCallback) {}
-            observe(target: Element): void {
-                this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-            }
-            unobserve(): void {}
-            disconnect(): void {}
-            takeRecords(): IntersectionObserverEntry[] { return []; }
-            root = null;
-            rootMargin = '0px';
-            thresholds = [0];
-        });
+        stubInstantIntersectionObserver();
         const elementFromPointDescriptor = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
 
         try {
@@ -5390,18 +5637,7 @@ describe('reader helpers', () => {
             origin: 'http://127.0.0.1:5177',
             hostname: '127.0.0.1',
         });
-        vi.stubGlobal('IntersectionObserver', class {
-            constructor(private readonly callback: IntersectionObserverCallback) {}
-            observe(target: Element): void {
-                this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-            }
-            unobserve(): void {}
-            disconnect(): void {}
-            takeRecords(): IntersectionObserverEntry[] { return []; }
-            root = null;
-            rootMargin = '0px';
-            thresholds = [0];
-        });
+        stubInstantIntersectionObserver();
 
         try {
             await app.init({ showWelcome: false });
@@ -5452,18 +5688,7 @@ describe('reader helpers', () => {
         image.getBoundingClientRect = () => new DOMRect(100, 50, 541, 371.9375);
         document.body.replaceChildren(image);
 
-        vi.stubGlobal('IntersectionObserver', class {
-            constructor(private readonly callback: IntersectionObserverCallback) {}
-            observe(target: Element): void {
-                this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-            }
-            unobserve(): void {}
-            disconnect(): void {}
-            takeRecords(): IntersectionObserverEntry[] { return []; }
-            root = null;
-            rootMargin = '0px';
-            thresholds = [0];
-        });
+        stubInstantIntersectionObserver();
 
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -7247,77 +7472,45 @@ describe('reader helpers', () => {
     });
 
     it('matches Jisho audio by reading instead of playing the first same-spelling source', async () => {
-        const played: string[] = [];
-        const requested: string[] = [];
-        const restoreMedia = mockHtmlAudioPlayback(played);
-        const restoreObjectUrls = mockObjectUrls(() => 'blob:http://localhost/jisho-shita');
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                requested.push(details.url);
-                if (details.responseType === 'text') {
-                    const responseText = `
-                        <audio id="audio_下:げ"><source src="//audio.test/ge.mp3" type="audio/mpeg"></audio>
-                        <audio id="audio_下:した"><source src="//audio.test/shita.mp3" type="audio/mpeg"></audio>
-                    `;
-                    resolveUserscriptTextResponse(details, responseText);
-                    return;
-                }
-                resolveUserscriptBlobResponse(details);
-            },
-        });
+        const audio = stubJishoAudioPlayback('blob:http://localhost/jisho-shita', `
+            <audio id="audio_下:げ"><source src="//audio.test/ge.mp3" type="audio/mpeg"></audio>
+            <audio id="audio_下:した"><source src="//audio.test/shita.mp3" type="audio/mpeg"></audio>
+        `);
 
         try {
             const player = testBlobAudioPlayerForSources({ type: 'jisho', url: '', voice: '', enabled: true });
 
             await expect(player.play({ ...card, spelling: '下', reading: 'した' })).resolves.toBe(true);
 
-            expect(played).toEqual(['blob:http://localhost/jisho-shita']);
-            expect(requested).toContain('https://jisho.org/search/%E4%B8%8B');
-            expect(requested).toContain('https://audio.test/shita.mp3');
-            expect(requested).not.toContain('https://audio.test/ge.mp3');
+            expect(audio.played).toEqual(['blob:http://localhost/jisho-shita']);
+            expect(audio.requested).toContain('https://jisho.org/search/%E4%B8%8B');
+            expect(audio.requested).toContain('https://audio.test/shita.mp3');
+            expect(audio.requested).not.toContain('https://audio.test/ge.mp3');
         } finally {
-            restoreObjectUrls();
-            restoreMedia();
-            vi.unstubAllGlobals();
+            audio.restore();
         }
     });
 
     it('matches Jisho audio by reading when the lookup term is kana-only', async () => {
-        const played: string[] = [];
-        const requested: string[] = [];
-        const restoreMedia = mockHtmlAudioPlayback(played);
-        const restoreObjectUrls = mockObjectUrls(() => 'blob:http://localhost/jisho-yomu');
-        vi.stubGlobal('GM', {
-            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
-                requested.push(details.url);
-                if (details.responseType === 'text') {
-                    const responseText = `
-                        <audio id="audio_読む:よむ" preload="none">
-                            <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3" type="audio/mpeg"></source>
-                        </audio>
-                    `;
-                    resolveUserscriptTextResponse(details, responseText);
-                    return;
-                }
-                resolveUserscriptBlobResponse(details);
-            },
-        });
+        const audio = stubJishoAudioPlayback('blob:http://localhost/jisho-yomu', `
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3" type="audio/mpeg"></source>
+            </audio>
+        `);
 
         try {
             const player = testBlobAudioPlayerForSources({ type: 'jisho', url: '', voice: '', enabled: true });
 
             await expect(player.play({ ...card, spelling: 'よむ', reading: 'よむ' }, { userGesture: true })).resolves.toBe(true);
 
-            expect(played).toEqual([
+            expect(audio.played).toEqual([
                 expect.stringMatching(/^data:audio\/wav;base64,/),
                 'blob:http://localhost/jisho-yomu',
             ]);
-            expect(requested).toContain('https://jisho.org/search/%E3%82%88%E3%82%80');
-            expect(requested).toContain('https://d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3');
+            expect(audio.requested).toContain('https://jisho.org/search/%E3%82%88%E3%82%80');
+            expect(audio.requested).toContain('https://d1vjc5dkcd3yh2.cloudfront.net/audio/f9585fdca1ef179b5388df7d783e7473.mp3');
         } finally {
-            restoreObjectUrls();
-            restoreMedia();
-            vi.unstubAllGlobals();
+            audio.restore();
         }
     });
 
@@ -7634,6 +7827,8 @@ describe('reader helpers', () => {
             ['kotobank', false],
             ['takoboto', false],
             ['wiktionary-ja', false],
+            ['immersion-kit', false],
+            ['uchisen', false],
             ['copy', false],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
@@ -7645,7 +7840,22 @@ describe('reader helpers', () => {
             ['kotobank', false],
             ['takoboto', false],
             ['wiktionary-ja', false],
+            ['immersion-kit', false],
+            ['uchisen', false],
             ['copy', true],
+        ]);
+        expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
+            ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
+            ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
+            ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
+            ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
+            ['goo', 'goo', 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/'],
+            ['kotobank', 'Kotobank', 'https://kotobank.jp/search?q={query}'],
+            ['takoboto', 'Takoboto', 'https://takoboto.jp/?q={query}'],
+            ['wiktionary-ja', 'Wiktionary', 'https://ja.wiktionary.org/wiki/{query}'],
+            ['immersion-kit', 'Immersion Kit', 'https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1'],
+            ['uchisen', 'Uchisen', 'https://uchisen.com/kanji/{query}'],
+            ['copy', 'Copy', ''],
         ]);
         expect(normalizeDictionaryLookupLinks([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
@@ -7658,6 +7868,8 @@ describe('reader helpers', () => {
             { id: 'goo' },
             { id: 'kotobank' },
             { id: 'wiktionary-ja' },
+            { id: 'immersion-kit' },
+            { id: 'uchisen' },
             { id: 'copy' },
         ]);
     });
@@ -7686,6 +7898,8 @@ describe('reader helpers', () => {
                 ['kotobank', false],
                 ['takoboto', false],
                 ['wiktionary-ja', false],
+                ['immersion-kit', false],
+                ['uchisen', false],
                 ['copy', true],
             ]);
         } finally {
@@ -9046,27 +9260,16 @@ describe('reader helpers', () => {
     it('ignores JPDB media used-in pages in popup supplements', async () => {
         const detailUrl = 'https://jpdb.io/vocabulary/1297200/%E5%92%B2%E3%81%8D%E4%B9%B1%E3%82%8C%E3%82%8B/%E3%81%95%E3%81%8D%E3%81%BF%E3%81%A0%E3%82%8C%E3%82%8B';
         const usedInUrl = 'https://jpdb.io/vocabulary/1297200/%E5%92%B2%E3%81%8D%E4%B9%B1%E3%82%8C%E3%82%8B/used-in';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            const url = String(input);
-            if (url === detailUrl) {
-                return Promise.resolve(new Response(`
-                    <link rel="canonical" href="https://jpdb.io/vocabulary/1297200/咲き乱れる/さきみだれる">
-                    <div class="result vocabulary">
-                        <a href="/vocabulary/1297200/咲き乱れる/さきみだれる#a"><ruby>咲<rt>さ</rt>き乱れる</ruby></a>
-                        <div class="subsection-meanings"><div class="subsection"><div class="description">1. to bloom in profusion</div></div></div>
-                        <a class="view-conjugations-link" href="/vocabulary/1297200/咲き乱れる/used-in">Used in: 528</a>
-                    </div>
-                `, { status: 200 }));
-            }
-            return Promise.reject(new Error(`unexpected fetch: ${url}`));
+        const fetchMock = stubJpdbFetchRoutes({
+            [detailUrl]: `
+                <link rel="canonical" href="https://jpdb.io/vocabulary/1297200/咲き乱れる/さきみだれる">
+                <div class="result vocabulary">
+                    <a href="/vocabulary/1297200/咲き乱れる/さきみだれる#a"><ruby>咲<rt>さ</rt>き乱れる</ruby></a>
+                    <div class="subsection-meanings"><div class="subsection"><div class="description">1. to bloom in profusion</div></div></div>
+                    <a class="view-conjugations-link" href="/vocabulary/1297200/咲き乱れる/used-in">Used in: 528</a>
+                </div>
+            `,
         });
-        vi.stubGlobal('location', {
-            href: 'https://jpdb.io/',
-            origin: 'https://jpdb.io',
-            hostname: 'jpdb.io',
-            pathname: '/',
-        });
-        vi.stubGlobal('fetch', fetchMock);
 
         try {
             const info = await new JpdbVocabularyClient().lookup(1297200, '咲き乱れる', 'さきみだれる');
@@ -9092,10 +9295,8 @@ describe('reader helpers', () => {
         const detailUrl = 'https://jpdb.io/vocabulary/1166510/%E4%B8%80%E6%96%B9/%E3%81%84%E3%81%A3%E3%81%BD%E3%81%86#a';
         const usedInAudioUrl = 'https://jpdb.io/vocabulary/1166560/%E4%B8%80%E6%96%B9%E7%9A%84/%E3%81%84%E3%81%A3%E3%81%BD%E3%81%86%E3%81%A6%E3%81%8D#a';
         const usedInUrl = 'https://jpdb.io/vocabulary/1166510/%E4%B8%80%E6%96%B9/used-in';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            const url = unproxiedFetchTarget(input);
-            if (url === searchUrl) {
-                return Promise.resolve(new Response(`
+        const fetchMock = stubJpdbFetchRoutes({
+            [searchUrl]: `
                     <div class="results search">
                         <div class="result vocabulary">
                             <a href="/vocabulary/1166510/一方/いっぽう#a"><ruby>一<rt>いっ</rt>方<rt>ぽう</rt></ruby></a>
@@ -9104,10 +9305,8 @@ describe('reader helpers', () => {
                             <a class="view-conjugations-link" href="/vocabulary/1166510/一方/used-in">Used in: 4067</a>
                         </div>
                     </div>
-                `, { status: 200 }));
-            }
-            if (url === detailUrl) {
-                return Promise.resolve(new Response(`
+                `,
+            [detailUrl]: `
                     <link rel="canonical" href="https://jpdb.io/vocabulary/1166510/一方/いっぽう">
                     <div class="result vocabulary">
                         <a href="/vocabulary/1166510/一方/いっぽう#a"><ruby>一<rt>いっ</rt>方<rt>ぽう</rt></ruby></a>
@@ -9125,10 +9324,8 @@ describe('reader helpers', () => {
                             </div>
                         </div>
                     </div>
-                `, { status: 200 }));
-            }
-            if (url === usedInAudioUrl) {
-                return Promise.resolve(new Response(`
+                `,
+            [usedInAudioUrl]: `
                     <link rel="canonical" href="https://jpdb.io/vocabulary/1166560/一方的/いっぽうてき">
                     <div class="result vocabulary">
                         <div class="subsection-headword">
@@ -9142,17 +9339,8 @@ describe('reader helpers', () => {
                             </div>
                         </div>
                     </div>
-                `, { status: 200 }));
-            }
-            return Promise.reject(new Error(`unexpected fetch: ${url}`));
+                `,
         });
-        vi.stubGlobal('location', {
-            href: 'https://jpdb.io/',
-            origin: 'https://jpdb.io',
-            hostname: 'jpdb.io',
-            pathname: '/',
-        });
-        vi.stubGlobal('fetch', fetchMock);
 
         try {
             const info = await new JpdbVocabularyClient().lookup(-1, '一方', 'いっぽう');
@@ -10797,15 +10985,7 @@ describe('reader helpers', () => {
     });
 
     it('fetches custom JSON audio candidates as blobs and caches the source lookup', async () => {
-        const played: string[] = [];
-        const restoreMedia = mockHtmlAudioPlayback(played);
-        let sourceRequests = 0;
-        let blobRequests = 0;
-        const restoreObjectUrls = mockObjectUrls(() => 'blob:http://localhost/audio.mp3');
-        stubCustomJsonAudioRequests({
-            onSourceRequest: () => { sourceRequests += 1; },
-            onBlobRequest: () => { blobRequests += 1; },
-        });
+        const audio = stubCustomJsonBlobPlayback();
 
         try {
             const player = new AudioPlayer(() => ({
@@ -10821,26 +11001,16 @@ describe('reader helpers', () => {
             await player.play(card);
             await player.play(card);
 
-            expect(sourceRequests).toBe(1);
-            expect(blobRequests).toBe(1);
-            expect(played).toEqual(['blob:http://localhost/audio.mp3', 'blob:http://localhost/audio.mp3']);
+            expect(audio.requests.source).toBe(1);
+            expect(audio.requests.blob).toBe(1);
+            expect(audio.played).toEqual(['blob:http://localhost/audio.mp3', 'blob:http://localhost/audio.mp3']);
         } finally {
-            restoreObjectUrls();
-            restoreMedia();
-            vi.unstubAllGlobals();
+            audio.restore();
         }
     });
 
     it('plays custom JSON audio through blob URLs without a direct media attempt', async () => {
-        const played: string[] = [];
-        const restoreMedia = mockHtmlAudioPlayback(played);
-        let sourceRequests = 0;
-        let blobRequests = 0;
-        const restoreObjectUrls = mockObjectUrls(() => 'blob:http://localhost/audio.mp3');
-        stubCustomJsonAudioRequests({
-            onSourceRequest: () => { sourceRequests += 1; },
-            onBlobRequest: () => { blobRequests += 1; },
-        });
+        const audio = stubCustomJsonBlobPlayback();
 
         try {
             const player = new AudioPlayer(() => ({
@@ -10855,13 +11025,11 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(sourceRequests).toBe(1);
-            expect(blobRequests).toBe(1);
-            expect(played).toEqual(['blob:http://localhost/audio.mp3']);
+            expect(audio.requests.source).toBe(1);
+            expect(audio.requests.blob).toBe(1);
+            expect(audio.played).toEqual(['blob:http://localhost/audio.mp3']);
         } finally {
-            restoreObjectUrls();
-            restoreMedia();
-            vi.unstubAllGlobals();
+            audio.restore();
         }
     });
 
@@ -12852,36 +13020,8 @@ describe('reader helpers', () => {
                 dictionary: 'Test',
             } satisfies YomitanTermEntry]
             : []);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 5,
-            start: 0,
-            end: sentence.length,
-            anchor,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parseJapanese(paragraphs: string[], options?: unknown): Promise<JPDBToken[][]>;
-            dictionaries: { lookup: typeof lookup };
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jpdbDefinitionsEnabled: false,
-            showPitchAccent: false,
-            localDictionariesEnabled: true,
-        };
-        internals.parseJapanese = vi.fn(async () => [[]]);
-        internals.dictionaries = { lookup };
-        internals.showPointerTextCard = showPointerTextCard;
+        const candidate = pointerTextCandidate(sentence, anchor, 5);
+        const { internals, showPointerTextCard } = stubLocalPointerTextInternals(app, lookup);
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
@@ -12906,36 +13046,8 @@ describe('reader helpers', () => {
             dictionary: 'Test',
         };
         const lookup = vi.fn(async (surface: string) => surface === '好き' ? [entry] : []);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 1,
-            start: 0,
-            end: sentence.length,
-            anchor,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parseJapanese(paragraphs: string[], options?: unknown): Promise<JPDBToken[][]>;
-            dictionaries: { lookup: typeof lookup };
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jpdbDefinitionsEnabled: false,
-            showPitchAccent: false,
-            localDictionariesEnabled: true,
-        };
-        internals.parseJapanese = vi.fn(async () => [[]]);
-        internals.dictionaries = { lookup };
-        internals.showPointerTextCard = showPointerTextCard;
+        const candidate = pointerTextCandidate(sentence, anchor, 1);
+        const { internals, showPointerTextCard } = stubLocalPointerTextInternals(app, lookup);
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
@@ -12966,34 +13078,11 @@ describe('reader helpers', () => {
             dictionary: 'Test',
         };
         const lookup = vi.fn(async (surface: string) => surface === '先生' ? [entry] : []);
-        const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 1,
-            start: 0,
-            end: sentence.length,
-            anchor,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parseJapanese(paragraphs: string[], options?: unknown): Promise<JPDBToken[][]>;
-            dictionaries: { lookup: typeof lookup };
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: true,
-        };
-        internals.parseJapanese = vi.fn(async () => [[]]);
-        internals.dictionaries = { lookup };
-        internals.showPointerTextCard = showPointerTextCard;
+        const candidate = pointerTextCandidate(sentence, anchor, 1);
+        const { internals, showPointerTextCard } = stubLocalPointerTextInternals(app, lookup, {
+            jpdbDefinitionsEnabled: DEFAULT_SETTINGS.jpdbDefinitionsEnabled,
+            showPitchAccent: DEFAULT_SETTINGS.showPitchAccent,
+        });
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
@@ -13039,42 +13128,21 @@ describe('reader helpers', () => {
         };
         const parse = vi.fn(async () => [[token]]);
         const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 6,
-            start: 0,
-            end: sentence.length,
-            anchor: paragraph,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
+        const candidate = pointerTextCandidate(sentence, paragraph, 6);
+        const internals = pointerTextInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'api-key',
             localDictionariesEnabled: true,
             showPitchAccent: true,
         };
-        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.parser = { parse, isJpdbBackedCard: testIsJpdbBackedCard };
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({
-                allowJpdbTimeoutFallback: true,
-                includeLocalPitch: false,
-                jpdbTimeoutMs: 450,
-                requireJpdb: false,
-            }));
+            expectDefaultPointerParse(parse, sentence);
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 lookupCard,
                 sentence,
@@ -13110,25 +13178,8 @@ describe('reader helpers', () => {
         const parse = vi.fn(async () => [[token]]);
         const showPointerTextCard = vi.fn(async () => undefined);
         const showLocalPointerTextCandidate = vi.fn(async () => true);
-        const candidate = {
-            text: sentence,
-            offset: 1,
-            start: 0,
-            end: sentence.length,
-            anchor: paragraph,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
-            showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
+        const candidate = pointerTextCandidate(sentence, paragraph, 1);
+        const internals = pointerTextInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -13136,7 +13187,7 @@ describe('reader helpers', () => {
             localDictionariesEnabled: true,
             showPitchAccent: true,
         };
-        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.parser = { parse, isJpdbBackedCard: testIsJpdbBackedCard };
         internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
         internals.showPointerTextCard = showPointerTextCard;
 
@@ -13182,43 +13233,21 @@ describe('reader helpers', () => {
         const parse = vi.fn(async () => [[fallbackToken]]);
         const showLocalPointerTextCandidate = vi.fn(async () => true);
         const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 6,
-            start: 0,
-            end: sentence.length,
-            anchor: paragraph,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
-            showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
+        const candidate = pointerTextCandidate(sentence, paragraph, 6);
+        const internals = pointerTextInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'api-key',
             localDictionariesEnabled: true,
         };
-        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.parser = { parse, isJpdbBackedCard: testIsJpdbBackedCard };
         internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({
-                allowJpdbTimeoutFallback: true,
-                includeLocalPitch: false,
-                jpdbTimeoutMs: 450,
-                requireJpdb: false,
-            }));
+            expectDefaultPointerParse(parse, sentence);
             expect(showPointerTextCard).not.toHaveBeenCalledWith(
                 fallbackToken.card,
                 expect.anything(),
@@ -13777,24 +13806,8 @@ describe('reader helpers', () => {
             fallbackLookupTerms: text === '読んで' ? ['読む'] : [],
         }));
         const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 6,
-            start: 0,
-            end: sentence.length,
-            anchor: paragraph,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; fallbackCardFromText: typeof fallbackCardFromText };
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
+        const candidate = pointerTextCandidate(sentence, paragraph, 6);
+        const internals = pointerTextInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'api-key',
@@ -16740,42 +16753,12 @@ describe('reader helpers', () => {
         const allIds = Array.from({ length: totalCards }, (_, index) => index + 1);
         const noteInfoBatchSizes: number[] = [];
         const cardInfoBatchSizes: number[] = [];
-        const requests = stubTestAnkiConnectResults(request => {
-            const query = String(request.params?.query ?? '');
-            if (request.action === 'findCards') {
-                if (query === 'deck:*') return allIds;
-                if (query.includes('is:due')) return [targetCardId];
-                return [];
-            }
-            if (request.action === 'findNotes') return allIds;
-            if (request.action === 'cardsInfo') {
-                const cards = Array.isArray(request.params.cards) ? request.params.cards.map(Number) : [];
-                cardInfoBatchSizes.push(cards.length);
-                return cards.map(cardId => ({
-                    cardId,
-                    note: cardId,
-                    deckName: 'Imported Core',
-                    queue: cardId === targetCardId ? 2 : 0,
-                    type: cardId === targetCardId ? 2 : 0,
-                    reps: 0,
-                    lapses: 0,
-                }));
-            }
-            if (request.action === 'notesInfo') {
-                const notes = Array.isArray(request.params.notes) ? request.params.notes.map(Number) : [];
-                noteInfoBatchSizes.push(notes.length);
-                return notes.map(noteId => ({
-                    noteId,
-                    modelName: 'Imported Core',
-                    tags: [],
-                    fields: {
-                        Word: { value: `語${noteId}` },
-                    },
-                    cards: [noteId],
-                }));
-            }
-            return [];
-        });
+        const requests = stubTestAnkiConnectResults(largeAnkiStatusIndexResult({
+            allIds,
+            cardInfoBatchSizes,
+            noteInfoBatchSizes,
+            targetCardId,
+        }));
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
@@ -17068,7 +17051,7 @@ describe('reader helpers', () => {
             await client.answerCard(7701, 'okay');
             await vi.waitFor(() => expect(requests.map(request => request.action)).toEqual(
                 expect.arrayContaining(['answerCards', 'deckNames', 'getDeckStats']),
-            ));
+            ), { timeout: 4_000 });
 
             expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
             expect(requests.some(request => request.action === 'notesInfo')).toBe(false);
@@ -17434,7 +17417,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps Anki status misses untrusted only while another page rebuilds the status index', async () => {
+    it('uses exact Anki status lookups while another page rebuilds the status index', async () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const now = Date.now();
@@ -17503,13 +17486,14 @@ describe('reader helpers', () => {
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
 
-            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toEqual([{
-                state: 'not-in-deck',
-                notes: [],
-                primary: null,
-                trusted: false,
+            await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toMatchObject([{
+                state: 'new',
+                primary: {
+                    noteId: 77,
+                    primaryCardId: 7707,
+                },
             }]);
-            expect(requests).toHaveLength(0);
+            expect(requests.map(request => request.action)).not.toContain('findCards');
 
             localStorage.removeItem('yomu:anki-status-index-rebuild:v1');
             await expect(client.findCachedStatusBatch([{ ...card, spelling: '難波', reading: 'なにわ' }])).resolves.toMatchObject([{
@@ -18920,16 +18904,7 @@ describe('reader helpers', () => {
     });
 
     it('opens AnkiMobile addnote URLs with full Yomu fields on iOS handoff', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-            configurable: true,
-        });
-        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-        vi.stubGlobal('location', locationStub);
-        vi.stubGlobal('fetch', fetchMock);
+        const { locationStub, fetchMock, confirmSpy, restore } = stubMobileAnkiHandoffEnvironment({ userAgent: TEST_IOS_SAFARI_USER_AGENT });
 
         try {
             const settings = {
@@ -18966,21 +18941,12 @@ describe('reader helpers', () => {
             expect(params.get('fldAudio')).toBe('https://media.example.test/yomu/read.mp3');
             expect(params.get('fldImage')).toBeNull();
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('uses Default for built-in Yomu deck names in AnkiMobile handoff URLs', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-            configurable: true,
-        });
-        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-        vi.stubGlobal('location', locationStub);
+        const { locationStub, restore } = stubMobileAnkiHandoffEnvironment({ userAgent: TEST_IPAD_SAFARI_USER_AGENT });
 
         try {
             for (const ankiDeck of ['よむ', 'Yomu', 'yomu']) {
@@ -19002,21 +18968,12 @@ describe('reader helpers', () => {
                 locationStub.href = 'https://reader.test/article';
             }
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('applies configured field mappings to AnkiMobile handoff URLs', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-            configurable: true,
-        });
-        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-        vi.stubGlobal('location', locationStub);
+        const { locationStub, restore } = stubMobileAnkiHandoffEnvironment({ userAgent: TEST_IOS_SAFARI_USER_AGENT });
 
         try {
             const settings = {
@@ -19054,20 +19011,13 @@ describe('reader helpers', () => {
             expect(params.get('fldContext')).toContain('<span class="yomu-highlight">読む</span>');
             expect(params.get('fldSound')).toBe('https://media.example.test/yomu/read.mp3');
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('adds cards through AnkiConnect on mobile handoff devices when a bridge is reachable', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-            configurable: true,
-        });
+        const { confirmSpy, restore } = stubMobileAnkiHandoffEnvironment({ userAgent: TEST_ANDROID_CHROME_USER_AGENT, stubFetch: false });
         const requests: Array<{ action: string; params: Record<string, unknown> }> = [];
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         vi.stubGlobal('GM', {
             xmlHttpRequest: ({ data }: { data: string }) => {
                 const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
@@ -19103,25 +19053,15 @@ describe('reader helpers', () => {
             expect(requests.map(request => request.action)).toContain('addNote');
             expect(confirmSpy).not.toHaveBeenCalled();
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('opens mobile Anki handoff from card actions without waiting on hosted detail providers', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-            configurable: true,
-        });
-        const locationStub = {
+        const { locationStub, fetchMock, confirmSpy, restore } = stubMobileAnkiHandoffEnvironment({
+            userAgent: TEST_IOS_SAFARI_USER_AGENT,
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-        };
-        const fetchMock = vi.fn(() => Promise.reject(new Error('Failed to fetch')));
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        });
         const toast = vi.fn();
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -19136,8 +19076,6 @@ describe('reader helpers', () => {
             lookupTermMeta: vi.fn(() => Promise.reject(new Error('local metadata should not be queried'))),
         };
         const resolveMiningContext = vi.fn(() => Promise.reject(new Error('mining context should not be resolved')));
-        vi.stubGlobal('location', locationStub);
-        vi.stubGlobal('fetch', fetchMock);
 
         try {
             const anki = new AnkiConnectClient(() => settings);
@@ -19184,27 +19122,16 @@ describe('reader helpers', () => {
             expect(new URL(locationStub.href).searchParams.get('deck')).toBe('Mobile Deck');
             expect(toast).toHaveBeenCalledWith('Opened mobile Anki handoff. Continue in Anki to create the new note.');
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('uses AnkiMobile handoff on iPadOS desktop-mode Safari', async () => {
-        const originalUserAgent = navigator.userAgent;
-        const originalPlatform = navigator.platform;
-        const originalMaxTouchPoints = navigator.maxTouchPoints;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
-            configurable: true,
+        const { locationStub, fetchMock, confirmSpy, restore } = stubMobileAnkiHandoffEnvironment({
+            userAgent: TEST_IPADOS_DESKTOP_SAFARI_USER_AGENT,
+            platform: 'MacIntel',
+            maxTouchPoints: 5,
         });
-        Object.defineProperty(window.navigator, 'platform', { value: 'MacIntel', configurable: true });
-        Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
-        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-        vi.stubGlobal('location', locationStub);
-        vi.stubGlobal('fetch', fetchMock);
 
         try {
             const client = new AnkiConnectClient(() => ({
@@ -19225,25 +19152,12 @@ describe('reader helpers', () => {
             expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "月光"? This creates a new note only.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
-            Object.defineProperty(window.navigator, 'maxTouchPoints', { value: originalMaxTouchPoints, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
     it('opens AnkiDroid ACTION_SEND intent handoff on Android without using AnkiConnect', async () => {
-        const originalUserAgent = navigator.userAgent;
-        Object.defineProperty(window.navigator, 'userAgent', {
-            value: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-            configurable: true,
-        });
-        const locationStub = { href: 'https://reader.test/article', origin: 'https://reader.test', hostname: 'reader.test' };
-        const fetchMock = vi.fn(() => Promise.reject(new Error('fetch should not be called')));
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-        vi.stubGlobal('location', locationStub);
-        vi.stubGlobal('fetch', fetchMock);
+        const { locationStub, fetchMock, confirmSpy, restore } = stubMobileAnkiHandoffEnvironment({ userAgent: TEST_ANDROID_CHROME_USER_AGENT });
 
         try {
             const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true };
@@ -19266,9 +19180,7 @@ describe('reader helpers', () => {
             expect(decodeURIComponent(textMatch?.[1] ?? '')).toContain('to read');
             expect(decodeURIComponent(textMatch?.[1] ?? '')).not.toContain('<div');
         } finally {
-            confirmSpy.mockRestore();
-            Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
-            vi.unstubAllGlobals();
+            restore();
         }
     });
 
@@ -19717,20 +19629,14 @@ describe('reader helpers', () => {
     });
 
     it('loads hosted new-tab JPDB kanji info through the configured public proxy', async () => {
-        const proxyUrl = 'https://yomu-proxy.example/fetch';
         const target = 'https://jpdb.io/kanji/%E5%9B%B3';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
-            return Promise.resolve(new Response(`
-                <meta name="description" content="Dictionary definition of kanji 図 — diagram">
-                <div class="result kanji">
-                    <h6 class="subsection-label">Keyword</h6><div class="subsection">diagram</div>
-                    <table class="cross-table"><tr><td>Frequency</td><td>1,234</td></tr></table>
-                </div>
-            `, { status: 200 }));
-        });
-        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
-        vi.stubGlobal('fetch', fetchMock);
+        const { proxyUrl, fetchMock } = stubHostedProxyFetch(target, `
+            <meta name="description" content="Dictionary definition of kanji 図 — diagram">
+            <div class="result kanji">
+                <h6 class="subsection-label">Keyword</h6><div class="subsection">diagram</div>
+                <table class="cross-table"><tr><td>Frequency</td><td>1,234</td></tr></table>
+            </div>
+        `);
 
         try {
             const client = new JpdbKanjiClient(() => proxyUrl);
@@ -19747,25 +19653,19 @@ describe('reader helpers', () => {
     });
 
     it('does not send logged-in JPDB kanji actions to configured or public proxies', async () => {
-        const proxyUrl = 'https://yomu-proxy.example/fetch';
         const target = 'https://jpdb.io/kanji/%E8%AA%AD';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
-            return Promise.resolve(new Response(`
-                <meta name="description" content="Dictionary definition of kanji 読 — read">
-                <div class="result kanji">
-                    <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
-                    <div class="menu">
-                        <form action="/kanji/%E8%AA%AD" method="post">
-                            <input type="hidden" name="csrf" value="private-token">
-                            <button name="action" value="known">Mark known</button>
-                        </form>
-                    </div>
+        const { proxyUrl, fetchMock } = stubHostedProxyFetch(target, `
+            <meta name="description" content="Dictionary definition of kanji 読 — read">
+            <div class="result kanji">
+                <h6 class="subsection-label">Keyword</h6><div class="subsection">read</div>
+                <div class="menu">
+                    <form action="/kanji/%E8%AA%AD" method="post">
+                        <input type="hidden" name="csrf" value="private-token">
+                        <button name="action" value="known">Mark known</button>
+                    </form>
                 </div>
-            `, { status: 200 }));
-        });
-        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
-        vi.stubGlobal('fetch', fetchMock);
+            </div>
+        `);
 
         try {
             const client = new JpdbKanjiClient(() => proxyUrl);
@@ -19909,25 +19809,20 @@ describe('reader helpers', () => {
     });
 
     it('renders the Uchisen kanji keyword before prime chips', async () => {
-        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
-        const mount = document.createElement('div');
-        let cleanup: (() => void) | null = null;
+        const carousel = await mountTestUchisenCarousel('後', [
+            { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_after.jpg', story: 'After story' },
+        ], {
+            kanjiKeyword: { kanji: '後', keyword: 'After', url: 'https://uchisen.com/kanji/%E5%BE%8C' },
+            componentGroups: [{
+                title: 'Kanji Primes',
+                components: [
+                    { name: 'water slide', symbol: '彳', url: 'https://uchisen.com/primes/water+slide' },
+                ],
+            }],
+        });
 
         try {
-            document.body.append(mount);
-            cleanup = await installUchisenCarousel(mount, '後', [
-                { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_after.jpg', story: 'After story' },
-            ], {
-                kanjiKeyword: { kanji: '後', keyword: 'After', url: 'https://uchisen.com/kanji/%E5%BE%8C' },
-                componentGroups: [{
-                    title: 'Kanji Primes',
-                    components: [
-                        { name: 'water slide', symbol: '彳', url: 'https://uchisen.com/primes/water+slide' },
-                    ],
-                }],
-            });
-
-            const groups = Array.from(mount.querySelectorAll<HTMLElement>('.yomu-jpdb-component-group'));
+            const groups = Array.from(carousel.mount.querySelectorAll<HTMLElement>('.yomu-jpdb-component-group'));
             expect(groups.map(group => group.querySelector('.yomu-jpdb-component-group-label')?.textContent)).toEqual([
                 'Kanji Keyword',
                 'Kanji Primes',
@@ -19936,27 +19831,20 @@ describe('reader helpers', () => {
             expect(groups[0]?.textContent).toContain('After');
             expect(groups[1]?.textContent).toContain('water slide');
         } finally {
-            cleanup?.();
-            mount.remove();
-            vi.unstubAllGlobals();
+            carousel.cleanup();
         }
     });
 
     it('renders authenticated Uchisen generation beside the external link', async () => {
-        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
-        const mount = document.createElement('div');
-        let cleanup: (() => void) | null = null;
+        const carousel = await mountTestUchisenCarousel('甘', [
+            { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_sweet.jpg', story: 'Sweet story' },
+        ], {
+            kanjiId: '1177',
+            canGenerateImages: true,
+        });
 
         try {
-            document.body.append(mount);
-            cleanup = await installUchisenCarousel(mount, '甘', [
-                { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_sweet.jpg', story: 'Sweet story' },
-            ], {
-                kanjiId: '1177',
-                canGenerateImages: true,
-            });
-
-            const linkRow = mount.querySelector<HTMLElement>('.yomu-jpdb-uchisen-link-row');
+            const linkRow = carousel.mount.querySelector<HTMLElement>('.yomu-jpdb-uchisen-link-row');
             const externalLink = linkRow?.querySelector<HTMLAnchorElement>('a.yomu-jpdb-uchisen-summary-link');
             const generateLink = linkRow?.querySelector<HTMLButtonElement>('button.yomu-jpdb-uchisen-generate-link');
 
@@ -19965,25 +19853,18 @@ describe('reader helpers', () => {
             expect(Array.from(linkRow?.children ?? [])).toEqual([externalLink, generateLink]);
             expect(generateLink?.classList.contains('yomu-jpdb-uchisen-summary-link')).toBe(true);
         } finally {
-            cleanup?.();
-            mount.remove();
-            vi.unstubAllGlobals();
+            carousel.cleanup();
         }
     });
 
     it('renders the Uchisen controls and external link outside the summary', async () => {
-        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
-        const mount = document.createElement('div');
-        let cleanup: (() => void) | null = null;
+        const carousel = await mountTestUchisenCarousel('着', [
+            { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_wear.jpg', story: 'Wear story' },
+        ]);
 
         try {
-            document.body.append(mount);
-            cleanup = await installUchisenCarousel(mount, '着', [
-                { url: 'https://ik.imagekit.io/uchisen/generated/saved/generated_wear.jpg', story: 'Wear story' },
-            ]);
-
-            const summary = mount.querySelector<HTMLElement>('summary.jpdb-reader-local-head');
-            const body = mount.querySelector<HTMLElement>('.yomu-jpdb-uchisen-body');
+            const summary = carousel.mount.querySelector<HTMLElement>('summary.jpdb-reader-local-head');
+            const body = carousel.mount.querySelector<HTMLElement>('.yomu-jpdb-uchisen-body');
             const controls = Array.from(body?.querySelectorAll<HTMLElement>('[data-uchisen-action]') ?? []);
             const link = body?.querySelector<HTMLAnchorElement>('.yomu-jpdb-uchisen-summary-link');
 
@@ -19994,9 +19875,7 @@ describe('reader helpers', () => {
             expect(link?.textContent).toContain('View on Uchisen');
             expect(link?.querySelector('svg')).not.toBeNull();
         } finally {
-            cleanup?.();
-            mount.remove();
-            vi.unstubAllGlobals();
+            carousel.cleanup();
         }
     });
 
@@ -20046,17 +19925,11 @@ describe('reader helpers', () => {
     });
 
     it('loads Uchisen mnemonic HTML through the configured public proxy', async () => {
-        const proxyUrl = 'https://yomu-proxy.example/fetch';
         const target = 'https://uchisen.com/kanji/%E5%9B%B3';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            expect(String(input)).toBe(`${proxyUrl}?url=${encodeURIComponent(target)}`);
-            return Promise.resolve(new Response(`
-                <div class="kanji_image_loader" data-large="generated_diagram.jpg"></div>
-                <div id="mnemonic_story">Picture the diagram.</div>
-            `, { status: 200 }));
-        });
-        vi.stubGlobal('location', { href: 'https://hrussellzfac023.github.io/yomu-reader/newtab.html', origin: 'https://hrussellzfac023.github.io', hostname: 'hrussellzfac023.github.io' });
-        vi.stubGlobal('fetch', fetchMock);
+        const { proxyUrl, fetchMock } = stubHostedProxyFetch(target, `
+            <div class="kanji_image_loader" data-large="generated_diagram.jpg"></div>
+            <div id="mnemonic_story">Picture the diagram.</div>
+        `);
 
         try {
             await expect(loadUchisenImages('図', proxyUrl)).resolves.toEqual([
@@ -20184,15 +20057,10 @@ describe('reader helpers', () => {
         expect(byId.get('白')?.geometry?.y).toBeLessThan(byId.get('水')?.geometry?.y ?? 0);
 
         const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
-        const position = (id: string) => {
-            const match = new RegExp(`data-graph-node="${id}"[^>]+data-x="([^"]+)"[^>]+data-y="([^"]+)"`, 'u').exec(html);
-            expect(match).not.toBeNull();
-            return { x: Number(match?.[1]), y: Number(match?.[2]) };
-        };
-        const thread = position('糸');
-        const spring = position('泉');
-        const white = position('白');
-        const water = position('水');
+        const thread = graphNodeDataPosition(html, '糸');
+        const spring = graphNodeDataPosition(html, '泉');
+        const white = graphNodeDataPosition(html, '白');
+        const water = graphNodeDataPosition(html, '水');
 
         expect(thread.x).toBeLessThan(spring.x);
         expect(white.x).toBeGreaterThan(thread.x);
@@ -20217,18 +20085,8 @@ describe('reader helpers', () => {
             ],
         };
         const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
-        const position = (id: string) => {
-            const match = new RegExp(`data-graph-node="${id}"[^>]+data-x="([^"]+)" data-y="([^"]+)" data-rx="([^"]+)" data-ry="([^"]+)"`, 'u').exec(html);
-            expect(match).not.toBeNull();
-            return {
-                x: Number(match?.[1]),
-                y: Number(match?.[2]),
-                rx: Number(match?.[3]),
-                ry: Number(match?.[4]),
-            };
-        };
-        const wave = position('波');
-        const skin = position('皮');
+        const wave = graphNodeDataGeometry(html, '波');
+        const skin = graphNodeDataGeometry(html, '皮');
 
         const separated = Math.abs(skin.x - wave.x) > skin.rx + wave.rx
             || Math.abs(skin.y - wave.y) > skin.ry + wave.ry;
@@ -20288,16 +20146,10 @@ describe('reader helpers', () => {
             ],
         });
         const html = renderKanjiOrigins([], graph, null, DEFAULT_SETTINGS, 'en');
-        const position = (id: string) => {
-            const match = new RegExp(`data-graph-node="${id}"[^>]+style="left:([\\d.]+)%;top:([\\d.]+)%`, 'u').exec(html);
-            expect(match).not.toBeNull();
-            return { x: Number(match?.[1]), y: Number(match?.[2]) };
-        };
-
-        const leftRadical = position('忄');
-        const rightParent = position('感');
-        const innerChild = position('口');
-        const sibling = position('戍');
+        const leftRadical = graphNodeStylePosition(html, '忄');
+        const rightParent = graphNodeStylePosition(html, '感');
+        const innerChild = graphNodeStylePosition(html, '口');
+        const sibling = graphNodeStylePosition(html, '戍');
 
         expect(leftRadical.x).toBeGreaterThan(16);
         expect(leftRadical.x).toBeLessThan(36);
@@ -26815,7 +26667,7 @@ describe('reader helpers', () => {
         expect(moreWord.tabIndex).toBe(-1);
     });
 
-    it('caps default YouTube watch scans so comment-heavy pages stay responsive', () => {
+    it('scans long YouTube watch comment threads without mutating the video title', () => {
         const targets = collectYouTubeTargets(`
             <ytd-watch-metadata>
                 <h1><yt-formatted-string>日本語タイトル</yt-formatted-string></h1>
@@ -26830,10 +26682,29 @@ describe('reader helpers', () => {
             `).join('')}
         `, YOUTUBE_WATCH_TEST_URL, undefined);
 
-        expect(targets).toHaveLength(80);
+        expect(targets).toHaveLength(121);
         expect(targets[0]?.text).toBe('概要文です');
         expect(targets.map(target => target.text)).not.toContain('日本語タイトル');
-        expect(targets.map(target => target.text)).not.toContain('コメント119です');
+        expect(targets.map(target => target.text)).toContain('コメント119です');
+    });
+
+    it('scans Japanese YouTube live chat and passive chat UI text', () => {
+        const targets = collectYouTubeTargets(`
+            <yt-live-chat-app>
+                <yt-live-chat-text-message-renderer>
+                    <span id="author-name">先生</span>
+                    <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
+                    <button aria-label="返信">返信</button>
+                </yt-live-chat-text-message-renderer>
+            </yt-live-chat-app>
+        `, 'https://www.youtube.com/live_chat?v=TAorfFcb8_g', undefined);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '先生',
+            '今日はライブで日本語を聞いています。',
+            '返信',
+        ]));
+        expect(targets.find(target => target.text === '返信')?.passiveInteraction).toBe(true);
     });
 
     it('does not scan YouTube homepage recommendation titles as page text', () => {

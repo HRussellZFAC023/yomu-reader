@@ -96,6 +96,7 @@ import {
     type NewTabLookupReviewTargetSelection,
     type NewTabReviewSourceSummary,
 } from './review-controls';
+import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction } from './swipe-gesture';
 import {
     newTabCardHighlightTargets,
     newTabCardOptionalReading,
@@ -163,6 +164,12 @@ import {
     type NewTabReviewTarget,
     type QueuedNewTabGradeTarget,
 } from './review-targets';
+import {
+    formatNewTabSessionProgressLabel,
+    newTabSessionProgressRatio,
+    NewTabSessionProgressTracker,
+    type NewTabSessionProgressSnapshot,
+} from './session-progress';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import {
     applyJpdbReviewImport,
@@ -475,6 +482,8 @@ interface KanjiPromptKeyword {
 }
 
 interface NewTabStudySlots {
+    progress: HTMLElement | null;
+    timer: HTMLElement | null;
     prompt: HTMLElement | null;
     answer: HTMLElement | null;
     meaning: HTMLElement | null;
@@ -488,6 +497,7 @@ interface NewTabGradeTarget {
     root: HTMLElement;
     card: JPDBCard;
 }
+
 
 interface QueuedNewTabGrade {
     id: string;
@@ -572,6 +582,7 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private reviewCountMode = false;
+    private readonly sessionProgress = new NewTabSessionProgressTracker();
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private loadGeneration = 0;
     private sourceSwitchGeneration = 0;
@@ -1012,6 +1023,14 @@ export class NewTabController {
 
         root.addEventListener('keydown', event => this.handleRootKeydown(root, event), { signal: controller.signal });
 
+        installNewTabSwipeGesture({
+            root,
+            target: () => root.querySelector<HTMLElement>('[data-newtab-study]'),
+            signal: controller.signal,
+            shouldStart: () => this.canSwipeCurrentStudyCard(),
+            onSwipe: action => this.handleNewTabSwipe(root, action),
+        });
+
         const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
         window.addEventListener('online', syncQueuedGrades, { signal: controller.signal });
         window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
@@ -1162,6 +1181,24 @@ export class NewTabController {
     private gradeFromStudyClick(root: HTMLElement, target: HTMLElement): void {
         const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
         if (grade) void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+    }
+
+    private handleNewTabSwipe(root: HTMLElement, action: NewTabSwipeAction): void {
+        if (!this.canSwipeCurrentStudyCard()) return;
+        const settings = this.dependencies.getSettings();
+        const grade = newTabSwipeGrade(action, { twoButtonReviews: settings.twoButtonReviews });
+        void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
+    }
+
+    private canSwipeCurrentStudyCard(): boolean {
+        const card = this.visibleWords[this.index];
+        return Boolean(
+            card
+            && this.state.revealAnswer
+            && this.state.mode !== 'search'
+            && this.state.mode !== 'stats'
+            && this.canReviewCard(card),
+        );
     }
 
     private kanjiActionIdFromTarget(target: HTMLElement): string {
@@ -2067,8 +2104,7 @@ export class NewTabController {
         return plan.kind === 'explicit-source'
             && plan.primarySources[0] === 'anki'
             && !accumulator.cards.length
-            && accumulator.emptyMessageKey === 'ankiUnreachable'
-            && !this.dependencies.getSettings().newTabAnkiEnabled;
+            && accumulator.emptyMessageKey === 'ankiUnreachable';
     }
 
     private shouldLoadUnconfiguredAutoStudyFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
@@ -2531,7 +2567,7 @@ export class NewTabController {
     private isRenderedReviewSource(source: ConcreteNewTabWordSource): boolean {
         if (this.sourceLabelReviewSource() === source) return true;
         const words = this.allWords.length ? this.allWords : this.visibleWords;
-        return words.length > 0 && words.every(card => this.cardReviewSource(card) === source);
+        return words.length > 0 && words.every(card => this.cardPrimaryNewTabSource(card) === source);
     }
 
     private async switchReviewSource(root: HTMLElement, source: ConcreteNewTabWordSource): Promise<void> {
@@ -2546,12 +2582,13 @@ export class NewTabController {
         this.syncMode(root);
         this.navigationSupplementPromise = null;
         const cached = this.cachedSourceResult(source);
-        if (cached) {
+        if (cached && this.canUseCachedResultForSourceSwitch(cached, source)) {
             void this.persistSourceSettingChange(source);
             if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
             await this.applyLoadedWords(root, false, loadGeneration, cached, false, false, this.navigationGeneration);
             return;
         }
+        if (cached) this.invalidateSourceResultCache(source);
         this.allWords = [];
         this.visibleWords = [];
         this.visiblePoolSignature = '';
@@ -2560,6 +2597,29 @@ export class NewTabController {
         await this.persistSourceSettingChange(source);
         if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
         await this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+
+    private canUseCachedResultForSourceSwitch(result: NewTabLoadResult, source: ConcreteNewTabWordSource): boolean {
+        if (!result.cards.length) return this.emptyCachedResultMatchesSource(result, source);
+        return result.cards.every(card => this.cardPrimaryNewTabSource(card) === source);
+    }
+
+    private emptyCachedResultMatchesSource(result: NewTabLoadResult, source: ConcreteNewTabWordSource): boolean {
+        if (source === 'anki') return result.sourceLabel === 'Anki' || result.emptyMessageKey === 'ankiUnreachable';
+        if (source === 'jpdb') return result.sourceLabel.startsWith('JPDB') || result.sourceLabel.startsWith('Jiten');
+        return result.sourceLabel === this.text('dictionary');
+    }
+
+    private cardPrimaryNewTabSource(card: JPDBCard): ConcreteNewTabWordSource {
+        if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
+        if (card.source === 'jpdb'
+            || card.source === 'jiten'
+            || card.reviewSource === 'jpdb-api'
+            || card.reviewSource === 'jpdb-live'
+            || card.reviewSource === 'jiten-api') {
+            return 'jpdb';
+        }
+        return 'dictionary';
     }
 
     private syncSourceFromSettings(settings = this.dependencies.getSettings()): void {
@@ -2927,7 +2987,7 @@ export class NewTabController {
 
         this.renderPromptForMode(slots, card, state, renderAsKanji);
 
-        this.renderCount(slots.count, '');
+        this.renderSessionProgress(slots, card);
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderInstallCta(root);
@@ -2959,6 +3019,23 @@ export class NewTabController {
         if (!this.visibleWords.length) return '';
         if (!this.reviewCountMode && !this.isReviewCard(card)) return '';
         return `${this.index + 1} / ${this.visibleWords.length}`;
+    }
+
+    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard): void {
+        const baseLabel = this.newTabCountLabel(card);
+        if (!baseLabel) {
+            this.renderCount(slots.count, '', null);
+            return;
+        }
+        const snapshot = this.sessionProgress.snapshot(this.visibleWords);
+        this.renderCount(slots.count, [
+            baseLabel,
+            formatNewTabSessionProgressLabel(snapshot, {
+                completed: this.text('sessionDone'),
+                left: this.text('sessionLeft'),
+                due: this.text('statsDue'),
+            }),
+        ].join(' · '), snapshot);
     }
 
     private newTabStatusLabel(card: JPDBCard): string {
@@ -3169,14 +3246,34 @@ export class NewTabController {
         return this.text('dictionary');
     }
 
-    private renderCount(countSlot: HTMLElement | null, label: string): void {
+    private renderCount(countSlot: HTMLElement | null, label: string, progress: NewTabSessionProgressSnapshot | null = null): void {
         if (!countSlot) return;
         countSlot.textContent = label;
         countSlot.hidden = !label;
+        countSlot.style.setProperty('--jpdb-reader-newtab-session-progress', progress ? String(newTabSessionProgressRatio(progress)) : '0');
+        this.syncSessionProgressDataset(countSlot, progress);
+    }
+
+    private syncSessionProgressDataset(countSlot: HTMLElement, progress: NewTabSessionProgressSnapshot | null): void {
+        clearSessionProgressDataset(countSlot.dataset);
+        if (!progress) return;
+        countSlot.dataset.sessionCompletedReviews = String(progress.completedReviews);
+        countSlot.dataset.sessionElapsed = progress.elapsedLabel;
+        countSlot.dataset.sessionElapsedMs = String(progress.elapsedMs);
+        countSlot.dataset.sessionRemainingCards = String(progress.remainingCards);
+        countSlot.dataset.sessionRemainingDueCards = String(progress.remainingDueCards);
+        for (const source of progress.sources) {
+            const name = capitalizedSessionSource(source.source);
+            countSlot.dataset[`session${name}Available`] = String(source.available);
+            countSlot.dataset[`session${name}RemainingCards`] = String(source.remainingCards);
+            countSlot.dataset[`session${name}RemainingDueCards`] = String(source.remainingDueCards);
+        }
     }
 
     private studySlots(root: HTMLElement): NewTabStudySlots {
         return {
+            progress: null,
+            timer: null,
             prompt: root.querySelector<HTMLElement>('[data-newtab-prompt]'),
             answer: root.querySelector<HTMLElement>('[data-newtab-reading]'),
             meaning: root.querySelector<HTMLElement>('[data-newtab-meaning]'),
@@ -6139,7 +6236,11 @@ export class NewTabController {
     private renderControls(slots: NewTabStudySlots, card: JPDBCard): void {
         if (!slots.controls) return;
         slots.controls.hidden = false;
-        replaceChildrenWith(slots.controls, this.controlButtonsForCard(card));
+        const buttons = this.controlButtonsForCard(card);
+        const hasGrades = buttons.some(button => button instanceof HTMLButtonElement && Boolean(button.dataset.grade));
+        slots.controls.classList.toggle('jpdb-reader-newtab-grade-controls', hasGrades);
+        slots.controls.dataset.newtabGradeControls = String(hasGrades);
+        replaceChildrenWith(slots.controls, buttons);
     }
 
     private controlButtonsForCard(card: JPDBCard): HTMLElement[] {
@@ -6180,6 +6281,7 @@ export class NewTabController {
             apiShortLabel: this.apiGradeTargetShortLabel(card),
             bothLabel: this.text('gradeTargetBoth'),
             grades: newTabGradeOptions(this.dependencies.getSettings()),
+            intervals: card.reviewGradeIntervals,
             selectorLabel: this.text('gradeTargetSelector'),
             selectedOption: targetOptions[0],
             summary: this.reviewSourceSummary(card),
@@ -6243,18 +6345,24 @@ export class NewTabController {
 
     private lookupAnkiReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
         const candidates = new Map<number, string>();
-        const add = (cardId: number | null | undefined, label: string): void => {
+        const add = (cardId: number | null | undefined, label: string, cardName = ''): void => {
             const id = Number(cardId);
             if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
-            candidates.set(id, [label.trim() || 'Anki', `#${id}`].filter(Boolean).join(' '));
+            const deck = label.trim() || 'Anki';
+            const template = cardName.trim();
+            candidates.set(id, template ? [deck, `${template} #${id}`].join(' · ') : [deck, `#${id}`].join(' '));
         };
+        card.ankiRenderedCards?.forEach(rendered => add(
+            rendered.cardId,
+            rendered.deckName || card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki',
+            rendered.cardName,
+        ));
         add(this.ankiCardIdForReview(card), card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki');
-        card.ankiRenderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki'));
         const notes = data?.ankiLookup.notes ?? [];
         notes.forEach(note => {
             const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
+            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
             add(note.primaryCardId, noteLabel);
-            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel));
             note.cardIds.forEach(cardId => add(cardId, noteLabel));
         });
         return Array.from(candidates, ([cardId, label]) => ({
@@ -6317,6 +6425,7 @@ export class NewTabController {
         if (this.isOfflineSourceLabel(this.sourceLabel)) {
             if (await this.queueOfflineGrade(target.card, grade)) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
+                this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card);
             } else {
                 this.setStatus(target.root, this.text('couldNotSubmitGrade'));
@@ -6328,11 +6437,14 @@ export class NewTabController {
             const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-            if (!selectedTarget) this.advanceAfterGrade(target.root, target.card);
+            this.sessionProgress.recordReviewCompleted();
+            if (selectedTarget) this.renderSessionProgress(this.studySlots(target.root), target.card);
+            else this.advanceAfterGrade(target.root, target.card);
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
             if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
+                this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card);
                 return;
             }
@@ -6481,6 +6593,7 @@ export class NewTabController {
         card.ankiRenderedCards = primary.renderedCards?.map(rendered => ({
             cardId: rendered.cardId,
             deckName: rendered.deckName,
+            ...(rendered.cardName ? { cardName: rendered.cardName } : {}),
             question: rendered.question,
             answer: rendered.answer,
             ...(rendered.mediaDataUrls ? { mediaDataUrls: rendered.mediaDataUrls } : {}),
@@ -7023,7 +7136,17 @@ function distanceOutsideRange(value: number, min: number, max: number): number {
 
 function eventTargetElement(target: EventTarget | null): HTMLElement | null {
     if (target instanceof HTMLElement) return target;
+    if (target instanceof Element) return closestHtmlAncestor(target);
     if (target instanceof Text) return target.parentElement;
+    return null;
+}
+
+function closestHtmlAncestor(element: Element): HTMLElement | null {
+    let current: Element | null = element;
+    while (current) {
+        if (current instanceof HTMLElement) return current;
+        current = current.parentElement;
+    }
     return null;
 }
 
@@ -7233,6 +7356,16 @@ function firstNonEmptyPitch(promises: Promise<string[]>[]): Promise<string[]> {
 
 function delayWithValue<T>(value: T, ms: number): Promise<T> {
     return new Promise(resolve => window.setTimeout(() => resolve(value), ms));
+}
+
+function clearSessionProgressDataset(dataset: DOMStringMap): void {
+    for (const key of Object.keys(dataset)) {
+        if (key.startsWith('session')) delete dataset[key];
+    }
+}
+
+function capitalizedSessionSource(source: string): string {
+    return source ? `${source[0]?.toUpperCase() ?? ''}${source.slice(1)}` : '';
 }
 
 function uniqueNumbers(values: number[]): number[] {

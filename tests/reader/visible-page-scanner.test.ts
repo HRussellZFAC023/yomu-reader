@@ -3,31 +3,31 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { CardState, JPDBToken } from '../../src/reader/types';
 import { VisiblePageScanner } from '../../src/reader/visible-page-scanner';
 
+type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
+
+function createVisiblePageScanner(
+    overrides: Partial<VisiblePageScannerDependencies> & Pick<VisiblePageScannerDependencies, 'parseJapanese'>,
+): VisiblePageScanner {
+    return new VisiblePageScanner({
+        getSettings: () => DEFAULT_SETTINGS,
+        pauseMutationObserver: callback => callback(),
+        preloadParsedTokens: vi.fn(),
+        enrichPitchWords: vi.fn(),
+        enrichAnkiWords: vi.fn(),
+        toast: vi.fn(),
+        ...overrides,
+    });
+}
+
 describe('VisiblePageScanner', () => {
     it('parses large page scans in batches so the first targets can render sooner', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
         const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => paragraphs.map(() => [] as JPDBToken[]));
         const pauseMutationObserver = vi.fn(callback => callback());
-        const scanner = new VisiblePageScanner({
-            getSettings: () => DEFAULT_SETTINGS,
+        const scanner = createVisiblePageScanner({
             parseJapanese,
             pauseMutationObserver,
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -45,35 +45,18 @@ describe('VisiblePageScanner', () => {
             });
             expect(pauseMutationObserver).toHaveBeenCalledTimes(11);
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 
     it('skips stale target writes when visible text changes while parsing', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>日本語の文です。</p>';
         const parsed = deferred<JPDBToken[][]>();
         const parseJapanese = vi.fn(() => parsed.promise);
-        const scanner = new VisiblePageScanner({
-            getSettings: () => DEFAULT_SETTINGS,
+        const scanner = createVisiblePageScanner({
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -108,24 +91,13 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(document.querySelector('p')?.textContent).toBe('英語の文です。');
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 
     it('reports page coverage and i+1 guidance for manual scans with Jiten-backed words', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         const sentence = '今日本を読む';
         document.body.innerHTML = `<main><p>${sentence}</p></main>`;
         const toast = vi.fn();
@@ -134,13 +106,8 @@ describe('VisiblePageScanner', () => {
             stateToken(text, '本', 2, 3, 'new', { vid: 42, sid: 2, source: 'jiten', jitenWordId: 42, jitenReadingIndex: 2 }),
             stateToken(text, '読む', 4, 6, 'known', { vid: 11, sid: 1, source: 'jpdb' }),
         ]));
-        const scanner = new VisiblePageScanner({
-            getSettings: () => DEFAULT_SETTINGS,
+        const scanner = createVisiblePageScanner({
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
             toast,
         });
 
@@ -153,24 +120,13 @@ describe('VisiblePageScanner', () => {
             expect(insight.dataset.cardSource).toBe('jiten');
             expect(insight.dataset.cardId).toBe('42');
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 
     it('enables segmented fallback for hosted Japanese text when no dictionary data is available', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/');
         const heading = '青空の下で本を読む';
         document.body.innerHTML = `
@@ -183,14 +139,9 @@ describe('VisiblePageScanner', () => {
             expect(options?.allowSegmentedFallback).toBe(true);
             return paragraphs.map(text => text === heading ? [testToken(text, '下', 3, 4)] : []);
         });
-        const scanner = new VisiblePageScanner({
+        const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -203,25 +154,14 @@ describe('VisiblePageScanner', () => {
             expect(down?.classList.contains('jpdb-not-in-deck')).toBe(true);
             expect(down?.tabIndex).toBe(-1);
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             window.history.pushState({}, '', '/');
             document.body.innerHTML = '';
         }
     });
 
     it('does not rescan or grow hosted Japanese docs markup on repeated scans', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/');
         const heading = '青空の下で本を読む';
         document.body.innerHTML = `
@@ -234,14 +174,9 @@ describe('VisiblePageScanner', () => {
             if (text === heading) return [rubyToken(text, text, 'あおぞらのしたでほんをよむ', 0, text.length)];
             return [rubyToken(text, text, readingForText(text), 0, text.length)];
         }));
-        const scanner = new VisiblePageScanner({
+        const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', furiganaMode: 'all' }),
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -260,25 +195,14 @@ describe('VisiblePageScanner', () => {
             expect([...hostedBlock.querySelectorAll('rt')].map(rt => rt.textContent)).toEqual(rubyTextAfterFirstScan);
         } finally {
             scanner.destroy();
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             window.history.pushState({}, '', '/');
             document.body.innerHTML = '';
         }
     });
 
     it('keeps hosted docs prose stable when VitePress content roots overlap', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         window.history.pushState({}, '', '/yomu-reader/getting-started/');
         const first = 'A userscript is a small helper. Add よむ to that manager. After that, よむ appears on Japanese pages.';
         const second = 'Short version: install よむ, open any Japanese page, then tap or hover a word.';
@@ -294,14 +218,9 @@ describe('VisiblePageScanner', () => {
             </main>
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForHostedDocsText));
-        const scanner = new VisiblePageScanner({
+        const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', furiganaMode: 'all' }),
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -321,40 +240,24 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelectorAll('.vp-doc .jpdb-reader-word .jpdb-reader-word')).toHaveLength(0);
         } finally {
             scanner.destroy();
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             window.history.pushState({}, '', '/');
             document.body.innerHTML = '';
         }
     });
 
     it('enables segmented fallback on normal page scans when no API key or dictionaries are available', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
         const parseJapanese = vi.fn(async (paragraphs: string[], options?: { allowSegmentedFallback?: boolean }) => {
             expect(options?.allowSegmentedFallback).toBe(true);
             return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
         });
         const refreshWordContrast = vi.fn();
-        const scanner = new VisiblePageScanner({
+        const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
             refreshWordContrast,
-            toast: vi.fn(),
         });
 
         try {
@@ -364,24 +267,99 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('日本語');
             expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('passes changed roots to status enrichment so rendered words can update without a page refresh', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
+        });
+        const enrichAnkiWords = vi.fn((_tokens: JPDBToken[], roots?: ParentNode[]) => {
+            roots?.forEach(root => {
+                root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+                    word.classList.add('anki-due');
+                    word.dataset.ankiState = 'due';
+                });
+            });
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            parseJapanese,
+            enrichAnkiWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const paragraph = document.querySelector('p');
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(enrichAnkiWords).toHaveBeenCalledWith(
+                [expect.objectContaining({ card: expect.objectContaining({ spelling: '日本語' }) })],
+                [paragraph],
+            );
+            expect(word.dataset.ankiState).toBe('due');
+            expect(word.classList.contains('anki-due')).toBe(true);
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('prepares asbplayer subtitle tokens before the first render and colors Anki after render', async () => {
+        document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>日本語を読む</span></div>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const order: string[] = [];
+        const prepareSubtitleTokensBeforeRender = vi.fn((tokens: JPDBToken[]) => {
+            order.push('prepare');
+            expect(document.querySelector('.asbplayer-subtitles-container-bottom .jpdb-reader-word')).toBeNull();
+            tokens[0]!.card = {
+                ...tokens[0]!.card,
+                reading: 'にほんご',
+                cardState: ['known'],
+                pitchAccent: ['LHHH'],
+                source: 'jpdb',
+            };
+            tokens[0]!.rubies = [{ text: 'にほんご', start: 0, end: 3, length: 3 }];
+            tokens[0]!.pitchClass = 'atamadaka';
+        });
+        const enrichAnkiWords = vi.fn((_tokens: JPDBToken[], roots?: ParentNode[]) => {
+            order.push('anki');
+            const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word');
+            expect(word).not.toBeNull();
+            roots?.forEach(root => {
+                root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(renderedWord => {
+                    renderedWord.classList.add('anki-known');
+                    renderedWord.dataset.ankiState = 'known';
+                });
+            });
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+            prepareSubtitleTokensBeforeRender,
+            enrichAnkiWords,
+        });
+
+        try {
+            await scanner.scanAsbPlayerSubtitles();
+
+            const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word')!;
+            expect(order).toEqual(['prepare', 'anki']);
+            expect(word.classList.contains('jpdb-known')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('にほんご');
+            expect(word.dataset.ankiState).toBe('known');
+        } finally {
             document.body.innerHTML = '';
         }
     });
 
     it('uses bounded JPDB parsing with segmented fallback for API-backed page scans', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<main><p>先生いつもありがとうございました。</p></main>';
         const parseJapanese = vi.fn(async (paragraphs: string[], options?: {
             jpdbTimeoutMs?: number;
@@ -395,14 +373,9 @@ describe('VisiblePageScanner', () => {
             }));
             return paragraphs.map(text => [testToken(text, '先生', 0, 2)]);
         });
-        const scanner = new VisiblePageScanner({
+        const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: true }),
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -410,38 +383,24 @@ describe('VisiblePageScanner', () => {
 
             expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('先生');
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 
     it('skips late target writes after the scanner is destroyed', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>日本語の文です。</p>';
         const parsed = deferred<JPDBToken[][]>();
         const parseJapanese = vi.fn(() => parsed.promise);
         const preloadParsedTokens = vi.fn();
         const enrichPitchWords = vi.fn();
         const enrichAnkiWords = vi.fn();
-        const scanner = new VisiblePageScanner({
-            getSettings: () => DEFAULT_SETTINGS,
+        const scanner = createVisiblePageScanner({
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
             preloadParsedTokens,
             enrichPitchWords,
             enrichAnkiWords,
-            toast: vi.fn(),
         });
 
         try {
@@ -477,38 +436,21 @@ describe('VisiblePageScanner', () => {
             expect(enrichPitchWords).not.toHaveBeenCalled();
             expect(enrichAnkiWords).not.toHaveBeenCalled();
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 
     it('runs one pending visible scan after an in-flight scan finishes', async () => {
-        const originalRect = HTMLElement.prototype.getBoundingClientRect;
-        HTMLElement.prototype.getBoundingClientRect = () => ({
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 20,
-            top: 0,
-            right: 100,
-            bottom: 20,
-            left: 0,
-            toJSON: () => ({}),
-        } as DOMRect);
+        const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>今日は読む。</p>';
         const firstParse = deferred<JPDBToken[][]>();
         const secondParse = deferred<JPDBToken[][]>();
         const parseJapanese = vi.fn()
             .mockImplementationOnce(() => firstParse.promise)
             .mockImplementationOnce(() => secondParse.promise);
-        const scanner = new VisiblePageScanner({
-            getSettings: () => DEFAULT_SETTINGS,
+        const scanner = createVisiblePageScanner({
             parseJapanese,
-            pauseMutationObserver: callback => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
         });
 
         try {
@@ -528,11 +470,29 @@ describe('VisiblePageScanner', () => {
             secondParse.resolve([[]]);
             await new Promise(resolve => window.setTimeout(resolve, 0));
         } finally {
-            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            restoreRects();
             document.body.innerHTML = '';
         }
     });
 });
+
+function mockVisibleElementRects(): () => void {
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = () => ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 20,
+        top: 0,
+        right: 100,
+        bottom: 20,
+        left: 0,
+        toJSON: () => ({}),
+    } as DOMRect);
+    return () => {
+        HTMLElement.prototype.getBoundingClientRect = originalRect;
+    };
+}
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     let resolve!: (value: T) => void;

@@ -148,6 +148,7 @@ const DEFAULT_ANKI_HANDLERS = {
     cardsInfo: params => arrayParam(params.cards).map(cardId => mockAnkiCardInfo(Number(cardId))),
     areDue: params => arrayParam(params.cards).map(() => true),
     canAddNotes: params => arrayParam(params.notes).map(() => true),
+    retrieveMediaFile: params => String(params.filename ?? '') === ANKI_MEDIA_FILENAME ? ANKI_MEDIA_BASE64 : false,
     updateNoteFields: (params, { requests }) => {
         requests.push({ kind: 'anki-side-effect', action: 'updateNoteFields', note: params.note });
         return null;
@@ -171,6 +172,7 @@ const MULTI_DECK_NEW_TAB_ANKI_HANDLERS = {
     areDue: params => arrayParam(params.cards).map(cardId => Number(cardId) !== 7106),
     cardsInfo: params => arrayParam(params.cards).map(cardId => mockMultiDeckNewTabCardInfo(Number(cardId))),
     notesInfo: params => arrayParam(params.notes).map(noteId => mockMultiDeckNewTabNoteInfo(Number(noteId))),
+    retrieveMediaFile: params => String(params.filename ?? '') === ANKI_MEDIA_FILENAME ? ANKI_MEDIA_BASE64 : false,
 };
 const DEFAULT_JPDB_API_HANDLERS = {
     parse: body => mockJpdbParseFromVocabulary(body, smokeVocabulary, JPDB_PARSE_OPTIONS),
@@ -202,7 +204,7 @@ const MULTI_DECK_CARD_QUERY_RULES = [
 ];
 const MULTI_DECK_CARD_INFO_OVERRIDES = {
     7102: { note: 7202, deckName: 'Core', question: '順番', answer: 'order' },
-    7101: { note: 7201, deckName: 'Mining', question: '採掘', answer: 'mining' },
+    7101: { note: 7201, deckName: 'Mining', question: `採掘 [anki:play:q:0]`, answer: 'mining' },
     7104: { note: 7204, deckName: 'Mining::Old', question: '古い', answer: 'old' },
     7105: { note: 7205, deckName: 'Core', queue: 0, type: 0, due: 0, reps: 0, interval: 0, question: '新規', answer: 'new' },
     7107: { note: 7207, deckName: 'Archive', queue: 0, type: 0, due: 0, reps: 0, interval: 0, question: '保管', answer: 'archive' },
@@ -213,9 +215,12 @@ const WRITING_WORD_SELECTOR = 'main .jpdb-reader-word[data-expression="書く"][
 const VISIBLE_WRITING_POPOVER_SELECTOR = '.jpdb-reader-popover:visible';
 const ACTIVE_ANKI_BUTTON_SELECTOR = '[data-action="anki"]:not([disabled])';
 const NEWTAB_VIEWPORT = { width: 1280, height: 820 };
+const MOBILE_NEWTAB_VIEWPORT = { width: 390, height: 844 };
 const READER_FIXTURE_TEXT = '今日は日本語の記事を読みました。明日は例文を書きます。難波を歩きます。';
 const JPDB_MIXED_DECK_LIST = [[301, 401], [302, 402], [303, 403]];
 const JPDB_MIXED_DECK_LIST_JSON = JSON.stringify(JPDB_MIXED_DECK_LIST);
+const ANKI_MEDIA_FILENAME = 'mining-front.mp3';
+const ANKI_MEDIA_BASE64 = Buffer.from('yomu smoke anki audio').toString('base64');
 const WHOLE_COLLECTION_QUERY = 'deck:*';
 const WHOLE_COLLECTION_SEARCH_ACTIONS = new Set(['findCards', 'findNotes']);
 const EXISTING_ANKI_SELECTOR = '.jpdb-reader-popover .jpdb-reader-anki-existing';
@@ -449,6 +454,7 @@ function mockMultiDeckNewTabNoteInfo(noteId) {
             Reading: { value: reading, order: 1 },
             Meaning: { value: meaning, order: 2 },
             Sentence: { value: sentence, order: 3 },
+            ...(noteId === 7201 ? { Audio: { value: `[sound:${ANKI_MEDIA_FILENAME}]`, order: 4 } } : {}),
         },
         cards,
     };
@@ -996,6 +1002,27 @@ async function runNewTabSourceToggleSmoke(browser, baseUrl) {
     };
 }
 
+async function runMobileNewTabLayoutSmoke(browser, baseUrl) {
+    const requests = [];
+    const page = await newMockedPage(browser, requests, {
+        ...baseSettings,
+        newTabSource: 'auto',
+    }, MOBILE_NEWTAB_VIEWPORT);
+    await loadNewTabPage(page, baseUrl, '日本語');
+
+    const state = await readNewTabState(page);
+    assertNewTabState(state, { prompt: '日本語', status: 'JPDB', target: 'anki' }, 'Mobile newtab did not preserve source-toggle state', { state, requests });
+    const layout = await readMobileNewTabTopbarLayout(page);
+    assert(layout.modeBelowHeader, 'Mobile newtab tabs overlapped the brand or theme controls', layout);
+    assert(!layout.modeOverlapsBrand && !layout.modeOverlapsControls, 'Mobile newtab mode tabs collided with topbar controls', layout);
+    assert(!layout.buttonOverlaps.length, 'Mobile newtab mode buttons overlapped each other', layout);
+    assert(layout.modeWithinTopbar, 'Mobile newtab tabs overflowed the topbar width', layout);
+
+    await page.screenshot({ path: path.join(ARTIFACTS, 'anki-mining-newtab-mobile-layout-smoke.png'), fullPage: false });
+    await page.close();
+    return { state, layout };
+}
+
 async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
     const requests = [];
     const page = await newMockedPage(browser, requests, {
@@ -1009,6 +1036,7 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
 
     const first = await readNewTabState(page);
     assertNewTabState(first, { prompt: '採掘', status: 'Anki' }, 'Multi-deck newtab did not start from the merged Anki SRS due queue', { first, requests });
+    const audio = await assertNewTabAnkiCardAudioButton(page, requests);
 
     await page.locator('[data-newtab-action="next"]').click();
     await waitForNewTabPrompt(page, '順番')
@@ -1030,8 +1058,11 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
     const findQueries = requests
         .filter(item => item.kind === 'anki' && item.action === 'findCards')
         .map(item => String(item.params.query ?? ''));
-    assert(findQueries.length >= 2, 'Multi-deck newtab did not query due and new Anki queues', { findQueries, requests });
-    findQueries.forEach(query => {
+    const reviewQueueQueries = findQueries.filter(query => /\bdeck:"(?:Core|Mining)"/.test(query));
+    assert(reviewQueueQueries.length >= 2, 'Multi-deck newtab did not query due and new Anki queues', { findQueries, reviewQueueQueries, requests });
+    assert(reviewQueueQueries.some(query => query.includes('is:due') || query.includes('is:learn')), 'Multi-deck newtab did not query due Anki queues', { findQueries, reviewQueueQueries });
+    assert(reviewQueueQueries.some(query => query.includes('is:new')), 'Multi-deck newtab did not query new Anki queues', { findQueries, reviewQueueQueries });
+    reviewQueueQueries.forEach(query => {
         assert(query.includes('deck:"Core"') && query.includes('deck:"Mining"'), 'Anki newtab query did not include every enabled deck', { query, findQueries });
         assert(!query.includes('Archive') && !query.includes('Mining::Old'), 'Anki newtab query included a disabled deck', { query, findQueries });
     });
@@ -1047,6 +1078,7 @@ async function runNewTabMultiDeckAnkiSmoke(browser, baseUrl) {
         first,
         second,
         third,
+        audio,
         findQueries,
         noteIds,
         ankiActions: ankiActions(requests),
@@ -1243,6 +1275,122 @@ async function readNewTabState(page) {
     });
 }
 
+async function readMobileNewTabTopbarLayout(page) {
+    return page.evaluate(() => {
+        const topbar = rectFor('.jpdb-reader-newtab-topbar');
+        const brand = rectFor('.jpdb-reader-newtab-brand');
+        const controls = rectFor('.jpdb-reader-newtab-theme-controls');
+        const mode = rectFor('.jpdb-reader-newtab-mode');
+        const buttons = [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(rectFromElement);
+        return {
+            viewportWidth: window.innerWidth,
+            topbar,
+            brand,
+            controls,
+            mode,
+            modeBelowHeader: mode.top >= Math.max(brand.bottom, controls.bottom) - 1,
+            modeOverlapsBrand: rectsOverlap(mode, brand),
+            modeOverlapsControls: rectsOverlap(mode, controls),
+            modeWithinTopbar: mode.left >= topbar.left - 1 && mode.right <= topbar.right + 1,
+            buttonOverlaps: overlappingPairs(buttons),
+            buttonLabels: [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(button => button.textContent?.trim() ?? ''),
+        };
+
+        function rectFor(selector) {
+            const element = document.querySelector(selector);
+            if (!(element instanceof HTMLElement)) return emptyRect(selector);
+            return rectFromElement(element);
+        }
+
+        function rectFromElement(element) {
+            const rect = element.getBoundingClientRect();
+            return {
+                selector: element.className || element.tagName,
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+                width: rect.width,
+                height: rect.height,
+            };
+        }
+
+        function emptyRect(selector) {
+            return { selector, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+        }
+
+        function rectsOverlap(a, b) {
+            return a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+        }
+
+        function overlappingPairs(rects) {
+            const pairs = [];
+            for (let i = 0; i < rects.length; i += 1) {
+                for (let j = i + 1; j < rects.length; j += 1) {
+                    if (rectsOverlap(rects[i], rects[j])) pairs.push([i, j]);
+                }
+            }
+            return pairs;
+        }
+    });
+}
+
+async function assertNewTabAnkiCardAudioButton(page, requests) {
+    const selector = `[data-newtab-prompt] [data-action="anki-media-audio"][data-anki-media-name="${ANKI_MEDIA_FILENAME}"]`;
+    await page.locator(selector).waitFor({ state: 'visible', timeout: 8000 });
+    const beforeMediaRequests = requests.filter(item => item.kind === 'anki' && item.action === 'retrieveMediaFile').length;
+    const audio = await page.locator(selector).evaluate(button => {
+        const prompt = button.closest('[data-newtab-prompt]');
+        const rect = button.getBoundingClientRect();
+        return {
+            text: button.textContent?.trim() ?? '',
+            ariaLabel: button.getAttribute('aria-label') ?? '',
+            title: button.getAttribute('title') ?? '',
+            firstChild: prompt?.firstElementChild === button,
+            hasIconButtonClass: button.classList.contains('jpdb-reader-icon-btn'),
+            hasMiniClass: button.classList.contains('jpdb-reader-icon-mini'),
+            hasSpeakerIcon: Boolean(button.querySelector('svg')),
+            promptText: prompt?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+            rect: { width: rect.width, height: rect.height },
+        };
+    });
+    assert(audio.text === '', 'Anki card audio button should render as an icon-only control', audio);
+    assert(audio.ariaLabel === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button did not expose the media filename to assistive tech', audio);
+    assert(audio.title === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button title was incorrect', audio);
+    assert(audio.firstChild, 'Anki card audio button was not positioned before the prompt content', audio);
+    assert(audio.hasIconButtonClass && !audio.hasMiniClass && audio.hasSpeakerIcon, 'Anki card audio did not use the newtab speaker-button pattern', audio);
+    assert(!audio.promptText.includes('Card audio'), 'Anki card audio leaked the old text chip label', audio);
+
+    await page.locator(selector).click();
+    try {
+        await waitForRequest(requests, item => item.kind === 'anki'
+            && item.action === 'retrieveMediaFile'
+            && String(item.params?.filename ?? '') === ANKI_MEDIA_FILENAME
+            && requests.filter(request => request.kind === 'anki' && request.action === 'retrieveMediaFile').length > beforeMediaRequests);
+    } catch (error) {
+        const afterClick = await readNewTabAnkiCardAudioButtonDebug(page, selector).catch(debugError => ({
+            error: debugError instanceof Error ? debugError.message : String(debugError),
+        }));
+        throw new Error(`Anki card audio click did not request Anki media: ${JSON.stringify({
+            beforeClick: audio,
+            afterClick,
+            recentAnkiRequests: requests.filter(item => item.kind === 'anki').slice(-12),
+        }, null, 2)}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return audio;
+}
+
+async function readNewTabAnkiCardAudioButtonDebug(page, selector) {
+    return page.locator(selector).evaluate(button => ({
+        disabled: button.hasAttribute('disabled'),
+        text: button.textContent?.trim() ?? '',
+        ariaLabel: button.getAttribute('aria-label') ?? '',
+        classes: [...button.classList],
+        promptText: button.closest('[data-newtab-prompt]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        bodyText: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 800) ?? '',
+    }));
+}
+
 async function main() {
     assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT);
     mkdirSync(ARTIFACTS, { recursive: true });
@@ -1254,9 +1402,10 @@ async function main() {
         const mobileHandoff = await runMobileAnkiHandoffSmoke(browser, baseUrl);
         const androidHandoff = await runAndroidAnkiDroidHandoffSmoke(browser, baseUrl);
         const newtab = await runNewTabSourceToggleSmoke(browser, baseUrl);
+        const mobileNewtab = await runMobileNewTabLayoutSmoke(browser, baseUrl);
         const newtabMultiDeck = await runNewTabMultiDeckAnkiSmoke(browser, baseUrl);
         const jpdbMixedQueue = await runNewTabJpdbMixedQueueSmoke(browser, baseUrl);
-        console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, newtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
+        console.log(JSON.stringify({ reader, localRoot, mobileHandoff, androidHandoff, newtab, mobileNewtab, newtabMultiDeck, jpdbMixedQueue }, null, 2));
     } finally {
         await browser.close().catch(() => undefined);
         await closeServer(server);

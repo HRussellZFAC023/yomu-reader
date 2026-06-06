@@ -1,6 +1,6 @@
 import { Logger } from '../logger';
 import { SETTINGS_CHANGE_EVENT } from '../constants';
-import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../color-tokens';
+import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../storage';
@@ -331,7 +331,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
-    youtubeShowChannelRecommendations: false,
+    youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
@@ -954,7 +954,8 @@ function hasStalePitchHighlightPair(
     highlight: ReaderColorChannelKey,
     underline: ReaderColorChannelKey,
 ): boolean {
-    return isRawPitchPair(settings, highlight, underline)
+    return (isPreCurrentSavedSettingsPayload(settings) || hasOwn(settings, 'wordHighlightMode'))
+        && isRawPitchPair(settings, highlight, underline)
         && channels[highlight] === 'pitch'
         && channels[underline] === 'pitch';
 }

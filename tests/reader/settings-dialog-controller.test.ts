@@ -20,22 +20,6 @@ vi.mock('../../src/reader/settings-form', async importOriginal => {
     };
 });
 
-const { jitenPingMock, jitenApiClientMock, jitenApiClientConstructorMock } = vi.hoisted(() => ({
-    jitenPingMock: vi.fn(),
-    jitenApiClientMock: vi.fn(),
-    jitenApiClientConstructorMock: vi.fn(),
-}));
-vi.mock('../../src/reader/jiten', () => ({
-    JitenApiClient: jitenApiClientConstructorMock,
-}));
-
-function installJitenApiClientMock(): void {
-    jitenApiClientConstructorMock.mockImplementation((getApiKey: () => string, options?: { proxyUrl?: string | (() => string) }) => {
-        jitenApiClientMock({ apiKey: getApiKey(), proxyUrl: typeof options?.proxyUrl === 'function' ? options.proxyUrl() : options?.proxyUrl });
-        return { ping: jitenPingMock };
-    });
-}
-
 type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogController;
 type RefreshableSettingsDialogController = {
     refreshDeckControls: (form: HTMLFormElement) => Promise<void>;
@@ -266,16 +250,9 @@ function importSummary(dictionary: string): ImportSummary {
 }
 
 describe('settings dialog keyboard dismissal', () => {
-    beforeEach(() => {
-        installJitenApiClientMock();
-    });
-
     afterEach(() => {
         document.body.replaceChildren();
         localStorage.clear();
-        jitenPingMock.mockReset();
-        jitenApiClientMock.mockClear();
-        jitenApiClientConstructorMock.mockReset();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
@@ -285,7 +262,7 @@ describe('settings dialog keyboard dismissal', () => {
         document.body.append(opener);
         opener.focus();
         const { dismiss, form } = createSettingsDialog();
-        const input = form.querySelector<HTMLInputElement>('input[name="apiKey"]')!;
+        const input = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
         const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
 
         expect(opener.getAttribute('aria-hidden')).toBe('true');
@@ -298,6 +275,48 @@ describe('settings dialog keyboard dismissal', () => {
         expect(opener.hasAttribute('aria-hidden')).toBe(false);
         expect((opener as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
         expect(document.activeElement).toBe(opener);
+    });
+
+    it('does not keep refreshing parsed settings text after cancel closes the dialog', () => {
+        const parseSettingsJapanese = vi.fn();
+        const { controller, dismiss, form } = createSettingsDialog({ parseSettingsJapanese });
+
+        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        parseSettingsJapanese.mockClear();
+
+        form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+        controller.refreshLanguage('ja');
+
+        expect(dismiss).toHaveBeenCalledOnce();
+        expect(parseSettingsJapanese).not.toHaveBeenCalled();
+    });
+
+    it('releases the inert page when torn down outside the controller (backdrop, factory reset, close-popup shortcut)', () => {
+        // Regression: these paths run through ReaderApp.dismiss(), not the
+        // controller's own close, so the page stayed aria-hidden + inert and
+        // swallowed every click until the user reloaded.
+        const page = document.createElement('main');
+        document.body.append(page);
+        const { controller } = createSettingsDialog();
+
+        expect(page.getAttribute('aria-hidden')).toBe('true');
+        expect((page as HTMLElement & { inert?: boolean }).inert).toBe(true);
+
+        controller.releaseModalBackground();
+
+        expect(page.hasAttribute('aria-hidden')).toBe(false);
+        expect((page as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
+    });
+
+    it('keeps releasing the modal background idempotent', () => {
+        const page = document.createElement('main');
+        document.body.append(page);
+        const { controller } = createSettingsDialog();
+
+        controller.releaseModalBackground();
+        expect(() => controller.releaseModalBackground()).not.toThrow();
+        expect(page.hasAttribute('aria-hidden')).toBe(false);
+        expect((page as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
     });
 
     it('wraps Tab focus within the settings dialog', () => {
@@ -345,7 +364,7 @@ describe('settings dialog keyboard dismissal', () => {
             const { form } = createSettingsDialog();
             const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
             const footer = form.querySelector<HTMLElement>('.footer')!;
-            const input = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+            const input = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
 
             vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(testRect(118, 374));
             vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(testRect(390, 454));
@@ -648,7 +667,7 @@ describe('settings dialog keyboard dismissal', () => {
     it('updates the JPDB status light when the API key field changes', () => {
         const { form } = createSettingsDialog();
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')!;
+        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
         const enableReviews = form.querySelector<HTMLInputElement>('input[name="enableReviews"]')!;
         const jpdbMiningEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!;
 
@@ -659,17 +678,19 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(status.dataset.statusTone).toBe('success');
         expect(status.textContent).toContain('JPDB key set');
-        expect(status.textContent).toContain('Reviews: enabled');
-        expect(status.textContent).toContain('Deck changes: enabled');
+        expect(status.textContent).not.toContain('Reviews:');
+        expect(status.textContent).not.toContain('Deck changes:');
 
         enableReviews.checked = false;
         enableReviews.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(status.textContent).toContain('Reviews: disabled');
+        expect(status.textContent).toContain('JPDB key set');
+        expect(status.textContent).not.toContain('Reviews:');
 
         jpdbMiningEnabled.checked = false;
         jpdbMiningEnabled.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(status.dataset.statusTone).toBe('pending');
-        expect(status.textContent).toContain('Deck changes: disabled');
+        expect(status.dataset.statusTone).toBe('success');
+        expect(status.textContent).toContain('JPDB key set');
+        expect(status.textContent).not.toContain('Deck changes:');
 
         apiKey.value = '';
         apiKey.dispatchEvent(new Event('input', { bubbles: true }));
@@ -678,62 +699,30 @@ describe('settings dialog keyboard dismissal', () => {
         expect(status.textContent).toContain('No JPDB or Jiten key');
     });
 
-    it('updates the API status light when the Jiten API key field changes', () => {
+    it('updates the API status light when the API key field changes to a Jiten key', () => {
         const { form } = createSettingsDialog();
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const jitenStatus = form.querySelector<HTMLElement>('[data-jiten-status]')!;
-        const jpdbApiKey = form.querySelector<HTMLInputElement>('input[name="apiKey"]')!;
-        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
+        const apiCredential = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
 
         expect(status.dataset.statusTone).toBe('pending');
-        expect(jpdbApiKey.value).toBe('');
+        expect(apiCredential.value).toBe('');
+        expect(form.querySelector<HTMLInputElement>('input[name="apiKey"]')).toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
 
-        jitenApiKey.value = 'jiten-key';
-        jitenApiKey.dispatchEvent(new Event('input', { bubbles: true }));
+        apiCredential.value = 'ak_jiten-key';
+        apiCredential.dispatchEvent(new Event('input', { bubbles: true }));
 
         expect(status.dataset.statusTone).toBe('success');
         expect(status.textContent).toContain('Jiten key set');
-        expect(status.textContent).toContain('JPDB-backed cards need a JPDB key');
-        expect(jitenStatus.textContent).toContain('Jiten key configured');
-        expect(jpdbApiKey.value).toBe('');
+        expect(status.textContent).not.toContain('JPDB-backed cards need a JPDB key');
     });
 
-    it('checks the Jiten API key through the settings action', async () => {
-        jitenPingMock.mockResolvedValueOnce(true);
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', corsProxyUrl: 'https://proxy.example.test' };
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-        });
-        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
-        const status = form.querySelector<HTMLElement>('[data-jiten-status]')!;
+    it('does not render a separate Jiten connection test action', () => {
+        const { form } = createSettingsDialog();
 
-        jitenApiKey.value = '  jiten-key  ';
-        form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')?.click();
-        await waitForCondition(() => status.textContent?.includes('Jiten Reader API is reachable') ?? false);
-
-        expect(jitenApiClientMock).toHaveBeenCalledWith({ apiKey: 'jiten-key', proxyUrl: 'https://proxy.example.test' });
-        expect(jitenPingMock).toHaveBeenCalledOnce();
-        expect(status.dataset.statusTone).toBe('success');
-    });
-
-    it('shows a Jiten connection error without saving the form', async () => {
-        jitenPingMock.mockRejectedValueOnce(new Error('Jiten rejected the API key.'));
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '' };
-        const { dependencies, form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-        });
-        const jitenApiKey = form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')!;
-        const status = form.querySelector<HTMLElement>('[data-jiten-status]')!;
-
-        jitenApiKey.value = 'bad-key';
-        form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')?.click();
-        await waitForCondition(() => status.textContent?.includes('Jiten rejected the API key') ?? false);
-
-        expect(status.dataset.statusTone).toBe('error');
-        expect(dependencies.toast).toHaveBeenCalledWith('Jiten rejected the API key.');
-        expect(settings.jitenApiKey).toBe('');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
     });
 
     it('prepares the Yomu Anki deck and note type only from the explicit prepare action', async () => {

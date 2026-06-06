@@ -3,6 +3,17 @@ import { unwrapReaderWords } from '../dom';
 import { uiText } from '../i18n';
 import type { ReaderSettings } from '../types';
 import {
+    YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
+    YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS,
+    allYouTubeChannelRecommendations,
+    filterYouTubeChannelRecommendations,
+    starterYouTubeChannelRecommendations,
+    youtubeChannelRecommendationDescription,
+    youtubeChannelUrl,
+    type YouTubeChannelRecommendation,
+    type YouTubeChannelRecommendationFilter,
+} from './youtube-channel-recommendations';
+import {
     classifyYouTubeFilterCandidates,
     isProbablyJapaneseYouTubeText,
     type YouTubeFilterCandidate,
@@ -73,6 +84,8 @@ const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
 const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
+const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 5;
+const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
 const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
 const YOUTUBE_NAVIGATION_EVENTS = [
     'yt-navigate-finish',
@@ -97,6 +110,40 @@ type YouTubeFilterNoticeElements = {
     summary: HTMLElement;
     toggleHidden: HTMLButtonElement;
     hideNotice: HTMLButtonElement;
+};
+
+type YouTubeChannelShelfElements = {
+    title: HTMLElement;
+    copy: HTMLElement;
+    status: HTMLElement;
+    filters: HTMLElement;
+    list: HTMLElement;
+    expand: HTMLButtonElement;
+    subscribeVisible: HTMLButtonElement;
+    subscribeAll: HTMLButtonElement;
+    dismiss: HTMLButtonElement;
+    never: HTMLButtonElement;
+};
+
+type YouTubeChannelPreview = {
+    channelId: string;
+    title: string;
+    avatarUrl: string;
+    subscriberText: string;
+    description: string;
+};
+
+type YouTubeClientConfig = {
+    apiKey: string;
+    context: Record<string, unknown>;
+    clientName: string;
+    clientVersion: string;
+    visitorId: string;
+};
+
+type YouTubeConfigSource = {
+    get?: (key: string) => unknown;
+    data_?: Record<string, unknown>;
 };
 
 function isYouTubeHost(hostname = location.hostname): boolean {
@@ -138,19 +185,29 @@ export class YoutubeImmersionFilter {
     private metadataRescanTimer?: number;
     private noticeTimer?: number;
     private bar?: HTMLElement;
+    private channelShelf?: HTMLElement;
     private revealed = false;
     private dismissedNoticeScope = '';
+    private dismissedChannelShelfScope = '';
     private noticeRouteKey = '';
+    private channelShelfRouteKey = '';
+    private channelShelfExpanded = false;
+    private channelShelfFilter: YouTubeChannelRecommendationFilter = 'all';
+    private subscriptionBusy = false;
     private lastBackfillAt = Number.NEGATIVE_INFINITY;
     private lastScrollAt = Number.NEGATIVE_INFINITY;
     private destroyed = true;
     private readonly oembedTitleCache = new Map<string, string | null>();
     private readonly pendingOembedTitles = new Set<string>();
+    private readonly channelPreviewCache = new Map<string, YouTubeChannelPreview | null>();
+    private readonly channelIdCache = new Map<string, string | null>();
+    private readonly pendingChannelPreviews = new Set<string>();
     private readonly cardTimers = new WeakMap<HTMLElement, number[]>();
 
     constructor(private readonly options: {
         getSettings: () => ReaderSettings;
         setShowFilterNotice?: (visible: boolean) => void;
+        setShowChannelRecommendations?: (visible: boolean) => void;
         isActivePage?: () => boolean;
     }) {}
 
@@ -245,12 +302,6 @@ export class YoutubeImmersionFilter {
 
         unwrapYouTubeWatchTitleReaderWords();
 
-        if (isYouTubeShortsWatchPage()) {
-            this.clearFilteredCards();
-            this.removeNotice();
-            return;
-        }
-
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
         this.syncFilterableVideoShelves();
@@ -261,6 +312,7 @@ export class YoutubeImmersionFilter {
             this.bar?.remove();
             this.bar = undefined;
         }
+        this.syncChannelShelf(result.filteredCount, settings);
         this.maybeBackfillFeed(result.filteredCount, result.shownCount, result.visibleVideoIds.size);
     }
 
@@ -275,6 +327,10 @@ export class YoutubeImmersionFilter {
     }
 
     private applyFilterDecision(decision: YouTubeFilterDecision): void {
+        if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
+            this.showCard(decision.candidate.card);
+            return;
+        }
         if (decision.kind === 'skip') {
             this.clearPendingCard(decision.candidate.card);
             return;
@@ -502,6 +558,372 @@ export class YoutubeImmersionFilter {
         notice.hideNotice.textContent = uiText(settings.interfaceLanguage, 'youtubeHideNotice');
     }
 
+    private syncChannelShelf(filteredCount: number, settings: ReaderSettings): void {
+        if (!this.shouldShowChannelShelf(filteredCount, settings)) {
+            this.removeChannelShelf();
+            return;
+        }
+
+        const scope = this.currentChannelShelfScope();
+        if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
+
+        const shelf = this.ensureChannelShelf();
+        const elements = this.channelShelfElements(shelf);
+        this.renderChannelShelf(elements);
+        this.placeChannelShelf(shelf);
+    }
+
+    private shouldShowChannelShelf(filteredCount: number, settings: ReaderSettings): boolean {
+        if (!settings.youtubeShowChannelRecommendations) return false;
+        if (this.revealed) return false;
+        if (!shouldShowChannelRecommendationsForRoute()) return false;
+        return filteredCount > 0 || isYouTubeHomePage();
+    }
+
+    private ensureChannelShelf(): HTMLElement {
+        if (!this.channelShelf) this.channelShelf = this.createChannelShelf();
+        return this.channelShelf;
+    }
+
+    private createChannelShelf(): HTMLElement {
+        const shelf = document.createElement('section');
+        shelf.className = 'jpdb-youtube-channel-shelf';
+        shelf.dataset.jpdbReaderRoot = 'true';
+        shelf.setAttribute('role', 'region');
+        shelf.setAttribute('aria-label', 'Japanese channel recommendations');
+
+        const header = document.createElement('div');
+        header.className = 'jpdb-youtube-channel-shelf-head';
+        const copy = document.createElement('div');
+        copy.className = 'jpdb-youtube-channel-shelf-copy';
+        const eyebrow = document.createElement('div');
+        eyebrow.className = 'jpdb-youtube-channel-shelf-eyebrow';
+        eyebrow.textContent = APP_NAME;
+        const title = document.createElement('h2');
+        title.dataset.role = 'channel-title';
+        const description = document.createElement('p');
+        description.dataset.role = 'channel-copy';
+        copy.append(eyebrow, title, description);
+
+        const actions = document.createElement('div');
+        actions.className = 'jpdb-youtube-channel-shelf-actions';
+        actions.append(
+            channelShelfButton('subscribe-visible'),
+            channelShelfButton('subscribe-all'),
+            channelShelfButton('dismiss'),
+            channelShelfButton('never'),
+        );
+        header.append(copy, actions);
+
+        const filters = document.createElement('div');
+        filters.className = 'jpdb-youtube-channel-shelf-filters';
+        filters.dataset.role = 'channel-filters';
+
+        const list = document.createElement('ol');
+        list.className = 'jpdb-youtube-channel-shelf-list';
+        list.dataset.role = 'channel-list';
+
+        const footer = document.createElement('div');
+        footer.className = 'jpdb-youtube-channel-shelf-foot';
+        const status = document.createElement('div');
+        status.className = 'jpdb-youtube-channel-shelf-status';
+        status.dataset.role = 'channel-status';
+        status.setAttribute('aria-live', 'polite');
+        const expand = channelShelfButton('expand');
+        footer.append(status, expand);
+
+        shelf.append(header, filters, list, footer);
+        shelf.addEventListener('click', event => this.handleChannelShelfClick(event));
+        return shelf;
+    }
+
+    private channelShelfElements(shelf: HTMLElement): YouTubeChannelShelfElements {
+        return {
+            title: shelf.querySelector<HTMLElement>('[data-role="channel-title"]')!,
+            copy: shelf.querySelector<HTMLElement>('[data-role="channel-copy"]')!,
+            status: shelf.querySelector<HTMLElement>('[data-role="channel-status"]')!,
+            filters: shelf.querySelector<HTMLElement>('[data-role="channel-filters"]')!,
+            list: shelf.querySelector<HTMLElement>('[data-role="channel-list"]')!,
+            expand: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!,
+            subscribeVisible: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')!,
+            subscribeAll: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!,
+            dismiss: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="dismiss"]')!,
+            never: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!,
+        };
+    }
+
+    private renderChannelShelf(elements: YouTubeChannelShelfElements): void {
+        const recommendations = this.currentChannelRecommendations();
+        const visibleRecommendations = this.channelShelfExpanded
+            ? recommendations
+            : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+        const renderedRecommendations = visibleRecommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+
+        this.channelShelf?.classList.toggle('is-expanded', this.channelShelfExpanded);
+        elements.title.textContent = 'Start your Japanese YouTube feed';
+        elements.copy.textContent = this.channelShelfExpanded
+            ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
+            : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+        elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+        elements.subscribeAll.textContent = `Subscribe all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}`;
+        elements.dismiss.textContent = 'Dismiss';
+        elements.never.textContent = 'Hide';
+        elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
+        elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
+        if (!this.subscriptionBusy) elements.status.textContent = readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.';
+
+        this.renderChannelFilters(elements.filters);
+        elements.list.replaceChildren(...renderedRecommendations.map(channel => this.renderChannelRow(channel)));
+        this.setChannelShelfBusy(this.subscriptionBusy);
+        void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+    }
+
+    private currentChannelRecommendations(): YouTubeChannelRecommendation[] {
+        return this.channelShelfExpanded
+            ? filterYouTubeChannelRecommendations(this.channelShelfFilter)
+            : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    }
+
+    private renderChannelFilters(filters: HTMLElement): void {
+        filters.hidden = !this.channelShelfExpanded;
+        if (!this.channelShelfExpanded) {
+            filters.replaceChildren();
+            return;
+        }
+        filters.replaceChildren(...YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS.map(filter => {
+            const button = channelShelfButton('filter');
+            button.dataset.filter = filter.id;
+            button.textContent = filter.label;
+            button.setAttribute('aria-pressed', String(filter.id === this.channelShelfFilter));
+            return button;
+        }));
+    }
+
+    private renderChannelRow(channel: YouTubeChannelRecommendation): HTMLElement {
+        const preview = this.channelPreviewCache.get(channel.handle) ?? null;
+        const row = document.createElement('li');
+        row.className = 'jpdb-youtube-channel-row';
+        row.dataset.yomuChannelHandle = channel.handle;
+        row.append(
+            this.renderChannelAvatar(channel, preview),
+            this.renderChannelBody(channel, preview),
+            this.renderChannelSubscribeButton(channel),
+        );
+        return row;
+    }
+
+    private renderChannelAvatar(channel: YouTubeChannelRecommendation, preview: YouTubeChannelPreview | null): HTMLElement {
+        const avatar = document.createElement('a');
+        avatar.className = 'jpdb-youtube-channel-avatar';
+        avatar.href = youtubeChannelUrl(channel);
+        avatar.target = '_blank';
+        avatar.rel = 'noopener';
+        avatar.setAttribute('aria-label', `${channel.name} on YouTube`);
+
+        const fallback = document.createElement('span');
+        fallback.textContent = channel.name.trim().charAt(0).toUpperCase() || '日';
+        const image = document.createElement('img');
+        const avatarUrl = preview?.avatarUrl ?? '';
+        image.alt = '';
+        image.hidden = !avatarUrl;
+        if (avatarUrl) image.src = avatarUrl;
+        avatar.append(image, fallback);
+        return avatar;
+    }
+
+    private renderChannelBody(channel: YouTubeChannelRecommendation, preview: YouTubeChannelPreview | null): HTMLElement {
+        const body = document.createElement('div');
+        body.className = 'jpdb-youtube-channel-body';
+
+        const name = document.createElement('a');
+        name.className = 'jpdb-youtube-channel-name';
+        name.href = youtubeChannelUrl(channel);
+        name.target = '_blank';
+        name.rel = 'noopener';
+        name.textContent = preview?.title || channel.name;
+
+        const meta = document.createElement('div');
+        meta.className = 'jpdb-youtube-channel-meta';
+        meta.textContent = channelRowMetaText(channel, preview);
+
+        const description = document.createElement('div');
+        description.className = 'jpdb-youtube-channel-description';
+        description.textContent = preview?.description || youtubeChannelRecommendationDescription(channel);
+
+        const tags = document.createElement('div');
+        tags.className = 'jpdb-youtube-channel-tags';
+        channelRowTags(channel).forEach(tag => {
+            const chip = document.createElement('span');
+            chip.textContent = tag;
+            tags.append(chip);
+        });
+
+        body.append(name, meta, description, tags);
+        return body;
+    }
+
+    private renderChannelSubscribeButton(channel: YouTubeChannelRecommendation): HTMLButtonElement {
+        const subscribe = channelShelfButton('subscribe-one');
+        subscribe.dataset.handle = channel.handle;
+        subscribe.textContent = 'Subscribe';
+        subscribe.setAttribute('aria-label', `Subscribe to ${channel.name}`);
+        return subscribe;
+    }
+
+    private placeChannelShelf(shelf: HTMLElement): void {
+        if (shelf.isConnected) return;
+        const anchor = findChannelShelfAnchor();
+        if (anchor) {
+            anchor.prepend(shelf);
+            return;
+        }
+        document.body?.prepend(shelf);
+    }
+
+    private handleChannelShelfClick(event: MouseEvent): void {
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-yomu-youtube-channel-action]');
+        if (!button) return;
+        this.handleChannelShelfAction(button);
+    }
+
+    private handleChannelShelfAction(button: HTMLButtonElement): void {
+        const action = button.dataset.yomuYoutubeChannelAction;
+        if (this.handleChannelShelfViewAction(action, button)) return;
+        this.handleChannelShelfSubscriptionAction(action, button);
+    }
+
+    private handleChannelShelfViewAction(action: string | undefined, button: HTMLButtonElement): boolean {
+        switch (action) {
+            case 'expand':
+                this.channelShelfExpanded = !this.channelShelfExpanded;
+                this.renderChannelShelf(this.channelShelfElements(this.ensureChannelShelf()));
+                return true;
+            case 'filter':
+                this.channelShelfFilter = (button.dataset.filter as YouTubeChannelRecommendationFilter | undefined) ?? 'all';
+                this.channelShelfExpanded = true;
+                this.renderChannelShelf(this.channelShelfElements(this.ensureChannelShelf()));
+                return true;
+            case 'dismiss':
+                this.dismissedChannelShelfScope = this.currentChannelShelfScope();
+                this.removeChannelShelf();
+                return true;
+            case 'never':
+                this.options.setShowChannelRecommendations?.(false);
+                this.removeChannelShelf();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private handleChannelShelfSubscriptionAction(action: string | undefined, button: HTMLButtonElement): void {
+        switch (action) {
+            case 'subscribe-one':
+                this.subscribeToChannelHandle(button.dataset.handle);
+                return;
+            case 'subscribe-visible':
+                void this.subscribeToChannels(this.currentRenderedChannels());
+                return;
+            case 'subscribe-all':
+                void this.subscribeToChannels(allYouTubeChannelRecommendations());
+                return;
+        }
+    }
+
+    private subscribeToChannelHandle(handle: string | undefined): void {
+        const channel = allYouTubeChannelRecommendations().find(candidate => candidate.handle === handle);
+        if (channel) void this.subscribeToChannels([channel]);
+    }
+
+    private currentRenderedChannels(): YouTubeChannelRecommendation[] {
+        if (!this.channelShelfExpanded) return starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+        return filterYouTubeChannelRecommendations(this.channelShelfFilter);
+    }
+
+    private async hydrateChannelPreviews(channels: YouTubeChannelRecommendation[]): Promise<void> {
+        const config = readYouTubeClientConfig();
+        if (!config) return;
+        for (const channel of channels) {
+            if (this.channelPreviewCache.has(channel.handle) || this.pendingChannelPreviews.has(channel.handle)) continue;
+            this.pendingChannelPreviews.add(channel.handle);
+            void fetchYouTubeChannelPreview(channel, config, this.channelIdCache)
+                .then(preview => {
+                    this.channelPreviewCache.set(channel.handle, preview);
+                    if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
+                    this.updateRenderedChannelPreview(channel);
+                })
+                .catch(() => {
+                    this.channelPreviewCache.set(channel.handle, null);
+                })
+                .finally(() => {
+                    this.pendingChannelPreviews.delete(channel.handle);
+                });
+        }
+    }
+
+    private updateRenderedChannelPreview(channel: YouTubeChannelRecommendation): void {
+        if (!this.channelShelf) return;
+        const row = Array.from(this.channelShelf.querySelectorAll<HTMLElement>('[data-yomu-channel-handle]'))
+            .find(candidate => candidate.dataset.yomuChannelHandle === channel.handle);
+        if (!row) return;
+        const replacement = this.renderChannelRow(channel);
+        row.replaceWith(replacement);
+    }
+
+    private async subscribeToChannels(channels: YouTubeChannelRecommendation[]): Promise<void> {
+        if (this.subscriptionBusy || !channels.length) return;
+        const elements = this.channelShelfElements(this.ensureChannelShelf());
+        const config = readYouTubeClientConfig();
+        if (!config) {
+            elements.status.textContent = 'YouTube session data is not available on this page yet.';
+            return;
+        }
+
+        this.subscriptionBusy = true;
+        this.setChannelShelfBusy(true);
+        let subscribed = 0;
+        let failed = 0;
+        for (let index = 0; index < channels.length; index += 1) {
+            const channel = channels[index]!;
+            elements.status.textContent = `Subscribing ${index + 1}/${channels.length}: ${channel.name}`;
+            try {
+                const channelId = await resolveYouTubeChannelId(channel, config, this.channelIdCache);
+                if (!channelId) throw new Error('Missing YouTube channel id.');
+                await subscribeYouTubeChannel(channelId, config);
+                subscribed += 1;
+            } catch {
+                failed += 1;
+            }
+        }
+        this.subscriptionBusy = false;
+        this.setChannelShelfBusy(false);
+        elements.status.textContent = failed
+            ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.`
+            : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`;
+    }
+
+    private setChannelShelfBusy(busy: boolean): void {
+        this.channelShelf?.querySelectorAll<HTMLButtonElement>('[data-yomu-youtube-channel-action^="subscribe"]').forEach(button => {
+            button.disabled = busy;
+        });
+        this.channelShelf?.setAttribute('aria-busy', String(busy));
+    }
+
+    private removeChannelShelf(): void {
+        this.channelShelf?.remove();
+        this.channelShelf = undefined;
+    }
+
+    private currentChannelShelfScope(): string {
+        const routeKey = this.currentRouteKey();
+        if (this.channelShelfRouteKey !== routeKey) {
+            this.channelShelfRouteKey = routeKey;
+            this.dismissedChannelShelfScope = '';
+            this.removeChannelShelf();
+        }
+        return routeKey;
+    }
+
     private clear(): void {
         window.clearTimeout(this.timer);
         window.clearTimeout(this.metadataRescanTimer);
@@ -510,8 +932,14 @@ export class YoutubeImmersionFilter {
         this.revealed = false;
         this.clearFilteredCards();
         this.removeNotice();
+        this.removeChannelShelf();
         this.dismissedNoticeScope = '';
+        this.dismissedChannelShelfScope = '';
         this.noticeRouteKey = '';
+        this.channelShelfRouteKey = '';
+        this.channelShelfExpanded = false;
+        this.channelShelfFilter = 'all';
+        this.subscriptionBusy = false;
         this.lastBackfillAt = Number.NEGATIVE_INFINITY;
         this.lastScrollAt = Number.NEGATIVE_INFINITY;
         this.setFilterActiveClass(false);
@@ -634,6 +1062,267 @@ function noticeButton(action: string): HTMLButtonElement {
     return button;
 }
 
+function channelShelfButton(action: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.yomuYoutubeChannelAction = action;
+    return button;
+}
+
+function channelRowMetaText(channel: YouTubeChannelRecommendation, preview: YouTubeChannelPreview | null): string {
+    const subscriberText = preview?.subscriberText ?? '';
+    return subscriberText ? `${channel.handle} · ${subscriberText}` : channel.handle;
+}
+
+function channelRowTags(channel: YouTubeChannelRecommendation): string[] {
+    const tags = [channel.level, ...channel.topics.slice(0, 2)];
+    if (channel.captions.length) tags.push('captions');
+    return tags;
+}
+
+function findChannelShelfAnchor(): HTMLElement | null {
+    return document.querySelector<HTMLElement>(
+        'ytd-rich-grid-renderer #contents, ytd-two-column-browse-results-renderer #contents, ytd-section-list-renderer, ytm-rich-grid-renderer, ytm-browse, ytm-search, main',
+    );
+}
+
+function isYouTubeHomePage(): boolean {
+    return location.pathname === '/' || location.pathname === '/feed/explore';
+}
+
+function shouldShowChannelRecommendationsForRoute(): boolean {
+    if (isYouTubeWatchPage()) return false;
+    if (isYouTubeShortsWatchPage()) return false;
+    return isYouTubeHomePage()
+        || location.pathname === '/results'
+        || location.pathname.startsWith('/feed/subscriptions');
+}
+
+function readYouTubeClientConfig(): YouTubeClientConfig | null {
+    const ytcfg = readYouTubeConfigSource();
+    const apiKey = readYouTubeConfigString(ytcfg, 'INNERTUBE_API_KEY');
+    if (!apiKey) return null;
+    const context = readYouTubeInnerTubeContext(ytcfg);
+    const client = recordValue(context.client) ?? {};
+    return {
+        apiKey,
+        context,
+        clientName: readYouTubeClientString(ytcfg, client, 'INNERTUBE_CLIENT_NAME', 'clientName', '1'),
+        clientVersion: readYouTubeClientString(ytcfg, client, 'INNERTUBE_CLIENT_VERSION', 'clientVersion'),
+        visitorId: readYouTubeClientString(ytcfg, client, 'VISITOR_DATA', 'visitorData'),
+    };
+}
+
+function readYouTubeConfigSource(): YouTubeConfigSource | undefined {
+    return (window as Window & { ytcfg?: YouTubeConfigSource }).ytcfg;
+}
+
+function readYouTubeConfigString(ytcfg: YouTubeConfigSource | undefined, key: string): string {
+    return stringValue(readYouTubeConfigValue(ytcfg, key));
+}
+
+function readYouTubeConfigValue(ytcfg: YouTubeConfigSource | undefined, key: string): unknown {
+    try {
+        if (typeof ytcfg?.get === 'function') return ytcfg.get(key);
+    } catch {
+        // Fall through to ytcfg.data_.
+    }
+    return ytcfg?.data_?.[key];
+}
+
+function readYouTubeInnerTubeContext(ytcfg: YouTubeConfigSource | undefined): Record<string, unknown> {
+    return recordValue(readYouTubeConfigValue(ytcfg, 'INNERTUBE_CONTEXT')) ?? defaultYouTubeInnerTubeContext(ytcfg);
+}
+
+function defaultYouTubeInnerTubeContext(ytcfg: YouTubeConfigSource | undefined): Record<string, unknown> {
+    return {
+        client: {
+            clientName: firstStringValue(readYouTubeConfigValue(ytcfg, 'INNERTUBE_CLIENT_NAME'), 'WEB'),
+            clientVersion: firstStringValue(readYouTubeConfigValue(ytcfg, 'INNERTUBE_CLIENT_VERSION'), '2.20240101.00.00'),
+        },
+    };
+}
+
+function readYouTubeClientString(
+    ytcfg: YouTubeConfigSource | undefined,
+    client: Record<string, unknown>,
+    configKey: string,
+    clientKey: string,
+    fallback = '',
+): string {
+    return firstStringValue(readYouTubeConfigValue(ytcfg, configKey), client[clientKey], fallback);
+}
+
+async function fetchYouTubeChannelPreview(
+    channel: YouTubeChannelRecommendation,
+    config: YouTubeClientConfig,
+    channelIdCache: Map<string, string | null>,
+): Promise<YouTubeChannelPreview | null> {
+    const channelId = await resolveYouTubeChannelId(channel, config, channelIdCache);
+    if (!channelId) return null;
+    const data = await postYouTubeInnerTube('browse', config, { browseId: channelId });
+    return youTubeChannelPreviewFromBrowseData(channel, channelId, data);
+}
+
+function youTubeChannelPreviewFromBrowseData(
+    channel: YouTubeChannelRecommendation,
+    channelId: string,
+    data: Record<string, unknown>,
+): YouTubeChannelPreview {
+    const metadata = youTubeChannelMetadata(data);
+    return {
+        channelId,
+        title: youTubeChannelPreviewTitle(channel, metadata, data),
+        avatarUrl: youTubeChannelPreviewAvatarUrl(metadata, data),
+        subscriberText: findNestedString(data, 'subscriberCountText'),
+        description: youTubeChannelPreviewDescription(metadata, data),
+    };
+}
+
+function youTubeChannelMetadata(data: Record<string, unknown>): Record<string, unknown> {
+    return recordValue(recordValue(data.metadata)?.channelMetadataRenderer) ?? {};
+}
+
+function youTubeChannelPreviewTitle(
+    channel: YouTubeChannelRecommendation,
+    metadata: Record<string, unknown>,
+    data: Record<string, unknown>,
+): string {
+    return firstStringValue(metadata.title, findNestedString(data, 'title'), channel.name);
+}
+
+function youTubeChannelPreviewAvatarUrl(metadata: Record<string, unknown>, data: Record<string, unknown>): string {
+    const avatarUrl = thumbnailUrl(metadata.avatar);
+    return avatarUrl || findNestedThumbnailUrl(data);
+}
+
+function youTubeChannelPreviewDescription(metadata: Record<string, unknown>, data: Record<string, unknown>): string {
+    return firstStringValue(metadata.description, findNestedString(data, 'description'));
+}
+
+async function resolveYouTubeChannelId(
+    channel: YouTubeChannelRecommendation,
+    config: YouTubeClientConfig,
+    channelIdCache: Map<string, string | null>,
+): Promise<string | null> {
+    if (channelIdCache.has(channel.handle)) return channelIdCache.get(channel.handle) ?? null;
+    const data = await postYouTubeInnerTube('navigation/resolve_url', config, {
+        url: youtubeChannelUrl(channel),
+    });
+    const channelId = findNestedString(data, 'browseId', value => /^UC[\w-]{20,}$/u.test(value));
+    channelIdCache.set(channel.handle, channelId);
+    return channelId;
+}
+
+async function subscribeYouTubeChannel(channelId: string, config: YouTubeClientConfig): Promise<void> {
+    await postYouTubeInnerTube('subscription/subscribe', config, {
+        channelIds: [channelId],
+    });
+}
+
+async function postYouTubeInnerTube(path: string, config: YouTubeClientConfig, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const response = await fetch(`${location.origin}/youtubei/v1/${path}?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: youtubeInnerTubeHeaders(config),
+        body: JSON.stringify({ context: config.context, ...body }),
+    });
+    if (!response.ok) throw new Error(`YouTube request failed: ${response.status}`);
+    const json = await response.json() as unknown;
+    return recordValue(json) ?? {};
+}
+
+function youtubeInnerTubeHeaders(config: YouTubeClientConfig): Record<string, string> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': config.clientName,
+        'X-YouTube-Client-Version': config.clientVersion,
+    };
+    if (config.visitorId) headers['X-Goog-Visitor-Id'] = config.visitorId;
+    return headers;
+}
+
+function findNestedString(value: unknown, key: string, predicate: (value: string) => boolean = Boolean): string {
+    return findNestedYouTubeValue(value, candidate => nestedYouTubeText(candidate, key, predicate));
+}
+
+function findNestedThumbnailUrl(value: unknown): string {
+    return findNestedYouTubeValue(value, nestedYouTubeThumbnailUrl);
+}
+
+function findNestedYouTubeValue(value: unknown, readValue: (value: unknown) => string): string {
+    if (!isNestedYouTubeValue(value)) return '';
+    const direct = readValue(value);
+    if (direct) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+        const found = findNestedYouTubeValue(child, readValue);
+        if (found) return found;
+    }
+    return '';
+}
+
+function nestedYouTubeText(value: unknown, key: string, predicate: (value: string) => boolean): string {
+    const record = recordValue(value);
+    if (!record) return '';
+    const text = textFromYouTubeValue(record[key]);
+    return text && predicate(text) ? text : '';
+}
+
+function nestedYouTubeThumbnailUrl(value: unknown): string {
+    const record = recordValue(value);
+    if (!record) return '';
+    return thumbnailUrl(record.thumbnail) || thumbnailUrl(record.avatar);
+}
+
+function nestedYouTubeChildren(value: Record<string, unknown> | unknown[]): unknown[] {
+    return Array.isArray(value) ? value : Object.values(value);
+}
+
+function isNestedYouTubeValue(value: unknown): value is Record<string, unknown> | unknown[] {
+    return Boolean(value) && typeof value === 'object';
+}
+
+function thumbnailUrl(value: unknown): string {
+    const thumbnails = recordValue(value)?.thumbnails;
+    if (!Array.isArray(thumbnails)) return '';
+    const candidates = thumbnails
+        .map(thumbnail => recordValue(thumbnail))
+        .filter(Boolean)
+        .sort((a, b) => Number(b?.width ?? 0) - Number(a?.width ?? 0));
+    return stringValue(candidates[0]?.url);
+}
+
+function textFromYouTubeValue(value: unknown): string {
+    if (typeof value === 'string') return value.trim();
+    const record = recordValue(value);
+    if (!record) return '';
+    const simpleText = stringValue(record.simpleText);
+    if (simpleText) return simpleText;
+    const runs = record.runs;
+    if (Array.isArray(runs)) {
+        return runs.map(run => stringValue(recordValue(run)?.text)).join('').trim();
+    }
+    return '';
+}
+
+function stringValue(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function firstStringValue(...values: unknown[]): string {
+    for (const value of values) {
+        const text = stringValue(value);
+        if (text) return text;
+    }
+    return '';
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : null;
+}
+
 function hiddenYouTubeFilterCandidate(card: HTMLElement): YouTubeFilterCandidate {
     return {
         card,
@@ -730,7 +1419,6 @@ function isNormalizableYouTubeVideoCard(element: HTMLElement): boolean {
 
 function shouldIgnoreYouTubeCardElement(element: HTMLElement): boolean {
     if (!element.isConnected) return true;
-    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return true;
     return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
 }
 
@@ -778,6 +1466,18 @@ function isYouTubeShortsWatchPage(): boolean {
     return location.pathname.startsWith('/shorts/');
 }
 
+function isCurrentYouTubeShortsWatchCard(card: HTMLElement): boolean {
+    if (!isYouTubeShortsWatchPage()) return false;
+    const currentVideoId = currentYouTubeShortsVideoId();
+    if (!currentVideoId) return false;
+    const item = card.closest<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
+    return readYouTubeVideoId(item) === currentVideoId;
+}
+
+function currentYouTubeShortsVideoId(): string {
+    return location.pathname.match(/^\/shorts\/([^/?#]+)/)?.[1] ?? '';
+}
+
 function isNearPageBottom(): boolean {
     const page = document.scrollingElement ?? document.documentElement;
     return window.scrollY + window.innerHeight >= page.scrollHeight - Math.max(900, window.innerHeight);
@@ -815,7 +1515,7 @@ function isYouTubeWatchPage(): boolean {
 }
 
 function shouldShowFilterNoticeForRoute(): boolean {
-    return !isYouTubeWatchPage();
+    return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
 }
 
 function unwrapYouTubeWatchTitleReaderWords(): void {
