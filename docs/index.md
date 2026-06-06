@@ -49,7 +49,7 @@ features:
   <div class="yomu-install-steps" aria-label="Install steps">
     <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
     <a class="yomu-install-step-link" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-    <a class="yomu-install-step-link" href="getting-started#_6-try-your-first-lookup" aria-label="Open first lookup instructions after refreshing a Japanese page"><b>3</b> <span>Refresh page</span></a>
+    <a class="yomu-install-step-link" href="getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
   </div>
 </div>
 
@@ -59,7 +59,7 @@ features:
 
 The method is simple: read material you can mostly follow, look up only what keeps you moving, and let useful words come back later in reviews. This is the same idea behind graded readers, comprehensible input, and i+1 sentences: new Japanese sticks faster when it is attached to a scene, a sentence, and a reason you cared enough to read it.
 
-よむ gives you the superset of the usual Japanese reading stack. Use JPDB for mining and global word status, import Yomitan dictionaries for local definitions, connect Anki when you want your own cards, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji, OCR manga panels, and mine subtitles from video. You do not have to choose one ecosystem before you start reading.
+Most reading tools make you pick an ecosystem first. よむ doesn't. Use JPDB for word status and mining, import Yomitan dictionaries for offline definitions, connect Anki for your own cards, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji stroke by stroke, read manga with OCR, and mine subtitles from video — all from the same popup, and all optional. Start reading first, then add what you need.
 
 For the research behind the approach, see the 2025 meta-analysis on [learning a language through extensive reading](https://link.springer.com/article/10.1007/s10648-025-10068-6), the classic idea of [comprehensible input](https://journals.library.columbia.edu/index.php/SALT/article/view/1278), and Tadoku's practical reading rules for Japanese learners at [tadoku.org](https://tadoku.org/japanese/en/what-is-tadoku-en/).
 

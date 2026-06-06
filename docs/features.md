@@ -2,11 +2,11 @@
 
 よむ is designed around one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.
 
-If you are new to these tools, the short version is: **lookup** means opening the popup, **mining** means saving something for later study, **OCR** means reading text from images, and **subtitles** means Japanese video lines become tappable like normal page text.
+New to the words? **Lookup** is opening the popup. **Mining** is saving a word for later study. **OCR** reads text out of images. **Subtitles** turns Japanese video lines into tappable text, just like a normal page.
 
 ## Popup Lookup And Mining
 
-Tap, select, or hover Japanese text to open a popup. The popup can show JPDB definitions, imported local dictionary entries, pitch and frequency data, audio, example sentences, kanji details, and optional mining actions.
+Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
 Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 
