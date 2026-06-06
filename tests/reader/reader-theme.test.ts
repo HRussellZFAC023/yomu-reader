@@ -31,12 +31,12 @@ describe('reader theme', () => {
 
         expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-word-text-anki')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-underline-pitch')).toBe(true);
-        expect(root.classList.contains('jpdb-reader-subtitle-text-anki')).toBe(true);
-        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'anki' });
-        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'anki' });
+        expect(root.classList.contains('jpdb-reader-subtitle-text-off')).toBe(true);
+        expect(applied.wordColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
+        expect(applied.subtitleColorSources).toMatchObject({ highlight: 'jpdb', underline: 'pitch', text: 'off' });
     });
 
     it('adjusts page word colors and highlights against the actual website background', () => {
@@ -232,7 +232,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
         expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(false);
-        expect(root.classList.contains('jpdb-reader-word-text-anki')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-text-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(false);
         expect(root.classList.contains('jpdb-reader-subtitle-highlight-off')).toBe(true);
         expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(false);
@@ -241,7 +241,7 @@ describe('reader theme', () => {
         expect(root.classList.contains('jpdb-reader-subtitle-text-off')).toBe(true);
         expect(withoutKey.wordColorSources.highlight).toBe('off');
         expect(withoutKey.wordColorSources.underline).toBe('pitch');
-        expect(withoutKey.wordColorSources.text).toBe('anki');
+        expect(withoutKey.wordColorSources.text).toBe('off');
         expect(withoutKey.subtitleColorSources.highlight).toBe('off');
         expect(withoutKey.subtitleColorSources.underline).toBe('off');
         expect(withoutKey.subtitleColorSources.text).toBe('off');
@@ -271,7 +271,7 @@ describe('reader theme', () => {
         expect(withKey.subtitleColorSources.text).toBe('jpdb');
     });
 
-    it('lets explicit status channels use Anki lookup without enabling Anki mining', () => {
+    it('keeps explicit status channels off until Anki is enabled', () => {
         const none = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             wordHighlightColorSource: 'status',
@@ -282,12 +282,12 @@ describe('reader theme', () => {
             subtitleTextColorSource: 'status',
         });
 
-        expect(none.wordColorSources.highlight).toBe('anki');
-        expect(none.wordColorSources.underline).toBe('anki');
-        expect(none.wordColorSources.text).toBe('anki');
-        expect(none.subtitleColorSources.highlight).toBe('anki');
-        expect(none.subtitleColorSources.underline).toBe('anki');
-        expect(none.subtitleColorSources.text).toBe('anki');
+        expect(none.wordColorSources.highlight).toBe('off');
+        expect(none.wordColorSources.underline).toBe('off');
+        expect(none.wordColorSources.text).toBe('off');
+        expect(none.subtitleColorSources.highlight).toBe('off');
+        expect(none.subtitleColorSources.underline).toBe('off');
+        expect(none.subtitleColorSources.text).toBe('off');
 
         const ankiOnly = applyReaderTheme({
             ...DEFAULT_SETTINGS,
@@ -318,12 +318,12 @@ describe('reader theme', () => {
             subtitleTextColorSource: 'status',
         });
 
-        expect(jpdbOnly.wordColorSources.highlight).toBe('status');
-        expect(jpdbOnly.wordColorSources.underline).toBe('status');
-        expect(jpdbOnly.wordColorSources.text).toBe('status');
-        expect(jpdbOnly.subtitleColorSources.highlight).toBe('status');
-        expect(jpdbOnly.subtitleColorSources.underline).toBe('status');
-        expect(jpdbOnly.subtitleColorSources.text).toBe('status');
+        expect(jpdbOnly.wordColorSources.highlight).toBe('jpdb');
+        expect(jpdbOnly.wordColorSources.underline).toBe('jpdb');
+        expect(jpdbOnly.wordColorSources.text).toBe('jpdb');
+        expect(jpdbOnly.subtitleColorSources.highlight).toBe('jpdb');
+        expect(jpdbOnly.subtitleColorSources.underline).toBe('jpdb');
+        expect(jpdbOnly.subtitleColorSources.text).toBe('jpdb');
 
         const both = applyReaderTheme({
             ...DEFAULT_SETTINGS,

@@ -9227,7 +9227,7 @@ describe('reader helpers', () => {
         expect(isInUserDeckPool).toHaveBeenCalledWith(pooledCard);
     });
 
-    it('loads read-only Anki status from explicit color channels without enabling Anki mining', async () => {
+    it('loads read-only Anki status from the enabled Anki section without enabling Anki mining', async () => {
         const cachedLookup: AnkiLookupResult = {
             state: 'known',
             notes: [],
@@ -9249,6 +9249,7 @@ describe('reader helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: false,
+            ankiSectionEnabled: true,
             wordUnderlineColorSource: 'anki' as const,
             localDictionariesEnabled: false,
             showPitchAccent: false,
@@ -23139,7 +23140,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('loads newtab lookup Anki status when Anki is only a color source', async () => {
+    it('loads newtab lookup Anki status when the Anki section is enabled without mining', async () => {
         const runtime = new NewTabRuntime();
         const lookupCard: JPDBCard = {
             ...card,
@@ -23180,6 +23181,7 @@ describe('reader helpers', () => {
         internals.settings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: false,
+            ankiSectionEnabled: true,
             wordUnderlineColorSource: 'anki',
         };
         internals.anki = { findCachedStatusBatch };
@@ -23430,7 +23432,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('warms rendered Anki status from explicit underline source without enabling Anki mining', async () => {
+    it('warms rendered Anki status from the enabled Anki section without enabling Anki mining', async () => {
         const app = new ReaderApp();
         const token: JPDBToken = {
             card: {
@@ -23481,6 +23483,7 @@ describe('reader helpers', () => {
         internals.settings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: false,
+            ankiSectionEnabled: true,
             wordUnderlineColorSource: 'anki',
         };
         internals.anki = { findCachedStatusBatch };
