@@ -151,7 +151,7 @@ export function gmStorageDeleteSync(key: string): void {
     removeSessionStorageKey(key);
 }
 
-export async function exportStoredValues(prefixes: string[]): Promise<Record<string, unknown>> {
+async function exportStoredValues(prefixes: string[]): Promise<Record<string, unknown>> {
     const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
     const entries = await Promise.all(keys.map(async key => [key, await gmStorageGet<unknown>(key, undefined)] as const));
     return Object.fromEntries(entries.filter(([, value]) => value !== undefined));

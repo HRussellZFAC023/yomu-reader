@@ -2,7 +2,7 @@ import { parseJpdbReviewCardValue } from './jpdb-page-targets';
 import { cleanText, firstJapaneseRunOrEmpty } from './jpdb-text';
 import type { JPDBGrade } from './types';
 
-export const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
+const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
 
 export interface JpdbReviewBridgeCard {
     id: string;

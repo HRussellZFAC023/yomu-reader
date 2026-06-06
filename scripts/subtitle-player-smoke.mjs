@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { assert } from './smoke-harness.mjs';
 
 const localUrl = process.env.YOMU_SMOKE_LOCAL_URL ?? 'http://127.0.0.1:5173/yomu-reader/video-player/index.html';
 const fixtureVideoUrl = process.env.YOMU_SMOKE_VIDEO_URL ?? 'http://127.0.0.1:8766/tutorial.mp4';
@@ -28,13 +29,6 @@ writeFileSync(secondaryPath, `WEBVTT
 00:00:01.000 --> 00:00:09.000
 This is a very long English native subtitle that should blur below Japanese.
 `);
-
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
-}
 
 function overlaps(a, b) {
     return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
@@ -137,21 +131,35 @@ async function hoverSecondarySubtitle(page) {
 }
 
 async function dismissYouTubeConsent(page) {
-    for (const label of [/Reject all/i, /Accept all/i, /I agree/i]) {
-        const candidates = [
-            page.locator('button').filter({ hasText: label }).last(),
-            page.getByRole('button', { name: label }).first(),
-        ];
-        for (const button of candidates) {
-            if (!await button.count().catch(() => 0)) continue;
-            try {
-                await button.click({ force: true, timeout: 2500 });
-                await page.waitForTimeout(1000);
-                return;
-            } catch {
-                // YouTube renders several consent variants; try the next locator.
-            }
-        }
+    for (const button of youtubeConsentButtons(page)) {
+        if (await clickYouTubeConsentButton(page, button)) return;
+    }
+}
+
+function youtubeConsentButtons(page) {
+    return [/Reject all/i, /Accept all/i, /I agree/i].flatMap(label => [
+        page.locator('button').filter({ hasText: label }).last(),
+        page.getByRole('button', { name: label }).first(),
+    ]);
+}
+
+async function clickYouTubeConsentButton(page, button) {
+    if (!await locatorExists(button)) return false;
+    try {
+        await button.click({ force: true, timeout: 2500 });
+        await page.waitForTimeout(1000);
+        return true;
+    } catch {
+        // YouTube renders several consent variants; try the next locator.
+        return false;
+    }
+}
+
+async function locatorExists(locator) {
+    try {
+        return await locator.count() > 0;
+    } catch {
+        return false;
     }
 }
 
@@ -165,7 +173,7 @@ async function showTranscriptLines(page) {
     }
 }
 
-async function ensureSubtitlePanelOpen(page) {
+async function ensureSubtitlePanelOpen(page, timeout = 5000) {
     const open = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         return Boolean(panel && !panel.hidden);
@@ -176,7 +184,7 @@ async function ensureSubtitlePanelOpen(page) {
     await page.waitForFunction(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         return Boolean(panel && !panel.hidden);
-    }, null, { timeout: 5000 });
+    }, null, { timeout });
 }
 
 async function showSubtitleTracks(page) {
@@ -311,35 +319,68 @@ async function runYouTubeSmoke(browser) {
     await dismissYouTubeConsent(page);
     await page.waitForTimeout(5000);
     await ensureUserscript(page);
-    await page.waitForSelector('.jpdb-subtitle-rail [data-action="panel"]', { timeout: 20000 });
-    await page.waitForFunction(() => {
-        const status = document.querySelector('.jpdb-subtitle-status')?.textContent ?? '';
-        return /track|line|subtitle|detected/i.test(status);
-    }, null, { timeout: 30000 }).catch(() => undefined);
-    const panelOpen = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        return Boolean(panel && !panel.hidden);
-    });
-    if (!panelOpen) await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
-    await page.waitForFunction(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        return Boolean(panel && !panel.hidden);
-    }, null, { timeout: 10000 });
+    await waitForYouTubePanelReady(page);
+    await ensureSubtitlePanelOpen(page, 10000);
     await showTranscriptLines(page);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout: 45000 });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 45000 });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(500);
     const layout = await readDrawerLayout(page);
-    const state = await page.evaluate(() => ({
-        status: document.querySelector('.jpdb-subtitle-status')?.textContent ?? '',
-        rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
-        tracks: document.querySelectorAll('.jpdb-subtitle-track-row').length,
-        parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
-        parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
-        closeButton: Boolean(document.querySelector('.jpdb-subtitle-list [data-action="close-panel"], .jpdb-subtitle-rail [data-action="close-panel"]')),
-        rowFont: (() => {
-            const row = document.querySelector('.jpdb-subtitle-row-text');
+    const state = await readYouTubeSmokeState(page);
+    assertYouTubeSmokeState(state, layout);
+    await page.close();
+    return { ...state, layout };
+}
+
+function assertYouTubeSmokeState(state, layout) {
+    assert(state.rows > 0, 'Expected YouTube transcript rows', state);
+    assert(state.parsedRowWords > 0, 'Expected parsed YouTube transcript words', state);
+    assert(state.closeButton, 'Expected transcript panel close button', state);
+    assertYouTubeRowFont(state);
+    assertDrawerLayout(layout, 'YouTube transcript');
+}
+
+function assertYouTubeRowFont(state) {
+    const rowFont = state.rowFont || {};
+    assert(rowFont.size === '16px', 'Expected YouTube sidebar rows to use popup-scale font size', state);
+    assert(rowFontWeight(rowFont) <= 500, 'Expected YouTube sidebar rows to avoid the old bold weight', state);
+    assert(rowFont.textShadow === 'none', 'Expected YouTube sidebar rows to match dictionary text without subtitle shadow', state);
+}
+
+function rowFontWeight(rowFont) {
+    return Number(rowFont.weight ?? 999);
+}
+
+async function waitForYouTubePanelReady(page) {
+    await page.waitForSelector('.jpdb-subtitle-rail [data-action="panel"]', { timeout: 20000 });
+    await page.waitForFunction(() => {
+        const status = document.querySelector('.jpdb-subtitle-status')?.textContent ?? '';
+        return /track|line|subtitle|detected/i.test(status);
+    }, null, { timeout: 30000 }).catch(() => undefined);
+}
+
+async function readYouTubeSmokeState(page) {
+    return page.evaluate(() => {
+        const status = document.querySelector('.jpdb-subtitle-status');
+        const row = document.querySelector('.jpdb-subtitle-row-text');
+        const list = document.querySelector('.jpdb-subtitle-list');
+        return {
+            status: elementText(status),
+            rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+            tracks: document.querySelectorAll('.jpdb-subtitle-track-row').length,
+            parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
+            parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
+            closeButton: Boolean(document.querySelector('.jpdb-subtitle-list [data-action="close-panel"], .jpdb-subtitle-rail [data-action="close-panel"]')),
+            rowFont: subtitleRowFont(row),
+            text: elementText(list).slice(0, 300),
+        };
+
+        function elementText(element) {
+            return element?.textContent ?? '';
+        }
+
+        function subtitleRowFont(row) {
             if (!row) return null;
             const style = getComputedStyle(row);
             return {
@@ -349,18 +390,8 @@ async function runYouTubeSmoke(browser) {
                 lineHeight: style.lineHeight,
                 textShadow: style.textShadow,
             };
-        })(),
-        text: document.querySelector('.jpdb-subtitle-list')?.textContent?.slice(0, 300) ?? '',
-    }));
-    assert(state.rows > 0, 'Expected YouTube transcript rows', state);
-    assert(state.parsedRowWords > 0, 'Expected parsed YouTube transcript words', state);
-    assert(state.closeButton, 'Expected transcript panel close button', state);
-    assert(state.rowFont?.size === '16px', 'Expected YouTube sidebar rows to use popup-scale font size', state);
-    assert(Number(state.rowFont?.weight ?? 999) <= 500, 'Expected YouTube sidebar rows to avoid the old bold weight', state);
-    assert(state.rowFont?.textShadow === 'none', 'Expected YouTube sidebar rows to match dictionary text without subtitle shadow', state);
-    assertDrawerLayout(layout, 'YouTube transcript');
-    await page.close();
-    return { ...state, layout };
+        }
+    });
 }
 
 const browser = await launchSmokeBrowser({ headless: true });
@@ -375,11 +406,27 @@ try {
 
 async function launchSmokeBrowser(options) {
     const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
-    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    if (configuredChannel) return launchBrowserChannel(options, configuredChannel);
+    return await launchDefaultSmokeBrowser(options);
+}
+
+function launchBrowserChannel(options, channel) {
+    return chromium.launch({ ...options, channel });
+}
+
+async function launchDefaultSmokeBrowser(options) {
     try {
         return await chromium.launch(options);
     } catch (error) {
-        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
-        return chromium.launch({ ...options, channel: 'chrome' });
+        return launchChromeFallback(options, error);
     }
+}
+
+function launchChromeFallback(options, error) {
+    if (!isMissingPlaywrightBrowser(error)) throw error;
+    return launchBrowserChannel(options, 'chrome');
+}
+
+function isMissingPlaywrightBrowser(error) {
+    return String(error?.message ?? '').includes("Executable doesn't exist");
 }

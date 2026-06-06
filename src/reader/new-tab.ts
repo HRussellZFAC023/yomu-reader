@@ -1,15 +1,24 @@
-import type { UiCopyKey } from './i18n';
 import { NEW_TAB_COLOR_TOKENS } from './color-tokens';
 import { hexToRgba, mixHex, readableOn } from './color-utils';
-import { Logger } from './logger';
+import {
+    DEFAULT_NEW_TAB_UI_STATE as DEFAULT_NEW_TAB_UI_STATE_VALUE,
+    NEW_TAB_FILTERS as NEW_TAB_FILTERS_VALUE,
+    normalizeNewTabUiState as normalizeNewTabUiStateValue,
+} from './new-tab-state';
 import { sanitizeAccentColor } from './settings';
-import { gmStorageGetSync, gmStorageSetSync } from './storage';
-import type { CardState, JPDBCard, NewTabWordSource } from './types';
+import type { JPDBCard } from './types';
+export { cardKey } from './card-utils';
 export { isYomuNewTabUrl } from './new-tab-url';
+export {
+    createNewTabStateChannel,
+    loadNewTabUiState,
+    saveNewTabUiState,
+} from './new-tab-state';
+export type { NewTabFilter, NewTabMode, NewTabSort, NewTabUiState } from './new-tab-state';
 
-const log = Logger.scope('NewTab');
-const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';
-const STATE_CHANNEL_NAME = 'jpdb-reader-newtab-ui';
+export const DEFAULT_NEW_TAB_UI_STATE = DEFAULT_NEW_TAB_UI_STATE_VALUE;
+export const NEW_TAB_FILTERS = NEW_TAB_FILTERS_VALUE;
+export const normalizeNewTabUiState = normalizeNewTabUiStateValue;
 
 export interface NewTabPalette {
     accent: string;
@@ -24,47 +33,11 @@ export interface NewTabPalette {
     shadow: string;
 }
 
-export type NewTabMode = 'word' | 'kanji' | 'search' | 'stats';
-export type NewTabSort = 'random' | 'frequency' | 'state';
-export type NewTabFilter = 'all' | 'study' | 'local' | CardState;
-
-export interface NewTabUiState {
-    mode: NewTabMode;
-    sort: NewTabSort;
-    filter: NewTabFilter;
-    source: NewTabWordSource;
-    revealAnswer: boolean;
-}
-
-export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
-    mode: 'word',
-    sort: 'random',
-    filter: 'study',
-    source: 'auto',
-    revealAnswer: false,
-};
-
-export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }> = [
-    { value: 'study', labelKey: 'filterStudy' },
-    { value: 'all', labelKey: 'filterAll' },
-    { value: 'new', labelKey: 'stateNew' },
-    { value: 'learning', labelKey: 'stateLearning' },
-    { value: 'due', labelKey: 'stateDue' },
-    { value: 'failed', labelKey: 'stateFailed' },
-    { value: 'known', labelKey: 'stateKnown' },
-    { value: 'never-forget', labelKey: 'stateNeverForget' },
-    { value: 'suspended', labelKey: 'stateSuspended' },
-    { value: 'locked', labelKey: 'stateLocked' },
-    { value: 'blacklisted', labelKey: 'stateBlacklisted' },
-    { value: 'redundant', labelKey: 'stateRedundant' },
-    { value: 'local', labelKey: 'dictionary' },
-];
-
 export function resolveNewTabBrandAssets(value: string): { homeHref: string; iconSrc: string } {
     try {
         const url = new URL(value);
         const extensionAssets = extensionNewTabBrandAssets();
-        if (isExtensionProtocol(url.protocol) && extensionAssets) return extensionAssets;
+        if (/^(?:moz|chrome|safari-web)-extension:$/u.test(url.protocol) && extensionAssets) return extensionAssets;
         const path = url.pathname.replace(/\/index\.html$/, '/');
         const newTabIndex = path.lastIndexOf('/newtab/');
         const basePath = newTabIndex >= 0 ? path.slice(0, newTabIndex + 1) : '/';
@@ -75,10 +48,6 @@ export function resolveNewTabBrandAssets(value: string): { homeHref: string; ico
     } catch {
         return { homeHref: '/', iconSrc: '/yomu-icon.svg' };
     }
-}
-
-function isExtensionProtocol(protocol: string): boolean {
-    return /^(?:moz|chrome|safari-web)-extension:$/u.test(protocol);
 }
 
 function extensionNewTabBrandAssets(): { homeHref: string; iconSrc: string } | null {
@@ -121,7 +90,7 @@ export function firstCardMeaning(card: JPDBCard): string {
     const cleaned = plain
         .map(meaning => cleanupNewTabMeaning(meaning))
         .filter(Boolean);
-    return preferredCardMeaning(cleaned, plain);
+    return (cleaned.length ? cleaned : plain).join('; ');
 }
 
 function firstCardMeaningGlosses(card: JPDBCard): string[] {
@@ -135,113 +104,8 @@ function shouldCleanCardMeaning(card: JPDBCard): boolean {
     return card.source === 'local' || card.source === 'fallback';
 }
 
-function preferredCardMeaning(cleaned: string[], plain: string[]): string {
-    return cleaned.length ? cleaned.join('; ') : plain.join('; ');
-}
-
-export function cardKey(card: JPDBCard): string {
-    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-}
-
 export function kanjiCharacters(value: string): string[] {
     return [...new Set(Array.from(value).filter(character => /[\u3400-\u9fff々〆]/u.test(character)))];
-}
-
-export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
-    return {
-        mode: normalizeNewTabMode(value?.mode),
-        sort: normalizeNewTabSort(value?.sort),
-        filter: normalizeNewTabFilter(value?.filter),
-        source: normalizeNewTabSource(value?.source),
-        revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
-    };
-}
-
-function normalizeNewTabMode(value: unknown): NewTabMode {
-    return value === 'kanji' || value === 'search' || value === 'stats' ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
-}
-
-function normalizeNewTabSort(value: unknown): NewTabSort {
-    return isNewTabSort(value) ? value : DEFAULT_NEW_TAB_UI_STATE.sort;
-}
-
-function normalizeNewTabFilter(value: unknown): NewTabFilter {
-    return isNewTabFilter(value) ? value : DEFAULT_NEW_TAB_UI_STATE.filter;
-}
-
-function normalizeNewTabSource(value: unknown): NewTabWordSource {
-    return isNewTabSource(value) ? value : DEFAULT_NEW_TAB_UI_STATE.source;
-}
-
-function normalizeNewTabRevealAnswer(value: unknown): boolean {
-    return typeof value === 'boolean' ? value : DEFAULT_NEW_TAB_UI_STATE.revealAnswer;
-}
-
-export function loadNewTabUiState(): NewTabUiState {
-    try {
-        return frontFacingNewTabUiState(normalizeNewTabUiState(gmStorageGetSync<Partial<NewTabUiState> | null>(STATE_STORAGE_KEY, null)));
-    } catch {
-        return { ...DEFAULT_NEW_TAB_UI_STATE };
-    }
-}
-
-export function saveNewTabUiState(state: NewTabUiState): void {
-    try {
-        gmStorageSetSync(STATE_STORAGE_KEY, frontFacingNewTabUiState(normalizeNewTabUiState(state)));
-    } catch {
-        // Storage may be blocked in hardened browser contexts; the page still works in memory.
-    }
-}
-
-export function createNewTabStateChannel(onState: (state: NewTabUiState) => void): { publish: (state: NewTabUiState) => void; close: () => void } {
-    if (typeof BroadcastChannel !== 'function') return { publish: () => {}, close: () => {} };
-    const channel = new BroadcastChannel(STATE_CHANNEL_NAME);
-    let isClosed = false;
-    channel.onmessage = event => {
-        if (!isPlainRecord(event.data) || event.data.type !== 'state') return;
-        onState(normalizeNewTabUiState(event.data.state as Partial<NewTabUiState>));
-    };
-    return {
-        publish(state) {
-            if (isClosed) return;
-            try {
-                channel.postMessage({ type: 'state', state: normalizeNewTabUiState(state) });
-            } catch (error) {
-                isClosed = true;
-                log.warn('Failed to publish new tab state update', error);
-                try {
-                    channel.close();
-                } catch {
-                    // Ignore secondary cleanup failure to avoid cascading runtime errors.
-                }
-            }
-        },
-        close() {
-            if (isClosed) return;
-            isClosed = true;
-            channel.close();
-        },
-    };
-}
-
-function frontFacingNewTabUiState(state: NewTabUiState): NewTabUiState {
-    return { ...state, revealAnswer: false };
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function isNewTabSource(value: unknown): value is NewTabWordSource {
-    return value === 'auto' || value === 'jpdb' || value === 'anki' || value === 'dictionary';
-}
-
-function isNewTabSort(value: unknown): value is NewTabSort {
-    return value === 'random' || value === 'frequency' || value === 'state';
-}
-
-function isNewTabFilter(value: unknown): value is NewTabFilter {
-    return NEW_TAB_FILTERS.some(filter => filter.value === value);
 }
 
 const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
@@ -257,11 +121,10 @@ function cleanupNewTabMeaning(text: string): string {
         .map(cleanLearnerGlossaryText)
         .filter(Boolean);
     if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(', ');
-    return withoutExamples ? trimSpaces(withoutExamples) : '';
+    return trimSpaces(withoutExamples);
 }
 
 function stripMeaningMarkup(value: string): string {
-    if (!value) return '';
     const withoutTags = value
         .replace(/<[^>]*>/gu, ' ')
         .replace(/&[a-zA-Z0-9#]+;/gu, ' ')
@@ -301,7 +164,7 @@ function looksLikeGrammarTag(text: string): boolean {
 }
 
 function cutBeforeExampleText(value: string): string {
-    const japaneseIndex = HAS_JAPANESE.test(value) ? value.search(HAS_JAPANESE) : -1;
+    const japaneseIndex = value.search(HAS_JAPANESE);
     const sentenceIndex = /\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u.exec(value)?.index ?? -1;
     const indexes = [japaneseIndex, sentenceIndex].filter(index => index >= 0);
     const cutoff = indexes.length ? Math.min(...indexes) : -1;

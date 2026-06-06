@@ -28,11 +28,11 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }
 
-export function openReaderNewTabPage(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
+function openReaderNewTabPage(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
     openReaderRuntimePage(NEW_TAB_PAGE_URL, 'New tab page opened', logInfo);
 }
 
-export function openReaderVideoPlayer(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
+function openReaderVideoPlayer(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
     openReaderRuntimePage(VIDEO_PLAYER_PAGE_URL, 'Video player page opened', logInfo);
 }
 

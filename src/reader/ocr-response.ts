@@ -14,6 +14,19 @@ interface ProtoField {
     value: bigint | number | string | Uint8Array;
 }
 
+interface LensWord {
+    text: string;
+    separator: string;
+    box: OcrRect | null;
+}
+
+interface ProtoBoxDimensions {
+    centerX: number;
+    centerY: number;
+    width: number;
+    height: number;
+}
+
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
@@ -189,34 +202,63 @@ export function parseGoogleLensResponse(bytes: Uint8Array, width: number, height
     const layout = text ? protoFirstMessage(text, 1) : null;
     if (!layout) return null;
 
-    const lines: OcrLine[] = [];
-    for (const paragraph of protoMessages(layout, 1)) {
-        const paragraphVertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-        const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-        for (const line of protoMessages(paragraph, 2)) {
-            const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-            const words = protoMessages(line, 1).map(word => ({
-                text: protoString(word, 2),
-                separator: protoString(word, 3),
-                box: protoBox(protoFirstMessage(word, 4), width, height),
-            })).filter(word => word.text);
-            const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-            const rawText = orderedWords
-                .map((word, index) => word.text + (word.separator || (index < orderedWords.length - 1 ? ' ' : '')))
-                .join('');
-            const textValue = cleanOcrText(rawText);
-            if (!textValue || !HAS_JAPANESE.test(textValue)) continue;
-
-            const box = lineBox ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item))) ?? paragraphBox;
-            if (!box) continue;
-            lines.push({
-                text: textValue,
-                box,
-                vertical: paragraphVertical || (box.height > box.width * 1.25 && textValue.length > 1),
-            });
-        }
-    }
+    const lines = protoMessages(layout, 1).flatMap(paragraph => googleLensParagraphLines(paragraph, width, height));
     return lines.length ? { width, height, lines } : null;
+}
+
+function googleLensParagraphLines(paragraph: ProtoField[], width: number, height: number): OcrLine[] {
+    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+    return protoMessages(paragraph, 2)
+        .map(line => googleLensLine(line, vertical, paragraphBox, width, height))
+        .filter((line): line is OcrLine => Boolean(line));
+}
+
+function googleLensLine(
+    line: ProtoField[],
+    paragraphVertical: boolean,
+    paragraphBox: OcrRect | null,
+    width: number,
+    height: number,
+): OcrLine | null {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = googleLensWords(line, width, height);
+    const text = googleLensLineText(words, paragraphVertical);
+    if (!text || !HAS_JAPANESE.test(text)) return null;
+    const box = googleLensLineBox(lineBox, words, paragraphBox);
+    if (!box) return null;
+    return {
+        text,
+        box,
+        vertical: paragraphVertical || (box.height > box.width * 1.25 && text.length > 1),
+    };
+}
+
+function googleLensWords(line: ProtoField[], width: number, height: number): LensWord[] {
+    return protoMessages(line, 1)
+        .map(word => ({
+            text: protoString(word, 2),
+            separator: protoString(word, 3),
+            box: protoBox(protoFirstMessage(word, 4), width, height),
+        }))
+        .filter(word => Boolean(word.text));
+}
+
+function googleLensLineText(words: LensWord[], paragraphVertical: boolean): string {
+    const orderedWords = paragraphVertical
+        ? words
+        : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    return cleanOcrText(orderedWords.map(googleLensWordText).join(''));
+}
+
+function googleLensWordText(word: LensWord, index: number, words: LensWord[]): string {
+    return word.text + (word.separator || (index < words.length - 1 ? ' ' : ''));
+}
+
+function googleLensLineBox(lineBox: OcrRect | null, words: LensWord[], paragraphBox: OcrRect | null): OcrRect | null {
+    return lineBox
+        ?? unionBoxes(words.map(word => word.box).filter((item): item is OcrRect => Boolean(item)))
+        ?? paragraphBox;
 }
 
 export function parseGoogleLensUploadHtml(html: string, width: number, height: number): OcrResult | null {
@@ -224,34 +266,60 @@ export function parseGoogleLensUploadHtml(html: string, width: number, height: n
     if (!literal) return null;
     try {
         const callback = parseJsDataLiteral(literal) as { data?: unknown[] };
-        const blocks = (((callback.data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
         const lines: OcrLine[] = [];
-        for (const block of blocks) {
-            const blockData = block as unknown[];
-            const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
-            const lineItems = rawLines?.[0] as unknown[] | undefined;
-            if (!Array.isArray(lineItems)) continue;
-            for (const item of lineItems) {
-                const lineData = item as unknown[];
-                const words = Array.isArray(lineData[0]) ? lineData[0] as unknown[] : [];
-                const boxData = Array.isArray(lineData[1]) ? lineData[1] as number[] : [];
-                const text = cleanOcrText(words.map(word => {
-                    const wordData = word as unknown[];
-                    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
-                }).join(''));
-                const box = boxData.length >= 4 ? clampBox({
-                    top: Number(boxData[0]) * height,
-                    left: Number(boxData[1]) * width,
-                    width: Number(boxData[2]) * width,
-                    height: Number(boxData[3]) * height,
-                }, width, height) : null;
-                pushJapaneseOcrLine(lines, text, box);
-            }
+        for (const item of googleLensUploadLineItems(callback.data)) {
+            const { text, box } = googleLensUploadLine(item, width, height);
+            pushJapaneseOcrLine(lines, text, box);
         }
         return lines.length ? { width, height, lines } : null;
     } catch {
         return null;
     }
+}
+
+function googleLensUploadLineItems(data: unknown[] | undefined): unknown[] {
+    return googleLensUploadBlocks(data).flatMap(block => googleLensUploadBlockLineItems(block));
+}
+
+function googleLensUploadBlocks(data: unknown[] | undefined): unknown[] {
+    const blocks = (((data?.[2] as unknown[])?.[3] as unknown[])?.[0] as unknown[]) ?? [];
+    return Array.isArray(blocks) ? blocks : [];
+}
+
+function googleLensUploadBlockLineItems(block: unknown): unknown[] {
+    const blockData = Array.isArray(block) ? block : [];
+    const rawLines = (((blockData[2] as unknown[])?.[0] as unknown[])?.[5] as unknown[])?.[3] as unknown[] | undefined;
+    const lineItems = rawLines?.[0] as unknown[] | undefined;
+    return Array.isArray(lineItems) ? lineItems : [];
+}
+
+function googleLensUploadLine(item: unknown, width: number, height: number): { text: string; box: OcrRect | null } {
+    const lineData = Array.isArray(item) ? item : [];
+    return {
+        text: googleLensUploadLineText(lineData[0]),
+        box: googleLensUploadLineBox(lineData[1], width, height),
+    };
+}
+
+function googleLensUploadLineText(value: unknown): string {
+    const words = Array.isArray(value) ? value : [];
+    return cleanOcrText(words.map(googleLensUploadWordText).join(''));
+}
+
+function googleLensUploadWordText(word: unknown): string {
+    const wordData = Array.isArray(word) ? word : [];
+    return `${wordData[0] ?? ''}${wordData[3] ?? ''}`;
+}
+
+function googleLensUploadLineBox(value: unknown, width: number, height: number): OcrRect | null {
+    const boxData = Array.isArray(value) ? value : [];
+    if (boxData.length < 4) return null;
+    return clampBox({
+        top: Number(boxData[0]) * height,
+        left: Number(boxData[1]) * width,
+        width: Number(boxData[2]) * width,
+        height: Number(boxData[3]) * height,
+    }, width, height);
 }
 
 function normalizeSimpleLine(value: unknown, width: number, height: number): OcrLine | null {
@@ -548,21 +616,42 @@ function protoNumber(fields: ProtoField[], field: number): number {
 }
 
 function protoBox(geometry: ProtoField[] | null, width: number, height: number): OcrRect | null {
+    const dimensions = protoBoxDimensions(geometry);
+    if (!dimensions) return null;
+    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
+}
+
+function protoBoxDimensions(geometry: ProtoField[] | null): ProtoBoxDimensions | null {
     const box = geometry ? protoFirstMessage(geometry, 1) : null;
     if (!box) return null;
-    const centerX = protoNumber(box, 1);
-    const centerY = protoNumber(box, 2);
-    const boxWidth = protoNumber(box, 3);
-    const boxHeight = protoNumber(box, 4);
-    if (!boxWidth || !boxHeight) return null;
-    const normalized = centerX <= 2 && centerY <= 2 && boxWidth <= 2 && boxHeight <= 2;
-    return clampBox({
-        left: (normalized ? centerX * width : centerX) - (normalized ? boxWidth * width : boxWidth) / 2,
-        top: (normalized ? centerY * height : centerY) - (normalized ? boxHeight * height : boxHeight) / 2,
-        width: normalized ? boxWidth * width : boxWidth,
-        height: normalized ? boxHeight * height : boxHeight,
-    }, width, height);
+    const dimensions = {
+        centerX: protoNumber(box, 1),
+        centerY: protoNumber(box, 2),
+        width: protoNumber(box, 3),
+        height: protoNumber(box, 4),
+    };
+    return dimensions.width && dimensions.height ? dimensions : null;
 }
+
+function protoBoxIsNormalized(box: ProtoBoxDimensions): boolean {
+    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
+}
+
+function scaledProtoBox(box: ProtoBoxDimensions, normalized: boolean, width: number, height: number): OcrRect {
+    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
+    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
+    return {
+        left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
+        top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
+        width: scaledWidth,
+        height: scaledHeight,
+    };
+}
+
+function scaledProtoBoxValue(value: number, scale: number, normalized: boolean): number {
+    return normalized ? value * scale : value;
+}
+
 function stringFrom(value: unknown): string {
     return typeof value === 'string' ? value.replace(/\s+/g, '').trim() : '';
 }

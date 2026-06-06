@@ -9,7 +9,18 @@ export const KANJI_UCHISEN_SOURCE_ID = '__kanji_uchisen__';
 export const KANJI_DICTIONARIES_SOURCE_ID = '__kanji_dictionaries__';
 export const KANJI_SIMILAR_WORDS_SOURCE_ID = '__kanji_similar_words__';
 export const KANJI_ORIGINS_SOURCE_ID = '__kanji_origins__';
-export const KANJI_DICTIONARY_SOURCE_PREFIX = '__kanji_dictionary__:';
+const KANJI_DICTIONARY_SOURCE_PREFIX = '__kanji_dictionary__:';
+const BUILT_IN_SOURCE_NAME_KEYS: Record<string, UiCopyKey> = {
+    [ANKI_SOURCE_ID]: 'sourceNameAnki',
+    [STUDY_TRANSLATION_SOURCE_ID]: 'sourceNameTranslation',
+    [STUDY_GRAMMAR_SOURCE_ID]: 'sourceNameGrammar',
+    [IMMERSION_KIT_SOURCE_ID]: 'sourceNameImmersionKit',
+    [KANJI_STROKE_SOURCE_ID]: 'sourceNameStrokePractice',
+    [KANJI_JPDB_SOURCE_ID]: 'readingsComponents',
+    [KANJI_DICTIONARIES_SOURCE_ID]: 'sourceNameImportedKanjiDictionaries',
+    [KANJI_SIMILAR_WORDS_SOURCE_ID]: 'sourceNameWordsUsingKanji',
+    [KANJI_ORIGINS_SOURCE_ID]: 'originStructure',
+};
 
 export interface SettingsSourceRow {
     id: string;
@@ -263,7 +274,7 @@ export function kanjiSourceLabel(settings: ReaderSettings, sourceId: string, fal
     return localizedSourceRowLabel(row, language) || fallback;
 }
 
-export function kanjiDictionarySourceId(name: string): string {
+function kanjiDictionarySourceId(name: string): string {
     return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;
 }
 
@@ -288,14 +299,5 @@ function localizedSourceRowLabel(row: SettingsSourceRow | undefined, language: I
 }
 
 function builtInSourceNameKey(sourceId: string): UiCopyKey | undefined {
-    if (sourceId === ANKI_SOURCE_ID) return 'sourceNameAnki';
-    if (sourceId === STUDY_TRANSLATION_SOURCE_ID) return 'sourceNameTranslation';
-    if (sourceId === STUDY_GRAMMAR_SOURCE_ID) return 'sourceNameGrammar';
-    if (sourceId === IMMERSION_KIT_SOURCE_ID) return 'sourceNameImmersionKit';
-    if (sourceId === KANJI_STROKE_SOURCE_ID) return 'sourceNameStrokePractice';
-    if (sourceId === KANJI_JPDB_SOURCE_ID) return 'readingsComponents';
-    if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return 'sourceNameImportedKanjiDictionaries';
-    if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return 'sourceNameWordsUsingKanji';
-    if (sourceId === KANJI_ORIGINS_SOURCE_ID) return 'originStructure';
-    return undefined;
+    return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
 }

@@ -61,17 +61,45 @@ function readSnapshot(file: string): ModuleSizeSnapshot | null {
 
 function printReport(rows: ModuleSizeRow[], total: number, baseline: ModuleSizeSnapshot | null): void {
     console.log(`\nPer-module rendered bytes (top 25 of ${rows.length}; total ${total.toLocaleString()}):`);
-    const baselineByModule = new Map((baseline?.modules ?? []).map(row => [row.id, row.bytes]));
-    for (const row of rows.slice(0, 25)) {
-        const before = baselineByModule.get(row.id);
-        const delta = before === undefined ? '' : ` (${row.bytes - before >= 0 ? '+' : ''}${(row.bytes - before).toLocaleString()})`;
-        console.log(`${String(row.bytes).padStart(9)}  ${row.id}${delta}`);
-    }
-    if (baseline) {
-        console.log(`Total delta vs baseline: ${total - baseline.total >= 0 ? '+' : ''}${(total - baseline.total).toLocaleString()} bytes`);
-    } else {
-        console.log('No baseline snapshot; copy dist/module-sizes.json to .module-sizes-baseline.json to diff future runs.');
-    }
+    printTopModuleSizeRows(rows, moduleSizeBaselineMap(baseline));
+    console.log(moduleSizeBaselineReport(total, baseline));
+}
+
+function moduleSizeBaselineMap(baseline: ModuleSizeSnapshot | null): Map<string, number> {
+    return new Map(moduleSizeBaselineRows(baseline).map(row => [row.id, row.bytes]));
+}
+
+function moduleSizeBaselineRows(baseline: ModuleSizeSnapshot | null): ModuleSizeRow[] {
+    return baseline ? baseline.modules : [];
+}
+
+function printTopModuleSizeRows(rows: ModuleSizeRow[], baselineByModule: Map<string, number>): void {
+    for (const row of rows.slice(0, 25)) console.log(moduleSizeReportRow(row, baselineByModule));
+}
+
+function moduleSizeReportRow(row: ModuleSizeRow, baselineByModule: Map<string, number>): string {
+    return `${String(row.bytes).padStart(9)}  ${row.id}${moduleSizeDelta(row, baselineByModule.get(row.id))}`;
+}
+
+function moduleSizeDelta(row: ModuleSizeRow, baselineBytes: number | undefined): string {
+    return baselineBytes === undefined ? '' : ` (${signedNumber(row.bytes - baselineBytes)})`;
+}
+
+function totalSizeDeltaReport(total: number, baselineTotal: number): string {
+    return `Total delta vs baseline: ${signedNumber(total - baselineTotal)} bytes`;
+}
+
+function moduleSizeBaselineReport(total: number, baseline: ModuleSizeSnapshot | null): string {
+    if (!baseline) return missingBaselineReport();
+    return totalSizeDeltaReport(total, baseline.total);
+}
+
+function signedNumber(value: number): string {
+    return `${value >= 0 ? '+' : ''}${value.toLocaleString()}`;
+}
+
+function missingBaselineReport(): string {
+    return 'No baseline snapshot; copy dist/module-sizes.json to .module-sizes-baseline.json to diff future runs.';
 }
 
 (base as { plugins: Plugin[] }).plugins.push(moduleSizeReporter());

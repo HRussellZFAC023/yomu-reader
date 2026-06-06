@@ -2,19 +2,13 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { assert, launchSmokeBrowser } from './smoke-harness.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
 
 mkdirSync(ARTIFACTS, { recursive: true });
-
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
-}
 
 const css = readFileSync(CSS_PATH, 'utf8');
 const ankiFixture = String.raw`
@@ -165,7 +159,7 @@ async function measure(page) {
     });
 }
 
-const browser = await launchSmokeBrowser({ headless: true });
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 try {
     const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
     await page.setContent(html);
@@ -189,15 +183,4 @@ try {
     console.log('Anki template render smoke passed.');
 } finally {
     await browser.close();
-}
-
-async function launchSmokeBrowser(options) {
-    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
-    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
-    try {
-        return await chromium.launch(options);
-    } catch (error) {
-        if (!String(error?.message ?? '').includes("Executable doesn't exist")) throw error;
-        return chromium.launch({ ...options, channel: 'chrome' });
-    }
 }

@@ -31,6 +31,13 @@ interface HoverLookupInternals {
     bindEvents(): void;
 }
 
+interface HoverLookupSpyOptions {
+    activePopover?: HTMLElement;
+    activePopoverMode?: 'modal' | 'hover';
+    hoverLookupShortcut?: string;
+    settings?: Partial<ReaderSettings>;
+}
+
 function makeKeyboardNavigable(word: HTMLElement): void {
     Object.defineProperties(word, {
         getClientRects: {
@@ -64,6 +71,54 @@ function hoverPointerEvent(
         shiftKey: { value: modifiers.shiftKey ?? false },
     });
     return event;
+}
+
+function cleanupReaderApp(app: ReaderApp): void {
+    app.destroy();
+    document.body.replaceChildren();
+}
+
+function setupHoverLookupSpies(
+    app: ReaderApp,
+    options: HoverLookupSpyOptions = {},
+) {
+    const internals = app as unknown as HoverLookupInternals;
+    const scheduleHoverLookup = vi.fn();
+    const handlePointerTextHover = vi.fn();
+    internals.settings = hoverLookupSpySettings(options);
+    applyHoverLookupSpyPopover(internals, options);
+    internals.scheduleHoverLookup = scheduleHoverLookup;
+    internals.handlePointerTextHover = handlePointerTextHover;
+
+    return { internals, scheduleHoverLookup, handlePointerTextHover };
+}
+
+function hoverLookupSpySettings(options: HoverLookupSpyOptions): ReaderSettings {
+    const hoverLookup = options.hoverLookupShortcut ?? options.settings?.shortcuts?.hoverLookup ?? '';
+    return {
+        ...DEFAULT_SETTINGS,
+        ...options.settings,
+        lookupOnHover: options.settings?.lookupOnHover ?? true,
+        shortcuts: {
+            ...DEFAULT_SETTINGS.shortcuts,
+            ...options.settings?.shortcuts,
+            hoverLookup,
+        },
+    };
+}
+
+function applyHoverLookupSpyPopover(internals: HoverLookupInternals, options: HoverLookupSpyOptions): void {
+    if (options.activePopover) internals.activePopover = options.activePopover;
+    const activePopoverMode = options.activePopoverMode ?? (options.activePopover ? 'modal' : undefined);
+    if (activePopoverMode) internals.activePopoverMode = activePopoverMode;
+}
+
+function expectNoHoverLookup({
+    scheduleHoverLookup,
+    handlePointerTextHover,
+}: ReturnType<typeof setupHoverLookupSpies>): void {
+    expect(scheduleHoverLookup).not.toHaveBeenCalled();
+    expect(handlePointerTextHover).not.toHaveBeenCalled();
 }
 
 describe('hover lookup', () => {
@@ -102,8 +157,7 @@ describe('hover lookup', () => {
             expect(internals.isCurrentRenderedWordHover(word, 'word:1:2:今日は読む')).toBe(false);
             expect(internals.isHoverContextActive({ ignoreCssHover: true, ignorePointerPosition: true })).toBe(false);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -119,28 +173,14 @@ describe('hover lookup', () => {
         `;
         document.body.append(popover);
         const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
-        };
-        internals.activePopover = popover;
-        internals.activePopoverMode = 'modal';
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
-            internals.handleHoverPointer(hoverPointerEvent(word));
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word));
 
-            expect(scheduleHoverLookup).not.toHaveBeenCalled();
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            expectNoHoverLookup(hoverLookup);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -156,28 +196,19 @@ describe('hover lookup', () => {
         `;
         document.body.append(popover);
         const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
-        };
-        internals.activePopover = popover;
-        internals.activePopoverMode = 'modal';
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, {
+            activePopover: popover,
+            hoverLookupShortcut: 'Shift',
+        });
 
         try {
-            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }));
+            hoverLookup.internals.handleHoverPointer(
+                hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }),
+            );
 
-            expect(scheduleHoverLookup).not.toHaveBeenCalled();
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            expectNoHoverLookup(hoverLookup);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -189,26 +220,20 @@ describe('hover lookup', () => {
         root.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
         document.body.append(root);
         const word = root.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
-        };
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, { hoverLookupShortcut: 'Shift' });
 
         try {
-            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }));
+            hoverLookup.internals.handleHoverPointer(
+                hoverPointerEvent(word, 'mouse', 'pointerover', { shiftKey: true }),
+            );
 
-            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ shiftKey: true }));
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(
+                word,
+                expect.objectContaining({ shiftKey: true }),
+            );
+            expect(hoverLookup.handlePointerTextHover).not.toHaveBeenCalled();
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -248,8 +273,7 @@ describe('hover lookup', () => {
                 configurable: true,
                 value: originalElementFromPoint,
             });
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -289,8 +313,7 @@ describe('hover lookup', () => {
                 userGesture: true,
             }));
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -302,28 +325,14 @@ describe('hover lookup', () => {
         popover.innerHTML = '<div class="jpdb-reader-popover-body">説明</div>';
         document.body.append(popover);
         const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
-        };
-        internals.activePopover = popover;
-        internals.activePopoverMode = 'modal';
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
-            internals.handleHoverPointer(hoverPointerEvent(body));
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(body));
 
-            expect(scheduleHoverLookup).not.toHaveBeenCalled();
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            expectNoHoverLookup(hoverLookup);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -341,29 +350,15 @@ describe('hover lookup', () => {
         pageWord.textContent = '読む';
         document.body.append(popover, pageWord);
 
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
-        };
-        internals.activePopover = popover;
-        internals.activePopoverMode = 'modal';
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
-            internals.handleHoverPointer(hoverPointerEvent(pageWord, 'mouse'));
-            internals.handleHoverPointer(hoverPointerEvent(pageWord, 'pen'));
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(pageWord, 'mouse'));
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(pageWord, 'pen'));
 
-            expect(scheduleHoverLookup).not.toHaveBeenCalled();
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            expectNoHoverLookup(hoverLookup);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -393,8 +388,7 @@ describe('hover lookup', () => {
 
             expect(scheduleHoverClose).not.toHaveBeenCalled();
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -408,35 +402,25 @@ describe('hover lookup', () => {
         word.textContent = '読む';
         document.body.append(word);
 
-        const internals = app as unknown as HoverLookupInternals;
-        const scheduleHoverLookup = vi.fn();
-        const handlePointerTextHover = vi.fn();
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            lookupOnHover: true,
-            lookupOnClick: true,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
-        };
-        internals.scheduleHoverLookup = scheduleHoverLookup;
-        internals.handlePointerTextHover = handlePointerTextHover;
+        const hoverLookup = setupHoverLookupSpies(app, { settings: { lookupOnClick: true } });
 
         try {
-            expect(internals.canBeginPrimaryPressLookup(hoverPointerEvent(word, 'pen'))).toBe(false);
+            expect(hoverLookup.internals.canBeginPrimaryPressLookup(hoverPointerEvent(word, 'pen'))).toBe(false);
 
-            internals.suppressPenHoverUntil = 0;
-            internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
-            expect(scheduleHoverLookup).toHaveBeenCalledWith(word, expect.objectContaining({ pointerType: 'pen' }));
+            hoverLookup.internals.suppressPenHoverUntil = 0;
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
+            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(
+                word,
+                expect.objectContaining({ pointerType: 'pen' }),
+            );
 
-            scheduleHoverLookup.mockClear();
-            internals.suppressPenHoverUntil = Date.now() + 1000;
-            internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
-            internals.handleHoverPointerOut(hoverPointerEvent(word, 'pen', 'pointerout'));
-            expect(scheduleHoverLookup).not.toHaveBeenCalled();
-            expect(handlePointerTextHover).not.toHaveBeenCalled();
+            hoverLookup.scheduleHoverLookup.mockClear();
+            hoverLookup.internals.suppressPenHoverUntil = Date.now() + 1000;
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
+            hoverLookup.internals.handleHoverPointerOut(hoverPointerEvent(word, 'pen', 'pointerout'));
+            expectNoHoverLookup(hoverLookup);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -473,8 +457,7 @@ describe('hover lookup', () => {
 
             expect(scheduleHoverClose).not.toHaveBeenCalled();
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -524,8 +507,7 @@ describe('hover lookup', () => {
                 configurable: true,
                 value: originalElementFromPoint,
             });
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -557,8 +539,7 @@ describe('hover lookup', () => {
             expect(words[0].classList.contains('jpdb-reader-keyboard-active')).toBe(true);
             expect(words[1].classList.contains('jpdb-reader-keyboard-active')).toBe(false);
         } finally {
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 
@@ -596,8 +577,7 @@ describe('hover lookup', () => {
             expect(words[0].classList.contains('jpdb-reader-keyboard-active')).toBe(false);
         } finally {
             selection.removeAllRanges();
-            app.destroy();
-            document.body.replaceChildren();
+            cleanupReaderApp(app);
         }
     });
 });

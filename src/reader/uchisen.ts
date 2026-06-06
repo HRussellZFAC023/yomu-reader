@@ -38,17 +38,24 @@ export interface UchisenData {
     canGenerateImages: boolean;
 }
 
-export interface UchisenGenerateRequest {
+interface UchisenGenerateRequest {
     kanjiId: string;
     mnemonic: string;
     imagePrompt: string;
 }
 
-export interface UchisenGenerateResult {
+interface UchisenGenerateFields {
+    mnemonic: string;
+    imagePrompt: string;
+}
+
+interface UchisenGenerateResult {
     imageFilename: string;
     imageUrl: string;
     story: string;
 }
+
+type UchisenGenerateStatus = { tone: 'neutral' | 'error' | 'success'; text: string } | null;
 
 interface UchisenGenerationPayload {
     success?: unknown;
@@ -80,6 +87,38 @@ interface UchisenCarouselOptions {
     canGenerateImages?: boolean;
     refreshData?: () => Promise<UchisenData>;
     interfaceLanguage?: InterfaceLanguage;
+}
+
+interface UchisenCarouselRenderModel {
+    kanji: string;
+    item: UchisenImage | null;
+    index: number;
+    total: number;
+    language: InterfaceLanguage;
+    canGenerateImages: boolean;
+    generateOpen: boolean;
+    generateBusy: boolean;
+    generateStatus: UchisenGenerateStatus;
+    generateFields: UchisenGenerateFields;
+    componentGroups: UchisenComponentGroup[];
+    kanjiKeyword: UchisenKanjiKeyword | null;
+    sourceAttributes: string;
+    detailsClass: string;
+    summaryClass: string;
+    bodyClass: string;
+    summaryHtml: string;
+    bodyMeta: string;
+}
+
+interface UchisenCarouselRenderInputs {
+    options: UchisenCarouselOptions;
+    canGenerateImages: boolean;
+    generateOpen: boolean;
+    generateBusy: boolean;
+    generateStatus: UchisenGenerateStatus;
+    generateFields: UchisenGenerateFields;
+    currentComponentGroups: UchisenComponentGroup[];
+    currentKanjiKeyword: UchisenKanjiKeyword | null;
 }
 
 const UCHISEN_INDEX_PREFIX = 'yomu-jpdb-uchisen-index:';
@@ -323,9 +362,10 @@ export async function installUchisenCarousel(
     if (!isValidUchisenIndex(index, currentImages)) index = 0;
 
     const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    const language = options.interfaceLanguage ?? 'en';
     let generateOpen = false;
     let generateBusy = false;
-    let generateStatus: { tone: 'neutral' | 'error' | 'success'; text: string } | null = null;
+    let generateStatus: UchisenGenerateStatus = null;
     let generateFields = defaultUchisenGenerateFields(kanji, currentKanjiKeyword, currentComponentGroups);
     let currentImageUrl = '';
     const cleanup = () => {
@@ -334,66 +374,21 @@ export async function installUchisenCarousel(
         currentImageUrl = '';
     };
     const render = () => {
-        const language = options.interfaceLanguage ?? 'en';
-        if (!isValidUchisenIndex(index, currentImages)) index = 0;
-        const item = currentImages[index] ?? null;
-        const total = currentImages.length;
-        const previousLabel = uiText(language, 'previousExample');
-        const nextLabel = uiText(language, 'nextExample');
-        const story = item?.story && item.story !== 'No story available'
-            ? item.story
-            : uiText(language, 'noStoryAvailable');
-        const detailsClass = options.detailsClass ?? 'jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source';
-        const summaryClass = options.summaryClass ?? 'jpdb-reader-local-head';
-        const bodyClass = options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body';
-        const sourceAttributes = options.sourceAttributes ?? 'open';
-        const summaryHtml = options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
-                    <span class="yomu-jpdb-uchisen-summary-main">
-                        <span>Uchisen</span>
-                        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : '0'}</span>
-                    </span>
-                `;
-        const bodyMeta = options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : '';
-        setInnerHtml(container, `
-            <details class="${detailsClass}" ${sourceAttributes}>
-                <summary class="${summaryClass}">
-                    ${summaryHtml}
-                </summary>
-                <div class="${bodyClass}">
-                    <div class="yomu-jpdb-uchisen-toolbar">
-                        ${bodyMeta}
-                        <span class="yomu-jpdb-uchisen-link-row">
-                            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(language))} ${externalLinkIcon()}</a>
-                            ${canGenerateImages ? `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${generateOpen}" title="${escapeHtml(uiText(language, 'generateUchisenImage'))}">${escapeHtml(uiText(language, 'generateUchisenImageToggle'))}</button>` : ''}
-                        </span>
-                        ${total ? `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(language, 'uchisenMnemonicImages'))}">
-                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
-                            <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
-                        </span>` : ''}
-                    </div>
-                    ${generateOpen ? renderUchisenGeneratePanel(generateFields, generateStatus, generateBusy, language) : ''}
-                    ${renderUchisenComponentGroups(currentKanjiKeyword, currentComponentGroups, language)}
-                    ${item ? `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(formatUchisenTemplate(uiText(language, 'uchisenMnemonicFor'), { kanji }))}" data-uchisen-image></div>
-                    <div class="yomu-jpdb-story">${escapeHtml(story)}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'noUchisenImagesYet'))}</div>`}
-                </div>
-            </details>
-        `);
-        const image = container.querySelector<HTMLImageElement>('[data-uchisen-image]');
-        if (!image || !item) return;
-        const srcUrl = item.url;
-        requestBlobUrl(srcUrl, 9000, proxyUrl)
-            .then(url => {
-                if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
-                    revokePageMediaUrl(url);
-                    return;
-                }
-                cleanup();
-                currentImageUrl = url;
-                image.src = url;
-            })
-            .catch(() => {
-                if (image.isConnected) image.remove();
-            });
+        index = validUchisenRenderIndex(index, currentImages);
+        const model = uchisenCarouselRenderModel(kanji, index, currentImages, {
+            options,
+            canGenerateImages,
+            generateOpen,
+            generateBusy,
+            generateStatus,
+            generateFields,
+            currentComponentGroups,
+            currentKanjiKeyword,
+        });
+        setInnerHtml(container, renderUchisenCarouselHtml(model));
+        attachRenderedUchisenImage(container, model.item, index, currentImages, proxyUrl, cleanup, url => {
+            currentImageUrl = url;
+        });
     };
 
     const syncGenerateFields = () => {
@@ -423,10 +418,10 @@ export async function installUchisenCarousel(
     };
 
     const generateAndRefresh = async (): Promise<void> => {
-        if (generateBusy || !canGenerateImages || !currentKanjiId) return;
+        if (!canStartUchisenGeneration(generateBusy, canGenerateImages, currentKanjiId)) return;
         syncGenerateFields();
         generateBusy = true;
-        generateStatus = { tone: 'neutral', text: uiText(options.interfaceLanguage ?? 'en', 'uchisenGeneratingImage') };
+        generateStatus = uchisenGenerateStatus('neutral', uiText(language, 'uchisenGeneratingImage'));
         render();
         try {
             const result = await generateAndPublishUchisenMnemonic(kanji, {
@@ -434,44 +429,51 @@ export async function installUchisenCarousel(
                 mnemonic: generateFields.mnemonic,
                 imagePrompt: generateFields.imagePrompt,
             }, proxyUrl, message => {
-                generateStatus = { tone: 'neutral', text: message };
+                generateStatus = uchisenGenerateStatus('neutral', message);
                 render();
-            }, options.interfaceLanguage ?? 'en');
+            }, language);
             await refreshAfterGenerate(result);
-            generateStatus = { tone: 'success', text: uiText(options.interfaceLanguage ?? 'en', 'uchisenGeneratedImage') };
+            generateStatus = uchisenGenerateStatus('success', uiText(language, 'uchisenGeneratedImage'));
             generateOpen = false;
         } catch (error) {
-            const message = error instanceof Error && error.message.trim()
-                ? error.message.trim()
-                : uiText(options.interfaceLanguage ?? 'en', 'uchisenGenerateFailed');
-            generateStatus = { tone: 'error', text: message };
+            generateStatus = uchisenGenerateErrorStatus(error, language);
         } finally {
             generateBusy = false;
             render();
         }
     };
 
-    container.addEventListener('click', event => {
-        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-uchisen-action]')?.dataset.uchisenAction;
-        if (!action) return;
-        event.preventDefault();
-        event.stopPropagation();
+    const toggleGeneratePanel = () => {
+        generateOpen = !generateOpen;
+        generateStatus = uchisenGenerateToggleStatus(canGenerateImages, language);
+        render();
+    };
+
+    const updateCarouselIndex = (nextIndex: number) => {
+        index = nextIndex;
+        void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+        render();
+    };
+
+    const handleAction = (action: string): void => {
         if (action === 'generate-toggle') {
-            generateOpen = !generateOpen;
-            generateStatus = canGenerateImages ? null : { tone: 'error', text: uiText(options.interfaceLanguage ?? 'en', 'uchisenLoginRequired') };
-            render();
+            toggleGeneratePanel();
             return;
         }
         if (action === 'generate-submit') {
             void generateAndRefresh();
             return;
         }
-        if (action !== 'previous' && action !== 'next') return;
-        if (!currentImages.length) return;
-        if (action === 'previous') index = (index - 1 + currentImages.length) % currentImages.length;
-        if (action === 'next') index = (index + 1) % currentImages.length;
-        void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-        render();
+        const nextIndex = nextUchisenCarouselIndex(action, index, currentImages.length);
+        if (nextIndex !== null) updateCarouselIndex(nextIndex);
+    };
+
+    container.addEventListener('click', event => {
+        const action = uchisenActionFromClick(event);
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+        handleAction(action);
     });
     container.addEventListener('input', event => {
         const field = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-uchisen-generate-field]');
@@ -482,7 +484,179 @@ export async function installUchisenCarousel(
     return cleanup;
 }
 
-export async function generateAndPublishUchisenMnemonic(
+function validUchisenRenderIndex(index: number, images: UchisenImage[]): number {
+    return isValidUchisenIndex(index, images) ? index : 0;
+}
+
+function canStartUchisenGeneration(generateBusy: boolean, canGenerateImages: boolean, kanjiId: string): boolean {
+    return !generateBusy && canGenerateImages && Boolean(kanjiId);
+}
+
+function uchisenGenerateStatus(tone: NonNullable<UchisenGenerateStatus>['tone'], text: string): UchisenGenerateStatus {
+    return { tone, text };
+}
+
+function uchisenGenerateErrorStatus(error: unknown, language: InterfaceLanguage): UchisenGenerateStatus {
+    return uchisenGenerateStatus('error', uchisenGenerateErrorMessage(error, language));
+}
+
+function uchisenGenerateErrorMessage(error: unknown, language: InterfaceLanguage): string {
+    if (error instanceof Error) {
+        const message = error.message.trim();
+        if (message) return message;
+    }
+    return uiText(language, 'uchisenGenerateFailed');
+}
+
+function uchisenGenerateToggleStatus(canGenerateImages: boolean, language: InterfaceLanguage): UchisenGenerateStatus {
+    return canGenerateImages
+        ? null
+        : uchisenGenerateStatus('error', uiText(language, 'uchisenLoginRequired'));
+}
+
+function uchisenActionFromClick(event: MouseEvent): string {
+    return (event.target as HTMLElement).closest<HTMLButtonElement>('[data-uchisen-action]')?.dataset.uchisenAction ?? '';
+}
+
+function nextUchisenCarouselIndex(action: string, currentIndex: number, total: number): number | null {
+    if (!total) return null;
+    if (action === 'previous') return (currentIndex - 1 + total) % total;
+    if (action === 'next') return (currentIndex + 1) % total;
+    return null;
+}
+
+function uchisenCarouselRenderModel(
+    kanji: string,
+    index: number,
+    images: UchisenImage[],
+    inputs: UchisenCarouselRenderInputs,
+): UchisenCarouselRenderModel {
+    const total = images.length;
+    const language = inputs.options.interfaceLanguage ?? 'en';
+    return {
+        kanji,
+        item: images[index] ?? null,
+        index,
+        total,
+        language,
+        canGenerateImages: inputs.canGenerateImages,
+        generateOpen: inputs.generateOpen,
+        generateBusy: inputs.generateBusy,
+        generateStatus: inputs.generateStatus,
+        generateFields: inputs.generateFields,
+        componentGroups: inputs.currentComponentGroups,
+        kanjiKeyword: inputs.currentKanjiKeyword,
+        sourceAttributes: inputs.options.sourceAttributes ?? 'open',
+        detailsClass: inputs.options.detailsClass ?? 'jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source',
+        summaryClass: inputs.options.summaryClass ?? 'jpdb-reader-local-head',
+        bodyClass: inputs.options.bodyClass ?? 'jpdb-reader-local-glossary yomu-jpdb-uchisen-body',
+        summaryHtml: uchisenSummaryHtml(inputs.options, index, total),
+        bodyMeta: uchisenBodyMetaHtml(inputs.options, index, total),
+    };
+}
+
+function uchisenSummaryHtml(options: UchisenCarouselOptions, index: number, total: number): string {
+    return options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
+        <span class="yomu-jpdb-uchisen-summary-main">
+            <span>Uchisen</span>
+            <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : '0'}</span>
+        </span>
+    `;
+}
+
+function uchisenBodyMetaHtml(options: UchisenCarouselOptions, index: number, total: number): string {
+    return options.summaryHtml && total
+        ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>`
+        : '';
+}
+
+function renderUchisenCarouselHtml(model: UchisenCarouselRenderModel): string {
+    return `
+        <details class="${model.detailsClass}" ${model.sourceAttributes}>
+            <summary class="${model.summaryClass}">
+                ${model.summaryHtml}
+            </summary>
+            <div class="${model.bodyClass}">
+                ${renderUchisenToolbar(model)}
+                ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ''}
+                ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
+                ${renderUchisenImageOrEmpty(model)}
+            </div>
+        </details>
+    `;
+}
+
+function renderUchisenToolbar(model: UchisenCarouselRenderModel): string {
+    return `
+        <div class="yomu-jpdb-uchisen-toolbar">
+            ${model.bodyMeta}
+            ${renderUchisenLinkRow(model)}
+            ${renderUchisenNavigationControls(model)}
+        </div>
+    `;
+}
+
+function renderUchisenLinkRow(model: UchisenCarouselRenderModel): string {
+    return `
+        <span class="yomu-jpdb-uchisen-link-row">
+            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
+            ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ''}
+        </span>
+    `;
+}
+
+function renderUchisenGenerateToggle(model: UchisenCarouselRenderModel): string {
+    return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml(uiText(model.language, 'generateUchisenImage'))}">${escapeHtml(uiText(model.language, 'generateUchisenImageToggle'))}</button>`;
+}
+
+function renderUchisenNavigationControls(model: UchisenCarouselRenderModel): string {
+    if (!model.total) return '';
+    const previousLabel = uiText(model.language, 'previousExample');
+    const nextLabel = uiText(model.language, 'nextExample');
+    return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(model.language, 'uchisenMnemonicImages'))}">
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
+    </span>`;
+}
+
+function renderUchisenImageOrEmpty(model: UchisenCarouselRenderModel): string {
+    if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml(uiText(model.language, 'noUchisenImagesYet'))}</div>`;
+    const story = model.item.story && model.item.story !== 'No story available'
+        ? model.item.story
+        : uiText(model.language, 'noStoryAvailable');
+    const alt = formatUchisenTemplate(uiText(model.language, 'uchisenMnemonicFor'), { kanji: model.kanji });
+    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image></div>
+        <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
+}
+
+function attachRenderedUchisenImage(
+    container: HTMLElement,
+    item: UchisenImage | null,
+    index: number,
+    currentImages: UchisenImage[],
+    proxyUrl: string,
+    cleanup: () => void,
+    setCurrentImageUrl: (url: string) => void,
+): void {
+    const image = container.querySelector<HTMLImageElement>('[data-uchisen-image]');
+    if (!image || !item) return;
+    const srcUrl = item.url;
+    requestBlobUrl(srcUrl, 9000, proxyUrl)
+        .then(url => {
+            if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
+                revokePageMediaUrl(url);
+                return;
+            }
+            cleanup();
+            setCurrentImageUrl(url);
+            image.src = url;
+        })
+        .catch(() => {
+            if (image.isConnected) image.remove();
+        });
+}
+
+async function generateAndPublishUchisenMnemonic(
     kanji: string,
     request: UchisenGenerateRequest,
     proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL,
@@ -577,8 +751,8 @@ function fitUchisenImagePrompt(prompt: string): string {
 }
 
 function renderUchisenGeneratePanel(
-    fields: { mnemonic: string; imagePrompt: string },
-    status: { tone: 'neutral' | 'error' | 'success'; text: string } | null,
+    fields: UchisenGenerateFields,
+    status: UchisenGenerateStatus,
     busy: boolean,
     language: InterfaceLanguage,
 ): string {
@@ -607,7 +781,7 @@ function defaultUchisenGenerateFields(
     kanji: string,
     keyword: UchisenKanjiKeyword | null,
     groups: UchisenComponentGroup[],
-): { mnemonic: string; imagePrompt: string } {
+): UchisenGenerateFields {
     const keywordText = keyword?.keyword || kanji;
     const components = uniqueUchisenComponents(groups);
     const componentStory = components.length

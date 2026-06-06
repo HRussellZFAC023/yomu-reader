@@ -1,4 +1,4 @@
-export const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
+const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
 export const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
 const JPDB_BASE_URL = 'https://jpdb.io';
 const JAPANESE_RUN_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3005\u3006\u3007々〆ヶー]+/u;
@@ -13,7 +13,7 @@ export function cleanText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
 
-export function decodePathPart(value: string): string {
+function decodePathPart(value: string): string {
     try {
         return decodeURIComponent(value);
     } catch {
@@ -72,10 +72,6 @@ export function canonicalUchisenUrl(value: string): string {
     } catch {
         return url.replace(/\/{2,}/g, '/').split(/[?#]/)[0];
     }
-}
-
-export function firstJapaneseRun(value: string): string {
-    return value.match(JAPANESE_RUN_RE)?.[0] ?? cleanText(value);
 }
 
 export function firstJapaneseRunOrEmpty(value: string): string {

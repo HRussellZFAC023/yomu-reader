@@ -46,6 +46,7 @@ import {
 } from './settings-form';
 import { updateAnkiTagsEditor } from './settings-form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './settings-file-io';
+import type { AnkiLibraryScanResult } from './anki-types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
@@ -95,6 +96,21 @@ interface DictionaryStatusElements {
 type RecommendedDictionary = (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number];
 type RecommendedDictionaryInstallState = 'queued' | 'installing';
 type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>;
+type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
+type AnkiConnectionAction = 'test-anki' | 'prepare-anki';
+type AnkiStatusTone = 'pending' | 'success' | 'error';
+type AnkiStatusSetter = (message: string, tone: AnkiStatusTone) => void;
+type AnkiScanConfidence = 'high' | 'medium' | 'low';
+
+interface AnkiScanFormControls {
+    deck: AnkiScanSelectableInput | null;
+    model: AnkiScanSelectableInput | null;
+}
+
+interface AnkiScanSelection {
+    selectedDeck: string;
+    selectedModel: string;
+}
 
 interface RecommendedDictionaryOperationState {
     state: RecommendedDictionaryInstallState;
@@ -103,6 +119,9 @@ interface RecommendedDictionaryOperationState {
 
 const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
+const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
+const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'image']);
+const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const SETTINGS_FOCUSABLE_SELECTOR = [
     'button:not([disabled])',
     'input:not([disabled])',
@@ -152,6 +171,74 @@ function namedSettingsControl<T extends HTMLInputElement | HTMLSelectElement | H
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement
         ? control as T
         : null;
+}
+
+function ankiScanFormControls(form: HTMLFormElement): AnkiScanFormControls {
+    return {
+        deck: namedSettingsControl<AnkiScanSelectableInput>(form, 'ankiDeck'),
+        model: namedSettingsControl<AnkiScanSelectableInput>(form, 'ankiModel'),
+    };
+}
+
+function settingsControlValue(control: AnkiScanSelectableInput | null): string {
+    return control?.value.trim() || '';
+}
+
+function shouldUseScannedAnkiDeck(deckNames: string[], currentDeck: string): boolean {
+    return Boolean(
+        deckNames.length
+        && !deckNames.includes(currentDeck)
+        && (deckNames.length === 1 || AUTO_REPLACE_ANKI_DECK_NAMES.has(currentDeck)),
+    );
+}
+
+function selectedAnkiScanDeck(deckNames: string[], currentDeck: string): string {
+    return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? currentDeck : currentDeck;
+}
+
+function ankiScanSelection(controls: AnkiScanFormControls, scan: AnkiLibraryScanResult): AnkiScanSelection {
+    return {
+        selectedDeck: selectedAnkiScanDeck(scan.deckNames, settingsControlValue(controls.deck)),
+        selectedModel: scan.suggestedModel?.modelName || settingsControlValue(controls.model),
+    };
+}
+
+function applySettingsControlValue(control: AnkiScanSelectableInput | null, value: string): void {
+    if (!control || !value) return;
+    control.value = value;
+    control.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function ankiConnectionAction(action: string): AnkiConnectionAction | null {
+    return action === 'test-anki' || action === 'prepare-anki' ? action : null;
+}
+
+function ankiConnectionPendingKey(action: AnkiConnectionAction): 'ankiPreparing' | 'ankiTesting' {
+    return action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
+}
+
+function ankiStatusSetter(status: HTMLElement | null): AnkiStatusSetter {
+    return (message, tone) => {
+        if (!status) return;
+        status.textContent = message;
+        status.dataset.statusTone = tone;
+    };
+}
+
+function isAnkiFieldMappingRole(role: string): role is AnkiFieldMappingRole {
+    return ANKI_FIELD_MAPPING_ROLES.has(role as AnkiFieldMappingRole);
+}
+
+function isAnkiScanConfidence(value: unknown): value is AnkiScanConfidence {
+    return typeof value === 'string' && ANKI_SCAN_CONFIDENCE_VALUES.has(value as AnkiScanConfidence);
+}
+
+function ankiScanConfidenceEntries(confidence: Partial<Record<AnkiFieldMappingRole, unknown>>): Array<[AnkiFieldMappingRole, AnkiScanConfidence]> {
+    const entries: Array<[AnkiFieldMappingRole, AnkiScanConfidence]> = [];
+    for (const [role, value] of Object.entries(confidence)) {
+        if (isAnkiFieldMappingRole(role) && isAnkiScanConfidence(value)) entries.push([role, value]);
+    }
+    return entries;
 }
 
 function readNewTabAnkiDisabledDecks(form: HTMLFormElement): string[] {
@@ -1066,54 +1153,24 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsConnectionAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
-        if (action !== 'test-anki' && action !== 'prepare-anki') return false;
-        const ankiStatus = form.querySelector<HTMLElement>('[data-anki-status]');
+        const connectionAction = ankiConnectionAction(action);
+        if (!connectionAction) return false;
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const button = settingsActionButton(control);
-        const setAnkiStatus = (message: string, tone: 'pending' | 'success' | 'error') => {
-            if (!ankiStatus) return;
-            ankiStatus.textContent = message;
-            ankiStatus.dataset.statusTone = tone;
-        };
+        const setAnkiStatus = ankiStatusSetter(form.querySelector<HTMLElement>('[data-anki-status]'));
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
         button?.setAttribute('disabled', 'true');
-        const pendingKey = action === 'prepare-anki' ? 'ankiPreparing' : 'ankiTesting';
-        setAnkiStatus(uiText(language, pendingKey), 'pending');
+        setAnkiStatus(uiText(language, ankiConnectionPendingKey(connectionAction)), 'pending');
         try {
-            let connected = false;
-            try {
-                connected = await this.dependencies.anki.isConnected();
-            } catch (error) {
-                log.warn('Anki settings connection check failed', error);
-                setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
+            if (!await this.checkAnkiConnectionForSettings(setAnkiStatus, language)) return true;
+            if (connectionAction === 'test-anki') {
+                this.finishAnkiConnectionTest(form, setAnkiStatus, language);
                 return true;
             }
-            if (!connected) {
-                setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
-                return true;
-            }
-            if (action === 'test-anki') {
-                setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
-                this.queueAutomaticAnkiLibraryScan(form, language);
-                log.info('Anki settings connection test succeeded', { url: this.settings.ankiConnectUrl });
-                return true;
-            }
-            await this.dependencies.anki.ensureDeckAndModel();
-            setAnkiStatus(this.ankiReadyMessage(language), 'success');
-            this.queueAutomaticAnkiLibraryScan(form, language);
-            log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+            await this.prepareAnkiConnectionAction(form, setAnkiStatus, language);
         } catch (error) {
-            if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
-                const message = this.ankiSetupUnavailableMessage(this.settings, language);
-                log.warn('Anki settings action unavailable', error);
-                setAnkiStatus(message, 'pending');
-                return true;
-            }
-            const message = this.ankiConnectionErrorMessage(error, language);
-            log.warn('Anki settings test failed', error);
-            setAnkiStatus(message, 'error');
-            this.dependencies.toast(message);
+            this.handleAnkiConnectionActionError(error, setAnkiStatus, language);
         } finally {
             this.settings = previous;
             button?.removeAttribute('disabled');
@@ -1121,32 +1178,53 @@ export class SettingsDialogController {
         return true;
     }
 
-    private applyAnkiScanToForm(form: HTMLFormElement, scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>): void {
+    private async checkAnkiConnectionForSettings(setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): Promise<boolean> {
+        try {
+            if (await this.dependencies.anki.isConnected()) return true;
+        } catch (error) {
+            log.warn('Anki settings connection check failed', error);
+        }
+        setAnkiStatus(this.ankiSetupUnavailableMessage(this.settings, language), 'pending');
+        return false;
+    }
+
+    private finishAnkiConnectionTest(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
+        setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
+        this.queueAutomaticAnkiLibraryScan(form, language);
+        log.info('Anki settings connection test succeeded', { url: this.settings.ankiConnectUrl });
+    }
+
+    private async prepareAnkiConnectionAction(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): Promise<void> {
+        await this.dependencies.anki.ensureDeckAndModel();
+        setAnkiStatus(this.ankiReadyMessage(language), 'success');
+        this.queueAutomaticAnkiLibraryScan(form, language);
+        log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+    }
+
+    private handleAnkiConnectionActionError(error: unknown, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
+        if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
+            const message = this.ankiSetupUnavailableMessage(this.settings, language);
+            log.warn('Anki settings action unavailable', error);
+            setAnkiStatus(message, 'pending');
+            return;
+        }
+        const message = this.ankiConnectionErrorMessage(error, language);
+        log.warn('Anki settings test failed', error);
+        setAnkiStatus(message, 'error');
+        this.dependencies.toast(message);
+    }
+
+    private applyAnkiScanToForm(form: HTMLFormElement, scan: AnkiLibraryScanResult): void {
         this.applyAnkiFieldMappingsToForm(form, scan);
-        const modelInput = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiModel');
-        const deckInput = namedSettingsControl<HTMLInputElement | HTMLSelectElement>(form, 'ankiDeck');
-        const nextModel = scan.suggestedModel?.modelName || modelInput?.value.trim() || '';
-        let nextDeck = deckInput?.value.trim() || '';
-        if (deckInput && scan.deckNames.length) {
-            const currentDeck = deckInput.value.trim();
-            if (!scan.deckNames.includes(currentDeck)
-                && (scan.deckNames.length === 1 || !currentDeck || currentDeck === 'よむ' || currentDeck === 'Yomu')) {
-                nextDeck = scan.deckNames[0] ?? currentDeck;
-            }
-        }
-        this.applyAnkiScanControlsToForm(form, scan, { selectedDeck: nextDeck, selectedModel: nextModel });
-        if (modelInput && nextModel) {
-            modelInput.value = nextModel;
-            modelInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (deckInput && nextDeck) {
-            deckInput.value = nextDeck;
-            deckInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        const controls = ankiScanFormControls(form);
+        const selection = ankiScanSelection(controls, scan);
+        this.applyAnkiScanControlsToForm(form, scan, selection);
+        applySettingsControlValue(controls.model, selection.selectedModel);
+        applySettingsControlValue(controls.deck, selection.selectedDeck);
         this.renderAnkiFieldMappingEditor(form);
     }
 
-    private applyAnkiFieldMappingsToForm(form: HTMLFormElement, scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>): void {
+    private applyAnkiFieldMappingsToForm(form: HTMLFormElement, scan: AnkiLibraryScanResult): void {
         const input = namedSettingsControl<HTMLInputElement>(form, 'ankiFieldMappings');
         if (!input) return;
         const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
@@ -1164,7 +1242,7 @@ export class SettingsDialogController {
 
     private applyAnkiScanControlsToForm(
         form: HTMLFormElement,
-        scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>,
+        scan: AnkiLibraryScanResult,
         selected: { selectedDeck?: string; selectedModel?: string } = {},
     ): void {
         const deckOptions = form.querySelector<HTMLElement>('[data-anki-deck-options]');
@@ -1278,18 +1356,13 @@ export class SettingsDialogController {
         try {
             const parsed = JSON.parse(input.value) as Record<string, Partial<Record<AnkiFieldMappingRole, unknown>>>;
             const confidence = parsed[modelName] ?? {};
-            return Object.fromEntries(Object.entries(confidence).flatMap(([role, value]) =>
-                (role === 'expression' || role === 'reading' || role === 'meaning' || role === 'sentence' || role === 'audio' || role === 'image')
-                    && (value === 'high' || value === 'medium' || value === 'low')
-                    ? [[role, value]]
-                    : [],
-            ));
+            return Object.fromEntries(ankiScanConfidenceEntries(confidence));
         } catch {
             return {};
         }
     }
 
-    private ankiScanMessage(scan: Awaited<ReturnType<AnkiConnectClient['scanLibrary']>>, language: InterfaceLanguage): string {
+    private ankiScanMessage(scan: AnkiLibraryScanResult, language: InterfaceLanguage): string {
         if (!scan.suggestedModel) {
             return formatUiTemplate(uiText(language, 'ankiScanNoModels'), {
                 decks: String(scan.deckNames.length),

@@ -61,6 +61,10 @@ function failIfGreasyForkSizeExceeded(size) {
 }
 
 function warnIfNearGreasyForkSizeLimit(size) {
+  if (size > GREASY_FORK_SIZE_LIMIT_BYTES) {
+    console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, over Greasy Fork's 2 MB script limit (${formatCount(GREASY_FORK_SIZE_LIMIT_BYTES)} bytes). Greasy Fork publishing remains blocked by the publish script.`);
+    return;
+  }
   if (size > GREASY_FORK_SIZE_LIMIT_BYTES * GREASY_FORK_SIZE_WARNING_RATIO) {
     console.warn(`Warning: ${USERSCRIPT_RELATIVE_PATH} is ${formatCount(size)} bytes, above 90% of Greasy Fork's 2 MB script limit.`);
   }
@@ -79,8 +83,6 @@ module.exports = {
   DIST_READER_CSS_PATH,
   DIST_USERSCRIPT_PATH,
   DOCS_USERSCRIPT_PATH,
-  GREASY_FORK_SIZE_LIMIT_BYTES,
-  GREASY_FORK_SIZE_WARNING_RATIO,
   READER_CSS_RELATIVE_PATH,
   ROOT,
   USERSCRIPT_METADATA_END,
@@ -95,7 +97,6 @@ module.exports = {
   packageVersion,
   readBuiltUserscript,
   readText,
-  userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
   writeText,
 };

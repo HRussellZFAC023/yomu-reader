@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { assert, closeServer, serveFile, startLoopbackServer } from './smoke-harness.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
@@ -14,6 +14,8 @@ const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'ind
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const JPDB_FONT_STACK = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
+const SETTINGS_FONT_SELECTOR = 'select[name="popupFontFamily"], input[name="popupFontFamily"]';
+const SETTINGS_WEIGHT_SELECTOR = 'input[name="popupFontWeight"]';
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
@@ -129,59 +131,53 @@ const readerFixtureHtml = `<!doctype html>
 </body>
 </html>`;
 
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
+const FEEDBACK_TEXT_ROUTES = new Map([
+    ['/', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
+    ['/reader-fixture.html', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
+    ['/video-player/index.html', { bodyPath: VIDEO_PLAYER_PATH, contentType: 'text/html; charset=utf-8' }],
+]);
+
+const FEEDBACK_FILE_ROUTES = new Map([
+    ...routeEntries(['/yomu.user.js', '/video-player/yomu.user.js', '/yomu-reader/yomu.user.js'], { filePath: SCRIPT_PATH, contentType: 'application/javascript; charset=utf-8' }),
+    ...routeEntries(['/yomu.css', '/video-player/yomu.css', '/yomu-reader/yomu.css'], { filePath: CSS_PATH, contentType: 'text/css; charset=utf-8' }),
+    ...routeEntries(['/yomu-icon.svg', '/video-player/yomu-icon.svg', '/yomu-reader/yomu-icon.svg'], { filePath: path.join(PUBLIC_DIR, 'yomu-icon.svg'), contentType: 'image/svg+xml; charset=utf-8' }),
+    ...['/favicon-32x32.png', '/favicon-16x16.png', '/apple-touch-icon.png']
+        .map(pathname => [pathname, { filePath: path.join(PUBLIC_DIR, pathname.slice(1)), contentType: 'image/png' }]),
+]);
+
+function routeEntries(pathnames, route) {
+    return pathnames.map(pathname => [pathname, route]);
 }
 
 function createFixtureServer() {
-    const server = createServer((request, response) => {
-        const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-        if (url.pathname === '/' || url.pathname === '/reader-fixture.html') {
-            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-            response.end(readerFixtureHtml);
-            return;
-        }
-        if (url.pathname === '/video-player/index.html') {
-            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-            response.end(readFileSync(VIDEO_PLAYER_PATH, 'utf8'));
-            return;
-        }
-        if (url.pathname === '/yomu.user.js' || url.pathname === '/video-player/yomu.user.js' || url.pathname === '/yomu-reader/yomu.user.js') {
-            serveFile(response, SCRIPT_PATH, 'application/javascript; charset=utf-8', request.method);
-            return;
-        }
-        if (url.pathname === '/yomu.css' || url.pathname === '/video-player/yomu.css' || url.pathname === '/yomu-reader/yomu.css') {
-            serveFile(response, CSS_PATH, 'text/css; charset=utf-8', request.method);
-            return;
-        }
-        if (url.pathname === '/yomu-icon.svg' || url.pathname === '/video-player/yomu-icon.svg' || url.pathname === '/yomu-reader/yomu-icon.svg') {
-            serveFile(response, path.join(PUBLIC_DIR, 'yomu-icon.svg'), 'image/svg+xml; charset=utf-8', request.method);
-            return;
-        }
-        if (url.pathname === '/favicon-32x32.png' || url.pathname === '/favicon-16x16.png' || url.pathname === '/apple-touch-icon.png') {
-            serveFile(response, path.join(PUBLIC_DIR, url.pathname.slice(1)), 'image/png', request.method);
-            return;
-        }
-        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end('Not found');
-    });
-
-    return new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', () => {
-            const address = server.address();
-            if (!address || typeof address === 'string') reject(new Error('Could not bind feedback smoke server'));
-            else resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` });
-        });
-    });
+    return startLoopbackServer(serveFeedbackFixtureRequest, 'Could not bind feedback smoke server');
 }
 
-function serveFile(response, filePath, contentType, method = 'GET') {
-    response.writeHead(200, { 'content-type': contentType });
-    response.end(method === 'HEAD' ? undefined : readFileSync(filePath));
+function serveFeedbackFixtureRequest(request, response) {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    const textRoute = FEEDBACK_TEXT_ROUTES.get(url.pathname);
+    if (textRoute) {
+        serveFeedbackTextRoute(response, textRoute);
+        return;
+    }
+
+    const fileRoute = FEEDBACK_FILE_ROUTES.get(url.pathname);
+    if (fileRoute) {
+        serveFile(response, fileRoute.filePath, fileRoute.contentType, request.method);
+        return;
+    }
+
+    serveFeedbackNotFound(response);
+}
+
+function serveFeedbackTextRoute(response, route) {
+    response.writeHead(200, { 'content-type': route.contentType });
+    response.end(route.body ?? readFileSync(route.bodyPath, 'utf8'));
+}
+
+function serveFeedbackNotFound(response) {
+    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Not found');
 }
 
 async function newPage(browser, settings = baseSettings, viewport = { width: 1360, height: 900 }) {
@@ -215,43 +211,100 @@ async function verifySettingsDiscoverability(page, baseUrl) {
     // The popup font controls live on the appearance panel since the 0.5.0
     // settings polish; 'basics' aliases to the JPDB panel and hides them.
     await openSettings(page, 'appearance');
+    await verifyAppearanceSettings(page);
+    await verifyShortcutSettings(page);
+    await verifyMediaSettings(page);
+}
+
+async function verifyAppearanceSettings(page) {
     await page.locator('select[name="popupFontFamily"], input[name="popupFontFamily"]').first().scrollIntoViewIfNeeded();
     await page.locator('.jpdb-reader-settings').screenshot({ path: path.join(ARTIFACTS, 'feedback-settings-font.png') });
 
-    const basics = await page.evaluate(() => {
-        const font = document.querySelector('select[name="popupFontFamily"], input[name="popupFontFamily"]');
-        const weight = document.querySelector('input[name="popupFontWeight"]');
-        const fontRect = font?.getBoundingClientRect();
-        const weightRect = weight?.getBoundingClientRect();
-        return {
-            title: document.querySelector('.jpdb-reader-settings h2')?.textContent?.trim(),
-            fontValue: font?.value,
-            weightValue: weight?.value,
-            fontVisible: Boolean(fontRect && fontRect.width > 100 && fontRect.height >= 24),
-            weightVisible: Boolean(weightRect && weightRect.width > 60 && weightRect.height >= 24),
-        };
-    });
-    assert(basics.title === 'よむ Settings', 'Settings dialog did not open');
-    assert(basics.fontValue?.includes('Nunito Sans') && basics.fontValue?.includes('Noto Sans JP'), 'JPDB-like popup font setting was not visible or correct', basics);
-    assert(basics.weightValue === '400', 'Popup Japanese weight did not default to readable regular weight', basics);
-    assert(basics.fontVisible && basics.weightVisible, 'Popup font controls were clipped or hidden', basics);
+    const appearance = await readAppearanceSettings(page);
+    assertAppearanceSettings(appearance);
+}
 
+async function readAppearanceSettings(page) {
+    const font = page.locator(SETTINGS_FONT_SELECTOR).first();
+    const weight = page.locator(SETTINGS_WEIGHT_SELECTOR).first();
+    const [title, fontValue, weightValue, fontBox, weightBox] = await Promise.all([
+        settingsTitle(page),
+        font.inputValue(),
+        weight.inputValue(),
+        font.boundingBox(),
+        weight.boundingBox(),
+    ]);
+    return {
+        title,
+        fontValue,
+        weightValue,
+        fontVisible: boxAtLeast(fontBox, 100, 24),
+        weightVisible: boxAtLeast(weightBox, 60, 24),
+    };
+}
+
+async function settingsTitle(page) {
+    return trimText(await page.locator('.jpdb-reader-settings h2').textContent());
+}
+
+function assertAppearanceSettings(appearance) {
+    assert(appearance.title === 'よむ Settings', 'Settings dialog did not open');
+    assert(includesText(appearance.fontValue, 'Nunito Sans'), 'JPDB-like popup font setting was not visible or correct', appearance);
+    assert(includesText(appearance.fontValue, 'Noto Sans JP'), 'JPDB-like popup font setting was not visible or correct', appearance);
+    assert(appearance.weightValue === '400', 'Popup Japanese weight did not default to readable regular weight', appearance);
+    assert(appearance.fontVisible, 'Popup font controls were clipped or hidden', appearance);
+    assert(appearance.weightVisible, 'Popup font controls were clipped or hidden', appearance);
+}
+
+function boxAtLeast(box, minWidth, minHeight) {
+    if (!box) return false;
+    if (box.width <= minWidth) return false;
+    return box.height >= minHeight;
+}
+
+async function verifyShortcutSettings(page) {
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
-    const shortcuts = await page.evaluate(() => ({
-        previous: document.querySelector('input[name="shortcuts.previousLookupWord"]')?.value,
-        next: document.querySelector('input[name="shortcuts.nextLookupWord"]')?.value,
-        visibleText: document.querySelector('.jpdb-reader-settings')?.textContent ?? '',
-    }));
+    const shortcuts = await readShortcutSettings(page);
     assert(shortcuts.previous === 'Alt+Shift+ArrowLeft', 'Previous word shortcut missing from settings', shortcuts);
     assert(shortcuts.next === 'Alt+Shift+ArrowRight', 'Next word shortcut missing from settings', shortcuts);
-    assert(shortcuts.visibleText.includes('Previous word') && shortcuts.visibleText.includes('Next word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
+    assert(includesText(shortcuts.visibleText, 'Previous word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
+    assert(includesText(shortcuts.visibleText, 'Next word'), 'Word navigation shortcut labels were not discoverable', shortcuts);
+}
 
+async function readShortcutSettings(page) {
+    const [previous, next, visibleText] = await Promise.all([
+        page.locator('input[name="shortcuts.previousLookupWord"]').inputValue(),
+        page.locator('input[name="shortcuts.nextLookupWord"]').inputValue(),
+        settingsDialogText(page),
+    ]);
+    return { previous, next, visibleText };
+}
+
+async function verifyMediaSettings(page) {
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
-    const media = await page.evaluate(() => ({
-        pausePanel: document.querySelector('input[name="subtitlePausePanel"]') instanceof HTMLInputElement,
-        text: document.querySelector('.jpdb-reader-settings')?.textContent ?? '',
-    }));
-    assert(media.pausePanel && media.text.includes('Open side panel when paused'), 'Pause-only subtitle panel setting was not discoverable', media);
+    const media = await readMediaSettings(page);
+    assert(media.pausePanel, 'Pause-only subtitle panel setting was not discoverable', media);
+    assert(includesText(media.text, 'Open side panel when paused'), 'Pause-only subtitle panel setting was not discoverable', media);
+}
+
+async function readMediaSettings(page) {
+    const [pausePanelCount, text] = await Promise.all([
+        page.locator('input[name="subtitlePausePanel"]').count(),
+        settingsDialogText(page),
+    ]);
+    return { pausePanel: pausePanelCount > 0, text };
+}
+
+async function settingsDialogText(page) {
+    return trimText(await page.locator('.jpdb-reader-settings').textContent());
+}
+
+function trimText(value) {
+    return String(value ?? '').trim();
+}
+
+function includesText(value, fragment) {
+    return String(value).includes(fragment);
 }
 
 async function verifyKeyboardWordNavigation(page, baseUrl) {
@@ -266,22 +319,8 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '犬');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-popover')?.textContent?.includes('犬'));
 
-    const popupStyle = await page.evaluate(() => {
-        const spelling = document.querySelector('.jpdb-reader-spelling');
-        const style = spelling ? getComputedStyle(spelling) : null;
-        return {
-            active: document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim(),
-            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent ?? '',
-            popupFontVar: getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-popup-font'),
-            fontFamily: style?.fontFamily ?? '',
-            fontWeight: style?.fontWeight ?? '',
-        };
-    });
-    assert(popupStyle.active === '犬', 'Keyboard next shortcut did not move to the next word', popupStyle);
-    assert(popupStyle.popoverText.includes('犬'), 'Keyboard lookup did not open the expected word popup', popupStyle);
-    assert(popupStyle.popupFontVar.includes('Nunito Sans') && popupStyle.popupFontVar.includes('Noto Sans JP'), 'Popup JPDB font variable was not applied', popupStyle);
-    assert(popupStyle.fontFamily.includes('Nunito Sans') || popupStyle.fontFamily.includes('Noto Sans JP'), 'Popup Japanese text did not use the configured font stack', popupStyle);
-    assert(Number(popupStyle.fontWeight) <= 450, 'Popup Japanese text rendered too bold by default', popupStyle);
+    const popupStyle = await readKeyboardPopupStyle(page);
+    assertKeyboardPopupStyle(popupStyle);
 
     await page.evaluate(() => {
         const words = [...document.querySelectorAll('.jpdb-reader-word')];
@@ -304,6 +343,51 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'), fullPage: false });
 }
 
+async function readKeyboardPopupStyle(page) {
+    const [active, popoverText, popupFontVar, fontStyle] = await Promise.all([
+        activeKeyboardWordText(page),
+        popoverTextContent(page),
+        popupFontVariable(page),
+        popupSpellingFontStyle(page),
+    ]);
+    return { active, popoverText, popupFontVar, ...fontStyle };
+}
+
+async function activeKeyboardWordText(page) {
+    return trimText(await page.locator('.jpdb-reader-keyboard-active').first().textContent());
+}
+
+async function popoverTextContent(page) {
+    return trimText(await page.locator('.jpdb-reader-popover').first().textContent());
+}
+
+async function popupFontVariable(page) {
+    return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--jpdb-reader-popup-font'));
+}
+
+async function popupSpellingFontStyle(page) {
+    return page.locator('.jpdb-reader-spelling').first().evaluate(element => {
+        const style = getComputedStyle(element);
+        return {
+            fontFamily: style.fontFamily,
+            fontWeight: style.fontWeight,
+        };
+    });
+}
+
+function assertKeyboardPopupStyle(popupStyle) {
+    assert(popupStyle.active === '犬', 'Keyboard next shortcut did not move to the next word', popupStyle);
+    assert(includesText(popupStyle.popoverText, '犬'), 'Keyboard lookup did not open the expected word popup', popupStyle);
+    assert(includesText(popupStyle.popupFontVar, 'Nunito Sans'), 'Popup JPDB font variable was not applied', popupStyle);
+    assert(includesText(popupStyle.popupFontVar, 'Noto Sans JP'), 'Popup JPDB font variable was not applied', popupStyle);
+    assert(fontFamilyMatchesPopupStack(popupStyle.fontFamily), 'Popup Japanese text did not use the configured font stack', popupStyle);
+    assert(Number(popupStyle.fontWeight) <= 450, 'Popup Japanese text rendered too bold by default', popupStyle);
+}
+
+function fontFamilyMatchesPopupStack(fontFamily) {
+    return includesText(fontFamily, 'Nunito Sans') || includesText(fontFamily, 'Noto Sans JP');
+}
+
 async function pressWordNavigationShortcut(page, key) {
     await page.keyboard.down('Alt');
     await page.keyboard.down('Shift');
@@ -313,42 +397,98 @@ async function pressWordNavigationShortcut(page, key) {
 }
 
 async function verifyHostedSubtitleFlow(page, baseUrl) {
+    await openHostedVideoPlayer(page, baseUrl);
+    await assertHostedBrandIcon(page);
+    await openHostedSettingsFromOverflow(page);
+    await assertSubtitleOpenRequiresVideo(page);
+    await loadHostedVideoAndOpenTracks(page);
+    await assertHostedTracksPanel(page);
+    await loadPrimarySubtitleTrack(page);
+    await enableHostedPausePanel(page);
+    await assertHostedPausePanelOnPause(page);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-pause-panel.png'), fullPage: false });
+}
+
+async function openHostedVideoPlayer(page, baseUrl) {
     await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')), { timeout: 6000 });
+}
 
-    const brandIcon = await page.evaluate(() => {
-        const image = document.querySelector('[data-yomu-brand-icon]');
-        const rect = image?.getBoundingClientRect();
-        return {
-            complete: image instanceof HTMLImageElement && image.complete,
-            naturalWidth: image instanceof HTMLImageElement ? image.naturalWidth : 0,
-            naturalHeight: image instanceof HTMLImageElement ? image.naturalHeight : 0,
-            rect: rect ? { width: rect.width, height: rect.height } : null,
-        };
-    });
-    assert(brandIcon.complete && brandIcon.naturalWidth > 0 && brandIcon.naturalHeight > 0 && brandIcon.rect?.width === 36, 'Hosted video brand icon did not render', brandIcon);
+async function assertHostedBrandIcon(page) {
+    const brandIcon = await readHostedBrandIcon(page);
+    assertHostedBrandIconState(brandIcon);
+}
 
+async function readHostedBrandIcon(page) {
+    const icon = page.locator('[data-yomu-brand-icon]').first();
+    const [complete, naturalWidth, naturalHeight, rect] = await Promise.all([
+        icon.evaluate(image => image.complete === true),
+        icon.evaluate(image => image.naturalWidth),
+        icon.evaluate(image => image.naturalHeight),
+        icon.boundingBox(),
+    ]);
+    return { complete, naturalWidth, naturalHeight, rect: sizeRect(rect) };
+}
+
+function assertHostedBrandIconState(brandIcon) {
+    assert(brandIcon.complete, 'Hosted video brand icon did not render', brandIcon);
+    assert(brandIcon.naturalWidth > 0, 'Hosted video brand icon did not render', brandIcon);
+    assert(brandIcon.naturalHeight > 0, 'Hosted video brand icon did not render', brandIcon);
+    assert(rectWidth(brandIcon.rect) === 36, 'Hosted video brand icon did not render', brandIcon);
+}
+
+function sizeRect(rect) {
+    if (!rect) return null;
+    return { width: rect.width, height: rect.height };
+}
+
+function rectWidth(rect) {
+    return rect ? rect.width : 0;
+}
+
+async function openHostedSettingsFromOverflow(page) {
     await page.locator('[data-overflow-summary]').click();
     await page.locator('[data-settings-trigger]').click();
     await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
-    const hostedSettings = await page.evaluate(() => ({
+    const hostedSettings = await readHostedSettingsState(page);
+    assert(hostedSettingsReady(hostedSettings), 'Hosted Settings menu item did not open the Yomu settings dialog', hostedSettings);
+    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+}
+
+async function readHostedSettingsState(page) {
+    return page.evaluate(() => ({
         title: document.querySelector('.jpdb-reader-settings h2')?.textContent?.trim(),
         visible: Boolean(document.querySelector('.jpdb-reader-settings')),
         hasFontControl: Boolean(document.querySelector('select[name="popupFontFamily"], input[name="popupFontFamily"]')),
     }));
-    assert(hostedSettings.title === 'よむ Settings' && hostedSettings.visible && hostedSettings.hasFontControl, 'Hosted Settings menu item did not open the Yomu settings dialog', hostedSettings);
-    await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-settings'));
+}
 
+function hostedSettingsReady(hostedSettings) {
+    return hostedSettings.title === 'よむ Settings' && hostedSettings.visible && hostedSettings.hasFontControl;
+}
+
+async function assertSubtitleOpenRequiresVideo(page) {
     await page.locator('[data-subtitle-open]').click();
     await page.waitForFunction(() => /Open a video first/.test(document.querySelector('[data-status]')?.textContent ?? ''));
+}
 
+async function loadHostedVideoAndOpenTracks(page) {
     await page.setInputFiles('[data-video-input]', fakeVideoPath);
     await page.waitForFunction(() => /local-video\.mp4/.test(document.querySelector('[data-status]')?.textContent ?? ''));
     await page.locator('[data-subtitle-open]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-tracks-panel:not([hidden])', { timeout: 6000 });
+}
 
-    const tracksPanel = await page.evaluate(() => ({
+async function assertHostedTracksPanel(page) {
+    const tracksPanel = await readHostedTracksPanelState(page);
+    assert(tracksPanel.title === 'Subtitles', 'Subtitles button did not open the Yomu tracks panel', tracksPanel);
+    assert(tracksPanelHasLoadActions(tracksPanel), 'Track loading actions were not intuitive after clicking Subtitles', tracksPanel);
+    assert(tracksPanelControlsReady(tracksPanel), 'Subtitle drawer controls did not expose auto-hide and close actions', tracksPanel);
+}
+
+async function readHostedTracksPanelState(page) {
+    return page.evaluate(() => ({
         title: document.querySelector('.jpdb-subtitle-drawer-title')?.textContent?.trim(),
         text: document.querySelector('.jpdb-subtitle-list')?.textContent ?? '',
         hidden: document.querySelector('.jpdb-subtitle-list')?.hidden,
@@ -356,55 +496,94 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
         autoHidePressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
         closeButton: Boolean(document.querySelector('[data-action="close-panel"]')),
     }));
-    assert(tracksPanel.title === 'Subtitles', 'Subtitles button did not open the Yomu tracks panel', tracksPanel);
-    assert(tracksPanel.text.includes('Load Japanese subtitles') && tracksPanel.text.includes('Load native subtitles'), 'Track loading actions were not intuitive after clicking Subtitles', tracksPanel);
-    assert(tracksPanel.autoHideText === 'Auto' && tracksPanel.autoHidePressed === 'false' && tracksPanel.closeButton, 'Subtitle drawer controls did not expose auto-hide and close actions', tracksPanel);
+}
 
+function tracksPanelHasLoadActions(tracksPanel) {
+    return tracksPanel.text.includes('Load Japanese subtitles') && tracksPanel.text.includes('Load native subtitles');
+}
+
+function tracksPanelControlsReady(tracksPanel) {
+    return tracksPanel.autoHideText === 'Auto' && tracksPanel.autoHidePressed === 'false' && tracksPanel.closeButton;
+}
+
+async function loadPrimarySubtitleTrack(page) {
     const chooserPromise = page.waitForEvent('filechooser');
     await page.locator('.jpdb-subtitle-track-tools [data-action="load"]').click();
     const chooser = await chooserPromise;
     await chooser.setFiles(primaryVttPath);
     await page.waitForSelector('.jpdb-subtitle-track-row.active', { timeout: 6000 });
+}
 
+async function enableHostedPausePanel(page) {
     await page.locator('[data-action="toggle-pause-panel"]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
-    const autoHideEnabled = await page.evaluate(() => {
+    const autoHideEnabled = await readHostedAutoHideState(page);
+    assert(autoHideEnabled.saved === true && autoHideEnabled.pressed === 'true', 'Auto-hide toggle did not save the pause panel mode', autoHideEnabled);
+}
+
+async function readHostedAutoHideState(page) {
+    return page.evaluate(() => {
         const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
         return {
             saved: settings.subtitlePausePanel,
             pressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
         };
     });
-    assert(autoHideEnabled.saved === true && autoHideEnabled.pressed === 'true', 'Auto-hide toggle did not save the pause panel mode', autoHideEnabled);
+}
 
-    await page.evaluate(() => {
-        const video = document.querySelector('video');
-        video?.dispatchEvent(new Event('play'));
-    });
+async function assertHostedPausePanelOnPause(page) {
+    await dispatchHostedVideoEvent(page, 'play');
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden === true);
-    await page.evaluate(() => {
-        const video = document.querySelector('video');
-        video?.dispatchEvent(new Event('pause'));
-    });
+    await dispatchHostedVideoEvent(page, 'pause');
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
 
-    const pausePanel = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const rect = panel?.getBoundingClientRect();
-        return {
-            rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
-            text: panel?.textContent ?? '',
-            hidden: panel?.hidden,
-            rect: rect ? { width: rect.width, height: rect.height, left: rect.left, right: rect.right } : null,
-            viewport: { width: window.innerWidth, height: window.innerHeight },
-        };
-    });
+    const pausePanel = await readHostedPausePanelState(page);
     assert(pausePanel.rows >= 2, 'Pause-only side panel did not show loaded subtitle lines', pausePanel);
-    const pausePanelText = pausePanel.text.replace(/[（(][ぁ-んァ-ンー]+[）)]/g, '');
-    assert(pausePanelText.includes('猫を見る') && pausePanelText.includes('犬と鳥を見る'), 'Pause-only side panel did not show the expected subtitle text', pausePanel);
-    assert(pausePanel.rect && pausePanel.rect.width >= 260 && pausePanel.rect.right <= pausePanel.viewport.width + 1, 'Pause-only side panel was not laid out cleanly', pausePanel);
+    assert(hostedPausePanelHasExpectedText(pausePanel), 'Pause-only side panel did not show the expected subtitle text', pausePanel);
+    assert(hostedPausePanelFitsViewport(pausePanel), 'Pause-only side panel was not laid out cleanly', pausePanel);
+}
 
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-pause-panel.png'), fullPage: false });
+async function dispatchHostedVideoEvent(page, eventName) {
+    await page.evaluate(name => {
+        const video = document.querySelector('video');
+        video?.dispatchEvent(new Event(name));
+    }, eventName);
+}
+
+async function readHostedPausePanelState(page) {
+    const panel = page.locator('.jpdb-subtitle-list').first();
+    const [rows, text, hidden, rect, viewport] = await Promise.all([
+        page.locator('.jpdb-subtitle-list-row').count(),
+        panel.textContent(),
+        panel.evaluate(element => element.hidden),
+        panel.boundingBox(),
+        readViewportSize(page),
+    ]);
+    return {
+        rows,
+        text: text ?? '',
+        hidden,
+        rect: positionRect(rect),
+        viewport,
+    };
+}
+
+async function readViewportSize(page) {
+    return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+}
+
+function positionRect(rect) {
+    if (!rect) return null;
+    return { width: rect.width, height: rect.height, left: rect.x, right: rect.x + rect.width };
+}
+
+function hostedPausePanelHasExpectedText(pausePanel) {
+    const text = pausePanel.text.replace(/[（(][ぁ-んァ-ンー]+[）)]/g, '');
+    return text.includes('猫を見る') && text.includes('犬と鳥を見る');
+}
+
+function hostedPausePanelFitsViewport(pausePanel) {
+    return Boolean(pausePanel.rect && pausePanel.rect.width >= 260 && pausePanel.rect.right <= pausePanel.viewport.width + 1);
 }
 
 const { server, baseUrl } = await createFixtureServer();
@@ -433,5 +612,5 @@ try {
     }, null, 2));
 } finally {
     await browser.close();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
 }

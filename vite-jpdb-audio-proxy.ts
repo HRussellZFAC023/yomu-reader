@@ -7,6 +7,8 @@ const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v/';
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const JPDB_AUDIO_ID_RE = /^[A-Za-z0-9_./-]+$/;
 
+type JpdbAudioProxyRequest = { handled: true } | { handled: false; audioId: string };
+
 export function jpdbAudioDevProxyPlugin(): Plugin {
     return {
         name: 'yomu-jpdb-audio-dev-proxy',
@@ -29,40 +31,57 @@ function isJpdbAudioProxyRequest(request: IncomingMessage): boolean {
 
 async function handleJpdbAudioProxyRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
     setCorsHeaders(response);
-    if (request.method === 'OPTIONS') {
-        response.writeHead(204);
-        response.end();
-        return;
-    }
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-        response.writeHead(405, { Allow: 'GET, HEAD, OPTIONS' });
-        response.end('Method not allowed.');
-        return;
-    }
-
-    const audioId = requestAudioId(request);
-    if (!isSafeJpdbAudioId(audioId)) {
-        response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end('Invalid JPDB audio id.');
-        return;
-    }
+    const proxyRequest = readJpdbAudioProxyRequest(request, response);
+    if (proxyRequest.handled) return;
 
     try {
-        const upstream = await fetch(jpdbAudioUrl(audioId), {
-            headers: jpdbAudioHeaders(request),
-        });
-        copyProxyResponseHeaders(upstream, response);
-        response.statusCode = upstream.status;
-        response.statusMessage = upstream.statusText;
-        if (request.method === 'HEAD') {
-            response.end();
-            return;
-        }
-        response.end(Buffer.from(await upstream.arrayBuffer()));
+        await pipeJpdbAudioResponse(request, response, proxyRequest.audioId);
     } catch (error) {
-        response.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end(error instanceof Error ? error.message : 'JPDB audio proxy request failed.');
+        finishProxyError(response, error);
     }
+}
+
+function readJpdbAudioProxyRequest(request: IncomingMessage, response: ServerResponse): JpdbAudioProxyRequest {
+    if (finishPreflightRequest(request, response)) return { handled: true };
+    if (finishUnsupportedMethod(request, response)) return { handled: true };
+    const audioId = requestAudioId(request);
+    if (isSafeJpdbAudioId(audioId)) return { handled: false, audioId };
+    finishInvalidAudioId(response);
+    return { handled: true };
+}
+
+function finishPreflightRequest(request: IncomingMessage, response: ServerResponse): boolean {
+    if (request.method !== 'OPTIONS') return false;
+    response.writeHead(204);
+    response.end();
+    return true;
+}
+
+function finishUnsupportedMethod(request: IncomingMessage, response: ServerResponse): boolean {
+    if (request.method === 'GET' || request.method === 'HEAD') return false;
+    response.writeHead(405, { Allow: 'GET, HEAD, OPTIONS' });
+    response.end('Method not allowed.');
+    return true;
+}
+
+function finishInvalidAudioId(response: ServerResponse): true {
+    response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    response.end('Invalid JPDB audio id.');
+    return true;
+}
+
+async function pipeJpdbAudioResponse(request: IncomingMessage, response: ServerResponse, audioId: string): Promise<void> {
+    const upstream = await fetch(jpdbAudioUrl(audioId), { headers: jpdbAudioHeaders(request) });
+    copyProxyResponseHeaders(upstream, response);
+    response.statusCode = upstream.status;
+    response.statusMessage = upstream.statusText;
+    if (request.method === 'HEAD') response.end();
+    else response.end(Buffer.from(await upstream.arrayBuffer()));
+}
+
+function finishProxyError(response: ServerResponse, error: unknown): void {
+    response.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+    response.end(error instanceof Error ? error.message : 'JPDB audio proxy request failed.');
 }
 
 function requestPathname(request: IncomingMessage): string {
@@ -83,11 +102,15 @@ function requestUrl(request: IncomingMessage): URL {
 }
 
 function isSafeJpdbAudioId(audioId: string): boolean {
-    return Boolean(audioId)
-        && JPDB_AUDIO_ID_RE.test(audioId)
-        && !audioId.includes('..')
-        && !audioId.startsWith('/')
-        && !audioId.startsWith('//');
+    return hasJpdbAudioIdCharacters(audioId) && !hasUnsafeJpdbAudioPath(audioId);
+}
+
+function hasJpdbAudioIdCharacters(audioId: string): boolean {
+    return Boolean(audioId) && JPDB_AUDIO_ID_RE.test(audioId);
+}
+
+function hasUnsafeJpdbAudioPath(audioId: string): boolean {
+    return audioId.includes('..') || audioId.startsWith('/') || audioId.startsWith('//');
 }
 
 function jpdbAudioUrl(audioId: string): string {

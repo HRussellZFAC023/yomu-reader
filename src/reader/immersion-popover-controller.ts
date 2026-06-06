@@ -185,21 +185,27 @@ export class ImmersionPopoverController {
                 controller.signal,
                 settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS,
             );
-            if (controller.signal.aborted || !isConnectedImmersionSurface(popover, container)) {
-                if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
-                return;
-            }
+            if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
             this.renderLoadedExamples(container, card, result);
         } catch (error) {
-            if (isAbortError(error) && controller.signal.aborted) {
-                if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
-                return;
-            }
+            if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
             log.warn('Immersion Kit examples failed', { term: card.spelling }, error);
             this.renderEmptyIfConnected(popover, container);
         } finally {
             if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
         }
+    }
+
+    private shouldSkipLoadedExamplesRender(popover: HTMLElement, container: HTMLElement, controller: AbortController): boolean {
+        if (!controller.signal.aborted && isConnectedImmersionSurface(popover, container)) return false;
+        clearImmersionLoadingState(container);
+        return true;
+    }
+
+    private shouldIgnoreAbortedExampleLoad(error: unknown, controller: AbortController, container: HTMLElement): boolean {
+        if (!isAbortError(error) || !controller.signal.aborted) return false;
+        clearImmersionLoadingState(container);
+        return true;
     }
 
     installLazyLoad(
@@ -339,20 +345,12 @@ export class ImmersionPopoverController {
             this.toggleTranslationBlur(container);
         });
         const playHoverAudioForTarget = (hoverTarget: HTMLElement, pointerType: string, relatedTarget: EventTarget | null) => {
-            if (!hoverTarget || !this.options.getSettings().immersionKitPlayOnHover) return;
-            const cannotHover = pointerType !== 'mouse' && (window.matchMedia?.('(hover: none)').matches ?? false);
-            if (pointerType === 'touch' || cannotHover) return;
-            if (hoverTarget.contains(relatedTarget as Node | null)) return;
-            if (!hoverAudioCanPlay) return;
-            if (this.shouldSuppressAutoAudioForVideo()) return;
-            if (!canAttemptAudiblePlayback()) return;
-            const audioKey = hoverAudioExampleKey(examples[index]);
-            if (this.hoverAudioPlayedKeys.has(audioKey)) return;
-            this.hoverAudioPlayedKeys.add(audioKey);
-            pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
+            if (!this.canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay)) return;
+            const example = examples[index];
+            if (!this.rememberHoverAudioExample(example)) return;
             hoverAudioCanPlay = false;
             hoverAudioActive = true;
-            void this.playExampleAudio(examples[index], true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(':hover'));
+            void this.playExampleAudio(example, true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(':hover'));
         };
         const handleImmersionHover = (event: MouseEvent | PointerEvent) => {
             const hoverTarget = (event.target as HTMLElement).closest?.<HTMLElement>('.jpdb-reader-example-media, .jpdb-reader-example-card');
@@ -386,6 +384,28 @@ export class ImmersionPopoverController {
             && settings.immersionKitAutoPlayAudio
             && !this.shouldSuppressAutoAudioForVideo()
             && canAttemptAudiblePlayback(true);
+    }
+
+    private canPlayHoverAudioForTarget(
+        hoverTarget: HTMLElement,
+        pointerType: string,
+        relatedTarget: EventTarget | null,
+        hoverAudioCanPlay: boolean,
+    ): boolean {
+        if (!this.options.getSettings().immersionKitPlayOnHover) return false;
+        if (isHoverAudioPointerSuppressed(pointerType)) return false;
+        if (hoverTarget.contains(relatedTarget as Node | null)) return false;
+        if (!hoverAudioCanPlay) return false;
+        if (this.shouldSuppressAutoAudioForVideo()) return false;
+        return canAttemptAudiblePlayback();
+    }
+
+    private rememberHoverAudioExample(example: ImmersionKitExample): boolean {
+        const audioKey = hoverAudioExampleKey(example);
+        if (this.hoverAudioPlayedKeys.has(audioKey)) return false;
+        this.hoverAudioPlayedKeys.add(audioKey);
+        pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
+        return true;
     }
 
     private shouldSuppressAutoAudioForVideo(): boolean {
@@ -1057,6 +1077,10 @@ function isConnectedImmersionSurface(popover: HTMLElement, container: HTMLElemen
     return popover.isConnected && container.isConnected;
 }
 
+function clearImmersionLoadingState(container: HTMLElement): void {
+    if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
+}
+
 function isAbortError(error: unknown): boolean {
     return errorName(error) === 'AbortError';
 }
@@ -1210,6 +1234,11 @@ function heldExampleImageHeight(image: HTMLImageElement | null): number {
 function hoverAudioExampleKey(example: ImmersionKitExample | undefined): string {
     if (!example) return '';
     return example.id || `${example.provider ?? 'immersion-kit'}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
+}
+
+function isHoverAudioPointerSuppressed(pointerType: string): boolean {
+    if (pointerType === 'touch') return true;
+    return pointerType !== 'mouse' && (window.matchMedia?.('(hover: none)').matches ?? false);
 }
 
 function immersionLazyLoadRoot(popover: HTMLElement, target: HTMLElement): Element | null {

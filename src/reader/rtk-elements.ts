@@ -19,7 +19,7 @@ export function splitRtkElements(value: string): string[] {
     return elements.slice(0, 16);
 }
 
-export function cleanRtkElementKeyword(value: string): string {
+function cleanRtkElementKeyword(value: string): string {
     return value.replace(/\s+/g, ' ').trim().replace(/\d+$/u, '').trim();
 }
 

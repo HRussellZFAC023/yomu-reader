@@ -3,6 +3,7 @@ import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { getPitchClass } from './jpdb-parser';
 import { Logger } from './logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
+import { stablePositiveHashId } from './stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
@@ -116,7 +117,7 @@ export class ReaderParser {
     }
 
     localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
-        const id = -stableLocalId(`${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
+        const id = -stablePositiveHashId(`${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
         const card: JPDBCard = {
             vid: id,
             sid: id,
@@ -140,7 +141,7 @@ export class ReaderParser {
 
     fallbackCardFromText(text: string): JPDBCard {
         const spelling = normalizeFallbackTerm(text);
-        const id = -stableLocalId(`fallback\n${spelling}`);
+        const id = -stablePositiveHashId(`fallback\n${spelling}`);
         const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
         const card: JPDBCard = {
             vid: id,
@@ -367,15 +368,6 @@ function normalizeFallbackTerm(text: string): string {
     return text.replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
-function stableLocalId(value: string): number {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) || 1;
-}
-
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
 }
@@ -442,22 +434,60 @@ function inflectedFallbackSpanAt(
     if (!first || isInflectionBoundarySegment(first.surface)) return null;
     let surface = '';
     let best: { segment: JapaneseTextSegment; nextIndex: number } | null = null;
-    for (let index = startIndex; index < Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS); index += 1) {
-        const current = segments[index];
-        if (!current || current.start !== (index === startIndex ? first.start : segments[index - 1]?.end)) break;
-        if (index > startIndex && isInflectionBoundarySegment(current.surface)) break;
-        if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) break;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+        const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface);
+        if (!current) break;
         surface += current.surface;
         if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-        const lookupTerms = fallbackLookupTermsForText(surface);
-        if (index === startIndex || lookupTerms.length <= 1) continue;
-        if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) continue;
-        best = {
-            segment: { surface, start: first.start, end: current.end },
-            nextIndex: index + 1,
-        };
+        best = inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) ?? best;
     }
     return best;
+}
+
+function fallbackInflectionScanEnd(segments: JapaneseTextSegment[], startIndex: number): number {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+}
+
+function nextInflectedFallbackSegment(
+    segments: JapaneseTextSegment[],
+    index: number,
+    startIndex: number,
+    first: JapaneseTextSegment,
+    surface: string,
+): JapaneseTextSegment | null {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
+    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+}
+
+function isContiguousFallbackSegment(
+    segments: JapaneseTextSegment[],
+    index: number,
+    startIndex: number,
+    first: JapaneseTextSegment,
+): boolean {
+    const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+}
+
+function inflectedFallbackCandidateAt(
+    segments: JapaneseTextSegment[],
+    startIndex: number,
+    index: number,
+    first: JapaneseTextSegment,
+    current: JapaneseTextSegment,
+    surface: string,
+): { segment: JapaneseTextSegment; nextIndex: number } | null {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+        segment: { surface, start: first.start, end: current.end },
+        nextIndex: index + 1,
+    };
 }
 
 function isInflectionBoundarySegment(surface: string): boolean {
@@ -517,7 +547,7 @@ function fallbackJapaneseRunSegment(text: string, offset: number): JapaneseTextS
     return [{ surface, start, end: start + surface.length }];
 }
 
-export function fallbackLookupTermsForText(text: string): string[] {
+function fallbackLookupTermsForText(text: string): string[] {
     const source = normalizeFallbackTerm(text);
     if (!source) return [];
     const terms = deinflectJapaneseTerm(source)

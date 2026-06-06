@@ -52,10 +52,8 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
     await new Promise(resolve => {
         const maybeStart = () => {
             if (failureStatus) pending.length = 0;
-            while (!failureStatus && active.size < concurrency && pending.length) {
-                startShard(pending.shift(), maybeStart);
-            }
-            if (!active.size && !pending.length) resolve();
+            else startPendingShards(pending, active, concurrency, shard => startShard(shard, maybeStart));
+            if (allShardsFinished(pending, active)) resolve();
         };
         maybeStart();
     });
@@ -86,6 +84,16 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
             onDone();
         });
     }
+}
+
+function startPendingShards(pending, active, concurrency, startShard) {
+    while (active.size < concurrency && pending.length) {
+        startShard(pending.shift());
+    }
+}
+
+function allShardsFinished(pending, active) {
+    return !active.size && !pending.length;
 }
 
 function readPositiveInt(value, label) {

@@ -193,6 +193,8 @@ You do not need AnkiMobile or AnkiDroid to get full Anki status in よむ on mob
 
 The easiest private setup is [Tailscale](https://tailscale.com/). Think of it as a private connection between your own devices. You do not need to open your router, expose Anki to the public internet, or use the command line. Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
 
+In the steps below, replace every `100.x.y.z` with the desktop's Tailscale address. All AnkiConnect config changes happen on the desktop; the phone, tablet, or iPad only needs the final desktop URL in よむ.
+
 1. On your desktop, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
 2. Install Tailscale on the desktop, sign in, and note the desktop's Tailscale address. It looks like `100.x.y.z`; MagicDNS may also show a name like `desktop-name.tailnet-name.ts.net`.
 3. Install Tailscale on your phone, tablet, or iPad and sign in to the same Tailscale account.

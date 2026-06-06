@@ -78,7 +78,7 @@ describe('FactoryResetCoordinator', () => {
 
         expect(gmValues.has('jpdb-popup-reader-settings')).toBe(false);
         expect(gmValues.has('yomu:factory-reset-signal')).toBe(false);
-        expect(toast).toHaveBeenCalledWith(expect.stringContaining('Settings were reset'));
+        expect(toast).toHaveBeenCalledWith(expect.stringContaining('Settings reset'));
         expect(reload).toHaveBeenCalledOnce();
     });
 });

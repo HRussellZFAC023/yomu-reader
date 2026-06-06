@@ -95,6 +95,7 @@ export class CardPopoverRenderer {
         const selectedDeckLabel = jpdbDeckLabel(settings, settings.miningDeck.trim() || 'forq', data.jpdbDecks);
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
         const miningActions = this.renderJpdbMiningActions(cardStates, language, data, hasJpdb);
+        const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings);
         return {
             cardStates,
             state,
@@ -105,8 +106,8 @@ export class CardPopoverRenderer {
             language,
             hasJpdb,
             miningActions,
-            miningInitiallyExpanded: Boolean(miningActions && reviewBlockReason),
-            ankiActions: data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings),
+            miningInitiallyExpanded: Boolean(miningActions && (reviewBlockReason || ankiActions)),
+            ankiActions,
             reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
             metaItems: this.renderMetaItems(card, hasJpdb, state, data),
             loadingDetails: this.renderLoadingDetails(data.loading, language),

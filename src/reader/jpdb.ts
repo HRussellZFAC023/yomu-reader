@@ -1,5 +1,5 @@
 import { JpdbApiClient } from './jpdb-api';
-import { getPitchClass, jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
+import { jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
 import { runLimited } from './async-utils';
 import { LruCache } from './lru-cache';
 import { Logger } from './logger';
@@ -45,7 +45,7 @@ export interface JpdbListDeckCardsOptions {
     scanLimit?: number;
 }
 
-export { getPitchClass, splitJapaneseSentences };
+export { splitJapaneseSentences };
 
 export class JpdbClient {
     private api: JpdbApiClient;
@@ -60,6 +60,8 @@ export class JpdbClient {
         this.api = new JpdbApiClient(getApiKey, getProxyUrl);
     }
 
+    // Used by ReaderParser as the live JPDB parse backend.
+    // fallow-ignore-next-line unused-class-member
     async parse(paragraphs: string[]): Promise<JPDBToken[][]> {
         const text = normalizeParagraphs(paragraphs);
         if (!text.length) return [];
@@ -84,12 +86,16 @@ export class JpdbClient {
         return promise;
     }
 
+    // Used by review controllers to submit JPDB grades.
+    // fallow-ignore-next-line unused-class-member
     async reviewCard(card: JPDBCard, grade: JPDBGrade): Promise<void> {
         log.info('Reviewing card', { term: card.spelling, grade });
         await this.api.request<void>('review', { vid: card.vid, sid: card.sid, grade });
         await this.refreshCard(card);
     }
 
+    // Used by mining controls to add JPDB-backed cards to selected decks.
+    // fallow-ignore-next-line unused-class-member
     async addToDeck(deckId: string, card: JPDBCard, sentence?: string): Promise<void> {
         log.info('Adding card to deck', { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
         await this.addVocabularyToDeck(deckId, card);
@@ -106,6 +112,8 @@ export class JpdbClient {
         return decks;
     }
 
+    // Used by new-tab study and stats loaders to sample deck cards.
+    // fallow-ignore-next-line unused-class-member
     async listDeckCards(deckId: string, limit = 80, options: JpdbListDeckCardsOptions = {}): Promise<JPDBCard[]> {
         const id = normalizeDeckRequestId(deckId);
         const maxCards = Math.max(1, Math.floor(limit));
@@ -122,12 +130,16 @@ export class JpdbClient {
         }
     }
 
+    // Used by card render data to hydrate deck-membership status.
+    // fallow-ignore-next-line unused-class-member
     async isInUserDeckPool(card: JPDBCard): Promise<boolean> {
         if (!isDeckMembershipCard(card)) return false;
         const pool = await this.cachedUserDeckPool();
         return pool.has(vocabularyPairKey(card.vid, card.sid));
     }
 
+    // Used by mining controls to toggle JPDB deck membership.
+    // fallow-ignore-next-line unused-class-member
     async removeFromDeck(deckId: string, card: JPDBCard): Promise<void> {
         log.info('Removing card from deck', { term: card.spelling, deckId });
         await this.api.request<void>('deck/remove-vocabulary', {
@@ -138,6 +150,8 @@ export class JpdbClient {
         await this.refreshCard(card);
     }
 
+    // Used by ReaderParser to reuse cached JPDB cards from parsed vocabulary.
+    // fallow-ignore-next-line unused-class-member
     getCard(vid: number, sid: number): JPDBCard | undefined {
         return this.cardCache.get(vocabularyPairKey(vid, sid));
     }

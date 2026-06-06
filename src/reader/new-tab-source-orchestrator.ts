@@ -20,7 +20,7 @@ export interface NewTabLoadAccumulator {
     emptyMessageKey?: NewTabTextKey;
 }
 
-export function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: string[]): void {
+function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: string[]): void {
     if (!result.cards.length) return;
     cards.push(...result.cards);
     if (result.sourceLabel && !labels.includes(result.sourceLabel)) labels.push(result.sourceLabel);

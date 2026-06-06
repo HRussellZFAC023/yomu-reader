@@ -43,10 +43,9 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expect(section.textContent).toContain('楽しい');
         expect(section.textContent).toContain('Everyone talked happily at the market.');
         expect(section.textContent).not.toMatch(/\[(?:sound|anki:play):[^\]]+]/i);
-        expect(audioControls).toHaveLength(3);
+        expect(audioControls).toHaveLength(2);
         expect(audioNames).toEqual([
             'tanoshii-word.mp3',
-            'tanoshii-sentence.mp3',
             'tanoshii-sentence.mp3',
         ]);
         expect(new Set(audioControls.map(button => button.tagName))).toEqual(new Set(['BUTTON']));
@@ -189,6 +188,7 @@ function ankiRenderSettings(): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
+        ankiSectionEnabled: true,
         enableReviews: false,
     };
 }

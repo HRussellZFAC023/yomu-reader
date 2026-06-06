@@ -1,3 +1,14 @@
+const SIMPLE_JS_ESCAPE_SEQUENCES = new Map<string, string>([
+    ['n', '\n'],
+    ['r', '\r'],
+    ['t', '\t'],
+    ['b', '\b'],
+    ['f', '\f'],
+    ['v', '\v'],
+    ['0', '\0'],
+    ['\n', ''],
+]);
+
 export function googleLensUploadCallbackLiteral(html: string, key: string): string | null {
     const marker = 'AF_initDataCallback(';
     let searchIndex = 0;
@@ -157,18 +168,18 @@ export function parseJsDataLiteral(source: string): unknown {
 
     function parseEscapeSequence(): string {
         const escaped = source[index++];
-        if (escaped === 'n') return '\n';
-        if (escaped === 'r') return '\r';
-        if (escaped === 't') return '\t';
-        if (escaped === 'b') return '\b';
-        if (escaped === 'f') return '\f';
-        if (escaped === 'v') return '\v';
-        if (escaped === '0') return '\0';
-        if (escaped === '\n') return '';
-        if (escaped === '\r') {
-            if (source[index] === '\n') index += 1;
-            return '';
-        }
+        const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? '');
+        if (typeof simpleEscape === 'string') return simpleEscape;
+        if (escaped === '\r') return parseCarriageReturnEscape();
+        return parseNamedEscapeSequence(escaped);
+    }
+
+    function parseCarriageReturnEscape(): string {
+        if (source[index] === '\n') index += 1;
+        return '';
+    }
+
+    function parseNamedEscapeSequence(escaped: string | undefined): string {
         if (escaped === 'x') return codePointEscape(2);
         if (escaped === 'u') return parseUnicodeEscape();
         return escaped ?? '';

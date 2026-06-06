@@ -39,6 +39,8 @@ const ANKI_STATUS_INDEX_META_STORE = 'meta';
 const ANKI_STATUS_INDEX_ENTRY_STORE = 'entries';
 const ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE = 500;
 const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1000;
+const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
+const ANKI_STATUS_INDEX_READING_KEY_PREFIX = 'reading:';
 
 const log = Logger.scope('Anki');
 
@@ -167,7 +169,7 @@ export async function loadAnkiStatusIndexEntriesFromIndexedDb(keys: string[]): P
     }
 }
 
-export async function saveAnkiStatusIndexToIndexedDb(index: AnkiStatusIndex): Promise<void> {
+async function saveAnkiStatusIndexToIndexedDb(index: AnkiStatusIndex): Promise<void> {
     if (!canUseIndexedDb()) throw new Error('IndexedDB is unavailable.');
     const db = await openAnkiStatusIndexDb();
     try {
@@ -349,30 +351,27 @@ function statusIndexKey(value: string): string {
 }
 
 function statusIndexReadingKey(value: string): string {
-    return `reading:${statusIndexKey(value)}`;
+    return `${ANKI_STATUS_INDEX_READING_KEY_PREFIX}${statusIndexKey(value)}`;
 }
 
 function statusIndexKeysForNote(note: AnkiNoteInfo, settings: ReaderSettings): string[] {
     const fields = flattenNoteFields(note.fields);
     const mapping = ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields));
     const keys = new Set<string>();
-    for (const value of statusIndexFieldValues(fields, mapping)) {
-        if (value.length <= 80) keys.add(statusIndexKey(value));
-        value
-            .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
-            .map(statusIndexKey)
-            .filter(value => value.length >= 2)
-            .forEach(value => keys.add(value));
-    }
-    for (const value of statusIndexReadingFieldValues(fields, mapping)) {
-        if (value.length <= 80) keys.add(statusIndexReadingKey(value));
-        value
-            .split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u)
-            .map(statusIndexReadingKey)
-            .filter(value => value.length >= 'reading:'.length + 2)
-            .forEach(value => keys.add(value));
-    }
+    addStatusIndexKeys(keys, statusIndexFieldValues(fields, mapping), statusIndexKey, 2);
+    addStatusIndexKeys(keys, statusIndexReadingFieldValues(fields, mapping), statusIndexReadingKey, ANKI_STATUS_INDEX_READING_KEY_PREFIX.length + 2);
     return [...keys].filter(Boolean);
+}
+
+function addStatusIndexKeys(keys: Set<string>, values: string[], keyForValue: (value: string) => string, minPartKeyLength: number): void {
+    for (const value of values) {
+        if (value.length <= 80) keys.add(keyForValue(value));
+        value
+            .split(ANKI_STATUS_INDEX_KEY_PART_SEPARATOR)
+            .map(keyForValue)
+            .filter(key => key.length >= minPartKeyLength)
+            .forEach(key => keys.add(key));
+    }
 }
 
 function statusIndexFieldValues(fields: Record<string, string>, mapping?: AnkiFieldMapping): string[] {
@@ -397,10 +396,10 @@ function statusIndexReadingFieldValues(fields: Record<string, string>, mapping?:
 function shouldUseStatusReadingKey(card: JPDBCard): boolean {
     const reading = normalizeFieldValue(card.reading || '');
     const spelling = normalizeFieldValue(card.spelling || '');
-    const readingTarget = reading || (isKanaStatusLookupSurface(spelling) ? spelling : '');
-    if (!readingTarget || readingTarget.length < 2) return false;
-    if (!spelling || spelling.length < 2) return false;
-    return spelling === readingTarget || isKanaStatusLookupSurface(spelling);
+    const spellingIsKana = isKanaStatusLookupSurface(spelling);
+    const readingTarget = reading || (spellingIsKana ? spelling : '');
+    if (readingTarget.length < 2 || spelling.length < 2) return false;
+    return spelling === readingTarget || spellingIsKana;
 }
 
 function statusIndexEntryFromStatusSets(note: AnkiNoteInfo, cardSets: AnkiStatusIndexCardSets): AnkiStatusIndexEntry {
@@ -437,11 +436,10 @@ function pickPrimaryCardIdFromStatusSets(cardIds: number[], cardSets: AnkiStatus
 }
 
 function unique<T>(items: T[]): T[] {
-    return [...new Set(items)];
+    return Array.from(new Set(items));
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-    return chunks;
+    return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+        items.slice(index * size, (index + 1) * size));
 }

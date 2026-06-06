@@ -1,0 +1,746 @@
+import { createServer } from 'node:http';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { chromium } from 'playwright';
+
+export const DEFAULT_ANKI_CONNECT_URL = 'http://127.0.0.1:8765';
+export const YOMU_SETTINGS_KEY = 'jpdb-popup-reader-settings';
+
+const DEFAULT_ANKI_STATUS_STORAGE = {
+    storageKey: 'yomu:anki-status-index:v1',
+    dbName: 'yomu-anki-status-index',
+    entryStore: 'entries',
+};
+
+const DEFAULT_ANKI_SMOKE_SETTINGS = Object.freeze({
+    onboardingSeen: true,
+    apiKey: 'mock-jpdb-token',
+    interfaceLanguage: 'en',
+    ankiEnabled: true,
+    ankiConnectUrl: DEFAULT_ANKI_CONNECT_URL,
+    ankiDeck: 'Mining',
+    ankiModel: 'Imported Japanese',
+    ankiMobileHandoff: false,
+    jpdbMiningEnabled: false,
+    jpdbDefinitionsEnabled: false,
+    localDictionariesEnabled: false,
+    audioEnabled: false,
+    autoPlayAudio: false,
+    immersionKitEnabled: false,
+    studyTranslationEnabled: false,
+    studyGrammarEnabled: false,
+    lookupOnClick: true,
+    lookupOnHover: true,
+    hoverOpenDelayMs: 0,
+    hoverCloseDelayMs: 120,
+    popupActivationMode: 'click',
+    showFloatingButton: false,
+    wordTextColorSource: 'anki',
+    wordUnderlineColorSource: 'off',
+    wordHighlightColorSource: 'off',
+    enableLogging: false,
+});
+
+export function assert(condition, message, details = {}) {
+    if (!condition) {
+        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
+        throw new Error(`${message}${suffix}`);
+    }
+}
+
+export function createSmokePaths(scriptDir) {
+    const root = path.resolve(scriptDir, '..');
+    const dist = path.join(root, 'dist');
+    const newTabDir = path.join(dist, 'newtab');
+    return {
+        root,
+        dist,
+        artifacts: path.join(root, 'qa-artifacts'),
+        scriptPath: path.join(dist, 'yomu.user.js'),
+        cssPath: path.join(dist, 'yomu.css'),
+        newTabDir,
+    };
+}
+
+export function createAnkiSmokeSettings(overrides = {}) {
+    return { ...DEFAULT_ANKI_SMOKE_SETTINGS, ...overrides };
+}
+
+export function assertBuiltArtifacts(filePaths, root, hint = 'Run npm run build first.') {
+    for (const filePath of filePaths) {
+        assert(existsSync(filePath), `Missing built artifact: ${path.relative(root, filePath)}. ${hint}`);
+    }
+}
+
+export function serveFile(response, filePath, contentType, method = 'GET') {
+    response.writeHead(200, { 'content-type': contentType });
+    response.end(method === 'HEAD' ? undefined : readFileSync(filePath));
+}
+
+export async function startLoopbackServer(handler, bindErrorMessage = 'Could not bind fixture server') {
+    const server = createServer(handler);
+    const origin = await listenOnLoopback(server, bindErrorMessage);
+    return {
+        server,
+        origin,
+        baseUrl: origin,
+        close: () => closeServer(server),
+    };
+}
+
+async function listenOnLoopback(server, bindErrorMessage = 'Could not bind fixture server') {
+    return await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+            const address = server.address();
+            if (!address || typeof address === 'string') {
+                reject(new Error(bindErrorMessage));
+                return;
+            }
+            resolve(`http://127.0.0.1:${address.port}`);
+        });
+    });
+}
+
+export function closeServer(server) {
+    return new Promise(resolve => server.close(resolve));
+}
+
+export async function newAutoClosingPage(browser, contextOptions) {
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    closeContextAfterLastPage(page, context);
+    return { context, page };
+}
+
+function closeContextAfterLastPage(page, context) {
+    page.once('close', () => {
+        if (context.pages().length === 0) void context.close().catch(() => undefined);
+    });
+}
+
+export async function routeMockedHttpRequests(page, { requests, mockHttpRequest, isMockedApiOrigin, scenario = {} }) {
+    await page.route('**/*', route => handleMockedHttpRoute(route, {
+        requests,
+        mockHttpRequest,
+        isMockedApiOrigin,
+        scenario,
+    }));
+}
+
+async function handleMockedHttpRoute(route, config) {
+    const request = route.request();
+    const routeUrl = new URL(request.url());
+    if (isCorsPreflightForMockedApi(request, routeUrl, config.isMockedApiOrigin)) {
+        await route.fulfill({ status: 204, headers: corsHeaders() });
+        return;
+    }
+    const mocked = config.mockHttpRequest(mockRequestPayload(request), config.requests, config.scenario);
+    if (!mocked) {
+        await route.continue();
+        return;
+    }
+    await fulfillMockedHttpResponse(route, mocked);
+}
+
+function isCorsPreflightForMockedApi(request, routeUrl, isMockedApiOrigin) {
+    return request.method() === 'OPTIONS' && isMockedApiOrigin(routeUrl);
+}
+
+function mockRequestPayload(request) {
+    return {
+        method: request.method(),
+        url: request.url(),
+        data: request.postData() ?? '',
+    };
+}
+
+async function fulfillMockedHttpResponse(route, mocked) {
+    const options = mockedFulfillOptions(mocked);
+    await route.fulfill(options);
+}
+
+function mockedFulfillOptions(mocked) {
+    const options = mockedFulfillBaseOptions(mocked);
+    if (mocked.contentType) options.contentType = mocked.contentType;
+    options.body = mockedFulfillBody(mocked);
+    return options;
+}
+
+function mockedFulfillBaseOptions(mocked) {
+    return {
+        status: mocked.status ?? 200,
+        headers: { ...corsHeaders(), ...(mocked.headers ?? {}) },
+    };
+}
+
+function mockedFulfillBody(mocked) {
+    if (mocked.body !== undefined) return mocked.body;
+    return mocked.responseText ?? '';
+}
+
+function corsHeaders() {
+    return {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'content-type, authorization',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+    };
+}
+
+export function jsonHttpResponse(value) {
+    const responseText = JSON.stringify(value);
+    return {
+        status: 200,
+        responseText,
+        bytes: [...Buffer.from(responseText)],
+        contentType: 'application/json; charset=utf-8',
+    };
+}
+
+export function readJsonBody(data) {
+    const decoded = decodeGmRequestBody(data);
+    if (!decoded) return {};
+    if (Buffer.isBuffer(decoded)) return JSON.parse(decoded.toString('utf8'));
+    if (typeof decoded === 'string') return JSON.parse(decoded);
+    return decoded;
+}
+
+const GM_REQUEST_BODY_DECODERS = {
+    arraybuffer: data => Buffer.from(data.bytes ?? []),
+    formdata: data => gmRequestFormData(data.entries ?? []),
+};
+
+export function decodeGmRequestBody(data) {
+    if (!isGmSerializedBody(data)) return data;
+    const decoder = GM_REQUEST_BODY_DECODERS[data.kind];
+    return decoder ? decoder(data) : data;
+}
+
+function isGmSerializedBody(data) {
+    if (!data) return false;
+    return typeof data === 'object';
+}
+
+export function gmRequestFetchBody(request) {
+    const body = decodeGmRequestBody(request.data);
+    if (body == null || body === '' || isBodylessFetchMethod(request.method)) return undefined;
+    return body;
+}
+
+function isBodylessFetchMethod(method) {
+    return /^(GET|HEAD)$/i.test(method || 'GET');
+}
+
+function gmRequestFormData(entries) {
+    const formData = new FormData();
+    for (const entry of entries) appendGmRequestFormDataEntry(formData, entry);
+    return formData;
+}
+
+function appendGmRequestFormDataEntry(formData, entry) {
+    if (!entry.blob) return appendGmRequestTextEntry(formData, entry);
+    appendGmRequestBlobEntry(formData, entry);
+}
+
+function appendGmRequestTextEntry(formData, entry) {
+    formData.append(entry.name, entry.value ?? '');
+}
+
+function appendGmRequestBlobEntry(formData, entry) {
+    formData.append(
+        entry.name,
+        new Blob([Buffer.from(entry.blob.bytes ?? [])], { type: entry.blob.type || 'application/octet-stream' }),
+        entry.blob.filename || 'file',
+    );
+}
+
+export function mockJpdbParseFromVocabulary(body, rows, options = {}) {
+    const paragraphs = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
+    const fixtureVocabulary = rows.map(normalizeJpdbVocabularyRow).sort((a, b) => b.surface.length - a.surface.length);
+    const vocabulary = [];
+    const vocabIndexBySpelling = new Map();
+    const tokens = paragraphs.map(text => parseJpdbParagraph(text, fixtureVocabulary, vocabulary, vocabIndexBySpelling, options));
+    return { vocabulary, tokens };
+}
+
+function normalizeJpdbVocabularyRow(row) {
+    const [surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch] = row;
+    return { surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch };
+}
+
+function parseJpdbParagraph(text, fixtureVocabulary, vocabulary, vocabIndexBySpelling, options) {
+    const paragraphTokens = [];
+    for (let index = 0; index < text.length;) {
+        const entry = fixtureVocabulary.find(item => text.startsWith(item.surface, index));
+        if (!entry) {
+            index += 1;
+            continue;
+        }
+        paragraphTokens.push(jpdbToken(entry, index, vocabulary, vocabIndexBySpelling, options));
+        index += entry.surface.length;
+    }
+    return paragraphTokens;
+}
+
+function jpdbToken(entry, index, vocabulary, vocabIndexBySpelling, options) {
+    return [
+        jpdbVocabularyIndex(entry, vocabulary, vocabIndexBySpelling, options),
+        index,
+        entry.surface.length,
+        jpdbTokenReading(entry, options),
+    ];
+}
+
+function jpdbVocabularyIndex(entry, vocabulary, vocabIndexBySpelling, options) {
+    const existingIndex = vocabIndexBySpelling.get(entry.spelling);
+    if (existingIndex !== undefined) return existingIndex;
+    const vocabularyIndex = vocabulary.length;
+    vocabIndexBySpelling.set(entry.spelling, vocabularyIndex);
+    vocabulary.push(jpdbVocabularyRecord(entry, vocabularyIndex, options));
+    return vocabularyIndex;
+}
+
+function jpdbVocabularyRecord(entry, vocabularyIndex, options) {
+    return [
+        jpdbVocabularyId(options, vocabularyIndex),
+        jpdbSpellingId(options, vocabularyIndex),
+        0,
+        entry.spelling,
+        entry.reading,
+        entry.frequency,
+        entry.partOfSpeech,
+        [[entry.gloss]],
+        [entry.partOfSpeech],
+        jpdbVocabularyState(entry, options),
+        jpdbVocabularyPitch(entry, options),
+    ];
+}
+
+function jpdbVocabularyId(options, vocabularyIndex) {
+    return withDefault(options.vocabularyIdBase, 1000) + vocabularyIndex;
+}
+
+function jpdbSpellingId(options, vocabularyIndex) {
+    return withDefault(options.spellingIdBase, 2000) + vocabularyIndex;
+}
+
+function jpdbVocabularyState(entry, options) {
+    return withDefault(entry.state, withDefault(options.defaultState, ['not-in-deck']));
+}
+
+function jpdbVocabularyPitch(entry, options) {
+    return withDefault(entry.pitch, withDefault(options.defaultPitch, ['LHH']));
+}
+
+function withDefault(value, fallback) {
+    return value == null ? fallback : value;
+}
+
+function jpdbTokenReading(entry, options) {
+    return options.tokenReading ? options.tokenReading(entry) : [[entry.surface, entry.reading]];
+}
+
+export function mockAnkiConnectResponse(body, resolveAction, context = {}) {
+    const action = body.action;
+    const params = body.params ?? {};
+    if (action === 'multi') {
+        const actions = Array.isArray(params.actions) ? params.actions : [];
+        return {
+            result: actions.map(item => mockAnkiConnectResponse({
+                action: item.action,
+                params: item.params ?? {},
+            }, resolveAction, context)),
+            error: null,
+        };
+    }
+    return { result: resolveAction(action, params, context), error: null };
+}
+
+export function resolveAnkiAction(action, params, handlers, context = {}) {
+    const handler = handlers[action];
+    return typeof handler === 'function' ? handler(params, context) : handler ?? null;
+}
+
+export function arrayParam(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+export function ankiActions(requests) {
+    return requests.filter(item => item.kind === 'anki').map(item => item.action);
+}
+
+export function assertAnkiStatusStorage(storage, expectedCardCount) {
+    assert(storage.cardCount === expectedCardCount, 'Anki status index card count did not match mocked collection total', storage);
+    assert(storage.entryCount >= expectedCardCount, 'Anki status index did not store lookup entries for mocked cards', storage);
+    if (storage.entryStore === 'indexeddb') {
+        assert(storage.indexedDbEntryCount >= expectedCardCount, 'Anki status IndexedDB entry count did not match stored metadata', storage);
+    }
+}
+
+export async function readAnkiStatusStorage(page, storage = DEFAULT_ANKI_STATUS_STORAGE) {
+    const { raw, meta } = await readStoredJson(page, storage.storageKey);
+    const indexedDbEntryCount = await indexedDbEntryCountForStatusStorage(page, storage, meta);
+    return ankiStatusStorageSnapshot(raw, meta, indexedDbEntryCount);
+}
+
+async function indexedDbEntryCountForStatusStorage(page, storage, meta) {
+    if (metaEntryStore(meta) !== 'indexeddb') return null;
+    return countIndexedDbEntries(page, storage.dbName, storage.entryStore);
+}
+
+function ankiStatusStorageSnapshot(raw, meta, indexedDbEntryCount) {
+    const valueEntryCount = recordKeyCount(metaEntries(meta));
+    return {
+        cardCount: Number(metaValue(meta, 'cardCount', 0)),
+        entryCount: Number(metaValue(meta, 'entryCount', valueEntryCount)),
+        entryStore: metaEntryStore(meta),
+        indexedDbEntryCount,
+        localStorageBytes: textLength(raw),
+    };
+}
+
+function metaValue(meta, key, fallback) {
+    return meta && meta[key] != null ? meta[key] : fallback;
+}
+
+function metaEntryStore(meta) {
+    return String(metaValue(meta, 'entryStore', 'value'));
+}
+
+function metaEntries(meta) {
+    return metaValue(meta, 'entries', null);
+}
+
+function recordKeyCount(value) {
+    if (!value || typeof value !== 'object') return 0;
+    return Object.keys(value).length;
+}
+
+function textLength(value) {
+    return typeof value === 'string' ? value.length : 0;
+}
+
+async function readStoredJson(page, storageKey) {
+    return page.evaluate(key => {
+        const raw = localStorage.getItem(key);
+        try {
+            return { raw, meta: raw ? JSON.parse(raw) : null };
+        } catch {
+            return { raw, meta: null };
+        }
+    }, storageKey);
+}
+
+async function countIndexedDbEntries(page, dbName, entryStore) {
+    return page.evaluate(({ name, storeName }) => {
+        if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+        return new Promise(resolve => {
+            let settled = false;
+            const done = value => {
+                if (settled) return;
+                settled = true;
+                resolve(value);
+            };
+            const request = indexedDB.open(name);
+            request.onupgradeneeded = () => {
+                request.transaction?.abort();
+                done(null);
+            };
+            request.onerror = () => done(null);
+            request.onsuccess = () => readIndexedDbEntryCount(request.result, storeName, done);
+
+            function readIndexedDbEntryCount(db, objectStoreName, callback) {
+                if (!db.objectStoreNames.contains(objectStoreName)) {
+                    db.close();
+                    callback(null);
+                    return;
+                }
+                const tx = db.transaction(objectStoreName, 'readonly');
+                const count = tx.objectStore(objectStoreName).count();
+                count.onsuccess = () => callback(Number(count.result));
+                count.onerror = () => callback(null);
+                tx.oncomplete = () => db.close();
+                tx.onabort = () => {
+                    db.close();
+                    callback(null);
+                };
+            }
+        });
+    }, { name: dbName, storeName: entryStore });
+}
+
+export async function addGmStorageBridgeInitScript(page, options) {
+    await page.addInitScript(initGmBridge, { ...options, storageEnabled: true });
+}
+
+export async function addGmXmlHttpRequestBridgeInitScript(page, options) {
+    await page.addInitScript(initGmBridge, { ...options, storageEnabled: false });
+}
+
+function initGmBridge({
+    key,
+    value,
+    css = '',
+    requestBridgeName,
+    resourceName = 'yomuCss',
+    storagePrefix = '',
+    initialize = 'always',
+    storageEnabled = true,
+}) {
+    const memoryStore = new Map();
+    const responseBuilders = {
+        json: jsonResultResponse,
+        blob: blobResultResponse,
+        arraybuffer: arrayBufferResultResponse,
+    };
+    const bodySerializers = [
+        { matches: data => data instanceof ArrayBuffer, serialize: arrayBufferRequestBody },
+        { matches: data => ArrayBuffer.isView(data), serialize: typedArrayRequestBody },
+        { matches: data => data instanceof Blob, serialize: blobRequestBody },
+        { matches: data => data instanceof FormData, serialize: formDataRequestBody },
+    ];
+    const storageKey = storeKey => storagePrefix ? `${storagePrefix}${storeKey}` : storeKey;
+    const storedValueName = storedKey => {
+        if (!storagePrefix) return storedKey;
+        return storedKey.startsWith(storagePrefix) ? storedKey.slice(storagePrefix.length) : null;
+    };
+    const readStoredValue = (storeKey, fallback) => {
+        if (memoryStore.has(storeKey)) return memoryStore.get(storeKey);
+        try {
+            const raw = localStorage.getItem(storageKey(storeKey));
+            return raw == null ? fallback : JSON.parse(raw);
+        } catch {
+            return fallback;
+        }
+    };
+    const writeStoredValue = (storeKey, storedValue) => {
+        memoryStore.set(storeKey, storedValue);
+        try {
+            localStorage.setItem(storageKey(storeKey), JSON.stringify(storedValue));
+        } catch {
+            // Some smoke fixtures have no persistent origin storage.
+        }
+    };
+    if (storageEnabled) initializeStorage();
+    window.GM_getValue = (storeKey, fallback) => readStoredValue(storeKey, fallback);
+    window.GM_setValue = (storeKey, storedValue) => { writeStoredValue(storeKey, storedValue); };
+    window.GM_deleteValue = storeKey => {
+        memoryStore.delete(storeKey);
+        try {
+            localStorage.removeItem(storageKey(storeKey));
+        } catch {
+            // Some smoke fixtures have no persistent origin storage.
+        }
+    };
+    window.GM_listValues = () => [...gmValueNames()];
+
+    function gmValueNames() {
+        const keys = new Set(memoryStore.keys());
+        addLocalStorageValueNames(keys);
+        return keys;
+    }
+
+    function addLocalStorageValueNames(keys) {
+        try {
+            for (let index = 0; index < localStorage.length; index += 1) {
+                addStoredValueName(keys, localStorage.key(index));
+            }
+        } catch {
+            // Some smoke fixtures have no persistent origin storage.
+        }
+    }
+
+    function addStoredValueName(keys, rawKey) {
+        const valueName = storedValueName(rawKey ?? '');
+        if (valueName) keys.add(valueName);
+    }
+    window.GM_addStyle = styleText => {
+        const style = document.createElement('style');
+        style.textContent = styleText;
+        (document.head || document.documentElement || document.body).append(style);
+        return style;
+    };
+    window.GM_getResourceText = name => name === resourceName ? css : '';
+    window.GM_registerMenuCommand = () => undefined;
+    installXmlHttpRequestBridge();
+    window.GM = storageEnabled ? storageGmApi() : requestOnlyGmApi();
+
+    function initializeStorage() {
+        if (initialize === 'ifMissing') {
+            if (readStoredValue(key, undefined) === undefined) writeStoredValue(key, value);
+            return;
+        }
+        writeStoredValue(key, value);
+    }
+
+    function storageGmApi() {
+        return {
+            getValue: window.GM_getValue,
+            setValue: window.GM_setValue,
+            deleteValue: window.GM_deleteValue,
+            listValues: window.GM_listValues,
+            addStyle: window.GM_addStyle,
+            registerMenuCommand: window.GM_registerMenuCommand,
+            xmlHttpRequest: window.GM_xmlhttpRequest,
+            xmlhttpRequest: window.GM_xmlhttpRequest,
+        };
+    }
+
+    function requestOnlyGmApi() {
+        return {
+            registerMenuCommand: window.GM_registerMenuCommand,
+            xmlHttpRequest: window.GM_xmlhttpRequest,
+            xmlhttpRequest: window.GM_xmlhttpRequest,
+        };
+    }
+
+    function installXmlHttpRequestBridge() {
+        window.GM_xmlhttpRequest = options => {
+            const request = createBridgeRequest(options);
+            const settle = oneShotRequestSettler(options);
+            Promise.resolve(request.data)
+                .then(data => window[requestBridgeName]({ ...request, data }))
+                .then(result => settle(options.onload)(bridgeLoadResponse(result, options.responseType)))
+                .catch(error => settle(options.onerror)(error));
+        };
+    }
+
+    function createBridgeRequest(options) {
+        return {
+            method: options.method || 'GET',
+            url: options.url,
+            headers: options.headers || {},
+            data: serializeGmRequestBody(options.data),
+            responseType: options.responseType || '',
+        };
+    }
+
+    function oneShotRequestSettler(options) {
+        let settled = false;
+        const timeoutMs = Number(options.timeout) || 0;
+        const timer = timeoutMs > 0 ? window.setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            options.ontimeout?.({ status: 0, response: null, responseText: '' });
+        }, timeoutMs) : 0;
+        return callback => response => {
+            if (settled) return;
+            settled = true;
+            if (timer) window.clearTimeout(timer);
+            callback?.(response);
+        };
+    }
+
+    function bridgeLoadResponse(result, responseType) {
+        const bytes = resultBytes(result);
+        const responseText = resultResponseText(result, bytes);
+        return {
+            status: result.status,
+            response: resultResponse(result, responseType, responseText, bytes),
+            responseText,
+        };
+    }
+
+    async function serializeGmRequestBody(data) {
+        const serializer = bodySerializers.find(item => item.matches(data));
+        return serializer ? await serializer.serialize(data) : data ?? '';
+    }
+
+    function arrayBufferRequestBody(data) {
+        return { kind: 'arraybuffer', bytes: [...new Uint8Array(data)] };
+    }
+
+    function typedArrayRequestBody(data) {
+        return { kind: 'arraybuffer', bytes: [...new Uint8Array(data.buffer, data.byteOffset, data.byteLength)] };
+    }
+
+    async function blobRequestBody(data) {
+        return { kind: 'arraybuffer', bytes: [...new Uint8Array(await data.arrayBuffer())] };
+    }
+
+    async function formDataRequestBody(data) {
+        const entries = [];
+        for (const [name, fieldValue] of data.entries()) entries.push(await formDataRequestEntry(name, fieldValue));
+        return { kind: 'formdata', entries };
+    }
+
+    async function formDataRequestEntry(name, fieldValue) {
+        if (!(fieldValue instanceof Blob)) return { name, value: String(fieldValue) };
+        return { name, blob: await serializedFormDataBlob(fieldValue) };
+    }
+
+    async function serializedFormDataBlob(fieldValue) {
+        return {
+            bytes: [...new Uint8Array(await fieldValue.arrayBuffer())],
+            type: fieldValue.type,
+            filename: fieldValue.name || 'file',
+        };
+    }
+
+    function resultBytes(result) {
+        return Array.isArray(result.bytes) ? new Uint8Array(result.bytes) : null;
+    }
+
+    function resultResponseText(result, bytes) {
+        return result.responseText ?? (bytes ? new TextDecoder().decode(bytes) : '');
+    }
+
+    function resultResponse(result, responseType, responseText, bytes) {
+        const buildResponse = responseBuilders[responseType] || textResultResponse;
+        return buildResponse(result, responseText, bytes);
+    }
+
+    function jsonResultResponse(result, responseText) {
+        return result.response !== undefined ? result.response : JSON.parse(responseText || 'null');
+    }
+
+    function blobResultResponse(result, responseText, bytes) {
+        return new Blob([bytes ?? responseText], { type: result.contentType || 'application/octet-stream' });
+    }
+
+    function arrayBufferResultResponse(_result, responseText, bytes) {
+        return (bytes ?? new TextEncoder().encode(responseText)).buffer;
+    }
+
+    function textResultResponse(_result, responseText) {
+        return responseText;
+    }
+}
+
+export async function launchSmokeBrowser(browserType = chromium, browserName = 'chromium', options = {}) {
+    const configuredChannel = smokeBrowserChannel(browserName);
+    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    return await launchSmokeBrowserWithFallback(browserType, browserName, options);
+}
+
+function smokeBrowserChannel(browserName) {
+    if (browserName !== 'chromium') return '';
+    return process.env.YOMU_PLAYWRIGHT_CHANNEL || '';
+}
+
+async function launchSmokeBrowserWithFallback(browserType, browserName, options) {
+    try {
+        return await browserType.launch(options);
+    } catch (error) {
+        if (browserName !== 'chromium' || !isMissingBrowserExecutable(error)) throw error;
+        return chromium.launch({ ...options, channel: 'chrome' });
+    }
+}
+
+export async function launchOptionalBrowser(browserType, browserName, options) {
+    try {
+        return { browser: await launchSmokeBrowser(browserType, browserName, options) };
+    } catch (error) {
+        if (!isMissingBrowserExecutable(error)) throw error;
+        return { skipped: true, browserName, reason: firstErrorLine(error) };
+    }
+}
+
+function isMissingBrowserExecutable(error) {
+    const message = String(error?.message ?? '');
+    return message.includes("Executable doesn't exist") || /playwright install/i.test(message);
+}
+
+export function firstErrorLine(error) {
+    return String(error?.message ?? error).split('\n').find(Boolean) ?? 'Browser executable is unavailable.';
+}

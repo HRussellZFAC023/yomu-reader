@@ -387,11 +387,18 @@ function finalizeStatsSource<T extends StatsSourceSnapshot>(source: T): T {
 }
 
 function combinedStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): StatsSourceStatus {
-    if (jpdb.status === 'ready' && anki.status === 'ready') return 'ready';
-    if (jpdb.status === 'ready' || anki.status === 'ready' || jpdb.status === 'partial' || anki.status === 'partial') return 'partial';
-    if (jpdb.status === 'loading' || anki.status === 'loading') return 'loading';
-    if (jpdb.status === 'error' || anki.status === 'error') return 'error';
-    return 'setup';
+    if (sourcesHaveStatus(jpdb, anki, 'ready')) return bothSourcesHaveStatus(jpdb, anki, 'ready') ? 'ready' : 'partial';
+    return COMBINED_STATUS_PRIORITY.find(status => sourcesHaveStatus(jpdb, anki, status)) ?? 'setup';
+}
+
+const COMBINED_STATUS_PRIORITY: StatsSourceStatus[] = ['partial', 'loading', 'error'];
+
+function sourcesHaveStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot, status: StatsSourceStatus): boolean {
+    return jpdb.status === status || anki.status === status;
+}
+
+function bothSourcesHaveStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot, status: StatsSourceStatus): boolean {
+    return jpdb.status === status && anki.status === status;
 }
 
 function combinedMessage(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): string {
@@ -433,21 +440,37 @@ function mergeDailyPoints(...groups: StatsDailyPoint[][]): StatsDailyPoint[] {
 function jpdbCardBreakdown(cards: JPDBCard[]): StatsCardBreakdown {
     const out = { ...EMPTY_CARDS, total: cards.length };
     for (const card of cards) {
-        const state = primaryCardState(card.cardState);
-        if (state === 'new') out.new += 1;
-        else if (state === 'learning') out.learning += 1;
-        else if (state === 'due' || state === 'failed') {
-            out.due += 1;
-            if (state === 'failed') out.failed += 1;
-            out.review += 1;
-        } else if (state === 'known' || state === 'never-forget') {
-            out.known += 1;
-            out.review += 1;
-        } else if (state === 'suspended') out.suspended += 1;
-        else if (JPDB_IGNORED_STATES.has(state)) out.ignored += 1;
-        else out.review += 1;
+        addJpdbCardStateBreakdown(out, primaryCardState(card.cardState));
     }
     return out;
+}
+
+function addJpdbCardStateBreakdown(out: StatsCardBreakdown, state: CardState): void {
+    const update = JPDB_CARD_STATE_BREAKDOWN_UPDATES[state];
+    if (update) update(out);
+    else if (JPDB_IGNORED_STATES.has(state)) out.ignored += 1;
+    else out.review += 1;
+}
+
+const JPDB_CARD_STATE_BREAKDOWN_UPDATES: Record<string, (out: StatsCardBreakdown) => void> = {
+    new: out => { out.new += 1; },
+    learning: out => { out.learning += 1; },
+    due: out => addDueJpdbCard(out, false),
+    failed: out => addDueJpdbCard(out, true),
+    known: addKnownJpdbCard,
+    'never-forget': addKnownJpdbCard,
+    suspended: out => { out.suspended += 1; },
+};
+
+function addDueJpdbCard(out: StatsCardBreakdown, failed: boolean): void {
+    out.due += 1;
+    out.review += 1;
+    if (failed) out.failed += 1;
+}
+
+function addKnownJpdbCard(out: StatsCardBreakdown): void {
+    out.known += 1;
+    out.review += 1;
 }
 
 function ankiCardBreakdown(stats: AnkiDeckStats[]): StatsCardBreakdown {

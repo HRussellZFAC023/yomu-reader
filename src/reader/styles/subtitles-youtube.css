@@ -74,10 +74,7 @@
   border: 0 !important;
   background: transparent !important;
   color: var(--jpdb-reader-video-text-muted);
-  font-size: .62em;
-  font-family: inherit;
-  font-weight: 650;
-  line-height: 1.25;
+  font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);
   min-height: 24px;
   text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   cursor: pointer;
@@ -293,16 +290,26 @@
     0 0 3px var(--subtitle-outline),
     0 0 7px var(--jpdb-reader-video-shadow-heavy);
 }
-.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-media {
+:is(.jpdb-reader-popover, .yomu-jpdb-page-addon)
+  [data-immersion-kit]
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-media {
   --subtitle-font-size: clamp(13px, 3.5cqw, min(var(--subtitle-font-size-target, 18px), 18px));
 }
-.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
+:is(.jpdb-reader-popover, .yomu-jpdb-page-addon)
+  [data-immersion-kit]
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence {
   padding: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-.jpdb-reader-popover [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary {
+:is(.jpdb-reader-popover, .yomu-jpdb-page-addon)
+  [data-immersion-kit]
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-subtitle-primary {
   color: var(--subtitle-color);
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
   white-space: pre-wrap;
@@ -531,6 +538,14 @@
   min-height: 32px;
   height: 32px;
   max-height: 32px;
+}
+.jpdb-subtitle-compact-video.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(
+    .jpdb-subtitle-panel-open
+  )
+  .jpdb-subtitle-rail:not(:focus-within) {
+  opacity: .72;
+  pointer-events: auto;
+  transform: none;
 }
 .jpdb-subtitle-list[hidden] { display: none; }
 .jpdb-subtitle-track-row button[aria-pressed="true"] {

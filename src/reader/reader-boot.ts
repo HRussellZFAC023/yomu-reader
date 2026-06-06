@@ -151,14 +151,33 @@ function detectRuntimeKind(): YomuRuntimeKind {
         GM_info?: unknown;
         __yomuDevRuntime?: unknown;
     };
-    if (global.__yomuDevRuntime === true) return 'dev';
-    if (global.chrome?.runtime?.id || global.browser?.runtime?.id) return 'extension';
-    if (typeof GM_getValue === 'function'
+    if (isDevRuntime(global)) return 'dev';
+    if (isExtensionRuntime(global)) return 'extension';
+    if (isUserscriptRuntime(global)) return 'userscript';
+    return 'page';
+}
+
+function isDevRuntime(global: { __yomuDevRuntime?: unknown }): boolean {
+    return global.__yomuDevRuntime === true;
+}
+
+function isExtensionRuntime(global: { chrome?: { runtime?: { id?: string } }; browser?: { runtime?: { id?: string } } }): boolean {
+    return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+}
+
+function isUserscriptRuntime(global: {
+    GM?: {
+        getValue?: unknown;
+        xmlHttpRequest?: unknown;
+        xmlhttpRequest?: unknown;
+    };
+    GM_info?: unknown;
+}): boolean {
+    return typeof GM_getValue === 'function'
         || typeof global.GM?.getValue === 'function'
         || typeof global.GM?.xmlHttpRequest === 'function'
         || typeof global.GM?.xmlhttpRequest === 'function'
-        || Boolean(global.GM_info)) return 'userscript';
-    return 'page';
+        || Boolean(global.GM_info);
 }
 
 function priority(kind: unknown): number {

@@ -1,9 +1,20 @@
 #!/usr/bin/env node
-import { createServer } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
 import pkg from '../package.json' with { type: 'json' };
+import {
+    addGmStorageBridgeInitScript,
+    addGmXmlHttpRequestBridgeInitScript,
+    assert,
+    assertBuiltArtifacts,
+    closeServer,
+    firstErrorLine,
+    gmRequestFetchBody,
+    launchOptionalBrowser,
+    launchSmokeBrowser,
+    startLoopbackServer,
+} from './smoke-harness.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -47,18 +58,7 @@ const jishoSettings = {
     enableLogging: false,
 };
 
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
-}
-
-function assertBuiltArtifacts() {
-    for (const filePath of [USERSCRIPT_PATH, CSS_PATH]) {
-        assert(existsSync(filePath), `Missing built artifact: ${path.relative(ROOT, filePath)}. Run npm run build first.`);
-    }
-}
+const BUILT_ARTIFACTS = [USERSCRIPT_PATH, CSS_PATH];
 
 function createFixtureServer() {
     const html = `<!doctype html>
@@ -66,7 +66,7 @@ function createFixtureServer() {
 <meta charset="utf-8">
 <title>Yomu live browser smoke</title>
 <main style="font: 28px/1.8 system-ui; margin: 48px;">下を見ます。</main>`;
-    const server = createServer((request, response) => {
+    return startLoopbackServer((request, response) => {
         const url = new URL(request.url ?? '/', 'http://127.0.0.1');
         if (url.pathname === '/' || url.pathname === '/jisho.html') {
             response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -75,15 +75,7 @@ function createFixtureServer() {
         }
         response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         response.end('Not found');
-    });
-    return new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', () => {
-            const address = server.address();
-            if (!address || typeof address === 'string') reject(new Error('Could not bind live smoke server'));
-            else resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` });
-        });
-    });
+    }, 'Could not bind live smoke server');
 }
 
 async function runLiveAssetSmoke(browser) {
@@ -91,66 +83,122 @@ async function runLiveAssetSmoke(browser) {
     const page = await context.newPage();
     const requests = [];
     page.on('request', request => requests.push(request.url()));
-    const cacheBust = Date.now();
     try {
-        await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-smoke=${cacheBust}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-        const version = await page.evaluate(async () => {
-            const response = await fetch(`./version.json?smoke=${Date.now()}`, { cache: 'no-store' });
-            return { status: response.status, json: await response.json() };
-        });
-        assert(version.status === 200, 'Live newtab version.json did not load', version);
-        assert(/^[a-f0-9]{12}$/i.test(version.json.appHash ?? ''), 'Live newtab version.json has no 12-char app hash', version.json);
-        const deployedVersion = versionFromBuildId(version.json.buildId, version.json.appHash);
-        assert(deployedVersion, 'Live newtab build id does not contain a deploy version and the current app hash', version.json);
-        if (EXPECTED_LIVE_VERSION) {
-            assert(deployedVersion === EXPECTED_LIVE_VERSION, 'Live newtab deployed version does not match the expected live version', {
-                expected: EXPECTED_LIVE_VERSION,
-                deployedVersion,
-                version: version.json,
-            });
-        }
-
-        const appRequest = requests.find(url => url.includes('/newtab/app.js'));
-        assert(appRequest?.includes(`v=${version.json.appHash}`), 'Live newtab did not request app.js with the version hash', { appRequest, version: version.json });
-
-        const assets = await page.evaluate(async () => {
-            const [index, serviceWorker, userscript, app] = await Promise.all([
-                fetch(`./index.html?smoke=${Date.now()}`, { cache: 'no-store' }).then(async response => ({ status: response.status, text: await response.text() })),
-                fetch(`./sw.js?smoke=${Date.now()}`, { cache: 'no-store' }).then(async response => ({ status: response.status, text: await response.text() })),
-                fetch(`../yomu.user.js?smoke=${Date.now()}`, { cache: 'no-store' }).then(async response => ({ status: response.status, text: await response.text() })),
-                fetch(`./app.js?smoke=${Date.now()}`, { cache: 'no-store' }).then(async response => ({ status: response.status, text: await response.text() })),
-            ]);
-            return { index, serviceWorker, userscript, app };
-        });
-
-        assert(assets.index.status === 200 && assets.index.text.includes(`./app.js?v=${version.json.appHash}`), 'Live newtab index is not cache-busting app.js with the current hash', { status: assets.index.status, appHash: version.json.appHash });
-        assert(assets.index.text.includes(version.json.buildId), 'Live newtab index does not expose the current build id', { buildId: version.json.buildId });
-        assert(
-            assets.serviceWorker.status === 200
-                && assets.serviceWorker.text.includes(`const APP_HASH = '${version.json.appHash}';`)
-                && assets.serviceWorker.text.includes('yomu-newtab-${APP_HASH}'),
-            'Live newtab service worker cache name does not match the current app hash',
-            { status: assets.serviceWorker.status, appHash: version.json.appHash },
-        );
-        assert(assets.serviceWorker.text.includes("cache: 'no-store'"), 'Live newtab service worker does not network-first navigations with no-store');
-        assert(assets.userscript.status === 200 && assets.userscript.text.startsWith('// ==UserScript=='), 'Live userscript did not load as a raw userscript', { status: assets.userscript.status });
-        assert(assets.userscript.text.includes(`// @version      ${deployedVersion}`), 'Live userscript version does not match the live newtab build version', { deployedVersion });
-        assert(!/^\/\/ @require\s+/m.test(assets.userscript.text), 'Live userscript unexpectedly contains remote executed @require code');
-        assert(!assets.userscript.text.includes('// @downloadURL') && !assets.userscript.text.includes('// @updateURL'), 'Live userscript should not advertise alternate update/download URLs');
-        assert(assets.app.status === 200 && assets.app.text.includes('__YOMU_READER_RUNTIME__'), 'Live newtab app.js did not load expected runtime code', { status: assets.app.status });
-
-        return {
-            origin: LIVE_ORIGIN,
-            version: version.json,
-            deployedVersion,
-            localPackageVersion: pkg.version,
-            appRequest,
-            userscriptBytes: Buffer.byteLength(assets.userscript.text, 'utf8'),
-            appBytes: Buffer.byteLength(assets.app.text, 'utf8'),
-        };
+        await openLiveNewTab(page);
+        const version = await fetchLiveVersion(page);
+        const deployedVersion = assertLiveVersion(version);
+        const appRequest = assertVersionedAppRequest(requests, version);
+        const assets = await fetchLiveAssets(page);
+        assertLiveAssets(assets, version, deployedVersion);
+        return liveAssetReport(version, deployedVersion, appRequest, assets);
     } finally {
         await context.close();
     }
+}
+
+async function openLiveNewTab(page) {
+    await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+}
+
+async function fetchLiveVersion(page) {
+    return await page.evaluate(async () => {
+        const response = await fetch(`./version.json?smoke=${Date.now()}`, { cache: 'no-store' });
+        return { status: response.status, json: await response.json() };
+    });
+}
+
+function assertLiveVersion(version) {
+    assert(version.status === 200, 'Live newtab version.json did not load', version);
+    assert(/^[a-f0-9]{12}$/i.test(version.json.appHash ?? ''), 'Live newtab version.json has no 12-char app hash', version.json);
+    const deployedVersion = versionFromBuildId(version.json.buildId, version.json.appHash);
+    assert(deployedVersion, 'Live newtab build id does not contain a deploy version and the current app hash', version.json);
+    assertExpectedLiveVersion(version, deployedVersion);
+    return deployedVersion;
+}
+
+function assertExpectedLiveVersion(version, deployedVersion) {
+    if (!EXPECTED_LIVE_VERSION) return;
+    assert(deployedVersion === EXPECTED_LIVE_VERSION, 'Live newtab deployed version does not match the expected live version', {
+        expected: EXPECTED_LIVE_VERSION,
+        deployedVersion,
+        version: version.json,
+    });
+}
+
+function assertVersionedAppRequest(requests, version) {
+    const appRequest = requests.find(isLiveAppRequest);
+    assert(appRequest?.includes(`v=${version.json.appHash}`), 'Live newtab did not request app.js with the version hash', { appRequest, version: version.json });
+    return appRequest;
+}
+
+function isLiveAppRequest(url) {
+    return url.includes('/newtab/app.js');
+}
+
+async function fetchLiveAssets(page) {
+    return await page.evaluate(async () => {
+        const [index, serviceWorker, userscript, app] = await Promise.all([
+            fetchTextAsset('./index.html'),
+            fetchTextAsset('./sw.js'),
+            fetchTextAsset('../yomu.user.js'),
+            fetchTextAsset('./app.js'),
+        ]);
+        return { index, serviceWorker, userscript, app };
+
+        async function fetchTextAsset(assetPath) {
+            const response = await fetch(`${assetPath}?smoke=${Date.now()}`, { cache: 'no-store' });
+            return { status: response.status, text: await response.text() };
+        }
+    });
+}
+
+function assertLiveAssets(assets, version, deployedVersion) {
+    assertLiveIndexAsset(assets.index, version);
+    assertLiveServiceWorkerAsset(assets.serviceWorker, version);
+    assertLiveUserscriptAsset(assets.userscript, deployedVersion);
+    assertLiveAppAsset(assets.app);
+}
+
+function assertLiveIndexAsset(index, version) {
+    assert(index.status === 200, 'Live newtab index did not load', { status: index.status });
+    assert(index.text.includes(`./app.js?v=${version.json.appHash}`), 'Live newtab index is not cache-busting app.js with the current hash', { status: index.status, appHash: version.json.appHash });
+    assert(index.text.includes(version.json.buildId), 'Live newtab index does not expose the current build id', { buildId: version.json.buildId });
+}
+
+function assertLiveServiceWorkerAsset(serviceWorker, version) {
+    assert(serviceWorker.status === 200, 'Live newtab service worker did not load', { status: serviceWorker.status });
+    assert(serviceWorker.text.includes(`const APP_HASH = '${version.json.appHash}';`), 'Live newtab service worker app hash does not match version.json', { appHash: version.json.appHash });
+    assert(serviceWorker.text.includes('yomu-newtab-${APP_HASH}'), 'Live newtab service worker cache name does not use APP_HASH');
+    assert(serviceWorker.text.includes("cache: 'no-store'"), 'Live newtab service worker does not network-first navigations with no-store');
+}
+
+function assertLiveUserscriptAsset(userscript, deployedVersion) {
+    assert(userscript.status === 200, 'Live userscript did not load', { status: userscript.status });
+    assert(userscript.text.startsWith('// ==UserScript=='), 'Live userscript did not load as a raw userscript', { status: userscript.status });
+    assert(userscript.text.includes(`// @version      ${deployedVersion}`), 'Live userscript version does not match the live newtab build version', { deployedVersion });
+    assert(!/^\/\/ @require\s+/m.test(userscript.text), 'Live userscript unexpectedly contains remote executed @require code');
+    assert(!assetsHasUserscriptUpdateUrl(userscript.text), 'Live userscript should not advertise alternate update/download URLs');
+}
+
+function assetsHasUserscriptUpdateUrl(text) {
+    return text.includes('// @downloadURL') || text.includes('// @updateURL');
+}
+
+function assertLiveAppAsset(app) {
+    assert(app.status === 200, 'Live newtab app.js did not load', { status: app.status });
+    assert(app.text.includes('__YOMU_READER_RUNTIME__'), 'Live newtab app.js did not load expected runtime code', { status: app.status });
+}
+
+function liveAssetReport(version, deployedVersion, appRequest, assets) {
+    return {
+        origin: LIVE_ORIGIN,
+        version: version.json,
+        deployedVersion,
+        localPackageVersion: pkg.version,
+        appRequest,
+        userscriptBytes: Buffer.byteLength(assets.userscript.text, 'utf8'),
+        appBytes: Buffer.byteLength(assets.app.text, 'utf8'),
+    };
 }
 
 function versionFromBuildId(buildId, appHash) {
@@ -164,78 +212,41 @@ async function runJishoAudioSmoke(browser, fixture) {
     const bridgeRequests = [];
     const context = await browser.newContext({ bypassCSP: true, viewport: { width: 900, height: 620 } });
     const page = await context.newPage();
-    await page.exposeFunction('__yomuLiveSmokeHttpRequest', async request => {
-        const mocked = liveSmokeBridgeMock(request);
-        if (mocked) {
-            bridgeRequests.push(mocked.summary);
-            return mocked.response;
-        }
-        const response = await fetch(request.url, {
-            method: request.method || 'GET',
-            headers: request.headers || {},
-            body: request.data || undefined,
-        });
-        const bytes = [...new Uint8Array(await response.arrayBuffer())];
-        const contentType = response.headers.get('content-type') ?? '';
-        bridgeRequests.push({ url: request.url, status: response.status, contentType, responseType: request.responseType || '' });
-        return {
-            status: response.status,
-            bytes,
-            contentType,
-            responseText: Buffer.from(bytes).toString('utf8'),
-        };
+    await page.exposeFunction('__yomuLiveSmokeHttpRequest', createLiveSmokeHttpRequestHandler(bridgeRequests));
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: jishoSettings,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuLiveSmokeHttpRequest',
     });
-    await page.addInitScript(({ settings, css, key }) => {
-        const memoryStore = new Map([[key, settings]]);
-        const readStoredValue = (storeKey, fallback) => memoryStore.has(storeKey) ? memoryStore.get(storeKey) : fallback;
-        window.GM_getValue = (storeKey, fallback) => readStoredValue(storeKey, fallback);
-        window.GM_setValue = (storeKey, value) => { memoryStore.set(storeKey, value); };
-        window.GM_deleteValue = storeKey => { memoryStore.delete(storeKey); };
-        window.GM_listValues = () => [...memoryStore.keys()];
-        window.GM_registerMenuCommand = () => undefined;
-        window.GM_addStyle = styleText => {
-            const style = document.createElement('style');
-            style.textContent = styleText;
-            document.documentElement.append(style);
-            return style;
-        };
-        window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
+    await page.addInitScript(() => {
         window.__yomuLiveSmokeAudioPlays = [];
         const originalPlay = HTMLMediaElement.prototype.play;
         HTMLMediaElement.prototype.play = function play() {
-            window.__yomuLiveSmokeAudioPlays.push({
-                currentSrc: this.currentSrc || '',
-                src: this.src || '',
-                attrSrc: this.getAttribute?.('src') || '',
-                loop: Boolean(this.loop),
-            });
+            window.__yomuLiveSmokeAudioPlays.push(audioPlaybackSnapshot(this));
             return Promise.resolve();
         };
         HTMLMediaElement.prototype.load = function load() {};
         window.__yomuLiveSmokeRestorePlay = () => { HTMLMediaElement.prototype.play = originalPlay; };
-        window.GM_xmlhttpRequest = options => {
-            Promise.resolve(window.__yomuLiveSmokeHttpRequest({
-                method: options.method || 'GET',
-                url: options.url,
-                headers: options.headers || {},
-                data: options.data ?? '',
-                responseType: options.responseType || '',
-            })).then(result => {
-                const bytes = new Uint8Array(result.bytes ?? []);
-                const response = options.responseType === 'blob'
-                    ? new Blob([bytes], { type: result.contentType || 'application/octet-stream' })
-                    : options.responseType === 'arraybuffer'
-                        ? bytes.buffer
-                        : result.responseText;
-                options.onload?.({
-                    status: result.status,
-                    response,
-                    responseText: result.responseText,
-                });
-            }).catch(error => options.onerror?.(error));
-        };
-        window.GM = { xmlHttpRequest: window.GM_xmlhttpRequest, xmlhttpRequest: window.GM_xmlhttpRequest };
-    }, { settings: jishoSettings, css: readFileSync(CSS_PATH, 'utf8'), key: SETTINGS_KEY });
+
+        function audioPlaybackSnapshot(element) {
+            return {
+                currentSrc: audioText(element.currentSrc),
+                src: audioText(element.src),
+                attrSrc: audioAttributeSrc(element),
+                loop: Boolean(element.loop),
+            };
+        }
+
+        function audioText(value) {
+            return value || '';
+        }
+
+        function audioAttributeSrc(element) {
+            if (!element.getAttribute) return '';
+            return audioText(element.getAttribute('src'));
+        }
+    });
 
     try {
         await page.goto(`${fixture.baseUrl}/jisho.html`, { waitUntil: 'domcontentloaded' });
@@ -267,39 +278,118 @@ async function runJishoAudioSmoke(browser, fixture) {
 }
 
 function liveSmokeBridgeMock(request) {
-    const url = request.url;
-    if (url === 'https://jpdb.io/api/v1/parse') {
-        return textBridgeResponse(url, request, JSON.stringify({
-            vocabulary: [[101, 201, 0, '下', 'した', 400, ['n'], [['below']], [['n']], ['not-in-deck'], ['LH']]],
-            tokens: [[[0, 0, 1, [['下', 'した']]]]],
-        }), 'application/json; charset=utf-8');
+    for (const respond of LIVE_SMOKE_BRIDGE_RESPONDERS) {
+        const mocked = respond(request.url, request);
+        if (mocked) return mocked;
     }
-    if (url === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
-        return textBridgeResponse(url, request, JSON.stringify({ vocabulary: [] }), 'application/json; charset=utf-8');
-    }
-    if (url === 'https://jpdb.io/api/v1/list-user-decks') {
-        return textBridgeResponse(url, request, JSON.stringify({ decks: [] }), 'application/json; charset=utf-8');
-    }
-    if (url.startsWith('https://jpdb.io/api/v1/')) {
-        return textBridgeResponse(url, request, JSON.stringify({}), 'application/json; charset=utf-8');
-    }
-    if (url === 'https://jisho.org/search/%E4%B8%8B') {
-        return textBridgeResponse(url, request, `
+    return null;
+}
+
+const LIVE_SMOKE_BRIDGE_RESPONDERS = [
+    liveSmokeJpdbApiResponse,
+    liveSmokeExactTextResponse,
+    liveSmokeAudioResponse,
+    liveSmokePrefixTextResponse,
+];
+
+const LIVE_SMOKE_JPDB_JSON = new Map([
+    ['https://jpdb.io/api/v1/parse', {
+        vocabulary: [[101, 201, 0, '下', 'した', 400, ['n'], [['below']], [['n']], ['not-in-deck'], ['LH']]],
+        tokens: [[[0, 0, 1, [['下', 'した']]]]],
+    }],
+    ['https://jpdb.io/api/v1/deck/list-vocabulary', { vocabulary: [] }],
+    ['https://jpdb.io/api/v1/list-user-decks', { decks: [] }],
+]);
+
+const LIVE_SMOKE_EXACT_TEXT = new Map([
+    ['https://jisho.org/search/%E4%B8%8B', {
+        contentType: 'text/html; charset=utf-8',
+        body: `
             <audio id="audio_下:した" preload="none">
                 <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu-live-smoke-shita.mp3" type="audio/mpeg">
             </audio>
-        `, 'text/html; charset=utf-8');
-    }
-    if (url === JISHO_AUDIO_URL) {
-        return bytesBridgeResponse(url, request, SILENT_WAV_BYTES, 'audio/mpeg');
-    }
-    if (url.startsWith('https://jpdb.io/search?')) {
-        return textBridgeResponse(url, request, '<main></main>', 'text/html; charset=utf-8');
-    }
-    if (url.startsWith('https://jisho.org/search/')) {
-        return textBridgeResponse(url, request, '<main></main>', 'text/html; charset=utf-8');
-    }
-    return null;
+        `,
+    }],
+]);
+
+const LIVE_SMOKE_PREFIX_TEXT = [
+    { prefix: 'https://jpdb.io/search?', body: '<main></main>', contentType: 'text/html; charset=utf-8' },
+    { prefix: 'https://jisho.org/search/', body: '<main></main>', contentType: 'text/html; charset=utf-8' },
+];
+
+function liveSmokeJpdbApiResponse(url, request) {
+    const body = liveSmokeJpdbJsonBody(url);
+    return body ? textBridgeResponse(url, request, JSON.stringify(body), 'application/json; charset=utf-8') : null;
+}
+
+function liveSmokeJpdbJsonBody(url) {
+    if (LIVE_SMOKE_JPDB_JSON.has(url)) return LIVE_SMOKE_JPDB_JSON.get(url);
+    return url.startsWith('https://jpdb.io/api/v1/') ? {} : null;
+}
+
+function liveSmokeExactTextResponse(url, request) {
+    const match = LIVE_SMOKE_EXACT_TEXT.get(url);
+    return match ? textBridgeResponse(url, request, match.body, match.contentType) : null;
+}
+
+function liveSmokeAudioResponse(url, request) {
+    return url === JISHO_AUDIO_URL ? bytesBridgeResponse(url, request, SILENT_WAV_BYTES, 'audio/mpeg') : null;
+}
+
+function liveSmokePrefixTextResponse(url, request) {
+    const match = LIVE_SMOKE_PREFIX_TEXT.find(item => url.startsWith(item.prefix));
+    return match ? textBridgeResponse(url, request, match.body, match.contentType) : null;
+}
+
+function createLiveSmokeHttpRequestHandler(bridgeRequests) {
+    return async function handleLiveSmokeHttpRequest(request) {
+        const mocked = liveSmokeBridgeMock(request);
+        if (mocked) return recordMockedBridgeResponse(bridgeRequests, mocked);
+        return await fetchLiveSmokeBridgeRequest(bridgeRequests, request);
+    };
+}
+
+function recordMockedBridgeResponse(bridgeRequests, mocked) {
+    bridgeRequests.push(mocked.summary);
+    return mocked.response;
+}
+
+async function fetchLiveSmokeBridgeRequest(bridgeRequests, request) {
+    const response = await fetch(request.url, liveSmokeBridgeFetchOptions(request));
+    const bytes = [...new Uint8Array(await response.arrayBuffer())];
+    const contentType = response.headers.get('content-type') ?? '';
+    bridgeRequests.push(fetchedBridgeSummary(request, response, contentType));
+    return fetchedBridgeResponse(response, bytes, contentType);
+}
+
+function liveSmokeBridgeFetchOptions(request) {
+    return {
+        method: bridgeRequestMethod(request),
+        headers: request.headers || {},
+        body: gmRequestFetchBody(request),
+    };
+}
+
+function bridgeRequestMethod(request) {
+    return request.method || 'GET';
+}
+
+function fetchedBridgeSummary(request, response, contentType) {
+    return {
+        url: request.url,
+        status: response.status,
+        contentType,
+        responseType: request.responseType || '',
+    };
+}
+
+function fetchedBridgeResponse(response, bytes, contentType) {
+    return {
+        status: response.status,
+        bytes,
+        contentType,
+        responseText: Buffer.from(bytes).toString('utf8'),
+    };
 }
 
 function textBridgeResponse(url, request, responseText, contentType = 'text/plain; charset=utf-8') {
@@ -349,39 +439,8 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
         if (message.type() === 'error' || message.type() === 'warning') pageMessages.push(`${message.type()}: ${message.text()}`);
     });
     page.on('pageerror', error => pageMessages.push(`pageerror: ${firstErrorLine(error)}`));
-    await page.exposeFunction('__yomuLiveSmokeAnkiRequest', async request => {
-        bridgeRequests.push({
-            method: request.method || 'GET',
-            url: request.url,
-            responseType: request.responseType || '',
-        });
-        const response = await fetch(request.url, {
-            method: request.method || 'GET',
-            headers: request.headers || {},
-            body: request.data || undefined,
-        });
-        const responseText = await response.text();
-        return {
-            status: response.status,
-            finalUrl: response.url,
-            responseText,
-            response: request.responseType === 'json' ? JSON.parse(responseText) : responseText,
-        };
-    });
-    await page.addInitScript(() => {
-        window.GM_registerMenuCommand = () => undefined;
-        window.GM_xmlhttpRequest = options => {
-            Promise.resolve(window.__yomuLiveSmokeAnkiRequest({
-                method: options.method || 'GET',
-                url: options.url,
-                headers: options.headers || {},
-                data: options.data ?? '',
-                responseType: options.responseType || '',
-            })).then(response => options.onload?.(response))
-                .catch(error => options.onerror?.(error));
-        };
-        window.GM = { xmlHttpRequest: window.GM_xmlhttpRequest, xmlhttpRequest: window.GM_xmlhttpRequest };
-    });
+    await page.exposeFunction('__yomuLiveSmokeAnkiRequest', createHostedAnkiRequestHandler(bridgeRequests));
+    await addGmXmlHttpRequestBridgeInitScript(page, { requestBridgeName: '__yomuLiveSmokeAnkiRequest' });
     try {
         await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-anki-bridge-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
         await page.addScriptTag({ path: USERSCRIPT_PATH });
@@ -438,6 +497,36 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
     }
 }
 
+function createHostedAnkiRequestHandler(bridgeRequests) {
+    return async function handleHostedAnkiRequest(request) {
+        bridgeRequests.push(hostedAnkiRequestSummary(request));
+        const response = await fetch(request.url, {
+            method: request.method || 'GET',
+            headers: request.headers || {},
+            body: gmRequestFetchBody(request),
+        });
+        const responseText = await response.text();
+        return hostedAnkiResponse(request, response, responseText);
+    };
+}
+
+function hostedAnkiRequestSummary(request) {
+    return {
+        method: request.method || 'GET',
+        url: request.url,
+        responseType: request.responseType || '',
+    };
+}
+
+function hostedAnkiResponse(request, response, responseText) {
+    return {
+        status: response.status,
+        finalUrl: response.url,
+        responseText,
+        response: request.responseType === 'json' ? JSON.parse(responseText) : responseText,
+    };
+}
+
 async function ankiConnect(body) {
     const response = await fetch(ANKI_URL, {
         method: 'POST',
@@ -448,60 +537,39 @@ async function ankiConnect(body) {
     return await response.json();
 }
 
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
+async function waitFor(predicate, timeoutMs, messageOrDetails) {
+    if (await waitUntil(predicate, timeoutMs)) return;
+    const details = await waitForDetails(messageOrDetails);
+    throw new Error(`${waitForMessage(details)}\n${JSON.stringify(details, null, 2)}`);
 }
 
-async function waitFor(predicate, timeoutMs, messageOrDetails) {
+async function waitUntil(predicate, timeoutMs) {
     const startedAt = Date.now();
     while (Date.now() - startedAt < timeoutMs) {
-        if (await predicate()) return;
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (await predicate()) return true;
+        await waitForPollInterval();
     }
-    const details = typeof messageOrDetails === 'function' ? await messageOrDetails() : { message: messageOrDetails };
-    const message = details?.message ?? 'Timed out waiting for condition';
-    throw new Error(`${message}\n${JSON.stringify(details, null, 2)}`);
+    return false;
+}
+
+function waitForPollInterval() {
+    return new Promise(resolve => setTimeout(resolve, 100));
+}
+
+async function waitForDetails(messageOrDetails) {
+    return typeof messageOrDetails === 'function' ? await messageOrDetails() : { message: messageOrDetails };
+}
+
+function waitForMessage(details) {
+    return details?.message ?? 'Timed out waiting for condition';
 }
 
 async function documentTextSnapshot(page) {
     return await page.evaluate(() => (document.querySelector('.jpdb-reader-popover')?.textContent ?? document.body.textContent ?? '').slice(0, 1200));
 }
 
-async function launchSmokeBrowser(browserType, browserName, options) {
-    const configuredChannel = process.env.YOMU_PLAYWRIGHT_CHANNEL;
-    if (configuredChannel && browserName === 'chromium') return chromium.launch({ ...options, channel: configuredChannel });
-    try {
-        return await browserType.launch(options);
-    } catch (error) {
-        if (browserName !== 'chromium' || !isMissingBrowserExecutable(error)) throw error;
-        return chromium.launch({ ...options, channel: 'chrome' });
-    }
-}
-
-async function launchOptionalBrowser(browserType, browserName, options) {
-    try {
-        return { browser: await launchSmokeBrowser(browserType, browserName, options) };
-    } catch (error) {
-        if (!isMissingBrowserExecutable(error)) throw error;
-        return { skipped: true, browserName, reason: firstErrorLine(error) };
-    }
-}
-
-function isMissingBrowserExecutable(error) {
-    const message = String(error?.message ?? '');
-    return message.includes("Executable doesn't exist") || /playwright install/i.test(message);
-}
-
-function firstErrorLine(error) {
-    return String(error?.message ?? error).split('\n').find(Boolean) ?? 'Browser executable is unavailable.';
-}
-
 async function main() {
-    assertBuiltArtifacts();
+    assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT);
     mkdirSync(ARTIFACTS, { recursive: true });
     const fixture = await createFixtureServer();
     const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
@@ -525,7 +593,7 @@ async function main() {
         console.log(JSON.stringify(report, null, 2));
     } finally {
         await browser.close().catch(() => undefined);
-        await new Promise(resolve => fixture.server.close(resolve));
+        await closeServer(fixture.server);
     }
 }
 

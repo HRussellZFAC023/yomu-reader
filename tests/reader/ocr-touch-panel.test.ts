@@ -5,24 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import { waitForExpect } from './test-utils';
 
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-
-async function waitForExpect(assertion: () => void | Promise<void>, timeoutMs = 1000): Promise<void> {
-    const start = Date.now();
-    let lastError: unknown;
-    while (Date.now() - start < timeoutMs) {
-        try {
-            await assertion();
-            return;
-        } catch (error) {
-            lastError = error;
-            await new Promise(resolve => setTimeout(resolve, 20));
-        }
-    }
-    if (lastError) throw lastError;
-    await assertion();
-}
 
 function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {

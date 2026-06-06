@@ -460,6 +460,7 @@ function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSett
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
         preferJapaneseSiteLanguage: has('preferJapaneseSiteLanguage'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
+        youtubeShowChannelRecommendations: has('youtubeShowChannelRecommendations'),
     };
 }
 

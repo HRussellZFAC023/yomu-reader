@@ -2653,14 +2653,9 @@ function compareGrammarHints(a: GrammarHint, b: GrammarHint): number {
 function shouldSuppressOverlappingGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
     if (!grammarHintRangesOverlap(existing, next)) return false;
     if (sameGrammarHintLocation(existing, next)) return true;
-    if (existing.ruleId === 'copula-desu-da' && next.priority < 50) return false;
-    if (existing.priority < 40 && next.priority < 40) return false;
-    const nextIsLooseEndingOrParticle = next.priority >= 40;
-    if (nextIsLooseEndingOrParticle && existing.priority < next.priority) return true;
-    const nextEnd = next.index + next.match.length;
-    const existingEnd = existing.index + existing.match.length;
-    const nextInsideExisting = next.index >= existing.index && nextEnd <= existingEnd;
-    return nextInsideExisting && existing.priority <= next.priority && existing.match.length > next.match.length;
+    if (shouldKeepOverlappingGrammarHint(existing, next)) return false;
+    return shouldSuppressLooseGrammarHint(existing, next)
+        || shouldSuppressContainedGrammarHint(existing, next);
 }
 
 function sameGrammarHintLocation(existing: GrammarHint, next: GrammarHint): boolean {
@@ -2673,7 +2668,37 @@ function grammarHintRangesOverlap(a: GrammarHint, b: GrammarHint): boolean {
     return a.index < bEnd && b.index < aEnd;
 }
 
-export function readGrammarPreferences(): GrammarPreferences {
+function shouldKeepOverlappingGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
+    return isCopulaPriorityException(existing, next) || areBothHighConfidenceGrammarHints(existing, next);
+}
+
+function isCopulaPriorityException(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
+    return existing.ruleId === 'copula-desu-da' && next.priority < 50;
+}
+
+function areBothHighConfidenceGrammarHints(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
+    return existing.priority < 40 && next.priority < 40;
+}
+
+function shouldSuppressLooseGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
+    return next.priority >= 40 && existing.priority < next.priority;
+}
+
+function shouldSuppressContainedGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
+    return grammarHintContains(existing, next)
+        && existing.priority <= next.priority
+        && existing.match.length > next.match.length;
+}
+
+function grammarHintContains(outer: GrammarHint, inner: GrammarHint): boolean {
+    return inner.index >= outer.index && grammarHintEnd(inner) <= grammarHintEnd(outer);
+}
+
+function grammarHintEnd(hint: GrammarHint): number {
+    return hint.index + hint.match.length;
+}
+
+function readGrammarPreferences(): GrammarPreferences {
     const fallback: GrammarPreferences = { knownRuleIds: [], showKnown: false };
     try {
         const raw = globalThis.localStorage?.getItem(GRAMMAR_PREFERENCES_KEY);
@@ -2691,7 +2716,7 @@ export function readGrammarPreferences(): GrammarPreferences {
     }
 }
 
-export function writeGrammarPreferences(preferences: GrammarPreferences): void {
+function writeGrammarPreferences(preferences: GrammarPreferences): void {
     try {
         const uniqueKnownRuleIds = Array.from(new Set(preferences.knownRuleIds)).sort();
         globalThis.localStorage?.setItem(GRAMMAR_PREFERENCES_KEY, JSON.stringify({
@@ -2941,72 +2966,69 @@ const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめ
 const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
 const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
 
+interface GrammarMatchContext {
+    rawMatch: string;
+    before: string;
+    following: string;
+}
+
+type GrammarMatchSkipPredicate = (context: GrammarMatchContext) => boolean;
+
+const GRAMMAR_MATCH_SKIP_PREDICATES: Readonly<Record<string, GrammarMatchSkipPredicate>> = {
+    'appearance-sou': ({ rawMatch }) => rawMatch === 'そう' || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
+    'hearsay-sou-da': ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
+    'volitional-you': ({ rawMatch }) => rawMatch === 'よう' || rawMatch === 'さよう',
+    'similarity-you-da': ({ rawMatch }) => rawMatch.startsWith('さよう'),
+    'conditional-nara': ({ rawMatch }) => rawMatch.endsWith('さようなら'),
+    'desire-tai': ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
+    'without-naide': ({ rawMatch, following }) => rawMatch.endsWith('ないで') && following.startsWith('す'),
+    'negative-nai': ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
+    'method-kata': shouldSkipMethodKataMatch,
+    'suffix-ge': ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
+    'state-mama': ({ rawMatch, before }) => rawMatch.includes('わがまま') || (rawMatch === 'まま' && before.endsWith('わが')),
+    'difficulty-gatai': ({ rawMatch }) => rawMatch.endsWith('ありがたい'),
+    'substitution-kawari-ni': ({ rawMatch }) => rawMatch.endsWith('おかわりに'),
+    'suffix-meku': ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
+    'possibility-eru-enai': ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith('心得'),
+    'suffix-gimi': ({ rawMatch }) => rawMatch.endsWith('不気味'),
+    'fresh-tate': ({ rawMatch }) => rawMatch === 'たて',
+    'elapsed-buri-ni': ({ rawMatch }) => rawMatch.endsWith('すぶりに'),
+    'ease-yasui-nikui': ({ rawMatch }) => rawMatch === 'やすい',
+    'examples-toka': ({ following }) => following.startsWith('言') || following.startsWith('聞') || following.startsWith('思'),
+    'explanation-no-da': ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
+    'skill-no-ga-suki': shouldSkipPronounPossessiveNominalizerMatch,
+    'nominalizer-no': shouldSkipPronounPossessiveNominalizerMatch,
+    'sensation-ga-suru': ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
+    'standard-ni-shite-wa': ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
+    'emphasis-sae': ({ rawMatch }) => rawMatch.endsWith('ささえ'),
+    'emphasis-koso': ({ rawMatch }) => rawMatch.endsWith('ようこそ'),
+    'evidence-rashii-mitai': ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch),
+};
+
 function shouldSkipGrammarMatch(item: GrammarPattern, sentence: string, match: RegExpMatchArray): boolean {
+    const predicate = GRAMMAR_MATCH_SKIP_PREDICATES[item.ruleId];
+    if (!predicate) return false;
+    return predicate(grammarMatchContext(sentence, match));
+}
+
+function grammarMatchContext(sentence: string, match: RegExpMatchArray): GrammarMatchContext {
     const rawMatch = match[0];
     const start = match.index ?? 0;
     const end = start + rawMatch.length;
-    const before = sentence.slice(Math.max(0, start - 4), start);
-    const following = sentence.slice(end, end + 6);
-    switch (item.ruleId) {
-        case 'appearance-sou':
-            return rawMatch === 'そう' || /(?:かわいそう|ごちそう)$/u.test(rawMatch);
-        case 'hearsay-sou-da':
-            return /(?:かわいそう|ごちそう)/u.test(rawMatch);
-        case 'volitional-you':
-            return rawMatch === 'よう' || rawMatch === 'さよう';
-        case 'similarity-you-da':
-            return rawMatch.startsWith('さよう');
-        case 'conditional-nara':
-            return rawMatch.endsWith('さようなら');
-        case 'desire-tai':
-            return LEXICAL_DESIRE_TAI_RE.test(rawMatch);
-        case 'without-naide':
-            return rawMatch.endsWith('ないで') && following.startsWith('す');
-        case 'negative-nai':
-            return LEXICAL_NEGATIVE_NAI_RE.test(rawMatch);
-        case 'method-kata':
-            return LEXICAL_METHOD_KATA_RE.test(rawMatch)
-                || (rawMatch === '方' && (following.startsWith('法') || before.endsWith('の') || /[夕地親行]/u.test(before.slice(-1))));
-        case 'suffix-ge':
-            return LEXICAL_SUFFIX_GE_RE.test(rawMatch);
-        case 'state-mama':
-            return rawMatch.includes('わがまま') || (rawMatch === 'まま' && before.endsWith('わが'));
-        case 'difficulty-gatai':
-            return rawMatch.endsWith('ありがたい');
-        case 'substitution-kawari-ni':
-            return rawMatch.endsWith('おかわりに');
-        case 'suffix-meku':
-            return LEXICAL_SUFFIX_MEKU_RE.test(rawMatch);
-        case 'possibility-eru-enai':
-            return LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith('心得');
-        case 'suffix-gimi':
-            return rawMatch.endsWith('不気味');
-        case 'fresh-tate':
-            return rawMatch === 'たて';
-        case 'elapsed-buri-ni':
-            return rawMatch.endsWith('すぶりに');
-        case 'ease-yasui-nikui':
-            return rawMatch === 'やすい';
-        case 'examples-toka':
-            return following.startsWith('言') || following.startsWith('聞') || following.startsWith('思');
-        case 'explanation-no-da':
-            return /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch);
-        case 'skill-no-ga-suki':
-        case 'nominalizer-no':
-            return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
-        case 'sensation-ga-suru':
-            return /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch);
-        case 'standard-ni-shite-wa':
-            return /^(?:いけ|なら|だめ)/u.test(following);
-        case 'emphasis-sae':
-            return rawMatch.endsWith('ささえ');
-        case 'emphasis-koso':
-            return rawMatch.endsWith('ようこそ');
-        case 'evidence-rashii-mitai':
-            return BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch);
-        default:
-            return false;
-    }
+    return {
+        rawMatch,
+        before: sentence.slice(Math.max(0, start - 4), start),
+        following: sentence.slice(end, end + 6),
+    };
+}
+
+function shouldSkipMethodKataMatch({ rawMatch, before, following }: GrammarMatchContext): boolean {
+    return LEXICAL_METHOD_KATA_RE.test(rawMatch)
+        || (rawMatch === '方' && (following.startsWith('法') || before.endsWith('の') || /[夕地親行]/u.test(before.slice(-1))));
+}
+
+function shouldSkipPronounPossessiveNominalizerMatch({ rawMatch }: GrammarMatchContext): boolean {
+    return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
 }
 
 function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {
@@ -3078,21 +3100,38 @@ async function loadGrammarRuleData(): Promise<Record<string, GrammarRuleData>> {
 }
 
 function normalizeGrammarRuleData(value: unknown): Record<string, GrammarRuleData> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    if (!isObjectRecord(value)) return {};
     const data: Record<string, GrammarRuleData> = {};
     for (const [ruleId, item] of Object.entries(value)) {
-        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-        const candidate = item as Partial<Record<keyof GrammarRuleData, unknown>>;
-        if (typeof candidate.kind !== 'string' || typeof candidate.short !== 'string' || typeof candidate.detail !== 'string') continue;
-        data[ruleId] = {
-            kind: candidate.kind,
-            short: candidate.short,
-            detail: candidate.detail,
-            url: typeof candidate.url === 'string' && candidate.url ? candidate.url : undefined,
-            examples: normalizeGrammarExamples(candidate.examples),
-        };
+        const normalized = normalizeGrammarRuleDataItem(item);
+        if (normalized) data[ruleId] = normalized;
     }
     return data;
+}
+
+function normalizeGrammarRuleDataItem(item: unknown): GrammarRuleData | undefined {
+    if (!isObjectRecord(item)) return undefined;
+    const candidate = item as Partial<Record<keyof GrammarRuleData, unknown>>;
+    if (!hasRequiredGrammarRuleData(candidate)) return undefined;
+    return {
+        kind: candidate.kind,
+        short: candidate.short,
+        detail: candidate.detail,
+        url: grammarRuleDataUrl(candidate.url),
+        examples: normalizeGrammarExamples(candidate.examples),
+    };
+}
+
+function hasRequiredGrammarRuleData(
+    candidate: Partial<Record<keyof GrammarRuleData, unknown>>,
+): candidate is Partial<Record<keyof GrammarRuleData, unknown>> & Pick<GrammarRuleData, 'kind' | 'short' | 'detail'> {
+    return typeof candidate.kind === 'string'
+        && typeof candidate.short === 'string'
+        && typeof candidate.detail === 'string';
+}
+
+function grammarRuleDataUrl(value: unknown): string | undefined {
+    return typeof value === 'string' && value ? value : undefined;
 }
 
 function normalizeGrammarExamples(value: unknown): GrammarExample[] {
@@ -3107,6 +3146,10 @@ function normalizeGrammarExamples(value: unknown): GrammarExample[] {
             ...(typeof candidate.note === 'string' ? { note: candidate.note } : {}),
         }];
     });
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 interface GoogleTranslateResponse {

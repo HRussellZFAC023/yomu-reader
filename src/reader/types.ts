@@ -333,6 +333,7 @@ export interface ReaderSettings {
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
+    youtubeShowChannelRecommendations: boolean;
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
     ankiSectionEnabled: boolean;

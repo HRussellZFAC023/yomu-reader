@@ -79,10 +79,9 @@ function videoInsetWidth(options: ApplySubtitleVideoInsetOptions): number {
         : Math.max(320, Math.round(options.playerSize));
 }
 
-function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, width: number): number {
+function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, _width: number): number {
     if (options.side === 'bottom') return Math.max(180, Math.round(options.playerSize));
-    const aspect = videoAspectRatio(options.video);
-    return Number.isFinite(aspect) && aspect > 0 ? Math.round(width * aspect) : 0;
+    return Math.max(180, Math.round(options.videoRect.height));
 }
 
 function applyGenericVideoInsetIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {
@@ -157,6 +156,8 @@ function bottomInsetHeight(side: SubtitleVideoInsetSide, height: number): number
     return side === 'bottom' ? height : 0;
 }
 
+const youtubePlayerContainerBaseRects = new WeakMap<HTMLElement, { left: number; right: number }>();
+
 function youtubePlayerContainers(): HTMLElement[] {
     if (!isYouTubePage()) return [];
     return [
@@ -181,13 +182,16 @@ function applyBottomYouTubePlayerContainerInset(element: HTMLElement, height: nu
 }
 
 function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclude<SubtitleVideoInsetSide, 'bottom'>, width: number, inset: number): void {
+    const rect = element.getBoundingClientRect();
+    const baseRect = youtubePlayerContainerBaseRects.get(element) ?? { left: rect.left, right: rect.right };
+    if (!youtubePlayerContainerBaseRects.has(element)) youtubePlayerContainerBaseRects.set(element, baseRect);
     const widthValue = `${width}px`;
     setStylePropertyIfChanged(element, 'width', widthValue);
     setStylePropertyIfChanged(element, 'max-width', widthValue);
     setStylePropertyIfChanged(element, 'min-width', '0px');
     const margin = side === 'left'
-        ? `${Math.max(0, Math.round(inset - element.getBoundingClientRect().left))}px`
-        : `${Math.max(0, Math.round(element.getBoundingClientRect().right - (window.innerWidth - inset)))}px`;
+        ? `${Math.max(0, Math.round(inset - baseRect.left))}px`
+        : `${Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)))}px`;
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-left' : 'margin-right', margin);
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-right' : 'margin-left', '0px');
 }
@@ -290,25 +294,29 @@ function clearYouTubePlayerContainerInset(element: HTMLElement): void {
     for (const property of ['width', 'max-width', 'min-width', 'height', 'max-height', 'min-height', 'margin-left', 'margin-right']) {
         if (element.style.getPropertyValue(property)) element.style.removeProperty(property);
     }
+    youtubePlayerContainerBaseRects.delete(element);
 }
 
-type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf';
+type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf' | 'objectFit';
 
 const genericVideoInsetStyles = new WeakMap<HTMLElement, Partial<Record<GenericInsetProperty, string>>>();
+const genericVideoInsetBaseRects = new WeakMap<HTMLElement, { left: number; right: number; height: number }>();
 const genericVideoInsetTargets = new WeakMap<HTMLVideoElement, HTMLElement>();
 
 function applyGenericVideoInset(video: HTMLVideoElement, side: SubtitleVideoInsetSide, size: number, height = 0): void {
-    const target = prepareGenericVideoInsetTarget(video);
+    const target = prepareGenericVideoInsetTarget(video, side);
     if (side === 'bottom') {
         applyGenericBottomInset(target, size, video);
         return;
     }
-    applyGenericSideInset(target, side, size, height);
+    applyGenericSideInset(target, side, size, height, video);
 }
 
-function prepareGenericVideoInsetTarget(video: HTMLVideoElement): HTMLElement {
-    const target = genericVideoLayoutTarget(video);
+function prepareGenericVideoInsetTarget(video: HTMLVideoElement, side: SubtitleVideoInsetSide): HTMLElement {
     const previousTarget = genericVideoInsetTargets.get(video);
+    const target = previousTarget && side !== 'bottom'
+        ? previousTarget
+        : genericVideoLayoutTarget(video, side);
     if (previousTarget && previousTarget !== target) clearGenericVideoInsetTarget(previousTarget);
     genericVideoInsetTargets.set(video, target);
     rememberGenericVideoInsetStyles(target);
@@ -317,6 +325,8 @@ function prepareGenericVideoInsetTarget(video: HTMLVideoElement): HTMLElement {
 
 function rememberGenericVideoInsetStyles(target: HTMLElement): void {
     if (genericVideoInsetStyles.has(target)) return;
+    const rect = target.getBoundingClientRect();
+    genericVideoInsetBaseRects.set(target, { left: rect.left, right: rect.right, height: rect.height });
     genericVideoInsetStyles.set(target, {
         width: target.style.width,
         height: target.style.height,
@@ -327,6 +337,7 @@ function rememberGenericVideoInsetStyles(target: HTMLElement): void {
         marginLeft: target.style.marginLeft,
         marginRight: target.style.marginRight,
         justifySelf: target.style.justifySelf,
+        objectFit: target.style.objectFit,
     });
 }
 
@@ -336,6 +347,7 @@ function applyGenericBottomInset(target: HTMLElement, size: number, video: HTMLV
     setStylePropertyIfChanged(target, 'height', `${Math.round(height)}px`);
     setStylePropertyIfChanged(target, 'max-height', `${Math.round(height)}px`);
     setStylePropertyIfChanged(target, 'min-height', '0px');
+    if (target === video) setStylePropertyIfChanged(target, 'object-fit', 'contain');
 }
 
 function genericBottomInsetHeight(target: HTMLElement, size: number, video: HTMLVideoElement): number {
@@ -343,24 +355,43 @@ function genericBottomInsetHeight(target: HTMLElement, size: number, video: HTML
     return Math.min(size, target.getBoundingClientRect().width * videoAspectRatio(video));
 }
 
-function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide, size: number, height: number): void {
+function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide, size: number, height: number, video: HTMLVideoElement): void {
     restoreGenericBottomInsetStyles(target);
     const rect = target.getBoundingClientRect();
+    const baseRect = genericVideoInsetBaseRects.get(target) ?? rect;
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')) || 0;
     const margin = side === 'left'
-        ? Math.max(0, Math.round(inset - rect.left))
-        : Math.max(0, Math.round(rect.right - (window.innerWidth - inset)));
+        ? Math.max(0, Math.round(inset - baseRect.left))
+        : Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)));
+    const stableHeight = sideInsetStableHeight(target, height);
     setStylePropertyIfChanged(target, 'width', `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, 'max-width', `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, 'min-width', '0px');
-    setStylePropertyIfChanged(target, 'justify-self', side === 'left' ? 'end' : 'start');
-    if (height > 0) {
-        setStylePropertyIfChanged(target, 'height', `${Math.round(height)}px`);
-        setStylePropertyIfChanged(target, 'max-height', `${Math.round(height)}px`);
+    setStylePropertyIfChanged(target, 'justify-self', 'start');
+    if (stableHeight > 0) {
+        setStylePropertyIfChanged(target, 'height', `${Math.round(stableHeight)}px`);
+        setStylePropertyIfChanged(target, 'max-height', `${Math.round(stableHeight)}px`);
         setStylePropertyIfChanged(target, 'min-height', '0px');
     }
+    if (target === video) setStylePropertyIfChanged(target, 'object-fit', 'contain');
+    else applyContainedVideoHeight(video, height);
     setStylePropertyIfChanged(target, side === 'left' ? 'margin-left' : 'margin-right', `${margin}px`);
     setStylePropertyIfChanged(target, side === 'left' ? 'margin-right' : 'margin-left', '0px');
+}
+
+function sideInsetStableHeight(target: HTMLElement, fallbackHeight: number): number {
+    const rectHeight = genericVideoInsetBaseRects.get(target)?.height ?? target.getBoundingClientRect().height;
+    return Math.max(0, Math.round(rectHeight || fallbackHeight));
+}
+
+function applyContainedVideoHeight(video: HTMLVideoElement, height: number): void {
+    const stableHeight = sideInsetStableHeight(video, height);
+    if (stableHeight <= 0) return;
+    rememberGenericVideoInsetStyles(video);
+    setStylePropertyIfChanged(video, 'height', `${Math.round(stableHeight)}px`);
+    setStylePropertyIfChanged(video, 'max-height', `${Math.round(stableHeight)}px`);
+    setStylePropertyIfChanged(video, 'min-height', '0px');
+    setStylePropertyIfChanged(video, 'object-fit', 'contain');
 }
 
 function restoreGenericSideInsetStyles(target: HTMLElement): void {
@@ -375,6 +406,7 @@ function restoreGenericSideInsetStyles(target: HTMLElement): void {
     setRestoredStyleProperty(target, 'margin-left', previous.marginLeft);
     setRestoredStyleProperty(target, 'margin-right', previous.marginRight);
     setRestoredStyleProperty(target, 'justify-self', previous.justifySelf);
+    setRestoredStyleProperty(target, 'object-fit', previous.objectFit);
 }
 
 function restoreGenericBottomInsetStyles(target: HTMLElement): void {
@@ -386,8 +418,9 @@ function restoreGenericBottomInsetStyles(target: HTMLElement): void {
 }
 
 function clearGenericVideoInset(video: HTMLVideoElement): void {
-    const target = genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video);
+    const target = genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video, 'right');
     clearGenericVideoInsetTarget(target);
+    if (target !== video) clearGenericVideoInsetTarget(video);
     genericVideoInsetTargets.delete(video);
 }
 
@@ -403,12 +436,15 @@ function clearGenericVideoInsetTarget(target: HTMLElement): void {
     setRestoredStyleProperty(target, 'margin-left', previous.marginLeft);
     setRestoredStyleProperty(target, 'margin-right', previous.marginRight);
     setRestoredStyleProperty(target, 'justify-self', previous.justifySelf);
+    setRestoredStyleProperty(target, 'object-fit', previous.objectFit);
     genericVideoInsetStyles.delete(target);
+    genericVideoInsetBaseRects.delete(target);
 }
 
-function genericVideoLayoutTarget(video: HTMLVideoElement): HTMLElement {
+function genericVideoLayoutTarget(video: HTMLVideoElement, side: SubtitleVideoInsetSide = 'right'): HTMLElement {
     const parent = video.parentElement;
     if (!isGenericVideoLayoutParent(parent)) return video;
+    if (side === 'bottom' && !parent.matches('[data-yomu-video-frame]')) return video;
     const parentRect = parent.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
     return shouldUseGenericVideoParent(parent, parentRect, videoRect) ? parent : video;

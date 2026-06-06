@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { assert } from './smoke-harness.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
@@ -9,6 +10,9 @@ const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const WATCH_URL = 'https://www.youtube.com/watch?v=feature123';
 const HOME_URL = 'https://www.youtube.com/';
+const MOBILE_HOME_URL = 'https://m.youtube.com/';
+const SHORTS_GALLERY_URL = 'https://www.youtube.com/feed/shorts';
+const SHORTS_WATCH_URL = 'https://www.youtube.com/shorts/watch-en';
 
 const baseSettings = {
     onboardingSeen: true,
@@ -36,13 +40,6 @@ const youtubeTimedText = `<timedtext><body>
 <p t="4500" d="1800"><s t="0">梅干しをセロハンテープで貼る話。</s></p>
 </body></timedtext>`;
 
-function assert(condition, message, details = {}) {
-    if (!condition) {
-        const suffix = Object.keys(details).length ? `\n${JSON.stringify(details, null, 2)}` : '';
-        throw new Error(`${message}${suffix}`);
-    }
-}
-
 function youtubeHomeHtml() {
     return `<!doctype html>
 <html>
@@ -59,7 +56,6 @@ function youtubeHomeHtml() {
     .thumb { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #3b3b3b; }
     #video-title-link { display: block; margin-top: 12px; color: #f1f1f1; text-decoration: none; font-size: 18px; line-height: 1.35; font-weight: 600; }
     .meta { color: #aaa; margin-top: 6px; }
-    .jpdb-youtube-filtered { display: none !important; }
   </style>
 </head>
 <body>
@@ -129,7 +125,6 @@ function youtubeWatchHtml() {
     ytd-compact-video-renderer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; min-height: 84px; }
     ytd-compact-video-renderer .thumb { border-radius: 8px; background: #333; }
     ytd-compact-video-renderer a { color: #f1f1f1; text-decoration: none; line-height: 1.35; font-weight: 600; }
-    .jpdb-youtube-filtered { display: none !important; }
   </style>
   <script>
     window.ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};
@@ -189,22 +184,175 @@ function youtubeWatchHtml() {
 </html>`;
 }
 
+function youtubeMobileHomeHtml() {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>YouTube Mobile</title>
+  <style>
+    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
+    ytm-app { display: block; min-height: 1800px; }
+    header { height: 56px; display: flex; align-items: center; padding: 0 16px; position: sticky; top: 0; background: #0f0f0f; z-index: 3; }
+    ytm-rich-grid-renderer { display: grid; gap: 18px; padding: 8px 12px 80px; }
+    ytm-video-with-context-renderer, ytm-shorts-lockup-view-model { display: block; min-height: 216px; }
+    ytm-media-item, .short-card { display: block; }
+    .media-item-thumbnail-container, .short-thumb { display: block; aspect-ratio: 16 / 9; border-radius: 10px; background: #333; }
+    .short-thumb { aspect-ratio: 9 / 16; width: min(42vw, 170px); }
+    .media-item-headline, .shortsLockupViewModelHostMetadataTitle { margin: 10px 0 0; font-size: 16px; line-height: 1.35; color: #f1f1f1; }
+    a { color: inherit; text-decoration: none; }
+    ytm-continuation-item-renderer { display: block; height: 160px; color: #aaa; text-align: center; padding-top: 32px; }
+  </style>
+</head>
+<body>
+  <ytm-app>
+    <header><strong>YouTube</strong></header>
+    <ytm-browse>
+      <ytm-rich-grid-renderer id="mobile-grid">
+        ${mobileVideoCard('mobile-jp', 'mweb-jp', '東京散歩', 'jp')}
+        ${mobileVideoCard('mobile-english', 'mweb-en', 'Desk setup tour', 'en')}
+        ${mobileVideoCard('mobile-original-jp', 'mweb-original-jp', 'Morning routine', 'jp')}
+        ${mobileShortCard('mobile-short-jp', 'short-jp', '京都で朝ごはん', 'jp')}
+        ${mobileShortCard('mobile-short-en', 'short-en', 'Gym routine Short', 'en')}
+      </ytm-rich-grid-renderer>
+      <ytm-continuation-item-renderer id="continuation">Loading more</ytm-continuation-item-renderer>
+    </ytm-browse>
+  </ytm-app>
+  <script>
+    window.__yomuContinuationNudges = 0;
+    window.__yomuLoadedMobileBatch = false;
+    const grid = document.querySelector('#mobile-grid');
+    const continuation = document.querySelector('#continuation');
+    continuation.scrollIntoView = () => {
+      window.__yomuContinuationNudges += 1;
+      if (window.__yomuLoadedMobileBatch) return;
+      window.__yomuLoadedMobileBatch = true;
+      grid.insertAdjacentHTML('beforeend', [
+        ${JSON.stringify(mobileShortCard('loaded-short-jp-1', 'loaded-short-jp-1', '札幌の雪まつり', 'jp'))},
+        ${JSON.stringify(mobileShortCard('loaded-short-jp-2', 'loaded-short-jp-2', '高校生の一日', 'jp'))},
+        ${JSON.stringify(mobileVideoCard('loaded-video-jp', 'loaded-video-jp', '日本語でニュースを読む', 'jp'))},
+        ${JSON.stringify(mobileVideoCard('loaded-video-en', 'loaded-video-en', 'Productivity desk tour', 'en'))}
+      ].join(''));
+    };
+  </script>
+</body>
+</html>`;
+}
+
+function youtubeShortsGalleryHtml() {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>YouTube Shorts Gallery</title>
+  <style>
+    html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
+    ytd-rich-grid-renderer,
+    ytd-rich-shelf-renderer #contents { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 16px; padding: 24px; }
+    ytd-rich-shelf-renderer { display: block; }
+    ytd-reel-item-renderer, ytm-shorts-lockup-view-model { display: block; min-height: 280px; }
+    .short-thumb { display: block; aspect-ratio: 9 / 16; border-radius: 12px; background: #333; }
+    a { color: inherit; text-decoration: none; }
+    #video-title, .shortsLockupViewModelHostMetadataTitle { display: block; margin-top: 10px; line-height: 1.3; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <ytd-rich-grid-renderer>
+    <ytd-rich-shelf-renderer data-case="gallery-shorts-shelf">
+      <div id="contents">
+        ${desktopShortCard('gallery-jp-1', 'gallery-jp-1', '大阪で食べ歩き')}
+        ${desktopShortCard('gallery-en', 'gallery-en', 'Morning gym routine')}
+        ${desktopShortCard('gallery-jp-2', 'gallery-jp-2', '京都の朝カフェ')}
+        ${mobileShortCard('gallery-mobile-jp', 'gallery-mobile-jp', '東京駅で迷子になる', 'jp')}
+        ${mobileShortCard('gallery-mobile-en', 'gallery-mobile-en', 'Desk accessories short', 'en')}
+      </div>
+    </ytd-rich-shelf-renderer>
+  </ytd-rich-grid-renderer>
+</body>
+</html>`;
+}
+
+function youtubeShortsWatchHtml() {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>YouTube Shorts Watch</title>
+  <style>
+    html, body { margin: 0; background: #000; color: #fff; font-family: Roboto, Arial, sans-serif; }
+    ytd-shorts { display: block; height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+    ytd-reel-video-renderer { display: block; height: 100vh; scroll-snap-align: start; }
+    #video-title { display: block; padding: 80vh 20px 0; color: white; }
+  </style>
+</head>
+<body>
+  <ytd-shorts>
+    <ytd-reel-video-renderer data-case="shorts-watch-current" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
+      <a id="video-title" href="/shorts/watch-en">English short in snap feed</a>
+    </ytd-reel-video-renderer>
+  </ytd-shorts>
+</body>
+</html>`;
+}
+
+function mobileVideoCard(caseName, videoId, title, expectedLanguage) {
+    return `<ytm-video-with-context-renderer data-case="${caseName}" data-expected-language="${expectedLanguage}">
+      <ytm-media-item>
+        <a class="media-item-thumbnail-container" href="/watch?v=${videoId}"></a>
+        <h3 class="media-item-headline"><a href="/watch?v=${videoId}" aria-label="${title}">${title}</a></h3>
+      </ytm-media-item>
+    </ytm-video-with-context-renderer>`;
+}
+
+function mobileShortCard(caseName, videoId, title, expectedLanguage) {
+    return `<ytm-shorts-lockup-view-model data-case="${caseName}" data-expected-language="${expectedLanguage}">
+      <a class="shortsLockupViewModelHostEndpoint reel-item-endpoint" href="/shorts/${videoId}">
+        <span class="short-thumb"></span>
+        <h3 class="shortsLockupViewModelHostMetadataTitle" aria-label="${title}, 10K views, Example Channel, 1 day ago - play Short">
+          <span>${title}</span>
+        </h3>
+      </a>
+    </ytm-shorts-lockup-view-model>`;
+}
+
+function desktopShortCard(caseName, videoId, title) {
+    return `<ytd-reel-item-renderer data-case="${caseName}" data-expected-language="${/[\u3040-\u30ff\u3400-\u9fff]/u.test(title) ? 'jp' : 'en'}">
+      <a class="short-thumb" href="/shorts/${videoId}"></a>
+      <a id="video-title" href="/shorts/${videoId}" aria-label="${title}">${title}</a>
+    </ytd-reel-item-renderer>`;
+}
+
 async function installUserscriptContext(context) {
     const css = readFileSync(CSS_PATH, 'utf8');
     const settings = { ...baseSettings };
     await context.addInitScript(({ css, settings, settingsKey }) => {
         const storage = new Map([[settingsKey, settings]]);
         const storageKey = key => `__yomu_feature_${key}`;
-        const readStoredValue = (key, fallback) => {
+        function readStoredValue(key, fallback) {
             if (storage.has(key)) return storage.get(key);
+            return readLocalStorageValue(key, fallback);
+        }
+
+        function readLocalStorageValue(key, fallback) {
             try {
-                const stored = localStorage.getItem(storageKey(key)) ?? localStorage.getItem(key);
-                return stored == null ? fallback : JSON.parse(stored);
+                return parseStoredJson(storedJsonForKey(key), fallback);
             } catch {
                 return fallback;
             }
-        };
-        const writeStoredValue = (key, value) => {
+        }
+
+        function storedJsonForKey(key) {
+            const stored = localStorage.getItem(storageKey(key));
+            if (stored !== null) return stored;
+            return localStorage.getItem(key);
+        }
+
+        function parseStoredJson(stored, fallback) {
+            if (stored == null) return fallback;
+            return JSON.parse(stored);
+        }
+
+        function writeStoredValue(key, value) {
             storage.set(key, value);
             try {
                 localStorage.setItem(storageKey(key), JSON.stringify(value));
@@ -212,7 +360,119 @@ async function installUserscriptContext(context) {
             } catch {
                 // Storage can be unavailable on synthetic pages; in-memory is enough.
             }
-        };
+        }
+
+        function element(selector) {
+            return document.querySelector(selector);
+        }
+
+        function elementText(selector) {
+            const target = element(selector);
+            if (!target) return '';
+            return target.textContent || '';
+        }
+
+        function elementHasClass(selector, className) {
+            const target = element(selector);
+            if (!target) return false;
+            return target.classList.contains(className);
+        }
+
+        function elementStyle(selector) {
+            const target = element(selector);
+            if (!target) return null;
+            return getComputedStyle(target);
+        }
+
+        function elementVisible(selector) {
+            return styleVisible(elementStyle(selector));
+        }
+
+        function styleVisible(style) {
+            if (!style) return false;
+            return styleDisplayVisible(style) && styleOpacityVisible(style);
+        }
+
+        function styleDisplayVisible(style) {
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        }
+
+        function styleOpacityVisible(style) {
+            return Number(style.opacity || 1) > 0.01;
+        }
+
+        function visibleCardCases(selector) {
+            return Array.from(document.querySelectorAll(selector))
+                .filter(card => elementVisibleFromElement(card))
+                .map(card => card.getAttribute('data-case') || '');
+        }
+
+        function hiddenCardCases(selector) {
+            return Array.from(document.querySelectorAll(selector))
+                .filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'))
+                .map(card => card.getAttribute('data-case') || '');
+        }
+
+        function elementVisibleFromElement(target) {
+            if (!target) return false;
+            const style = getComputedStyle(target);
+            if (!styleVisible(style)) return false;
+            const rect = target.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        }
+
+        function visibleExpectedLanguages(selector) {
+            return Array.from(document.querySelectorAll(selector))
+                .filter(card => elementVisibleFromElement(card))
+                .map(card => card.getAttribute('data-expected-language') || '');
+        }
+
+        function cardState(selector) {
+            const cards = Array.from(document.querySelectorAll(selector));
+            const visibleCards = cards.filter(card => elementVisibleFromElement(card));
+            const hiddenCards = cards.filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'));
+            return {
+                cards: cards.length,
+                visible: visibleCards.length,
+                hidden: hiddenCards.length,
+                visibleCases: visibleCards.map(card => card.getAttribute('data-case') || ''),
+                hiddenCases: hiddenCards.map(card => card.getAttribute('data-case') || ''),
+                visibleExpectedLanguages: visibleCards.map(card => card.getAttribute('data-expected-language') || ''),
+                pending: cards.filter(card => card.classList.contains('jpdb-youtube-filter-pending')).length,
+                filtered: cards.filter(card => card.classList.contains('jpdb-youtube-filtered')).length,
+                collapsed: cards.filter(card => card.classList.contains('jpdb-youtube-filter-collapsed')).length,
+            };
+        }
+
+        function queryCount(selector) {
+            return document.querySelectorAll(selector).length;
+        }
+
+        function elementRectJson(selector) {
+            const target = element(selector);
+            if (!target) return null;
+            return target.getBoundingClientRect().toJSON();
+        }
+
+        function videoRectJson() {
+            return elementRectJson('#movie_player') || elementRectJson('video');
+        }
+
+        function rowFontSnapshot() {
+            const row = element('.jpdb-subtitle-row-text');
+            if (!row) return null;
+            return styleSnapshot(getComputedStyle(row));
+        }
+
+        function styleSnapshot(style) {
+            return {
+                family: style.fontFamily,
+                size: style.fontSize,
+                weight: style.fontWeight,
+                lineHeight: style.lineHeight,
+                textShadow: style.textShadow,
+            };
+        }
         writeStoredValue(settingsKey, settings);
         window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
         window.GM_addStyle = stylesheet => {
@@ -259,48 +519,62 @@ async function installUserscriptContext(context) {
             registerMenuCommand: window.GM_registerMenuCommand,
             xmlHttpRequest: window.GM_xmlhttpRequest,
         };
-        window.__yomuFeatureReadHomepageState = () => {
-            const element = selector => document.querySelector(selector);
-            const computed = selector => {
-                const target = element(selector);
-                return target ? getComputedStyle(target) : null;
-            };
-            const englishStyle = computed('ytd-rich-item-renderer[data-case="english"]');
-            const jpStyle = computed('ytd-rich-item-renderer[data-case="jp"]');
+        window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
             return {
-                cards: document.querySelectorAll('ytd-rich-item-renderer').length,
-                readerWordsInGrid: document.querySelectorAll('ytd-rich-grid-renderer .jpdb-reader-word').length,
-                filteredEnglish: element('ytd-rich-item-renderer[data-case="english"]')?.classList.contains('jpdb-youtube-filtered') ?? false,
-                englishVisible: Boolean(englishStyle && englishStyle.display !== 'none' && englishStyle.visibility !== 'hidden'),
-                visibleJapanese: Boolean(jpStyle && jpStyle.display !== 'none' && jpStyle.visibility !== 'hidden'),
-                noticeText: document.querySelector('.jpdb-youtube-filter-bar')?.textContent ?? '',
+                cards: queryCount('ytd-rich-item-renderer'),
+                readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
+                filteredEnglish: elementHasClass('ytd-rich-item-renderer[data-case="english"]', 'jpdb-youtube-filtered'),
+                englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
+                visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
+                noticeText: elementText('.jpdb-youtube-filter-bar'),
             };
         };
-        window.__yomuFeatureReadWatchState = () => {
-            const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
-            const video = (document.querySelector('#movie_player') || document.querySelector('video'))?.getBoundingClientRect();
-            const row = document.querySelector('.jpdb-subtitle-row-text');
-            const rowStyle = row ? getComputedStyle(row) : null;
+        window.__yomuFeatureReadMobileHomeState = function yomuFeatureReadMobileHomeState() {
             return {
-                rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
-                parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
-                parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
-                descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length,
-                commentWords: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length,
-                titleWords: document.querySelectorAll('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word').length,
-                sidebarReaderWords: document.querySelectorAll('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word').length,
-                rowCopyButtons: document.querySelectorAll('.jpdb-subtitle-row-copy').length,
-                rowFont: rowStyle ? {
-                    family: rowStyle.fontFamily,
-                    size: rowStyle.fontSize,
-                    weight: rowStyle.fontWeight,
-                    lineHeight: rowStyle.lineHeight,
-                    textShadow: rowStyle.textShadow,
-                } : null,
+                ...cardState('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model'),
+                readerWordsInGrid: queryCount('ytm-rich-grid-renderer .jpdb-reader-word'),
+                continuationNudges: window.__yomuContinuationNudges || 0,
+                visibleJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
+                    .filter(language => language === 'jp').length,
+                visibleNonJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
+                    .filter(language => language && language !== 'jp').length,
+            };
+        };
+        window.__yomuFeatureReadShortsGalleryState = function yomuFeatureReadShortsGalleryState() {
+            return {
+                ...cardState('ytd-reel-item-renderer, ytm-shorts-lockup-view-model'),
+                shelfFiltered: elementHasClass('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]', 'jpdb-youtube-filtered'),
+                shelfVisible: elementVisible('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]'),
+                readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
+                visibleJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
+                    .filter(language => language === 'jp').length,
+                visibleNonJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
+                    .filter(language => language && language !== 'jp').length,
+            };
+        };
+        window.__yomuFeatureReadShortsWatchState = function yomuFeatureReadShortsWatchState() {
+            return {
+                cards: queryCount('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+                filtered: queryCount('.jpdb-youtube-filtered'),
+                visible: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model').length,
+                hiddenCases: hiddenCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+            };
+        };
+        window.__yomuFeatureReadWatchState = function yomuFeatureReadWatchState() {
+            return {
+                rows: queryCount('.jpdb-subtitle-list-row'),
+                parsedRowWords: queryCount('.jpdb-subtitle-row-text .jpdb-reader-word'),
+                parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
+                descriptionWords: queryCount('ytd-watch-metadata #description-inline-expander .jpdb-reader-word'),
+                commentWords: queryCount('ytd-comment-view-model #content-text .jpdb-reader-word'),
+                titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
+                sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
+                rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
+                rowFont: rowFontSnapshot(),
                 layout: {
-                    placement: document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement ?? '',
-                    panel: panel?.toJSON(),
-                    video: video?.toJSON(),
+                    placement: element('.jpdb-subtitle-player')?.dataset.transcriptPlacement ?? '',
+                    panel: elementRectJson('.jpdb-subtitle-list'),
+                    video: videoRectJson(),
                     viewport: { width: window.innerWidth, height: window.innerHeight },
                 },
             };
@@ -311,6 +585,15 @@ async function installUserscriptContext(context) {
 
 async function installRoutes(page) {
     await page.route('https://www.youtube.com/', route => route.fulfill({ body: youtubeHomeHtml(), contentType: 'text/html' }));
+    await page.route('https://m.youtube.com/', route => route.fulfill({ body: youtubeMobileHomeHtml(), contentType: 'text/html' }));
+    await page.route('https://www.youtube.com/feed/shorts', route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
+    await page.route('https://m.youtube.com/feed/shorts', route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
+    await page.route('https://www.youtube.com/shorts/watch-en', route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
+    await page.route('https://m.youtube.com/shorts/watch-en', route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
+    await page.route('https://www.youtube.com/oembed**', route => route.fulfill({
+        body: JSON.stringify({ title: youtubeOEmbedTitleForRequest(route.request().url()) }),
+        contentType: 'application/json',
+    }));
     await page.route('https://www.youtube.com/watch**', route => route.fulfill({ body: youtubeWatchHtml(), contentType: 'text/html' }));
     await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedText, contentType: 'text/xml' }));
     await page.route('https://www.youtube.com/youtubei/v1/player**', route => route.fulfill({
@@ -331,7 +614,31 @@ async function installRoutes(page) {
     }));
 }
 
+const YOUTUBE_OEMBED_TITLES = {
+    'mweb-original-jp': '朝のルーティン',
+    'mweb-en': 'Desk setup tour',
+    'short-en': 'Gym routine Short',
+    'gallery-en': 'Morning gym routine',
+    'gallery-mobile-en': 'Desk accessories short',
+    'loaded-video-en': 'Productivity desk tour',
+};
+
+function youtubeOEmbedTitleForRequest(url) {
+    const requestUrl = new URL(url);
+    const watchUrl = new URL(youtubeOEmbedWatchUrl(requestUrl));
+    return YOUTUBE_OEMBED_TITLES[youtubeVideoIdFromUrl(watchUrl)] ?? '';
+}
+
+function youtubeOEmbedWatchUrl(requestUrl) {
+    return requestUrl.searchParams.get('url') ?? 'https://www.youtube.com/watch';
+}
+
+function youtubeVideoIdFromUrl(watchUrl) {
+    return watchUrl.searchParams.get('v') || watchUrl.pathname.split('/').filter(Boolean).pop() || '';
+}
+
 async function runHomepageCheck(page) {
+    await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('ytd-rich-item-renderer[data-case="jp"]', { timeout: 10000 });
     await page.waitForTimeout(1200);
@@ -352,65 +659,218 @@ async function runHomepageCheck(page) {
     return { beforeReveal, afterReveal };
 }
 
+async function runMobileHomeLoadingCheck(page) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(MOBILE_HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('ytm-video-with-context-renderer[data-case="mobile-jp"]', { timeout: 10000 });
+    await page.waitForTimeout(600);
+    await page.evaluate(() => window.scrollTo(0, document.scrollingElement?.scrollHeight ?? document.documentElement.scrollHeight));
+    await page.waitForFunction(() => window.__yomuContinuationNudges >= 1, null, { timeout: 10000 });
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadMobileHomeState();
+        return state.pending === 0 && state.visibleJapanese >= 5;
+    }, null, { timeout: 12000 });
+    await page.waitForTimeout(350);
+
+    const mobileHome = await page.evaluate(() => window.__yomuFeatureReadMobileHomeState());
+    assert(mobileHome.readerWordsInGrid === 0, 'Yomu wrapped mobile YouTube recommendation titles', mobileHome);
+    assert(mobileHome.continuationNudges >= 1, 'YouTube mobile feed did not request more cards after filtering', mobileHome);
+    assert(mobileHome.visibleJapanese >= 5, 'YouTube mobile feed did not refill with enough Japanese-looking cards', mobileHome);
+    assert(mobileHome.visibleNonJapanese === 0, 'YouTube mobile feed still shows non-Japanese-looking cards', mobileHome);
+    assert(includesText(mobileHome.visibleCases.join(','), 'mobile-original-jp'), 'Original Japanese oEmbed title did not restore a translated mobile card', mobileHome);
+    assert(includesText(mobileHome.hiddenCases.join(','), 'mobile-english'), 'Mobile English video was not hidden', mobileHome);
+    assert(includesText(mobileHome.hiddenCases.join(','), 'mobile-short-en'), 'Mobile English Short was not hidden', mobileHome);
+    assert(includesText(mobileHome.hiddenCases.join(','), 'loaded-video-en'), 'Continuation English video was not hidden', mobileHome);
+    return mobileHome;
+}
+
+async function runShortsGalleryCheck(page) {
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto(SHORTS_GALLERY_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('ytd-reel-item-renderer[data-case="gallery-jp-1"]', { timeout: 10000 });
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadShortsGalleryState();
+        return state.pending === 0 && state.visibleJapanese >= 3;
+    }, null, { timeout: 12000 });
+    await page.waitForTimeout(350);
+
+    const shortsGallery = await page.evaluate(() => window.__yomuFeatureReadShortsGalleryState());
+    assert(shortsGallery.shelfVisible === true && shortsGallery.shelfFiltered === false, 'Shorts gallery shelf was hidden instead of filtering child Shorts', shortsGallery);
+    assert(shortsGallery.readerWordsInGrid === 0, 'Yomu wrapped Shorts gallery titles', shortsGallery);
+    assert(shortsGallery.visibleJapanese >= 3, 'Shorts gallery did not keep Japanese-looking Shorts visible', shortsGallery);
+    assert(shortsGallery.visibleNonJapanese === 0, 'Shorts gallery still shows non-Japanese-looking Shorts', shortsGallery);
+    assert(includesText(shortsGallery.hiddenCases.join(','), 'gallery-en'), 'Desktop English Short was not hidden', shortsGallery);
+    assert(includesText(shortsGallery.hiddenCases.join(','), 'gallery-mobile-en'), 'Mobile English Short card was not hidden', shortsGallery);
+    return shortsGallery;
+}
+
+async function runShortsWatchCheck(page) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(SHORTS_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('ytd-reel-video-renderer[data-case="shorts-watch-current"]', { timeout: 10000 });
+    await page.waitForTimeout(700);
+
+    const shortsWatch = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
+    assert(shortsWatch.cards === 1, 'Shorts watch feed did not render the snap item', shortsWatch);
+    assert(shortsWatch.filtered === 0, 'Shorts watch feed was filtered, which would break snap scrolling', shortsWatch);
+    assert(shortsWatch.visible === 1, 'Shorts watch feed item is not visible', shortsWatch);
+    return shortsWatch;
+}
+
 async function runWatchCheck(page) {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await waitForWatchFeatureReady(page);
+    const initial = await readWatchState(page);
+    assertInitialWatchState(initial);
+
+    const idleControls = await closePanelAndReadIdleControls(page);
+    assertIdleControls(idleControls);
+
+    const resize = await exerciseWatchPanelResize(page);
+    const dictionary = await verifyTeacherCommentLookup(page);
+
+    return {
+        initial,
+        idleControls,
+        beforeResize: resize.beforeResize,
+        afterResize: resize.afterResize,
+        dictionary,
+    };
+}
+
+async function waitForWatchFeatureReady(page) {
     await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length >= 3, null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
         && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+}
 
-    const initial = await page.evaluate(() => window.__yomuFeatureReadWatchState());
+async function readWatchState(page) {
+    return page.evaluate(() => window.__yomuFeatureReadWatchState());
+}
+
+function assertInitialWatchState(initial) {
+    assertWatchTranscriptState(initial);
+    assertWatchPageParsing(initial);
+    assertWatchTextExclusions(initial);
+    assertWatchRowPresentation(initial);
+    assertNonOverlappingLayout(initial.layout, 'initial');
+}
+
+function assertWatchTranscriptState(initial) {
     assert(initial.rows >= 3, 'YouTube transcript rows did not render', initial);
     assert(initial.parsedRowWords > 0, 'YouTube transcript rows were not parsed into reader words', initial);
     assert(initial.parsedPlayerWords > 0, 'YouTube player subtitle was not parsed into reader words', initial);
+    assert(initial.rowCopyButtons >= 1, 'YouTube transcript copy buttons are missing', initial);
+}
+
+function assertWatchPageParsing(initial) {
     assert(initial.descriptionWords > 0, 'YouTube watch description was not parsed', initial);
     assert(initial.commentWords > 0, 'YouTube comment text was not parsed', initial);
+}
+
+function assertWatchTextExclusions(initial) {
     assert(initial.titleWords === 0, 'Yomu wrapped the YouTube watch title', initial);
     assert(initial.sidebarReaderWords === 0, 'Yomu wrapped YouTube sidebar recommendation text', initial);
-    assert(initial.rowCopyButtons >= 1, 'YouTube transcript copy buttons are missing', initial);
-    assert(initial.rowFont?.size === '16px', 'YouTube sidebar subtitle font size does not match dictionary scale', initial);
-    assert(Number(initial.rowFont?.weight ?? 999) <= 500, 'YouTube sidebar subtitle font is still too bold', initial);
-    assert(initial.rowFont?.textShadow === 'none', 'YouTube sidebar subtitle text still has player-style shadow', initial);
-    assertNonOverlappingLayout(initial.layout, 'initial');
+}
 
+function assertWatchRowPresentation(initial) {
+    assert(rowFontSize(initial.rowFont) === '16px', 'YouTube sidebar subtitle font size does not match dictionary scale', initial);
+    assert(rowFontWeight(initial.rowFont) <= 500, 'YouTube sidebar subtitle font is still too bold', initial);
+    assert(rowFontShadow(initial.rowFont) === 'none', 'YouTube sidebar subtitle text still has player-style shadow', initial);
+}
+
+function rowFontSize(rowFont) {
+    return rowFont ? rowFont.size : '';
+}
+
+function rowFontWeight(rowFont) {
+    if (!rowFont) return 999;
+    return Number(rowFont.weight);
+}
+
+function rowFontShadow(rowFont) {
+    return rowFont ? rowFont.textShadow : '';
+}
+
+async function closePanelAndReadIdleControls(page) {
     await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').click();
     await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
     await page.mouse.move(4, 4);
     await page.waitForTimeout(350);
-    const idleControls = await page.evaluate(() => {
-        const rail = document.querySelector('.jpdb-subtitle-rail');
-        const style = rail ? getComputedStyle(rail) : null;
+    return readIdleControls(page);
+}
+
+async function readIdleControls(page) {
+    const rootClasses = await page.locator('.jpdb-subtitle-player').evaluate(element => element.className).catch(() => '');
+    const rail = await page.locator('.jpdb-subtitle-rail').evaluate(element => {
+        const style = getComputedStyle(element);
         return {
-            rootClasses: document.querySelector('.jpdb-subtitle-player')?.className ?? '',
-            railOpacity: style?.opacity ?? '',
-            railPointerEvents: style?.pointerEvents ?? '',
-            railTransform: style?.transform ?? '',
+            railOpacity: style.opacity,
+            railPointerEvents: style.pointerEvents,
+            railTransform: style.transform,
         };
-    });
-    assert(idleControls.rootClasses.includes('jpdb-subtitle-controls-idle'), 'YouTube subtitle controls did not enter idle mode', idleControls);
+    }).catch(() => ({ railOpacity: '', railPointerEvents: '', railTransform: '' }));
+    return { rootClasses, ...rail };
+}
+
+function assertIdleControls(idleControls) {
+    assert(includesText(idleControls.rootClasses, 'jpdb-subtitle-controls-idle'), 'YouTube subtitle controls did not enter idle mode', idleControls);
     assert(Number(idleControls.railOpacity) < 0.05, 'YouTube idle mode did not hide the whole control rail', idleControls);
     assert(idleControls.railPointerEvents === 'none', 'Hidden YouTube control rail still receives pointer events', idleControls);
+}
 
+async function exerciseWatchPanelResize(page) {
     await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
     await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
-    const beforeResize = await page.evaluate(() => window.__yomuFeatureReadWatchState());
-    await resizePanel(page, beforeResize.layout.placement || 'right');
-    const afterResize = await page.evaluate(() => window.__yomuFeatureReadWatchState());
-    assertNonOverlappingLayout(afterResize.layout, 'resized');
-    assert(Math.abs((afterResize.layout.panel?.width ?? 0) - (beforeResize.layout.panel?.width ?? 0)) >= 20,
-        'YouTube transcript panel did not resize', { beforeResize: beforeResize.layout, afterResize: afterResize.layout });
+    const beforeResize = await readWatchState(page);
+    await resizePanel(page, resizePlacement(beforeResize.layout));
+    const afterResize = await readWatchState(page);
+    assertResizedPanelLayout(beforeResize.layout, afterResize.layout);
+    return { beforeResize: beforeResize.layout, afterResize: afterResize.layout };
+}
 
+function resizePlacement(layout) {
+    return layout.placement || 'right';
+}
+
+function assertResizedPanelLayout(beforeResize, afterResize) {
+    assertNonOverlappingLayout(afterResize, 'resized');
+    assert(panelWidthChanged(beforeResize, afterResize), 'YouTube transcript panel did not resize', { beforeResize, afterResize });
+}
+
+function panelWidthChanged(beforeResize, afterResize) {
+    return Math.abs(panelWidth(afterResize) - panelWidth(beforeResize)) >= 20;
+}
+
+function panelWidth(layout) {
+    return layout.panel ? layout.panel.width : 0;
+}
+
+async function verifyTeacherCommentLookup(page) {
     await clickTeacherCommentWord(page);
-    const dictionary = await page.evaluate(() => {
-        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.trim() ?? '';
-        const copyPill = Boolean(document.querySelector('.jpdb-reader-popover .jpdb-reader-copy-pill'));
-        return { spelling, copyPill };
-    });
+    const dictionary = await readDictionaryState(page);
     assert(dictionary.spelling === '先生', 'Clicking a single YouTube comment word opened the wrong dictionary entry', dictionary);
     assert(dictionary.copyPill, 'Dictionary copy pill is missing for YouTube comment lookup', dictionary);
+    return dictionary;
+}
 
-    return { initial, idleControls, beforeResize: beforeResize.layout, afterResize: afterResize.layout, dictionary };
+async function readDictionaryState(page) {
+    const [spelling, copyPillCount] = await Promise.all([
+        page.locator('.jpdb-reader-popover .jpdb-reader-spelling').first().textContent(),
+        page.locator('.jpdb-reader-popover .jpdb-reader-copy-pill').count(),
+    ]);
+    return { spelling: trimText(spelling), copyPill: copyPillCount > 0 };
+}
+
+function trimText(value) {
+    return String(value ?? '').trim();
+}
+
+function includesText(value, fragment) {
+    return String(value).includes(fragment);
 }
 
 async function clickTeacherCommentWord(page) {
@@ -435,14 +895,32 @@ async function resizePanel(page, placement) {
 }
 
 function assertNonOverlappingLayout(layout, label) {
-    assert(layout.panel && layout.video, `Missing YouTube layout boxes during ${label}`, layout);
-    assert(layout.panel.width >= 260 && layout.panel.height >= 100, `Transcript panel is unusably small during ${label}`, layout);
-    assert(layout.video.width >= 240 && layout.video.height >= 120, `Video is unusably small during ${label}`, layout);
-    const overlap = !(layout.panel.right <= layout.video.left + 2
-        || layout.video.right <= layout.panel.left + 2
-        || layout.panel.bottom <= layout.video.top + 2
-        || layout.video.bottom <= layout.panel.top + 2);
-    assert(!overlap, `Transcript panel overlaps/crops the YouTube video during ${label}`, layout);
+    assertLayoutBox(layout.panel, `Missing YouTube layout boxes during ${label}`, layout);
+    assertLayoutBox(layout.video, `Missing YouTube layout boxes during ${label}`, layout);
+    assertUsableBox(layout.panel, 260, 100, `Transcript panel is unusably small during ${label}`, layout);
+    assertUsableBox(layout.video, 240, 120, `Video is unusably small during ${label}`, layout);
+    assert(!layoutBoxesOverlap(layout.panel, layout.video), `Transcript panel overlaps/crops the YouTube video during ${label}`, layout);
+}
+
+function assertLayoutBox(box, message, layout) {
+    assert(box, message, layout);
+}
+
+function assertUsableBox(box, minWidth, minHeight, message, layout) {
+    assert(box.width >= minWidth, message, layout);
+    assert(box.height >= minHeight, message, layout);
+}
+
+function layoutBoxesOverlap(first, second) {
+    return boxesOverlapHorizontally(first, second) && boxesOverlapVertically(first, second);
+}
+
+function boxesOverlapHorizontally(first, second) {
+    return first.right > second.left + 2 && second.right > first.left + 2;
+}
+
+function boxesOverlapVertically(first, second) {
+    return first.bottom > second.top + 2 && second.bottom > first.top + 2;
 }
 
 const browser = await chromium.launch({ headless: !HEADED });
@@ -453,7 +931,10 @@ try {
     await installRoutes(page);
     const homepage = await runHomepageCheck(page);
     const watch = await runWatchCheck(page);
-    console.log(JSON.stringify({ homepage, watch }, null, 2));
+    const mobileHome = await runMobileHomeLoadingCheck(page);
+    const shortsGallery = await runShortsGalleryCheck(page);
+    const shortsWatch = await runShortsWatchCheck(page);
+    console.log(JSON.stringify({ homepage, watch, mobileHome, shortsGallery, shortsWatch }, null, 2));
 } finally {
     await browser.close();
 }

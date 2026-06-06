@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, canFetchAnkiConnectFrom, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
 import { renderAnkiExistingSection } from '../../src/reader/anki-render';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -14,6 +14,18 @@ afterEach(() => {
 });
 
 describe('AnkiConnect browser fetch eligibility', () => {
+    it('keeps mobile Anki handoff hidden until Anki and handoff are both enabled', () => {
+        vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)', platform: 'iPad', maxTouchPoints: 5 });
+
+        try {
+            expect(canUseMobileAnkiHandoff(DEFAULT_SETTINGS)).toBe(false);
+            expect(canUseMobileAnkiHandoff({ ...DEFAULT_SETTINGS, ankiMobileHandoff: true })).toBe(false);
+            expect(canUseMobileAnkiHandoff({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: true })).toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps hosted loopback AnkiConnect requests on the userscript bridge path', () => {
         expect(canFetchAnkiConnectFrom(
             'http://127.0.0.1:8765',
@@ -255,50 +267,55 @@ describe('Anki status-only lookup cache', () => {
                 params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; decks?: string[]; notes?: number[]; cards?: number[] };
             };
             actions.push(body.action);
+            const resultForMultiAction = () => (body.params?.actions ?? []).map(action => {
+                actions.push(`${action.action}:${String(action.params?.query ?? '')}`);
+                const query = String(action.params?.query ?? '');
+                return {
+                    result: action.action === 'findNotes' && query === '"動画"' ? [310] : [],
+                    error: null,
+                };
+            });
+            const resultForNotesInfo = () => {
+                expect(body.params?.notes).toEqual([310]);
+                return [{
+                    noteId: 310,
+                    modelName: 'Core 2k',
+                    tags: ['core'],
+                    cards: [710],
+                    fields: {
+                        Expression: { value: '動画' },
+                        Reading: { value: 'どうが' },
+                        Meaning: { value: 'video' },
+                    },
+                }];
+            };
+            const resultForCardsInfo = () => {
+                expect(body.params?.cards).toEqual([710]);
+                return [{
+                    cardId: 710,
+                    note: 310,
+                    deckName: 'Vocab 2k',
+                    queue: 2,
+                    type: 2,
+                    due: 0,
+                    reps: 22,
+                    lapses: 1,
+                }];
+            };
             const resultForAction = (): unknown => {
-                if (body.action === 'version') return 6;
-                if (body.action === 'deckNames') return ['Vocab 2k'];
-                if (body.action === 'getDeckStats') return { 'Vocab 2k': { total_in_deck: 2400 } };
-                if (body.action === 'findCards') throw new Error('status lookup should not call findCards');
-                if (body.action === 'multi') {
-                    return (body.params?.actions ?? []).map(action => {
-                        actions.push(`${action.action}:${String(action.params?.query ?? '')}`);
-                        const query = String(action.params?.query ?? '');
-                        return {
-                            result: action.action === 'findNotes' && query === '"動画"' ? [310] : [],
-                            error: null,
-                        };
-                    });
-                }
-                if (body.action === 'notesInfo') {
-                    expect(body.params?.notes).toEqual([310]);
-                    return [{
-                        noteId: 310,
-                        modelName: 'Core 2k',
-                        tags: ['core'],
-                        cards: [710],
-                        fields: {
-                            Expression: { value: '動画' },
-                            Reading: { value: 'どうが' },
-                            Meaning: { value: 'video' },
-                        },
-                    }];
-                }
-                if (body.action === 'cardsInfo') {
-                    expect(body.params?.cards).toEqual([710]);
-                    return [{
-                        cardId: 710,
-                        note: 310,
-                        deckName: 'Vocab 2k',
-                        queue: 2,
-                        type: 2,
-                        due: 0,
-                        reps: 22,
-                        lapses: 1,
-                    }];
-                }
-                if (body.action === 'areDue') return [true];
-                throw new Error(`Unexpected Anki action: ${body.action}`);
+                const responses: Record<string, () => unknown> = {
+                    version: () => 6,
+                    deckNames: () => ['Vocab 2k'],
+                    getDeckStats: () => ({ 'Vocab 2k': { total_in_deck: 2400 } }),
+                    findCards: () => { throw new Error('status lookup should not call findCards'); },
+                    multi: resultForMultiAction,
+                    notesInfo: resultForNotesInfo,
+                    cardsInfo: resultForCardsInfo,
+                    areDue: () => [true],
+                };
+                const response = responses[body.action];
+                if (!response) throw new Error(`Unexpected Anki action: ${body.action}`);
+                return response();
             };
             return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
                 status: 200,
@@ -337,6 +354,168 @@ describe('Anki status-only lookup cache', () => {
             primary: { noteId: 310 },
         }]);
         expect(actions).toEqual([]);
+    });
+
+    it('trusts complete empty status indexes without AnkiConnect fallback', async () => {
+        const fetchMock = vi.fn(async () => {
+            throw new Error('complete empty status index should not call AnkiConnect');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
+        const now = Date.now();
+        const internals = client as unknown as {
+            statusIndex?: {
+                version: number;
+                settingsKey: string;
+                syncedAt: number;
+                checkedAt: number;
+                cardCount: number;
+                entryCount: number;
+                readingKeys: boolean;
+                entries: Record<string, never>;
+            };
+        };
+        internals.statusIndex = {
+            version: 1,
+            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl || 'http://127.0.0.1:8765' }),
+            syncedAt: now,
+            checkedAt: now,
+            cardCount: 0,
+            entryCount: 0,
+            readingKeys: true,
+            entries: {},
+        };
+
+        try {
+            await expect(client.findCachedStatusBatch([jpdbCard({ vid: 12, sid: 3, spelling: '字幕', reading: 'じまく' })])).resolves.toEqual([{
+                state: 'not-in-deck',
+                notes: [],
+                primary: null,
+            }]);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            client.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps misses from max-stale status indexes on exact lazy lookups', async () => {
+        const actions: string[] = [];
+        const ankiConnectUrl = `${window.location.origin}/anki-stale-status`;
+        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as {
+                action: string;
+                params?: { actions?: Array<{ action: string; params?: Record<string, unknown> }>; notes?: number[]; cards?: number[] };
+            };
+            actions.push(body.action);
+            const resultForAction = (): unknown => {
+                if (body.action === 'version') return 6;
+                if (body.action === 'multi') {
+                    return (body.params?.actions ?? []).map(action => {
+                        actions.push(`${action.action}:${String(action.params?.query ?? '')}`);
+                        return {
+                            result: /難波|なにわ/.test(String(action.params?.query ?? '')) ? [77] : [],
+                            error: null,
+                        };
+                    });
+                }
+                if (body.action === 'notesInfo') {
+                    expect(body.params?.notes).toEqual([77]);
+                    return [{
+                        noteId: 77,
+                        modelName: 'Imported Core',
+                        tags: [],
+                        fields: {
+                            Word: { value: '難波' },
+                            Reading: { value: 'なにわ' },
+                        },
+                        cards: [7707],
+                    }];
+                }
+                if (body.action === 'cardsInfo') {
+                    expect(body.params?.cards).toEqual([7707]);
+                    return [{
+                        cardId: 7707,
+                        note: 77,
+                        deckName: 'Vocab 2k',
+                        queue: 0,
+                        type: 0,
+                        reps: 0,
+                        lapses: 0,
+                    }];
+                }
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return new Response(JSON.stringify({ result: resultForAction(), error: null }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const now = Date.now();
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
+        const internals = client as unknown as {
+            statusIndex?: {
+                version: number;
+                settingsKey: string;
+                syncedAt: number;
+                checkedAt: number;
+                cardCount: number;
+                entryCount: number;
+                readingKeys: boolean;
+                entries: Record<string, {
+                    state: 'known';
+                    noteId: number;
+                    primaryCardId: number;
+                    deckNames: string[];
+                    reps: number;
+                    lapses: number;
+                    modelName: string;
+                }>;
+            };
+        };
+        internals.statusIndex = {
+            version: 1,
+            settingsKey: JSON.stringify({ url: ankiConnectUrl }),
+            syncedAt: now - 31 * 60 * 1000,
+            checkedAt: now,
+            cardCount: 1,
+            entryCount: 1,
+            readingKeys: true,
+            entries: {
+                [String('動画').toLocaleLowerCase()]: {
+                    state: 'known',
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 14,
+                    lapses: 0,
+                    modelName: 'Imported Core',
+                },
+            },
+        };
+
+        try {
+            await expect(client.findCachedStatusBatch([jpdbCard({ vid: 13, sid: 4, spelling: '難波', reading: 'なにわ' })])).resolves.toMatchObject([{
+                state: 'new',
+                primary: {
+                    noteId: 77,
+                    primaryCardId: 7707,
+                },
+            }]);
+            expect(actions).toEqual(expect.arrayContaining([
+                'version',
+                'multi',
+                'findNotes:"難波"',
+                'findNotes:"なにわ"',
+                'notesInfo',
+                'cardsInfo',
+            ]));
+            expect(actions).not.toContain('findCards');
+        } finally {
+            client.destroy();
+            vi.unstubAllGlobals();
+        }
     });
 });
 
@@ -433,7 +612,7 @@ describe('Anki rendered card details', () => {
         const audio = section.querySelector<HTMLButtonElement>('[data-action="anki-media-audio"][data-anki-media-name="nihongo.mp3"]');
         expect(audio?.classList.contains('jpdb-reader-audio-control')).toBe(true);
         expect(audio?.querySelector('svg')).not.toBeNull();
-        expect(audio?.getAttribute('aria-label')).toBe('Audio nihongo.mp3');
+        expect(audio?.getAttribute('aria-label')).toBe('Anki audio nihongo.mp3');
     });
 
     it('falls back to stored fields when a rendered card is only an empty template shell', () => {
@@ -494,8 +673,8 @@ describe('Anki rendered card details', () => {
         expect(renderedBody?.textContent).not.toContain('[sound:nihongo.mp3]');
         expect(audio?.textContent?.trim()).toBe('');
         expect(audio?.querySelector('svg')).not.toBeNull();
-        expect(audio?.title).toBe('Audio nihongo.mp3');
-        expect(audio?.getAttribute('aria-label')).toBe('Audio nihongo.mp3');
+        expect(audio?.title).toBe('Anki audio nihongo.mp3');
+        expect(audio?.getAttribute('aria-label')).toBe('Anki audio nihongo.mp3');
     });
 
     it('renders multiple Anki cards as collapsible separators while preserving card content', () => {
@@ -639,6 +818,7 @@ function ankiRenderSettings(): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
+        ankiSectionEnabled: true,
         enableReviews: false,
     };
 }

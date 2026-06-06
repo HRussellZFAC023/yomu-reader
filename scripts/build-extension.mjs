@@ -68,17 +68,25 @@ async function stageNewTabShell() {
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
-    if (existsSync(publicNewtabServiceWorker)) {
-        await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
-    }
-    if (existsSync(publicIcon)) {
-        await copyFile(publicIcon, path.join(newtab, 'yomu-icon.svg'));
-    }
-    for (const file of publicFaviconFiles) {
-        const source = path.join(root, 'public', file);
-        if (existsSync(source)) await copyFile(source, path.join(newtab, file));
-    }
+    await stageNewTabServiceWorker(appHash);
+    await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
+    await stagePublicFavicons();
     await stageManifestIcons();
+}
+
+async function stageNewTabServiceWorker(appHash) {
+    if (!existsSync(publicNewtabServiceWorker)) return;
+    await writeFile(path.join(newtab, 'sw.js'), extensionNewTabServiceWorker(await readFile(publicNewtabServiceWorker, 'utf8'), appHash));
+}
+
+async function stagePublicFavicons() {
+    for (const file of publicFaviconFiles) {
+        await copyFileIfExists(path.join(root, 'public', file), path.join(newtab, file));
+    }
+}
+
+async function copyFileIfExists(source, destination) {
+    if (existsSync(source)) await copyFile(source, destination);
 }
 
 async function stageManifestIcons() {

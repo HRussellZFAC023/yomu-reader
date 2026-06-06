@@ -23,7 +23,7 @@ export function createSettingsFormReader(
     };
 }
 
-export function readNumber(value: string, fallback: number): number {
+function readNumber(value: string, fallback: number): number {
     if (!value.trim()) return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;

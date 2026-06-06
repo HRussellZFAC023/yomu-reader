@@ -83,26 +83,11 @@ function generateJpdbShardFiles(shardTotal) {
     mkdirSync(GENERATED_DIR, { recursive: true });
 
     const source = readFileSync(JPDB_TEST, 'utf8');
-    const describeStart = source.indexOf("describe('reader helpers', () => {");
-    const describeEndMarker = '\n});\n\nfunction withWindowProperty';
-    const describeEnd = source.indexOf(describeEndMarker);
-    if (describeStart === -1 || describeEnd === -1 || describeEnd <= describeStart) {
-        throw new Error('Could not locate the reader helpers describe block in jpdb.test.ts');
-    }
-
-    const bodyStart = source.indexOf('\n', describeStart) + 1;
-    const prelude = rewriteGeneratedImports(source.slice(0, describeStart));
-    const body = source.slice(bodyStart, describeEnd);
-    const tail = rewriteGeneratedImports(source.slice(describeEnd + '\n});\n\n'.length));
-    const testStartMatches = [...body.matchAll(/^    it\(/gm)];
-    if (!testStartMatches.length) throw new Error('No JPDB tests found to shard');
-
-    const prefix = body.slice(0, testStartMatches[0].index ?? 0);
-    const blocks = testStartMatches.map((match, index) => {
-        const start = match.index ?? 0;
-        const end = testStartMatches[index + 1]?.index ?? body.length;
-        return body.slice(start, end);
-    });
+    const range = locateJpdbDescribeBlock(source);
+    const prelude = rewriteGeneratedImports(source.slice(0, range.describeStart));
+    const body = source.slice(range.bodyStart, range.describeEnd);
+    const tail = rewriteGeneratedImports(source.slice(range.tailStart));
+    const { prefix, blocks } = splitJpdbTestBlocks(body);
     const shards = contiguousBuckets(blocks, shardTotal);
     return shards.map((blocksForShard, index) => {
         const filename = join(GENERATED_DIR, `jpdb.generated.${index + 1}.test.ts`);
@@ -121,6 +106,33 @@ function generateJpdbShardFiles(shardTotal) {
     });
 }
 
+function locateJpdbDescribeBlock(source) {
+    const describeStart = source.indexOf("describe('reader helpers', () => {");
+    const describeEnd = source.indexOf('\n});\n\nfunction withWindowProperty');
+    assertValidSourceRange(describeStart, describeEnd, 'Could not locate the reader helpers describe block in jpdb.test.ts');
+    return {
+        describeStart,
+        describeEnd,
+        bodyStart: source.indexOf('\n', describeStart) + 1,
+        tailStart: describeEnd + '\n});\n\n'.length,
+    };
+}
+
+function splitJpdbTestBlocks(body) {
+    const testStartMatches = [...body.matchAll(/^    it\(/gm)];
+    assertHasShardBlocks(testStartMatches, 'No JPDB tests found to shard');
+    return {
+        prefix: body.slice(0, testStartMatches[0].index ?? 0),
+        blocks: testStartMatches.map((match, index) => jpdbTestBlock(body, testStartMatches, match, index)),
+    };
+}
+
+function jpdbTestBlock(body, testStartMatches, match, index) {
+    const start = match.index ?? 0;
+    const end = testStartMatches[index + 1]?.index ?? body.length;
+    return body.slice(start, end);
+}
+
 function generateSettingsShardFiles(shardTotal) {
     return generateItBlockShardFiles({
         sourceFile: SETTINGS_FORM_TEST,
@@ -136,19 +148,11 @@ function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, d
     rmSync(generatedDir, { recursive: true, force: true });
     mkdirSync(generatedDir, { recursive: true });
 
-    const source = readFileSync(sourceFile, 'utf8');
-    const describeStart = source.indexOf('describe(');
-    const tailStart = source.indexOf(tailStartMarker);
-    if (describeStart === -1 || tailStart === -1 || tailStart <= describeStart) {
-        throw new Error(`Could not locate test body in ${relative(ROOT, sourceFile)}`);
-    }
-
-    const prelude = rewriteGeneratedImports(source.slice(0, describeStart));
-    const body = source.slice(describeStart, tailStart);
-    const tail = rewriteGeneratedImports(source.slice(tailStart));
-    const blocks = extractIndentedItBlocks(body);
-    if (!blocks.length) throw new Error(`No tests found to shard in ${relative(ROOT, sourceFile)}`);
-
+    const { prelude, body, tail } = readItBlockShardSections(sourceFile, tailStartMarker);
+    const blocks = assertHasShardBlocks(
+        extractIndentedItBlocks(body),
+        `No tests found to shard in ${relative(ROOT, sourceFile)}`,
+    );
     const shards = contiguousBuckets(blocks, shardTotal);
     return shards.map((blocksForShard, index) => {
         const filename = join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`);
@@ -166,6 +170,27 @@ function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, d
     });
 }
 
+function readItBlockShardSections(sourceFile, tailStartMarker) {
+    const source = readFileSync(sourceFile, 'utf8');
+    const describeStart = source.indexOf('describe(');
+    const tailStart = source.indexOf(tailStartMarker);
+    assertValidSourceRange(describeStart, tailStart, `Could not locate test body in ${relative(ROOT, sourceFile)}`);
+    return {
+        prelude: rewriteGeneratedImports(source.slice(0, describeStart)),
+        body: source.slice(describeStart, tailStart),
+        tail: rewriteGeneratedImports(source.slice(tailStart)),
+    };
+}
+
+function assertValidSourceRange(start, end, message) {
+    if (start === -1 || end === -1 || end <= start) throw new Error(message);
+}
+
+function assertHasShardBlocks(blocks, message) {
+    if (!blocks.length) throw new Error(message);
+    return blocks;
+}
+
 function extractIndentedItBlocks(contents) {
     const starts = [...contents.matchAll(/^    it\(/gm)].map(match => match.index ?? 0);
     return starts.map(start => {
@@ -179,26 +204,41 @@ function extractIndentedItBlocks(contents) {
 }
 
 function contiguousBuckets(blocks, count) {
+    const context = createContiguousBucketContext(blocks, count);
+    return Array.from({ length: count }, (_, bucketIndex) => nextContiguousBucket(context, count - bucketIndex));
+}
+
+function createContiguousBucketContext(blocks, count) {
     const totalSize = blocks.reduce((sum, block) => sum + block.length, 0);
-    const targetSize = Math.ceil(totalSize / count);
-    const buckets = [];
-    let nextIndex = 0;
-    for (let bucketIndex = 0; bucketIndex < count; bucketIndex += 1) {
-        const remainingBuckets = count - bucketIndex;
-        const bucket = [];
-        let bucketSize = 0;
-        while (nextIndex < blocks.length) {
-            const remainingBlocks = blocks.length - nextIndex;
-            if (remainingBlocks <= remainingBuckets - 1 && bucket.length) break;
-            const nextBlock = blocks[nextIndex];
-            bucket.push(nextBlock);
-            bucketSize += nextBlock.length;
-            nextIndex += 1;
-            if (bucketSize >= targetSize && remainingBlocks > remainingBuckets) break;
-        }
-        buckets.push(bucket);
+    return { blocks, nextIndex: 0, targetSize: Math.ceil(totalSize / count) };
+}
+
+function nextContiguousBucket(context, remainingBuckets) {
+    const bucket = [];
+    let bucketSize = 0;
+    while (context.nextIndex < context.blocks.length) {
+        const remainingBlocks = context.blocks.length - context.nextIndex;
+        if (mustReserveBlocksForRemainingBuckets(remainingBlocks, remainingBuckets, bucket)) break;
+        const nextBlock = takeNextBlock(context);
+        bucket.push(nextBlock);
+        bucketSize += nextBlock.length;
+        if (bucketReachedTargetSize(bucketSize, context.targetSize, remainingBlocks, remainingBuckets)) break;
     }
-    return buckets;
+    return bucket;
+}
+
+function takeNextBlock(context) {
+    const block = context.blocks[context.nextIndex];
+    context.nextIndex += 1;
+    return block;
+}
+
+function mustReserveBlocksForRemainingBuckets(remainingBlocks, remainingBuckets, bucket) {
+    return remainingBlocks <= remainingBuckets - 1 && bucket.length;
+}
+
+function bucketReachedTargetSize(bucketSize, targetSize, remainingBlocks, remainingBuckets) {
+    return bucketSize >= targetSize && remainingBlocks > remainingBuckets;
 }
 
 function sizeBalancedBuckets(items, count, sizeForItem) {
@@ -220,6 +260,7 @@ function rewriteGeneratedImports(contents) {
     return contents
         .replaceAll("from '../../src/", "from '../../../src/")
         .replaceAll("from '../../workers/", "from '../../../workers/")
+        .replaceAll("from './test-utils'", "from '../test-utils'")
         .replaceAll("from './zip-fixture'", "from '../zip-fixture'");
 }
 
@@ -248,15 +289,26 @@ function parseArgs(rawArgs) {
     for (let index = 0; index < rawArgs.length; index += 1) {
         const arg = rawArgs[index];
         if (!arg.startsWith('--')) continue;
-        const keyValue = arg.slice(2).split('=');
-        const key = keyValue[0];
-        const nextValue = rawArgs[index + 1];
-        const hasExplicitNextValue = typeof nextValue === 'string' && !nextValue.startsWith('--');
-        const value = keyValue.length > 1 ? keyValue.slice(1).join('=') : hasExplicitNextValue ? nextValue : true;
-        parsed[key] = value;
-        if (keyValue.length === 1 && hasExplicitNextValue) index += 1;
+        const parsedArg = readCliArg(rawArgs, index);
+        parsed[parsedArg.key] = parsedArg.value;
+        if (parsedArg.consumesNext) index += 1;
     }
     return parsed;
+}
+
+function readCliArg(rawArgs, index) {
+    const keyValue = rawArgs[index].slice(2).split('=');
+    const nextValue = rawArgs[index + 1];
+    const consumesNext = keyValue.length === 1 && isExplicitCliValue(nextValue);
+    return {
+        key: keyValue[0],
+        value: keyValue.length > 1 ? keyValue.slice(1).join('=') : consumesNext ? nextValue : true,
+        consumesNext,
+    };
+}
+
+function isExplicitCliValue(value) {
+    return typeof value === 'string' && !value.startsWith('--');
 }
 
 function readPositiveInt(value, label) {

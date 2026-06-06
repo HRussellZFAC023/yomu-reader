@@ -1,7 +1,9 @@
+import { readBlobAsDataUrl } from './blob-data-url';
+
 const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
 
 export async function createPageMediaUrl(blob: Blob): Promise<string> {
-    if (shouldUseDataUrlForPageMedia()) return blobToDataUrl(blob);
+    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(blob);
     return URL.createObjectURL(blob);
 }
 
@@ -12,13 +14,4 @@ export function revokePageMediaUrl(url: string): void {
 function shouldUseDataUrlForPageMedia(): boolean {
     if (typeof location === 'undefined') return false;
     return JPDB_HOST_RE.test(location.hostname);
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read media.'));
-        reader.readAsDataURL(blob);
-    });
 }

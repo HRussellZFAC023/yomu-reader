@@ -1,10 +1,20 @@
 import DefaultTheme from 'vitepress/theme-without-fonts';
 import { useData, type Theme } from 'vitepress';
 import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
+import {
+    sharedContrastRatio,
+    sharedHexToRgba,
+    sharedMixHex,
+} from '../../../src/shared/color-math';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
 type HostedThemePreference = 'auto' | 'dark' | 'light';
+type HostedSettingsChangeDetail = { preview?: unknown; settings?: { theme?: unknown } };
+type HostedYomuRuntimeWindow = typeof window & {
+    __yomuDevRuntime?: boolean;
+    __yomuReaderAppInitialized?: boolean;
+};
 
 const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const VITEPRESS_APPEARANCE_KEY = 'vitepress-theme-appearance';
@@ -28,6 +38,8 @@ const HOSTED_OVERFLOW_SELECTOR = '[data-yomu-hosted-overflow]';
 const HOSTED_MOBILE_SETTINGS_SELECTOR = '[data-yomu-hosted-mobile-settings]';
 const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
 const HOSTED_JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const HOSTED_DOCS_TRANSLATED_ATTRIBUTES = ['aria-label', 'title', 'alt', 'placeholder'] as const;
+type HostedDocsTranslatedAttribute = typeof HOSTED_DOCS_TRANSLATED_ATTRIBUTES[number];
 const HOSTED_RUNTIME_TARGET_SELECTOR = [
     '.VPHero',
     '.VPHomeHero',
@@ -55,6 +67,24 @@ const HOSTED_OVERFLOW_LINKS = [
     { text: 'Stats', href: '/yomu-reader/newtab/index.html?mode=stats', target: '_self' },
     { text: 'Changelog', href: '/yomu-reader/changelog' },
 ] as const;
+
+const HOSTED_LANGUAGE_TOGGLE_STATES: Record<InterfaceLanguage, { lang: InterfaceLanguage; text: string }> = {
+    en: { lang: 'en', text: 'A' },
+    ja: { lang: 'ja', text: 'あ' },
+};
+
+const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceLanguage, string>> = {
+    en: {
+        en: 'Switch Yomu HUD to English',
+        ja: 'Switch Yomu HUD to Japanese',
+    },
+    ja: {
+        en: 'Yomu HUDを英語に切り替え',
+        ja: 'Yomu HUDを日本語に切り替え',
+    },
+};
+
+const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Skip to content': '本文へスキップ',
@@ -334,6 +364,10 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
 const HOSTED_DOCS_EN_COPY: Record<string, string> = Object.fromEntries(
     Object.entries(HOSTED_DOCS_JA_COPY).map(([english, japanese]) => [japanese, english]),
 );
+const HOSTED_DOCS_COPY_BY_LANGUAGE: Record<InterfaceLanguage, Record<string, string>> = {
+    en: HOSTED_DOCS_EN_COPY,
+    ja: HOSTED_DOCS_JA_COPY,
+};
 const HOSTED_RESEARCH_LINKS = {
     extensive: {
         fallbackHref: 'https://link.springer.com/article/10.1007/s10648-025-10068-6',
@@ -354,6 +388,29 @@ const HOSTED_RESEARCH_LINKS = {
         ja: 'tadoku.org',
     },
 } as const;
+type HostedResearchLinkKey = keyof typeof HOSTED_RESEARCH_LINKS;
+type HostedResearchCopySegment = string | { readonly link: HostedResearchLinkKey };
+type HostedResearchLinks = Record<HostedResearchLinkKey, HTMLAnchorElement>;
+const HOSTED_RESEARCH_COPY_SEGMENTS: Record<InterfaceLanguage, readonly HostedResearchCopySegment[]> = {
+    en: [
+        'For the research behind the approach, see the 2025 meta-analysis on ',
+        { link: 'extensive' },
+        ', the classic idea of ',
+        { link: 'input' },
+        ", and Tadoku's practical reading rules for Japanese learners at ",
+        { link: 'tadoku' },
+        '.',
+    ],
+    ja: [
+        'このアプローチの背景研究については、2025年のメタ分析「',
+        { link: 'extensive' },
+        '」、古典的な考え方である「',
+        { link: 'input' },
+        '」、そして日本語学習者向けのTadokuの実践的な読書ルール（',
+        { link: 'tadoku' },
+        '）を参照してください。',
+    ],
+};
 
 function syncLandmarks() {
     const content = document.querySelector<HTMLElement>('#VPContent');
@@ -379,13 +436,28 @@ function installHostedLanguageToggle() {
 }
 
 function syncHostedLanguageToggle() {
-    const target = document.querySelector<HTMLElement>('.VPNavBar .content-body');
+    const target = hostedLanguageToggleTarget();
     if (!target) return;
-    const appearance = target.querySelector<HTMLElement>('.VPNavBarAppearance');
-    const existing = document.getElementById(LANGUAGE_TOGGLE_ID) as HTMLButtonElement | null;
-    const button = existing ?? createHostedLanguageToggle();
-    if (!button.isConnected) target.insertBefore(button, appearance ?? target.firstChild);
+    const button = hostedLanguageToggleButton();
+    insertHostedLanguageToggle(target, button);
     syncHostedLanguageToggleButton(button);
+}
+
+function hostedLanguageToggleTarget(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.VPNavBar .content-body');
+}
+
+function hostedLanguageToggleButton(): HTMLButtonElement {
+    return (document.getElementById(LANGUAGE_TOGGLE_ID) as HTMLButtonElement | null) ?? createHostedLanguageToggle();
+}
+
+function insertHostedLanguageToggle(target: HTMLElement, button: HTMLButtonElement): void {
+    if (button.isConnected) return;
+    target.insertBefore(button, hostedLanguageToggleAnchor(target));
+}
+
+function hostedLanguageToggleAnchor(target: HTMLElement): Element | ChildNode | null {
+    return target.querySelector<HTMLElement>('.VPNavBarAppearance') ?? target.firstChild;
 }
 
 function createHostedLanguageToggle(): HTMLButtonElement {
@@ -403,14 +475,23 @@ function createHostedLanguageToggle(): HTMLButtonElement {
 
 function syncHostedLanguageToggleButton(button: HTMLButtonElement): void {
     const next = nextInterfaceLanguage();
-    const current = effectiveInterfaceLanguage();
-    const lang = next === 'ja' ? 'ja' : 'en';
-    const text = next === 'ja' ? 'あ' : 'A';
-    const label = languageToggleLabel(current, next);
-    if (button.lang !== lang) button.lang = lang;
+    const state = HOSTED_LANGUAGE_TOGGLE_STATES[next];
+    setHostedButtonLanguage(button, state.lang);
+    setHostedButtonText(button, state.text);
+    button.removeAttribute('title');
+    setHostedAttribute(button, 'aria-label', languageToggleLabel(effectiveInterfaceLanguage(), next));
+}
+
+function setHostedButtonLanguage(button: HTMLButtonElement, language: InterfaceLanguage): void {
+    if (button.lang !== language) button.lang = language;
+}
+
+function setHostedButtonText(button: HTMLButtonElement, text: string): void {
     if (button.textContent !== text) button.textContent = text;
-    if (button.hasAttribute('title')) button.removeAttribute('title');
-    if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+}
+
+function setHostedAttribute(element: Element, attribute: string, value: string): void {
+    if (element.getAttribute(attribute) !== value) element.setAttribute(attribute, value);
 }
 
 function installHostedOverflowMenu() {
@@ -422,12 +503,18 @@ function syncHostedOverflowMenu() {
     const extra = document.querySelector<HTMLElement>('.VPNavBarExtra');
     if (!extra) return;
     extra.classList.add('yomu-hosted-extra');
-    const button = extra.querySelector<HTMLButtonElement>(':scope > button.button');
-    if (button) {
-        button.setAttribute('aria-label', translateHostedDocsString('Menu', effectiveInterfaceLanguage()));
-        button.removeAttribute('title');
-    }
+    syncHostedOverflowButton(extra);
+    syncHostedOverflowGroup(extra);
+}
 
+function syncHostedOverflowButton(extra: HTMLElement): void {
+    const button = extra.querySelector<HTMLButtonElement>(':scope > button.button');
+    if (!button) return;
+    button.setAttribute('aria-label', translateHostedDocsString('Menu', effectiveInterfaceLanguage()));
+    button.removeAttribute('title');
+}
+
+function syncHostedOverflowGroup(extra: HTMLElement): void {
     const menu = extra.querySelector<HTMLElement>('.VPMenu');
     if (!menu) return;
     if (!menu.querySelector(HOSTED_OVERFLOW_SELECTOR)) menu.prepend(createHostedOverflowGroup());
@@ -505,8 +592,7 @@ function openHostedSettings(): void {
 }
 
 function languageToggleLabel(current: InterfaceLanguage, next: InterfaceLanguage): string {
-    if (current === 'ja') return next === 'ja' ? 'Yomu HUDを日本語に切り替え' : 'Yomu HUDを英語に切り替え';
-    return next === 'ja' ? 'Switch Yomu HUD to Japanese' : 'Switch Yomu HUD to English';
+    return HOSTED_LANGUAGE_TOGGLE_LABELS[current][next];
 }
 
 function nextInterfaceLanguage(): InterfaceLanguage {
@@ -552,37 +638,37 @@ function scheduleHostedDocsLocalization(options: { resetReaderWords?: boolean } 
 function localizeHostedStructuredDocsCopy(root: ParentNode, language: InterfaceLanguage): void {
     const paragraph = hostedResearchParagraph(root);
     if (!paragraph) return;
-    if (paragraph.dataset.yomuHostedCopy === 'research' && paragraph.dataset.yomuHostedLanguage === language) return;
+    if (isHostedResearchCopyCurrent(paragraph, language)) return;
+    paragraph.replaceChildren(...hostedResearchCopyNodes(paragraph, language));
+    markHostedResearchCopyCurrent(paragraph, language);
+    resetHostedDocsTextOriginals(paragraph);
+}
 
-    const extensive = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.extensive, language);
-    const input = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.input, language);
-    const tadoku = hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.tadoku, language);
+function isHostedResearchCopyCurrent(paragraph: HTMLElement, language: InterfaceLanguage): boolean {
+    return paragraph.dataset.yomuHostedCopy === 'research' && paragraph.dataset.yomuHostedLanguage === language;
+}
 
-    if (language === 'ja') {
-        paragraph.replaceChildren(
-            document.createTextNode('このアプローチの背景研究については、2025年のメタ分析「'),
-            extensive,
-            document.createTextNode('」、古典的な考え方である「'),
-            input,
-            document.createTextNode('」、そして日本語学習者向けのTadokuの実践的な読書ルール（'),
-            tadoku,
-            document.createTextNode('）を参照してください。'),
-        );
-    } else {
-        paragraph.replaceChildren(
-            document.createTextNode('For the research behind the approach, see the 2025 meta-analysis on '),
-            extensive,
-            document.createTextNode(', the classic idea of '),
-            input,
-            document.createTextNode(", and Tadoku's practical reading rules for Japanese learners at "),
-            tadoku,
-            document.createTextNode('.'),
-        );
-    }
-
+function markHostedResearchCopyCurrent(paragraph: HTMLElement, language: InterfaceLanguage): void {
     paragraph.dataset.yomuHostedCopy = 'research';
     paragraph.dataset.yomuHostedLanguage = language;
-    resetHostedDocsTextOriginals(paragraph);
+}
+
+function hostedResearchCopyNodes(paragraph: HTMLElement, language: InterfaceLanguage): Node[] {
+    const links = hostedResearchLinks(paragraph, language);
+    return HOSTED_RESEARCH_COPY_SEGMENTS[language].map(segment => hostedResearchCopySegmentNode(segment, links));
+}
+
+function hostedResearchLinks(paragraph: HTMLElement, language: InterfaceLanguage): HostedResearchLinks {
+    return {
+        extensive: hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.extensive, language),
+        input: hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.input, language),
+        tadoku: hostedResearchLink(paragraph, HOSTED_RESEARCH_LINKS.tadoku, language),
+    };
+}
+
+function hostedResearchCopySegmentNode(segment: HostedResearchCopySegment, links: HostedResearchLinks): Node {
+    if (typeof segment === 'string') return document.createTextNode(segment);
+    return links[segment.link];
 }
 
 function hostedResearchParagraph(root: ParentNode): HTMLElement | null {
@@ -628,42 +714,101 @@ function translateTextNodes(root: ParentNode, language: InterfaceLanguage): void
 
 function translateAttributes(root: ParentNode, language: InterfaceLanguage): void {
     root.querySelectorAll<HTMLElement>('[aria-label], [title], [alt], [placeholder]').forEach(element => {
-        if (shouldSkipHostedDocsNode(element)) return;
-        ['aria-label', 'title', 'alt', 'placeholder'].forEach(attr => {
-            const value = element.getAttribute(attr);
-            if (!value) return;
-            const originals = attrOriginals.get(element) ?? new Map<string, string>();
-            if (!attrOriginals.has(element)) attrOriginals.set(element, originals);
-            const original = originals.get(attr) ?? value;
-            originals.set(attr, original);
-            element.setAttribute(attr, translateHostedDocsString(original, language));
-        });
+        translateElementAttributes(element, language);
     });
 }
 
+function translateElementAttributes(element: HTMLElement, language: InterfaceLanguage): void {
+    if (shouldSkipHostedDocsNode(element)) return;
+    HOSTED_DOCS_TRANSLATED_ATTRIBUTES.forEach(attr => {
+        translateElementAttribute(element, attr, language);
+    });
+}
+
+function translateElementAttribute(
+    element: HTMLElement,
+    attribute: HostedDocsTranslatedAttribute,
+    language: InterfaceLanguage,
+): void {
+    const value = element.getAttribute(attribute);
+    if (!value) return;
+    const originals = hostedAttributeOriginals(element);
+    const original = originals.get(attribute) ?? value;
+    originals.set(attribute, original);
+    element.setAttribute(attribute, translateHostedDocsString(original, language));
+}
+
+function hostedAttributeOriginals(element: HTMLElement): Map<string, string> {
+    const current = attrOriginals.get(element);
+    if (current) return current;
+    const next = new Map<string, string>();
+    attrOriginals.set(element, next);
+    return next;
+}
+
 function translateHostedDocsString(value: string, language: InterfaceLanguage): string {
-    const leading = value.match(/^\s*/)?.[0] ?? '';
-    const trailing = value.match(/\s*$/)?.[0] ?? '';
-    const core = value.trim();
-    const translated = language === 'ja' ? HOSTED_DOCS_JA_COPY[core] : HOSTED_DOCS_EN_COPY[core];
-    return translated ? `${leading}${translated}${trailing}` : value;
+    const parts = splitHostedDocsString(value);
+    const translated = hostedDocsTranslation(parts.core, language);
+    return applyHostedDocsTranslation(value, parts, translated);
+}
+
+function splitHostedDocsString(value: string): { leading: string; core: string; trailing: string } {
+    const leadingLength = value.length - value.trimStart().length;
+    const trailingStart = value.trimEnd().length;
+    return {
+        leading: value.slice(0, leadingLength),
+        core: value.slice(leadingLength, trailingStart),
+        trailing: value.slice(trailingStart),
+    };
+}
+
+function hostedDocsTranslation(value: string, language: InterfaceLanguage): string | undefined {
+    return HOSTED_DOCS_COPY_BY_LANGUAGE[language][value];
+}
+
+function applyHostedDocsTranslation(
+    original: string,
+    parts: { leading: string; core: string; trailing: string },
+    translated: string | undefined,
+): string {
+    if (!translated) return original;
+    return `${parts.leading}${translated}${parts.trailing}`;
 }
 
 function restoreHostedDocsLeafCopy(root: ParentNode, language: InterfaceLanguage): void {
     root.querySelectorAll<HTMLElement>(HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR).forEach(element => {
-        if (shouldSkipHostedDocsNode(element) || !canReplaceHostedDocsCopyElement(element)) return;
-        const current = element.textContent ?? '';
-        const translated = translateHostedDocsString(current, language);
-        if (translated !== current) element.textContent = translated;
+        restoreHostedDocsLeafElement(element, language);
     });
 }
 
+function restoreHostedDocsLeafElement(element: HTMLElement, language: InterfaceLanguage): void {
+    if (!isReplaceableHostedDocsLeaf(element)) return;
+    const current = element.textContent ?? '';
+    const translated = translateHostedDocsString(current, language);
+    if (translated !== current) element.textContent = translated;
+}
+
+function isReplaceableHostedDocsLeaf(element: HTMLElement): boolean {
+    return !shouldSkipHostedDocsNode(element) && canReplaceHostedDocsCopyElement(element);
+}
+
 function canReplaceHostedDocsCopyElement(element: HTMLElement): boolean {
-    const text = element.textContent?.trim() ?? '';
+    const text = hostedTrimmedText(element);
     if (!text) return false;
-    const translated = HOSTED_DOCS_JA_COPY[text] ?? HOSTED_DOCS_EN_COPY[text];
-    if (!translated) return false;
-    return Array.from(element.querySelectorAll('*')).every(child => isHostedReaderAnnotationElement(child));
+    if (!hasHostedDocsTranslation(text)) return false;
+    return hostedDocsLeafChildrenAreAnnotations(element);
+}
+
+function hostedTrimmedText(element: HTMLElement): string {
+    return element.textContent?.trim() ?? '';
+}
+
+function hasHostedDocsTranslation(text: string): boolean {
+    return Boolean(HOSTED_DOCS_JA_COPY[text] ?? HOSTED_DOCS_EN_COPY[text]);
+}
+
+function hostedDocsLeafChildrenAreAnnotations(element: HTMLElement): boolean {
+    return Array.from(element.querySelectorAll('*')).every(isHostedReaderAnnotationElement);
 }
 
 function isHostedReaderAnnotationElement(element: Element): boolean {
@@ -706,23 +851,46 @@ function hostedReaderWordSurfaceText(word: HTMLElement): string {
 }
 
 function hostedReaderSurfaceTextFromNode(node: ChildNode): string {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
-    if (!(node instanceof HTMLElement)) return '';
-    if (node.tagName === 'RT' || node.tagName === 'RP' || node.classList.contains('jpdb-reader-furigana')) return '';
+    if (isTextNode(node)) return node.textContent ?? '';
+    if (!isHostedReaderSurfaceElement(node)) return '';
+    return hostedReaderChildrenSurfaceText(node);
+}
+
+function isTextNode(node: ChildNode): node is Text {
+    return node.nodeType === Node.TEXT_NODE;
+}
+
+function isHostedReaderSurfaceElement(node: ChildNode): node is HTMLElement {
+    return node instanceof HTMLElement && !isHostedReaderAnnotationElement(node);
+}
+
+function hostedReaderChildrenSurfaceText(element: HTMLElement): string {
     let text = '';
-    node.childNodes.forEach(child => {
+    element.childNodes.forEach(child => {
         text += hostedReaderSurfaceTextFromNode(child);
     });
     return text;
 }
 
 function readStoredSettings(): Record<string, any> {
+    return parseHostedSettings(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
+}
+
+function parseHostedSettings(value: string): Record<string, any> {
     try {
-        const settings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
-        return settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+        return hostedSettingsRecord(JSON.parse(value));
     } catch {
         return {};
     }
+}
+
+function hostedSettingsRecord(value: unknown): Record<string, any> {
+    if (isHostedSettingsRecord(value)) return value;
+    return {};
+}
+
+function isHostedSettingsRecord(value: unknown): value is Record<string, any> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function installHostedThemeSync(isDark: Ref<boolean>): void {
@@ -783,11 +951,14 @@ function writeVitePressAppearancePreference(preference: HostedThemePreference, e
 }
 
 function settingsThemeFromEvent(event: Event): { theme: HostedThemePreference; preview: boolean } | undefined {
-    const detail = (event as CustomEvent<{ preview?: unknown; settings?: { theme?: unknown } }>).detail;
-    const theme = detail?.settings?.theme;
-    return theme === 'dark' || theme === 'light' || theme === 'auto'
-        ? { theme, preview: detail?.preview === true }
-        : undefined;
+    const detail = hostedSettingsChangeDetail(event);
+    const theme = hostedThemePreferenceFromValue(detail.settings?.theme);
+    if (!theme) return undefined;
+    return { theme, preview: detail.preview === true };
+}
+
+function hostedSettingsChangeDetail(event: Event): HostedSettingsChangeDetail {
+    return (event as CustomEvent<HostedSettingsChangeDetail>).detail ?? {};
 }
 
 function readStoredThemePreference(): HostedThemePreference {
@@ -795,7 +966,13 @@ function readStoredThemePreference(): HostedThemePreference {
 }
 
 function normalizeHostedThemePreference(value: unknown, fallback: HostedThemePreference | undefined = 'auto'): HostedThemePreference {
-    return value === 'dark' || value === 'light' || value === 'auto' ? value : fallback ?? 'auto';
+    return hostedThemePreferenceFromValue(value) ?? fallback ?? 'auto';
+}
+
+function hostedThemePreferenceFromValue(value: unknown): HostedThemePreference | undefined {
+    return typeof value === 'string' && HOSTED_THEME_PREFERENCES.has(value as HostedThemePreference)
+        ? value as HostedThemePreference
+        : undefined;
 }
 
 function effectiveHostedTheme(theme: HostedThemePreference): 'dark' | 'light' {
@@ -863,51 +1040,38 @@ function readableTextOn(background: string): typeof DOC_COLOR_TOKENS.readableInk
 
 function readableOn(color: string, background: string, targetContrast: number): string {
     const safe = sanitizeHostedAccent(color);
-    if (contrastRatio(safe, background) >= targetContrast) return safe;
-    const toward = contrastRatio(background, DOC_COLOR_TOKENS.black) > contrastRatio(background, DOC_COLOR_TOKENS.white)
-        ? DOC_COLOR_TOKENS.black
-        : DOC_COLOR_TOKENS.white;
+    if (hasTargetContrast(safe, background, targetContrast)) return safe;
+    return readableMixedColor(safe, background, targetContrast, readableMixTarget(background));
+}
+
+function readableMixedColor(color: string, background: string, targetContrast: number, toward: string): string {
     for (let amount = 0.08; amount <= 1; amount += 0.08) {
-        const mixed = mixHex(safe, toward, amount);
-        if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+        const mixed = mixHex(color, toward, amount);
+        if (hasTargetContrast(mixed, background, targetContrast)) return mixed;
     }
     return toward;
 }
 
-function contrastRatio(a: string, b: string): number {
-    const l1 = relativeLuminance(a);
-    const l2 = relativeLuminance(b);
-    const light = Math.max(l1, l2);
-    const dark = Math.min(l1, l2);
-    return (light + 0.05) / (dark + 0.05);
+function readableMixTarget(background: string): string {
+    return contrastRatio(background, DOC_COLOR_TOKENS.black) > contrastRatio(background, DOC_COLOR_TOKENS.white)
+        ? DOC_COLOR_TOKENS.black
+        : DOC_COLOR_TOKENS.white;
 }
 
-function relativeLuminance(color: string): number {
-    const [red, green, blue] = hexToRgb(color).map(value => {
-        const channel = value / 255;
-        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+function hasTargetContrast(color: string, background: string, targetContrast: number): boolean {
+    return contrastRatio(color, background) >= targetContrast;
+}
+
+function contrastRatio(a: string, b: string): number {
+    return sharedContrastRatio(a, b, sanitizeHostedAccent);
 }
 
 function mixHex(from: string, to: string, amount: number): string {
-    const a = hexToRgb(from);
-    const b = hexToRgb(to);
-    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, '0')).join('')}`;
-}
-
-function hexToRgb(color: string): [number, number, number] {
-    const safe = sanitizeHostedAccent(color);
-    return [
-        parseInt(safe.slice(1, 3), 16),
-        parseInt(safe.slice(3, 5), 16),
-        parseInt(safe.slice(5, 7), 16),
-    ];
+    return sharedMixHex(from, to, amount, sanitizeHostedAccent);
 }
 
 function hexToRgba(color: string, alpha: number): string {
-    const [red, green, blue] = hexToRgb(color);
-    return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
+    return sharedHexToRgba(color, alpha, sanitizeHostedAccent);
 }
 
 function browserPrefersJapanese(): boolean {
@@ -1004,30 +1168,68 @@ function clearHostedYomuRuntimeIntent(): void {
 }
 
 function isHostedYomuRuntimeLoadingOrReady(): boolean {
-    const runtime = window as typeof window & { __yomuReaderAppInitialized?: boolean };
-    return Boolean(runtime.__yomuReaderAppInitialized || document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID));
+    return Boolean(hostedYomuRuntimeWindow().__yomuReaderAppInitialized || hostedRuntimeScript());
 }
 
 function installHostedYomuRuntime(): HTMLScriptElement | undefined {
-    const runtime = window as typeof window & {
-        __yomuDevRuntime?: boolean;
-        __yomuReaderAppInitialized?: boolean;
-    };
+    const runtime = hostedYomuRuntimeWindow();
     const forceLocalRuntime = isLocalHostedRuntime();
-    const currentScript = document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID);
-    if (forceLocalRuntime) clearLocalHostedRuntimeCaches();
-    if (forceLocalRuntime) document.getElementById(LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID)?.remove();
-    if (runtime.__yomuReaderAppInitialized && (!forceLocalRuntime || currentScript)) return undefined;
-    if (currentScript) return undefined;
+    const currentScript = hostedRuntimeScript();
+    prepareLocalHostedRuntime(forceLocalRuntime);
+    if (shouldSkipHostedRuntimeInstall(runtime, forceLocalRuntime, currentScript)) return undefined;
+    enableLocalHostedRuntime(runtime, forceLocalRuntime);
+    return appendHostedRuntimeScript(hostedRuntimeScriptSrc(forceLocalRuntime));
+}
+
+function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {
+    return window as HostedYomuRuntimeWindow;
+}
+
+function hostedRuntimeScript(): HTMLElement | null {
+    return document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID);
+}
+
+function prepareLocalHostedRuntime(forceLocalRuntime: boolean): void {
+    if (!forceLocalRuntime) return;
+    clearLocalHostedRuntimeCaches();
+    document.getElementById(LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID)?.remove();
+}
+
+function shouldSkipHostedRuntimeInstall(
+    runtime: HostedYomuRuntimeWindow,
+    forceLocalRuntime: boolean,
+    currentScript: HTMLElement | null,
+): boolean {
+    if (currentScript) return true;
+    return shouldKeepInitializedHostedRuntime(runtime, forceLocalRuntime, currentScript);
+}
+
+function shouldKeepInitializedHostedRuntime(
+    runtime: HostedYomuRuntimeWindow,
+    forceLocalRuntime: boolean,
+    currentScript: HTMLElement | null,
+): boolean {
+    if (!runtime.__yomuReaderAppInitialized) return false;
+    if (forceLocalRuntime) return Boolean(currentScript);
+    return true;
+}
+
+function enableLocalHostedRuntime(runtime: HostedYomuRuntimeWindow, forceLocalRuntime: boolean): void {
     if (forceLocalRuntime) runtime.__yomuDevRuntime = true;
+}
+
+function appendHostedRuntimeScript(src: string): HTMLScriptElement {
     const script = document.createElement('script');
     script.id = YOMU_HOSTED_RUNTIME_SCRIPT_ID;
-    script.src = forceLocalRuntime
-        ? `/yomu-reader/yomu.user.js?t=${Date.now()}`
-        : '/yomu-reader/yomu.user.js';
+    script.src = src;
     script.async = true;
     document.head.append(script);
     return script;
+}
+
+function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
+    if (forceLocalRuntime) return `/yomu-reader/yomu.user.js?t=${Date.now()}`;
+    return '/yomu-reader/yomu.user.js';
 }
 
 function isLocalHostedRuntime(): boolean {
