@@ -7,6 +7,7 @@ import {
     assert,
     assertBuiltArtifacts,
     closeServer,
+    createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
     serveFile,
@@ -14,10 +15,12 @@ import {
     YOMU_SETTINGS_KEY,
 } from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const DIST = path.join(ROOT, 'dist');
-const NEWTAB_DIR = path.join(DIST, 'newtab');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
+const {
+    root: ROOT,
+    dist: DIST,
+    artifacts: ARTIFACTS,
+    newTabDir: NEWTAB_DIR,
+} = createSmokePaths(import.meta.dirname);
 const SETTINGS_KEY = YOMU_SETTINGS_KEY;
 const BUILT_ARTIFACTS = [
     path.join(NEWTAB_DIR, 'index.html'),
@@ -28,6 +31,8 @@ const BUILT_ARTIFACTS = [
 
 const JITEN_API_ORIGIN = 'https://api.jiten.moe';
 const JPDB_API_ORIGIN = 'https://jpdb.io';
+const MOCK_JITEN_API_KEY = 'mock-jiten-key';
+const MOCK_JPDB_API_KEY = 'mock-jpdb-key';
 const REQUEST_BRIDGE_NAME = '__yomuJitenNewtabSmokeRequest';
 const STATIC_NEW_TAB_ROUTES = new Map([
     ['/newtab', [path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8']],
@@ -53,13 +58,21 @@ function createNewTabFixtureServer() {
 }
 
 function serveNewTabFixtureRequest(request, response) {
-    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-    const pathname = url.pathname.replace(/\/+$/, '') || '/';
-    const route = STATIC_NEW_TAB_ROUTES.get(pathname);
-    if (route && existsSync(route[0])) {
-        serveFile(response, route[0], route[1], request.method ?? 'GET');
-        return;
-    }
+    const route = staticNewTabRoute(request.url);
+    if (!route || !existsSync(route[0])) return serveNotFound(response);
+    serveFile(response, route[0], route[1], request.method ?? 'GET');
+}
+
+function staticNewTabRoute(requestUrl) {
+    const url = new URL(requestUrl ?? '/', 'http://127.0.0.1');
+    return STATIC_NEW_TAB_ROUTES.get(normalizedStaticRoutePath(url));
+}
+
+function normalizedStaticRoutePath(url) {
+    return url.pathname.replace(/\/+$/, '') || '/';
+}
+
+function serveNotFound(response) {
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
 }
@@ -70,7 +83,7 @@ function createSettings(overrides = {}) {
         newTabEnabled: true,
         interfaceLanguage: 'en',
         apiKey: '',
-        jitenApiKey: 'mock-jiten-key',
+        jitenApiKey: MOCK_JITEN_API_KEY,
         jpdbMiningEnabled: true,
         enableReviews: true,
         newTabSource: 'jpdb',
@@ -133,12 +146,24 @@ function routeRequestSnapshot(request) {
 }
 
 async function fulfillMockedRoute(route, mocked) {
-    await route.fulfill({
+    await route.fulfill(mockedRouteResponse(mocked));
+}
+
+function mockedRouteResponse(mocked) {
+    return {
         status: mocked.status ?? 200,
-        headers: { ...corsHeaders(), ...(mocked.headers ?? {}) },
+        headers: mockedRouteHeaders(mocked),
         contentType: mocked.contentType,
-        body: mocked.responseText ?? mocked.body ?? '',
-    });
+        body: mockedRouteBody(mocked),
+    };
+}
+
+function mockedRouteHeaders(mocked) {
+    return { ...corsHeaders(), ...(mocked.headers ?? {}) };
+}
+
+function mockedRouteBody(mocked) {
+    return mocked.responseText ?? mocked.body ?? '';
 }
 
 function isMockedApiUrl(url) {
@@ -161,7 +186,7 @@ function mockedApiRequest(request, requests) {
 }
 
 function mockedJitenRequest(url, request, requests) {
-    assertApiAuth(request, 'ApiKey ', 'Jiten');
+    assertApiAuth(request, 'ApiKey ', MOCK_JITEN_API_KEY, 'Jiten');
     const pathname = url.pathname.replace(/^\/api\/?/, '');
     const handler = JITEN_REQUEST_HANDLERS.get(`${request.method} ${pathname}`) ?? jitenPingHandler(pathname);
     if (handler) return handler(url, request, requests);
@@ -169,7 +194,7 @@ function mockedJitenRequest(url, request, requests) {
 }
 
 function mockedJpdbRequest(url, request, requests) {
-    assertApiAuth(request, 'Bearer ', 'JPDB');
+    assertApiAuth(request, 'Bearer ', MOCK_JPDB_API_KEY, 'JPDB');
     if (request.method !== 'POST') throw new Error(`Unexpected JPDB method: ${request.method} ${url.href}`);
     const endpoint = url.pathname.replace(/^\/api\/v1\/?/, '');
     const handler = JPDB_REQUEST_HANDLERS.get(endpoint);
@@ -212,10 +237,11 @@ function handleJpdbReview(body, requests) {
     return jsonHttpResponse({});
 }
 
-function assertApiAuth(request, prefix, label) {
+function assertApiAuth(request, prefix, expectedKey, label) {
     const headers = request.headers ?? {};
     const auth = headers.authorization ?? headers.Authorization ?? '';
     assert(String(auth).startsWith(prefix), `${label} smoke request did not include the expected auth scheme`);
+    assert(auth === `${prefix}${expectedKey}`, `${label} smoke request used the wrong API key`, { auth });
 }
 
 function readRequestJson(data) {
@@ -277,15 +303,21 @@ async function runJitenOnlySmoke(browser, fixture) {
     try {
         await expectText(page, '[data-newtab-prompt]', '日本語');
         await expectText(page, '[data-newtab-status]', 'Jiten');
+        await expectText(page, '[data-newtab-status]', '1 / 1');
         await assertStatusLight(page, 'jiten');
+        assertRequestCount(requests, 'jiten-study-batch', 1);
+        assertAllRequests(requests, 'jiten-study-batch', request => request.limit === '180', 'Jiten-only smoke used an unexpected study-batch limit');
+        assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-chip]', 'Jiten');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
+        assertRequestCount(requests, 'jiten-review', 0);
         await screenshot(page, 'jiten-newtab-jiten-only.png');
         await page.click('[data-newtab-action="grade"][data-grade="okay"]');
         const review = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
         assert(review, 'Jiten review request was not submitted', { requests });
         assert(review.body.wordId === 42 && review.body.readingIndex === 2 && review.body.rating === 3, 'Jiten review request body was incorrect', review.body);
+        assertRequestCount(requests, 'jiten-review', 1);
         return { prompt: await textContent(page, '[data-newtab-prompt]'), review: review.body };
     } finally {
         await context.close();
@@ -294,22 +326,45 @@ async function runJitenOnlySmoke(browser, fixture) {
 
 async function runCombinedApiSmoke(browser, fixture) {
     const requests = [];
-    const { context, page } = await installNewTabPage(browser, fixture, createSettings({ apiKey: 'mock-jpdb-key' }), requests);
+    const { context, page } = await installNewTabPage(browser, fixture, createSettings({ apiKey: MOCK_JPDB_API_KEY }), requests);
     try {
         await expectText(page, '[data-newtab-prompt]', '復習');
         await expectText(page, '[data-newtab-status]', 'JPDB');
+        await expectText(page, '[data-newtab-status]', '1 / 2');
         await assertStatusLight(page, 'jpdb');
-        await page.click('[data-newtab-action="next"]');
+        await page.click('[data-newtab-action="reveal"]');
+        await expectText(page, '[data-newtab-grade-target-chip]', 'JPDB');
+        await expectText(page, '[data-newtab-grade-target-text]', 'Grades JPDB');
+        await page.click('[data-newtab-action="grade"][data-grade="easy"]');
+        const jpdbReview = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
+        assert(jpdbReview, 'JPDB review request was not submitted in combined smoke', { requests });
+        assert(jpdbReview.body.vid === 101 && jpdbReview.body.sid === 1 && jpdbReview.body.grade === 'easy', 'JPDB review request body was incorrect', jpdbReview.body);
         await expectText(page, '[data-newtab-prompt]', '日本語');
         await expectText(page, '[data-newtab-status]', 'Jiten');
+        await expectText(page, '[data-newtab-status]', '1 / 1');
         await assertStatusLight(page, 'jiten');
+        const jitenPrompt = await textContent(page, '[data-newtab-prompt]');
+        await page.click('[data-newtab-action="reveal"]');
+        await expectText(page, '[data-newtab-grade-target-chip]', 'Jiten');
+        await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
+        await page.click('[data-newtab-action="grade"][data-grade="okay"]');
+        const jitenReview = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
+        assert(jitenReview, 'Jiten review request was not submitted in combined smoke', { requests });
+        assert(jitenReview.body.wordId === 42 && jitenReview.body.readingIndex === 2 && jitenReview.body.rating === 3, 'Combined Jiten review request body was incorrect', jitenReview.body);
         await screenshot(page, 'jiten-newtab-combined-api.png');
-        assert(requests.some(item => item.kind === 'jpdb-list-vocabulary'), 'JPDB deck vocabulary was not requested', { requests });
-        assert(requests.some(item => item.kind === 'jpdb-lookup-vocabulary'), 'JPDB vocabulary hydrate was not requested', { requests });
-        assert(requests.some(item => item.kind === 'jiten-study-batch'), 'Jiten study batch was not requested', { requests });
+        assertRequestCountAtLeast(requests, 'jpdb-list-vocabulary', 1);
+        assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 2);
+        assertRequestCountAtLeast(requests, 'jiten-study-batch', 1);
+        assertAllRequests(requests, 'jiten-study-batch', request => request.limit === '180', 'Jiten study-batch smoke requests used an unexpected limit');
+        assertRequestCount(requests, 'jpdb-review', 1);
+        assertRequestCount(requests, 'jiten-review', 1);
         return {
             firstPrompt: '復習',
-            secondPrompt: await textContent(page, '[data-newtab-prompt]'),
+            secondPrompt: jitenPrompt,
+            reviews: {
+                jpdb: jpdbReview.body,
+                jiten: jitenReview.body,
+            },
             sources: requests.map(item => item.kind),
         };
     } finally {
@@ -348,6 +403,28 @@ async function waitForRequest(requests, predicate, timeoutMs) {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
     return null;
+}
+
+function assertRequestCount(requests, kind, expected) {
+    const actual = requests.filter(item => item.kind === kind).length;
+    assert(actual === expected, `Expected ${expected} ${kind} request(s), saw ${actual}`, { requests });
+}
+
+function assertRequestCountAtLeast(requests, kind, expected) {
+    const actual = requests.filter(item => item.kind === kind).length;
+    assert(actual >= expected, `Expected at least ${expected} ${kind} request(s), saw ${actual}`, { requests });
+}
+
+function assertAllRequests(requests, kind, predicate, message) {
+    const matching = requests.filter(item => item.kind === kind);
+    const unexpected = matching.filter(item => !predicate(item));
+    assert(matching.length > 0, `Expected ${kind} request(s)`, { requests });
+    assert(unexpected.length === 0, message, { unexpected, requests });
+}
+
+function assertNoRequests(requests, predicate, message) {
+    const unexpected = requests.filter(predicate);
+    assert(unexpected.length === 0, message, { unexpected, requests });
 }
 
 async function assertStatusLight(page, source) {

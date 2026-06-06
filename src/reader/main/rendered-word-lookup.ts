@@ -114,13 +114,18 @@ function renderedWordOffsetMatchesAnyValue(sentence: string, offset: number, val
 }
 
 function renderedKanaFragmentExpansionTerms(sentence: string, offset: number, surfaceLength: number): string[] {
-    return uniqueStrings([
-        ...renderedKanaFragmentAnchoredTerms(sentence, offset, surfaceLength),
-        ...jpdbPointerLookupCandidates(sentence, offset)
+    const anchored = renderedKanaFragmentAnchoredTerms(sentence, offset, surfaceLength);
+    const pointer = jpdbPointerLookupCandidates(sentence, offset)
             .filter((span) => span.end - span.start > surfaceLength)
             .map((span) => span.term)
-            .filter(isKanaOnlyLookupTerm),
-    ]);
+            .filter(isKanaOnlyLookupTerm);
+    return uniqueStrings(shouldPreferAnchoredKanaFragmentTerms(sentence, offset, surfaceLength)
+        ? [...anchored, ...pointer]
+        : [...pointer, ...anchored]);
+}
+
+function shouldPreferAnchoredKanaFragmentTerms(sentence: string, offset: number, surfaceLength: number): boolean {
+    return surfaceLength === 1 && Boolean(kanaFragmentBoundaryAt(sentence, offset));
 }
 
 function renderedKanaFragmentAnchoredTerms(sentence: string, offset: number, surfaceLength: number): string[] {

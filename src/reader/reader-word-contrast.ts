@@ -1,5 +1,5 @@
-import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from './color-tokens';
-import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, rgbaToHex, type RgbaColor } from './color-utils';
+import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from './theme/color-tokens';
+import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, rgbaToHex, type RgbaColor } from './theme/color-utils';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
 const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen';

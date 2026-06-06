@@ -5,7 +5,7 @@ import {
     ANKI_SENTENCE_FIELD_NAMES,
     type AnkiConnectClient,
 } from './index';
-import { pickPrimaryCard, stateFromAnkiCards } from './card-details';
+import { ankiCardTemplateLabel, pickPrimaryCard, reviewGradeIntervalsFromAnkiCards, stateFromAnkiCards } from './card-details';
 import { flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
 import { Logger } from '../logger';
 import { stablePositiveHashId } from '../core/stable-hash';
@@ -68,6 +68,11 @@ interface AnkiNoteInfo {
 interface AnkiCardInfo {
     cardId: number;
     deckName?: string;
+    card?: string;
+    cardName?: string;
+    name?: string;
+    ord?: number;
+    template?: string;
     queue: number;
     type: number;
     due?: number;
@@ -75,6 +80,8 @@ interface AnkiCardInfo {
     lapses?: number;
     question?: string;
     answer?: string;
+    buttons?: number[];
+    nextReviews?: string[];
     note?: number;
     isDue?: boolean;
 }
@@ -354,6 +361,7 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[], settings: Rea
     if (!fields) return null;
     const identity = ankiNewTabCardIdentity(note, cards, fields.spelling);
     const partOfSpeech = ankiPartOfSpeech(fields);
+    const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(cards);
     return {
         vid: identity.vid,
         sid: identity.sid,
@@ -376,6 +384,7 @@ function ankiNoteToCard(note: AnkiNoteInfo, cards: AnkiCardInfo[], settings: Rea
         ankiCardKind: fields.kind,
         ankiReps: ankiPrimaryCardReps(identity.primaryCard),
         ankiLapses: ankiPrimaryCardLapses(identity.primaryCard),
+        ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
         ankiRenderedCards: ankiRenderedCards(cards),
         ankiAudioFilenames: ankiAudioFilenamesFromFields(noteFields),
     };
@@ -417,9 +426,17 @@ function ankiRenderedCards(cards: AnkiCardInfo[]): AnkiRenderedCard[] {
     const rendered: AnkiRenderedCard[] = [];
     for (const card of cards) {
         if (!card.question && !card.answer) continue;
+        const cardName = ankiCardTemplateLabel({
+            card: card.card,
+            cardName: card.cardName,
+            name: card.name,
+            ord: card.ord,
+            template: card.template,
+        });
         rendered.push({
             cardId: card.cardId,
             deckName: card.deckName ?? '',
+            ...(cardName ? { cardName } : {}),
             question: card.question ?? '',
             answer: card.answer ?? '',
         });

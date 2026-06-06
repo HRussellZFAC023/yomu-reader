@@ -1,5 +1,6 @@
 import { Logger } from '../logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../types';
 
@@ -103,10 +104,10 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
+    const apiCredentials = readApiCredentialsFromFormData(data);
     const settings: ReaderSettings = {
         ...current,
-        apiKey: get('apiKey').trim(),
-        jitenApiKey: get('jitenApiKey').trim(),
+        ...apiCredentials,
         interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
         ...readJpdbFormSettings(reader, current, jpdbDefinitionsRowPresent),
         ...readKanjiAddonFormSettings(reader, current),
@@ -502,6 +503,7 @@ function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSett
     return {
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
         preferJapaneseSiteLanguage: has('preferJapaneseSiteLanguage'),
+        youtubeShowChannelRecommendations: has('youtubeShowChannelRecommendations'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
     };
 }

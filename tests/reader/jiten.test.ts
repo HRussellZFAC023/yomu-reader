@@ -96,6 +96,12 @@ describe('JitenApiClient', () => {
                 pitchAccents: [0],
                 frequencyRank: 123,
                 exampleSentence: { text: '日本語を読む。' },
+                reviewButtons: [
+                    { rating: 1, nextInterval: '1m' },
+                    { rating: 2, nextInterval: '5m' },
+                    { rating: 3, nextInterval: '10m' },
+                    { rating: 4, nextInterval: '4.1y' },
+                ],
             }],
             newCardsRemaining: 3,
             reviewsRemaining: 4,
@@ -119,6 +125,15 @@ describe('JitenApiClient', () => {
             meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
             sentence: '日本語を読む。',
             wordWithReading: '日本語[にほんご]',
+            reviewGradeIntervals: {
+                nothing: { buttonLabel: 'Again', intervalLabel: '1m', label: 'Again 1m', source: 'jiten-study-batch' },
+                fail: { buttonLabel: 'Again', intervalLabel: '1m', label: 'Again 1m', source: 'jiten-study-batch' },
+                something: { buttonLabel: 'Hard', intervalLabel: '5m', label: 'Hard 5m', source: 'jiten-study-batch' },
+                hard: { buttonLabel: 'Hard', intervalLabel: '5m', label: 'Hard 5m', source: 'jiten-study-batch' },
+                okay: { buttonLabel: 'Good', intervalLabel: '10m', label: 'Good 10m', source: 'jiten-study-batch' },
+                pass: { buttonLabel: 'Good', intervalLabel: '10m', label: 'Good 10m', source: 'jiten-study-batch' },
+                easy: { buttonLabel: 'Easy', intervalLabel: '4.1y', label: 'Easy 4.1y', source: 'jiten-study-batch' },
+            },
         })]);
         expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/srs/study-batch?limit=2`, expect.objectContaining({
             method: 'GET',

@@ -6,10 +6,10 @@ import { mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
+import { createYomuPaths } from './paths.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DOCS_DIST = path.join(ROOT, 'docs/.vitepress/dist');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 
 const pages = [
     { name: 'home', path: '/' },

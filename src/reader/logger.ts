@@ -1,4 +1,4 @@
-import { BRAND_COLOR_TOKENS, CORE_COLOR_TOKENS, LOGGER_COLOR_TOKENS } from './color-tokens';
+import { BRAND_COLOR_TOKENS, CORE_COLOR_TOKENS, LOGGER_COLOR_TOKENS } from './theme/color-tokens';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
 import type { ReaderSettings } from './types';
 

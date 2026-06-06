@@ -5,6 +5,7 @@ import { externalLinkIcon } from './icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './settings';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './settings/form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './settings/form-editors';
+import { singleApiCredentialValue } from './settings/api-credential';
 import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './settings/form-read';
 import type { ColorSourceSettingName } from './settings/form-read';
 import { renderSourceRowsList } from './settings/form-source-rows';
@@ -13,10 +14,8 @@ import {
     MOBILE_ANKI_SETUP_DOCS_URL,
     ankiStatusLineForSettings,
     localizeInitialAnkiStatus,
-    localizeJitenStatus,
     localizeJpdbStatus,
     renderAnkiStatusHtml,
-    renderJitenStatusLine,
     renderJpdbStatusLine,
 } from './settings/status-lines';
 import { uniqueStrings } from './core/string-utils';
@@ -30,7 +29,7 @@ export { readDictionaryLookupLinks, readFormSettings } from './settings/form-rea
 export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './settings/form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './settings/form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './settings/anki-mining-panel';
-export { ankiStatusLineForSettings, formatSettingsStatusLine, jitenStatusLineForSettings, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './settings/status-lines';
+export { ankiStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './settings/status-lines';
 export type { SettingsStatusAction, SettingsStatusLine } from './settings/status-lines';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
@@ -185,21 +184,15 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
 
 function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
     const jpdbStatus = renderJpdbStatusLine(settings);
-    const jitenStatus = renderJitenStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
                 <legend>API</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input('apiKey', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, 'password', API_KEY_INPUT_ATTRIBUTES)}
-                        ${input('jitenApiKey', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, settings.jitenApiKey, 'password', API_KEY_INPUT_ATTRIBUTES)}
+                        ${input('apiCredential', `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), 'password', API_KEY_INPUT_ATTRIBUTES)}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add a JPDB API key or a Jiten API key. JPDB-backed cards use the JPDB key; Jiten-backed cards use the Jiten key.</div>
-                    <div class="jpdb-reader-help-actions">
-                        <button class="jpdb-reader-btn" type="button" data-action="check-jiten-api">Check Jiten connection</button>
-                    </div>
-                    ${jitenStatus}
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten key.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -218,7 +211,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to JPDB word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to JPDB kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>JPDB page additions use the same source order as the Dictionaries and Kanji panels.</div>
+                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>Uses your source order.</div>
                 </div>
             </fieldset>
     `;
@@ -274,7 +267,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards on new tab', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
-                        ${select('newTabJpdbReviewMode', 'JPDB review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
+                        ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
                         ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
@@ -288,7 +281,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Use this page as your new-tab URL or iPad Home Screen app. よむ refreshes cache when online and queues grades while offline.</div>
+                    <div class="jpdb-reader-help">Set this as your browser's new-tab page, or add it to your iPad Home Screen.</div>
                 </div>
     `;
 }
@@ -367,7 +360,7 @@ function renderColorChannelSettingsSubsection(settings: ReaderSettings): string 
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), COLOR_SOURCE_OPTIONS)).join('')}
                     </div>
-                    <div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.</div>
+                    <div class="jpdb-reader-help" data-color-channels-help>Choose each color source.</div>
                 </div>
     `;
 }
@@ -520,7 +513,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, 'settingsPuckHelp')}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
-                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Hover lookup uses the Hold while hovering shortcut in this panel. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.</div>
+                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
             </fieldset>
     `;
 }
@@ -551,7 +544,7 @@ function renderKanjiSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('kanjiOriginRadicalImagesEnabled', 'Show radical images', settings.kanjiOriginRadicalImagesEnabled)}
                     ${input('similarKanjiWordLimit', 'Similar word limit', String(settings.similarKanjiWordLimit), 'number', { min: 2, max: 24, step: 1 })}
                 </div>
-                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click a kanji inside a popup word to open its detail view. Toggle and reorder the kanji sources here: stroke practice, readings and components, RTK, imported kanji dictionaries, related words, and the component graph.</div>
+                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click popup kanji for details.</div>
             </fieldset>
     `;
 }
@@ -581,7 +574,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
-                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Images are read quietly near the viewport. Google Lens handles normal images by default; Cloud Vision can be used with an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
+                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
             </fieldset>
     `;
 }
@@ -635,11 +628,12 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>YouTube</legend>
                 <div class="grid">
-                    ${checkbox('youtubeImmersionEnabled', 'Only show Japanese YouTube videos', settings.youtubeImmersionEnabled)}
+                    ${checkbox('youtubeImmersionEnabled', 'Japanese YouTube only', settings.youtubeImmersionEnabled)}
                     ${checkbox('preferJapaneseSiteLanguage', 'Prefer Japanese site language and location', settings.preferJapaneseSiteLanguage)}
-                    ${checkbox('youtubeShowFilterNotice', 'Show a temporary hidden-video notice', settings.youtubeShowFilterNotice)}
+                    ${checkbox('youtubeShowChannelRecommendations', 'Show Japanese channel suggestions', settings.youtubeShowChannelRecommendations)}
+                    ${checkbox('youtubeShowFilterNotice', 'Show hidden-video notice', settings.youtubeShowFilterNotice)}
                 </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>
+                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>Prefer Japanese UI and Japan-local content.</div>
             </fieldset>
     `;
 }
@@ -668,7 +662,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">Open the current word in external dictionaries. Use {query}, or {word} and {reading} when a site needs them separately.</div>
+                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -720,7 +714,7 @@ function renderHelpSettingsPanel(settings: ReaderSettings): string {
                     <div class="grid">
                         ${checkbox('enableLogging', 'Enable console logging', settings.enableLogging)}
                     </div>
-                    <div class="jpdb-reader-help" data-diagnostics-help>Use this only when troubleshooting. It prints reader diagnostics to the browser console.</div>
+                    <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
                 </div>
                 ${renderHelpLinksPanel()}
             </fieldset>
@@ -866,7 +860,6 @@ const SELECTOR_TEXT_KEYS = [
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
     ['[data-action="prepare-anki"]', 'prepareAnki'],
-    ['[data-action="check-jiten-api"]', 'checkJitenApi'],
     ['[data-action="copy-newtab-url"]', 'copyAddress'],
     ['[data-newtab-url-link]', 'openNewTabPage'],
     ['[data-action="import-yomitan-settings"]', 'importSettings'],
@@ -1251,7 +1244,6 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     localizeDeckControls(form, text);
     const statusLanguage = resolveUiLanguageFromText(text);
     localizeJpdbStatus(form, statusLanguage);
-    localizeJitenStatus(form, statusLanguage);
     localizeInitialAnkiStatus(form, statusLanguage);
     localizeSourceRows(form, text);
     localizeRecommendedDictionaryGroups(form, text);
@@ -1473,7 +1465,7 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 }
 
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    'apiKey', 'jitenApiKey', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'apiCredential', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
@@ -1500,7 +1492,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
-    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowFilterNotice', 'jpdbDefinitionsEnabled',
+    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice', 'jpdbDefinitionsEnabled',
     'localDictionariesEnabled', 'dictionarySourcesInitiallyExpanded', 'localDictionaryMaxResults', 'hoverOpenDelayMs', 'hoverCloseDelayMs',
 ] as const satisfies readonly SettingsTextKey[];
 
@@ -1914,10 +1906,10 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         `;
     }).join('');
     const metadataHelp = hiddenPreferences.length
-        ? '<div class="jpdb-reader-help">Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of definition source cards.</div>'
+        ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>'
         : '';
     if (!rows.some(row => row.removable)) return `
-        <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
+        <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
         ${renderSourceRowsList(rows, { sourceLabel: 'Definition source', countName: 'dictionaryPreferenceCount', countValue: settings.dictionaryPreferences.length, showAlias })}
         ${metadataHelp}
         ${hidden}

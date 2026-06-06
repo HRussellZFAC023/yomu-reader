@@ -23,11 +23,14 @@
     "subtitles",
     "tampermonkey"
   ],
+  "yomu": {
+    "allowedRequireUrls": []
+  },
   "scripts": {
     "dev": "node scripts/dev-userscript.mjs",
     "dev:vite": "vite --host 127.0.0.1",
     "dev:ipad": "node scripts/dev-ipad.mjs",
-    "build": "vite build && node scripts/build-reader-css.mjs && vite build --config vite.newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs && node scripts/compact-userscript-whitespace.cjs",
+    "build": "vite build && node scripts/build-reader-css.mjs && vite build --config vite.newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
     "build:extension": "npm run build && node scripts/build-extension.mjs",
     "test": "vitest run",
     "test:ci": "node scripts/run-ci-suite.mjs",
@@ -42,6 +45,7 @@
     "smoke:feedback": "node scripts/feedback-smoke.mjs",
     "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
     "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
+    "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
@@ -54,6 +58,7 @@
     "screenshots:real": "node scripts/capture-real-screenshots.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
     "size:modules": "vite build --config vite.size.config.ts",
+    "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
     "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
   },
   "dependencies": {

@@ -7,7 +7,6 @@ import {
     ankiActions,
     arrayParam,
     assert,
-    assertAnkiStatusStorage,
     createAnkiSmokeSettings,
     createSmokePaths,
     DEFAULT_ANKI_CONNECT_URL,
@@ -124,6 +123,7 @@ const beforeClick = await firstKnownWord.evaluate(element => ({
     color: getComputedStyle(element).color,
     title: element.title,
 }));
+const renderedStyle = await firstKnownWord.evaluate(wikipediaWordStyleSnapshot);
 await firstKnownWord.click();
 await page.waitForSelector(EXISTING_ANKI_SELECTOR, { timeout: 12_000 });
 await waitForSelectorTextIncludesAny(page, EXISTING_ANKI_SELECTOR, EXISTING_WIKIPEDIA_TERMS);
@@ -167,6 +167,10 @@ for (const scrollY of [0, 650, 1200, 1800, 2600]) {
 assert(beforeClick.state === 'due' && afterClick.state === 'due', 'Click cleared rendered Anki state', { beforeClick, afterClick });
 assert(afterClick.classes.includes('anki-due'), 'Click removed rendered Anki due class', { beforeClick, afterClick });
 assert(afterClick.color === beforeClick.color, 'Click changed Anki word color', { beforeClick, afterClick });
+assert(renderedStyle.hasRuby, 'Wikipedia rendered word did not keep ruby/furigana markup', renderedStyle);
+assert(renderedStyle.pitchClass, 'Wikipedia rendered word did not keep pitch styling class', renderedStyle);
+assert(renderedStyle.statusClass || renderedStyle.ankiState, 'Wikipedia rendered word did not keep status identity', renderedStyle);
+assert(renderedStyle.isColored || renderedStyle.sourceClass, 'Wikipedia rendered word did not keep color/source styling', renderedStyle);
 assert(popover.hasExisting, 'Existing Anki section was missing from Wikipedia popover', popover);
 assert(popover.hasMerge, 'Existing Anki popover did not expose merge', popover);
 assert(!popover.hasAdd, 'Known Anki word showed Add to Anki on Wikipedia', popover);
@@ -185,7 +189,7 @@ assert(
     { initialAnkiRequests },
 );
 assert(clickAnkiActions.includes('multi') && clickAnkiActions.includes('areDue'), 'Wikipedia click did not lazily hydrate detailed Anki status', { initialAnkiActions, clickAnkiActions });
-assertAnkiStatusStorage(statusStorage, 1);
+assert(statusStorage.cardCount >= 1 && statusStorage.entryCount >= 1, 'Wikipedia Anki status index did not store mocked cards', statusStorage);
 
 await page.screenshot({ path: path.join(ARTIFACTS, 'anki-wikipedia-smoke.png'), fullPage: false });
 const report = {
@@ -195,6 +199,7 @@ const report = {
     pageState,
     viewportSamples,
     popover,
+    renderedStyle,
     statusStorage,
     initialAnkiActions,
     clickAnkiActions,
@@ -295,6 +300,27 @@ function initWikipediaSmokeSampler() {
     function hasVisibleStyle(style) {
         return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
     }
+}
+
+function wikipediaWordStyleSnapshot(element) {
+    const classes = [...element.classList];
+    const style = getComputedStyle(element);
+    const host = element.closest('p,li,td,th,section,article,main,body') ?? element.parentElement;
+    const hostColor = host ? getComputedStyle(host).color : '';
+    return {
+        text: element.textContent?.replace(/\s+/g, '').trim() ?? '',
+        ankiState: element.dataset.ankiState ?? '',
+        statusClass: classes.find(className => /^(?:anki-|jpdb-(?:known|learning|due|new|never-forget|failed|locked|not-in-deck))/.test(className)) ?? '',
+        pitchClass: classes.find(className => /^jpdb-pitch-/.test(className)) ?? '',
+        sourceClass: classes.find(className => /^jpdb-reader-word-(?:text|highlight|underline)-/.test(className)) ?? '',
+        hasRuby: Boolean(element.querySelector('ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby')),
+        color: style.color,
+        hostColor,
+        textDecorationColor: style.textDecorationColor,
+        backgroundColor: style.backgroundColor,
+        isColored: style.color !== hostColor || style.backgroundColor !== 'rgba(0, 0, 0, 0)' || style.textDecorationColor !== 'rgba(0, 0, 0, 0)',
+        classes,
+    };
 }
 
 function isMockedApiOrigin(url) {

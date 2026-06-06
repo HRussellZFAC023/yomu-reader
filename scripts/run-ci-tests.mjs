@@ -415,21 +415,33 @@ function runVitest(vitestArgs, envOverrides = {}, context = {}) {
         env: { ...process.env, ...envOverrides },
         timeout: testTimeoutMs,
     });
-    if (result.error) {
-        if (result.error.code === 'ETIMEDOUT') {
-            console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} timed out after ${formatDuration(testTimeoutMs)}.`);
-            logShardFiles(context.files);
-            process.exit(124);
-        }
-        console.error(`[ci-tests] Failed to run ${context.label ?? 'Vitest shard'}:`);
-        console.error(result.error);
-        process.exit(1);
-    }
-    if (result.signal) {
-        console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} exited from signal ${result.signal}.`);
-        process.exit(1);
-    }
+    exitWithVitestResult(result, context);
+}
+
+function exitWithVitestResult(result, context) {
+    const errorStatus = vitestErrorStatus(result.error, context);
+    if (errorStatus !== undefined) process.exit(errorStatus);
+    if (result.signal) process.exit(vitestSignalStatus(result.signal, context));
     process.exit(result.status ?? 1);
+}
+
+function vitestErrorStatus(error, context) {
+    if (!error) return undefined;
+    if (error.code === 'ETIMEDOUT') return vitestTimeoutStatus(context);
+    console.error(`[ci-tests] Failed to run ${context.label ?? 'Vitest shard'}:`);
+    console.error(error);
+    return 1;
+}
+
+function vitestTimeoutStatus(context) {
+    console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} timed out after ${formatDuration(testTimeoutMs)}.`);
+    logShardFiles(context.files);
+    return 124;
+}
+
+function vitestSignalStatus(signal, context) {
+    console.error(`[ci-tests] ${context.label ?? 'Vitest shard'} exited from signal ${signal}.`);
+    return 1;
 }
 
 function logVitestRun(context, commandArgs) {

@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki';
-import { renderAnkiExistingSection } from '../../src/reader/anki-render';
+import type { AnkiExistingNote } from '../../src/reader/anki';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
+import { existingAnkiNote, renderExistingAnkiLookup as renderExistingAnkiLookupWithSettings } from './helpers/anki-render';
 
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 
@@ -145,13 +145,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
 });
 
 function renderExistingAnkiLookup(notes: AnkiExistingNote[], settings: ReaderSettings = ankiRenderSettings()): HTMLElement {
-    const primary = notes[0] ?? null;
-    const lookup: AnkiLookupResult = { state: primary?.state ?? 'not-in-deck', notes, primary, trusted: true };
-    const container = document.createElement('div');
-    container.innerHTML = renderAnkiExistingSection(lookup, null, settings);
-    const section = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing');
-    if (!section) throw new Error('Expected rendered Anki section');
-    return section;
+    return renderExistingAnkiLookupWithSettings(notes, settings);
 }
 
 function expectReadableRenderedAnkiSection(section: HTMLElement): void {
@@ -418,25 +412,4 @@ function yomuJapaneseNote(): AnkiExistingNote {
             `,
         }],
     });
-}
-
-function existingAnkiNote(overrides: Partial<AnkiExistingNote> = {}): AnkiExistingNote {
-    return {
-        noteId: 99,
-        modelName: 'Yomu Japanese',
-        deckNames: ['Mining'],
-        cardIds: [123],
-        primaryCardId: 123,
-        state: 'due',
-        fields: {
-            Expression: '日本語',
-            Reading: 'にほんご',
-            Meaning: 'Japanese language',
-        },
-        renderedCards: [],
-        tags: [],
-        reps: 3,
-        lapses: 0,
-        ...overrides,
-    };
 }

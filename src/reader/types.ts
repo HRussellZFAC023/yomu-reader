@@ -14,6 +14,17 @@ export type CardState =
 
 export type JPDBGrade = 'nothing' | 'something' | 'hard' | 'okay' | 'easy' | 'fail' | 'pass';
 
+export type ReviewGradeIntervalSource = 'anki-next-reviews' | 'jiten-study-batch';
+
+export interface ReviewGradeInterval {
+    buttonLabel: string;
+    intervalLabel: string;
+    label: string;
+    source: ReviewGradeIntervalSource;
+}
+
+export type ReviewGradeIntervals = Partial<Record<JPDBGrade, ReviewGradeInterval>>;
+
 export type AudioSourceType =
     | 'jpod101'
     | 'language-pod-101'
@@ -121,11 +132,14 @@ export interface JPDBCard {
     ankiCardKind?: AnkiCardKind;
     ankiReps?: number;
     ankiLapses?: number;
+    reviewGradeIntervals?: ReviewGradeIntervals;
     ankiRenderedCards?: Array<{
         cardId: number;
         deckName: string;
+        cardName?: string;
         question: string;
         answer: string;
+        mediaDataUrls?: Record<string, string>;
     }>;
     ankiAudioFilenames?: string[];
     jpdbReviewId?: string;

@@ -1,14 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { createYomuPaths } from './paths.mjs';
 
 export function loadLocalEnv(root = path.resolve(import.meta.dirname, '..')) {
-    const file = path.join(root, '.env');
+    const { envFile, legacyEnvFile } = createYomuPaths(path.join(root, 'scripts'));
+    const file = envFilePath(envFile, legacyEnvFile);
     if (!existsSync(file)) return;
 
     const lines = readFileSync(file, 'utf8').split(/\r?\n/);
     for (const line of lines) {
         loadEnvLine(line);
     }
+}
+
+function envFilePath(envFile, legacyEnvFile) {
+    if (existsSync(envFile)) return envFile;
+    if (existsSync(legacyEnvFile)) return legacyEnvFile;
+    return envFile;
 }
 
 function loadEnvLine(line) {

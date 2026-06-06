@@ -59,6 +59,20 @@ const WIKTIONARY_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: false,
 };
 
+const IMMERSION_KIT_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'immersion-kit',
+    label: 'Immersion Kit',
+    urlTemplate: 'https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1',
+    enabled: false,
+};
+
+const UCHISEN_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'uchisen',
+    label: 'Uchisen',
+    urlTemplate: 'https://uchisen.com/kanji/{query}',
+    enabled: false,
+};
+
 export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'copy',
     label: 'Copy',
@@ -76,6 +90,8 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     KOTOBANK_LOOKUP_LINK,
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
+    IMMERSION_KIT_LOOKUP_LINK,
+    UCHISEN_LOOKUP_LINK,
     COPY_LOOKUP_LINK,
 ];
 

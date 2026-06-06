@@ -2,61 +2,12 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import imagePromptReplacementDefs from '../src/reader/dictionaries/uchisen-image-prompt-replacements.json' with { type: 'json' };
+import { createYomuPaths } from './paths.mjs';
 
-const DEFAULT_CHECKPOINT = '../../artifacts/uchisen-bulk/checkpoint.json';
+const DEFAULT_CHECKPOINT = path.join(createYomuPaths(import.meta.dirname).workspaceRoot, 'artifacts', 'uchisen-bulk', 'checkpoint.json');
 const UCHISEN_ORIGIN = 'https://uchisen.com';
-const IMAGE_PROMPT_REPLACEMENTS = [
-  [/\bblood(y|ied|ing)?\b/gi, 'red festival paint'],
-  [/\bbleed(ing)?\b/gi, 'red festival paint'],
-  [/\bwounds?\b/gi, 'patched cloth'],
-  [/\binjur(y|ies|ed)?\b/gi, 'tired mishap'],
-  [/\bsick(ness)?\b/gi, 'restful'],
-  [/\bill(ness)?\b/gi, 'restful'],
-  [/\bmedicine\b/gi, 'helpful bundle'],
-  [/\bmedical\b/gi, 'helpful'],
-  [/\bdoctor\b/gi, 'kind helper'],
-  [/\bpatient\b/gi, 'visitor'],
-  [/\bdisease\b/gi, 'gloomy cloud'],
-  [/\bhospital\b/gi, 'quiet rest house'],
-  [/\bweapons?\b/gi, 'ceremonial props'],
-  [/\bswords?\b/gi, 'ceremonial wooden practice sword'],
-  [/\bknives?\b/gi, 'small wooden craft tool'],
-  [/\bdaggers?\b/gi, 'small wooden craft tool'],
-  [/\bblades?\b/gi, 'shiny craft edge'],
-  [/\bspears?\b/gi, 'slender festival pole'],
-  [/\barrows?\b/gi, 'paper arrow charm'],
-  [/\bguns?\b/gi, 'toy popper'],
-  [/\brifles?\b/gi, 'toy popper'],
-  [/\bcannons?\b/gi, 'festival drum'],
-  [/\bbombs?\b/gi, 'round festival lantern'],
-  [/\bdynamite\b/gi, 'firecracker bundle'],
-  [/\bexplos(ive|ion)s?\b/gi, 'bursting confetti'],
-  [/\bbattles?\b/gi, 'festival contest'],
-  [/\bfight(ing|s)?\b/gi, 'tugging contest'],
-  [/\bwars?\b/gi, 'old tale'],
-  [/\battack(s|ing)?\b/gi, 'surprising pounce'],
-  [/\bstab(s|bing|bed)?\b/gi, 'poke'],
-  [/\bkill(s|ing|ed)?\b/gi, 'stop'],
-  [/\bdead\b/gi, 'still'],
-  [/\bdeath\b/gi, 'quiet ending'],
-  [/\bcorpse\b/gi, 'old puppet'],
-  [/\bpoison\b/gi, 'mysterious purple dye'],
-  [/\bcriminals?\b/gi, 'mischief maker'],
-  [/\bcrimes?\b/gi, 'mischief'],
-  [/\bprison\b/gi, 'locked toy box'],
-  [/\bjail\b/gi, 'locked toy box'],
-  [/\bpunish(ment|ed|ing)?\b/gi, 'scold'],
-  [/\btorture\b/gi, 'awkward training'],
-  [/\bexecution\b/gi, 'ceremony'],
-  [/\bnoose\b/gi, 'rope loop'],
-  [/\bdemons?\b/gi, 'festival mask'],
-  [/\bdevils?\b/gi, 'festival mask'],
-  [/\bhell\b/gi, 'smoky folk-tale cave'],
-  [/\bghosts?\b/gi, 'paper lantern spirit'],
-  [/\bspirits?\b/gi, 'paper lantern spirit'],
-  [/\bskulls?\b/gi, 'round white mask'],
-  [/\bbones?\b/gi, 'ivory-colored toy sticks'],
-];
+const IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, 'gi'), replacement]);
 const BOOLEAN_ARG_HANDLERS = new Map([
   ['--live', parsed => { parsed.live = true; }],
   ['--no-resume', parsed => { parsed.resume = false; }],

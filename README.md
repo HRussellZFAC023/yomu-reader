@@ -205,7 +205,7 @@ npm run size:bundle
 
 Greasy Fork's upload budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The hosted release build remains readable and non-minified; when it is over that upload budget, `npm run verify` warns and the Greasy Fork prefill script blocks upload until source-level trimming brings it back under the limit.
 
-Copy `.env.example` to `.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads `.env`; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
+Copy `../../resources/yomu-reader/.env.example` to `../../resources/yomu-reader/.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads that file; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
 
 ```bash
 npm run qa:live

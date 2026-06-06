@@ -1,5 +1,5 @@
-import { NEW_TAB_COLOR_TOKENS } from '../color-tokens';
-import { hexToRgba, mixHex, readableOn } from '../color-utils';
+import { NEW_TAB_COLOR_TOKENS } from '../theme/color-tokens';
+import { hexToRgba, mixHex, readableOn } from '../theme/color-utils';
 import { sanitizeAccentColor } from '../settings';
 import type { JPDBCard } from '../types';
 export { cardKey } from '../card-utils';

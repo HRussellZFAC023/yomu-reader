@@ -110,6 +110,7 @@ import {
     FIVE_BUTTON_REVIEW_SHORTCUTS,
     HOVER_ANKI_HYDRATION_DELAY_MS,
     HOVER_POINTER_TEXT_LOOKUP_OPTIONS,
+    KANA_ONLY_LOOKUP_RUN_RE,
     NEARBY_TERM_AUDIO_PRELOAD_LIMIT,
     NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS,
     NESTED_PARSE_CONTENT_CACHE_LIMIT,
@@ -251,7 +252,7 @@ import {
     shortcutIsPressed,
     shouldLookupAnkiStatus,
 } from './settings';
-import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './reader-theme';
+import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './theme/reader-theme';
 import { SettingsDialogController } from './settings-dialog-controller';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
@@ -281,6 +282,21 @@ import {
 
 const log = Logger.scope('ReaderApp');
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
+const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+    '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
+    '.jpdb-ocr-layer',
+    '.jpdb-subtitle-player',
+    '.jpdb-subtitle-list',
+    '.jpdb-reader-toast',
+].join(',');
+const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+    '.review-reveal',
+    '.answer-box',
+    '.review-hidden',
+    'form[action*="/review"]',
+    'button[name="r"]',
+    'input[name="r"]',
+].join(',');
 
 export class ReaderApp {
     private abortController = new AbortController();
@@ -436,6 +452,7 @@ export class ReaderApp {
     private youtube = new YoutubeImmersionFilter({
         getSettings: () => this.settings,
         setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
+        setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
     });
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
@@ -444,6 +461,7 @@ export class ReaderApp {
         preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+        prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });
@@ -644,6 +662,13 @@ export class ReaderApp {
         await saveSettings(this.settings);
         this.youtube.refresh();
         log.info('YouTube filter notice changed', { visible });
+    }
+
+    private async setYoutubeChannelRecommendationsVisible(visible: boolean): Promise<void> {
+        this.settings.youtubeShowChannelRecommendations = visible;
+        await saveSettings(this.settings);
+        this.youtube.refresh();
+        log.info('YouTube channel recommendations changed', { visible });
     }
 
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
@@ -979,6 +1004,9 @@ export class ReaderApp {
         this.nativeTitleGuard.restore();
         
         this.floatingButton.destroy();
+        // If we tear down (e.g. a re-boot) while settings is open, release the
+        // aria-hidden/inert it placed on the page so the next instance isn't inert.
+        this.settingsDialog?.releaseModalBackground();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.removeJpdbPageEnhancements();
@@ -1929,7 +1957,14 @@ export class ReaderApp {
     private dismissModalPopoverForOutsidePointer(event: PointerEvent): void {
         if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
+        if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
         this.dismiss({ suppressHoverTarget: true });
+    }
+
+    private shouldKeepModalPopoverForOutsidePointer(target: Node | null): boolean {
+        const element = target instanceof Element ? target : target?.parentElement;
+        return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR)
+            || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
     }
 
     private dismissHoverPopoverForOutsidePointer(event: PointerEvent): void {
@@ -2629,11 +2664,11 @@ export class ReaderApp {
     }
 
     private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
-        if (!isLowValuePointerTextToken(token)) return false;
         const tokenLength = token.end - token.start;
         const run = japaneseRunAt(candidate.text, candidate.offset);
         const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
-        return surroundingLength > tokenLength;
+        if (surroundingLength <= tokenLength) return false;
+        return isLowValuePointerTextToken(token) || KANA_ONLY_LOOKUP_RUN_RE.test(token.card.spelling.trim());
     }
 
     private async showPublicJpdbPointerTextCandidate(
@@ -3293,6 +3328,7 @@ export class ReaderApp {
         const immediatePitch = trigger === 'modal';
         this.prioritizeQueuedPitchEnrichment(requestedCard, { immediate: immediatePitch });
         card = await this.resolveLookupCardForInitialRender(card);
+        if (this.isDestroyed || typeof document === 'undefined') return;
         sentence = this.preferredCardSentence(sentence, anchor);
         if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
         this.lastCard = card;
@@ -4546,6 +4582,12 @@ export class ReaderApp {
         await this.enrichPitchWords(tokens, { urgent: true });
     }
 
+    private async enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
+        if (!tokens.length) return;
+        await this.resolveOcrFallbackTokens(tokens);
+        await this.enrichPitchWords(tokens, { urgent: true });
+    }
+
     private async resolveOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
         const fallbackTokens = tokens.filter(token => token.card.source === 'fallback');
         if (!fallbackTokens.length) return;
@@ -5563,7 +5605,14 @@ export class ReaderApp {
             this.navigation.clearWord();
             this.navigation.clearKanji();
         }
-        if (hadSettingsDialog) this.schedulePendingDictionaryRescan();
+        if (hadSettingsDialog) {
+            // The settings dialog hides the page behind it with aria-hidden/inert.
+            // Restore it on every teardown path — backdrop click and the close-popup
+            // shortcut reach here without going through the controller's own close,
+            // and a stranded `inert` page swallows clicks until the user reloads.
+            this.settingsDialog?.releaseModalBackground();
+            this.schedulePendingDictionaryRescan();
+        }
     }
 
     private shouldDismissStackedLookupOnly(): boolean {

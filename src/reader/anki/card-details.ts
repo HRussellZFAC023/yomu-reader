@@ -1,4 +1,4 @@
-import type { CardState } from '../types';
+import type { CardState, JPDBGrade, ReviewGradeInterval, ReviewGradeIntervals } from '../types';
 import {
     type AnkiCardInfo,
     type AnkiExistingNote,
@@ -13,6 +13,7 @@ const ANKI_CARD_STATE_PRIORITY: CardState[] = ['failed', 'due', 'learning', 'new
 
 type AnkiCardStateInfo = Pick<AnkiCardInfo, 'queue' | 'type' | 'due' | 'isDue'>;
 type AnkiPrimaryCardInfo = AnkiCardStateInfo & Pick<AnkiCardInfo, 'cardId'>;
+type AnkiReviewGradeCardInfo = AnkiPrimaryCardInfo & Pick<AnkiCardInfo, 'buttons' | 'nextReviews'>;
 
 export function emptyAnkiLookupResult(): AnkiLookupResult {
     return { state: 'not-in-deck', notes: [], primary: null };
@@ -29,6 +30,7 @@ export function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]
 }
 
 export function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiExistingNote {
+    const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(noteCards);
     return {
         noteId: note.noteId,
         modelName: note.modelName,
@@ -36,6 +38,7 @@ export function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCard
         fields: flattenNoteFields(note.fields),
         renderedCards: ankiRenderedCards(noteCards),
         tags: note.tags ?? [],
+        ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
         ...ankiCardDetailSummary(note, noteCards),
     };
 }
@@ -57,6 +60,15 @@ export function ankiRenderedCardMediaFilenames(card: AnkiRenderedCard): string[]
     return unique([card.question, card.answer]
         .flatMap(ankiCardHtmlMediaFilenames)
         .filter(shouldHydrateRenderedAnkiMedia));
+}
+
+export function ankiCardTemplateLabel(card: Pick<AnkiCardInfo, 'card' | 'cardName' | 'name' | 'ord' | 'template'>): string {
+    const explicit = [card.cardName, card.card, card.template, card.name]
+        .map(value => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '')
+        .find(Boolean);
+    if (explicit) return explicit;
+    const ordinal = Number(card.ord);
+    return Number.isInteger(ordinal) && ordinal >= 0 ? `Card ${ordinal + 1}` : '';
 }
 
 export function ankiMediaFilenameFromCardUrl(value: string): string | null {
@@ -104,6 +116,70 @@ export function pickPrimaryCard<T extends AnkiPrimaryCardInfo>(cards: T[]): T | 
     return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
 }
 
+export function reviewGradeIntervalsFromAnkiCards(cards: AnkiReviewGradeCardInfo[]): ReviewGradeIntervals | undefined {
+    return reviewGradeIntervalsFromAnkiCard(pickPrimaryCard(cards));
+}
+
+function reviewGradeIntervalsFromAnkiCard(card: AnkiReviewGradeCardInfo | null | undefined): ReviewGradeIntervals | undefined {
+    const nextReviews = Array.isArray(card?.nextReviews)
+        ? card.nextReviews.map(normalizeAnkiReviewIntervalLabel).filter(Boolean)
+        : [];
+    if (!nextReviews.length) return undefined;
+    const buttons = ankiReviewButtons(card?.buttons, nextReviews.length);
+    const labels = ankiReviewButtonLabels(buttons);
+    const intervals: ReviewGradeIntervals = {};
+    nextReviews.forEach((intervalLabel, index) => {
+        const button = buttons[index];
+        if (!button) return;
+        const buttonLabel = labels[index] ?? ankiReviewButtonLabel(button);
+        const interval = reviewGradeInterval(buttonLabel, intervalLabel);
+        for (const grade of ankiGradesForButton(button)) intervals[grade] = interval;
+    });
+    return Object.keys(intervals).length ? intervals : undefined;
+}
+
+function normalizeAnkiReviewIntervalLabel(value: unknown): string {
+    return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+}
+
+function ankiReviewButtons(value: unknown, count: number): number[] {
+    const explicit = Array.isArray(value)
+        ? value.map(Number).filter(button => Number.isInteger(button) && button > 0)
+        : [];
+    if (explicit.length === count) return explicit;
+    if (count === 4) return [1, 2, 3, 4];
+    if (count === 3) return [1, 2, 3];
+    if (count === 2) return [1, 2];
+    return Array.from({ length: count }, (_, index) => index + 1);
+}
+
+function ankiReviewButtonLabels(buttons: number[]): string[] {
+    if (buttons.length === 3 && buttons.every((button, index) => button === index + 1)) {
+        return ['Again', 'Good', 'Easy'];
+    }
+    if (buttons.length === 2 && buttons.every((button, index) => button === index + 1)) {
+        return ['Again', 'Good'];
+    }
+    return buttons.map(ankiReviewButtonLabel);
+}
+
+function ankiReviewButtonLabel(button: number): string {
+    return ANKI_REVIEW_BUTTON_LABELS[button] ?? `Button ${button}`;
+}
+
+function ankiGradesForButton(button: number): JPDBGrade[] {
+    return ANKI_GRADES_BY_BUTTON[button] ?? [];
+}
+
+function reviewGradeInterval(buttonLabel: string, intervalLabel: string): ReviewGradeInterval {
+    return {
+        buttonLabel,
+        intervalLabel,
+        label: `${buttonLabel} ${intervalLabel}`,
+        source: 'anki-next-reviews',
+    };
+}
+
 function isAnkiCardDue(card: AnkiCardStateInfo): boolean {
     if (card.queue !== 2) return false;
     if (typeof card.isDue === 'boolean') return card.isDue;
@@ -130,12 +206,16 @@ function addCardInfoByNoteId(cardsByNote: Map<number, AnkiCardInfo[]>, cardInfo:
 function ankiRenderedCards(noteCards: AnkiCardInfo[]): AnkiRenderedCard[] {
     return noteCards
         .filter(card => card.question || card.answer)
-        .map(card => ({
-            cardId: card.cardId,
-            deckName: card.deckName,
-            question: String(card.question ?? ''),
-            answer: String(card.answer ?? ''),
-        }));
+        .map(card => {
+            const cardName = ankiCardTemplateLabel(card);
+            return {
+                cardId: card.cardId,
+                deckName: card.deckName,
+                ...(cardName ? { cardName } : {}),
+                question: String(card.question ?? ''),
+                answer: String(card.answer ?? ''),
+            };
+        });
 }
 
 function ankiCardHtmlMediaFilenames(html: string): string[] {
@@ -202,4 +282,18 @@ const ANKI_MEDIA_MIME_TYPES: Record<string, string> = {
     'mp4': 'audio/mp4',
     'aac': 'audio/mp4',
     'flac': 'audio/flac',
+};
+
+const ANKI_REVIEW_BUTTON_LABELS: Record<number, string> = {
+    1: 'Again',
+    2: 'Hard',
+    3: 'Good',
+    4: 'Easy',
+};
+
+const ANKI_GRADES_BY_BUTTON: Record<number, JPDBGrade[]> = {
+    1: ['nothing', 'fail'],
+    2: ['something', 'hard'],
+    3: ['okay', 'pass'],
+    4: ['easy'],
 };

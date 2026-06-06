@@ -42,6 +42,7 @@ interface RenderNewTabGradeControlsOptions {
     apiShortLabel: string;
     bothLabel: string;
     grades: Array<[JPDBGrade, string]>;
+    intervals?: Partial<Record<JPDBGrade, { buttonLabel?: string; intervalLabel?: string; label?: string }>>;
     selectorLabel: string;
     selectedOption?: NewTabMainGradeTargetOption;
     summary: NewTabReviewSourceSummary;
@@ -100,7 +101,7 @@ export function renderNewTabGradeControlButtons(options: RenderNewTabGradeContro
     return [
         renderNewTabGradeTargetLabel(options),
         ...(options.targetOptions.length > 1 ? [renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel)] : []),
-        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel)),
+        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade])),
     ];
 }
 
@@ -184,13 +185,22 @@ function renderNewTabMainGradeTargetSelector(options: NewTabMainGradeTargetOptio
     );
 }
 
-function renderNewTabGradeButton(grade: JPDBGrade, label: string, targetLabel: string): HTMLButtonElement {
+function renderNewTabGradeButton(
+    grade: JPDBGrade,
+    label: string,
+    targetLabel: string,
+    interval?: { buttonLabel?: string; intervalLabel?: string; label?: string },
+): HTMLButtonElement {
+    const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || '';
+    const aria = [label, intervalLabel].filter(Boolean).join(' ');
     return el('button', {
         type: 'button',
-        dataset: { newtabAction: 'grade', grade },
+        dataset: { newtabAction: 'grade', grade, ...(intervalLabel ? { gradeInterval: intervalLabel } : {}) },
         title: targetLabel,
-        'aria-label': `${label}: ${targetLabel}`,
-    }, label);
+        'aria-label': `${aria}: ${targetLabel}`,
+    },
+    el('span', { class: 'jpdb-reader-newtab-grade-label' }, label),
+    intervalLabel ? el('span', { class: 'jpdb-reader-newtab-grade-interval' }, intervalLabel) : null);
 }
 
 function mainGradeTargetKind(option: HTMLOptionElement): NewTabMainGradeTargetOption['kind'] {
@@ -204,7 +214,10 @@ function mainGradeTargetShortLabel(option: HTMLOptionElement, fallback: string):
 
 function updateMainGradeButtonLabels(root: HTMLElement, label: string): void {
     root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"][data-grade]').forEach(gradeButton => {
-        const gradeLabel = gradeButton.textContent?.trim() || '';
+        const gradeLabel = [
+            gradeButton.querySelector<HTMLElement>('.jpdb-reader-newtab-grade-label')?.textContent?.trim(),
+            gradeButton.dataset.gradeInterval,
+        ].filter(Boolean).join(' ') || gradeButton.textContent?.trim() || '';
         gradeButton.title = label;
         gradeButton.setAttribute('aria-label', gradeLabel ? `${gradeLabel}: ${label}` : label);
     });

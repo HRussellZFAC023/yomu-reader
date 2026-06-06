@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
 import { loadLocalEnv } from './qa-env.mjs';
+import { createYomuPaths } from './paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     decodeGmRequestBody,
@@ -13,10 +14,9 @@ import {
     startLoopbackServer,
 } from './smoke-harness.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 loadLocalEnv(ROOT);
 const DIST = path.join(ROOT, 'dist');
-const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const SCRIPT_PATH = path.join(DIST, 'yomu.user.js');
 const CSS_PATH = path.join(DIST, 'yomu.css');

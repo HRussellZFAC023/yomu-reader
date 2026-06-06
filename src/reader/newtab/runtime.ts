@@ -90,7 +90,7 @@ import {
     shouldLookupAnkiStatus,
 } from '../settings';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../rendered-word-state';
-import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../reader-theme';
+import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../reader-status-warmup';
 import { SettingsDialogController } from '../settings-dialog-controller';

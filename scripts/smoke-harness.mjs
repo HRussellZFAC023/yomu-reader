@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { createYomuPaths } from './paths.mjs';
 
 export const DEFAULT_ANKI_CONNECT_URL = 'http://127.0.0.1:8765';
 export const YOMU_SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -49,13 +50,13 @@ export function assert(condition, message, details = {}) {
 }
 
 export function createSmokePaths(scriptDir) {
-    const root = path.resolve(scriptDir, '..');
+    const { appRoot: root, qaArtifactsRoot } = createYomuPaths(scriptDir);
     const dist = path.join(root, 'dist');
     const newTabDir = path.join(dist, 'newtab');
     return {
         root,
         dist,
-        artifacts: path.join(root, 'qa-artifacts'),
+        artifacts: qaArtifactsRoot,
         scriptPath: path.join(dist, 'yomu.user.js'),
         cssPath: path.join(dist, 'yomu.css'),
         newTabDir,

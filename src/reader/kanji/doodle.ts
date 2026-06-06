@@ -1,4 +1,4 @@
-import { DOODLE_COLOR_TOKENS } from '../color-tokens';
+import { DOODLE_COLOR_TOKENS } from '../theme/color-tokens';
 import { uiText } from '../i18n';
 import { Logger } from '../logger';
 import type { InterfaceLanguage } from '../types';

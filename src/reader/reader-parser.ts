@@ -47,11 +47,14 @@ export interface ReaderParserDependencies {
 }
 
 function apiFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
-    return { requireApi: true, includeLocalPitch: false, ...options };
+    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
+    return { includeLocalPitch: false, ...options, requireApi };
 }
 
 export function jpdbFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
-    return apiFirstParseOptions({ requireJpdb: true, ...options });
+    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
+    const requireJpdb = options.requireJpdb ?? requireApi;
+    return apiFirstParseOptions({ ...options, requireApi, requireJpdb });
 }
 
 export class ReaderParser {
@@ -126,7 +129,7 @@ export class ReaderParser {
     private handleRemoteParseError(source: 'JPDB' | 'Jiten', error: unknown, options: ReaderParserParseOptions): void {
         const canFallback = this.canUseParseFallback(options);
         log.warn(remoteParseErrorMessage(source, options, canFallback), error);
-        if (shouldRethrowRemoteParseError(source, options, canFallback)) throw error;
+        if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
 
     canParse(): boolean {
@@ -348,14 +351,18 @@ function shouldSkipApiParser(options: ReaderParserParseOptions): boolean {
 }
 
 function remoteParseErrorMessage(source: 'JPDB' | 'Jiten', options: ReaderParserParseOptions, canFallback: boolean): string {
-    if (source === 'JPDB' && options.requireJpdb) return 'JPDB-first parse failed without local fallback';
+    if (shouldRequireRemoteParse(options)) return `${source}-first parse failed without local fallback`;
     return canFallback
         ? `${source} parse failed; using local or segmented fallback`
         : `${source} parse failed without fallback`;
 }
 
-function shouldRethrowRemoteParseError(source: 'JPDB' | 'Jiten', options: ReaderParserParseOptions, canFallback: boolean): boolean {
-    return (source === 'JPDB' && options.requireJpdb) || !canFallback;
+function shouldRethrowRemoteParseError(options: ReaderParserParseOptions, canFallback: boolean): boolean {
+    return shouldRequireRemoteParse(options) || !canFallback;
+}
+
+function shouldRequireRemoteParse(options: ReaderParserParseOptions): boolean {
+    return options.requireApi === true || options.requireJpdb === true;
 }
 
 function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {

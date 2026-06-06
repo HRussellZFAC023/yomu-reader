@@ -1,5 +1,5 @@
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../yomitan';
-import type { CardState, DictionaryPreference, ReaderSettings } from '../types';
+import type { CardState, DictionaryPreference, ReaderSettings, ReviewGradeIntervals } from '../types';
 
 export interface AnkiResponse<T> {
     result: T;
@@ -44,6 +44,11 @@ export interface AnkiNoteInfo {
 export interface AnkiCardInfo {
     cardId: number;
     deckName: string;
+    card?: string;
+    cardName?: string;
+    name?: string;
+    ord?: number;
+    template?: string;
     queue: number;
     type: number;
     isDue?: boolean;
@@ -53,6 +58,8 @@ export interface AnkiCardInfo {
     reps?: number;
     lapses?: number;
     interval?: number;
+    buttons?: number[];
+    nextReviews?: string[];
     note?: number;
 }
 
@@ -68,6 +75,7 @@ export interface AnkiMultiAction {
 export interface AnkiRenderedCard {
     cardId: number;
     deckName: string;
+    cardName?: string;
     question: string;
     answer: string;
     mediaDataUrls?: Record<string, string>;
@@ -96,6 +104,7 @@ export interface AnkiExistingNote {
     tags: string[];
     reps: number;
     lapses: number;
+    reviewGradeIntervals?: ReviewGradeIntervals;
 }
 
 export interface AnkiLookupResult {

@@ -59,7 +59,7 @@ This is the part people get stuck on, so here's exactly what happens.
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      0.6.26
+   // @version      0.6.27
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
@@ -175,28 +175,38 @@ The one thing that's different is **desktop helpers**. Anything that runs on you
 
 ### Use desktop Anki from a phone, iPad, or Android
 
-You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. The full setup keeps Anki on your computer and treats the phone as just the reading screen — all deck scans, note updates, card status, and review queues happen through desktop AnkiConnect.
+You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. The full setup keeps Anki open on your computer and lets your phone talk to it. Your phone is just the reading screen; desktop AnkiConnect still handles existing-card status, note updates, media, deck scans, and review queues.
 
-The simplest private connection is [Tailscale](https://tailscale.com/): a private link between your own devices, with no router setup, no public exposure, and no command line. It has installers for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
+The easiest private route is [Tailscale](https://tailscale.com/): it gives your own devices a private address so they can see each other, even away from home. You do not need router setup, port forwarding, or a command line. Install it on the computer that runs Anki and on the phone or tablet that runs よむ.
 
-Below, replace every `100.x.y.z` with your computer's Tailscale address. All AnkiConnect changes happen on the computer; the phone only needs the final URL.
+Below, replace every `100.x.y.z` with your computer's Tailscale address. It usually starts with `100.`. You can also use the Tailscale device name if MagicDNS is enabled, such as `desktop-name.tailnet-name.ts.net`.
 
 1. On your computer, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
-2. Install Tailscale on the computer, sign in, and note its address (`100.x.y.z`, or a MagicDNS name like `desktop-name.tailnet-name.ts.net`).
+2. Install [Tailscale](https://tailscale.com/downloads) on the computer, sign in, and copy the computer's Tailscale address.
 3. Install Tailscale on the phone or tablet and sign in to the **same** account.
-4. In Anki, open **Tools → Add-ons → AnkiConnect → Config**.
-5. Set `webBindAddress` to your computer's Tailscale address and keep `webBindPort` as `8765`. If you use same-Wi-Fi access instead, bind to your home-network address or `0.0.0.0` only on a trusted network.
-6. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://hrussellzfac023.github.io`.
-7. Save, restart Anki, and leave it running.
-8. On the phone, keep Tailscale connected. As a quick check, open `http://100.x.y.z:8765` in the mobile browser — a small AnkiConnect response means it's reachable; a timeout means the listener, firewall, or Tailscale isn't ready yet.
-9. In よむ settings → Mining, set **AnkiConnect URL** to the same desktop address, such as `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`.
-10. Press **Check AnkiConnect**. On success, よむ reads your decks and note types, shows existing-card status, updates cards, and can pull Anki reviews into the study page.
+4. On the computer, open Anki and choose **Tools → Add-ons → AnkiConnect → Config**.
+5. Find the `webBindAddress` line. Replace `127.0.0.1` with your computer's Tailscale address, for example `100.x.y.z`.
+6. Leave `webBindPort` as `8765`.
+7. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://hrussellzfac023.github.io`. This helps the hosted study page talk to your own Anki.
+8. Save, restart Anki, and leave Anki open on the computer.
+9. On the phone, make sure Tailscale says it is connected. Open `http://100.x.y.z:8765` in the mobile browser. A short AnkiConnect message means the phone can reach your computer.
+10. In よむ settings → Mining, set **AnkiConnect URL** to the same address, such as `http://100.x.y.z:8765` or `http://desktop-name.tailnet-name.ts.net:8765`.
+11. Press **Check AnkiConnect**. On success, よむ can read your decks and note types, show existing-card status, update cards, and pull Anki reviews into the study page.
 
-If the MagicDNS name doesn't connect, use the `100.x.y.z` address. Don't put AnkiConnect on the public internet or forward port `8765` on your router.
+If **Check AnkiConnect** does not work:
+
+- Make sure Anki is open on the computer. AnkiConnect only answers while Anki is running.
+- Make sure both devices are signed in to the same Tailscale account.
+- Try the `100.x.y.z` address instead of the MagicDNS name.
+- Reopen the AnkiConnect config and check that `webBindAddress` is not still `127.0.0.1`. A phone cannot reach your computer through `127.0.0.1` or `localhost`.
+- If the mobile browser cannot open `http://100.x.y.z:8765`, よむ will not be able to reach it either. Check Tailscale, firewall prompts, and whether Anki was restarted after the config change.
+- If the hosted study page works on desktop but not mobile, check that the allowed-origins list includes `https://hrussellzfac023.github.io`.
+
+Don't put AnkiConnect on the public internet or forward port `8765` on your router. Use Tailscale or a trusted home Wi-Fi address instead.
 
 ### Mobile handoff (new notes only)
 
-If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it's only this fallback path.
+If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it only controls this fallback path.
 
 ## Back up your settings
 
@@ -209,7 +219,8 @@ The usual fixes:
 - **Nothing appears on a page** — make sure your userscript manager is enabled for that site, then refresh.
 - **Settings changes don't take effect** — refresh the page after saving.
 - **JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
-- **A desktop helper is unreachable on mobile** — remember `localhost` on a phone is the phone. Use your computer's LAN or Tailscale address.
+- **AnkiConnect is unreachable on mobile** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale URL in よむ. `localhost` and `127.0.0.1` on a phone mean the phone itself, not your computer.
+- **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://hrussellzfac023.github.io`.
 
 If the hosted study page or a Home Screen shortcut still looks like an old version after an update, open [the new-tab page](https://hrussellzfac023.github.io/yomu-reader/newtab/index.html) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `hrussellzfac023.github.io` and sign in again.
 

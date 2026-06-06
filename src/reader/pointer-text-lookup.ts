@@ -95,6 +95,8 @@ const POINTER_TEXT_CONTEXT_SKIP_SELECTOR = [
     '[hidden]',
 ].join(',');
 const POINTER_TEXT_CONTEXT_MAX_LENGTH = 220;
+const POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH = 80;
+const POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH = 4;
 
 export interface PointerTextLookup {
     text: string;
@@ -302,8 +304,27 @@ function localJapaneseRunLength(text: string, offset: number): number {
 
 function pointerTextContextRoot(anchor: HTMLElement): HTMLElement | null {
     const root = anchor.closest<HTMLElement>(POINTER_TEXT_CONTEXT_ROOT_SELECTOR);
-    if (!root || !isPointerTextParentEligible(root)) return null;
-    return root;
+    if (!root) return pointerTextInlineContextRoot(anchor);
+    if (!isPointerTextParentEligible(root)) return null;
+    return root === anchor
+        ? pointerTextInlineContextRoot(anchor)
+        : root;
+}
+
+function pointerTextInlineContextRoot(anchor: HTMLElement): HTMLElement | null {
+    const localText = anchor.textContent ?? '';
+    let current = anchor.parentElement;
+    for (let depth = 0; current && depth < POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH; depth++, current = current.parentElement) {
+        if (current === document.body || current === document.documentElement) return null;
+        const text = current.textContent ?? '';
+        if (text.length > localText.length
+            && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH
+            && JAPANESE_RUN_RE.test(text)
+            && isPointerTextParentEligible(current)) {
+            return current;
+        }
+    }
+    return null;
 }
 
 function readablePointerTextContext(root: HTMLElement, target: Text): { text: string; start: number; end: number } | null {
@@ -329,7 +350,15 @@ function readablePointerTextContext(root: HTMLElement, target: Text): { text: st
 
     visit(root);
     if (rangeStart < 0 || rangeEnd <= rangeStart || !text || !JAPANESE_RUN_RE.test(text)) return null;
-    return { text, start: rangeStart, end: rangeEnd };
+    const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
+    const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;
+    const trimmedText = text.slice(leadingWhitespace, text.length - trailingWhitespace);
+    if (!trimmedText || !JAPANESE_RUN_RE.test(trimmedText)) return null;
+    return {
+        text: trimmedText,
+        start: rangeStart - leadingWhitespace,
+        end: rangeEnd - leadingWhitespace,
+    };
 }
 
 function isPointerTextParentEligible(parent: HTMLElement): boolean {

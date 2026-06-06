@@ -69,6 +69,41 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('skips Jisho lookup without a userscript bridge when only the default public proxy is configured', async () => {
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, DEFAULT_SETTINGS.corsProxyUrl))
+                .resolves.toEqual([]);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses a custom proxy for Jisho lookup when the userscript bridge is unavailable', async () => {
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, 'https://proxy.example/fetch'))
+                .resolves.toEqual([jishoCandidate('yomu')]);
+            const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+            expect(requestedUrl).toContain('https://proxy.example/fetch?url=');
+            expect(requestedUrl).toContain('jisho.org%2Fsearch%2F');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('matches Jisho audio by exact term and reading id instead of reading-only fallbacks', async () => {
         stubJishoHtml(`
             <audio id="audio_違う:よむ" preload="none">

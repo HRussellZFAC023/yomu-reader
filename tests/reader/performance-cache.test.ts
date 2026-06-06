@@ -13,33 +13,51 @@ import type { JpdbClient } from '../../src/reader/jpdb';
 import type { JpdbPublicPitchClient } from '../../src/reader/jpdb-public-pitch';
 import type { JpdbVocabularyClient } from '../../src/reader/jpdb-vocabulary';
 
+type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
+type CardRenderDataLoaderFixture = {
+    settings?: Partial<ReaderSettings>;
+    lookup?: YomitanDictionaryStore['lookup'];
+    lookupTermMeta?: YomitanDictionaryStore['lookupTermMeta'];
+    publicPitch?: JpdbPublicPitchClient['lookup'];
+};
+
+function createCardRenderDataLoader({
+    settings,
+    lookup = vi.fn(async () => []),
+    lookupTermMeta = vi.fn(async () => []),
+    publicPitch = vi.fn(async () => []),
+}: CardRenderDataLoaderFixture = {}): CardRenderDataLoader {
+    return new CardRenderDataLoader({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: true,
+            localDictionaryShowKanji: false,
+            showPitchAccent: false,
+            ankiEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            jpdbMiningEnabled: false,
+            ...settings,
+        }),
+        dictionaries: {
+            lookup,
+            lookupKanji: vi.fn(async () => []),
+            lookupTermMeta,
+        } as unknown as YomitanDictionaryStore,
+        jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
+        jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
+        anki: {
+            findExistingCards: vi.fn(),
+            deckNames: vi.fn(),
+        } as unknown as AnkiConnectClient,
+        jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
+        isJpdbBackedCard: () => false,
+    } satisfies CardRenderDataLoaderDependencies);
+}
+
 describe('performance cache bounds', () => {
     it('bounds per-card render data cache entries', async () => {
         const lookup = vi.fn(async (_term: string) => []);
-        const loader = new CardRenderDataLoader({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                localDictionariesEnabled: true,
-                localDictionaryShowKanji: false,
-                showPitchAccent: false,
-                ankiEnabled: false,
-                jpdbDefinitionsEnabled: false,
-                jpdbMiningEnabled: false,
-            }),
-            dictionaries: {
-                lookup,
-                lookupKanji: vi.fn(async () => []),
-                lookupTermMeta: vi.fn(async () => []),
-            } as unknown as YomitanDictionaryStore,
-            jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
-            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
-            anki: {
-                findExistingCards: vi.fn(),
-                deckNames: vi.fn(),
-            } as unknown as AnkiConnectClient,
-            jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
-            isJpdbBackedCard: () => false,
-        });
+        const loader = createCardRenderDataLoader({ lookup });
 
         for (let index = 0; index < 121; index++) {
             await loader.load(cardFor(index)).localEntries;
@@ -58,29 +76,10 @@ describe('performance cache bounds', () => {
             dictionary: 'Pitch',
         }]);
         const publicPitch = vi.fn(async () => ['HLL']);
-        const loader = new CardRenderDataLoader({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                localDictionariesEnabled: true,
-                localDictionaryShowKanji: false,
-                showPitchAccent: true,
-                ankiEnabled: false,
-                jpdbDefinitionsEnabled: false,
-                jpdbMiningEnabled: false,
-            }),
-            dictionaries: {
-                lookup: vi.fn(async () => []),
-                lookupKanji: vi.fn(async () => []),
-                lookupTermMeta,
-            } as unknown as YomitanDictionaryStore,
-            jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
-            jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
-            anki: {
-                findExistingCards: vi.fn(),
-                deckNames: vi.fn(),
-            } as unknown as AnkiConnectClient,
-            jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
-            isJpdbBackedCard: () => false,
+        const loader = createCardRenderDataLoader({
+            settings: { showPitchAccent: true },
+            lookupTermMeta,
+            publicPitch,
         });
         const lookupCard = { ...cardFor(1), spelling: '計量', reading: 'けいりょう', pitchAccent: [] };
         const load = loader.load(lookupCard);
@@ -97,29 +96,10 @@ describe('performance cache bounds', () => {
         try {
             const lookupTermMeta = vi.fn(() => new Promise<never>(() => undefined));
             const publicPitch = vi.fn(async () => ['HLL']);
-            const loader = new CardRenderDataLoader({
-                getSettings: () => ({
-                    ...DEFAULT_SETTINGS,
-                    localDictionariesEnabled: true,
-                    localDictionaryShowKanji: false,
-                    showPitchAccent: true,
-                    ankiEnabled: false,
-                    jpdbDefinitionsEnabled: false,
-                    jpdbMiningEnabled: false,
-                }),
-                dictionaries: {
-                    lookup: vi.fn(async () => []),
-                    lookupKanji: vi.fn(async () => []),
-                    lookupTermMeta,
-                } as unknown as YomitanDictionaryStore,
-                jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
-                jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
-                anki: {
-                    findExistingCards: vi.fn(),
-                    deckNames: vi.fn(),
-                } as unknown as AnkiConnectClient,
-                jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
-                isJpdbBackedCard: () => false,
+            const loader = createCardRenderDataLoader({
+                settings: { showPitchAccent: true },
+                lookupTermMeta,
+                publicPitch,
             });
             const lookupCard = { ...cardFor(1), spelling: '読む', reading: 'よむ', pitchAccent: [] };
             const load = loader.load(lookupCard);

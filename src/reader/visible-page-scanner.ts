@@ -2,28 +2,18 @@ import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, typ
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
-import type { CardState, JPDBToken, ReaderSettings } from './types';
+import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
-const COVERAGE_KNOWN_STATES = new Set<CardState>(['known', 'never-forget', 'redundant']);
-const COVERAGE_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
-const RENDERED_CARD_STATE_CLASSES: Array<[CardState, string]> = [
-    ['new', 'jpdb-new'],
-    ['learning', 'jpdb-learning'],
-    ['known', 'jpdb-known'],
-    ['due', 'jpdb-due'],
-    ['failed', 'jpdb-failed'],
-    ['locked', 'jpdb-locked'],
-    ['never-forget', 'jpdb-never-forget'],
-    ['blacklisted', 'jpdb-blacklisted'],
-    ['suspended', 'jpdb-suspended'],
-    ['in-deck', 'jpdb-in-deck'],
-    ['not-in-deck', 'jpdb-not-in-deck'],
-    ['redundant', 'jpdb-redundant'],
-];
+interface VisibleScanParseOptions {
+    jpdbTimeoutMs?: number;
+    allowJpdbTimeoutFallback?: boolean;
+    includeLocalPitch?: boolean;
+    allowSegmentedFallback?: boolean;
+}
 
 interface VisiblePageCoverageSummary {
     total: number;
@@ -32,11 +22,11 @@ interface VisiblePageCoverageSummary {
     iPlusOne: number;
 }
 
-interface VisibleScanParseOptions {
-    jpdbTimeoutMs?: number;
-    allowJpdbTimeoutFallback?: boolean;
-    includeLocalPitch?: boolean;
-    allowSegmentedFallback?: boolean;
+interface VisiblePageCoverageAccumulator {
+    cards: Set<string>;
+    iPlusOne: Set<string>;
+    known: number;
+    unknown: number;
 }
 
 export interface VisiblePageScannerDependencies {
@@ -46,6 +36,7 @@ export interface VisiblePageScannerDependencies {
     preloadParsedTokens: (tokens: JPDBToken[]) => void;
     enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
     enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => Promise<void> | void;
+    prepareSubtitleTokensBeforeRender?: (tokens: JPDBToken[]) => Promise<void> | void;
     refreshWordContrast?: (root: ParentNode) => void;
     toast: (message: string) => void;
 }
@@ -88,8 +79,18 @@ export class VisiblePageScanner {
         try {
             const parsed = await this.dependencies.parseJapanese(targets.map(target => target.text), scanParseOptions(this.dependencies.getSettings()));
             if (this.destroyed) return;
+            const tokens = parsed.flat();
+            if (this.dependencies.prepareSubtitleTokensBeforeRender) {
+                this.dependencies.preloadParsedTokens(tokens);
+                await this.dependencies.prepareSubtitleTokensBeforeRender(tokens);
+                if (this.destroyed) return;
+            }
             const changedRoots = await this.applyTokens(targets, parsed);
-            this.preloadParsed(parsed, changedRoots);
+            if (this.dependencies.prepareSubtitleTokensBeforeRender) {
+                await this.dependencies.enrichAnkiWords(tokens, changedRoots);
+            } else {
+                this.preloadParsed(parsed, changedRoots);
+            }
         } catch {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
         }
@@ -215,38 +216,48 @@ function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] 
 }
 
 function visiblePageCoverageSummary(): VisiblePageCoverageSummary {
-    const cards = new Map<string, CardState>();
-    const iPlusOne = new Set<string>();
-    for (const word of renderedPageWords()) {
-        const key = renderedCardKey(word);
-        const state = renderedCardState(word);
-        if (key && state && !cards.has(key)) cards.set(key, state);
-        if (word.dataset.miningInsight === 'i-plus-one') {
-            const insightKey = [word.dataset.sentence, key || word.dataset.expression || word.textContent || ''].join('\u0000');
-            iPlusOne.add(insightKey);
-        }
+    const summary: VisiblePageCoverageAccumulator = {
+        cards: new Set<string>(),
+        iPlusOne: new Set<string>(),
+        known: 0,
+        unknown: 0,
+    };
+    for (const word of document.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-card-id][data-reading-index]')) {
+        addVisiblePageCoverageWord(summary, word);
     }
-    const states = [...cards.values()];
     return {
-        total: cards.size,
-        known: states.filter(state => COVERAGE_KNOWN_STATES.has(state)).length,
-        unknown: states.filter(state => COVERAGE_UNKNOWN_STATES.has(state)).length,
-        iPlusOne: iPlusOne.size,
+        total: summary.cards.size,
+        known: summary.known,
+        unknown: summary.unknown,
+        iPlusOne: summary.iPlusOne.size,
     };
 }
 
-function renderedPageWords(): HTMLElement[] {
-    return Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-card-id][data-reading-index]'))
-        .filter(word => !word.closest('[data-jpdb-reader-root]'));
+function addVisiblePageCoverageWord(summary: VisiblePageCoverageAccumulator, word: HTMLElement): void {
+    if (word.closest('[data-jpdb-reader-root]')) return;
+    const key = visiblePageCoverageCardKey(word);
+    countVisiblePageCoverageCard(summary, word, key);
+    countVisiblePageCoverageMiningInsight(summary, word, key);
 }
 
-function renderedCardKey(word: HTMLElement): string {
-    const source = word.dataset.cardSource || 'jpdb';
+function visiblePageCoverageCardKey(word: HTMLElement): string {
     const cardId = word.dataset.cardId || word.dataset.vid || '';
-    const readingIndex = word.dataset.readingIndex || word.dataset.sid || '';
-    return cardId ? `${source}:${cardId}/${readingIndex}` : '';
+    if (!cardId) return '';
+    return `${word.dataset.cardSource || 'jpdb'}:${cardId}/${word.dataset.readingIndex || word.dataset.sid || ''}`;
 }
 
-function renderedCardState(word: HTMLElement): CardState | null {
-    return RENDERED_CARD_STATE_CLASSES.find(([, className]) => word.classList.contains(className))?.[0] ?? null;
+function countVisiblePageCoverageCard(summary: VisiblePageCoverageAccumulator, word: HTMLElement, key: string): void {
+    if (!key || summary.cards.has(key)) return;
+    summary.cards.add(key);
+    if (word.matches('.jpdb-known,.jpdb-never-forget,.jpdb-redundant')) summary.known += 1;
+    if (word.matches('.jpdb-new,.jpdb-not-in-deck,.jpdb-in-deck')) summary.unknown += 1;
+}
+
+function countVisiblePageCoverageMiningInsight(summary: VisiblePageCoverageAccumulator, word: HTMLElement, key: string): void {
+    if (word.dataset.miningInsight !== 'i-plus-one') return;
+    summary.iPlusOne.add([word.dataset.sentence, visiblePageCoverageInsightSurface(word, key)].join('\u0000'));
+}
+
+function visiblePageCoverageInsightSurface(word: HTMLElement, key: string): string {
+    return key || word.dataset.expression || word.textContent || '';
 }
