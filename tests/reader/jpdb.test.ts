@@ -3900,7 +3900,7 @@ describe('reader helpers', () => {
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status' }, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'off' }, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'anki')).toBe('anki');
+        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'anki')).toBe('off');
         expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
         expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
         expect(effectiveSubtitleColorSource(DEFAULT_SETTINGS, 'status')).toBe('status');
