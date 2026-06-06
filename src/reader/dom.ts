@@ -1,7 +1,18 @@
 import { primaryCardState } from './card-state';
 import { CORE_COLOR_TOKENS } from './color-tokens';
+import { escapeHtml, setInnerHtml } from './dom/html';
 import { effectiveFuriganaMode } from './settings';
-import type { JPDBToken, ReaderSettings } from './types';
+import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from './types';
+
+export {
+    appendToDocumentHead,
+    appendTrustedHtml,
+    escapeHtml,
+    htmlToFirstElement,
+    parseHtmlDocument,
+    parseXmlDocument,
+    setInnerHtml,
+} from './dom/html';
 
 export const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const KANJI_RE = /[\u3400-\u9fff]/u;
@@ -11,17 +22,6 @@ const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
 );
-type TrustedTypesFactory = {
-    createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
-    getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
-};
-type TrustedTypesGlobal = typeof globalThis & {
-    trustedTypes?: TrustedTypesFactory;
-    unsafeWindow?: { trustedTypes?: TrustedTypesFactory };
-};
-
-let trustedHtmlPolicy: { createHTML: (value: string) => unknown } | null | undefined;
-
 // Shared building blocks for the four skip-selector lists below. Each list composes the common
 // BASE entries with whichever extra clusters apply; the joined string must stay set-equal to the
 // hand-written original for each list (entry order does not affect matching).
@@ -62,6 +62,8 @@ const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
+const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
+const MINING_INSIGHT_MIN_CARD_COUNT = 3;
 
 const FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
@@ -162,74 +164,6 @@ const BLOCK_TAGS = new Set([
     'UL',
 ]);
 
-/*
- * Central HTML sink for Yomu-owned render templates.
- *
- * Callers pass markup assembled by the reader's render functions; dynamic text,
- * attributes, and URLs must be escaped before they reach this helper. Keeping
- * the assignment centralized makes AMO/CWS review notes and Trusted Types
- * behavior auditable instead of scattering raw HTML sinks through feature code.
- */
-export function setInnerHtml(element: Element, html: string): void {
-    if (!assignInnerHtml(element, html)) element.textContent = html;
-}
-
-export function parseHtmlDocument(html: string): Document {
-    const parsed = parseHtmlWithDomParser(html);
-    if (parsed) return parsed;
-
-    const fallback = document.implementation.createHTMLDocument('');
-    if (assignInnerHtml(fallback.documentElement, html)) return fallback;
-    if (assignInnerHtml(fallback.body, html)) return fallback;
-    fallback.body.textContent = html;
-    return fallback;
-}
-
-function assignInnerHtml(element: Element, html: string): boolean {
-    try {
-        element.innerHTML = trustedHtml(html) as string;
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-export function parseXmlDocument(source: string, mimeType: DOMParserSupportedType = 'text/xml'): Document {
-    try {
-        return new DOMParser().parseFromString(trustedHtml(source) as string, mimeType);
-    } catch {
-        return document.implementation.createDocument(null, '');
-    }
-}
-
-function parseHtmlWithDomParser(html: string): Document | null {
-    try {
-        return new DOMParser().parseFromString(trustedHtml(html) as string, 'text/html');
-    } catch {
-        return null;
-    }
-}
-
-export function appendTrustedHtml(element: Element, html: string): void {
-    const template = document.createElement('template');
-    setInnerHtml(template, html);
-    element.append(template.content);
-}
-
-export function htmlToFirstElement(html: string): HTMLElement | null {
-    const trimmed = html.trim();
-    if (!trimmed) return null;
-    const template = document.createElement('template');
-    setInnerHtml(template, trimmed);
-    const first = template.content.firstElementChild;
-    return first instanceof HTMLElement ? document.importNode(first, true) as HTMLElement : null;
-}
-
-export function appendToDocumentHead(element: Node): void {
-    const target = document.head || document.documentElement || document.body;
-    target.appendChild(element);
-}
-
 export interface TextTarget {
     node: Text;
     text: string;
@@ -291,6 +225,15 @@ interface FragmentTextTargetCollectionOptions {
     heading?: boolean;
     mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
+}
+
+interface FragmentTextCollectionState {
+    targets: FragmentTextTarget[];
+    fragments: TextFragment[];
+    limit: number;
+    visibleOnly: boolean;
+    excludeSelector: string;
+    options: FragmentTextTargetCollectionOptions;
 }
 
 export function getSelectionText(): string {
@@ -449,102 +392,224 @@ export function collectFragmentTextTargetsIn(
     excludeSelector = '',
     options: FragmentTextTargetCollectionOptions = {},
 ): FragmentTextTarget[] {
-    const targets: FragmentTextTarget[] = [];
-    const fragments: TextFragment[] = [];
+    const state: FragmentTextCollectionState = {
+        targets: [],
+        fragments: [],
+        limit,
+        visibleOnly,
+        excludeSelector,
+        options,
+    };
 
-    function fragmentText(items: TextFragment[]): string {
-        return items.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
+    visitFragmentNode(root, state, false, true);
+    flushFragmentTextTarget(state);
+    return state.targets;
+}
+
+function fragmentText(items: TextFragment[]): string {
+    return items.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
+}
+
+function flushFragmentTextTarget(state: FragmentTextCollectionState): void {
+    if (!state.fragments.length || fragmentCollectionComplete(state)) {
+        state.fragments.length = 0;
+        return;
     }
 
-    function flush(): void {
-        if (!fragments.length || targets.length >= limit) {
-            fragments.length = 0;
-            return;
-        }
+    const target = fragmentTextTargetFrom(state.fragments, state.options);
+    if (target) state.targets.push(target);
+    state.fragments.length = 0;
+}
 
-        const trimmedFragments = trimTextFragments(fragments);
-        const text = fragmentText(trimmedFragments);
-        const compactText = text.replace(/\s+/g, '');
-        const hasNativeRuby = trimmedFragments.some(fragment => fragment.hasNativeRuby);
-        const layoutSensitive = trimmedFragments.some(fragment => fragment.layoutSensitive);
-        const passiveInteraction = trimmedFragments.every(fragment => fragment.passiveInteraction);
-        if (HAS_JAPANESE.test(text) && (compactText.length >= (options.minLength ?? 2) || hasNativeRuby)) {
-            const parent = trimmedFragments[0]?.node.parentElement;
-            if (parent) {
-                targets.push({
-                    text,
-                    parent,
-                    fragments: trimmedFragments,
-                    layoutSensitive,
-                    passiveInteraction,
-                });
-            }
-        }
-        fragments.length = 0;
+function fragmentTextTargetFrom(
+    fragments: TextFragment[],
+    options: FragmentTextTargetCollectionOptions,
+): FragmentTextTarget | null {
+    const trimmedFragments = trimTextFragments(fragments);
+    const text = fragmentText(trimmedFragments);
+    if (!isCollectableFragmentText(text, trimmedFragments, options)) return null;
+
+    const parent = trimmedFragments[0]?.node.parentElement;
+    if (!parent) return null;
+    return {
+        text,
+        parent,
+        fragments: trimmedFragments,
+        layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
+        passiveInteraction: trimmedFragments.every(fragment => fragment.passiveInteraction),
+    };
+}
+
+function isCollectableFragmentText(
+    text: string,
+    fragments: TextFragment[],
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    if (!HAS_JAPANESE.test(text)) return false;
+    if (compactFragmentTextLength(text) >= (options.minLength ?? 2)) return true;
+    return fragments.some(fragment => fragment.hasNativeRuby);
+}
+
+function compactFragmentTextLength(text: string): number {
+    return text.replace(/\s+/g, '').length;
+}
+
+function visitFragmentNode(
+    node: Node,
+    state: FragmentTextCollectionState,
+    hasNativeRuby = false,
+    isRoot = false,
+): void {
+    if (fragmentCollectionComplete(state)) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+        collectFragmentTextNode(node as Text, state, hasNativeRuby);
+        return;
     }
 
-    function visit(node: Node, hasNativeRuby = false, isRoot = false): void {
-        if (targets.length >= limit) return;
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    visitFragmentElement(node as HTMLElement, state, hasNativeRuby, isRoot);
+}
 
-        if (node.nodeType === Node.TEXT_NODE) {
-            const text = node.textContent ?? '';
-            if (options.mergeBlockFragments && !text.trim()) return;
-            const parent = node.parentElement;
-            if (text) fragments.push({
-                node: node as Text,
-                start: 0,
-                end: text.length,
-                hasNativeRuby,
-                layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
-                passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, options) : false,
-            });
-            return;
-        }
+function collectFragmentTextNode(
+    node: Text,
+    state: FragmentTextCollectionState,
+    hasNativeRuby: boolean,
+): void {
+    const text = node.textContent ?? '';
+    if (shouldIgnoreFragmentTextNode(text, state.options)) return;
+    const parent = node.parentElement;
+    if (text) state.fragments.push({
+        node,
+        start: 0,
+        end: text.length,
+        hasNativeRuby,
+        layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
+        passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state.options) : false,
+    });
+}
 
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
-        const element = node as HTMLElement;
-        const tagName = element.tagName;
-        if (tagName === 'RT' || tagName === 'RP') return;
-        if (!options.includeReaderRoot && element.closest('[data-jpdb-reader-root]')) return;
-        if ((excludeSelector && element.matches(excludeSelector)) || (!isRoot && shouldSkipFragmentElement(element, options))) {
-            flush();
-            return;
-        }
-        if (visibleOnly && !isVisible(element)) {
-            flush();
-            return;
-        }
-        const text = element.textContent?.trim() ?? '';
-        if (!options.heading && text && isShortCenteredDisplayHeading(element, text)) {
-            flush();
-            return;
-        }
-        if (!options.allowUiText && text && isFragileUiText(element, text)) {
-            flush();
-            return;
-        }
-        if (isReaderRenderedTextBlock(element)) {
-            flush();
-            return;
-        }
+function shouldIgnoreFragmentTextNode(
+    text: string,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return Boolean(options.mergeBlockFragments && !text.trim());
+}
 
-        const isBlock = !options.mergeBlockFragments
-            && isFragmentParagraphBoundary(element, options)
-            && !isInlineSentenceListItem(element);
-        if (isBlock) flush();
-
-        const nextHasNativeRuby = hasNativeRuby || tagName === 'RUBY' || tagName === 'RB';
-        for (const child of Array.from(element.childNodes)) {
-            visit(child, nextHasNativeRuby);
-            if (targets.length >= limit) break;
-        }
-
-        if (isBlock) flush();
+function visitFragmentElement(
+    element: HTMLElement,
+    state: FragmentTextCollectionState,
+    hasNativeRuby: boolean,
+    isRoot: boolean,
+): void {
+    if (shouldIgnoreFragmentElement(element, state.options)) return;
+    if (shouldFlushAndSkipFragmentElement(element, state, isRoot)) {
+        flushFragmentTextTarget(state);
+        return;
     }
 
-    visit(root, false, true);
-    flush();
-    return targets;
+    const isBlock = isBlockFragmentElement(element, state.options);
+    flushFragmentBlockBoundary(isBlock, state);
+    visitFragmentElementChildren(element, state, nextFragmentRubyState(element, hasNativeRuby));
+    flushFragmentBlockBoundary(isBlock, state);
+}
+
+function shouldIgnoreFragmentElement(
+    element: HTMLElement,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return isRubyAnnotationElement(element) || isExcludedReaderRootElement(element, options);
+}
+
+function isRubyAnnotationElement(element: HTMLElement): boolean {
+    return element.tagName === 'RT' || element.tagName === 'RP';
+}
+
+function isExcludedReaderRootElement(
+    element: HTMLElement,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR));
+}
+
+function shouldFlushAndSkipFragmentElement(
+    element: HTMLElement,
+    state: FragmentTextCollectionState,
+    isRoot: boolean,
+): boolean {
+    if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
+    if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
+    return shouldSkipFragmentTextPresentation(element, state.options);
+}
+
+function matchesSkippedFragmentElement(
+    element: HTMLElement,
+    state: FragmentTextCollectionState,
+    isRoot: boolean,
+): boolean {
+    if (state.excludeSelector && element.matches(state.excludeSelector)) return true;
+    return !isRoot && shouldSkipFragmentElement(element, state.options);
+}
+
+function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {
+    return visibleOnly && !isVisible(element);
+}
+
+function shouldSkipFragmentTextPresentation(
+    element: HTMLElement,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    const text = element.textContent?.trim() ?? '';
+    if (shouldSkipFragmentHeading(element, text, options)) return true;
+    if (shouldSkipFragmentUiText(element, text, options)) return true;
+    return isReaderRenderedTextBlock(element);
+}
+
+function shouldSkipFragmentHeading(
+    element: HTMLElement,
+    text: string,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return Boolean(!options.heading && text && isShortCenteredDisplayHeading(element, text));
+}
+
+function shouldSkipFragmentUiText(
+    element: HTMLElement,
+    text: string,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return Boolean(!options.allowUiText && text && isFragileUiText(element, text));
+}
+
+function isBlockFragmentElement(
+    element: HTMLElement,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    return !options.mergeBlockFragments
+        && isFragmentParagraphBoundary(element, options)
+        && !isInlineSentenceListItem(element);
+}
+
+function flushFragmentBlockBoundary(isBlock: boolean, state: FragmentTextCollectionState): void {
+    if (isBlock) flushFragmentTextTarget(state);
+}
+
+function visitFragmentElementChildren(
+    element: HTMLElement,
+    state: FragmentTextCollectionState,
+    hasNativeRuby: boolean,
+): void {
+    for (const child of Array.from(element.childNodes)) {
+        visitFragmentNode(child, state, hasNativeRuby);
+        if (fragmentCollectionComplete(state)) break;
+    }
+}
+
+function nextFragmentRubyState(element: HTMLElement, hasNativeRuby: boolean): boolean {
+    return hasNativeRuby || element.tagName === 'RUBY' || element.tagName === 'RB';
+}
+
+function fragmentCollectionComplete(state: FragmentTextCollectionState): boolean {
+    return state.targets.length >= state.limit;
 }
 
 function shouldSkipFragmentElement(
@@ -824,12 +889,34 @@ export function nearestReadableSentenceForElement(element: HTMLElement, fallback
 }
 
 function ocrLineSentenceForElement(ocrLine: HTMLElement, surface: string, cleanFallback: string): string {
-    const line = cleanReadableSentence(ocrLine.dataset.ocrText || ocrLine.getAttribute('aria-label') || '');
-    if (line && (!surface || textIncludesSearch(line, surface))) return line;
-    const multi = cleanReadableSentence(ocrLine.dataset.sentence || line || cleanFallback);
-    const local = surface ? sentenceAroundSurface(multi, surface, cleanFallback) : '';
+    const line = cleanOcrLineText(ocrLine);
+    if (shouldUseOcrLineText(line, surface)) return line;
+    const multi = cleanOcrSentenceText(ocrLine, line, cleanFallback);
+    const local = ocrSurfaceSentence(multi, surface, cleanFallback);
     if (local) return local;
-    return cleanReadableSentence(line || multi || surface || cleanFallback);
+    return cleanReadableSentence(firstReadableText(line, multi, surface, cleanFallback));
+}
+
+function cleanOcrLineText(ocrLine: HTMLElement): string {
+    return cleanReadableSentence(firstReadableText(ocrLine.dataset.ocrText, ocrLine.getAttribute('aria-label')));
+}
+
+function shouldUseOcrLineText(line: string, surface: string): boolean {
+    if (!line) return false;
+    return !surface || textIncludesSearch(line, surface);
+}
+
+function cleanOcrSentenceText(ocrLine: HTMLElement, line: string, cleanFallback: string): string {
+    return cleanReadableSentence(firstReadableText(ocrLine.dataset.sentence, line, cleanFallback));
+}
+
+function ocrSurfaceSentence(multi: string, surface: string, cleanFallback: string): string {
+    if (!surface) return '';
+    return sentenceAroundSurface(multi, surface, cleanFallback);
+}
+
+function firstReadableText(...values: Array<string | null | undefined>): string {
+    return values.find(value => Boolean(value)) ?? '';
 }
 
 function nearestReadableAncestorSentence(element: HTMLElement, surface: string, cleanFallback: string): string {
@@ -1118,15 +1205,21 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
 function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
     const fragment = document.createDocumentFragment();
     let offset = 0;
-    for (const token of tokens) {
+    const tokenPlans = tokens.map(token => ({
+        token,
+        tokenWithSentence: tokenWithReadableSentence(token, target.text, token.sentence),
+    }));
+    const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map(plan => plan.tokenWithSentence));
+    for (const plan of tokenPlans) {
+        const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
-        const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence);
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
             allowRuby: scanTargetAllowsRuby(target) && !target.hasNativeRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
             preserveTokenRubies: true,
+            miningInsightKeys,
         }));
         offset = token.end;
     }
@@ -1154,15 +1247,17 @@ function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): 
 
 function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings, sentence: string): void {
     const indexedFragments = indexTextFragments(target.fragments);
-    const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, sentence);
+    const tokensWithSentence = tokens.map(token => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
+    const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
+    const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
     if (singleFragmentPlans.length && !tokens.some(token => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
         const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
-        for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings);
+        for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
         if (singleFragmentPlans.length === tokens.length) return;
         return;
     }
     for (let index = tokens.length - 1; index >= 0; index--) {
-        applyTokenToIndexedFragments(target, indexedFragments, tokens[index], settings, sentence);
+        applyTokenToIndexedFragments(target, indexedFragments, tokens[index], tokensWithSentence[index] ?? tokens[index], settings, miningInsightKeys);
     }
 }
 
@@ -1180,10 +1275,10 @@ function singleFragmentTokenPlans(
     target: FragmentTextTarget,
     indexedFragments: IndexedTextFragment[],
     tokens: JPDBToken[],
-    sentence: string,
+    tokensWithSentence: JPDBToken[],
 ): SingleFragmentTokenPlan[] {
     const plans: SingleFragmentTokenPlan[] = [];
-    for (const token of tokens) {
+    for (const [index, token] of tokens.entries()) {
         const start = findFragmentBoundary(indexedFragments, token.start, 'start');
         const end = findFragmentBoundary(indexedFragments, token.end, 'end');
         const bounds = attachableFragmentRange(start, end);
@@ -1193,7 +1288,7 @@ function singleFragmentTokenPlans(
             localStart: bounds.start.localOffset,
             localEnd: bounds.end.localOffset,
             token,
-            tokenWithSentence: tokenWithReadableSentence(token, target.text, token.sentence ?? sentence),
+            tokenWithSentence: tokensWithSentence[index] ?? token,
             layoutSensitive: target.layoutSensitive === true
                 || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
             passiveInteraction: target.passiveInteraction === true
@@ -1222,6 +1317,7 @@ function replaceSingleFragmentTokenNode(
     fragment: IndexedTextFragment,
     plans: SingleFragmentTokenPlan[],
     settings: ReaderSettings,
+    miningInsightKeys: ReadonlySet<string>,
 ): void {
     if (!fragment.node.parentNode || !plans.length) return;
     const replacement = document.createDocumentFragment();
@@ -1229,7 +1325,7 @@ function replaceSingleFragmentTokenNode(
     let offset = 0;
     for (const plan of plans) {
         appendPlainTextBeforeToken(replacement, text, offset, plan.localStart);
-        replacement.append(renderSingleFragmentToken(target, fragment, plan, settings));
+        replacement.append(renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys));
         offset = plan.localEnd;
     }
     appendPlainTextBeforeToken(replacement, text, offset, text.length);
@@ -1241,6 +1337,7 @@ function renderSingleFragmentToken(
     fragment: TextFragment,
     plan: SingleFragmentTokenPlan,
     settings: ReaderSettings,
+    miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
     const allowRuby = !fragment.hasNativeRuby && !plan.layoutSensitive;
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
@@ -1249,6 +1346,7 @@ function renderSingleFragmentToken(
         scanWord: true,
         passiveInteraction: plan.passiveInteraction,
         preserveTokenRubies: true,
+        miningInsightKeys,
     });
 }
 
@@ -1256,15 +1354,15 @@ function applyTokenToIndexedFragments(
     target: FragmentTextTarget,
     indexedFragments: IndexedTextFragment[],
     token: JPDBToken,
+    tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
-    sentence: string,
+    miningInsightKeys: ReadonlySet<string>,
 ): void {
     const start = findFragmentBoundary(indexedFragments, token.start, 'start');
     const end = findFragmentBoundary(indexedFragments, token.end, 'end');
     const bounds = attachableFragmentRange(start, end);
     if (!bounds) return;
 
-    const tokenWithSentence = tokenWithReadableSentence(token, target.text, token.sentence ?? sentence);
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true
         || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
@@ -1279,13 +1377,14 @@ function applyTokenToIndexedFragments(
             token,
             tokenWithSentence,
             settings,
+            miningInsightKeys,
             passiveInteraction,
             layoutSensitive,
         );
         return;
     }
     if (layoutSensitive) {
-        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction);
+        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
         return;
     }
 
@@ -1297,6 +1396,7 @@ function applyTokenToIndexedFragments(
         passiveInteraction,
         allowRuby: !layoutSensitive && !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
         preserveTokenRubies: true,
+        miningInsightKeys,
     });
     range.detach();
 }
@@ -1317,6 +1417,7 @@ function insertSplitFragmentTokenPieces(
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
     passiveInteraction: boolean,
+    miningInsightKeys: ReadonlySet<string>,
 ): void {
     const pieces = indexedFragments
         .map(fragment => splitFragmentTokenPiece(fragment, token.start, token.end))
@@ -1331,6 +1432,7 @@ function insertSplitFragmentTokenPieces(
             scanWord: true,
             passiveInteraction,
             preserveTokenRubies: true,
+            miningInsightKeys,
         });
         replaceTextNodeRange(piece.fragment.node, piece.start, piece.end, rendered);
     }
@@ -1398,6 +1500,7 @@ function insertSingleFragmentToken(
     token: JPDBToken,
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
+    miningInsightKeys: ReadonlySet<string>,
     passiveInteraction: boolean,
     layoutSensitive: boolean,
 ): void {
@@ -1409,6 +1512,7 @@ function insertSingleFragmentToken(
         scanWord: true,
         passiveInteraction,
         preserveTokenRubies: true,
+        miningInsightKeys,
     });
     replaceTextNodeRange(fragment.node, start, end, rendered);
 }
@@ -1509,9 +1613,10 @@ export function renderTokensToHtml(text: string, tokens: JPDBToken[], settings: 
     let html = '';
     let offset = 0;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const miningInsightKeys = miningInsightTokenKeys(safeTokens);
     for (const token of safeTokens) {
         if (token.start > offset) html += escapeHtml(text.slice(offset, token.start));
-        html += renderTokenHtml(text.slice(token.start, token.end), token, settings);
+        html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
         offset = token.end;
     }
     if (offset < text.length) html += escapeHtml(text.slice(offset));
@@ -1592,6 +1697,61 @@ function isSafeTokenSpan(token: JPDBToken, offset: number, textLength: number): 
         && token.end <= textLength;
 }
 
+function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
+    const sentences = new Map<string, Map<string, { unknown: boolean }>>();
+    for (const token of tokens) {
+        const sentence = miningInsightSentenceKey(token);
+        if (!sentence || isParticleCard(token.card)) continue;
+        const cardKey = readerCardKey(token.card);
+        const sentenceCards = sentences.get(sentence) ?? new Map<string, { unknown: boolean }>();
+        if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
+        if (!sentenceCards.has(cardKey)) {
+            sentenceCards.set(cardKey, { unknown: isMiningUnknownCard(token.card) });
+        }
+    }
+
+    const keys = new Set<string>();
+    sentences.forEach((cards, sentence) => {
+        if (cards.size < MINING_INSIGHT_MIN_CARD_COUNT) return;
+        const unknownCards = [...cards.entries()].filter(([, card]) => card.unknown);
+        if (unknownCards.length !== 1) return;
+        keys.add(miningInsightKey(sentence, unknownCards[0][0]));
+    });
+    return keys;
+}
+
+function isMiningUnknownCard(card: JPDBCard): boolean {
+    return MINING_INSIGHT_UNKNOWN_STATES.has(primaryCardState(card.cardState));
+}
+
+function miningInsightTokenKey(token: JPDBToken): string {
+    return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
+}
+
+function miningInsightKey(sentence: string, cardKey: string): string {
+    return `${sentence}\u0000${cardKey}`;
+}
+
+function miningInsightSentenceKey(token: JPDBToken): string {
+    return (token.sentence ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function readerCardKey(card: JPDBCard): string {
+    return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
+}
+
+function readerCardSource(card: JPDBCard): string {
+    return card.source ?? (card.reviewSource === 'jiten-api' ? 'jiten' : 'jpdb');
+}
+
+function readerCardId(card: JPDBCard): number {
+    return readerCardSource(card) === 'jiten' ? card.jitenWordId ?? card.vid : card.vid;
+}
+
+function readerReadingIndex(card: JPDBCard): number {
+    return readerCardSource(card) === 'jiten' ? card.jitenReadingIndex ?? card.sid : card.sid;
+}
+
 function renderToken(
     surface: string,
     token: JPDBToken,
@@ -1621,6 +1781,7 @@ interface TokenRenderOptions {
     // Scan-word renders keep the JPDB-provided ruby spans intact (e.g. 読む -> よむ) instead of
     // re-centering furigana onto bare kanji, which is reserved for the popup token renderers.
     preserveTokenRubies?: boolean;
+    miningInsightKeys?: ReadonlySet<string>;
 }
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
@@ -1635,32 +1796,51 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     const span = document.createElement('span');
     const state = primaryCardState(token.card.cardState);
     span.className = readerWordClassName(state, token);
-    applyTokenRenderOptions(span, options);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
+    span.dataset.cardSource = readerCardSource(token.card);
+    span.dataset.cardId = String(readerCardId(token.card));
+    span.dataset.readingIndex = String(readerReadingIndex(token.card));
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
+    span.dataset.tokenStart = String(token.start);
+    span.dataset.tokenEnd = String(token.end);
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
+    applyTokenRenderOptions(span, token, options);
     return span;
 }
 
-function applyTokenRenderOptions(span: HTMLElement, options: TokenRenderOptions): void {
+function applyTokenRenderOptions(span: HTMLElement, token: JPDBToken, options: TokenRenderOptions): void {
     if (options.scanWord) span.classList.add('jpdb-reader-scan-word');
+    if (options.miningInsightKeys?.has(miningInsightTokenKey(token))) {
+        span.classList.add('jpdb-reader-i-plus-one');
+        span.dataset.miningInsight = 'i-plus-one';
+    }
     if (options.passiveInteraction) {
         span.classList.add('jpdb-reader-passive-word');
         span.dataset.jpdbReaderPassive = 'true';
     }
 }
 
-function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings): string {
+function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSettings, miningInsightKeys: ReadonlySet<string>): string {
     const state = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
-    const classes = [readerWordClassName(state, token), hasRuby ? 'jpdb-reader-has-furi' : ''].filter(Boolean).join(' ');
+    const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+    const classes = [
+        readerWordClassName(state, token),
+        hasRuby ? 'jpdb-reader-has-furi' : '',
+        hasMiningInsight ? 'jpdb-reader-i-plus-one' : '',
+    ].filter(Boolean).join(' ');
+    const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
+    const cardId = ` data-card-id="${readerCardId(token.card)}"`;
+    const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
+    const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${expression}${reading} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
 }
 
 export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
@@ -1683,7 +1863,7 @@ function hasDifficultKanji(surface: string): boolean {
 
 function readerWordClassName(state: string, token: JPDBToken): string {
     const classes = ['jpdb-reader-word'];
-    if (token.card.partOfSpeech.includes('prt') || PARTICLE_SURFACE_RE.test(token.card.spelling.trim())) {
+    if (isParticleCard(token.card)) {
         classes.push('jpdb-reader-particle');
         return classes.join(' ');
     }
@@ -1694,6 +1874,10 @@ function readerWordClassName(state: string, token: JPDBToken): string {
 
 function hasKnownCardState(card: JPDBToken['card']): boolean {
     return Array.isArray(card.cardState) && card.cardState.length > 0;
+}
+
+function isParticleCard(card: JPDBCard): boolean {
+    return card.partOfSpeech.includes('prt') || PARTICLE_SURFACE_RE.test(card.spelling.trim());
 }
 
 function safePitchClass(value: string): string {
@@ -1945,45 +2129,6 @@ function renderKanjiNavigationCharacter(character: string, label: string): strin
 function isKanjiForInlineNavigation(value: string): boolean {
     const code = value.codePointAt(0) ?? 0;
     return code >= 0x3400 && code <= 0x9fff;
-}
-
-export function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function trustedHtml(value: string): string | unknown {
-    try {
-        const factory = trustedTypesFactory();
-        if (!factory) return value;
-        if (trustedHtmlPolicy === undefined) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-        return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === 'function' ? trustedHtmlPolicy.createHTML(value) : value;
-    } catch {
-        trustedHtmlPolicy = null;
-        return value;
-    }
-}
-
-function trustedTypesFactory(): TrustedTypesFactory | undefined {
-    const root = globalThis as TrustedTypesGlobal;
-    return [
-        root.trustedTypes,
-        typeof window === 'undefined' ? undefined : (window as unknown as TrustedTypesGlobal).trustedTypes,
-        root.unsafeWindow?.trustedTypes,
-    ].find((factory): factory is TrustedTypesFactory => Boolean(factory));
-}
-
-function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (value: string) => unknown } | null {
-    try {
-        const existing = factory.getPolicy?.('yomu-reader');
-        if (existing && typeof existing.createHTML === 'function') return existing;
-        return factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
-    } catch {
-        return null;
-    }
 }
 
 function isVisible(element: HTMLElement): boolean {

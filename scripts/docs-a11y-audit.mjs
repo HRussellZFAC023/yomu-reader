@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DOCS_DIST = path.join(ROOT, 'docs/.vitepress/dist');
@@ -92,16 +93,12 @@ async function waitForStablePage(page) {
 
 async function assertDocsAccessibility(page, label) {
     const axe = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+        .withTags(WCAG_AUDIT_TAGS)
         .analyze();
-    const violations = axe.violations
-        .filter(violation => violation.impact !== 'minor')
-        .map(violation => ({
-            id: violation.id,
-            impact: violation.impact,
-            help: violation.help,
-            nodes: violation.nodes.slice(0, 5).map(node => node.target.join(' ')),
-        }));
+    const violations = summarizeAxeViolations(axe.violations, {
+        nodeLimit: 5,
+        summarizeNode: node => node.target.join(' '),
+    });
     assertAudit(!violations.length, `${label} axe violations: ${JSON.stringify(violations)}`);
 
     const wcag = await page.evaluate(() => {

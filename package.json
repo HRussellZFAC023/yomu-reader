@@ -1,9 +1,9 @@
 {
   "name": "yomu-reader",
-  "version": "0.6.24",
+  "version": "0.6.27",
   "private": true,
   "type": "module",
-  "description": "よむ: a small JPDB/Yomitan popup dictionary and subtitle miner userscript.",
+  "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -16,6 +16,7 @@
   "keywords": [
     "userscript",
     "jpdb",
+    "jiten",
     "yomitan",
     "japanese",
     "ocr",
@@ -39,11 +40,12 @@
     "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
     "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "smoke:feedback": "node scripts/feedback-smoke.mjs",
+    "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
     "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
-    "check": "npm run typecheck && npm run test:ci && npm run build && npm run verify && node scripts/sync-docs-userscript.cjs && npm run docs:build",
+    "check": "npm run typecheck && npm run test:ci && npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify",
     "docs": "vitepress dev docs --host 127.0.0.1",
     "docs:build": "vitepress build docs",
     "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",

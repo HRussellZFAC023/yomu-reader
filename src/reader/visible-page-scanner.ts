@@ -1,13 +1,36 @@
 import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, type ScanTextTarget } from './dom';
-import { uiText } from './i18n';
+import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
-import type { JPDBToken, ReaderSettings } from './types';
+import type { CardState, JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+const COVERAGE_KNOWN_STATES = new Set<CardState>(['known', 'never-forget', 'redundant']);
+const COVERAGE_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
+const RENDERED_CARD_STATE_CLASSES: Array<[CardState, string]> = [
+    ['new', 'jpdb-new'],
+    ['learning', 'jpdb-learning'],
+    ['known', 'jpdb-known'],
+    ['due', 'jpdb-due'],
+    ['failed', 'jpdb-failed'],
+    ['locked', 'jpdb-locked'],
+    ['never-forget', 'jpdb-never-forget'],
+    ['blacklisted', 'jpdb-blacklisted'],
+    ['suspended', 'jpdb-suspended'],
+    ['in-deck', 'jpdb-in-deck'],
+    ['not-in-deck', 'jpdb-not-in-deck'],
+    ['redundant', 'jpdb-redundant'],
+];
+
+interface VisiblePageCoverageSummary {
+    total: number;
+    known: number;
+    unknown: number;
+    iPlusOne: number;
+}
 
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
@@ -92,6 +115,7 @@ export class VisiblePageScanner {
         }
 
         await this.parseAndApplyTargets(targets);
+        this.reportVisiblePageCoverage(silent);
     }
 
     private async parseAndApplyTargets(targets: ScanTextTarget[]): Promise<void> {
@@ -148,6 +172,20 @@ export class VisiblePageScanner {
         if (!silent) this.dependencies.toast(error instanceof Error ? error.message : uiText(this.dependencies.getSettings().interfaceLanguage, 'jpdbScanFailed'));
     }
 
+    private reportVisiblePageCoverage(silent: boolean): void {
+        if (silent) return;
+        const summary = visiblePageCoverageSummary();
+        if (!summary.total) return;
+        const percent = Math.round((summary.known / summary.total) * 100);
+        this.dependencies.toast(formatUiText(this.dependencies.getSettings().interfaceLanguage, 'pageCoverageSummary', {
+            percent,
+            known: summary.known,
+            total: summary.total,
+            unknown: summary.unknown,
+            iPlusOne: summary.iPlusOne,
+        }));
+    }
+
     private finishScan(): void {
         this.scanInFlight = false;
         if (this.destroyed) {
@@ -174,4 +212,41 @@ function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] 
         includeLocalPitch: false,
         allowSegmentedFallback: true,
     };
+}
+
+function visiblePageCoverageSummary(): VisiblePageCoverageSummary {
+    const cards = new Map<string, CardState>();
+    const iPlusOne = new Set<string>();
+    for (const word of renderedPageWords()) {
+        const key = renderedCardKey(word);
+        const state = renderedCardState(word);
+        if (key && state && !cards.has(key)) cards.set(key, state);
+        if (word.dataset.miningInsight === 'i-plus-one') {
+            const insightKey = [word.dataset.sentence, key || word.dataset.expression || word.textContent || ''].join('\u0000');
+            iPlusOne.add(insightKey);
+        }
+    }
+    const states = [...cards.values()];
+    return {
+        total: cards.size,
+        known: states.filter(state => COVERAGE_KNOWN_STATES.has(state)).length,
+        unknown: states.filter(state => COVERAGE_UNKNOWN_STATES.has(state)).length,
+        iPlusOne: iPlusOne.size,
+    };
+}
+
+function renderedPageWords(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-card-id][data-reading-index]'))
+        .filter(word => !word.closest('[data-jpdb-reader-root]'));
+}
+
+function renderedCardKey(word: HTMLElement): string {
+    const source = word.dataset.cardSource || 'jpdb';
+    const cardId = word.dataset.cardId || word.dataset.vid || '';
+    const readingIndex = word.dataset.readingIndex || word.dataset.sid || '';
+    return cardId ? `${source}:${cardId}/${readingIndex}` : '';
+}
+
+function renderedCardState(word: HTMLElement): CardState | null {
+    return RENDERED_CARD_STATE_CLASSES.find(([, className]) => word.classList.contains(className))?.[0] ?? null;
 }

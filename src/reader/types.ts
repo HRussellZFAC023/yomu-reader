@@ -20,6 +20,7 @@ export type AudioSourceType =
     | 'jisho'
     | 'lingua-libre'
     | 'wiktionary'
+    | 'jiten-tts'
     | 'jpdb-tts'
     | 'text-to-speech'
     | 'text-to-speech-reading'
@@ -108,9 +109,11 @@ export interface JPDBCard {
     cardState: CardState[];
     pitchAccent: string[];
     wordWithReading: string | null;
-    source?: 'jpdb' | 'local' | 'anki' | 'fallback';
+    source?: 'jpdb' | 'jiten' | 'local' | 'anki' | 'fallback';
     sentence?: string;
-    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'anki' | 'dictionary';
+    reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'anki' | 'dictionary';
+    jitenWordId?: number;
+    jitenReadingIndex?: number;
     ankiCardId?: number;
     ankiNoteId?: number;
     ankiDeckNames?: string[];
@@ -131,10 +134,12 @@ export interface JPDBCard {
     fallbackLookupTerms?: string[];
 }
 
-export interface JPDBDeck {
+export interface ApiDeck {
     id: string;
     name: string;
 }
+
+export interface JPDBDeck extends ApiDeck {}
 
 export interface JPDBRuby {
     text: string;
@@ -181,6 +186,7 @@ export interface JPDBParseResult {
 
 export interface ReaderSettings {
     apiKey: string;
+    jitenApiKey: string;
     onboardingSeen: boolean;
     interfaceLanguage: InterfaceLanguage;
     accentColor: string;

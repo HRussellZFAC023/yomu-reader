@@ -3,6 +3,7 @@ import http from 'node:http';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './smoke-harness.mjs';
+import { dragTranscriptResizeHandle, panelSizeDelta } from './subtitle-layout-test-utils.mjs';
 
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
 const readerCssPath = resolve(process.env.YOMU_E2E_READER_CSS ?? 'dist/yomu.css');
@@ -67,11 +68,6 @@ function rectFromJson(rect) {
         width: rect.width,
         height: rect.height,
     };
-}
-
-function panelSizeDelta(before, after) {
-    if (!before || !after) return 0;
-    return Math.max(Math.abs(before.width - after.width), Math.abs(before.height - after.height));
 }
 
 function genericHtml(origin) {
@@ -422,8 +418,7 @@ async function assertClosedRailPanelButton(page, site) {
     await page.waitForFunction(closedRailPanelButtonVisible, null, { timeout: site.readyTimeout ?? 25000 });
     await clickRailPanelButton(page);
     await waitForPanelOpen(page);
-    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').first().click();
-    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+    await closePanelFromRail(page);
 }
 
 function closedRailPanelButtonVisible() {
@@ -513,9 +508,16 @@ async function assertDrawerModeControls(page) {
 
     await page.locator('.jpdb-subtitle-list [data-action="panel-tracks"]').first().click();
     await waitForDrawerMode(page, 'tracks');
-    await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').first().click();
-    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+    await assertDrawerHeaderControls(page);
+    await closePanelFromRail(page);
     await openTracksPanel(page);
+}
+
+async function assertDrawerHeaderControls(page) {
+    const closeButtons = await page.locator('.jpdb-subtitle-list [data-action="close-panel"]').count();
+    assert(closeButtons === 0, 'drawer header should not render its own close button', { closeButtons });
+    const placementButtons = await page.locator('.jpdb-subtitle-list [data-action="transcript-placement"][data-placement]').count();
+    assert(placementButtons === 3, 'drawer header should expose left, below, and right dock controls', { placementButtons });
 }
 
 async function waitForDrawerMode(page, mode) {
@@ -551,14 +553,20 @@ async function readOpenPanelMode(page) {
     });
 }
 
-async function clickRailPanelButton(page) {
+async function clickRailPanelButton(page, options = {}) {
     const panelButton = page.locator('.jpdb-subtitle-rail [data-action="panel"]').first();
     await panelButton.waitFor({ state: 'visible', timeout: 5000 });
-    await panelButton.click();
+    await panelButton.click(options);
 }
 
 async function waitForPanelOpen(page) {
     await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+}
+
+async function closePanelFromRail(page) {
+    await page.waitForTimeout(250);
+    await clickRailPanelButton(page, { force: true });
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
 }
 
 async function openLinesOrTracksPanel(page) {
@@ -614,20 +622,7 @@ async function resizePanel(page, placement) {
         await page.waitForTimeout(350);
         return true;
     }
-    const handle = await handleLocator.boundingBox();
-    if (!handle) return false;
-    const x = handle.x + handle.width / 2;
-    const y = handle.y + handle.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    if (placement === 'bottom') {
-        await page.mouse.move(x, y - 120, { steps: 6 });
-    } else {
-        await page.mouse.move(x - 140, y, { steps: 6 });
-    }
-    await page.mouse.up();
-    await page.waitForTimeout(350);
-    return true;
+    return dragTranscriptResizeHandle(page, placement);
 }
 
 async function snapshot(page, site) {
@@ -841,8 +836,7 @@ function isEdgeToEdgePanel(panel, viewport) {
 }
 
 function isExpectedPlacementForPhase(expectedPlacement, phase, actualPlacement) {
-    if (actualPlacement === expectedPlacement) return true;
-    return phase === 'resized' && expectedPlacement !== 'bottom' && actualPlacement === 'bottom';
+    return actualPlacement === expectedPlacement;
 }
 
 function assertTranscriptRowsWrap(site, phase, state) {
@@ -856,6 +850,9 @@ function assertTranscriptRowsWrap(site, phase, state) {
 function assertPlacementGeometry(site, phase, layout, state) {
     if (layout.placement === 'bottom') {
         assert(layout.video.bottom <= layout.panel.top + 4, `${site.name}: bottom transcript panel did not leave the player above the sheet during ${phase}`, state);
+        if (state.viewport.width >= 700) {
+            assert(layout.video.height >= 240, `${site.name}: bottom transcript panel made the player too short on a wide viewport during ${phase}`, state);
+        }
         return;
     }
     if (!layout.anchor) return;
@@ -907,6 +904,7 @@ async function runSite(browser, site) {
     try {
         console.error(`[subtitle-e2e] ${site.name}`);
         const telemetry = await openAndReady(page, site);
+        if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
         const layouts = await exerciseDrawerLayout(page, site);
         return {
             site: site.name,
@@ -923,6 +921,41 @@ async function runSite(browser, site) {
     }
 }
 
+async function assertDrawerDockingControls(page, site) {
+    await openLinesOrTracksPanel(page);
+    await waitForDrawerLayoutSettled(page, site);
+    await assertDrawerHeaderControls(page);
+    await chooseDrawerPlacement(page, 'bottom');
+    await waitForDrawerLayoutSettled(page, site);
+    let state = await snapshot(page, site);
+    let layout = drawerLayoutRects(state, 'dock-bottom');
+    assert(layout.placement === 'bottom', `${site.name}: dock control did not move drawer below`, state);
+    assertDrawerLayoutState({ ...site, expectPlacement: 'bottom' }, 'dock-bottom', state, layout);
+
+    await chooseDrawerPlacement(page, 'right');
+    await waitForDrawerLayoutSettled(page, site);
+    state = await snapshot(page, site);
+    layout = drawerLayoutRects(state, 'dock-right');
+    assert(layout.placement === 'right', `${site.name}: dock control did not restore right drawer`, state);
+    assertDrawerLayoutState({ ...site, expectPlacement: 'right' }, 'dock-right', state, layout);
+    const persistedPlacement = await page.evaluate(key => {
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value).subtitleTranscriptPlacement : '';
+    }, settingsStorageKey);
+    assert(persistedPlacement === 'right', `${site.name}: dock control did not persist placement setting`, { persistedPlacement });
+}
+
+async function chooseDrawerPlacement(page, placement) {
+    await page.locator(`.jpdb-subtitle-list [data-action="transcript-placement"][data-placement="${placement}"]`).first().click();
+    await page.waitForFunction(expected => {
+        const player = document.querySelector('.jpdb-subtitle-player');
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return player?.dataset.transcriptPlacement === expected
+            && panel?.dataset.transcriptPlacement === expected
+            && panel.querySelector(`[data-action="transcript-placement"][data-placement="${expected}"][aria-pressed="true"]`);
+    }, placement, { timeout: 5000 });
+}
+
 async function runYouTubeWithFallback(browser) {
     if (useYouTubeFixture) {
         return runPlacementVariants(browser, {
@@ -933,7 +966,6 @@ async function runYouTubeWithFallback(browser) {
             minRows: 3,
             readyTimeout: 30000,
             anchorSelector: '#movie_player',
-            expectPlacementOverrides: { left: 'bottom' },
         });
     }
     try {
@@ -944,7 +976,6 @@ async function runYouTubeWithFallback(browser) {
             youtubeConsent: true,
             ignoreBlockingDialogs: true,
             anchorSelector: '#movie_player',
-            expectPlacementOverrides: { left: 'bottom' },
             readyTimeout: 50000,
         });
     } catch (error) {
@@ -956,7 +987,6 @@ async function runYouTubeWithFallback(browser) {
             minRows: 3,
             readyTimeout: 30000,
             anchorSelector: '#movie_player',
-            expectPlacementOverrides: { left: 'bottom' },
         });
         return fallback.map(result => ({ ...result, fallbackReason: error instanceof Error ? error.message : String(error) }));
     }
@@ -1003,6 +1033,16 @@ try {
             expectPlacement: 'bottom',
             expectEdgeToEdgePanel: true,
             expectNativeCaptions: true,
+            settings: { subtitleTranscriptPlacement: 'right' },
+            anchorSelector: '.player',
+        },
+        {
+            name: 'generic-docking',
+            url: `${fixture.origin}/generic`,
+            viewport: { width: 1600, height: 950 },
+            expectPlacement: 'right',
+            expectNativeCaptions: true,
+            exerciseDockingControls: true,
             settings: { subtitleTranscriptPlacement: 'right' },
             anchorSelector: '.player',
         },

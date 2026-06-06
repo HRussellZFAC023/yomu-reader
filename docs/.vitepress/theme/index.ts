@@ -5,7 +5,7 @@ import {
     sharedContrastRatio,
     sharedHexToRgba,
     sharedMixHex,
-} from '../../../src/shared/color-math';
+} from '../../../src/reader/core/color-math';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';

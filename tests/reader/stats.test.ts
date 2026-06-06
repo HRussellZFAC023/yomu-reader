@@ -10,6 +10,7 @@ import {
     parseJpdbReviewExport,
     statsActivityMetricTotal,
     statsCardSegments,
+    statsFromApiCards,
     statsFromJpdbCards,
 } from '../../src/reader/stats';
 import type { JPDBCard } from '../../src/reader/types';
@@ -122,6 +123,36 @@ describe('stats aggregation', () => {
             expect.objectContaining({ key: 'due', value: 5 }),
         ]));
         expect(combined.status).toBe('ready');
+    });
+
+    it('uses the configured API provider label in combined stats messages', () => {
+        const jiten = statsFromApiCards([statsCard({ source: 'jiten', reviewSource: 'jiten-api' })], 'Jiten', 'Jiten SRS loaded.');
+        const emptyAnki = {
+            id: 'anki' as const,
+            label: 'Anki',
+            status: 'setup' as const,
+            message: 'Connect Anki.',
+            daily: [],
+            cards: {
+                total: 0,
+                new: 0,
+                learning: 0,
+                review: 0,
+                due: 0,
+                failed: 0,
+                known: 0,
+                suspended: 0,
+                ignored: 0,
+            },
+            reviewsToday: 0,
+            totalReviews: 0,
+            retention: null,
+            currentStreak: 0,
+            longestStreak: 0,
+            updatedAt: null,
+        };
+
+        expect(combineStatsSources(jiten, emptyAnki).message).toBe('Showing Jiten stats. Connect Anki for the combined view.');
     });
 
     it('builds compact calendar months for stats heatmaps', () => {

@@ -1,3 +1,1 @@
-import { bootNewTabRuntime } from './newtab-runtime';
-
-bootNewTabRuntime();
+import './newtab/entry';

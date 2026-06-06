@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBToken } from '../../src/reader/types';
+import type { CardState, JPDBToken } from '../../src/reader/types';
 import { VisiblePageScanner } from '../../src/reader/visible-page-scanner';
 
 describe('VisiblePageScanner', () => {
@@ -107,6 +107,51 @@ describe('VisiblePageScanner', () => {
 
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(document.querySelector('p')?.textContent).toBe('英語の文です。');
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('reports page coverage and i+1 guidance for manual scans with Jiten-backed words', async () => {
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 20,
+            top: 0,
+            right: 100,
+            bottom: 20,
+            left: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        const sentence = '今日本を読む';
+        document.body.innerHTML = `<main><p>${sentence}</p></main>`;
+        const toast = vi.fn();
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+            stateToken(text, '今日', 0, 2, 'known', { vid: 10, sid: 1, source: 'jpdb' }),
+            stateToken(text, '本', 2, 3, 'new', { vid: 42, sid: 2, source: 'jiten', jitenWordId: 42, jitenReadingIndex: 2 }),
+            stateToken(text, '読む', 4, 6, 'known', { vid: 11, sid: 1, source: 'jpdb' }),
+        ]));
+        const scanner = new VisiblePageScanner({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese,
+            pauseMutationObserver: callback => callback(),
+            preloadParsedTokens: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            toast,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: false });
+
+            expect(toast).toHaveBeenCalledWith('Coverage 67% known · 2/3 words · 1 new · 1 i+1');
+            const insight = document.querySelector<HTMLElement>('[data-mining-insight="i-plus-one"]')!;
+            expect(insight.textContent).toBe('本');
+            expect(insight.dataset.cardSource).toBe('jiten');
+            expect(insight.dataset.cardId).toBe('42');
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
             document.body.innerHTML = '';
@@ -517,6 +562,35 @@ function testToken(sentence: string, spelling: string, start: number, end: numbe
         rubies: [],
         pitchClass: '',
         sentence,
+    };
+}
+
+function stateToken(
+    sentence: string,
+    spelling: string,
+    start: number,
+    end: number,
+    state: CardState,
+    options: {
+        vid: number;
+        sid: number;
+        source: JPDBToken['card']['source'];
+        jitenWordId?: number;
+        jitenReadingIndex?: number;
+    },
+): JPDBToken {
+    const token = testToken(sentence, spelling, start, end);
+    return {
+        ...token,
+        card: {
+            ...token.card,
+            vid: options.vid,
+            sid: options.sid,
+            cardState: [state],
+            source: options.source,
+            ...(options.jitenWordId !== undefined ? { jitenWordId: options.jitenWordId } : {}),
+            ...(options.jitenReadingIndex !== undefined ? { jitenReadingIndex: options.jitenReadingIndex } : {}),
+        },
     };
 }
 

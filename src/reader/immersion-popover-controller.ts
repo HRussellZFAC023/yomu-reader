@@ -2,7 +2,7 @@ import { AudioPlayer } from './audio';
 import { hasVisiblePageVideo } from './browser-ui';
 import { cardHighlightTargets, highlightCardTargetWords } from './card-highlight';
 import { cardKey } from './card-utils';
-import { pruneOldestCacheEntries } from './cache-utils';
+import { pruneOldestCacheEntries } from './core/cache-utils';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import {

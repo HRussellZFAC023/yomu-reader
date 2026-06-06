@@ -4,7 +4,7 @@ import {
     sharedContrastRatio,
     sharedHexToRgba,
     sharedMixHex,
-} from '../shared/color-math';
+} from './core/color-math';
 
 export { blendRgba, cssColorToHex, cssColorToRgba, rgbaToHex, type RgbaColor } from './color-rgba';
 

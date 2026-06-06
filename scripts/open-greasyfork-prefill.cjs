@@ -1,6 +1,7 @@
 const http = require('node:http');
 const { execFile } = require('node:child_process');
 const {
+  assertNoRemoteExecutableLoaders,
   assertNoRemoteExecutableMetadata,
   byteLengthUtf8,
   failIfGreasyForkSizeExceeded,
@@ -11,6 +12,7 @@ const code = readBuiltUserscript();
 const action = process.argv[2] || 'https://greasyfork.org/en/script_versions/prefill';
 
 assertNoRemoteExecutableMetadata(code);
+assertNoRemoteExecutableLoaders(code);
 failIfGreasyForkSizeExceeded(byteLengthUtf8(code));
 
 function escapeHtml(value) {

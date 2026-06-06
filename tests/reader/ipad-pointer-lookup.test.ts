@@ -8,13 +8,19 @@ import type { PointerTextLookup } from '../../src/reader/pointer-text-lookup';
 interface PointerLookupInternals {
     settings: ReaderSettings;
     parseJapanese(paragraphs: string[]): Promise<JPDBToken[][]>;
+    publicLookupCard(term: string, exact?: boolean, options?: { allowCandidateLookup?: boolean }): Promise<JPDBCard | undefined>;
     showFirstPointerTextCandidate(
         candidate: PointerTextLookup,
         sentence: string,
         trigger: 'modal' | 'hover',
         options: { userGesture?: boolean },
     ): Promise<void>;
-    showPointerTextCard(card: JPDBCard): Promise<void>;
+    showPointerTextCard(
+        card: JPDBCard,
+        sentence?: string,
+        candidate?: PointerTextLookup,
+        span?: { term: string; start: number; end: number },
+    ): Promise<void>;
 }
 
 interface PublicLookupInternals {
@@ -87,6 +93,58 @@ describe('iPad pointer lookup', () => {
             expect(shownCards).toHaveLength(1);
             expect(shownCards[0]?.spelling).toBe('よむ');
             expect(shownCards[0]?.source).toBe('fallback');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('resolves にほんごのじかん taps through the full public JPDB kana word', async () => {
+        const app = new ReaderApp();
+        const anchor = document.createElement('span');
+        document.body.append(anchor);
+        const internals = app as unknown as PointerLookupInternals;
+        const jpdbCard = testCard({
+            vid: 1464530,
+            sid: 0,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jpdb',
+            meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
+        });
+        const shownCards: JPDBCard[] = [];
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jpdbDefinitionsEnabled: true,
+            showPitchAccent: false,
+            localDictionariesEnabled: false,
+        };
+        internals.parseJapanese = vi.fn(async () => [[token('ほ', 1, 2)]]);
+        internals.publicLookupCard = vi.fn(async term => term === 'にほんご' ? jpdbCard : undefined);
+        internals.showPointerTextCard = vi.fn(async card => {
+            shownCards.push(card);
+        });
+
+        try {
+            await internals.showFirstPointerTextCandidate(
+                { text: 'にほんごのじかん', offset: 1, start: 0, end: 8, anchor },
+                'にほんごのじかん',
+                'modal',
+                { userGesture: true },
+            );
+
+            expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+            expect(shownCards).toEqual([jpdbCard]);
+            expect(internals.showPointerTextCard).toHaveBeenCalledWith(
+                jpdbCard,
+                'にほんごのじかん',
+                expect.objectContaining({ offset: 1, anchor }),
+                { term: 'にほんご', start: 0, end: 4 },
+                'modal',
+                { userGesture: true },
+            );
         } finally {
             app.destroy();
             document.body.replaceChildren();

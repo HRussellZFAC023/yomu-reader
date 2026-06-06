@@ -1,8 +1,10 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from './smoke-test-helpers.mjs';
+import { dragTranscriptResizeHandle, panelSizeDelta } from './subtitle-layout-test-utils.mjs';
 
 const localUrl = process.env.YOMU_SMOKE_LOCAL_URL ?? 'http://127.0.0.1:5173/yomu-reader/video-player/index.html';
 const fixtureVideoUrl = process.env.YOMU_SMOKE_VIDEO_URL ?? 'http://127.0.0.1:8766/tutorial.mp4';
@@ -37,11 +39,6 @@ function overlaps(a, b) {
 function isEffectivelyUnblurred(filter) {
     const blur = filter.match(/blur\(([\d.]+)px\)/);
     return !filter || filter === 'none' || (blur && Number(blur[1]) < 0.1);
-}
-
-function panelSizeDelta(before, after) {
-    if (!before || !after) return 0;
-    return Math.max(Math.abs(before.width - after.width), Math.abs(before.height - after.height));
 }
 
 function assertDrawerLayout(layout, label) {
@@ -106,21 +103,7 @@ async function readDrawerLayout(page) {
 }
 
 async function resizeDrawer(page, placement) {
-    const handle = await page.locator('[data-resize-transcript]').boundingBox();
-    assert(handle, 'Expected transcript drawer resize handle');
-    const x = handle.x + handle.width / 2;
-    const y = handle.y + handle.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    if (placement === 'bottom') {
-        await page.mouse.move(x, y - 120, { steps: 6 });
-    } else if (placement === 'left') {
-        await page.mouse.move(x + 140, y, { steps: 6 });
-    } else {
-        await page.mouse.move(x - 140, y, { steps: 6 });
-    }
-    await page.mouse.up();
-    await page.waitForTimeout(350);
+    await dragTranscriptResizeHandle(page, placement, { assert });
 }
 
 async function hoverSecondarySubtitle(page) {
@@ -207,22 +190,8 @@ async function chooseSubtitleFile(page, action, filePath) {
 async function ensureUserscript(page) {
     const hasRoot = await page.locator('.jpdb-subtitle-player').count();
     if (!hasRoot) {
-        const css = readFileSync(cssPath, 'utf8');
-        await page.addStyleTag({ content: css });
-        await page.evaluate(readerCss => {
-            window.GM_getResourceText = name => name === 'yomuCss' ? readerCss : '';
-        }, css);
-        try {
-            await page.addScriptTag({ path: userscriptPath });
-        } catch (error) {
-            const client = await page.context().newCDPSession(page);
-            await client.send('Runtime.evaluate', {
-                expression: readFileSync(userscriptPath, 'utf8'),
-                awaitPromise: false,
-                allowUnsafeEvalBlockedByCSP: true,
-                replMode: true,
-            });
-        }
+        await installUserscriptCssResource(page, cssPath);
+        await addScriptTagWithCspFallback(page, userscriptPath);
     }
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 8000 });
 }
@@ -336,7 +305,8 @@ async function runYouTubeSmoke(browser) {
 function assertYouTubeSmokeState(state, layout) {
     assert(state.rows > 0, 'Expected YouTube transcript rows', state);
     assert(state.parsedRowWords > 0, 'Expected parsed YouTube transcript words', state);
-    assert(state.closeButton, 'Expected transcript panel close button', state);
+    assert(state.railPanelButton, 'Expected rail panel toggle for closing transcript panel', state);
+    assert(state.placementButtons === 3, 'Expected transcript panel dock controls', state);
     assertYouTubeRowFont(state);
     assertDrawerLayout(layout, 'YouTube transcript');
 }
@@ -371,7 +341,8 @@ async function readYouTubeSmokeState(page) {
             tracks: document.querySelectorAll('.jpdb-subtitle-track-row').length,
             parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
             parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
-            closeButton: Boolean(document.querySelector('.jpdb-subtitle-list [data-action="close-panel"], .jpdb-subtitle-rail [data-action="close-panel"]')),
+            railPanelButton: Boolean(document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')),
+            placementButtons: document.querySelectorAll('.jpdb-subtitle-list [data-action="transcript-placement"][data-placement]').length,
             rowFont: subtitleRowFont(row),
             text: elementText(list).slice(0, 300),
         };

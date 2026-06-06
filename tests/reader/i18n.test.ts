@@ -35,6 +35,7 @@ describe('interface language resolution', () => {
         ].join('\n');
         const japaneseKeys = new Set([
             ...copyKeys(japaneseCopySource),
+            ...copyTableKeys(japaneseCopySource),
         ]);
 
         expect(englishKeys.filter(key => !japaneseKeys.has(key))).toEqual([]);
@@ -53,4 +54,8 @@ function between(source: string, startMarker: string, endMarker: string): string
 
 function copyKeys(source: string): string[] {
     return [...source.matchAll(/^\s{4,8}([A-Za-z0-9_]+):/gm)].map(match => match[1]);
+}
+
+function copyTableKeys(source: string): string[] {
+    return [...source.matchAll(/^([A-Za-z0-9_]+)\t/gm)].map(match => match[1]);
 }

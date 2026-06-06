@@ -1,4 +1,4 @@
-import { readBlobAsDataUrl } from './blob-data-url';
+import { readBlobAsDataUrl } from './core/blob-data-url';
 
 const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
 

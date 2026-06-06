@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitle-youtube';
+import { getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
 
 const originalLocation = window.location;
 const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pruneOldestCacheEntries } from '../../src/reader/cache-utils';
+import { pruneOldestCacheEntries } from '../../src/reader/core/cache-utils';
 
 describe('cache utilities', () => {
     it('prunes map entries in insertion order', () => {

@@ -3,7 +3,8 @@ import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { getPitchClass } from './jpdb-parser';
 import { Logger } from './logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
-import { stablePositiveHashId } from './stable-hash';
+import { stablePositiveHashId } from './core/stable-hash';
+import type { JitenApiClient } from './jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from './yomitan';
 
@@ -26,10 +27,14 @@ const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しま�
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
+    apiTimeoutMs?: number;
+    allowApiTimeoutFallback?: boolean;
     jpdbTimeoutMs?: number;
     allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
+    skipApi?: boolean;
     skipJpdb?: boolean;
+    requireApi?: boolean;
     requireJpdb?: boolean;
     allowSegmentedFallback?: boolean;
 }
@@ -37,11 +42,16 @@ export interface ReaderParserParseOptions {
 export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
+    jiten?: JitenApiClient;
     dictionaries: YomitanDictionaryStore;
 }
 
+function apiFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
+    return { requireApi: true, includeLocalPitch: false, ...options };
+}
+
 export function jpdbFirstParseOptions(options: ReaderParserParseOptions = {}): ReaderParserParseOptions {
-    return { requireJpdb: true, includeLocalPitch: false, ...options };
+    return apiFirstParseOptions({ requireJpdb: true, ...options });
 }
 
 export class ReaderParser {
@@ -52,42 +62,71 @@ export class ReaderParser {
     constructor(private dependencies: ReaderParserDependencies) {}
 
     async parse(paragraphs: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
-        const { getSettings, jpdb } = this.dependencies;
+        const { getSettings } = this.dependencies;
         const settings = getSettings();
         const done = log.time('parse', {
             paragraphs: paragraphs.length,
             hasApiKey: Boolean(settings.apiKey.trim()),
+            hasJitenApiKey: Boolean(settings.jitenApiKey.trim()),
             localFallback: settings.localDictionariesEnabled,
         });
-        if (settings.apiKey.trim() && !options.skipJpdb) {
-            try {
-                const parsePromise = jpdb.parse(paragraphs);
-                const timeoutMs = options.allowJpdbTimeoutFallback ? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
-                const result = timeoutMs > 0
-                    ? await withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
-                    : await parsePromise;
-                done();
-                return this.withSegmentedFallbackGaps(paragraphs, result, options);
-            } catch (error) {
-                if (options.requireJpdb) {
-                    log.warn('JPDB-first parse failed without local fallback', error);
-                    done();
-                    throw error;
-                }
-                if (!this.canUseParseFallback(options)) {
-                    log.warn('JPDB parse failed without fallback', error);
-                    done();
-                    throw error;
-                }
-                log.warn('JPDB parse failed; using local or segmented fallback', error);
-            }
-        }
         try {
-            const result = await Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
-            return result;
+            return await this.parseWithPreferredSource(paragraphs, options, settings);
         } finally {
             done();
         }
+    }
+
+    private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
+        const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+        if (jpdbResult) return jpdbResult;
+        const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+        if (jitenResult) return jitenResult;
+        return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+    }
+
+    private async tryParseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
+        if (!settings.apiKey.trim() || shouldSkipApiParser(options)) return null;
+        try {
+            const result = await this.parseWithJpdb(paragraphs, options);
+            return this.withSegmentedFallbackGaps(paragraphs, result, options);
+        } catch (error) {
+            this.handleRemoteParseError('JPDB', error, options);
+            return null;
+        }
+    }
+
+    private async parseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        const parsePromise = this.dependencies.jpdb.parse(paragraphs);
+        const timeoutMs = remoteParseFallbackTimeoutMs(options);
+        return timeoutMs > 0
+            ? withTimeout(parsePromise, timeoutMs, () => new Error('JPDB parse timed out.'))
+            : parsePromise;
+    }
+
+    private async tryParseWithJiten(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
+        if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
+        try {
+            const result = await this.parseWithJiten(paragraphs, options);
+            return this.withSegmentedFallbackGaps(paragraphs, result, options);
+        } catch (error) {
+            this.handleRemoteParseError('Jiten', error, options);
+            return null;
+        }
+    }
+
+    private async parseWithJiten(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        const parsePromise = this.dependencies.jiten!.parse(paragraphs);
+        const timeoutMs = remoteParseFallbackTimeoutMs(options);
+        return timeoutMs > 0
+            ? withTimeout(parsePromise, timeoutMs, () => new Error('Jiten parse timed out.'))
+            : parsePromise;
+    }
+
+    private handleRemoteParseError(source: 'JPDB' | 'Jiten', error: unknown, options: ReaderParserParseOptions): void {
+        const canFallback = this.canUseParseFallback(options);
+        log.warn(remoteParseErrorMessage(source, options, canFallback), error);
+        if (shouldRethrowRemoteParseError(source, options, canFallback)) throw error;
     }
 
     canParse(): boolean {
@@ -277,7 +316,7 @@ export class ReaderParser {
         const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then(metaEntries => {
             return localPitchPatternFromMeta(card.reading, metaEntries);
         }).catch(error => {
-            log.warn('Local pitch lookup failed while parsing text', { term: card.spelling }, error);
+            log.warn('Local pitch parse failed', { term: card.spelling }, error);
             return '';
         });
         this.rememberLocalPitchCacheEntry(key, promise);
@@ -292,6 +331,31 @@ export class ReaderParser {
             this.localPitchCache.delete(oldest);
         }
     }
+}
+
+function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number {
+    return (options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback)
+        ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS
+        : 0;
+}
+
+function shouldUseJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {
+    return Boolean(!settings.apiKey.trim() && settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
+}
+
+function shouldSkipApiParser(options: ReaderParserParseOptions): boolean {
+    return Boolean(options.skipApi ?? options.skipJpdb);
+}
+
+function remoteParseErrorMessage(source: 'JPDB' | 'Jiten', options: ReaderParserParseOptions, canFallback: boolean): string {
+    if (source === 'JPDB' && options.requireJpdb) return 'JPDB-first parse failed without local fallback';
+    return canFallback
+        ? `${source} parse failed; using local or segmented fallback`
+        : `${source} parse failed without fallback`;
+}
+
+function shouldRethrowRemoteParseError(source: 'JPDB' | 'Jiten', options: ReaderParserParseOptions, canFallback: boolean): boolean {
+    return (source === 'JPDB' && options.requireJpdb) || !canFallback;
 }
 
 function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {

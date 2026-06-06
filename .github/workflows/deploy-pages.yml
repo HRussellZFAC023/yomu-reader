@@ -45,9 +45,9 @@ jobs:
         uses: actions/configure-pages@v6
       - run: npm ci
       - run: npm run build
-      - run: npm run verify
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
+      - run: npm run verify
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

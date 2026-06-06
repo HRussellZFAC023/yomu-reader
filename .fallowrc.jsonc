@@ -11,6 +11,7 @@
   ],
   "dynamicallyLoaded": [
     "src/reader/styles-reader.css",
+    "src/reader/styles.css",
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
     "scripts/uchisen-bulk-publish.mjs",
@@ -27,7 +28,8 @@
   ],
   "ignoreUnresolvedImports": [
     "./app.js",
-    "../yomu.user.js"
+    "../yomu.user.js",
+    "./styles.css?v=__YOMU_NEW_TAB_CSS_HASH__"
   ],
   "ignoreExports": [
     {

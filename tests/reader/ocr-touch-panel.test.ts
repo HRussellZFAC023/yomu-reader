@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr';
+import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
 import { waitForExpect } from './test-utils';

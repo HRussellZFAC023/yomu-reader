@@ -2,6 +2,8 @@
 import { chromium } from 'playwright';
 import process from 'node:process';
 import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
     addGmStorageBridgeInitScript,
     gmRequestFetchBody,
@@ -12,7 +14,8 @@ const ORIGIN = process.env.YOMU_PROFILE_ORIGIN || 'http://127.0.0.1:5175';
 const SLOW_MS = Number(process.env.YOMU_PROFILE_SLOW_MS || 4500);
 const LIVE = process.env.YOMU_PROFILE_LIVE === '1';
 const API_KEY = process.env.YOMU_PROFILE_API_KEY || process.env.YOMU_TEST_API_KEY || '';
-const USERSCRIPT_PATH = new URL('../dist/yomu.user.js', import.meta.url);
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const USERSCRIPT_PATH = resolve(SCRIPT_DIR, '..', 'dist', 'yomu.user.js');
 const IMMERSION_API_HOSTS = new Set(['apiv2express.immersionkit.com', 'apiv2.immersionkit.com']);
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const PROFILE_FIXTURE_PATH = '/__yomu-profile-fixture/';

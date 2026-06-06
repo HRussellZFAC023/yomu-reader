@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runLimited } from '../../src/reader/async-utils';
+import { runLimited } from '../../src/reader/core/async-utils';
 
 async function measureMaxConcurrentWorkers<T>(items: T[], concurrency: number): Promise<number> {
     let active = 0;

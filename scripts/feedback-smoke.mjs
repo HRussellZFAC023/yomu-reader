@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { assert, closeServer, serveFile, startLoopbackServer } from './smoke-harness.mjs';
+import { installUserscriptCssResource } from './smoke-test-helpers.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const ARTIFACTS = path.join(ROOT, 'qa-artifacts');
@@ -189,11 +190,7 @@ async function newPage(browser, settings = baseSettings, viewport = { width: 136
 }
 
 async function injectUserscript(page) {
-    const css = readFileSync(CSS_PATH, 'utf8');
-    await page.addStyleTag({ content: css });
-    await page.evaluate(readerCss => {
-        window.GM_getResourceText = name => name === 'yomuCss' ? readerCss : '';
-    }, css);
+    await installUserscriptCssResource(page, CSS_PATH);
     await page.addScriptTag({ path: SCRIPT_PATH });
     await page.waitForTimeout(300);
 }
@@ -484,7 +481,7 @@ async function assertHostedTracksPanel(page) {
     const tracksPanel = await readHostedTracksPanelState(page);
     assert(tracksPanel.title === 'Subtitles', 'Subtitles button did not open the Yomu tracks panel', tracksPanel);
     assert(tracksPanelHasLoadActions(tracksPanel), 'Track loading actions were not intuitive after clicking Subtitles', tracksPanel);
-    assert(tracksPanelControlsReady(tracksPanel), 'Subtitle drawer controls did not expose auto-hide and close actions', tracksPanel);
+    assert(tracksPanelControlsReady(tracksPanel), 'Subtitle drawer controls did not expose auto-hide and docking actions', tracksPanel);
 }
 
 async function readHostedTracksPanelState(page) {
@@ -494,7 +491,7 @@ async function readHostedTracksPanelState(page) {
         hidden: document.querySelector('.jpdb-subtitle-list')?.hidden,
         autoHideText: document.querySelector('[data-action="toggle-pause-panel"]')?.textContent?.trim(),
         autoHidePressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
-        closeButton: Boolean(document.querySelector('[data-action="close-panel"]')),
+        placementButtons: document.querySelectorAll('[data-action="transcript-placement"][data-placement]').length,
     }));
 }
 
@@ -503,7 +500,7 @@ function tracksPanelHasLoadActions(tracksPanel) {
 }
 
 function tracksPanelControlsReady(tracksPanel) {
-    return tracksPanel.autoHideText === 'Auto' && tracksPanel.autoHidePressed === 'false' && tracksPanel.closeButton;
+    return tracksPanel.autoHideText === 'Auto' && tracksPanel.autoHidePressed === 'false' && tracksPanel.placementButtons === 3;
 }
 
 async function loadPrimarySubtitleTrack(page) {

@@ -70,7 +70,7 @@ export class FactoryResetCoordinator {
             const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
             await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id));
             await clearFactoryResetSignal();
-            log.info('All local data reset; reloading page', { deletedStorageValues, dictionaryReset });
+            log.info('Local data reset; reloading', { deletedStorageValues, dictionaryReset });
             this.dependencies.reload();
         } catch (error) {
             this.activeResetId = '';
@@ -84,7 +84,7 @@ export class FactoryResetCoordinator {
         try {
             return await this.dependencies.resetDictionaryDatabase();
         } catch (error) {
-            log.warn('Dictionary database reset failed after settings storage was cleared', error);
+            log.warn('Dictionary reset failed post-settings', error);
             this.dependencies.toast(this.text('factoryResetDictionaryWarning'));
             return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
         }
@@ -116,7 +116,7 @@ export class FactoryResetCoordinator {
     private async assertSettingsStorageDeleted(): Promise<void> {
         const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
         if (!settingsKeysStillPresent.length) return;
-        log.warn('Settings storage keys still present after factory reset deletion', { settingsKeysStillPresent });
+        log.warn('Settings keys remained after reset', { settingsKeysStillPresent });
         throw new Error(this.text('factoryResetDeleteSettingsFailed'));
     }
 

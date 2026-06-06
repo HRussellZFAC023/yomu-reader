@@ -5,11 +5,12 @@ import type { CardRenderData } from './card-render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
 import { escapeHtml, renderKanjiNavigationText } from './dom';
 import { renderKanjiDefinitions } from './definition-source-render';
-import { uiText, type UiCopyKey } from './i18n';
+import { cardStateLabel, uiText } from './i18n';
 import { speakerIcon } from './icons';
 import { loadMiningContext } from './mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from './pos';
 import { cardPronunciationReading, renderPitch } from './popup-render';
+import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
@@ -31,7 +32,7 @@ interface CardPopoverRenderView {
     cardPos: string;
     cardPosDetails: string;
     language: InterfaceLanguage;
-    hasJpdb: boolean;
+    provider: ApiSrsProviderView | null;
     miningActions: string;
     miningInitiallyExpanded: boolean;
     ankiActions: string;
@@ -40,6 +41,16 @@ interface CardPopoverRenderView {
     loadingDetails: string;
     audioButtonDisabled: boolean;
     audioButtonTitle: string;
+}
+
+interface ReviewButtonsRenderOptions {
+    card: JPDBCard;
+    cardStates: ReturnType<typeof normalizeCardStates>;
+    data: CardRenderData & { loading: boolean };
+    provider: ApiSrsProviderView | null;
+    selectedDeckLabel: string;
+    reviewBlockReason: string;
+    language: InterfaceLanguage;
 }
 
 export interface CardPopoverRendererDependencies {
@@ -91,10 +102,10 @@ export class CardPopoverRenderer {
         const state = primaryCardState(cardStates);
         const settings = this.settings();
         const language = settings.interfaceLanguage;
-        const hasJpdb = this.dependencies.isJpdbBackedCard(card);
-        const selectedDeckLabel = jpdbDeckLabel(settings, settings.miningDeck.trim() || 'forq', data.jpdbDecks);
+        const provider = this.apiProviderForCard(card);
+        const selectedDeckLabel = this.selectedApiDeckLabel(provider, data);
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
-        const miningActions = this.renderJpdbMiningActions(cardStates, language, data, hasJpdb);
+        const miningActions = this.renderApiMiningActions(cardStates, language, data, provider);
         const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings);
         return {
             cardStates,
@@ -104,12 +115,20 @@ export class CardPopoverRenderer {
             cardPos: formatPartOfSpeech(card.partOfSpeech),
             cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
             language,
-            hasJpdb,
+            provider,
             miningActions,
             miningInitiallyExpanded: Boolean(miningActions && (reviewBlockReason || ankiActions)),
             ankiActions,
-            reviewButtons: this.renderReviewButtons(card, cardStates, data, hasJpdb, selectedDeckLabel, reviewBlockReason, language),
-            metaItems: this.renderMetaItems(card, hasJpdb, state, data),
+            reviewButtons: this.renderReviewButtons({
+                card,
+                cardStates,
+                data,
+                provider,
+                selectedDeckLabel,
+                reviewBlockReason,
+                language,
+            }),
+            metaItems: this.renderMetaItems(card, provider, state, data),
             loadingDetails: this.renderLoadingDetails(data.loading, language),
             audioButtonDisabled: !settings.audioEnabled,
             audioButtonTitle: uiText(language, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled'),
@@ -186,30 +205,34 @@ export class CardPopoverRenderer {
         </div>`;
     }
 
-    private renderJpdbMiningActions(
+    private renderApiMiningActions(
         cardStates: ReturnType<typeof normalizeCardStates>,
         language: InterfaceLanguage,
         data: CardRenderData & { loading: boolean },
-        hasJpdb: boolean,
+        provider: ApiSrsProviderView | null,
     ): string {
-        if (!this.canRenderJpdbMiningActions(hasJpdb)) return '';
+        if (!this.canRenderApiMiningActions(provider)) return '';
         const state = miningActionState(cardStates, language);
-        const addDeckSelect = this.renderAddDeckSelect(data, language);
-        return this.renderJpdbMiningActionDetails(language, state, addDeckSelect);
+        const addDeckSelect = this.renderAddDeckSelect(data, language, provider);
+        return this.renderApiMiningActionDetails(language, state, addDeckSelect);
     }
 
-    private canRenderJpdbMiningActions(hasJpdb: boolean): boolean {
+    private canRenderApiMiningActions(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return hasJpdb && Boolean(settings.apiKey.trim()) && settings.jpdbMiningEnabled;
+        return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
     }
 
-    private renderAddDeckSelect(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage): string {
-        const deckOptions = renderDeckChoiceOptions(this.settings(), data.jpdbDecks, data.ankiDecks, true);
+    private renderAddDeckSelect(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage, provider: ApiSrsProviderView | null): string {
+        const deckOptions = renderDeckChoiceOptions(this.settings(), data.jpdbDecks, data.ankiDecks, {
+            includeJpdb: provider?.id === 'jpdb',
+            includeJiten: provider?.id === 'jiten',
+            jitenDecks: data.jitenDecks ?? [],
+        });
         if (!deckOptions) return '';
         return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
     }
 
-    private renderJpdbMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {
+    private renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {
         const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
         return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
@@ -223,44 +246,37 @@ export class CardPopoverRenderer {
             `;
     }
 
-    private renderReviewButtons(
-        card: JPDBCard,
-        cardStates: ReturnType<typeof normalizeCardStates>,
-        data: CardRenderData & { loading: boolean },
-        hasJpdb: boolean,
-        selectedDeckLabel: string,
-        reviewBlockReason: string,
-        language: InterfaceLanguage,
-    ): string {
+    private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
+        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
         if (reviewBlockReason) {
             return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
         }
-        if (!this.shouldRenderReviewButtons(data, hasJpdb, reviewBlockReason)) {
+        if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
         return renderReviewButtons(this.settings(), null, {
-            targetLabel: uiText(language, 'gradeJpdbCardTarget'),
-            title: !data.ankiLookup.primary?.primaryCardId && cardStates.includes('not-in-deck') ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '',
+            targetLabel: provider?.label ?? uiText(language, 'gradeJpdbCardTarget'),
+            title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
         });
     }
 
-    private shouldRenderReviewButtons(data: CardRenderData & { loading: boolean }, hasJpdb: boolean, reviewBlockReason: string): boolean {
+    private shouldRenderReviewButtons(data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
         if (reviewBlockReason || data.loading || !this.settings().enableReviews) return false;
-        return this.canReviewWithJpdb(hasJpdb);
+        return this.canReviewWithApiProvider(provider);
     }
 
-    private canReviewWithJpdb(hasJpdb: boolean): boolean {
+    private canReviewWithApiProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
-        return hasJpdb && Boolean(settings.apiKey.trim()) && settings.jpdbMiningEnabled;
+        return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
     }
 
-    private renderMetaItems(card: JPDBCard, hasJpdb: boolean, state: string, data: CardRenderData & { loading: boolean }): string[] {
+    private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
         const settings = this.settings();
-        const canShowJpdbStatus = hasJpdb && Boolean(settings.apiKey.trim());
+        const canShowProviderStatus = Boolean(provider?.hasApiKey);
         return [
             renderMetaReading(card),
             card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
-            canShowJpdbStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>JPDB ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
+            canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings.interfaceLanguage),
         ].filter(Boolean);
     }
@@ -278,6 +294,25 @@ export class CardPopoverRenderer {
     private settings(): ReaderSettings {
         return this.dependencies.getSettings();
     }
+
+    private apiProviderForCard(card: JPDBCard): ApiSrsProviderView | null {
+        return apiSrsProviderViewForCard(card, this.settings(), this.dependencies.isJpdbBackedCard);
+    }
+
+    private selectedApiDeckLabel(provider: ApiSrsProviderView | null, data: CardRenderData & { loading: boolean }): string {
+        if (provider?.id === 'jiten') return jitenDeckLabel((data.jitenDecks ?? [])[0]);
+        return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || 'forq', data.jpdbDecks);
+    }
+}
+
+function reviewButtonTitle(
+    data: CardRenderData & { loading: boolean },
+    cardStates: ReturnType<typeof normalizeCardStates>,
+    selectedDeckLabel: string,
+    language: InterfaceLanguage,
+): string {
+    const reviewAddsToDeck = !data.ankiLookup.primary?.primaryCardId && cardStates.includes('not-in-deck');
+    return reviewAddsToDeck ? `${uiText(language, 'reviewAddsToDeck')} ${selectedDeckLabel}` : '';
 }
 
 function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): MiningActionState {
@@ -315,22 +350,6 @@ function renderMiningGutter(miningActions: string, language: InterfaceLanguage, 
         : '';
 }
 
-function cardStateLabel(state: string, language: InterfaceLanguage): string {
-    const key = CARD_STATE_LABEL_KEYS[state];
-    return key ? uiText(language, key) : state;
+function jitenDeckLabel(deck: { name: string } | undefined): string {
+    return deck?.name ? `Jiten: ${deck.name}` : 'Jiten';
 }
-
-const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
-    new: 'stateNew',
-    learning: 'stateLearning',
-    known: 'stateKnown',
-    due: 'stateDue',
-    failed: 'stateFailed',
-    locked: 'stateLocked',
-    'never-forget': 'stateNeverForget',
-    blacklisted: 'stateBlacklisted',
-    suspended: 'stateSuspended',
-    'in-deck': 'stateInDeck',
-    'not-in-deck': 'stateNotInDeck',
-    redundant: 'stateRedundant',
-};

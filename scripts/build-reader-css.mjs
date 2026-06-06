@@ -5,13 +5,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const entry = path.join(root, 'src', 'reader', 'styles-reader.css');
-const out = path.resolve(process.env.YOMU_READER_CSS_OUT || path.join(root, 'dist', 'yomu.css'));
+const readerEntry = path.join(root, 'src', 'reader', 'styles-reader.css');
+const newTabEntry = path.join(root, 'src', 'reader', 'styles.css');
+const readerOut = path.resolve(process.env.YOMU_READER_CSS_OUT || path.join(root, 'dist', 'yomu.css'));
+const newTabOut = path.resolve(process.env.YOMU_NEW_TAB_CSS_OUT || path.join(root, 'dist', 'newtab', 'styles.css'));
 
-const css = await bundleCss(entry);
-await mkdir(path.dirname(out), { recursive: true });
-await writeFile(out, `${css.trim()}\n`);
-console.log(`Wrote ${path.relative(root, out)}`);
+await writeBundledCss(readerEntry, readerOut);
+await writeBundledCss(newTabEntry, newTabOut);
+
+async function writeBundledCss(entry, out) {
+    const css = await bundleCss(entry);
+    await mkdir(path.dirname(out), { recursive: true });
+    await writeFile(out, `${css.trim()}\n`);
+    console.log(`Wrote ${path.relative(root, out)}`);
+}
 
 async function bundleCss(file, seen = new Set()) {
     const resolved = path.resolve(file);

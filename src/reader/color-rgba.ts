@@ -1,5 +1,5 @@
 import { sanitizeAccentColor } from './settings';
-import { sharedHexToRgb } from '../shared/color-math';
+import { sharedHexToRgb } from './core/color-math';
 
 export interface RgbaColor {
     red: number;

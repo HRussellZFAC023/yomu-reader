@@ -6,10 +6,10 @@ import {
     setInnerHtml,
     shouldRenderRuby,
 } from './dom';
-import { uiText, type UiCopyKey } from './i18n';
+import { cardStateLabel } from './i18n';
 import { normalizedLookupText } from './lookup-text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
-import { normalizeOcrRenderedText } from './ocr';
+import { normalizeOcrRenderedText } from './ocr/controller';
 import { isKanjiCharacter } from './popup-render';
 import { refreshReaderWordContrastForWord } from './reader-word-contrast';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from './rendered-word-state';
@@ -136,11 +136,6 @@ export function applyAnkiLookupToRenderedWord(
     refreshReaderWordContrastForWord(word);
 }
 
-function cardStateLabel(state: string, language: InterfaceLanguage): string {
-    const key = CARD_STATE_LABEL_KEYS[state];
-    return key ? uiText(language, key) : state;
-}
-
 function shouldApplyPublicVocabularyFurigana(
     card: JPDBCard,
     surface: string,
@@ -161,18 +156,3 @@ function pointInsideExpandedRect(rect: DOMRect, x: number, y: number, pad: numbe
         && y >= rect.top - pad
         && y <= rect.bottom + pad;
 }
-
-const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
-    new: 'stateNew',
-    learning: 'stateLearning',
-    known: 'stateKnown',
-    due: 'stateDue',
-    failed: 'stateFailed',
-    locked: 'stateLocked',
-    'never-forget': 'stateNeverForget',
-    blacklisted: 'stateBlacklisted',
-    suspended: 'stateSuspended',
-    'in-deck': 'stateInDeck',
-    'not-in-deck': 'stateNotInDeck',
-    redundant: 'stateRedundant',
-};

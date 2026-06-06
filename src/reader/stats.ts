@@ -141,10 +141,10 @@ export function emptyStatsSource(
     });
 }
 
-export function statsFromJpdbCards(cards: JPDBCard[], message = 'JPDB card states loaded.'): StatsSourceSnapshot {
+export function statsFromApiCards(cards: JPDBCard[], label: string, message: string): StatsSourceSnapshot {
     return finalizeStatsSource({
         id: 'jpdb',
-        label: 'JPDB',
+        label,
         status: cards.length ? 'ready' : 'partial',
         message,
         daily: [],
@@ -156,6 +156,10 @@ export function statsFromJpdbCards(cards: JPDBCard[], message = 'JPDB card state
         longestStreak: 0,
         updatedAt: Date.now(),
     });
+}
+
+export function statsFromJpdbCards(cards: JPDBCard[], message = 'JPDB card states loaded.'): StatsSourceSnapshot {
+    return statsFromApiCards(cards, 'JPDB', message);
 }
 
 export function applyJpdbReviewImport(source: StatsSourceSnapshot, imported: JpdbReviewImport | null): StatsSourceSnapshot {
@@ -402,10 +406,11 @@ function bothSourcesHaveStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnaps
 }
 
 function combinedMessage(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): string {
-    if (jpdb.status === 'ready' && anki.status === 'ready') return 'JPDB and Anki are connected.';
-    if (jpdb.status === 'ready' || jpdb.status === 'partial') return 'Showing JPDB stats. Connect Anki for the combined view.';
-    if (anki.status === 'ready' || anki.status === 'partial') return 'Showing Anki stats. Add JPDB data for the combined view.';
-    return 'Connect JPDB or Anki to build your dashboard.';
+    const apiLabel = jpdb.label || 'JPDB';
+    if (jpdb.status === 'ready' && anki.status === 'ready') return `${apiLabel} and Anki are connected.`;
+    if (jpdb.status === 'ready' || jpdb.status === 'partial') return `Showing ${apiLabel} stats. Connect Anki for the combined view.`;
+    if (anki.status === 'ready' || anki.status === 'partial') return 'Showing Anki stats. Add JPDB or Jiten data for the combined view.';
+    return 'Connect JPDB, Jiten, or Anki to build your dashboard.';
 }
 
 function addCardBreakdowns(left: StatsCardBreakdown, right: StatsCardBreakdown): StatsCardBreakdown {

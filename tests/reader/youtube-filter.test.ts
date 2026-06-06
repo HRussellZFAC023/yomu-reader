@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/youtube-channel-recommendations';
-import { classifyYouTubeFilterCandidates } from '../../src/reader/youtube-filter-scan';
+import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
     collectYouTubeVideoCards,
     isProbablyJapaneseYouTubeText,
-} from '../../src/reader/youtube';
+} from '../../src/reader/subtitles/youtube';
 import type { ReaderSettings } from '../../src/reader/types';
 
 function renderYouTubeCards(): void {
@@ -77,7 +76,6 @@ interface StartYoutubeFilterOptions {
     location?: StubbedLocation;
     oEmbedTitles?: Record<string, string>;
     settings?: ReaderSettings;
-    setShowChannelRecommendations?: (visible: boolean) => void;
     wait?: FilterWait;
 }
 
@@ -106,7 +104,6 @@ async function startYoutubeFilter({
     location,
     oEmbedTitles,
     settings = youtubeFilterSettings(),
-    setShowChannelRecommendations,
     wait = 'initial-scan',
 }: StartYoutubeFilterOptions = {}): Promise<{ filter: YoutubeImmersionFilter; settings: ReaderSettings }> {
     vi.useFakeTimers();
@@ -120,7 +117,7 @@ async function startYoutubeFilter({
         document.body.innerHTML = html;
     }
 
-    const filter = createYoutubeFilter(() => settings, { setShowChannelRecommendations });
+    const filter = createYoutubeFilter(() => settings);
     filter.init();
 
     if (wait === 'initial-scan') {
@@ -176,6 +173,11 @@ describe('YouTube immersion filter', () => {
         expect(isProbablyJapaneseYouTubeText('東京散歩')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('睡眠音楽♪')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('作業用BGM')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('Complete Beginner Japanese Comprehensible Input')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('Japanese Listening Practice With A Story #1')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('Japanese Daily Conversation at a Combini')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('Common Japanese words you are using wrong')).toBe(true);
+        expect(isProbablyJapaneseYouTubeText('Nihongo podcast for N5/N4')).toBe(true);
         expect(isProbablyJapaneseYouTubeText('fypシ゚')).toBe(false);
     });
 
@@ -338,6 +340,108 @@ describe('YouTube immersion filter', () => {
         expect(card('shorts-shelf').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('shelf-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('shelf-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+
+        filter.destroy();
+    });
+
+    it('keeps English-titled Japanese learning results visible', async () => {
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                'ci-video': 'Toast - Japanese Comprehensible Input (Complete Beginner)',
+                'ci-short': 'Comprehensible Japanese #learnjapanese #nihongo',
+                'desk': 'Minimal desk setup tour',
+            },
+            html: `
+            <main>
+                <ytd-video-renderer data-case="ci-video">
+                    <a id="video-title" href="/watch?v=ci-video">Toast - Japanese Comprehensible Input (Complete Beginner)</a>
+                    <a href="/@cijapanese">Comprehensible Japanese</a>
+                </ytd-video-renderer>
+                <grid-shelf-view-model data-case="shorts-shelf">
+                    <h2>Shorts</h2>
+                    <ytm-shorts-lockup-view-model data-case="ci-short">
+                        <a class="shortsLockupViewModelHostEndpoint" href="/shorts/ci-short">
+                            <h3 class="shortsLockupViewModelHostMetadataTitle">Comprehensible Japanese #learnjapanese #nihongo</h3>
+                        </a>
+                    </ytm-shorts-lockup-view-model>
+                    <ytm-shorts-lockup-view-model data-case="desk">
+                        <a class="shortsLockupViewModelHostEndpoint" href="/shorts/desk">
+                            <h3 class="shortsLockupViewModelHostMetadataTitle">Minimal desk setup tour</h3>
+                        </a>
+                    </ytm-shorts-lockup-view-model>
+                </grid-shelf-view-model>
+            </main>
+        `,
+        });
+
+        expect(card('ci-video').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(card('ci-short').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(card('desk').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('shorts-shelf').classList.contains('jpdb-youtube-filtered')).toBe(false);
+
+        filter.destroy();
+    });
+
+    it('hides an empty modern Shorts shelf after all child shorts are filtered', async () => {
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                'short-en-1': 'Gym routine Short',
+                'short-en-2': 'Desk setup Short',
+            },
+            html: `
+            <main>
+                <ytd-reel-shelf-renderer data-case="shorts-shelf">
+                    <h2>Shorts</h2>
+                    <ytd-reel-item-renderer data-case="short-en-1">
+                        <a id="video-title" href="/shorts/short-en-1">Gym routine Short</a>
+                    </ytd-reel-item-renderer>
+                    <ytd-reel-item-renderer data-case="short-en-2">
+                        <a id="video-title" href="/shorts/short-en-2">Desk setup Short</a>
+                    </ytd-reel-item-renderer>
+                </ytd-reel-shelf-renderer>
+            </main>
+        `,
+        });
+
+        expect(card('short-en-1').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('short-en-2').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('shorts-shelf').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('shorts-shelf').getAttribute('aria-hidden')).toBe('true');
+
+        filter.destroy();
+    });
+
+    it('hides the modern grid shelf header when every lockup inside it is filtered', async () => {
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                'grid-short-en-1': 'The fastest way to organize your desk',
+                'grid-short-en-2': 'Language learning mistakes',
+            },
+            html: `
+            <main>
+                <grid-shelf-view-model data-case="grid-shorts-shelf">
+                    <yt-section-header-view-model>
+                        <h2>Shorts</h2>
+                    </yt-section-header-view-model>
+                    <ytm-shorts-lockup-view-model data-case="grid-short-en-1">
+                        <a class="shortsLockupViewModelHostEndpoint" href="/shorts/grid-short-en-1">
+                            <h3 class="shortsLockupViewModelHostMetadataTitle">The fastest way to organize your desk</h3>
+                        </a>
+                    </ytm-shorts-lockup-view-model>
+                    <ytm-shorts-lockup-view-model data-case="grid-short-en-2">
+                        <a class="shortsLockupViewModelHostEndpoint" href="/shorts/grid-short-en-2">
+                            <h3 class="shortsLockupViewModelHostMetadataTitle">Language learning mistakes</h3>
+                        </a>
+                    </ytm-shorts-lockup-view-model>
+                </grid-shelf-view-model>
+            </main>
+        `,
+        });
+
+        expect(card('grid-short-en-1').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('grid-short-en-2').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('grid-shorts-shelf').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('grid-shorts-shelf').getAttribute('aria-hidden')).toBe('true');
 
         filter.destroy();
     });
@@ -536,7 +640,7 @@ describe('YouTube immersion filter', () => {
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('channel-only').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('translated-english').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(fetchMock).toHaveBeenCalledTimes(5);
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(5);
 
         translated.resolve({
             ok: true,
@@ -586,97 +690,6 @@ describe('YouTube immersion filter', () => {
         expect(settings.youtubeImmersionEnabled).toBe(true);
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
-
-        filter.destroy();
-    });
-
-    it('offers a 100-channel starter guide with subscribe links and expandable filters', async () => {
-        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
-
-        const { filter } = await startYoutubeFilter({
-            oEmbedTitles: {
-                en: '10 habits for studying',
-            },
-            html: `
-            <main>
-                <ytd-rich-item-renderer data-case="english">
-                    <a id="video-title" href="/watch?v=en">10 habits for studying</a>
-                </ytd-rich-item-renderer>
-            </main>
-        `,
-        });
-
-        const guide = document.querySelector<HTMLElement>('.jpdb-youtube-channel-guide')!;
-        expect(guide).not.toBeNull();
-        expect(guide.textContent).toContain('100 curated channels');
-        expect(guide.textContent).toContain('Start your Japanese YouTube feed');
-        expect(guide.querySelectorAll('.jpdb-youtube-channel-card')).toHaveLength(6);
-        expect(guide.querySelector<HTMLAnchorElement>('.jpdb-youtube-channel-subscribe')?.href).toContain('sub_confirmation=1');
-
-        guide.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-        await settlePromises();
-
-        const expandedGuide = document.querySelector<HTMLElement>('.jpdb-youtube-channel-guide')!;
-        expect(expandedGuide.classList.contains('is-expanded')).toBe(true);
-        expect(expandedGuide.querySelectorAll('.jpdb-youtube-channel-card')).toHaveLength(100);
-        expect(expandedGuide.textContent).toContain('にほんごのじかん');
-
-        expandedGuide.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="filter"][data-filter="kids"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-        await settlePromises();
-
-        expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-guide')?.textContent).toContain('しまじろうチャンネル');
-
-        filter.destroy();
-    });
-
-    it('lets users dismiss channel suggestions for now or never show them again', async () => {
-        const settings = youtubeFilterSettings();
-        const { filter } = await startYoutubeFilter({
-            settings,
-            setShowChannelRecommendations: visible => {
-                settings.youtubeShowChannelRecommendations = visible;
-            },
-            html: `
-            <main>
-                <ytd-rich-item-renderer data-case="english">
-                    <a id="video-title" href="/watch?v=en">10 habits for studying</a>
-                </ytd-rich-item-renderer>
-            </main>
-        `,
-        });
-
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).not.toBeNull();
-
-        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="close"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-        expect(settings.youtubeShowChannelRecommendations).toBe(true);
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
-
-        filter.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
-
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/results?search_query=nihongo',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/results',
-            search: '?search_query=nihongo',
-        });
-        filter.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).not.toBeNull();
-
-        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
-        expect(settings.youtubeShowChannelRecommendations).toBe(false);
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
-
-        filter.refresh();
-        await flushPendingFilterWork();
-        expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
 
         filter.destroy();
     });

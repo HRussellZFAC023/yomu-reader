@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './vite-jpdb-audio-proxy';
@@ -66,63 +66,78 @@ function faviconDevMiddleware(): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => ({
-    plugins: [
+    plugins: readerPlugins(command),
+    server: readerDevServerConfig,
+    build: readerBuildConfig(mode),
+    test: readerTestConfig(),
+}));
+
+function readerPlugins(command: string): PluginOption[] {
+    return [
         jpdbAudioDevProxyPlugin(),
         faviconDevMiddleware(),
         monkey({
             entry: 'src/reader/userscript-entry.ts',
-            userscript: {
-                name: 'よむ',
-                namespace: repoUrl,
-                version: pkg.version,
-                description: 'JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.',
-                author: 'Henry',
-                // See docs/store-review-notes.md before narrowing these; broad page
-                // access is Yomu's core "read Japanese anywhere" behavior.
-                match: userscriptMatchForCommand(command),
-                connect: userscriptConnect,
-                grant: userscriptGrant,
-                'inject-into': 'content',
-                'run-at': 'document-start',
-                license: 'GPL-3.0-or-later',
-                icon: userscriptIcon,
-                icon64: userscriptIcon,
-                homepageURL: repoUrl,
-                supportURL: `${repoUrl}/issues`,
-                resource: {
-                    yomuCss: rawReaderCssUrl,
-                },
-            },
+            userscript: readerUserscript(command),
             build: {
                 fileName: 'yomu.user.js',
             },
         }),
-    ],
-    server: {
-        origin: 'http://127.0.0.1:5174',
-        port: Number(process.env.PORT || 5174),
-        strictPort: false,
-        cors: true,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-            'Access-Control-Allow-Headers': '*',
+    ];
+}
+
+function readerUserscript(command: string): MonkeyUserScript {
+    return {
+        name: 'よむ',
+        namespace: repoUrl,
+        version: pkg.version,
+        description: 'Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.',
+        author: 'Henry',
+        // See docs/store-review-notes.md before narrowing these; broad page
+        // access is Yomu's core "read Japanese anywhere" behavior.
+        match: userscriptMatchForCommand(command),
+        connect: userscriptConnect,
+        grant: userscriptGrant,
+        'inject-into': 'content',
+        'run-at': 'document-start',
+        license: 'GPL-3.0-or-later',
+        icon: userscriptIcon,
+        icon64: userscriptIcon,
+        homepageURL: repoUrl,
+        supportURL: `${repoUrl}/issues`,
+        resource: {
+            yomuCss: rawReaderCssUrl,
         },
+    };
+}
+
+const readerDevServerConfig = {
+    origin: 'http://127.0.0.1:5174',
+    port: Number(process.env.PORT || 5174),
+    strictPort: false,
+    cors: true,
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
     },
-    build: {
+};
+
+function readerBuildConfig(mode: string) {
+    return {
         outDir: 'dist',
         emptyOutDir: mode !== 'development',
         target: 'es2022',
         minify: false,
         cssMinify: false,
-    },
-    test: {
+    };
+}
+
+function readerTestConfig() {
+    return {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
-        exclude: [
-            ...(process.env.YOMU_INCLUDE_GENERATED_JPDB_SHARDS === '1' ? [] : ['tests/reader/.vitest-jpdb-shards/**']),
-            ...(process.env.YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS === '1' ? [] : ['tests/reader/.vitest-settings-shards/**']),
-        ],
+        exclude: generatedShardExcludePatterns(),
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
         pool: 'forks',
@@ -131,5 +146,18 @@ export default defineConfig(({ command, mode }) => ({
                 maxForks: 10,
             },
         },
-    },
-}));
+    };
+}
+
+const generatedShardExcludes = [
+    ['YOMU_INCLUDE_GENERATED_JPDB_SHARDS', 'tests/reader/.vitest-jpdb-shards/**'],
+    ['YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS', 'tests/reader/.vitest-new-tab-review-shards/**'],
+    ['YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS', 'tests/reader/.vitest-settings-shards/**'],
+    ['YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS', 'tests/reader/.vitest-subtitles-controller-shards/**'],
+] as const;
+
+function generatedShardExcludePatterns(): string[] {
+    return generatedShardExcludes
+        .filter(([envName]) => process.env[envName] !== '1')
+        .map(([, pattern]) => pattern);
+}

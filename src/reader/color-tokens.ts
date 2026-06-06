@@ -56,7 +56,13 @@ export const DEFAULT_PITCH_COLOR_TOKENS = {
 
 export const LOOKUP_PILL_COLOR_TOKENS = {
     jpdb: { bg: '#2563c7', border: '#4f8ff0', text: CORE_COLOR_TOKENS.white },
+    jiten: { bg: '#13845f', border: '#34c89a', text: CORE_COLOR_TOKENS.white },
     jisho: { bg: '#4f46c7', border: '#7567f0', text: CORE_COLOR_TOKENS.white },
+    weblio: { bg: '#0f766e', border: '#2dd4bf', text: CORE_COLOR_TOKENS.white },
+    goo: { bg: '#b45309', border: '#f59e0b', text: CORE_COLOR_TOKENS.white },
+    kotobank: { bg: '#be123c', border: '#fb7185', text: CORE_COLOR_TOKENS.white },
+    takoboto: { bg: '#0f5f99', border: '#38bdf8', text: CORE_COLOR_TOKENS.white },
+    'wiktionary-ja': { bg: '#374151', border: '#9ca3af', text: CORE_COLOR_TOKENS.white },
     copy: { bg: '#7e3fbf', border: '#a064e5', text: CORE_COLOR_TOKENS.white },
 } as const;
 

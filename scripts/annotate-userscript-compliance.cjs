@@ -23,12 +23,7 @@ if (code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) {
 
 const notice = `
 
-/*
-Greasy Fork compliance notes:
-- Reader UI CSS is declared as @resource yomuCss; no remote JavaScript is loaded.
-- Bundled dependency source information:
-  - fflate ${packageJson.dependencies.fflate}: https://github.com/101arrowz/fflate (MIT), bundled locally for ZIP dictionary import support.
-*/
+/* Bundled dependency source information: fflate*/
 `;
 const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
 const before = code.slice(0, insertAt);

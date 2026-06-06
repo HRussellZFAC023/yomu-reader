@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
 import { loadLocalEnv } from './qa-env.mjs';
 import {
     addGmStorageBridgeInitScript,
@@ -189,20 +190,16 @@ function firstDefined(value, fallback) {
 async function assertAccessibleSurface(page, name, selector = 'body') {
     const axe = await new AxeBuilder({ page })
         .include(selector)
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+        .withTags(WCAG_AUDIT_TAGS)
         .analyze();
-    const violations = axe.violations
-        .filter(violation => violation.impact !== 'minor')
-        .map(violation => ({
-            id: violation.id,
-            impact: violation.impact,
-            help: violation.help,
-            nodes: violation.nodes.slice(0, 4).map(node => ({
-                target: node.target.join(' '),
-                html: node.html,
-                summary: node.failureSummary,
-            })),
-        }));
+    const violations = summarizeAxeViolations(axe.violations, {
+        nodeLimit: 4,
+        summarizeNode: node => ({
+            target: node.target.join(' '),
+            html: node.html,
+            summary: node.failureSummary,
+        }),
+    });
     assertAudit(!violations.length, `${name} axe violations: ${JSON.stringify(violations)}`);
 
     const wcag = await page.evaluate(surfaceSelector => {
@@ -853,6 +850,41 @@ async function injectUserscript(page) {
     await page.evaluate(script => {
         (0, eval)(`${script}\n//# sourceURL=yomu.user.js`);
     }, userscript);
+}
+
+async function openSeededReaderFixture(browser, server, {
+    path: fixturePath,
+    html,
+    settings,
+    scanMessage = 'fixture text was not scanned',
+    waitForWords = readerFixtureHasScannedWords,
+}) {
+    const { page, requests } = await newAuditedPage(browser, settings);
+    await installMockAudioPlayback(page);
+    await page.route(`${server.origin}${fixturePath}`, route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: html,
+    }));
+    await page.goto(`${server.origin}${fixturePath}`, { waitUntil: 'domcontentloaded' });
+    await seedLocalKanjiDictionaries(page);
+    await injectUserscript(page);
+    await waitForAudit(page, waitForWords, 10000, scanMessage);
+    return { page, requests };
+}
+
+async function installMockAudioPlayback(page) {
+    await page.addInitScript(() => {
+        window.__yomuAudioPlayCount = 0;
+        HTMLMediaElement.prototype.play = function play() {
+            window.__yomuAudioPlayCount += 1;
+            return Promise.resolve();
+        };
+    });
+}
+
+function readerFixtureHasScannedWords() {
+    return document.querySelectorAll('.jpdb-reader-word').length > 0;
 }
 
 async function openSettingsFromPuck(page) {
@@ -2465,42 +2497,30 @@ async function auditHoverLookup(browser, server) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
     </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。明日は学校で勉強します。</p></body></html>`;
-    const { page, requests } = await newAuditedPage(browser, {
-        ...baseSettings,
-        lookupOnClick: false,
-        lookupOnHover: true,
-        audioEnabled: true,
-        autoPlayAudio: true,
-        audioViaBlob: false,
-        audioEnableDefaultSources: false,
-        audioSources: [{ type: 'custom', url: 'https://audio.test/{term}.mp3', voice: '', enabled: true }],
-        hoverOpenDelayMs: 40,
-        hoverCloseDelayMs: 140,
-        localDictionariesEnabled: true,
-        localDictionaryShowKanji: true,
-        dictionaryPreferences: [
-            { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 0 },
-            { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 },
-            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2 },
-        ],
-        shortcuts: { ...baseSettings.shortcuts, hoverLookup: 'Shift' },
+    const { page, requests } = await openSeededReaderFixture(browser, server, {
+        path: '/hover-fixture.html',
+        html,
+        settings: {
+            ...baseSettings,
+            lookupOnClick: false,
+            lookupOnHover: true,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioViaBlob: false,
+            audioEnableDefaultSources: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/{term}.mp3', voice: '', enabled: true }],
+            hoverOpenDelayMs: 40,
+            hoverCloseDelayMs: 140,
+            localDictionariesEnabled: true,
+            localDictionaryShowKanji: true,
+            dictionaryPreferences: [
+                { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 0 },
+                { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 1 },
+                { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 2 },
+            ],
+            shortcuts: { ...baseSettings.shortcuts, hoverLookup: 'Shift' },
+        },
     });
-    await page.addInitScript(() => {
-        window.__yomuAudioPlayCount = 0;
-        HTMLMediaElement.prototype.play = function play() {
-            window.__yomuAudioPlayCount += 1;
-            return Promise.resolve();
-        };
-    });
-    await page.route(`${server.origin}/hover-fixture.html`, route => route.fulfill({
-        status: 200,
-        contentType: 'text/html; charset=utf-8',
-        body: html,
-    }));
-    await page.goto(`${server.origin}/hover-fixture.html`, { waitUntil: 'domcontentloaded' });
-    await seedLocalKanjiDictionaries(page);
-    await injectUserscript(page);
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
     const todayWord = await page.locator('.jpdb-reader-word', { hasText: '今日' }).first().boundingBox();
     const quietWord = await page.locator('.jpdb-reader-word', { hasText: '静か' }).first().boundingBox();
     assertAudit(todayWord, 'no 今日 scanned word bounding box found');
@@ -2737,6 +2757,7 @@ async function openRuntimeRegressionFixture(page, server) {
 }
 
 function installRuntimePointerRecorderInPage() {
+    const { dataAttribute, surface } = window.__yomuQaReaderWordDomHelpers;
     window.__yomuQaPointerEvents = [];
     const record = event => {
         window.__yomuQaPointerEvents.push(pointerEventSnapshot(event));
@@ -2771,20 +2792,10 @@ function installRuntimePointerRecorderInPage() {
     function pointerWordSnapshot(word) {
         if (!word) return { wordSurface: '', wordVid: '', wordSid: '' };
         return {
-            wordSurface: runtimeRegressionSurfaceText(word).trim(),
+            wordSurface: surface(word).trim(),
             wordVid: dataAttribute(word, 'data-vid'),
             wordSid: dataAttribute(word, 'data-sid'),
         };
-    }
-
-    function runtimeRegressionSurfaceText(node) {
-        const clone = node.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(child => child.remove());
-        return clone.textContent ?? '';
-    }
-
-    function dataAttribute(node, name) {
-        return node.getAttribute(name) ?? '';
     }
 }
 
@@ -2797,29 +2808,20 @@ async function waitForRuntimeRegressionFixtureWords(page) {
 }
 
 function runtimeFixtureHasReadWord() {
+    const { surface } = window.__yomuQaReaderWordDomHelpers;
     return [...document.querySelectorAll('.jpdb-reader-word')]
-        .some(word => runtimeRegressionSurfaceText(word).trim() === '読んで');
-
-    function runtimeRegressionSurfaceText(node) {
-        const clone = node.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(child => child.remove());
-        return clone.textContent ?? '';
-    }
+        .some(word => surface(word).trim() === '読んで');
 }
 
 function runtimeFixtureHasPoliteFormToken() {
+    const { surface } = window.__yomuQaReaderWordDomHelpers;
     const words = [...document.querySelectorAll('#polite-form-target .jpdb-reader-word')]
-        .map(word => runtimeRegressionSurfaceText(word).trim());
+        .map(word => surface(word).trim());
     return words.includes('ございます') && !words.some(word => ['ご', 'ざ', 'い', 'ます'].includes(word));
-
-    function runtimeRegressionSurfaceText(node) {
-        const clone = node.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(child => child.remove());
-        return clone.textContent ?? '';
-    }
 }
 
 function runtimeRegressionParseDebugSnapshot() {
+    const { dataAttribute, surface } = window.__yomuQaReaderWordDomHelpers;
     return {
         body: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) ?? '',
         words: [...document.querySelectorAll('.jpdb-reader-word')].map(runtimeRegressionWordDebugSnapshot),
@@ -2832,7 +2834,7 @@ function runtimeRegressionParseDebugSnapshot() {
 
     function runtimeRegressionWordDebugSnapshot(word) {
         return {
-            text: runtimeRegressionSurfaceText(word).trim(),
+            text: surface(word).trim(),
             fullText: text(word),
             expression: dataAttribute(word, 'data-expression'),
             reading: dataAttribute(word, 'data-reading'),
@@ -2843,16 +2845,6 @@ function runtimeRegressionParseDebugSnapshot() {
 
     function text(node) {
         return node.textContent?.trim() ?? '';
-    }
-
-    function dataAttribute(node, name) {
-        return node.getAttribute(name) ?? '';
-    }
-
-    function runtimeRegressionSurfaceText(node) {
-        const clone = node.cloneNode(true);
-        clone.querySelectorAll('rt,rp').forEach(child => child.remove());
-        return clone.textContent ?? '';
     }
 }
 
@@ -3296,33 +3288,21 @@ async function auditImmersionKitPopover(browser, server) {
     const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
         body{font:24px/1.8 system-ui;margin:40px;color:#171a1f}
     </style></head><body><p>今日は静かな喫茶店で新しい本を読みました。</p></body></html>`;
-    const { page, requests } = await newAuditedPage(browser, {
-        ...baseSettings,
-        localDictionariesEnabled: true,
-        ankiEnabled: true,
-        audioEnabled: true,
-        immersionKitEnabled: true,
-        immersionKitShowTranslation: false,
-        immersionKitShowImages: true,
-        immersionKitAutoPlayAudio: false,
-        immersionKitPlayOnHover: true,
+    const { page, requests } = await openSeededReaderFixture(browser, server, {
+        path: '/immersion-fixture.html',
+        html,
+        settings: {
+            ...baseSettings,
+            localDictionariesEnabled: true,
+            ankiEnabled: true,
+            audioEnabled: true,
+            immersionKitEnabled: true,
+            immersionKitShowTranslation: false,
+            immersionKitShowImages: true,
+            immersionKitAutoPlayAudio: false,
+            immersionKitPlayOnHover: true,
+        },
     });
-    await page.addInitScript(() => {
-        window.__yomuAudioPlayCount = 0;
-        HTMLMediaElement.prototype.play = function play() {
-            window.__yomuAudioPlayCount += 1;
-            return Promise.resolve();
-        };
-    });
-    await page.route(`${server.origin}/immersion-fixture.html`, route => route.fulfill({
-        status: 200,
-        contentType: 'text/html; charset=utf-8',
-        body: html,
-    }));
-    await page.goto(`${server.origin}/immersion-fixture.html`, { waitUntil: 'domcontentloaded' });
-    await seedLocalKanjiDictionaries(page);
-    await injectUserscript(page);
-    await waitForAudit(page, () => document.querySelectorAll('.jpdb-reader-word').length > 0, 10000, 'fixture text was not scanned');
     await page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first().click();
     await openImmersionKitDetails(page);
     await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { timeout: 8000 });

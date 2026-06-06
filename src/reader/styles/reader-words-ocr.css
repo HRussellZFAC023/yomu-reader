@@ -62,6 +62,11 @@
   cursor: inherit;
 }
 
+.jpdb-reader-word.jpdb-reader-i-plus-one {
+  --jpdb-reader-mining-insight-color: color-mix(in srgb, var(--jpdb-reader-state-hard) 42%, transparent);
+  background: linear-gradient(transparent 58%, var(--jpdb-reader-mining-insight-color) 58%) !important;
+}
+
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
   background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important;
@@ -75,7 +80,7 @@
   outline-offset: 2px;
 }
 
-.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
@@ -144,7 +149,7 @@
   --jpdb-reader-anki-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-anki-soft: var(--jpdb-reader-state-ignored-soft);
 }
-.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .anki-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
@@ -176,6 +181,7 @@
 }
 .jpdb-reader-word:is(
   .jpdb-new,
+  .jpdb-not-in-deck,
   .jpdb-suspended,
   .jpdb-in-deck,
   .jpdb-learning,
@@ -209,6 +215,7 @@
 }
 .jpdb-reader-word:is(
   .jpdb-new,
+  .jpdb-not-in-deck,
   .jpdb-suspended,
   .jpdb-in-deck,
   .jpdb-learning,
