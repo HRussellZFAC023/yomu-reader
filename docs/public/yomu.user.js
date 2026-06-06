@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.23
+// @version      0.6.24
 // @author       Henry
 // @description  JPDB/Yomitan popup reader with audio, manga OCR, and video subtitle mining for Japanese on any website.
 // @license      GPL-3.0-or-later
@@ -336,21 +336,22 @@ jpdbMiningEnabled&&settings.apiKey?.trim())}function normalizeFuriganaMode(value
 "hideKnownFurigana",!1)?"all":DEFAULT_SETTINGS.furiganaMode}function isFuriganaMode(value){return value==="auto"||value==="all"||value==="difficult-kanji"||value==="known-status"||value==="off"}function legacyBooleanSettingIs(settings,key,expected){
 return!!(settings&&Object.prototype.hasOwnProperty.call(settings,key)&&settings[key]===expected)}function normalizeDeckIdSetting(value,fallback){return typeof value=="string"&&value.trim()?value.trim():fallback}
 function hasPersonalizedFuriganaSource(settings){return!!(settings.apiKey.trim()||settings.ankiEnabled)}function shouldLookupAnkiStatus(settings){return!!(settings.ankiEnabled||settings.ankiSectionEnabled||settings.
-furiganaMode==="known-status"||hasRequestedAnkiColorSource(settings))}function effectiveReaderColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.wordHighlightColorSource){const concrete=source==="auto"?
-legacyReaderColorSourceForAuto(settings,fallback):source;return effectiveAvailableColorSource(settings,concrete,fallback)}function effectiveReaderTextColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.
+ankiEnabled&&(settings.furiganaMode==="known-status"||hasRequestedAnkiColorSource(settings)))}function effectiveReaderColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.wordHighlightColorSource){const concrete=source===
+"auto"?legacyReaderColorSourceForAuto(settings,fallback):source;return effectiveAvailableColorSource(settings,concrete,fallback)}function effectiveReaderTextColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.
 wordTextColorSource){return effectiveTextColorSource(settings,effectiveReaderColorSource(settings,source,fallback))}function effectiveSubtitleColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource){
 const concrete=source==="auto"?legacySubtitleColorSourceForAuto(settings,fallback):source;return concrete==="status"?"status":effectiveAvailableColorSource(settings,concrete)}function effectiveSubtitleTextColorSource(settings,source,fallback=DEFAULT_COLOR_CHANNELS.
 subtitleTextColorSource){return effectiveTextColorSource(settings,effectiveSubtitleColorSource(settings,source,fallback))}function effectiveTextColorSource(settings,source){return effectiveAvailableColorSource(
 settings,source)}function effectiveAvailableColorSource(settings,source,fallback="off"){return source==="jpdb"&&!hasJpdbStatusSource(settings)?fallback==="jpdb"?"off":effectiveAvailableColorSource(settings,fallback,
-"off"):source==="anki"?"anki":source==="status"?effectiveAvailableStatusSource(settings,!0):source}function effectiveAvailableStatusSource(settings,includeRequestedAnki=!1){const hasJpdb=hasJpdbStatusSource(settings),
-hasAnki=includeRequestedAnki||hasAnkiStatusSource(settings);return hasJpdb&&hasAnki?"status":hasJpdb?"jpdb":hasAnki?"anki":"off"}function hasJpdbStatusSource(settings){return!!settings.apiKey?.trim()}function hasAnkiStatusSource(settings){
-return!!(settings.ankiEnabled||!hasJpdbStatusSource(settings)&&hasRequestedAnkiColorSource(settings))}function hasRequestedAnkiColorSource(settings){return COLOR_STATUS_CHANNEL_KEYS.some(key=>{const source=settings[key];
-return source==="anki"||source==="status"})}const COLOR_STATUS_CHANNEL_KEYS=["wordHighlightColorSource","wordUnderlineColorSource","wordTextColorSource","subtitleHighlightColorSource","subtitleUnderlineColorSou\
-rce","subtitleTextColorSource"];function effectiveFuriganaMode(settings){return!settings.showFurigana||settings.furiganaMode==="off"?"off":isExplicitFuriganaMode(settings.furiganaMode)?settings.furiganaMode:hasPersonalizedFuriganaSource(
-settings)?"known-status":"difficult-kanji"}function isExplicitFuriganaMode(value){return EXPLICIT_FURIGANA_MODES.has(value)}function sanitizeAccentColor(value,fallback=DEFAULT_ACCENT_COLOR){if(typeof value!="st\
-ring")return fallback;const trimmed=value.trim();if(/^#[0-9a-f]{6}$/i.test(trimmed))return trimmed.toLowerCase();const shortHex=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);return shortHex?`#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.
-toLowerCase():fallback}function accentToRgba(color,alpha){const safe=sanitizeAccentColor(color),red=parseInt(safe.slice(1,3),16),green=parseInt(safe.slice(3,5),16),blue=parseInt(safe.slice(5,7),16);return`rgba(${red}\
-,${green},${blue},${Math.max(0,Math.min(1,alpha))})`}function applyUrlBootstrapSettings(settings,search=location.search){const params=new URLSearchParams(search),bootstrap=urlBootstrapSettings(params);return hasUrlBootstrapSettings(
+"off"):source==="anki"&&!hasAnkiStatusSource(settings)?fallback==="anki"?"off":effectiveAvailableColorSource(settings,fallback,"off"):source==="anki"?"anki":source==="status"?effectiveAvailableStatusSource(settings,
+!0):source}function effectiveAvailableStatusSource(settings,includeRequestedAnki=!1){const hasJpdb=hasJpdbStatusSource(settings),hasAnki=hasAnkiStatusSource(settings)||!!(includeRequestedAnki&&settings.ankiEnabled&&
+hasRequestedAnkiColorSource(settings));return hasJpdb&&hasAnki?"status":hasJpdb?"jpdb":hasAnki?"anki":"off"}function hasJpdbStatusSource(settings){return!!settings.apiKey?.trim()}function hasAnkiStatusSource(settings){
+return!!(settings.ankiEnabled||settings.ankiSectionEnabled)}function hasRequestedAnkiColorSource(settings){return COLOR_STATUS_CHANNEL_KEYS.some(key=>{const source=settings[key];return source==="anki"||source===
+"status"})}const COLOR_STATUS_CHANNEL_KEYS=["wordHighlightColorSource","wordUnderlineColorSource","wordTextColorSource","subtitleHighlightColorSource","subtitleUnderlineColorSource","subtitleTextColorSource"];function effectiveFuriganaMode(settings){
+return!settings.showFurigana||settings.furiganaMode==="off"?"off":isExplicitFuriganaMode(settings.furiganaMode)?settings.furiganaMode:hasPersonalizedFuriganaSource(settings)?"known-status":"difficult-kanji"}function isExplicitFuriganaMode(value){
+return EXPLICIT_FURIGANA_MODES.has(value)}function sanitizeAccentColor(value,fallback=DEFAULT_ACCENT_COLOR){if(typeof value!="string")return fallback;const trimmed=value.trim();if(/^#[0-9a-f]{6}$/i.test(trimmed))
+return trimmed.toLowerCase();const shortHex=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);return shortHex?`#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase():
+fallback}function accentToRgba(color,alpha){const safe=sanitizeAccentColor(color),red=parseInt(safe.slice(1,3),16),green=parseInt(safe.slice(3,5),16),blue=parseInt(safe.slice(5,7),16);return`rgba(${red},${green}\
+,${blue},${Math.max(0,Math.min(1,alpha))})`}function applyUrlBootstrapSettings(settings,search=location.search){const params=new URLSearchParams(search),bootstrap=urlBootstrapSettings(params);return hasUrlBootstrapSettings(
 bootstrap)?(log$x.info("Applying URL bootstrap settings",{hasApiKey:!!bootstrap.apiKey,hasAudio:!!bootstrap.audio,hasOcr:!!bootstrap.ocr}),{...settings,apiKey:bootstrapValue(bootstrap.apiKey,settings.apiKey),audioSources:bootstrapAudioSources(
 settings,bootstrap.audio),audioSourceUrl:bootstrapValue(bootstrap.audio,settings.audioSourceUrl),ocrEndpointUrl:bootstrapValue(bootstrap.ocr,settings.ocrEndpointUrl)}):settings}function hasUrlBootstrapSettings(bootstrap){
 return!!(bootstrap.apiKey||bootstrap.audio||bootstrap.ocr)}function bootstrapValue(value,fallback){return value||fallback}function urlBootstrapSettings(params){return{apiKey:params.get("apiKey")?.trim()??"",audio:params.

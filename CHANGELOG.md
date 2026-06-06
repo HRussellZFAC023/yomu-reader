@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.24] - 2026-06-06
+
+### Fixed
+
+- Kept Anki truly off on fresh installs and factory resets by ignoring Anki/status color channels unless Anki mining or the Anki dictionary section is explicitly enabled.
+
 ## [0.6.23] - 2026-06-06
 
 ### Fixed
