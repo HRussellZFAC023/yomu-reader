@@ -1,20 +1,61 @@
-# よむ
+<div align="center">
 
-JPDB/Yomitan popup reader for Japanese text, audio, manga OCR, and video subtitles on any website.
+<img src="https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg" width="120" height="120" alt="よむ logo" />
 
-[![CI](https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml)
+<h1>よむ <sub>· Yomu</sub></h1>
+
+<p><b>Learn Japanese by reading what you actually like.</b></p>
+
+<p>Tap a word — on any website, in manga, or in subtitles — to see what it means, hear it,<br/>and save it for review. One free userscript, no account needed to start.</p>
+
+<p>
+  <a href="https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml"><img src="https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <a href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest"><img src="https://img.shields.io/github/v/release/HRussellZFAC023/yomu-reader?color=5ea780&label=release" alt="Latest release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/HRussellZFAC023/yomu-reader?color=5ea780" alt="License: GPL-3.0-or-later" /></a>
+  <a href="https://github.com/HRussellZFAC023/yomu-reader/stargazers"><img src="https://img.shields.io/github/stars/HRussellZFAC023/yomu-reader?color=5ea780" alt="GitHub stars" /></a>
+  <a href="https://discord.gg/WvDt57uk5"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
+</p>
+
+<p>
+  <a href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js"><b>⬇ Install よむ</b></a> ·
+  <a href="https://hrussellzfac023.github.io/yomu-reader/getting-started">Setup guide</a> ·
+  <a href="https://hrussellzfac023.github.io/yomu-reader/newtab/">Study app</a> ·
+  <a href="https://hrussellzfac023.github.io/yomu-reader/features">Features</a> ·
+  <a href="https://discord.gg/WvDt57uk5">Discord</a>
+</p>
+
+<img src="https://hrussellzfac023.github.io/yomu-reader/screenshots/real-popup-lookup.png" alt="A よむ popup on a Japanese Wikipedia article, showing the reading, meaning, pitch, and mining buttons" width="760" />
+
+</div>
+
+## Highlights
+
+- 📖 **Read anything** — graded readers, easy news, ebooks, manga, web novels, YouTube, and native sites.
+- 🧩 **Every tool in one popup** — JPDB status and mining, Yomitan dictionaries, Anki cards, audio, example sentences, kanji drilldown, OCR, and subtitle mining.
+- 🆓 **Free and open source** — comparable study suites charge from $10/month. よむ does the core reading-and-mining loop for free, under GPL-3.0.
+- 📱 **Works on iPhone and iPad** — runs in Safari through a free userscript app, with touch-first lookup.
+
+## Contents
+
+[Install](#install) · [Features](#features) · [Privacy](#privacy) · [Audio](#audio) · [Mining](#mining) · [Video Player](#video-player) · [New Tab](#new-tab) · [OCR](#ocr) · [Development](#development) · [Deployment](#deployment) · [Support](#support) · [Credits](#credits-and-references) · [Licenses](#source-licenses)
 
 ## Install
 
-Friendly guide: https://hrussellzfac023.github.io/yomu-reader/getting-started
+**Easiest:** follow the [setup guide](https://hrussellzfac023.github.io/yomu-reader/getting-started). It assumes no prior experience and walks you through a userscript manager — Tampermonkey on desktop, Userscripts on iPhone/iPad — and installing よむ.
 
-The built userscript is:
+**One click on desktop:** with Tampermonkey installed, open the hosted userscript and click Install:
+
+```text
+https://hrussellzfac023.github.io/yomu-reader/yomu.user.js
+```
+
+It also syncs from the raw repository file, which GreasyFork can track once the listing is live:
 
 ```text
 https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 ```
 
-After the GreasyFork page is live, install from GreasyFork so normal users get the friendlier install/update path.
+Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript is the install path.
 
 ## Features
 
@@ -270,6 +311,14 @@ npm run publish:greasyfork
 - YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
 - iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network, for example by using the desktop's LAN or Tailscale address. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
 - Support links live in settings: open GitHub issues for bugs/feature requests, join the Discord server for chat, donate via PayPal, or use Factory Reset to clear よむ settings, API keys, cached data, and imported dictionaries back to defaults. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+
+## Star History
+
+If よむ helps you read more Japanese, a ⭐ makes it easier for other learners to find.
+
+<a href="https://star-history.com/#HRussellZFAC023/yomu-reader&Date">
+  <img src="https://api.star-history.com/svg?repos=HRussellZFAC023/yomu-reader&type=Date" alt="Star history chart for yomu-reader" width="600" />
+</a>
 
 ## Support
 

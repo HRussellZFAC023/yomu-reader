@@ -1,249 +1,228 @@
 # Getting Started
 
-This guide assumes you have never installed a userscript before.
+New to userscripts? You're in the right place — this guide assumes you've never installed one.
 
-A userscript is a small helper that a browser extension runs for you. You install the manager once, then add よむ to that manager. After that, よむ appears on pages with Japanese text and gives you a popup dictionary, mining buttons, OCR, subtitles, and study tools.
+A **userscript** is a small add-on that runs inside your browser. You install a free manager once, add よむ to it, and from then on よむ appears on Japanese pages: tap a word for a popup dictionary, save words for review, read manga with OCR, and look up subtitles on video.
 
 <div class="yomu-callout">
-  <strong>Short version:</strong> install a userscript manager, install よむ, open any Japanese page, then tap or hover a word.
+  <strong>The whole setup, in one line:</strong> install a userscript manager → install よむ → open a Japanese page → tap a word. It's free, and you don't need an account to start.
 </div>
 
-## Words You Will See
+## Three words to know
 
-- **Userscript manager:** the browser add-on that runs よむ for you. Tampermonkey and Userscripts are examples.
-- **JPDB:** an optional online study service for word status, review buttons, and mining.
-- **Yomitan dictionary:** a downloadable dictionary ZIP. よむ can import these so definitions stay local in your browser.
-- **Mining:** saving a useful word, sentence, subtitle, or image context for later study.
-- **OCR:** image text reading. This is what lets you tap Japanese inside manga panels or screenshots.
-- **Anki / AnkiConnect:** Anki is a flashcard app. [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the desktop add-on that gives よむ full Anki access, including existing-card status, updates, and review queues.
-- **Tailscale:** an easy private network for reaching your desktop from a phone, tablet, or iPad when both devices are signed in.
-- **Local server:** a helper app running on your own computer, often for audio, OCR, or Anki.
-- **localhost:** the device you are using right now. On an iPhone, `localhost` means the iPhone, not your desktop.
+You'll meet more later, but these three get you reading:
 
-## 1. Choose Your Browser
+- **Userscript manager** — the browser add-on that runs よむ. You'll install Tampermonkey (computer) or Userscripts (iPhone/iPad).
+- **Lookup** — tapping or hovering a word to open よむ's popup.
+- **Mining** — saving a word, with its sentence, for later review.
 
-<div class="yomu-platform-list">
-  <div class="yomu-platform">
-    <h3>Chrome or Edge</h3>
-    <p>Use Tampermonkey. If the browser asks about user scripts, allow them for Tampermonkey.</p>
-  </div>
-  <div class="yomu-platform">
-    <h3>Firefox</h3>
-    <p>Use Tampermonkey from the Firefox add-ons store. Desktop Firefox is the easiest path.</p>
-  </div>
-  <div class="yomu-platform">
-    <h3>Safari, iPhone, iPad</h3>
-    <p>Use Tampermonkey for Safari, or the free open-source Userscripts app for iOS/iPadOS.</p>
-  </div>
-</div>
+JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
 
-Browser store installs are coming soon. For normal installation today, use the userscript.
+## Step 1: Install a userscript manager
 
-## 2. Install a Userscript Manager
+Pick your setup.
 
-### Chrome, Edge, or desktop Firefox
+### Chrome, Edge, or Firefox (computer)
 
-1. Open [Tampermonkey](https://www.tampermonkey.net/).
-2. Pick your browser.
-3. Install it from the official browser store.
-4. Pin Tampermonkey if your browser hides extension icons.
-
-On Chromium browsers, Tampermonkey may ask for permission to run user scripts. Choose the option that allows user scripts, otherwise よむ cannot start.
+1. Open [tampermonkey.net](https://www.tampermonkey.net/) and install Tampermonkey for your browser from its official store.
+2. If your browser hides extensions, pin Tampermonkey so its icon is visible.
+3. On Chrome and Edge, you may be asked to **allow user scripts** the first time. Say yes — よむ can't run otherwise.
 
 ### iPhone or iPad
 
-The easiest free option is the **Userscripts** app. It runs scripts inside Safari.
+Use **Userscripts**, a free and open-source app. (Tampermonkey for Safari also works if you prefer it.)
 
-[Get Userscripts — free on the App Store](https://apps.apple.com/app/userscripts/id1463298887)
-
-**One-time setup (takes about a minute):**
-
-1. Install Userscripts and open it once. Current versions create a default scripts folder automatically, so the first screen may look mostly empty. That is expected.
-2. Open **Settings** → **Safari** → **Extensions** → **Userscripts**. On newer iOS versions, this may be under **Settings** → **Apps** → **Safari** → **Extensions**.
-3. Turn Userscripts **on**, then allow it on **All Websites**.
-
-That's the setup done. Jump to step 3 to install よむ.
-
-[Tampermonkey for Safari](https://www.tampermonkey.net/index.php?browser=safari&locale=en) is another option if you prefer it.
-
-## 3. Install よむ
-
-[Install よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js)
-
-**On desktop (Chrome, Edge, Firefox):**
-
-Open the link above. Tampermonkey should show an install screen for a script named よむ. Press Install, then open a page with Japanese text.
-
-To update later, open the same install link again and let your userscript manager replace the old よむ script. If a fix was just released and the old settings or defaults are still visible, update the userscript first, then refresh the Japanese page you were reading.
-
-**On iPhone or iPad (Userscripts app):**
-
-The install flow has one extra Safari step.
-
-1. Tap the install link above. Safari may show a page of code. That is normal.
-2. Tap **AA** on iPhone, or the Safari extensions button on iPad.
-3. Tap **Userscripts** in the menu that appears.
-4. When Userscripts shows the よむ install prompt, tap **Install**.
-5. Open any Japanese page and try tapping a word.
+1. Install [Userscripts from the App Store](https://apps.apple.com/app/userscripts/id1463298887) and open it once. A mostly-empty screen is normal.
+2. Open **Settings → Apps → Safari → Extensions → Userscripts**. On older iOS, this is **Settings → Safari → Extensions → Userscripts**.
+3. Turn Userscripts **On**, then set it to **Allow** on **All Websites**.
 
 <div class="yomu-callout">
-  <strong>Still seeing only code?</strong> Open Userscripts from Safari's AA or extensions menu. iOS does not show the install prompt until you do. If Userscripts is missing from that menu, enable it in Settings → Safari → Extensions.
+  <strong>Don't skip step 3.</strong> If Userscripts isn't turned on and allowed, it won't show up in Safari, and the next step won't work. This is the most common reason an install seems to "do nothing."
 </div>
 
-## 4. Add JPDB, Or Skip It For Now
+## Step 2: Install よむ
 
-JPDB is optional for basic local dictionary lookup, but it is the easiest way to get word status and mining.
+[Install the よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js)
 
-1. Create or open your [JPDB account](https://jpdb.io/).
-2. Open [JPDB settings](https://jpdb.io/settings).
-3. Copy your API key from the API section.
-4. Open よむ settings with the floating よむ button or the shortcut `Alt+Shift+J`.
-5. Paste the key into the API key field.
-6. Save.
+### On a computer
 
-You can use よむ without a JPDB key by importing Yomitan dictionaries from Settings > Dictionaries. JPDB-only actions such as mining to JPDB still need a JPDB API key.
+Click the link above. Tampermonkey opens an install screen for a script called よむ. Click **Install**. That's it — open a Japanese page and skip to [your first lookup](#step-3-your-first-lookup).
 
-## 5. Pick A First Reading Site
+To update later, open the same link again and let Tampermonkey replace the old version.
 
-Good よむ sites have selectable Japanese text, interesting short pieces, or images/subtitles that become readable with よむ OCR and subtitle tools. The goal is not to finish the hardest thing you can find. The goal is to read every day at the edge of comfort, where most sentences make sense and the unknown words are worth saving.
+### On iPhone or iPad
 
-These are strong starting points, based on recurring recommendations from r/LearnJapanese reading threads and the sites that work well with popup lookup:
+This is the part people get stuck on, so here's exactly what happens.
+
+1. Tap the install link. **Safari shows a page full of code** — lines like the ones below. **This is normal. Don't close it.** This page is what Userscripts reads to install よむ.
+
+   ```text
+   // ==UserScript==
+   // @name         よむ
+   // @version      0.6.25
+   // @match        *://*/*
+   // ==/UserScript==
+   (function () { "use strict"; ...
+   ```
+
+2. Open the Userscripts menu from the address bar:
+   - **iPhone:** tap **AA** on the left of the address bar, then tap **Userscripts**.
+   - **iPad:** tap the **extensions icon** (a puzzle piece) in the address bar, then tap **Userscripts**.
+3. Userscripts shows **"Userscript Detected — Tap to install."** Tap it, review the script, and tap **Install**.
+4. Open a Japanese page and try [your first lookup](#step-3-your-first-lookup).
+
+<div class="yomu-callout">
+  <strong>"Userscripts" isn't in the AA or extensions menu?</strong> It isn't turned on yet. Go back to Step 1, enable Userscripts, and allow it on All Websites. Then reload the code page and open the menu again.
+</div>
+
+**You'll know it worked** when a small floating よむ button appears in the corner of Japanese pages — and the first time, よむ greets you with a welcome screen.
+
+## Step 3: Your first lookup
+
+The first time よむ runs, it shows a short **welcome screen** with two buttons:
+
+- **Use without API key** — start reading right now. よむ looks words up using free public data, with no account needed. **Pick this one to begin.**
+- **Add API key** — connect a JPDB account for word tracking and mining. Optional, and you can do it later ([Add JPDB](#add-jpdb-optional)).
+
+Choose **Use without API key**, then try a lookup:
+
+1. Open a Japanese page. [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) is a gentle first stop — or use the sample line below, right here on this page.
+2. **Tap** a word (phone or tablet) or **hover** it (computer).
+3. The popup opens with the reading, meaning, and a speaker button. Tap a kanji to see stroke order; tap a mining button to save the word.
+
+<div class="yomu-try-me">
+  <strong>Try me — tap a word</strong>
+  <div class="yomu-try-me-text">
+    <p>青空の下で、静かに本を読む。</p>
+  </div>
+</div>
+
+That's the whole loop: see a word, understand it, keep reading. Everything below is optional.
+
+## Add JPDB (optional)
+
+[JPDB](https://jpdb.io/) is a free study service. With it, よむ shows whether you already know a word, colors words by status, and lets you mine straight into JPDB. Local dictionary lookup works fine without it, but JPDB is the easiest way to track progress.
+
+1. Open [your JPDB settings](https://jpdb.io/settings) and copy your key from the **API** section.
+2. In よむ, open settings: tap the floating よむ button, or press `Alt+Shift+J` on a computer.
+3. Paste the key into the **API key** field and save.
+
+You can also study from imported dictionaries instead — see Settings → Dictionaries. JPDB-only actions like mining to JPDB still need the key.
+
+## Turn on more tools
+
+Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when you want them. Each is covered in [Features](/features).
+
+- **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
+- **Images (OCR)** — tap Japanese text inside manga panels and screenshots. Settings → Images.
+- **Video subtitles** — make Japanese subtitle lines tappable, with a transcript panel. For local files, use the [video player](./video-player/index.html).
+- **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
+- **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
+- **Study page** — open the [new-tab study app](./newtab/index.html) for daily review.
+
+## What to read
+
+Good よむ sites have selectable Japanese text, or images and subtitles that よむ can make readable. The aim isn't to finish the hardest thing you can find — it's to read a little every day where most of it makes sense and the new words are worth saving.
+
+These are reliable starting points, ordered roughly from easiest to hardest:
 
 <div class="yomu-link-grid yomu-next-grid">
   <a class="yomu-link-card" href="https://tadoku.org/japanese/free-books-en/" target="_blank" rel="noopener">
     <strong>Tadoku free books</strong>
-    <span>Free graded readers from starter level upward. Best first stop when native sites still feel too dense.</span>
+    <span>Free graded readers from the very beginning. The best first stop when native sites still feel too dense.</span>
   </a>
   <a class="yomu-link-card" href="https://www3.nhk.or.jp/news/easy/" target="_blank" rel="noopener">
     <strong>NHK News Web Easy</strong>
-    <span>Short simplified news with furigana and audio. Great daily habit once basic grammar is in place.</span>
+    <span>Short, simplified news with furigana and audio. A great daily habit once basic grammar clicks.</span>
   </a>
   <a class="yomu-link-card" href="https://www.satorireader.com/" target="_blank" rel="noopener">
     <strong>Satori Reader</strong>
-    <span>Polished learner stories with notes and audio. よむ adds your normal JPDB, Yomitan, and Anki flow on top.</span>
+    <span>Polished learner stories with notes and audio. よむ adds your usual JPDB, Yomitan, and Anki flow on top.</span>
   </a>
   <a class="yomu-link-card" href="https://watanoc.com/" target="_blank" rel="noopener">
     <strong>Watanoc</strong>
-    <span>Short articles by JLPT-ish level. Useful bridge between graded readers and native web articles.</span>
+    <span>Short articles sorted by rough JLPT level. A useful bridge from graded readers to native articles.</span>
   </a>
   <a class="yomu-link-card" href="http://hukumusume.com/douwa/" target="_blank" rel="noopener">
     <strong>Hukumusume fairy tales</strong>
-    <span>Large collection of folk tales and children's stories. Repetition makes it friendly for mining common words.</span>
-  </a>
-  <a class="yomu-link-card" href="https://matcha-jp.com/easy" target="_blank" rel="noopener">
-    <strong>MATCHA Easy Japanese</strong>
-    <span>Travel and culture articles in simpler Japanese. Nice when you want real-world topics instead of drills.</span>
+    <span>A big collection of folk tales. The repetition makes it friendly for mining common words.</span>
   </a>
   <a class="yomu-link-card" href="https://reader.ttsu.app/" target="_blank" rel="noopener">
     <strong>Ttsu Reader</strong>
-    <span>Read Japanese EPUBs in the browser with よむ lookup. This is the clean route into light novels and books.</span>
+    <span>Read Japanese EPUBs in the browser with よむ lookup — the clean route into light novels and books.</span>
   </a>
   <a class="yomu-link-card" href="https://learnnatively.com/" target="_blank" rel="noopener">
     <strong>Learn Natively</strong>
-    <span>Find books, manga, and web material by difficulty so your next read is challenging without being miserable.</span>
-  </a>
-  <a class="yomu-link-card" href="https://www.aozora.gr.jp/" target="_blank" rel="noopener">
-    <strong>Aozora Bunko</strong>
-    <span>Free public-domain literature. Better for intermediate and advanced readers, or for mining short passages.</span>
+    <span>Find books and manga graded by difficulty, so your next read is a challenge but not a wall.</span>
   </a>
   <a class="yomu-link-card" href="https://kakuyomu.jp/" target="_blank" rel="noopener">
     <strong>Kakuyomu</strong>
-    <span>Native web novels with selectable text. Use after easier material, or search for genres you already love.</span>
-  </a>
-  <a class="yomu-link-card" href="https://syosetu.com/" target="_blank" rel="noopener">
-    <strong>Shosetsuka ni Naro</strong>
-    <span>Huge native web-novel site. Excellent for long-term immersion once lookup speed feels natural.</span>
+    <span>Native web novels with selectable text. Search for a genre you already love.</span>
   </a>
   <a class="yomu-link-card" href="https://www.youtube.com/" target="_blank" rel="noopener">
-    <strong>YouTube with Japanese subtitles</strong>
-    <span>Use よむ subtitle lookup and the transcript panel for listening-plus-reading immersion.</span>
+    <strong>YouTube</strong>
+    <span>Turn on subtitle lookup and the transcript panel for listening-plus-reading immersion.</span>
   </a>
 </div>
 
-Community threads worth skimming: [Tadoku graded reader update](https://www.reddit.com/r/LearnJapanese/comments/19bitqy/2024_updated_free_tadoku_graded_reader_pdfs_2681/), [beginner reading resources](https://www.reddit.com/r/LearnJapanese/comments/ixl8mr/what_are_some_decent_beginner_reading_resources/), and [learning Japanese by reading](https://www.reddit.com/r/LearnJapanese/comments/1i7jblt/method_learning_japanese_by_reading_books_manga/).
+For more, skim these community threads: [Tadoku graded readers](https://www.reddit.com/r/LearnJapanese/comments/19bitqy/2024_updated_free_tadoku_graded_reader_pdfs_2681/), [beginner reading resources](https://www.reddit.com/r/LearnJapanese/comments/ixl8mr/what_are_some_decent_beginner_reading_resources/), and [learning Japanese by reading](https://www.reddit.com/r/LearnJapanese/comments/1i7jblt/method_learning_japanese_by_reading_books_manga/).
 
-## 6. Try Your First Lookup
+## Using よむ on a phone or tablet
 
-1. Open a Japanese article, manga page, JPDB page, or video page.
-2. Tap or hover a word.
-3. Use the popup to read meanings, play audio, open kanji details, or mine the word.
+Most of よむ works the same on mobile: lookup, local dictionaries, JPDB, OCR, subtitle taps, the [video player](./video-player/index.html), and the [study page](./newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
 
-On phones and tablets, tapping is usually easier than hover. On desktop, hover is faster once you are used to it.
-
-## 7. Turn On More Tools When You Need Them
-
-- Dictionaries: choose the Dictionaries tab in Settings when you want local dictionary study words. よむ downloads JMdict into local browser storage when the userscript request bridge is available; you can also import any Yomitan ZIP dictionary or settings export manually.
-- Images: enable OCR to tap Japanese text inside manga panels or screenshots.
-- Video: enable subtitles to mine words from Japanese subtitle lines. For local files, use the [Yomu video player](./video-player/index.html). On iPhone, the transcript opens as a bottom panel so it does not crush the video. On desktop and iPad, move it left, right, or below from the transcript header.
-- Anki: enable Anki mining when you want flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full path: it can create or update notes, check existing-card status, adapt to existing decks and note types, and feed Anki reviews into the new-tab page. Phones and tablets can either reach that desktop AnkiConnect over Wi-Fi/Tailscale or use mobile Anki handoff for new-note drafts only.
-- New tab: use the よむ [new-tab page](./newtab/index.html) as a study screen; opening it turns the study page on automatically.
-- Audio: the easiest hosted setup is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). If you want to self-host the audio files instead, the commonly shared files are here: [nyaa.si/view/1957972](https://nyaa.si/view/1957972).
-
-For existing Anki libraries, open Settings > Anki and use **Check AnkiConnect** to verify the connection. よむ can use reachable desktop AnkiConnect to work with Core, RTK, anime-card, or other nonstandard note types and place expression, reading, meaning, sentence, audio, and image data into familiar fields when it can infer a fit. **Create Yomu note type** prepares a clean よむ deck and note type if you prefer the default setup.
-
-## 8. Mobile Notes
-
-iPhone, iPad, and Android browsers can run よむ through a userscript app, but local desktop bridges are different there. JPDB lookup, local dictionaries, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff are the friendly mobile paths. For fewer compromises with Anki, keep desktop Anki running with AnkiConnect and point mobile よむ at that desktop over the same Wi-Fi or through Tailscale.
-
-The floating よむ puck stays reachable on phones and tablets so you can always get back into Settings, even if you hide the puck for desktop reading. Settings text fields are sized to avoid iOS input zoom.
+The one thing that's different is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public JPDB lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
 
 ### Use desktop Anki from a phone, iPad, or Android
 
-You do not need AnkiMobile or AnkiDroid to get full Anki status in よむ on mobile. The full path is simple: your phone, tablet, or iPad runs よむ, while your desktop runs Anki and AnkiConnect. The phone is only the reading screen; all deck scans, note updates, card status, media writes, and review queues still happen through desktop AnkiConnect.
+You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. The full setup keeps Anki on your computer and treats the phone as just the reading screen — all deck scans, note updates, card status, and review queues happen through desktop AnkiConnect.
 
-The easiest private setup is [Tailscale](https://tailscale.com/). Think of it as a private connection between your own devices. You do not need to open your router, expose Anki to the public internet, or use the command line. Tailscale has official downloads and install guides for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
+The simplest private connection is [Tailscale](https://tailscale.com/): a private link between your own devices, with no router setup, no public exposure, and no command line. It has installers for [macOS, Windows, Linux, iOS, iPadOS, and Android](https://tailscale.com/downloads).
 
-In the steps below, replace every `100.x.y.z` with the desktop's Tailscale address. All AnkiConnect config changes happen on the desktop; the phone, tablet, or iPad only needs the final desktop URL in よむ.
+Below, replace every `100.x.y.z` with your computer's Tailscale address. All AnkiConnect changes happen on the computer; the phone only needs the final URL.
 
-1. On your desktop, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
-2. Install Tailscale on the desktop, sign in, and note the desktop's Tailscale address. It looks like `100.x.y.z`; MagicDNS may also show a name like `desktop-name.tailnet-name.ts.net`.
-3. Install Tailscale on your phone, tablet, or iPad and sign in to the same Tailscale account.
-4. Open Anki on the desktop, then open **Tools > Add-ons > AnkiConnect > Config**.
-5. Change `webBindAddress` from `127.0.0.1` to the desktop's Tailscale `100.x.y.z` address. If you also want same-Wi-Fi LAN access, use `0.0.0.0` instead and rely on your home network/firewall. Keep `webBindPort` as `8765`.
-6. Add `https://hrussellzfac023.github.io` to `webCorsOriginList` so the hosted よむ tools can make direct browser checks when the userscript request bridge is not active. Keep any existing origins you already use.
+1. On your computer, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
+2. Install Tailscale on the computer, sign in, and note its address (`100.x.y.z`, or a MagicDNS name like `desktop-name.tailnet-name.ts.net`).
+3. Install Tailscale on the phone or tablet and sign in to the **same** account.
+4. In Anki, open **Tools → Add-ons → AnkiConnect → Config**.
+5. Change `webBindAddress` from `127.0.0.1` to your `100.x.y.z` address, and keep `webBindPort` as `8765`. (For same-Wi-Fi access instead, use `0.0.0.0` and rely on your home network — never on untrusted networks.)
+6. Add `https://hrussellzfac023.github.io` to `webCorsOriginList`, keeping any origins you already have:
 
-```json
-{
-  "apiKey": null,
-  "apiLogPath": null,
-  "ignoreOriginList": [],
-  "webBindAddress": "100.x.y.z",
-  "webBindPort": 8765,
-  "webCorsOriginList": [
-    "http://localhost",
-    "https://hrussellzfac023.github.io"
-  ]
-}
-```
+   ```json
+   {
+     "webBindAddress": "100.x.y.z",
+     "webBindPort": 8765,
+     "webCorsOriginList": [
+       "http://localhost",
+       "https://hrussellzfac023.github.io"
+     ]
+   }
+   ```
 
-7. Save the AnkiConnect config, restart Anki, and leave Anki running.
-8. On mobile, keep Tailscale connected. As a quick network check, open `http://100.x.y.z:8765` in the mobile browser. A small AnkiConnect response is good; a timeout means the desktop listener, firewall, or Tailscale connection is not reachable yet.
-9. Make sure the よむ userscript is enabled for `https://hrussellzfac023.github.io` and for the reading sites where you use よむ. The userscript request bridge is the reliable mobile path for HTTP AnkiConnect URLs such as Tailscale and LAN addresses.
-10. In よむ settings on mobile, open Mining and set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`. On the same Wi-Fi, a LAN address such as `http://192.168.1.23:8765` can also work when AnkiConnect is bound to a LAN interface or `0.0.0.0`.
-11. Press **Check AnkiConnect**. If it connects, よむ automatically inspects your desktop Anki library, fills deck/note-type choices, shows existing-card status, updates cards, and can use Anki review queues from mobile.
+7. Save, restart Anki, and leave it running.
+8. On the phone, keep Tailscale connected. As a quick check, open `http://100.x.y.z:8765` in the mobile browser — a small AnkiConnect response means it's reachable; a timeout means the listener, firewall, or Tailscale isn't ready yet.
+9. In よむ settings → Mining, set **AnkiConnect URL** to `http://desktop-name.tailnet-name.ts.net:8765` or `http://100.x.y.z:8765`. A same-Wi-Fi address like `http://192.168.1.23:8765` also works when Anki is bound to that interface.
+10. Press **Check AnkiConnect**. On success, よむ reads your decks and note types, shows existing-card status, updates cards, and can pull Anki reviews into the study page.
 
-If the Tailscale name does not work, use the `100.x.y.z` address. If the LAN address does not work, use Tailscale instead. Do not put AnkiConnect on the public internet, do not forward port `8765` on your router, and do not use `0.0.0.0` on untrusted networks.
+If the MagicDNS name doesn't connect, use the `100.x.y.z` address. Don't put AnkiConnect on the public internet or forward port `8765` on your router.
 
-You can leave **Mobile Anki add-note fallback** enabled or disabled. It is only the fallback path for opening AnkiMobile or AnkiDroid when AnkiConnect is unavailable; it is not what gives よむ full existing-card status, updates, deck scanning, or review queues.
+### Mobile handoff (new notes only)
 
-### Mobile Anki handoff limits
+If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. This is one-way: it only starts a new note. It can't read your collection, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it's only this fallback path.
 
-Mobile Anki handoff is one-way: it opens AnkiMobile or AnkiDroid so you can create a new note. Handoff alone cannot scan existing decks, read your existing collection, show existing-card status, update old notes, adapt to existing deck formats, or provide Anki review queues.
+## Back up your settings
 
-AnkiMobile add-note links can carry deck, note type, tags, and field values when the installed app accepts them. AnkiDroid handoff uses Android's add/share flow with a front/back text draft, so it cannot preserve full よむ field mappings, deck/model choices, media handling, status sync, or updates. Use reachable desktop Anki with AnkiConnect for scanning, updates, status, reviews, and fewer compromises.
+Once you're set up, open **Settings → Dictionaries → Export settings JSON**. That saves a small backup file you can import into another browser later.
 
-Localhost on a phone or tablet means that device, not your desktop. If you run AnkiConnect, a local audio server, or OCR on a computer, use that computer's LAN/Tailscale address in よむ settings. Mobile browsers can also block autoplay and protected/cross-origin video capture, so subtitle lookup, copying, JPDB mining, and dictionary fallback remain the reliable mobile path.
+## If something does not work
 
-If a setup step mentions leaving a terminal window or local server running, treat it as optional power-user setup. The hosted audio path, JPDB mining, imported dictionaries, and the new-tab page are simpler on mobile.
+The usual fixes:
 
-## 9. Back Up Settings
+- **Nothing appears on a page** — make sure your userscript manager is enabled for that site, then refresh.
+- **Settings changes don't take effect** — refresh the page after saving.
+- **JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
+- **A desktop helper is unreachable on mobile** — remember `localhost` on a phone is the phone. Use your computer's LAN or Tailscale address.
 
-After setup, go to Settings > Dictionaries and use Export settings JSON. This gives you a small backup file you can import on another browser later.
+If the hosted study page or a Home Screen shortcut still looks like an old version after an update, open [the new-tab page](https://hrussellzfac023.github.io/yomu-reader/newtab/index.html) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `hrussellzfac023.github.io` and sign in again.
 
-## If Something Does Not Work
-
-The most common fixes are enabling the userscript manager for the current site, refreshing the page after changing settings, checking that a JPDB key was pasted correctly, and remembering that `localhost` on an iPhone means the iPhone itself rather than your desktop computer.
-
-If the hosted new-tab page or mobile Home Screen shortcut still looks like an old release after updating, open `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html` directly, refresh once, then close and reopen the tab or shortcut. よむ's new-tab page checks a small `version.json` file and reloads itself when the hosted build changes, but iOS, Android, and browser service workers can sometimes keep an old copy until the page is reopened. If it is still stale, remove and recreate the Home Screen shortcut, or clear site data for `hrussellzfac023.github.io` and sign in/paste keys again.
-
-If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and issue-report options.
+If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and bug-report options.
