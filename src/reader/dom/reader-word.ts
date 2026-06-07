@@ -1,4 +1,5 @@
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { coordinateInRange, hasPositiveRectArea } from './rect';
 
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -77,14 +78,6 @@ function rectPointScore(rect: DOMRect, x: number, y: number): number | null {
     const centerX = rect.left + (right - rect.left) / 2;
     const centerY = rect.top + (bottom - rect.top) / 2;
     return Math.hypot(x - centerX, y - centerY);
-}
-
-function hasPositiveRectArea(rect: DOMRect, right: number, bottom: number): boolean {
-    return right > rect.left && bottom > rect.top;
-}
-
-function coordinateInRange(value: number, start: number, end: number, slack: number): boolean {
-    return value >= start - slack && value <= end + slack;
 }
 
 export function nearestReadableSentenceForElement(element: HTMLElement, fallback = ''): string {

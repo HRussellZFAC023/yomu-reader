@@ -7,6 +7,7 @@ import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { isAppleTouchBrowser } from '../browser-platform';
 import { uiText } from '../i18n';
 import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb-audio-file';
+import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from '../jpdb/jpdb-vocabulary-url';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from '../proxy-fetch';
 import { uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript';
@@ -363,19 +364,8 @@ function jpdbVocabularyIdentities(html: string): Array<JpdbVocabularyIdentity | 
 }
 
 function jpdbVocabularyIdentityFromUrl(value: string): JpdbVocabularyIdentity | null {
-    try {
-        const url = new URL(value, 'https://jpdb.io');
-        const parts = url.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        const vid = Number.parseInt(parts[1] ?? '', 10);
-        return {
-            vid: Number.isFinite(vid) ? vid : 0,
-            expression: decodeURIComponent(parts[2] ?? ''),
-            reading: decodeURIComponent(parts[3] ?? ''),
-        };
-    } catch {
-        return null;
-    }
+    const identity = parseJpdbVocabularyUrlIdentity(value);
+    return identity ? { vid: identity.vid, expression: identity.spelling, reading: identity.reading } : null;
 }
 
 function jpdbVocabularyIdentityMatches(identity: JpdbVocabularyIdentity | null, card: JPDBCard): boolean {

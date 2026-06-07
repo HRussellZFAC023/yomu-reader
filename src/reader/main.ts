@@ -3158,16 +3158,7 @@ export class ReaderApp {
                 || token.end - token.start <= lookup.surfaceLength
                 || this.shouldSkipPointerTextToken(candidate, token)
                 || !this.isParserBackedLookupCard(token.card)) return false;
-            this.parser.cacheCards?.([token.card]);
-            await this.showCard(token.card, lookup.sentence, word, {
-                trigger,
-                navigation,
-                preservePosition: trigger === 'hover',
-                previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-                userGesture: options.userGesture,
-                hoverLookupGeneration: options.hoverLookupGeneration,
-                stackOverSettings: options.stackOverSettings,
-            });
+            await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation);
             return true;
         } catch (error) {
             log.warn('Uncached JPDB parse failed', { expression }, error);
@@ -3190,8 +3181,20 @@ export class ReaderApp {
         if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
         const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
         if (!resolved) return true;
-        this.parser.cacheCards?.([resolved]);
-        await this.showCard(resolved, lookup.sentence, word, {
+        await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
+        return true;
+    }
+
+    private async showRenderedWordExpansionCard(
+        card: JPDBCard,
+        sentence: string,
+        word: HTMLElement,
+        options: RenderedWordLookupOptions,
+        trigger: 'modal' | 'hover',
+        navigation: CardNavigationMode,
+    ): Promise<void> {
+        this.parser.cacheCards?.([card]);
+        await this.showCard(card, sentence, word, {
             trigger,
             navigation,
             preservePosition: trigger === 'hover',
@@ -3200,7 +3203,6 @@ export class ReaderApp {
             hoverLookupGeneration: options.hoverLookupGeneration,
             stackOverSettings: options.stackOverSettings,
         });
-        return true;
     }
 
     private async lookupUncachedPopupWord(

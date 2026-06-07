@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.30
+// @version      0.6.31
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -296,6 +296,12 @@
       return null;
     }
   }
+  function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
+    return right > rect.left && bottom > rect.top;
+  }
+  function coordinateInRange(value, start, end, slack) {
+    return value >= start - slack && value <= end + slack;
+  }
   const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   function unwrapReaderWords(root = document, options = {}) {
@@ -350,18 +356,12 @@
   function rectPointScore(rect, x, y) {
     const right = rect.right || rect.left + rect.width;
     const bottom = rect.bottom || rect.top + rect.height;
-    if (!hasPositiveRectArea$1(rect, right, bottom)) return null;
+    if (!hasPositiveRectArea(rect, right, bottom)) return null;
     const slack = 0.75;
-    if (!coordinateInRange$1(x, rect.left, right, slack) || !coordinateInRange$1(y, rect.top, bottom, slack)) return null;
+    if (!coordinateInRange(x, rect.left, right, slack) || !coordinateInRange(y, rect.top, bottom, slack)) return null;
     const centerX = rect.left + (right - rect.left) / 2;
     const centerY = rect.top + (bottom - rect.top) / 2;
     return Math.hypot(x - centerX, y - centerY);
-  }
-  function hasPositiveRectArea$1(rect, right, bottom) {
-    return right > rect.left && bottom > rect.top;
-  }
-  function coordinateInRange$1(value, start, end, slack) {
-    return value >= start - slack && value <= end + slack;
   }
   function nearestReadableSentenceForElement(element2, fallback = "") {
     const surface = readerWordSurfaceText(element2).trim() || element2.textContent?.trim() || "";
@@ -7576,6 +7576,29 @@ recommendedJiten	jiten.moe頻度データです。
       return true;
     });
   }
+  function jpdbVocabularyIdentityFromUrl$1(value) {
+    if (!value) return null;
+    try {
+      const url = new URL(value, "https://jpdb.io");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return {
+        vid: Number.isFinite(vid) ? vid : 0,
+        spelling: decodeUrlPathPart(parts[2] ?? ""),
+        reading: decodeUrlPathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function decodeUrlPathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
   function uniqueStrings$2(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
@@ -7858,19 +7881,8 @@ recommendedJiten	jiten.moe頻度データです。
     return identities;
   }
   function jpdbVocabularyIdentityFromUrl(value) {
-    try {
-      const url = new URL(value, "https://jpdb.io");
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] !== "vocabulary") return null;
-      const vid = Number.parseInt(parts[1] ?? "", 10);
-      return {
-        vid: Number.isFinite(vid) ? vid : 0,
-        expression: decodeURIComponent(parts[2] ?? ""),
-        reading: decodeURIComponent(parts[3] ?? "")
-      };
-    } catch {
-      return null;
-    }
+    const identity = jpdbVocabularyIdentityFromUrl$1(value);
+    return identity ? { vid: identity.vid, expression: identity.spelling, reading: identity.reading } : null;
   }
   function jpdbVocabularyIdentityMatches$1(identity, card) {
     if (!identity) return false;
@@ -30809,12 +30821,6 @@ ${glossaryKey}`;
     const slack = 1;
     return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
   }
-  function hasPositiveRectArea(rect, right, bottom) {
-    return right > rect.left && bottom > rect.top;
-  }
-  function coordinateInRange(value, start, end, slack) {
-    return value >= start - slack && value <= end + slack;
-  }
   const COMMON_EXCLUDE = [
     '[role="dialog"]',
     '[aria-modal="true"]',
@@ -39898,16 +39904,7 @@ ${spelling}`);
         const token = pointerTokenAtOffset(tokens ?? [], lookup.offset);
         const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
         if (!token || token.end - token.start <= lookup.surfaceLength || this.shouldSkipPointerTextToken(candidate, token) || !this.isParserBackedLookupCard(token.card)) return false;
-        this.parser.cacheCards?.([token.card]);
-        await this.showCard(token.card, lookup.sentence, word, {
-          trigger,
-          navigation,
-          preservePosition: trigger === "hover",
-          previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-          userGesture: options.userGesture,
-          hoverLookupGeneration: options.hoverLookupGeneration,
-          stackOverSettings: options.stackOverSettings
-        });
+        await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation);
         return true;
       } catch (error) {
         log.warn("Uncached JPDB parse failed", { expression }, error);
@@ -39921,8 +39918,12 @@ ${spelling}`);
       if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
       const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
       if (!resolved) return true;
-      this.parser.cacheCards?.([resolved]);
-      await this.showCard(resolved, lookup.sentence, word, {
+      await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
+      return true;
+    }
+    async showRenderedWordExpansionCard(card, sentence, word, options, trigger, navigation) {
+      this.parser.cacheCards?.([card]);
+      await this.showCard(card, sentence, word, {
         trigger,
         navigation,
         preservePosition: trigger === "hover",
@@ -39931,7 +39932,6 @@ ${spelling}`);
         hoverLookupGeneration: options.hoverLookupGeneration,
         stackOverSettings: options.stackOverSettings
       });
-      return true;
     }
     async lookupUncachedPopupWord(word, options) {
       const expression = renderedWordLookupText(word);
