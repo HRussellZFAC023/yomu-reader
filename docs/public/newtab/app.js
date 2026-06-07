@@ -1492,9 +1492,9 @@
       ankiScanSummary: "Decks {decks}, note types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "Open desktop Anki and check AnkiConnect.",
-      ankiSettingsUnreachable: "AnkiConnect not reached.",
-      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript and refresh.`,
+      ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
+      ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
+      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
@@ -2881,9 +2881,9 @@ ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み
 ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
-ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
-ankiSettingsUnreachable	AnkiConnectに接続できません。
-ankiHostedBridgeMissing	よむユーザースクリプトを有効化して更新してください。
+ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
+ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント
@@ -5615,7 +5615,7 @@ recommendedJiten	jiten.moe頻度データです。
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
-  const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
+  const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   let trustedHtmlPolicy;
   function setInnerHtml(element, html) {
@@ -5761,7 +5761,7 @@ recommendedJiten	jiten.moe頻度データです。
     return text2.indexOf(search);
   }
   function isJapaneseSentenceContext(text2) {
-    return Boolean(text2 && HAS_JAPANESE$1.test(text2));
+    return Boolean(text2 && HAS_JAPANESE.test(text2));
   }
   function sentenceSearchText(text2, surface, fallback) {
     const cleanSurface = cleanReadableSentence(surface);
@@ -5852,7 +5852,7 @@ recommendedJiten	jiten.moe頻度データです。
     if (!/\s/u.test(char)) return false;
     const before = text2.slice(Math.max(0, index - 24), index);
     const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
-    return HAS_JAPANESE$1.test(before) && HAS_JAPANESE$1.test(after);
+    return HAS_JAPANESE.test(before) && HAS_JAPANESE.test(after);
   }
   function clampLongSentence(sentence, surface) {
     if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
@@ -7404,7 +7404,7 @@ recommendedJiten	jiten.moe頻度データです。
     };
   }
   function isCollectableFragmentText(text2, fragments, options) {
-    if (!HAS_JAPANESE$1.test(text2)) return false;
+    if (!HAS_JAPANESE.test(text2)) return false;
     if (compactFragmentTextLength(text2) >= (options.minLength ?? 2)) return true;
     return fragments.some((fragment2) => fragment2.hasNativeRuby);
   }
@@ -7518,7 +7518,7 @@ recommendedJiten	jiten.moe頻度データです。
         if (!parent || parent.closest(".jpdb-reader-word,[data-jpdb-reader-root],script,style,noscript,rt,rp")) {
           return NodeFilter.FILTER_REJECT;
         }
-        return HAS_JAPANESE$1.test(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        return HAS_JAPANESE.test(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
     return Boolean(walker.nextNode());
@@ -8509,6 +8509,46 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function formatPartOfSpeechDetails(tags = []) {
     return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
+  const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
+  const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
+  const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
+  function splitLearnerGlossaryText(text2) {
+    const withoutExamples = learnerGlossaryWithoutExamples(text2);
+    return withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map((item) => item.trim()).filter(Boolean);
+  }
+  function learnerGlossaryWithoutExamples(text2) {
+    const normalized = text2.replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
+  }
+  function cleanLearnerGlossaryText(text2) {
+    let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
+    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
+    if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return "";
+    return clean;
+  }
+  function cutBeforeExampleText(text2) {
+    const japaneseIndex = text2.search(HAS_JAPANESE);
+    const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
+    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
+    const cutoff = indexes.length ? Math.min(...indexes) : -1;
+    return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
+  }
+  function trimLearnerMeaning(text2, maxLength = 56) {
+    if (text2.length <= maxLength) return text2;
+    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
+    return truncated || text2.slice(0, maxLength).trim();
+  }
+  function humanizeTerseGlosses(text2) {
+    const words = text2.split(/\s+/).filter(Boolean);
+    if (words.length < 2 || words.length > 4) return text2;
+    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
+    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
+    return text2;
+  }
+  function looksLikeGrammarTag(text2) {
+    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
   }
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
@@ -13009,44 +13049,8 @@ ${entry.reading}`;
     return a - b;
   }
   function summarizeLearnerGlossary(entry) {
-    const candidates = entry.glossary.flatMap((item) => splitLearnerGlossaryText(glossaryToText(item))).map(cleanLearnerGlossaryText$1).filter(Boolean);
+    const candidates = entry.glossary.flatMap((item) => splitLearnerGlossaryText(glossaryToText(item))).map(cleanLearnerGlossaryText).filter(Boolean);
     return Array.from(new Set(candidates)).slice(0, 3).join(", ");
-  }
-  const LEARNER_GLOSSARY_SOURCE_RE$1 = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
-  const LEARNER_GLOSSARY_TAG_RE$1 = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
-  function splitLearnerGlossaryText(text2) {
-    const normalized = text2.replace(/\s+/g, " ").trim();
-    if (!normalized) return [];
-    const withoutExamples = cutBeforeExampleText$1(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE$1, "").trim();
-    return withoutExamples.split(/\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/).map((item) => item.trim()).filter(Boolean);
-  }
-  function cleanLearnerGlossaryText$1(text2) {
-    let clean = text2.replace(/^\[[^\]]+\]\s*/, "").replace(LEARNER_GLOSSARY_TAG_RE$1, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/i, "").replace(/\s+/g, " ").trim();
-    clean = humanizeTerseGlosses$1(trimLearnerMeaning$1(clean));
-    if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag$1(clean)) return "";
-    return clean;
-  }
-  function cutBeforeExampleText$1(text2) {
-    const japaneseIndex = text2.search(HAS_JAPANESE$1);
-    const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/);
-    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
-    const cutoff = indexes.length ? Math.min(...indexes) : -1;
-    return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
-  }
-  function trimLearnerMeaning$1(text2, maxLength = 56) {
-    if (text2.length <= maxLength) return text2;
-    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/, "").trim();
-    return truncated || text2.slice(0, maxLength).trim();
-  }
-  function humanizeTerseGlosses$1(text2) {
-    const words = text2.split(/\s+/).filter(Boolean);
-    if (words.length < 2 || words.length > 4) return text2;
-    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
-    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
-    return text2;
-  }
-  function looksLikeGrammarTag$1(text2) {
-    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   const ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS = 1500;
@@ -13156,7 +13160,8 @@ ${entry.reading}`;
   function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref$1()) {
     if (getUserscriptHttpRequest()) return false;
     const current = readAnkiUrl(currentHref);
-    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    if (!current || !isYomuHostedAppUrl(current.href)) return false;
+    if (canLocalPreviewFetchAnkiConnect(current)) return false;
     const target = readAnkiUrl(url, current.href);
     return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
   }
@@ -14470,7 +14475,6 @@ ${entry.reading}`;
       const empty = emptyAnkiLookupResult$1();
       if (!cards.length) return [];
       if (this.isDestroyed) return cards.map(() => empty);
-      if (this.isLookupCoolingDown()) return cards.map(() => empty);
       const results = cards.map(() => empty);
       const pending = this.collectPendingLookupGroups(cards, results, (cacheKey) => this.readLookupCache(cacheKey));
       if (!pending.length) return results;
@@ -18861,6 +18865,242 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function jitenDeckLabel$1(deck) {
     return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
   }
+  const NEW_TAB_COPY = {
+    en: {
+      switchReviewSource: "Switch review source",
+      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.",
+      newTabMode: "New tab mode",
+      stats: "Stats",
+      statsRefresh: "Refresh stats",
+      statsCombined: "Combined",
+      statsConnections: "Connections",
+      statsReviewsToday: "Reviews today",
+      statsTotalReviews: "Total reviews",
+      statsCurrentStreak: "Current streak",
+      statsLongestStreak: "Longest streak",
+      statsRetention: "Retention",
+      statsAverageSpeed: "Average speed",
+      statsCardsPerMinute: "cards/min",
+      statsEstimatedDueTime: "Due estimate",
+      statsCards: "Cards",
+      statsDailyActivity: "Daily activity",
+      statsMonthlyHeatmap: "Monthly heatmap",
+      statsAccuracy: "Accuracy",
+      statsStreak: "Streak",
+      statsActivityReviews: "Reviews",
+      statsActivityMinutes: "Minutes",
+      statsActivityNewCards: "New cards",
+      statsCardDistribution: "Card distribution",
+      statsStudyTroubleCards: "Study due/failed",
+      statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
+      statsChooseJpdbFile: "Choose reviews.json",
+      statsConnectAnki: "Connect Anki",
+      statsOpenApiSettings: "API settings",
+      statsOpenJpdbSettings: "JPDB settings",
+      statsOpenAnkiSettings: "Anki settings",
+      statsLoading: "Loading stats...",
+      statsNoData: "No stats yet.",
+      statsJpdbLoaded: "JPDB card states loaded.",
+      statsJitenLoaded: "Jiten SRS loaded.",
+      statsApiLoaded: "{providers} SRS loaded.",
+      statsApiKeyMissing: "Add a JPDB or Jiten API key.",
+      statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
+      statsAnkiDecks: "Anki decks",
+      statsAnkiConnected: "Connected to Anki.",
+      statsAnkiNoDecksSelected: "Connected to Anki. 0 of {total} decks selected.",
+      statsAnkiDecksSelected: "Connected to {count} deck{plural}.",
+      statsAnkiPartialDecksSelected: "Connected to {count} of {total} decks.",
+      statsImportFailed: "Could not import that file.",
+      statsImportReady: "JPDB review history imported.",
+      statsDropJpdbFile: "Drop reviews.json here or choose a file.",
+      statsDays: "days",
+      statsDue: "Due",
+      statsKnown: "Known",
+      sessionDone: "Done",
+      sessionLeft: "Left",
+      searchWordsOrKanji: "Search words or kanji",
+      draw: "Draw",
+      drawKanji: "Draw kanji",
+      clearSearch: "Clear search",
+      searchSuggestions: "Search suggestions",
+      studyNavigation: "Study navigation",
+      previousWord: "Previous word",
+      nextWord: "Next word",
+      getYomu: `Get ${APP_NAME}`,
+      offlineCache: "Offline cache",
+      offlineSourceSuffix: "offline",
+      noWordsYet: "Looking for more words...",
+      noKanjiCardsYet: "Looking for more kanji...",
+      noReviewWordsReady: "No review cards ready.",
+      noReviewKanjiReady: "No kanji review cards ready.",
+      noKanjiKeyword: "No kanji keyword found.",
+      couldNotLoadWords: "Could not load words.",
+      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB, Jiten, or Anki reconnects.",
+      startWithDictionary: "Start with a dictionary",
+      addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
+      dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
+      addDictionary: "Add dictionary",
+      hide: "Hide",
+      yourDrawing: "Your drawing",
+      couldNotSubmitGrade: "Could not submit grade.",
+      updatingJpdbKanji: "Updating JPDB kanji...",
+      jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
+      grading: "Grading...",
+      gradeTargetSelector: "Grade target",
+      gradeTargetBoth: "Both",
+      gradeTargetJpdb: "Grades JPDB",
+      gradeTargetJiten: "Grades Jiten",
+      gradeTargetAnki: "Grades Anki card: {target}",
+      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      offlineGradeReconnect: "Grade saved offline. It will sync when JPDB, Jiten, or Anki reconnects.",
+      missingAnkiCardId: "Missing Anki card id.",
+      noDefinitionsFound: "No definitions found.",
+      cachedReviews: "Cached reviews",
+      noSource: "No source",
+      liveReview: "live review",
+      searchRecognizing: "Recognizing...",
+      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
+      typeOrPasteKanji: "Type or paste kanji",
+      searching: "Searching...",
+      searchLocalDictionariesFailed: "Could not search local dictionaries.",
+      externalDictionarySearch: "External dictionary search",
+      words: "Words",
+      noLocalResults: "No matching results.",
+      addDictionaryForLocalResults: "No API matches found.",
+      factWordFrequency: "Word frequency",
+      lookUp: "Look up",
+      looksRight: "Looks right",
+      checkStrokeCount: "Check stroke count",
+      checkStrokeShapeOrder: "Check stroke shape/order",
+      checkStrokeCountOrder: "Check stroke count/order",
+      miningActions: "Mining actions"
+    }
+  };
+  const JA_NEW_TAB_COPY = {
+    switchReviewSource: "復習ソースを切り替え",
+    dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
+    newTabMode: "新しいタブのモード",
+    stats: "統計",
+    statsRefresh: "統計を更新",
+    statsCombined: "合計",
+    statsConnections: "接続",
+    statsReviewsToday: "今日の復習",
+    statsTotalReviews: "総復習数",
+    statsCurrentStreak: "現在の連続日数",
+    statsLongestStreak: "最長連続日数",
+    statsRetention: "定着率",
+    statsAverageSpeed: "平均速度",
+    statsCardsPerMinute: "カード/分",
+    statsEstimatedDueTime: "期限分の目安",
+    statsCards: "カード",
+    statsDailyActivity: "日別アクティビティ",
+    statsMonthlyHeatmap: "月別ヒートマップ",
+    statsAccuracy: "正答率",
+    statsStreak: "連続",
+    statsActivityReviews: "復習",
+    statsActivityMinutes: "分",
+    statsActivityNewCards: "新規",
+    statsCardDistribution: "カード分布",
+    statsStudyTroubleCards: "期限/失敗を学習",
+    statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
+    statsChooseJpdbFile: "reviews.jsonを選択",
+    statsConnectAnki: "Ankiに接続",
+    statsOpenApiSettings: "API設定",
+    statsOpenJpdbSettings: "JPDB設定",
+    statsOpenAnkiSettings: "Anki設定",
+    statsLoading: "統計を読み込み中...",
+    statsNoData: "統計はまだありません。",
+    statsJpdbLoaded: "JPDBカード状態を読み込みました。",
+    statsJitenLoaded: "Jiten SRSを読み込みました。",
+    statsApiLoaded: "{providers} SRSを読み込みました。",
+    statsApiKeyMissing: "JPDBまたはJiten APIキーを追加してください。",
+    statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
+    statsAnkiDecks: "Ankiデッキ",
+    statsAnkiConnected: "Ankiに接続しました。",
+    statsAnkiNoDecksSelected: "Ankiに接続しました。{total}件中0件のデッキを選択中です。",
+    statsAnkiDecksSelected: "{count}件のデッキに接続しました。",
+    statsAnkiPartialDecksSelected: "{total}件中{count}件のデッキに接続しました。",
+    statsImportFailed: "このファイルを読み込めませんでした。",
+    statsImportReady: "JPDB復習履歴を読み込みました。",
+    statsDropJpdbFile: "reviews.jsonをドロップするか、ファイルを選択してください。",
+    statsDays: "日",
+    statsDue: "期限",
+    statsKnown: "既知",
+    sessionDone: "完了",
+    sessionLeft: "残り",
+    searchWordsOrKanji: "単語・漢字を検索",
+    draw: "手書き",
+    drawKanji: "漢字を書く",
+    clearSearch: "検索をクリア",
+    searchSuggestions: "検索候補",
+    studyNavigation: "学習ナビゲーション",
+    previousWord: "前の単語",
+    nextWord: "次の単語",
+    getYomu: `${APP_NAME}を入手`,
+    offlineCache: "オフラインキャッシュ",
+    offlineSourceSuffix: "オフライン",
+    noWordsYet: "さらに単語を探しています…",
+    noKanjiCardsYet: "さらに漢字を探しています…",
+    noReviewWordsReady: "復習する単語カードは今ありません。",
+    noReviewKanjiReady: "復習する漢字カードは今ありません。",
+    noKanjiKeyword: "漢字キーワードが見つかりません。",
+    couldNotLoadWords: "単語を読み込めませんでした。",
+    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDB・Jiten・Ankiへの再接続時に同期されます。",
+    startWithDictionary: "辞書から始める",
+    addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
+    dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
+    addDictionary: "辞書を追加",
+    hide: "隠す",
+    yourDrawing: "あなたの手書き",
+    couldNotSubmitGrade: "採点を送信できませんでした。",
+    updatingJpdbKanji: "JPDB漢字を更新中...",
+    jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
+    grading: "採点中...",
+    gradeTargetSelector: "採点先",
+    gradeTargetBoth: "両方",
+    gradeTargetJpdb: "JPDBを採点",
+    gradeTargetJiten: "Jitenを採点",
+    gradeTargetAnki: "Ankiカードを採点: {target}",
+    gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
+    gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
+    offlineGradeReconnect: "採点をオフラインで保存しました。JPDB・Jiten・Ankiへの再接続時に同期されます。",
+    missingAnkiCardId: "AnkiカードIDがありません。",
+    noDefinitionsFound: "定義が見つかりませんでした。",
+    cachedReviews: "キャッシュ済みレビュー",
+    noSource: "ソースなし",
+    liveReview: "ライブレビュー",
+    searchRecognizing: "認識中...",
+    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
+    typeOrPasteKanji: "漢字を入力または貼り付け",
+    searching: "検索中...",
+    searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
+    externalDictionarySearch: "外部辞書検索",
+    words: "単語",
+    noLocalResults: "一致する結果がありません。",
+    addDictionaryForLocalResults: "APIの一致が見つかりません。",
+    factWordFrequency: "単語頻度",
+    lookUp: "検索",
+    looksRight: "いい感じです",
+    checkStrokeCount: "画数を確認",
+    checkStrokeShapeOrder: "字形・筆順を確認",
+    checkStrokeCountOrder: "画数・筆順を確認",
+    miningActions: "マイニング操作"
+  };
+  const NEW_TAB_COPY_BY_LANGUAGE = {
+    en: NEW_TAB_COPY.en,
+    ja: { ...NEW_TAB_COPY.en, ...JA_NEW_TAB_COPY }
+  };
+  const NEW_TAB_COPY_KEYS = new Set(Object.keys(NEW_TAB_COPY.en));
+  function isNewTabCopyKey(key2) {
+    return NEW_TAB_COPY_KEYS.has(key2);
+  }
+  function newTabText(language, key2) {
+    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key2] ?? NEW_TAB_COPY.en[key2];
+  }
+  function resolveNewTabLanguage(language) {
+    return language === "ja" ? "ja" : "en";
+  }
   function assertReviewableApiCardState(states, settings) {
     if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
@@ -19087,20 +19327,37 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async gradeCard(button, card, sentence) {
       const grade = button.dataset.grade;
-      const ankiCardId = Number(button.dataset.ankiCardId);
+      const selection = selectedPopoverReviewTarget(button);
       await this.reviewGrade(grade, card, sentence, {
-        ankiCardId: Number.isFinite(ankiCardId) && ankiCardId > 0 ? ankiCardId : void 0,
+        target: selection.kind,
+        ankiCardId: selection.ankiCardId,
         deckId: defaultJpdbDeckId(this.options.getSettings())
       });
     }
     async reviewGrade(grade, card, sentence, options = {}) {
       const settings = this.options.getSettings();
       if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
-      if (options.ankiCardId) {
-        await this.options.anki.answerCard(options.ankiCardId, grade);
+      if (options.target === "both") {
+        await this.reviewApiCard(grade, card, sentence, options);
+        await this.answerAnkiCard(grade, card, options.ankiCardId);
+        return;
+      }
+      if (options.target === "anki" || options.ankiCardId) {
+        await this.answerAnkiCard(grade, card, options.ankiCardId);
+        return;
+      }
+      await this.reviewApiCard(grade, card, sentence, options);
+    }
+    async answerAnkiCard(grade, card, ankiCardId) {
+      if (ankiCardId) {
+        await this.options.anki.answerCard(ankiCardId, grade);
         this.notifyAnkiStatusChanged(card);
         return;
       }
+      throw new Error(newTabText(this.options.getSettings().interfaceLanguage, "missingAnkiCardId"));
+    }
+    async reviewApiCard(grade, card, sentence, options) {
+      const settings = this.options.getSettings();
       const provider = this.apiProviderForCard(card, settings);
       this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview"));
       const states = normalizeCardStates(card.cardState);
@@ -19239,6 +19496,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const value = button.closest(".jpdb-reader-anki-card-preview")?.querySelector("[data-anki-audio-merge]")?.value;
     return value === "theirs" || value === "ours" ? value : "both";
   }
+  function selectedPopoverReviewTarget(button) {
+    const option = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]")?.selectedOptions[0] ?? null;
+    const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
+    const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
+    return { kind: target, ankiCardId };
+  }
+  function reviewTargetKind(value) {
+    if (value === "both" || value === "anki") return value;
+    if (value === "jpdb" || value === "jiten") return "api";
+    return void 0;
+  }
+  function positiveNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : void 0;
+  }
   function ankiSourceTitle(sourceTitle) {
     return sourceTitle || document.title;
   }
@@ -19303,7 +19575,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function shouldRenderMobileAnkiHandoffAction(ankiLookup, settings) {
     return canUseMobileAnkiHandoff(settings) && !ankiLookup.primary;
   }
-  function renderAnkiExistingSection(ankiLookup, storedContext, settings) {
+  function renderAnkiExistingSection(ankiLookup, storedContext, settings, options = {}) {
     if (!settings.ankiSectionEnabled) return "";
     const notes = orderedExistingAnkiNotes(ankiLookup);
     const primary = notes[0];
@@ -19317,7 +19589,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                 <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ""}
-            ${notes.length === 1 ? renderAnkiExistingNote(primary, storedContext, settings, false, true) : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0)).join("")}
+            ${notes.length === 1 ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options) : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join("")}
         </details>
     `;
   }
@@ -19368,7 +19640,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </div>`).join("")}
     </div>`;
   }
-  function renderAnkiExistingNote(note, storedContext, settings, collapsible, open) {
+  function renderAnkiExistingNote(note, storedContext, settings, collapsible, open, options) {
     const language = settings.interfaceLanguage;
     const preview = ankiExistingPreview(note, storedContext, language);
     const content = `<div class="jpdb-reader-anki-existing-note-body">
@@ -19377,7 +19649,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ${preview.pending}
         ${preview.context}
         ${renderAnkiNoteActions(note, language)}
-        ${settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ""}
+        ${!options.suppressReviewButtons && settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ""}
     </div>`;
     if (!collapsible) {
       return `<div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview" data-anki-note-id="${note.noteId}">
@@ -20669,7 +20941,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function localGlossaryItemsForRender(glossary) {
     const items = /* @__PURE__ */ new Set();
     glossary.slice(0, 4).forEach((item) => items.add(item));
-    glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE$1.test(glossaryToText(item))).forEach((item) => items.add(item));
+    glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE.test(glossaryToText(item))).forEach((item) => items.add(item));
     return Array.from(items);
   }
   function hasAdditionalLocalDictionaryText(entry) {
@@ -20678,7 +20950,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (hasRichStructuredGlossary(item)) return true;
       const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
       if (!text2 || text2 === summary) return false;
-      return HAS_JAPANESE$1.test(text2);
+      return HAS_JAPANESE.test(text2);
     });
   }
   function renderFrequencyPill(entry, dictionaryLabel2) {
@@ -22768,7 +23040,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
     }
     renderAnkiExistingSection(data, view) {
-      return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings());
+      return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
+        suppressReviewButtons: Boolean(view.reviewButtons)
+      });
     }
     renderAnkiSourceSection(card, sentence, data, view) {
       return this.renderAnkiExistingSection(data, view) || this.renderAnkiNewCardPreview(card, sentence, data, view);
@@ -22836,12 +23110,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderReviewButtons(options) {
       const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
-      if (reviewBlockReason) {
-        return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
-      }
+      const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
+      if (earlyResult !== void 0) return earlyResult;
+      const targets = this.popoverReviewTargets(data, provider, language);
+      if (targets.length) return this.renderTargetedReviewButtons(targets, language);
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
+      return this.renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language);
+    }
+    reviewButtonsEarlyResult(card, data, reviewBlockReason) {
+      if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
+      if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+      return void 0;
+    }
+    renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language) {
       return renderReviewButtons(this.settings(), null, {
         targetLabel: provider?.label ?? uiText(language, "gradeJpdbCardTarget"),
         title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language)
@@ -22854,6 +23137,97 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     canReviewWithApiProvider(provider) {
       const settings = this.settings();
       return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+    }
+    popoverReviewTargets(data, provider, language) {
+      const apiTarget = provider && this.canReviewWithApiProvider(provider) ? this.apiReviewTarget(provider, language) : null;
+      const ankiTargets = this.ankiReviewTargets(data, language);
+      if (apiTarget && ankiTargets.length) {
+        const apiProvider = provider;
+        if (!apiProvider) return ankiTargets;
+        const primaryAnki = ankiTargets[0];
+        return [
+          this.bothReviewTarget(apiProvider, primaryAnki, language),
+          apiTarget,
+          ...ankiTargets
+        ];
+      }
+      if (ankiTargets.length) return ankiTargets;
+      return apiTarget ? [apiTarget] : [];
+    }
+    apiReviewTarget(provider, language) {
+      const isJiten = provider.id === "jiten";
+      return {
+        id: provider.id,
+        kind: isJiten ? "jiten" : "jpdb",
+        label: newTabText(language, isJiten ? "gradeTargetJiten" : "gradeTargetJpdb"),
+        shortLabel: provider.label
+      };
+    }
+    bothReviewTarget(provider, ankiTarget, language) {
+      const label = provider.id === "jiten" ? newTabText(language, "gradeTargetJitenAndAnki") : newTabText(language, "gradeTargetJpdbAndAnki");
+      return {
+        id: "both",
+        kind: "both",
+        label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
+        shortLabel: newTabText(language, "gradeTargetBoth"),
+        ankiCardId: ankiTarget.ankiCardId
+      };
+    }
+    ankiReviewTargets(data, language) {
+      const settings = this.settings();
+      if (!settings.enableReviews || !settings.ankiSectionEnabled) return [];
+      const candidates = /* @__PURE__ */ new Map();
+      const add = (cardId, label, cardName = "") => {
+        const id = Number(cardId);
+        if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
+        const deck = label.trim() || "Anki";
+        const template = cardName.trim();
+        candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
+      };
+      const orderedNotes = data.ankiLookup.primary ? [
+        data.ankiLookup.primary,
+        ...data.ankiLookup.notes.filter((note) => note !== data.ankiLookup.primary)
+      ] : data.ankiLookup.notes;
+      orderedNotes.forEach((note) => {
+        const noteLabel = note.deckNames.join(", ") || note.modelName || "Anki";
+        note.renderedCards?.forEach((rendered) => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
+        add(note.primaryCardId, noteLabel);
+        note.cardIds.forEach((cardId) => add(cardId, noteLabel));
+      });
+      const primary = data.ankiLookup.primary;
+      if (primary && !data.ankiLookup.notes.includes(primary)) {
+        const noteLabel = primary.deckNames.join(", ") || primary.modelName || "Anki";
+        primary.renderedCards?.forEach((rendered) => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
+        add(primary.primaryCardId, noteLabel);
+        primary.cardIds.forEach((cardId) => add(cardId, noteLabel));
+      }
+      return Array.from(candidates, ([cardId, label]) => ({
+        id: `anki:${cardId}`,
+        kind: "anki",
+        ankiCardId: cardId,
+        plainLabel: label,
+        label: formatTargetLabel(newTabText(language, "gradeTargetAnki"), label),
+        shortLabel: compactAnkiTargetLabel(label, cardId)
+      }));
+    }
+    renderTargetedReviewButtons(targets, language) {
+      const settings = this.settings();
+      const grades = reviewButtonGrades(settings);
+      const selected = targets[0];
+      if (!selected || !grades.length) return "";
+      const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : "";
+      const targetLabel = renderReviewTargetLabel(selected);
+      const targetAttrs = reviewTargetButtonAttrs(selected);
+      return `
+            ${selector}
+            <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row>
+                ${targetLabel}
+                ${grades.map(([grade, label]) => {
+        const title = selected.label ? ` title="${escapeHtml$1(selected.label)}" aria-label="${escapeHtml$1(`${label}: ${selected.label}`)}"` : "";
+        return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml$1(label)}</button>`;
+      }).join("")}
+            </div>
+        `;
     }
     renderMetaItems(card, provider, state, data) {
       const settings = this.settings();
@@ -22883,6 +23257,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (provider?.id === "jiten") return jitenDeckLabel((data.jitenDecks ?? [])[0]);
       return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || "forq", data.jpdbDecks);
     }
+  }
+  function renderReviewTargetSelector(targets, language) {
+    return `<label class="jpdb-reader-newtab-grade-target-selector jpdb-reader-popover-grade-target-selector" data-review-target-selector>
+        <span class="jpdb-reader-newtab-grade-target-selector-label">${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}</span>
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}">
+            ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+        </select>
+    </label>`;
+  }
+  function renderReviewTargetLabel(target) {
+    const chip = target.shortLabel ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml$1(target.kind)}">${escapeHtml$1(target.shortLabel)}</span>` : "";
+    return `<div class="jpdb-reader-newtab-grade-target" data-review-target-label>${chip}<span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
+  }
+  function reviewTargetButtonAttrs(target) {
+    return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
+  }
+  function formatTargetLabel(template, target) {
+    return template.replaceAll("{target}", target);
+  }
+  function compactAnkiTargetLabel(label, cardId) {
+    const suffix = `#${cardId}`;
+    const clean = label.replace(/\s+/g, " ").trim();
+    if (!clean) return `Anki ${suffix}`;
+    return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
   }
   function reviewButtonTitle(data, cardStates, selectedDeckLabel, language) {
     const reviewAddsToDeck = !data.ankiLookup.primary?.primaryCardId && cardStates.includes("not-in-deck");
@@ -23429,9 +23827,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const isOpen = this.isOpen(sourceStateKey, initiallyExpanded);
       return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? " open" : ""}`;
     }
-    closedAttributes(sourceStateKey) {
-      return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="false"`;
-    }
     installTracking(popover) {
       installDictionarySourceTracking(popover, (details) => this.remember(details));
     }
@@ -23494,6 +23889,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
+  function resetFactoryResetDictionaryDatabase(dictionaries) {
+    return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
+  }
   class FactoryResetCoordinator {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -24353,7 +24751,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return queryKey(query) === queryKey(exactQuery);
   }
   function isUsefulStandaloneImmersionQuery(query) {
-    if (!query || !HAS_JAPANESE$1.test(query)) return false;
+    if (!query || !HAS_JAPANESE.test(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
   }
@@ -26064,242 +26462,6 @@ ${spelling}`);
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
-  const NEW_TAB_COPY = {
-    en: {
-      switchReviewSource: "Switch review source",
-      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.",
-      newTabMode: "New tab mode",
-      stats: "Stats",
-      statsRefresh: "Refresh stats",
-      statsCombined: "Combined",
-      statsConnections: "Connections",
-      statsReviewsToday: "Reviews today",
-      statsTotalReviews: "Total reviews",
-      statsCurrentStreak: "Current streak",
-      statsLongestStreak: "Longest streak",
-      statsRetention: "Retention",
-      statsAverageSpeed: "Average speed",
-      statsCardsPerMinute: "cards/min",
-      statsEstimatedDueTime: "Due estimate",
-      statsCards: "Cards",
-      statsDailyActivity: "Daily activity",
-      statsMonthlyHeatmap: "Monthly heatmap",
-      statsAccuracy: "Accuracy",
-      statsStreak: "Streak",
-      statsActivityReviews: "Reviews",
-      statsActivityMinutes: "Minutes",
-      statsActivityNewCards: "New cards",
-      statsCardDistribution: "Card distribution",
-      statsStudyTroubleCards: "Study due/failed",
-      statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
-      statsChooseJpdbFile: "Choose reviews.json",
-      statsConnectAnki: "Connect Anki",
-      statsOpenApiSettings: "API settings",
-      statsOpenJpdbSettings: "JPDB settings",
-      statsOpenAnkiSettings: "Anki settings",
-      statsLoading: "Loading stats...",
-      statsNoData: "No stats yet.",
-      statsJpdbLoaded: "JPDB card states loaded.",
-      statsJitenLoaded: "Jiten SRS loaded.",
-      statsApiLoaded: "{providers} SRS loaded.",
-      statsApiKeyMissing: "Add a JPDB or Jiten API key.",
-      statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
-      statsAnkiDecks: "Anki decks",
-      statsAnkiConnected: "Connected to Anki.",
-      statsAnkiNoDecksSelected: "Connected to Anki. 0 of {total} decks selected.",
-      statsAnkiDecksSelected: "Connected to {count} deck{plural}.",
-      statsAnkiPartialDecksSelected: "Connected to {count} of {total} decks.",
-      statsImportFailed: "Could not import that file.",
-      statsImportReady: "JPDB review history imported.",
-      statsDropJpdbFile: "Drop reviews.json here or choose a file.",
-      statsDays: "days",
-      statsDue: "Due",
-      statsKnown: "Known",
-      sessionDone: "Done",
-      sessionLeft: "Left",
-      searchWordsOrKanji: "Search words or kanji",
-      draw: "Draw",
-      drawKanji: "Draw kanji",
-      clearSearch: "Clear search",
-      searchSuggestions: "Search suggestions",
-      studyNavigation: "Study navigation",
-      previousWord: "Previous word",
-      nextWord: "Next word",
-      getYomu: `Get ${APP_NAME}`,
-      offlineCache: "Offline cache",
-      offlineSourceSuffix: "offline",
-      noWordsYet: "Looking for more words...",
-      noKanjiCardsYet: "Looking for more kanji...",
-      noReviewWordsReady: "No review cards ready.",
-      noReviewKanjiReady: "No kanji review cards ready.",
-      noKanjiKeyword: "No kanji keyword found.",
-      couldNotLoadWords: "Could not load words.",
-      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB, Jiten, or Anki reconnects.",
-      startWithDictionary: "Start with a dictionary",
-      addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
-      dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
-      addDictionary: "Add dictionary",
-      hide: "Hide",
-      yourDrawing: "Your drawing",
-      couldNotSubmitGrade: "Could not submit grade.",
-      updatingJpdbKanji: "Updating JPDB kanji...",
-      jpdbKanjiUpdateFailed: "Could not update JPDB kanji. Enable kanji reviews on JPDB first.",
-      grading: "Grading...",
-      gradeTargetSelector: "Grade target",
-      gradeTargetBoth: "Both",
-      gradeTargetJpdb: "Grades JPDB",
-      gradeTargetJiten: "Grades Jiten",
-      gradeTargetAnki: "Grades Anki card: {target}",
-      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
-      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
-      offlineGradeReconnect: "Grade saved offline. It will sync when JPDB, Jiten, or Anki reconnects.",
-      missingAnkiCardId: "Missing Anki card id.",
-      noDefinitionsFound: "No definitions found.",
-      cachedReviews: "Cached reviews",
-      noSource: "No source",
-      liveReview: "live review",
-      searchRecognizing: "Recognizing...",
-      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
-      typeOrPasteKanji: "Type or paste kanji",
-      searching: "Searching...",
-      searchLocalDictionariesFailed: "Could not search local dictionaries.",
-      externalDictionarySearch: "External dictionary search",
-      words: "Words",
-      noLocalResults: "No matching results.",
-      addDictionaryForLocalResults: "No API matches found.",
-      factWordFrequency: "Word frequency",
-      lookUp: "Look up",
-      looksRight: "Looks right",
-      checkStrokeCount: "Check stroke count",
-      checkStrokeShapeOrder: "Check stroke shape/order",
-      checkStrokeCountOrder: "Check stroke count/order",
-      miningActions: "Mining actions"
-    }
-  };
-  const JA_NEW_TAB_COPY = {
-    switchReviewSource: "復習ソースを切り替え",
-    dictionaryInstallNewTabHelp: "ローカル結果が必要な場合のみ、設定でYomitan辞書を追加してください。公開JPDB検索は辞書なしで使えます。",
-    newTabMode: "新しいタブのモード",
-    stats: "統計",
-    statsRefresh: "統計を更新",
-    statsCombined: "合計",
-    statsConnections: "接続",
-    statsReviewsToday: "今日の復習",
-    statsTotalReviews: "総復習数",
-    statsCurrentStreak: "現在の連続日数",
-    statsLongestStreak: "最長連続日数",
-    statsRetention: "定着率",
-    statsAverageSpeed: "平均速度",
-    statsCardsPerMinute: "カード/分",
-    statsEstimatedDueTime: "期限分の目安",
-    statsCards: "カード",
-    statsDailyActivity: "日別アクティビティ",
-    statsMonthlyHeatmap: "月別ヒートマップ",
-    statsAccuracy: "正答率",
-    statsStreak: "連続",
-    statsActivityReviews: "復習",
-    statsActivityMinutes: "分",
-    statsActivityNewCards: "新規",
-    statsCardDistribution: "カード分布",
-    statsStudyTroubleCards: "期限/失敗を学習",
-    statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
-    statsChooseJpdbFile: "reviews.jsonを選択",
-    statsConnectAnki: "Ankiに接続",
-    statsOpenApiSettings: "API設定",
-    statsOpenJpdbSettings: "JPDB設定",
-    statsOpenAnkiSettings: "Anki設定",
-    statsLoading: "統計を読み込み中...",
-    statsNoData: "統計はまだありません。",
-    statsJpdbLoaded: "JPDBカード状態を読み込みました。",
-    statsJitenLoaded: "Jiten SRSを読み込みました。",
-    statsApiLoaded: "{providers} SRSを読み込みました。",
-    statsApiKeyMissing: "JPDBまたはJiten APIキーを追加してください。",
-    statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
-    statsAnkiDecks: "Ankiデッキ",
-    statsAnkiConnected: "Ankiに接続しました。",
-    statsAnkiNoDecksSelected: "Ankiに接続しました。{total}件中0件のデッキを選択中です。",
-    statsAnkiDecksSelected: "{count}件のデッキに接続しました。",
-    statsAnkiPartialDecksSelected: "{total}件中{count}件のデッキに接続しました。",
-    statsImportFailed: "このファイルを読み込めませんでした。",
-    statsImportReady: "JPDB復習履歴を読み込みました。",
-    statsDropJpdbFile: "reviews.jsonをドロップするか、ファイルを選択してください。",
-    statsDays: "日",
-    statsDue: "期限",
-    statsKnown: "既知",
-    sessionDone: "完了",
-    sessionLeft: "残り",
-    searchWordsOrKanji: "単語・漢字を検索",
-    draw: "手書き",
-    drawKanji: "漢字を書く",
-    clearSearch: "検索をクリア",
-    searchSuggestions: "検索候補",
-    studyNavigation: "学習ナビゲーション",
-    previousWord: "前の単語",
-    nextWord: "次の単語",
-    getYomu: `${APP_NAME}を入手`,
-    offlineCache: "オフラインキャッシュ",
-    offlineSourceSuffix: "オフライン",
-    noWordsYet: "さらに単語を探しています…",
-    noKanjiCardsYet: "さらに漢字を探しています…",
-    noReviewWordsReady: "復習する単語カードは今ありません。",
-    noReviewKanjiReady: "復習する漢字カードは今ありません。",
-    noKanjiKeyword: "漢字キーワードが見つかりません。",
-    couldNotLoadWords: "単語を読み込めませんでした。",
-    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDB・Jiten・Ankiへの再接続時に同期されます。",
-    startWithDictionary: "辞書から始める",
-    addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
-    dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
-    addDictionary: "辞書を追加",
-    hide: "隠す",
-    yourDrawing: "あなたの手書き",
-    couldNotSubmitGrade: "採点を送信できませんでした。",
-    updatingJpdbKanji: "JPDB漢字を更新中...",
-    jpdbKanjiUpdateFailed: "JPDB漢字を更新できませんでした。先にJPDBで漢字レビューを有効にしてください。",
-    grading: "採点中...",
-    gradeTargetSelector: "採点先",
-    gradeTargetBoth: "両方",
-    gradeTargetJpdb: "JPDBを採点",
-    gradeTargetJiten: "Jitenを採点",
-    gradeTargetAnki: "Ankiカードを採点: {target}",
-    gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
-    gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
-    offlineGradeReconnect: "採点をオフラインで保存しました。JPDB・Jiten・Ankiへの再接続時に同期されます。",
-    missingAnkiCardId: "AnkiカードIDがありません。",
-    noDefinitionsFound: "定義が見つかりませんでした。",
-    cachedReviews: "キャッシュ済みレビュー",
-    noSource: "ソースなし",
-    liveReview: "ライブレビュー",
-    searchRecognizing: "認識中...",
-    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
-    typeOrPasteKanji: "漢字を入力または貼り付け",
-    searching: "検索中...",
-    searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
-    externalDictionarySearch: "外部辞書検索",
-    words: "単語",
-    noLocalResults: "一致する結果がありません。",
-    addDictionaryForLocalResults: "APIの一致が見つかりません。",
-    factWordFrequency: "単語頻度",
-    lookUp: "検索",
-    looksRight: "いい感じです",
-    checkStrokeCount: "画数を確認",
-    checkStrokeShapeOrder: "字形・筆順を確認",
-    checkStrokeCountOrder: "画数・筆順を確認",
-    miningActions: "マイニング操作"
-  };
-  const NEW_TAB_COPY_BY_LANGUAGE = {
-    en: NEW_TAB_COPY.en,
-    ja: { ...NEW_TAB_COPY.en, ...JA_NEW_TAB_COPY }
-  };
-  const NEW_TAB_COPY_KEYS = new Set(Object.keys(NEW_TAB_COPY.en));
-  function isNewTabCopyKey(key2) {
-    return NEW_TAB_COPY_KEYS.has(key2);
-  }
-  function newTabText(language, key2) {
-    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key2] ?? NEW_TAB_COPY.en[key2];
-  }
-  function resolveNewTabLanguage(language) {
-    return language === "ja" ? "ja" : "en";
-  }
   function newTabLookupReviewTargetSelection(button) {
     if (button.dataset.newtabReviewTarget === "jpdb") return { kind: "jpdb" };
     if (button.dataset.newtabReviewTarget === "jiten") return { kind: "jiten" };
@@ -26360,7 +26522,7 @@ ${spelling}`);
     const link = event.target?.closest("a.gloss-link[data-dictionary-lookup]");
     if (!link || !popover.contains(link)) return void 0;
     const query = link.dataset.dictionaryLookup?.trim() ?? "";
-    if (!HAS_JAPANESE$1.test(query)) return void 0;
+    if (!HAS_JAPANESE.test(query)) return void 0;
     consumeLookupPopoverButtonEvent(event);
     return {
       link,
@@ -30254,7 +30416,7 @@ ${normalizedReading}`;
       acceptNode: (node) => {
         const parent = node.parentElement;
         if (!parent || parent.closest(READER_WORD_SELECTOR)) return NodeFilter.FILTER_REJECT;
-        return HAS_JAPANESE$1.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        return HAS_JAPANESE.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
     return Boolean(walker.nextNode());
@@ -30363,6 +30525,20 @@ ${normalizedReading}`;
   }
   function isSkippedChild(child) {
     return child === false || child === null || child === void 0;
+  }
+  function eventTargetElement(target) {
+    if (target instanceof HTMLElement) return target;
+    if (target instanceof Element) return closestHtmlAncestor(target);
+    if (target instanceof Text) return target.parentElement;
+    return null;
+  }
+  function closestHtmlAncestor(element) {
+    let current = element;
+    while (current) {
+      if (current instanceof HTMLElement) return current;
+      current = current.parentElement;
+    }
+    return null;
   }
   const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
   const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
@@ -30742,48 +30918,16 @@ ${normalizedReading}`;
   function kanjiCharacters(value) {
     return [...new Set(Array.from(value).filter((character) => /[\u3400-\u9fff々〆]/u.test(character)))];
   }
-  const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
-  const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
-  const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
   function cleanupNewTabMeaning(text2) {
     const normalized = stripMeaningMarkup(text2);
-    const withoutExamples = cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
-    const cleaned = withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map(cleanLearnerGlossaryText).filter(Boolean);
+    const withoutExamples = learnerGlossaryWithoutExamples(normalized);
+    const cleaned = splitLearnerGlossaryText(normalized).map(cleanLearnerGlossaryText).filter(Boolean);
     if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(", ");
     return trimSpaces(withoutExamples);
   }
   function stripMeaningMarkup(value) {
     const withoutTags = value.replace(/<[^>]*>/gu, " ").replace(/&[a-zA-Z0-9#]+;/gu, " ").trim();
     return withoutTags.replace(/\s+/gu, " ").trim();
-  }
-  function cleanLearnerGlossaryText(value) {
-    let clean = value.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
-    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
-    if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return "";
-    return clean;
-  }
-  function humanizeTerseGlosses(text2) {
-    const words = text2.split(/\s+/).filter(Boolean);
-    if (words.length < 2 || words.length > 4) return text2;
-    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
-    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
-    return text2;
-  }
-  function trimLearnerMeaning(text2, maxLength = 56) {
-    if (text2.length <= maxLength) return text2;
-    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
-    return truncated || text2.slice(0, maxLength).trim();
-  }
-  function looksLikeGrammarTag(text2) {
-    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
-  }
-  function cutBeforeExampleText(value) {
-    const japaneseIndex = value.search(HAS_JAPANESE);
-    const sentenceIndex = /\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u.exec(value)?.index ?? -1;
-    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
-    const cutoff = indexes.length ? Math.min(...indexes) : -1;
-    return cutoff >= 0 ? value.slice(0, cutoff) : value;
   }
   function trimSpaces(value) {
     return value.replace(/\s+/gu, " ").trim();
@@ -32272,7 +32416,7 @@ ${newTabCardReading(card)}`;
     };
     const startDrag = (event, point) => {
       if (drag) return;
-      const target = eventTargetElement$1(event.target);
+      const target = eventTargetElement(event.target);
       const card = resolveSwipeTarget(options.target);
       if (!target || !card || !options.root.contains(card) || !card.contains(target)) return;
       if (isSwipeBlockedTarget(target, card)) return;
@@ -32388,20 +32532,6 @@ ${newTabCardReading(card)}`;
   }
   function resolveSwipeTarget(target) {
     return typeof target === "function" ? target() : target;
-  }
-  function eventTargetElement$1(target) {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Element) return closestHtmlAncestor$1(target);
-    if (target instanceof Text) return target.parentElement;
-    return null;
-  }
-  function closestHtmlAncestor$1(element) {
-    let current = element;
-    while (current) {
-      if (current instanceof HTMLElement) return current;
-      current = current.parentElement;
-    }
-    return null;
   }
   function isSwipeBlockedTarget(target, card) {
     const blocked = target.closest(SWIPE_BLOCK_SELECTOR);
@@ -34804,7 +34934,7 @@ ${newTabCardReading(card)}`;
       }
       if (action === "source-toggle") {
         event.preventDefault();
-        const source = target.closest("[data-source-toggle-target]")?.dataset.sourceToggleTarget;
+        const source = this.sourceToggleClickTarget();
         if (source === "jpdb" || source === "anki" || source === "dictionary") void this.switchReviewSource(root, source);
         return true;
       }
@@ -35631,6 +35761,10 @@ ${newTabCardReading(card)}`;
         ...cached.result,
         cards: [...cached.result.cards]
       };
+    }
+    cachedSourceUnavailable(source) {
+      const cached = this.cachedSourceResult(source);
+      return Boolean(cached && !cached.cards.length && cached.emptyMessageKey);
     }
     rememberSourceResult(source, result, context) {
       if (context && (context.version !== this.sourceCacheVersion(source) || context.signature !== this.sourceCacheSignature(source))) {
@@ -36475,6 +36609,10 @@ ${newTabCardReading(card)}`;
       const currentIndex = sources.indexOf(current);
       return sources[(currentIndex + 1) % sources.length] ?? sources[0] ?? null;
     }
+    sourceToggleClickTarget() {
+      const card = this.visibleWords[this.index];
+      return card ? this.sourceToggleTarget(card) : null;
+    }
     sourceToggleSources(card) {
       const context = this.sourceToggleContext(card);
       const sources = uniqueConcreteSources([
@@ -36494,7 +36632,8 @@ ${newTabCardReading(card)}`;
         hasAnki: summary.hasAnki,
         canUseJpdb: this.canUseJpdbSource(),
         canUseAnki: this.canUseAnkiSource(),
-        canOfferAnki: this.canOfferAnkiSource()
+        canOfferAnki: this.canOfferAnkiSource(),
+        ankiUnavailable: this.cachedSourceUnavailable("anki")
       };
     }
     jpdbToggleSource(context) {
@@ -36507,7 +36646,13 @@ ${newTabCardReading(card)}`;
       return this.shouldIncludeAnkiToggleSource(context) ? "anki" : null;
     }
     shouldIncludeAnkiToggleSource(context) {
-      return context.hasAnki || context.current === "anki" || context.selected === "anki" || context.canUseAnki || context.canOfferAnki && this.canToggleFromJpdbSource(context);
+      return !this.shouldHideUnavailableAnkiToggleSource(context) && (this.hasAvailableAnkiToggleSource(context) || context.canOfferAnki && this.canToggleFromJpdbSource(context));
+    }
+    shouldHideUnavailableAnkiToggleSource(context) {
+      return context.ankiUnavailable && context.selected === "anki" && context.current !== "anki" && !context.hasAnki;
+    }
+    hasAvailableAnkiToggleSource(context) {
+      return context.hasAnki || context.current === "anki" || context.selected === "anki" || context.canUseAnki;
     }
     canToggleFromJpdbSource(context) {
       return context.current === "jpdb" || context.selected === "jpdb";
@@ -37601,11 +37746,26 @@ ${newTabCardReading(card)}`;
       const localReadings = uniqueTrimmedStrings(localEntries.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi])).slice(0, 8);
       const readings2 = newTabKanjiReadings(fullInfo, localReadings);
       const facts = this.newTabKanjiFacts(card, fullInfo, rtk, localMeanings);
+      const context = {
+        card,
+        kanji,
+        facts,
+        readings: readings2,
+        localMeanings,
+        fullInfo,
+        rtk,
+        vg,
+        localEntries,
+        similarEntries,
+        settings,
+        excludeFactLabels: new Set(facts.map(([label]) => label)),
+        similarEntriesLoaded
+      };
       const wrap = el(
         "div",
         { class: "jpdb-reader-newtab-kanji-details" },
         el("div", { class: "jpdb-reader-newtab-kanji-keywords" }),
-        ...this.renderNewTabKanjiSourceSections(card, kanji, facts, readings2, localMeanings, fullInfo, rtk, vg, localEntries, similarEntries, settings, similarEntriesLoaded),
+        ...this.renderNewTabKanjiSourceSections(context),
         this.renderKanjiMiningControls(fullInfo)
       );
       const keywordMount = wrap.querySelector(".jpdb-reader-newtab-kanji-keywords");
@@ -37613,87 +37773,34 @@ ${newTabCardReading(card)}`;
       this.dependencies.installDictionarySourceTracking?.(wrap);
       return wrap;
     }
-    renderNewTabKanjiSourceSections(card, kanji, facts, readings2, localMeanings, fullInfo, rtk, vg, localEntries, similarEntries, settings, similarEntriesLoaded) {
-      const kanjiFactLabels = new Set(facts.map(([label]) => label));
-      return orderedKanjiSourceIds(settings).flatMap((sourceId) => {
+    renderNewTabKanjiSourceSections(context) {
+      return orderedKanjiSourceIds(context.settings).flatMap((sourceId) => {
         if (sourceId === KANJI_STROKE_SOURCE_ID) return [];
-        const section = this.renderNewTabKanjiSourceSection(
-          sourceId,
-          card,
-          kanji,
-          facts,
-          readings2,
-          localMeanings,
-          fullInfo,
-          rtk,
-          vg,
-          localEntries,
-          similarEntries,
-          settings,
-          kanjiFactLabels,
-          similarEntriesLoaded
-        );
+        const section = this.renderNewTabKanjiSourceSection(sourceId, context);
         return section ? [section] : [];
       });
     }
-    renderNewTabKanjiSourceSection(sourceId, card, kanji, facts, readings2, localMeanings, fullInfo, rtk, vg, localEntries, similarEntries, settings, excludeFactLabels, similarEntriesLoaded) {
-      const knownSection = this.renderKnownNewTabKanjiSourceSection(
-        sourceId,
-        card,
-        kanji,
-        facts,
-        readings2,
-        localMeanings,
-        fullInfo,
-        rtk,
-        vg,
-        localEntries,
-        similarEntries,
-        settings,
-        excludeFactLabels,
-        similarEntriesLoaded
-      );
+    renderNewTabKanjiSourceSection(sourceId, context) {
+      const knownSection = this.renderKnownNewTabKanjiSourceSection(sourceId, context);
       if (knownSection !== void 0) return knownSection;
-      return this.renderNewTabKanjiDictionarySource(sourceId, localEntries);
+      return this.renderNewTabKanjiDictionarySource(sourceId, context.localEntries);
     }
-    renderKnownNewTabKanjiSourceSection(sourceId, card, kanji, facts, readings2, localMeanings, fullInfo, rtk, vg, localEntries, similarEntries, settings, excludeFactLabels, similarEntriesLoaded) {
-      const primarySection = this.renderPrimaryNewTabKanjiSourceSection(
-        sourceId,
-        card,
-        kanji,
-        facts,
-        readings2,
-        localMeanings,
-        fullInfo,
-        rtk,
-        vg,
-        localEntries,
-        settings,
-        excludeFactLabels
-      );
+    renderKnownNewTabKanjiSourceSection(sourceId, context) {
+      const primarySection = this.renderPrimaryNewTabKanjiSourceSection(sourceId, context);
       if (primarySection !== void 0) return primarySection;
-      return this.renderSupplementalNewTabKanjiSourceSection(
-        sourceId,
-        card,
-        kanji,
-        fullInfo,
-        localEntries,
-        similarEntries,
-        settings,
-        similarEntriesLoaded
-      );
+      return this.renderSupplementalNewTabKanjiSourceSection(sourceId, context);
     }
-    renderPrimaryNewTabKanjiSourceSection(sourceId, card, kanji, facts, readings2, localMeanings, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels) {
-      if (sourceId === KANJI_JPDB_SOURCE_ID) return fullInfo ? renderNewTabKanjiInfoSection(card, facts, readings2, localMeanings, fullInfo, (key2) => this.sourceAttributes(key2), this.kanjiSourceTitle(sourceId), settings.interfaceLanguage) : null;
-      if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(rtk, fullInfo, localEntries, settings);
-      if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels);
+    renderPrimaryNewTabKanjiSourceSection(sourceId, context) {
+      if (sourceId === KANJI_JPDB_SOURCE_ID) return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, (key2) => this.sourceAttributes(key2), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
+      if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
+      if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
       return void 0;
     }
-    renderSupplementalNewTabKanjiSourceSection(sourceId, card, kanji, fullInfo, localEntries, similarEntries, settings, similarEntriesLoaded) {
-      if (sourceId === KANJI_UCHISEN_SOURCE_ID) return this.renderNewTabUchisenPlaceholder(settings);
-      if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderNewTabKanjiImmersionPlaceholder(settings);
-      if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return htmlToFirstElement(this.renderNewTabSimilarKanjiWords(card, kanji, fullInfo?.vocabulary ?? [], similarEntries, similarEntriesLoaded));
-      if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return this.renderNewTabKanjiDictionarySection(localEntries, sourceId, this.kanjiSourceTitle(sourceId));
+    renderSupplementalNewTabKanjiSourceSection(sourceId, context) {
+      if (sourceId === KANJI_UCHISEN_SOURCE_ID) return this.renderNewTabUchisenPlaceholder(context.settings);
+      if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderNewTabKanjiImmersionPlaceholder(context.settings);
+      if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return htmlToFirstElement(this.renderNewTabSimilarKanjiWords(context.card, context.kanji, context.fullInfo?.vocabulary ?? [], context.similarEntries, context.similarEntriesLoaded));
+      if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return this.renderNewTabKanjiDictionarySection(context.localEntries, sourceId, this.kanjiSourceTitle(sourceId));
       return void 0;
     }
     renderNewTabKanjiDictionarySource(sourceId, localEntries) {
@@ -37804,19 +37911,30 @@ ${newTabCardReading(card)}`;
       const section = meaning?.querySelector("[data-kanji-similar-words]");
       const mount = section?.querySelector("[data-kanji-similar-mount]");
       if (!meaning || !section?.isConnected || !mount?.isConnected) return;
+      this.renderSimilarKanjiWordsSectionProgressively(section, mount, card, kanji, details, {
+        canRender: () => this.canApplyKanjiEnrichment(slots, card)
+      });
+    }
+    renderInlineSimilarKanjiWordsProgressively(root, card, kanji, details) {
+      const section = Array.from(root.querySelectorAll("[data-kanji-similar-words]")).find((candidate) => candidate.dataset.kanji === kanji);
+      const mount = section?.querySelector("[data-kanji-similar-mount]");
+      if (!section?.isConnected || !mount?.isConnected) return;
+      this.renderSimilarKanjiWordsSectionProgressively(section, mount, card, kanji, details, {
+        afterRender: () => {
+          void this.dependencies.parseContent?.(mount);
+        }
+      });
+    }
+    renderSimilarKanjiWordsSectionProgressively(section, mount, card, kanji, details, options = {}) {
       let started = false;
       let localLoaded = !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings());
       let localEntries = details.similar;
       const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
       const render = () => {
-        if (!this.canApplyKanjiEnrichment(slots, card) || !section.isConnected || !mount.isConnected) return;
-        const settings = this.dependencies.getSettings();
-        const content = renderSimilarKanjiWordsContent(localEntries, fullInfo?.vocabulary ?? [], card, settings, (name) => this.dictionaryLabel(name));
-        const help = uiText(settings.interfaceLanguage, localLoaded ? "noSimilarWords" : "loadingSimilarWords");
-        setInnerHtml(mount, content || `<div class="jpdb-reader-help">${escapeHtml$1(help)}</div>`);
+        this.renderSimilarKanjiWordsSectionContent(section, mount, card, localEntries, fullInfo, localLoaded, options);
       };
       const load = () => {
-        if (!section.open || started || !this.canApplyKanjiEnrichment(slots, card)) return;
+        if (!section.open || started || options.canRender?.() === false) return;
         if (!this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings())) return;
         started = true;
         render();
@@ -37832,37 +37950,12 @@ ${newTabCardReading(card)}`;
       section.addEventListener("toggle", load);
       load();
     }
-    renderInlineSimilarKanjiWordsProgressively(root, card, kanji, details) {
-      const section = Array.from(root.querySelectorAll("[data-kanji-similar-words]")).find((candidate) => candidate.dataset.kanji === kanji);
-      const mount = section?.querySelector("[data-kanji-similar-mount]");
-      if (!section?.isConnected || !mount?.isConnected) return;
-      let started = false;
-      let localLoaded = !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings());
-      let localEntries = details.similar;
-      const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
-      const render = () => {
-        if (!section.isConnected || !mount.isConnected) return;
-        const settings = this.dependencies.getSettings();
-        const content = renderSimilarKanjiWordsContent(localEntries, fullInfo?.vocabulary ?? [], card, settings, (name) => this.dictionaryLabel(name));
-        const help = uiText(settings.interfaceLanguage, localLoaded ? "noSimilarWords" : "loadingSimilarWords");
-        setInnerHtml(mount, content || `<div class="jpdb-reader-help">${escapeHtml$1(help)}</div>`);
-        void this.dependencies.parseContent?.(mount);
-      };
-      const load = () => {
-        if (!section.open || started || !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings())) return;
-        started = true;
-        render();
-        void this.loadSimilarKanjiWords(kanji).then((entries) => {
-          localEntries = entries;
-          localLoaded = true;
-          render();
-        }).catch(() => {
-          localLoaded = true;
-          render();
-        });
-      };
-      section.addEventListener("toggle", load);
-      load();
+    renderSimilarKanjiWordsSectionContent(section, mount, card, localEntries, fullInfo, localLoaded, options) {
+      if (!canRenderSimilarKanjiWordsSection(section, mount, options.canRender)) return;
+      const settings = this.dependencies.getSettings();
+      const content = renderSimilarKanjiWordsContent(localEntries, fullInfo?.vocabulary ?? [], card, settings, (name) => this.dictionaryLabel(name));
+      setInnerHtml(mount, content || similarKanjiWordsHelpHtml(settings, localLoaded));
+      options.afterRender?.();
     }
     sourceAttributes(sourceStateKey, initiallyExpanded = true) {
       return this.dependencies.dictionarySourceAttributes?.(sourceStateKey, initiallyExpanded) ?? newTabKanjiSourceAttrs(sourceStateKey, initiallyExpanded);
@@ -39906,20 +39999,6 @@ ${newTabCardReading(card)}`;
     if (value > max2) return value - max2;
     return 0;
   }
-  function eventTargetElement(target) {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Element) return closestHtmlAncestor(target);
-    if (target instanceof Text) return target.parentElement;
-    return null;
-  }
-  function closestHtmlAncestor(element) {
-    let current = element;
-    while (current) {
-      if (current instanceof HTMLElement) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
   function pointInElementClientRects(clientX, clientY, element) {
     return Array.from(element.getClientRects()).some((rect) => clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom);
   }
@@ -40009,6 +40088,14 @@ ${newTabCardReading(card)}`;
       lookupLinks.push(link);
     }
     return lookupLinks;
+  }
+  function canRenderSimilarKanjiWordsSection(section, mount, canRender) {
+    if (!section.isConnected || !mount.isConnected) return false;
+    return canRender?.() !== false;
+  }
+  function similarKanjiWordsHelpHtml(settings, localLoaded) {
+    const helpKey = localLoaded ? "noSimilarWords" : "loadingSimilarWords";
+    return `<div class="jpdb-reader-help">${escapeHtml$1(uiText(settings.interfaceLanguage, helpKey))}</div>`;
   }
   function sentencePromptTarget(card, sentence) {
     const reading = newTabCardOptionalReading(card);
@@ -44946,7 +45033,9 @@ ${newTabCardReading(card)}`;
     queueAutomaticAnkiLibraryScan(form, language) {
       const requestId = ++this.ankiLibraryScanId;
       window.setTimeout(() => {
-        void this.refreshAnkiLibraryScan(form, requestId, language);
+        void this.refreshAnkiLibraryScan(form, requestId, language).finally(() => {
+          void this.warmAnkiStatusIndexForConnection(form, requestId);
+        });
       }, 0);
     }
     async refreshAnkiLibraryScan(form, requestId, language) {
@@ -44972,6 +45061,21 @@ ${newTabCardReading(card)}`;
     }
     shouldApplyAnkiLibraryScan(form, requestId) {
       return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
+    }
+    async warmAnkiStatusIndexForConnection(form, requestId) {
+      if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+      const warmStatusIndex2 = this.dependencies.anki.warmStatusIndex;
+      if (typeof warmStatusIndex2 !== "function") return;
+      const previous = this.settings;
+      this.settings = readFormSettings(new FormData(form), this.settings);
+      try {
+        await warmStatusIndex2.call(this.dependencies.anki);
+        log$2.info("Auto Anki status index warmup ok");
+      } catch (error) {
+        log$2.warn("Automatic Anki status index warmup failed", error);
+      } finally {
+        this.settings = previous;
+      }
     }
     setAnkiStatusLine(form, line) {
       this.setAnkiStatus(form, line.message, line.tone, line.action);
@@ -46066,7 +46170,7 @@ ${newTabCardReading(card)}`;
       isDestroyed: () => this.isDestroyed,
       getLanguage: () => this.settings.interfaceLanguage,
       invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-      resetDictionaryDatabase: () => this.dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true })),
+      resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
       toast: (message) => this.toast(message),
       reload: () => location.reload()
     });
@@ -46326,7 +46430,7 @@ ${newTabCardReading(card)}`;
     }
     async lookupText(text2, reading = text2, anchor, options = {}) {
       const term = text2.trim();
-      if (!HAS_JAPANESE$1.test(term)) return;
+      if (!HAS_JAPANESE.test(term)) return;
       const sentence = anchor?.dataset.sentence || term;
       const previousNavigationEntry = options.previousNavigationEntry ?? this.lookupPreviousNavigationEntry(options.navigation);
       const card = await this.lookupCard(term, reading);
@@ -47076,7 +47180,7 @@ ${newTabCardReading(card)}`;
       return this.parser.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
     }
     lookupParsedWordWithoutCard(word, expression) {
-      if (!HAS_JAPANESE$1.test(expression)) return;
+      if (!HAS_JAPANESE.test(expression)) return;
       void this.lookupText(expression, expression, word, {
         navigation: "push-current",
         reuseActivePopover: true,

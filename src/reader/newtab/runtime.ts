@@ -20,7 +20,7 @@ import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from 
 import { DictionarySourceStateController } from '../dictionary-source-state';
 import { escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
 import { DictionaryStyleController } from '../dictionary-styles';
-import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from '../factory-reset-coordinator';
+import { FactoryResetCoordinator, resetFactoryResetDictionaryDatabase } from '../factory-reset-coordinator';
 import { ImmersionKitClient } from '../immersion-kit';
 import { ImmersionPopoverController } from '../immersion-popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../idle';
@@ -105,6 +105,7 @@ import {
     kanjiDictionaryNameFromSourceId,
     orderedKanjiSourceIds,
 } from '../source-sections';
+import { parseContentCacheKey } from '../parse-content-cache-key';
 import { StudySourceController } from '../study-sources';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../types';
 import { installUchisenCarousel, loadUchisenData } from '../uchisen';
@@ -311,8 +312,7 @@ export class NewTabRuntime {
         isDestroyed: () => this.isDestroyed,
         getLanguage: () => this.settings.interfaceLanguage,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-        resetDictionaryDatabase: () => this.dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
-            .then(() => ({ deleted: true })),
+        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
@@ -2034,7 +2034,7 @@ export class NewTabRuntime {
             includeLocalPitch: false,
             allowSegmentedFallback: true,
         };
-        const key = this.parseContentCacheKey(texts, parseOptions);
+        const key = parseContentCacheKey(texts, parseOptions, this.settings);
         const now = Date.now();
         const cached = this.parseContentCache.get(key);
         if (cached && cached.expiresAt > now) {
@@ -2051,25 +2051,6 @@ export class NewTabRuntime {
         this.parseContentCache.set(key, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
         this.pruneParseContentCache(now);
         return promise;
-    }
-
-    private parseContentCacheKey(
-        texts: string[],
-        options: { jpdbTimeoutMs: number; allowJpdbTimeoutFallback: boolean; includeLocalPitch: boolean; allowSegmentedFallback: boolean },
-    ): string {
-        return JSON.stringify({
-            texts,
-            options,
-            settings: {
-                apiKey: Boolean(this.settings.apiKey.trim()),
-                localDictionariesEnabled: this.settings.localDictionariesEnabled,
-                dictionaries: this.settings.dictionaryPreferences.map(preference => ({
-                    name: preference.name,
-                    enabled: preference.enabled,
-                    priority: preference.priority,
-                })),
-            },
-        });
     }
 
     private pruneParseContentCache(now: number): void {

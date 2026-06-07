@@ -975,7 +975,10 @@ export class SettingsDialogController {
     private queueAutomaticAnkiLibraryScan(form: HTMLFormElement, language: InterfaceLanguage): void {
         const requestId = ++this.ankiLibraryScanId;
         window.setTimeout(() => {
-            void this.refreshAnkiLibraryScan(form, requestId, language);
+            void this.refreshAnkiLibraryScan(form, requestId, language)
+                .finally(() => {
+                    void this.warmAnkiStatusIndexForConnection(form, requestId);
+                });
         }, 0);
     }
 
@@ -1003,6 +1006,22 @@ export class SettingsDialogController {
 
     private shouldApplyAnkiLibraryScan(form: HTMLFormElement, requestId: number): boolean {
         return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
+    }
+
+    private async warmAnkiStatusIndexForConnection(form: HTMLFormElement, requestId: number): Promise<void> {
+        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
+        if (typeof warmStatusIndex !== 'function') return;
+        const previous = this.settings;
+        this.settings = readFormSettings(new FormData(form), this.settings);
+        try {
+            await warmStatusIndex.call(this.dependencies.anki);
+            log.info('Auto Anki status index warmup ok');
+        } catch (error) {
+            log.warn('Automatic Anki status index warmup failed', error);
+        } finally {
+            this.settings = previous;
+        }
     }
 
     private setAnkiStatusLine(form: HTMLFormElement, line: SettingsStatusLine): void {

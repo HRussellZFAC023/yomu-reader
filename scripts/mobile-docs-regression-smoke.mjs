@@ -140,11 +140,20 @@ function handleFixtureRequest(request, response) {
 }
 
 function fixtureRoute(pathname) {
-    if (pathname === DOCS_PATH) return (_url, response) => serveDocsFixture(response);
-    if (['/newtab', '/newtab/', '/newtab/index.html'].includes(pathname)) return (_url, response) => serveNewTabIndex(response);
+    const exactRoute = exactFixtureRoute(pathname);
+    if (exactRoute) return exactRoute;
     if (pathname.startsWith('/newtab/')) return serveNewTabAsset;
-    if (pathname === '/yomu-icon.svg') return (_url, response) => serveOptionalFile(response, path.join(ROOT, 'dist', 'yomu-icon.svg'), 'image/svg+xml');
     return null;
+}
+
+function exactFixtureRoute(pathname) {
+    return new Map([
+        [DOCS_PATH, (_url, response) => serveDocsFixture(response)],
+        ['/newtab', (_url, response) => serveNewTabIndex(response)],
+        ['/newtab/', (_url, response) => serveNewTabIndex(response)],
+        ['/newtab/index.html', (_url, response) => serveNewTabIndex(response)],
+        ['/yomu-icon.svg', (_url, response) => serveOptionalFile(response, path.join(ROOT, 'dist', 'yomu-icon.svg'), 'image/svg+xml')],
+    ]).get(pathname) ?? null;
 }
 
 function serveDocsFixture(response) {
@@ -225,10 +234,7 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
         const snapshot = await page.evaluate(docsTryMeSnapshotFromDom);
         assertParsedSurface(snapshot.docs, 'docs Japanese text');
         assertParsedSurface(snapshot.tryMe, 'Try Me text');
-        assert(snapshot.tryMe.down?.expression === '下', 'Try Me 下 was not a normal reader-word lookup target', snapshot);
-        assert(snapshot.tryMe.down?.pointExpression === '下', 'Try Me hit target is missing the 下 reader word', snapshot.tryMe.down);
-        assert(snapshot.tryMe.down?.display === 'inline', 'Try Me reader word did not keep inline docs layout', snapshot.tryMe.down);
-        assert(snapshot.tryMe.down?.whiteSpace === 'nowrap', 'Try Me reader word inherited wrapping that can move the hitbox', snapshot.tryMe.down);
+        assertTryMeDownSnapshot(snapshot);
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-docs-try-me-smoke.png'), fullPage: false });
         return {
@@ -373,8 +379,16 @@ function mockedNewTabRequest(request, requests) {
 function readRequestJson(data) {
     if (!data) return {};
     if (typeof data === 'string') return JSON.parse(data);
-    if (data.kind === 'arraybuffer') return JSON.parse(Buffer.from(data.bytes ?? []).toString('utf8'));
+    if (isArrayBufferRequestBody(data)) return readArrayBufferRequestJson(data);
     return data;
+}
+
+function isArrayBufferRequestBody(data) {
+    return data.kind === 'arraybuffer';
+}
+
+function readArrayBufferRequestJson(data) {
+    return JSON.parse(Buffer.from(data.bytes ?? []).toString('utf8'));
 }
 
 function docsTryMeSnapshotFromDom() {
@@ -413,10 +427,7 @@ function docsTryMeSnapshotFromDom() {
         const word = [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
             .find(item => compactText(item).includes('下'));
         if (!word) return null;
-        const rect = word.getBoundingClientRect();
-        const x = rect.x + rect.width / 2;
-        const y = rect.y + rect.height / 2;
-        const hit = document.elementFromPoint(x, y)?.closest?.('.jpdb-reader-word');
+        const hit = readerWordAtCenter(word);
         return {
             text: compactText(word),
             expression: word.getAttribute('data-expression') ?? '',
@@ -425,6 +436,13 @@ function docsTryMeSnapshotFromDom() {
             whiteSpace: getComputedStyle(word).whiteSpace,
             rect: rectSnapshot(rect),
         };
+    }
+
+    function readerWordAtCenter(word) {
+        const rect = word.getBoundingClientRect();
+        const x = rect.x + rect.width / 2;
+        const y = rect.y + rect.height / 2;
+        return document.elementFromPoint(x, y)?.closest?.('.jpdb-reader-word');
     }
 
     function rectSnapshot(rect) {
@@ -461,28 +479,72 @@ function assertParsedSurface(surface, label) {
     assert(surface.summary.sourceMode.length >= 2, `${label} did not enable color/source mode classes`, surface);
 }
 
-function visiblePuckSnapshotFromDom() {
-    const puck = document.querySelector('.jpdb-reader-fab');
-    const rect = puck?.getBoundingClientRect();
-    const style = puck ? getComputedStyle(puck) : null;
-    return {
-        exists: Boolean(puck),
-        visible: Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden'),
-        text: puck?.textContent ?? '',
-        rect: rect ? {
-            x: Math.round(rect.x * 100) / 100,
-            y: Math.round(rect.y * 100) / 100,
-            width: Math.round(rect.width * 100) / 100,
-            height: Math.round(rect.height * 100) / 100,
-            left: Math.round(rect.left * 100) / 100,
-            right: Math.round(rect.right * 100) / 100,
-            top: Math.round(rect.top * 100) / 100,
-            bottom: Math.round(rect.bottom * 100) / 100,
-        } : null,
-        position: style?.position ?? '',
-    };
+function assertTryMeDownSnapshot(snapshot) {
+    const down = snapshot.tryMe.down;
+    assert(down, 'Try Me 下 was not a normal reader-word lookup target', snapshot);
+    assert(down.expression === '下', 'Try Me 下 was not a normal reader-word lookup target', snapshot);
+    assert(down.pointExpression === '下', 'Try Me hit target is missing the 下 reader word', down);
+    assert(down.display === 'inline', 'Try Me reader word did not keep inline docs layout', down);
+    assert(down.whiteSpace === 'nowrap', 'Try Me reader word inherited wrapping that can move the hitbox', down);
 }
 
+function visiblePuckSnapshotFromDom() {
+    const puck = document.querySelector('.jpdb-reader-fab');
+    const rect = puck?.getBoundingClientRect() ?? null;
+    const style = puck ? getComputedStyle(puck) : null;
+    return {
+        exists: hasPuck(puck),
+        visible: isVisibleSnapshot(rect, style),
+        text: puckText(puck),
+        rect: rectSnapshotOrNull(rect),
+        position: stylePosition(style),
+    };
+
+    function hasPuck(puck) {
+        return Boolean(puck);
+    }
+
+    // fallow-ignore-next-line complexity
+    function isVisibleSnapshot(rect, style) {
+        return Boolean(rect && style)
+            && rect.width > 0
+            && rect.height > 0
+            && style.display !== 'none'
+            && style.visibility !== 'hidden';
+    }
+
+    function puckText(puck) {
+        return puck ? puck.textContent ?? '' : '';
+    }
+
+    function rectSnapshotOrNull(rect) {
+        return rect ? rectSnapshot(rect) : null;
+    }
+
+    function stylePosition(style) {
+        return style ? style.position : '';
+    }
+
+    function rectSnapshot(rect) {
+        return {
+            x: roundRectValue(rect.x),
+            y: roundRectValue(rect.y),
+            width: roundRectValue(rect.width),
+            height: roundRectValue(rect.height),
+            left: roundRectValue(rect.left),
+            right: roundRectValue(rect.right),
+            top: roundRectValue(rect.top),
+            bottom: roundRectValue(rect.bottom),
+        };
+    }
+
+    function roundRectValue(value) {
+        return Math.round(value * 100) / 100;
+    }
+}
+
+// Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
+// fallow-ignore-next-line complexity
 async function mobileSettingsSnapshotFromDom() {
     const controls = [...document.querySelectorAll('.jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"]):not([type="file"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea')];
     const riskyControls = controls
@@ -508,20 +570,38 @@ async function mobileSettingsSnapshotFromDom() {
         parsedSettingsWords: document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word').length,
     };
 
+    // fallow-ignore-next-line complexity
     function isVisible(element) {
         if (!(element instanceof Element)) return false;
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
-        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+        return rect.width > 0
+            && rect.height > 0
+            && style.display !== 'none'
+            && style.visibility !== 'hidden';
     }
 }
 
 function newTabFallbackReadyFromDom() {
     const prompt = document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '';
     const body = document.body.textContent ?? '';
-    return Boolean(document.querySelector('[data-newtab-card]'))
-        && /[一-龯ぁ-んァ-ン]/u.test(prompt)
-        && !/Loading words|Loading\.\.\.|No review cards ready|Start with a dictionary|Add dictionary/i.test(body);
+    return [
+        hasNewTabCard(),
+        hasJapaneseText(prompt),
+        !hasNewTabEmptyStateText(body),
+    ].every(Boolean);
+
+    function hasNewTabCard() {
+        return Boolean(document.querySelector('[data-newtab-card]'));
+    }
+
+    function hasJapaneseText(text) {
+        return /[一-龯ぁ-んァ-ン]/u.test(text);
+    }
+
+    function hasNewTabEmptyStateText(text) {
+        return /Loading words|Loading\.\.\.|No review cards ready|Start with a dictionary|Add dictionary/i.test(text);
+    }
 }
 
 function newTabMobileSnapshotFromDom() {
@@ -538,7 +618,7 @@ function newTabMobileSnapshotFromDom() {
     });
     const elementRect = element => element ? rectSnapshot(element.getBoundingClientRect()) : null;
     const rectsOverlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-    const isVisibleRect = (rect, style) => Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden');
+    const isVisibleRect = (rect, style) => hasVisibleBox(rect) && hasVisibleStyle(style);
     const newTabModeButtonSnapshot = button => {
         const rect = button.getBoundingClientRect();
         return {
@@ -566,6 +646,8 @@ function newTabMobileSnapshotFromDom() {
                 .map(newTabModeButtonSnapshot),
         };
     };
+    const hasVisibleBox = rect => rect.width > 0 && rect.height > 0;
+    const hasVisibleStyle = style => style.display !== 'none' && style.visibility !== 'hidden';
     return {
         hasCard: Boolean(document.querySelector('[data-newtab-card]')),
         prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
@@ -573,66 +655,4 @@ function newTabMobileSnapshotFromDom() {
         body: document.body.textContent ?? '',
         layout: newTabMobileLayoutSnapshot(),
     };
-}
-
-function newTabMobileLayoutSnapshot() {
-    const brandRect = elementRect(document.querySelector('.jpdb-reader-newtab-brand'));
-    const modeRect = elementRect(document.querySelector('.jpdb-reader-newtab-mode'));
-    const controlsRect = elementRect(document.querySelector('.jpdb-reader-newtab-theme-controls'));
-    return {
-        viewportWidth: innerWidth,
-        brand: brandRect,
-        mode: modeRect,
-        controls: controlsRect,
-        overlaps: overlappingNewTabHeaderParts(modeRect, brandRect, controlsRect),
-        modeButtons: [...document.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
-            .map(newTabModeButtonSnapshot),
-    };
-}
-
-function overlappingNewTabHeaderParts(modeRect, brandRect, controlsRect) {
-    return [
-        ['mode-brand', modeRect, brandRect],
-        ['mode-controls', modeRect, controlsRect],
-    ]
-        .filter(([, first, second]) => first && second && rectsOverlap(first, second))
-        .map(([label]) => label);
-}
-
-function newTabModeButtonSnapshot(button) {
-    const rect = button.getBoundingClientRect();
-    return {
-        text: button.textContent?.trim() ?? '',
-        visible: isVisibleRect(rect, getComputedStyle(button)),
-        ...rectSnapshot(rect),
-    };
-}
-
-function elementRect(element) {
-    return element ? rectSnapshot(element.getBoundingClientRect()) : null;
-}
-
-function rectSnapshot(rect) {
-    return {
-        x: roundRectValue(rect.x),
-        y: roundRectValue(rect.y),
-        width: roundRectValue(rect.width),
-        height: roundRectValue(rect.height),
-        left: roundRectValue(rect.left),
-        right: roundRectValue(rect.right),
-        top: roundRectValue(rect.top),
-        bottom: roundRectValue(rect.bottom),
-    };
-}
-
-function roundRectValue(value) {
-    return Math.round(value * 100) / 100;
-}
-
-function isVisibleRect(rect, style) {
-    return Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden');
-}
-
-function rectsOverlap(a, b) {
-    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }

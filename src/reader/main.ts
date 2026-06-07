@@ -21,7 +21,7 @@ import {
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
-import { FactoryResetCoordinator, FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS } from './factory-reset-coordinator';
+import { FactoryResetCoordinator, resetFactoryResetDictionaryDatabase } from './factory-reset-coordinator';
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
@@ -214,6 +214,7 @@ import {
     pointerTextCharacterOffset,
     pointerTextLookupFromTextNode,
     type ActivePointerTextLookup,
+    type PointerTextSpanCandidate,
     type PointerTextLookup,
 } from './pointer-text-lookup';
 import { capturePopoverScrollFrame, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverBodyActionElement, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, restorePopoverScrollFrameSoon, shouldUseSheet } from './popover-shell';
@@ -272,6 +273,7 @@ import {
     kanjiSourceLabel,
     orderedKanjiSourceIds,
 } from './source-sections';
+import { parseContentCacheKey } from './parse-content-cache-key';
 import { loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from './styles';
 import { StudySourceController } from './study-sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
@@ -469,8 +471,7 @@ export class ReaderApp {
         isDestroyed: () => this.isDestroyed,
         getLanguage: () => this.settings.interfaceLanguage,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-        resetDictionaryDatabase: () => this.dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
-            .then(() => ({ deleted: true })),
+        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
@@ -2698,7 +2699,18 @@ export class ReaderApp {
         const run = japaneseRunAt(candidate.text, candidate.offset);
         const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
         if (surroundingLength <= tokenLength) return false;
-        return isLowValuePointerTextToken(token) || KANA_ONLY_LOOKUP_RUN_RE.test(token.card.spelling.trim());
+        if (isLowValuePointerTextToken(token)) return true;
+        if (!KANA_ONLY_LOOKUP_RUN_RE.test(token.card.spelling.trim())) return false;
+        return !this.isCoveredParsedKanaPointerToken(candidate, token);
+    }
+
+    private isCoveredParsedKanaPointerToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
+        if (token.end - token.start <= 1) return false;
+        const surface = normalizedLookupText(candidate.text.slice(token.start, token.end));
+        if (!KANA_ONLY_LOOKUP_RUN_RE.test(surface)) return false;
+        const spelling = normalizedLookupText(token.card.spelling);
+        const reading = normalizedLookupText(token.card.reading);
+        return surface === spelling || surface === reading;
     }
 
     private async showPublicJpdbPointerTextCandidate(
@@ -2707,8 +2719,9 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<boolean> {
-        if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup()) return false;
-        for (const span of jpdbPointerLookupCandidates(candidate.text, candidate.offset)) {
+        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+        if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
+        for (const span of spans) {
             const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
             if (!card) continue;
             this.parser.cacheCards?.([card]);
@@ -2722,8 +2735,22 @@ export class ReaderApp {
         return !this.settings.apiKey.trim();
     }
 
-    private canUsePublicJpdbPointerTextLookup(): boolean {
-        return this.settings.jpdbDefinitionsEnabled || this.settings.showPitchAccent;
+    private canUsePublicJpdbPointerTextLookup(candidate: PointerTextLookup, spans: PointerTextSpanCandidate[]): boolean {
+        return this.settings.jpdbDefinitionsEnabled
+            || this.settings.showPitchAccent
+            || this.hasKanaRunIdentityPublicLookupCandidate(candidate, spans);
+    }
+
+    private hasKanaRunIdentityPublicLookupCandidate(candidate: PointerTextLookup, spans: PointerTextSpanCandidate[]): boolean {
+        if (spans.length <= 1) return false;
+        const fallbackTerm = normalizedLookupText(fallbackLookupTermAtOffset(candidate.text, candidate.offset));
+        const candidateLength = candidate.end - candidate.start;
+        return spans.some(span => {
+            const term = normalizedLookupText(span.term);
+            if (term.length <= 1 || !KANA_ONLY_LOOKUP_RUN_RE.test(term)) return false;
+            if (candidateLength > term.length) return true;
+            return Boolean(fallbackTerm && fallbackTerm !== term && term.includes(fallbackTerm));
+        });
     }
 
     private async showLocalPointerTextCandidate(
@@ -3365,15 +3392,13 @@ export class ReaderApp {
         this.lastCardSentence = sentence;
         const popover = this.createPopover();
         const navigation = options.navigation ?? 'reset';
-        const hoverLookupGeneration = trigger === 'hover' ? options.hoverLookupGeneration : undefined;
-        const hoverLookupKey = trigger === 'hover' ? options.hoverLookupKey ?? '' : '';
-        const isCurrentHoverCard = () => trigger !== 'hover'
-            || this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey);
+        const hoverLookup = this.cardHoverLookupContext(trigger, options);
+        const isCurrentHoverCard = () => this.isCurrentCardHoverLookup(trigger, hoverLookup);
         this.navigation.updateWord(card, sentence, trigger, navigation, options.previousNavigationEntry);
         this.navigation.clearKanji();
         const done = log.time('showCard', { term: card.spelling, source: cardSourceLabel(card), trigger });
         this.rememberCardMiningContext(card, sentence, anchor, options);
-        const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const fallbackAnkiLookup = this.fallbackCardAnkiLookup();
         this.lastAnkiLookup = fallbackAnkiLookup;
         this.maybePreloadLookupCardAudio(card, options);
         const renderData = this.cardRenderData.load(card);
@@ -3388,7 +3413,7 @@ export class ReaderApp {
             anchor,
             requestId,
             isCurrentHoverCard,
-            hoverLookupGeneration,
+            hoverLookupGeneration: hoverLookup.generation,
         });
         if (!mounted) {
             done();
@@ -3407,6 +3432,26 @@ export class ReaderApp {
         } finally {
             done();
         }
+    }
+
+    private cardHoverLookupContext(
+        trigger: 'modal' | 'hover',
+        options: CardDisplayOptions,
+    ): { generation: number | undefined; key: string } {
+        return trigger === 'hover'
+            ? { generation: options.hoverLookupGeneration, key: options.hoverLookupKey ?? '' }
+            : { generation: undefined, key: '' };
+    }
+
+    private isCurrentCardHoverLookup(
+        trigger: 'modal' | 'hover',
+        hoverLookup: { generation: number | undefined; key: string },
+    ): boolean {
+        return trigger !== 'hover' || this.isCurrentHoverGeneration(hoverLookup.generation, hoverLookup.key);
+    }
+
+    private fallbackCardAnkiLookup(): AnkiLookupResult {
+        return { state: 'not-in-deck', notes: [], primary: null };
     }
 
     private async cardRenderDataOrFallback(
@@ -4530,7 +4575,7 @@ export class ReaderApp {
 
     private loadParsedNestedJapaneseContent(texts: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
         const parseOptions = normalizedNestedParseOptions(options, this.settings);
-        const key = this.nestedParseContentCacheKey(texts, parseOptions);
+        const key = parseContentCacheKey(texts, parseOptions, this.settings);
         const now = Date.now();
         const cached = this.cachedNestedParseContent(key, now);
         if (cached) return cached;
@@ -4559,25 +4604,6 @@ export class ReaderApp {
         this.nestedParseContentCache.set(key, { expiresAt: now + NESTED_PARSE_CONTENT_CACHE_TTL_MS, promise });
         this.pruneNestedParseContentCache(now);
         return promise;
-    }
-
-    private nestedParseContentCacheKey(
-        texts: string[],
-        options: Required<ReaderParserParseOptions>,
-    ): string {
-        return JSON.stringify({
-            texts,
-            options,
-            settings: {
-                apiKey: Boolean(this.settings.apiKey.trim()),
-                localDictionariesEnabled: this.settings.localDictionariesEnabled,
-                dictionaries: this.settings.dictionaryPreferences.map(preference => ({
-                    name: preference.name,
-                    enabled: preference.enabled,
-                    priority: preference.priority,
-                })),
-            },
-        });
     }
 
     private pruneNestedParseContentCache(now: number): void {

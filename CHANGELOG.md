@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.29] - 2026-06-07
+
+### Fixed
+
+- Restored full-word kana lookup on mobile and split inline text, so taps inside words like `にほんご` resolve the full JPDB/Jiten candidate instead of fragment entries.
+- Kept hosted AnkiConnect on the userscript bridge for local Anki while allowing detailed clicked-word card hydration to retry past stale availability cooldowns.
+- Restored new-tab fallback study words when no JPDB or Anki review cards are ready, and made JPDB/Anki source switching deterministic.
+- Refined mobile new-tab layout, Anki card audio controls, and Anki opt-in defaults so fresh installs do not show loud mobile handoff actions by default.
+- Added one compact popover review target selector for mixed JPDB plus Anki and duplicate Anki-card grading, with exact deck/card targets and one clear grade row.
+
 ## [0.6.28] - 2026-06-06
 
 ### Changed

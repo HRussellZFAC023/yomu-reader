@@ -1,4 +1,5 @@
 import type { JPDBGrade } from '../types';
+import { eventTargetElement } from '../dom-target';
 
 export type NewTabSwipeDirection = 'left' | 'right';
 export type NewTabSwipeAction = 'again' | 'good';
@@ -237,22 +238,6 @@ function isPrimaryPointerDown(event: PointerEvent): boolean {
 
 function resolveSwipeTarget(target: NewTabSwipeGestureOptions['target']): HTMLElement | null {
     return typeof target === 'function' ? target() : target;
-}
-
-function eventTargetElement(target: EventTarget | null): HTMLElement | null {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Element) return closestHtmlAncestor(target);
-    if (target instanceof Text) return target.parentElement;
-    return null;
-}
-
-function closestHtmlAncestor(element: Element): HTMLElement | null {
-    let current: Element | null = element;
-    while (current) {
-        if (current instanceof HTMLElement) return current;
-        current = current.parentElement;
-    }
-    return null;
 }
 
 function isSwipeBlockedTarget(target: HTMLElement, card: HTMLElement): boolean {

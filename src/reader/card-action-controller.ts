@@ -19,6 +19,7 @@ import {
 import type { JPDBCard, JPDBGrade, ReaderSettings } from './types';
 import { YomitanDictionaryStore } from './yomitan';
 import type { GrammarHint } from './study-tools';
+import { newTabText } from './newtab/i18n';
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -58,6 +59,11 @@ type StudyActionHandler = () => boolean | Promise<boolean>;
 type MiningActionHandler = () => Promise<void>;
 type SrsDeckSource = ApiSrsDeckSource | 'anki';
 type AnkiAddResult = number | null | 'duplicate';
+type PopoverReviewTargetKind = 'api' | 'anki' | 'both';
+interface PopoverReviewTargetSelection {
+    kind?: PopoverReviewTargetKind;
+    ankiCardId?: number;
+}
 type ResolvedAnkiWordAudio = Awaited<ReturnType<typeof resolveAnkiWordAudio>>;
 
 interface SelectedDeckChoice {
@@ -334,22 +340,40 @@ export class CardActionController {
 
     private async gradeCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {
         const grade = button.dataset.grade as JPDBGrade;
-        const ankiCardId = Number(button.dataset.ankiCardId);
+        const selection = selectedPopoverReviewTarget(button);
         await this.reviewGrade(grade, card, sentence, {
-            ankiCardId: Number.isFinite(ankiCardId) && ankiCardId > 0 ? ankiCardId : undefined,
+            target: selection.kind,
+            ankiCardId: selection.ankiCardId,
             deckId: defaultJpdbDeckId(this.options.getSettings()),
         });
     }
 
-    async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { ankiCardId?: number; deckId?: string } = {}): Promise<void> {
+    async reviewGrade(grade: JPDBGrade, card: JPDBCard, sentence?: string, options: { target?: PopoverReviewTargetKind; ankiCardId?: number; deckId?: string } = {}): Promise<void> {
         const settings = this.options.getSettings();
         if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, 'reviewActionsDisabled'));
-        if (options.ankiCardId) {
-            await this.options.anki.answerCard(options.ankiCardId, grade);
+        if (options.target === 'both') {
+            await this.reviewApiCard(grade, card, sentence, options);
+            await this.answerAnkiCard(grade, card, options.ankiCardId);
+            return;
+        }
+        if (options.target === 'anki' || options.ankiCardId) {
+            await this.answerAnkiCard(grade, card, options.ankiCardId);
+            return;
+        }
+        await this.reviewApiCard(grade, card, sentence, options);
+    }
+
+    private async answerAnkiCard(grade: JPDBGrade, card: JPDBCard, ankiCardId: number | undefined): Promise<void> {
+        if (ankiCardId) {
+            await this.options.anki.answerCard(ankiCardId, grade);
             this.notifyAnkiStatusChanged(card);
             return;
         }
+        throw new Error(newTabText(this.options.getSettings().interfaceLanguage, 'missingAnkiCardId'));
+    }
 
+    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string }): Promise<void> {
+        const settings = this.options.getSettings();
         const provider = this.apiProviderForCard(card, settings);
         this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? 'addJpdbApiKeyReview'));
         const states = normalizeCardStates(card.cardState);
@@ -518,6 +542,24 @@ function selectedAnkiAudioMergeMode(button: HTMLButtonElement): AnkiAudioMergeMo
         ?.querySelector<HTMLSelectElement>('[data-anki-audio-merge]')
         ?.value;
     return value === 'theirs' || value === 'ours' ? value : 'both';
+}
+
+function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTargetSelection {
+    const option = button.closest('.jpdb-reader-actions')?.querySelector<HTMLSelectElement>('[data-review-target-select]')?.selectedOptions[0] ?? null;
+    const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
+    const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
+    return { kind: target, ankiCardId };
+}
+
+function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {
+    if (value === 'both' || value === 'anki') return value;
+    if (value === 'jpdb' || value === 'jiten') return 'api';
+    return undefined;
+}
+
+function positiveNumber(value: string | undefined): number | undefined {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : undefined;
 }
 
 function ankiSourceTitle(sourceTitle: string | undefined): string {

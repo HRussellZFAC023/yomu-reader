@@ -29,10 +29,6 @@ export class DictionarySourceStateController {
         return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? ' open' : ''}`;
     }
 
-    closedAttributes(sourceStateKey: string): string {
-        return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="false"`;
-    }
-
     installTracking(popover: HTMLElement): void {
         installDictionarySourceTracking(popover, details => this.remember(details));
     }

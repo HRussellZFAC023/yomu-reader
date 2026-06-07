@@ -17,6 +17,14 @@ const JAPANESE_SURFACE_CSS = [
 ].map(path => readFileSync(path, 'utf8')).join('\n');
 const READER_WORD_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 type AppliedReaderTheme = ReturnType<typeof applyReaderTheme>;
+type LoadedColorChannels = Pick<ReaderSettings,
+    | 'wordHighlightColorSource'
+    | 'wordUnderlineColorSource'
+    | 'wordTextColorSource'
+    | 'subtitleHighlightColorSource'
+    | 'subtitleUnderlineColorSource'
+    | 'subtitleTextColorSource'
+>;
 
 function hoveredReaderWord(spanHtml: string): { word: HTMLElement; stopHovering: () => Promise<void> } {
     vi.useFakeTimers();
@@ -36,6 +44,21 @@ function hoveredReaderWord(spanHtml: string): { word: HTMLElement; stopHovering:
             await vi.advanceTimersByTimeAsync(140);
         },
     };
+}
+
+function readerWordAfterRefresh(html: string): HTMLElement {
+    document.body.innerHTML = html;
+    const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    refreshReaderWordContrastForWord(word);
+    return word;
+}
+
+async function expectSettledAccessibleColorAfterHover(word: HTMLElement, stopHovering: () => Promise<void>): Promise<void> {
+    await stopHovering();
+
+    const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+    expect(text).not.toBe('rgb(255, 255, 255)');
+    expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
 }
 
 function expectPitchUnderlineOnlyClasses(root = document.documentElement): void {
@@ -59,6 +82,13 @@ function expectPitchUnderlineOnlySettings(settings: ReaderSettings, applied: App
     expect(settings.subtitleHighlightColorSource).toBe('jpdb');
     expect(settings.subtitleUnderlineColorSource).toBe('pitch');
     expectPitchUnderlineOnlyApplied(applied, options);
+}
+
+function expectLoadedColorChannels(settings: ReaderSettings, expected: LoadedColorChannels, options: { stripsLegacyHighlightMode?: boolean } = {}): void {
+    expect(settings).toMatchObject(expected);
+    if (options.stripsLegacyHighlightMode) {
+        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+    }
 }
 
 describe('reader theme', () => {
@@ -162,11 +192,7 @@ describe('reader theme', () => {
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('rgb(255, 255, 255)');
 
-        await stopHovering();
-
-        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-        expect(text).not.toBe('rgb(255, 255, 255)');
-        expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+        await expectSettledAccessibleColorAfterHover(word, stopHovering);
     });
 
     it('does not replace an existing Anki status color while hovered', async () => {
@@ -176,11 +202,7 @@ describe('reader theme', () => {
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('rgb(30, 120, 90)');
 
-        await stopHovering();
-
-        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-        expect(text).not.toBe('rgb(255, 255, 255)');
-        expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+        await expectSettledAccessibleColorAfterHover(word, stopHovering);
     });
 
     it('repairs stale white Anki contrast when Anki status arrives during hover', async () => {
@@ -200,14 +222,11 @@ describe('reader theme', () => {
     });
 
     it('keeps not-in-deck words on the website text color', () => {
-        document.body.innerHTML = `
+        const word = readerWordAfterRefresh(`
             <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">
                 <span class="jpdb-reader-word jpdb-not-in-deck anki-not-in-deck" data-anki-state="not-in-deck" style="--jpdb-reader-word-accessible-color: rgb(255, 255, 255); --jpdb-reader-word-accessible-underline: rgb(255, 255, 255);">読む</span>
             </p>
-        `;
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-
-        refreshReaderWordContrastForWord(word);
+        `);
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).toBe('');
@@ -215,14 +234,11 @@ describe('reader theme', () => {
     });
 
     it('leaves Yomu-owned reader surfaces on their theme colors', () => {
-        document.body.innerHTML = `
+        const word = readerWordAfterRefresh(`
             <div data-jpdb-reader-root>
                 <span class="jpdb-reader-word" style="color: rgb(255, 209, 102);">読む</span>
             </div>
-        `;
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-
-        refreshReaderWordContrastForWord(word);
+        `);
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
         expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('');
@@ -516,13 +532,14 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
 
-        expect(settings.wordHighlightColorSource).toBe('jpdb');
-        expect(settings.wordUnderlineColorSource).toBe('anki');
-        expect(settings.wordTextColorSource).toBe('anki');
-        expect(settings.subtitleHighlightColorSource).toBe('jpdb');
-        expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-        expect(settings.subtitleTextColorSource).toBe('jpdb');
-        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+        expectLoadedColorChannels(settings, {
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'anki',
+            wordTextColorSource: 'anki',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'jpdb',
+        }, { stripsLegacyHighlightMode: true });
     });
 
     it('preserves explicit combined status color channels at load time', async () => {
@@ -538,12 +555,14 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
 
-        expect(settings.wordHighlightColorSource).toBe('status');
-        expect(settings.wordUnderlineColorSource).toBe('status');
-        expect(settings.wordTextColorSource).toBe('status');
-        expect(settings.subtitleHighlightColorSource).toBe('status');
-        expect(settings.subtitleUnderlineColorSource).toBe('status');
-        expect(settings.subtitleTextColorSource).toBe('status');
+        expectLoadedColorChannels(settings, {
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
+            wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
     });
 
     it('migrates the historical automatic default channel tuple to current concrete defaults', async () => {
@@ -560,13 +579,14 @@ describe('reader theme', () => {
 
         const settings = await loadSettings();
 
-        expect(settings.wordHighlightColorSource).toBe('jpdb');
-        expect(settings.wordUnderlineColorSource).toBe('pitch');
-        expect(settings.wordTextColorSource).toBe('anki');
-        expect(settings.subtitleHighlightColorSource).toBe('jpdb');
-        expect(settings.subtitleUnderlineColorSource).toBe('pitch');
-        expect(settings.subtitleTextColorSource).toBe('anki');
-        expect(Object.prototype.hasOwnProperty.call(settings, 'wordHighlightMode')).toBe(false);
+        expectLoadedColorChannels(settings, {
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'pitch',
+            wordTextColorSource: 'anki',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'pitch',
+            subtitleTextColorSource: 'anki',
+        }, { stripsLegacyHighlightMode: true });
     });
 
     it('migrates legacy pitch highlight mode to pitch underline without double pitch highlighting', async () => {
