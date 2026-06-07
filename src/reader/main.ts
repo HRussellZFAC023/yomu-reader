@@ -1,6 +1,6 @@
 import { AudioPlayer } from './audio';
 import { isYomuHostedAppUrl } from './app-pages';
-import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, type AnkiLookupResult } from './anki';
+import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from './anki';
 import { renderReviewButtons } from './anki-render';
 import { runLimited } from './core/async-utils';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from './browser-ui';
@@ -18,7 +18,7 @@ import {
     type SubtitlePlayerControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from './companions/registry';
-import { APP_NAME, IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT } from './constants';
+import { APP_NAME, SETTINGS_CHANGE_EVENT } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
@@ -54,6 +54,7 @@ import { JpdbClient } from './jpdb';
 import { JpdbKanjiClient, type JpdbKanjiInfo, type JpdbKanjiVocabulary } from './jpdb-kanji';
 import { getPitchClass } from './jpdb-parser';
 import { JpdbPublicPitchClient } from './jpdb-public-pitch';
+import { jpdbVocabularyUrl } from './jpdb/jpdb-vocabulary-url';
 import {
     currentJpdbTermTarget,
     currentLocalDictionaryTargets,
@@ -94,6 +95,7 @@ import {
     renderedWordCacheMatches,
     renderedWordExpansionLookup,
     renderedWordLookupText,
+    type RenderedWordExpansionLookup,
     type RenderedWordKanaFragmentExpansionLookup,
 } from './main/rendered-word-lookup';
 import {
@@ -234,8 +236,6 @@ import {
     renderJpdbKanjiMiningControls,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
-    renderKanjiPractice,
-    renderPitch,
     renderRtkInfo,
     uniqueKanji,
 } from './popup-render';
@@ -247,7 +247,7 @@ import { bindReaderRuntimeEvents } from './reader-runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './reader-startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './reader-status-warmup';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from './reader-word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeStandaloneImagePage, isOcrLineFrameWord, ocrLineWordAtPoint, replaceOptionalElement, singleKanjiOcrLookupCharacter, wait } from './reader-dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeStandaloneImagePage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './reader-dom-helpers';
 import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from './reader-parser';
 import {
     isValidRenderedWordKey,
@@ -278,16 +278,15 @@ import {
     KANJI_RTK_SOURCE_ID,
     KANJI_SIMILAR_WORDS_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
-    kanjiDictionaryNameFromSourceId,
     kanjiSourceLabel,
-    orderedKanjiSourceIds,
 } from './source-sections';
 import { parseContentCacheKey } from './parse-content-cache-key';
+import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from './runtime/kanji-source-mounts';
 import { loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from './styles';
 import { StudySourceController } from './study-sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
-import { renderWordPills } from './word-pills';
+import { renderWordPills, updateHeadingWordPills } from './word-pills';
 import { addWindowEventListener } from './window-events';
 import {
     YomitanDictionaryStore,
@@ -3133,8 +3132,9 @@ export class ReaderApp {
         if (!isLookupableJapaneseText(expression)) return false;
         const trigger = this.renderedWordTrigger(options.trigger, false);
         const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
-        if (await this.lookupUncachedPageWordViaParsedJpdb(word, expression, options, trigger, navigation)) return true;
-        if (await this.lookupUncachedPageWordViaPublicJpdb(word, expression, options, trigger, navigation)) return true;
+        const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
+        if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation)) return true;
+        if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation)) return true;
         await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
             anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
             navigation,
@@ -3150,13 +3150,12 @@ export class ReaderApp {
 
     private async lookupUncachedPageWordViaParsedJpdb(
         word: HTMLElement,
+        lookup: RenderedWordExpansionLookup,
         expression: string,
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
     ): Promise<boolean> {
-        const lookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
-        if (!lookup) return false;
         try {
             const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
             const token = pointerTokenAtOffset(tokens ?? [], lookup.offset);
@@ -3175,13 +3174,11 @@ export class ReaderApp {
 
     private async lookupUncachedPageWordViaPublicJpdb(
         word: HTMLElement,
-        expression: string,
+        lookup: RenderedWordExpansionLookup,
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
     ): Promise<boolean> {
-        const lookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
-        if (!lookup) return false;
         const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset)
             .filter(span => span.end - span.start > lookup.surfaceLength)
             .map(span => span.term);
@@ -3695,23 +3692,18 @@ export class ReaderApp {
     }
 
     private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        const heading = popover.querySelector<HTMLElement>('.jpdb-reader-heading');
-        if (!heading) return;
-        const html = renderWordPills({
+        updateHeadingWordPills(popover, {
             card,
-            jpdbUrl: `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`,
+            jpdbUrl: jpdbVocabularyUrl(card),
             settings: this.settings,
             metaEntries,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         });
-        replaceOptionalElement(heading, '.jpdb-reader-word-pills', html);
     }
 
     private updatePopoverPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        const tools = popover.querySelector<HTMLElement>('.jpdb-reader-card-tools');
-        if (!tools || !this.settings.showPitchAccent) return;
-        replaceOptionalElement(tools, '.jpdb-reader-pitch', renderPitch(card, metaEntries), tools.firstElementChild);
+        updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
     }
 
     private renderCompletedCardPopover(
@@ -4065,69 +4057,19 @@ export class ReaderApp {
     }
 
     private renderKanjiSourceMounts(kanji: string, language: InterfaceLanguage): string {
-        const mounts: string[] = [];
-        for (const sourceId of orderedKanjiSourceIds(this.settings)) {
-            const mount = this.renderKanjiSourceMount(sourceId, kanji, language);
-            if (mount) mounts.push(mount);
-        }
-        return mounts.join('');
-    }
-
-    private renderKanjiSourceMount(sourceId: string, kanji: string, language: InterfaceLanguage): string {
-        if (sourceId === KANJI_STROKE_SOURCE_ID) return this.renderKanjiStrokeSourceMount(sourceId, kanji, language);
-        const staticMount = this.staticKanjiSourceMount(sourceId);
-        if (staticMount !== null) return staticMount;
-        if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderKanjiImmersionKitMount();
-        return this.renderDynamicKanjiSourceMount(sourceId, kanji, language);
-    }
-
-    private renderKanjiStrokeSourceMount(sourceId: string, kanji: string, language: InterfaceLanguage): string {
-        const sourceStateKey = kanjiSourceStateKey(KANJI_STROKE_SOURCE_ID);
-        return renderKanjiPractice(null, kanji, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(sourceId));
-    }
-
-    private staticKanjiSourceMount(sourceId: string): string | null {
-        const mounts: Record<string, string> = {
-            [KANJI_JPDB_SOURCE_ID]: '<div data-kanji-jpdb-mount></div>',
-            [KANJI_RTK_SOURCE_ID]: '<div data-kanji-rtk-mount></div>',
-            [KANJI_DICTIONARIES_SOURCE_ID]: '<div data-kanji-definitions-mount></div>',
-            [KANJI_ORIGINS_SOURCE_ID]: '<div data-kanji-origin-mount></div>',
-        };
-        return mounts[sourceId] ?? null;
-    }
-
-    private renderDynamicKanjiSourceMount(sourceId: string, kanji: string, language: InterfaceLanguage): string {
-        const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
-        if (dictionaryName) return this.renderKanjiDictionarySourceMount(sourceId, dictionaryName);
-        if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return this.renderSimilarKanjiWordsSourceMount(sourceId, kanji, language);
-        return '';
-    }
-
-    private renderKanjiDictionarySourceMount(sourceId: string, dictionaryName: string): string {
-        return `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`;
-    }
-
-    private renderSimilarKanjiWordsSourceMount(sourceId: string, kanji: string, language: InterfaceLanguage): string {
-        const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
-        return renderSimilarKanjiWordsShell(
+        return renderRuntimeKanjiSourceMounts({
+            settings: this.settings,
             kanji,
             language,
-            sourceStateKey,
-            this.dictionarySourceState.isOpen(sourceStateKey),
-            (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-            this.kanjiSourceTitle(sourceId),
-        );
+            isSourceOpen: key => this.dictionarySourceState.isOpen(key),
+            sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+            sourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
+            renderImmersionMount: () => this.renderKanjiImmersionKitMount(),
+        });
     }
 
     private renderKanjiImmersionKitMount(): string {
-        if (!this.shouldRenderKanjiImmersionKit()) return '';
-        const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
-        return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${this.dictionarySourceState.attributes(sourceStateKey, false)}>
-                <summary class="jpdb-reader-local-title">${uiText(this.settings.interfaceLanguage, 'immersionKit')}</summary>
-                <div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, 'loadingExamples')}</div>
-            </details>
-        `;
+        return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));
     }
 
     private renderKanjiActionBar(card: JPDBCard): string {
@@ -4677,11 +4619,10 @@ export class ReaderApp {
             seen.add(key);
             return true;
         });
-        const empty = (): AnkiLookupResult => ({ state: 'not-in-deck', notes: [], primary: null, trusted: false });
         const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
             .catch(error => {
                 log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
-                return uniqueTokens.map(() => empty());
+                return uniqueTokens.map(() => untrustedAnkiLookupResult());
             });
         this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
     }
@@ -5611,12 +5552,7 @@ export class ReaderApp {
             return;
         }
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
-        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-        this.clearHoverDismissState(options);
-        this.audio.stop();
-        this.immersionPopover.stopAudio();
-        this.updateSuppressedHoverTarget(options);
-        this.cardRenderRequest++;
+        this.prepareActivePopoverDismiss(options);
         this.restoreSettingsPreviewState();
         this.removeReaderDialogNodes();
         this.stackedSettingsDialog = undefined;
@@ -5640,12 +5576,7 @@ export class ReaderApp {
     }
 
     private dismissStackedLookupOverSettings(options: DismissOptions): void {
-        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-        this.clearHoverDismissState(options);
-        this.audio.stop();
-        this.immersionPopover.stopAudio();
-        this.updateSuppressedHoverTarget(options);
-        this.cardRenderRequest++;
+        this.prepareActivePopoverDismiss(options);
         this.nativeTitleGuard.restore();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
@@ -5662,6 +5593,15 @@ export class ReaderApp {
             this.navigation.clearWord();
             this.navigation.clearKanji();
         }
+    }
+
+    private prepareActivePopoverDismiss(options: DismissOptions): void {
+        if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+        this.clearHoverDismissState(options);
+        this.audio.stop();
+        this.immersionPopover.stopAudio();
+        this.updateSuppressedHoverTarget(options);
+        this.cardRenderRequest++;
     }
 
     private clearHoverDismissState(options: { preserveHoverGeneration?: boolean }): void {

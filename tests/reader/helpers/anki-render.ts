@@ -30,6 +30,12 @@ export function expectReadableRenderedAnkiSection(section: HTMLElement): void {
     expectCssNotToMatch(/\.jpdb-reader-anki(?:-[^{]+)?\s*\{[^}]*text-transform:\s*uppercase;/);
 }
 
+export function expectFirstRenderedAnkiCardOpen(renderedCards: HTMLElement[]): void {
+    expect(renderedCards[0]?.tagName).toBe('DETAILS');
+    expect(renderedCards[0]?.hasAttribute('open')).toBe(true);
+    expect(renderedCards[1]?.hasAttribute('open')).toBe(false);
+}
+
 export function expectRenderedAnkiPopoverScrollCss(): void {
     expectCssToMatch(
         /\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*max-height:\s*none;/,
@@ -57,27 +63,22 @@ export function expectReadableAnkiLabelCss(): void {
 }
 
 export function expectCollapsibleAnkiNoteCss(): void {
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-existing-note-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*20px;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"\+";/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-existing-note\[open\]\s*>\s*\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"-";/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-match-summary-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/);
+    expectCssToMatch(
+        /\.jpdb-reader-anki-existing-note-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*20px;/,
+        /\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"\+";/,
+        /\.jpdb-reader-anki-existing-note\[open\]\s*>\s*\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"-";/,
+        /\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/,
+        /\.jpdb-reader-anki-match-summary-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/,
+    );
 }
 
 export function expectCollapsibleRenderedAnkiCardCss(): void {
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-card-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*20px;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"\+";/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-card\[open\]\s*>\s*\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"-";/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-side-body :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-size:\s*clamp\(16px,\s*1\.35em,\s*30px\);/);
+    expectCssToMatch(
+        /\.jpdb-reader-anki-rendered-card-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*20px;/,
+        /\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"\+";/,
+        /\.jpdb-reader-anki-rendered-card\[open\]\s*>\s*\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"-";/,
+        /\.jpdb-reader-anki-rendered-side-body :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-size:\s*clamp\(16px,\s*1\.35em,\s*30px\);/,
+    );
 }
 
 export function expectCappedRenderedAnkiMediaCss(): void {

@@ -11,7 +11,7 @@ import {
     arrayParam,
     assert,
     assertBuiltArtifacts,
-    closeServer,
+    closeSmokeBrowserAndServer,
     firstErrorLine,
     gmRequestFetchBody,
     launchOptionalBrowser,
@@ -861,8 +861,7 @@ async function main() {
         writeFileSync(path.join(ARTIFACTS, 'live-browser-smoke.json'), JSON.stringify(report, null, 2));
         console.log(JSON.stringify(report, null, 2));
     } finally {
-        await browser.close().catch(() => undefined);
-        await closeServer(fixture.server);
+        await closeSmokeBrowserAndServer(browser, fixture.server);
     }
 }
 

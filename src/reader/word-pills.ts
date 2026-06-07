@@ -3,6 +3,7 @@ import { renderFrequencyPills } from './definition-source-render';
 import { uiText } from './i18n';
 import { formatLookupUrl, lookupPillStyle } from './local-dictionary-display';
 import { copyIcon, externalLinkIcon } from './icons';
+import { replaceOptionalElement } from './reader-dom-helpers';
 import type { JPDBCard, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from './yomitan';
 
@@ -35,6 +36,12 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     const frequencyPills = renderFrequencyPills(options.metaEntries ?? [], options.settings, options.dictionaryLabel);
     const pills = [...linkPills, ...frequencyPills];
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
+}
+
+export function updateHeadingWordPills(popover: HTMLElement, options: WordPillRenderOptions): void {
+    const heading = popover.querySelector<HTMLElement>('.jpdb-reader-heading');
+    if (!heading) return;
+    replaceOptionalElement(heading, '.jpdb-reader-word-pills', renderWordPills(options));
 }
 
 function renderLookupLinkPill(

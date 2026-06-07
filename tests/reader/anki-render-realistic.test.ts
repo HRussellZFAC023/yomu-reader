@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
 import {
     existingAnkiNote,
+    expectFirstRenderedAnkiCardOpen,
     expectNoHugeInlineFontLeak,
     expectNoNestedScrollStyles,
     expectReadableRenderedAnkiSection,
@@ -19,9 +20,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
 
         expectReadableRenderedAnkiSection(section);
         expect(renderedCards).toHaveLength(2);
-        expect(renderedCards[0]?.tagName).toBe('DETAILS');
-        expect(renderedCards[0]?.hasAttribute('open')).toBe(true);
-        expect(renderedCards[1]?.hasAttribute('open')).toBe(false);
+        expectFirstRenderedAnkiCardOpen(renderedCards);
         expect(renderedCards.map(card => card.querySelector('.jpdb-reader-anki-rendered-card-title')?.textContent))
             .toEqual(['RRTK Recognition #7001', 'RRTK Recognition #7002']);
         expect(section.querySelector('style')).toBeNull();

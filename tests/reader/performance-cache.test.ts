@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/card-render-data';
-import { ImmersionPopoverController } from '../../src/reader/immersion-popover-controller';
+import { ImmersionPopoverController, type ImmersionPopoverControllerOptions } from '../../src/reader/immersion-popover-controller';
 import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion-kit';
 import { loadMiningContext } from '../../src/reader/mining-context';
 import { requestText as requestReaderText } from '../../src/reader/reader-http';
@@ -540,17 +540,7 @@ describe('reader HTTP latency', () => {
 
 function createImmersionController(
     client: ImmersionKitClient,
-    overrides: Partial<{
-        getSettings: () => ReaderSettings;
-        parseJapanese: (paragraphs: string[], options?: { jpdbTimeoutMs?: number; allowJpdbTimeoutFallback?: boolean }) => Promise<JPDBToken[][]>;
-        canParseJapanese: () => boolean;
-        parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
-        enrichPitchWords: (tokens: JPDBToken[]) => void | Promise<void>;
-        enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => void | Promise<void>;
-        repositionPopover: () => void;
-        setImmersionTranslationBlurred: (blurred: boolean) => void;
-        toast: (message: string) => void;
-    }> = {},
+    overrides: Partial<ImmersionPopoverControllerOptions> = {},
 ): ImmersionPopoverController {
     return new ImmersionPopoverController({
         getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: true }),

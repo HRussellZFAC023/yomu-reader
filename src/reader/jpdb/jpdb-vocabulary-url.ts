@@ -4,6 +4,10 @@ export interface JpdbVocabularyUrlIdentity {
     vid: number;
 }
 
+export function jpdbVocabularyUrl(card: JpdbVocabularyUrlIdentity): string {
+    return `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
+}
+
 export function jpdbVocabularyIdentityFromUrl(value: string): JpdbVocabularyUrlIdentity | null {
     if (!value) return null;
     try {

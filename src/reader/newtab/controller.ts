@@ -2,7 +2,7 @@ import { primaryCardState } from '../card-state';
 import { copyText } from '../browser-ui';
 import type { CardRenderData } from '../card-render-data';
 import { isCardHighlightWord, normalizedJapaneseCardReading } from '../card-highlight';
-import { pruneOldestCacheEntries } from '../core/cache-utils';
+import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { ANKI_SOURCE_ID, APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../constants';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom-builder';
@@ -282,11 +282,6 @@ interface NewTabLookupDependencyOptions {
     previousNavigationEntry?: PopupNavigationEntry;
     reuseActivePopover?: boolean;
     userGesture?: boolean;
-}
-
-interface ParsedNewTabSentenceCacheEntry {
-    promise: Promise<JPDBToken[]>;
-    tokens?: JPDBToken[];
 }
 
 interface NewTabStatsApiProvider {
@@ -593,7 +588,7 @@ export class NewTabController {
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
     private frontSentenceCache = new Map<string, Promise<string>>();
-    private parsedSentenceCache = new Map<string, ParsedNewTabSentenceCacheEntry>();
+    private parsedSentenceCache = new Map<string, ParsedTokenCacheEntry>();
     private wordPitchCache = new Map<string, Promise<string[]>>();
     private doodlePreviewCache = new Map<string, string>();
     private immersionPrefetchGeneration = 0;
@@ -3731,22 +3726,13 @@ export class NewTabController {
     private parsedNewTabSentenceTokens(sentence: string): Promise<JPDBToken[]> {
         const key = sentence.trim();
         if (!key || !this.canParseNewTabSentence(key)) return Promise.resolve([]);
-        const cached = this.parsedSentenceCache.get(key);
-        if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
-
-        const entry: ParsedNewTabSentenceCacheEntry = { promise: Promise.resolve([]) };
-        entry.promise = this.dependencies.parser.parse([key], jpdbFirstParseOptions({ allowSegmentedFallback: true })).then(([tokens]) => {
-            const parsed = tokens ?? [];
-            if (shouldCacheParsedNewTabSentenceTokens(parsed)) entry.tokens = parsed;
-            else if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
-            return parsed;
-        }).catch(error => {
-            if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
-            throw error;
-        });
-        this.parsedSentenceCache.set(key, entry);
-        pruneOldestCacheEntries(this.parsedSentenceCache, NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT);
-        return entry.promise;
+        return loadCachedParsedTokens(
+            this.parsedSentenceCache,
+            key,
+            NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT,
+            () => this.dependencies.parser.parse([key], jpdbFirstParseOptions({ allowSegmentedFallback: true })).then(([tokens]) => tokens ?? []),
+            shouldCacheParsedNewTabSentenceTokens,
+        );
     }
 
     private cachedParsedNewTabSentenceTokens(sentence: string): JPDBToken[] | undefined {

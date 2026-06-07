@@ -117,7 +117,7 @@ export {
     ANKI_READING_FIELD_NAMES,
     ANKI_SENTENCE_FIELD_NAMES,
 } from './field-mapping';
-export { ankiMediaFilenameFromCardUrl } from './card-details';
+export { ankiMediaFilenameFromCardUrl, untrustedAnkiLookupResult } from './card-details';
 
 const ANKI_VERSION = 6;
 const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;

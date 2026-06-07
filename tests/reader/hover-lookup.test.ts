@@ -46,6 +46,15 @@ interface HoverLookupSpyOptions {
     settings?: Partial<ReaderSettings>;
 }
 
+const KEYBOARD_LOOKUP_WORDS = [
+    { vid: '1', sid: '1', sentence: '猫を見る', text: '猫' },
+    { vid: '2', sid: '2', sentence: '犬を見る', text: '犬' },
+];
+const KEYBOARD_LOOKUP_RANGE_WORDS = [
+    ...KEYBOARD_LOOKUP_WORDS,
+    { vid: '3', sid: '3', sentence: '鳥を見る', text: '鳥' },
+];
+
 function hoverPointerEvent(
     target: HTMLElement,
     pointerType = 'mouse',
@@ -84,6 +93,51 @@ function activePopoverWordFixture(): { popover: HTMLElement; word: HTMLElement }
     `;
     document.body.append(popover);
     return { popover, word: popover.querySelector<HTMLElement>('.jpdb-reader-word')! };
+}
+
+function readerWordFixture(sentence: string, text = sentence): HTMLElement {
+    const word = document.createElement('span');
+    word.className = 'jpdb-reader-word';
+    word.dataset.vid = '1';
+    word.dataset.sid = '2';
+    word.dataset.sentence = sentence;
+    word.textContent = text;
+    document.body.append(word);
+    return word;
+}
+
+function stubElementFromPoint(element: Element): () => void {
+    const originalElementFromPoint = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', {
+        configurable: true,
+        value: vi.fn(() => element),
+    });
+    return () => {
+        Object.defineProperty(document, 'elementFromPoint', {
+            configurable: true,
+            value: originalElementFromPoint,
+        });
+    };
+}
+
+function setupKeyboardLookup(wordsFixture = KEYBOARD_LOOKUP_WORDS): {
+    app: ReaderApp;
+    words: HTMLElement[];
+    internals: HoverLookupInternals;
+    showWord: ReturnType<typeof vi.fn>;
+} {
+    const app = new ReaderApp();
+    const words = appendKeyboardLookupWords(wordsFixture);
+    const internals = app as unknown as HoverLookupInternals;
+    const showWord = vi.fn().mockResolvedValue(undefined);
+
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        shortcuts: { ...DEFAULT_SETTINGS.shortcuts },
+    };
+    internals.showWord = showWord;
+
+    return { app, words, internals, showWord };
 }
 
 function setupHoverLookupSpies(
@@ -132,13 +186,7 @@ function expectNoHoverLookup({
 describe('hover lookup', () => {
     it('lets middle-button scanning show a hover-style popup when click and hover lookup are off', () => {
         const app = new ReaderApp();
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word';
-        word.dataset.vid = '1';
-        word.dataset.sid = '2';
-        word.dataset.sentence = '今日は読む';
-        word.textContent = '今日';
-        document.body.append(word);
+        const word = readerWordFixture('今日は読む', '今日');
         const internals = app as unknown as HoverLookupInternals;
 
         internals.settings = {
@@ -330,11 +378,7 @@ describe('hover lookup', () => {
         const { line, word } = appendSingleWordOcrLine();
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
-        const originalElementFromPoint = document.elementFromPoint;
-        Object.defineProperty(document, 'elementFromPoint', {
-            configurable: true,
-            value: vi.fn(() => line),
-        });
+        const restoreElementFromPoint = stubElementFromPoint(line);
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -349,10 +393,7 @@ describe('hover lookup', () => {
 
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
         } finally {
-            Object.defineProperty(document, 'elementFromPoint', {
-                configurable: true,
-                value: originalElementFromPoint,
-            });
+            restoreElementFromPoint();
             cleanupReaderApp(app);
         }
     });
@@ -445,13 +486,7 @@ describe('hover lookup', () => {
 
     it('keeps Apple Pencil tap separate from hover preview', () => {
         const app = new ReaderApp();
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word';
-        word.dataset.vid = '1';
-        word.dataset.sid = '2';
-        word.dataset.sentence = '読む';
-        word.textContent = '読む';
-        document.body.append(word);
+        const word = readerWordFixture('読む');
 
         const hoverLookup = setupHoverLookupSpies(app, { settings: { lookupOnClick: true } });
 
@@ -509,11 +544,7 @@ describe('hover lookup', () => {
 
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
-        const originalElementFromPoint = document.elementFromPoint;
-        Object.defineProperty(document, 'elementFromPoint', {
-            configurable: true,
-            value: vi.fn(() => nextWord),
-        });
+        const restoreElementFromPoint = stubElementFromPoint(nextWord);
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -531,28 +562,13 @@ describe('hover lookup', () => {
 
             expect(showWord).toHaveBeenCalledWith(nextWord, expect.objectContaining({ trigger: 'hover' }));
         } finally {
-            Object.defineProperty(document, 'elementFromPoint', {
-                configurable: true,
-                value: originalElementFromPoint,
-            });
+            restoreElementFromPoint();
             cleanupReaderApp(app);
         }
     });
 
     it('moves keyboard lookup focus across parsed words without hovering', async () => {
-        const app = new ReaderApp();
-        const words = appendKeyboardLookupWords([
-            { vid: '1', sid: '1', sentence: '猫を見る', text: '猫' },
-            { vid: '2', sid: '2', sentence: '犬を見る', text: '犬' },
-        ]);
-        const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts },
-        };
-        internals.showWord = showWord;
+        const { app, words, internals, showWord } = setupKeyboardLookup();
 
         try {
             await internals.navigateLookupWord(1);
@@ -568,26 +584,13 @@ describe('hover lookup', () => {
     });
 
     it('keeps keyboard word navigation inside the selected text range', async () => {
-        const app = new ReaderApp();
-        const words = appendKeyboardLookupWords([
-            { vid: '1', sid: '1', sentence: '猫を見る', text: '猫' },
-            { vid: '2', sid: '2', sentence: '犬を見る', text: '犬' },
-            { vid: '3', sid: '3', sentence: '鳥を見る', text: '鳥' },
-        ]);
+        const { app, words, internals, showWord } = setupKeyboardLookup(KEYBOARD_LOOKUP_RANGE_WORDS);
         const range = document.createRange();
         range.setStartBefore(words[1]);
         range.setEndAfter(words[2]);
         const selection = window.getSelection()!;
         selection.removeAllRanges();
         selection.addRange(range);
-        const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            shortcuts: { ...DEFAULT_SETTINGS.shortcuts },
-        };
-        internals.showWord = showWord;
 
         try {
             await internals.navigateLookupWord(1);

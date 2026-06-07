@@ -78,6 +78,10 @@ interface TermSearchCandidate {
     rank: number;
 }
 
+interface RankedDictionaryEntry {
+    dictionary: string;
+}
+
 interface YomitanTermSearchEntry extends YomitanTermEntry {
     token: string;
 }
@@ -227,15 +231,16 @@ export class YomitanDictionaryStore {
 
                     const rank = dictionaryRank(preferences);
                     const seen = new Set<string>();
-                    const results = entries
-                        .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-                        .sort((a, b) =>
+                    const results = rankedDictionaryEntries(
+                        entries,
+                        rank,
+                        undefined,
+                        (a, b) =>
                             dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
                             || Number(b.expression === expression) - Number(a.expression === expression)
                             || Number(b.reading === reading) - Number(a.reading === reading)
                             || (b.score ?? 0) - (a.score ?? 0),
-                        )
-                        .filter(entry => {
+                    ).filter(entry => {
                             const key = termLookupDedupKey(entry);
                             if (seen.has(key)) return false;
                             seen.add(key);
@@ -294,10 +299,7 @@ export class YomitanDictionaryStore {
                     const rank = dictionaryRank(preferences);
                     const characters = [...new Set(Array.from(text).filter(isKanji))];
                     const entries = await this.getManyByIndex<YomitanKanjiEntry>(db, 'kanji', 'character', characters, limit);
-                    const results = entries
-                        .filter(entry => dictionaryEnabled(entry.dictionary, rank))
-                        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank))
-                        .slice(0, limit);
+                    const results = rankedDictionaryEntries(entries, rank, limit);
                     return results;
                 } catch (error) {
                     log.warn('Kanji lookup failed', { length: text.length, error });
@@ -1797,6 +1799,18 @@ function sortTermMatchEntries(entries: YomitanTermEntry[], rank: Map<string, Dic
     return entries
         .filter(item => dictionaryEnabled(item.dictionary, rank))
         .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+}
+
+function rankedDictionaryEntries<T extends RankedDictionaryEntry>(
+    entries: T[],
+    rank: Map<string, DictionaryPreference>,
+    limit?: number,
+    compare: (a: T, b: T) => number = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank),
+): T[] {
+    const ranked = entries
+        .filter(entry => dictionaryEnabled(entry.dictionary, rank))
+        .sort(compare);
+    return limit === undefined ? ranked : ranked.slice(0, limit);
 }
 
 function termMatchForPosition(position: TermMatchCandidatePosition, entries: YomitanTermEntry[]): YomitanTermMatch | null {

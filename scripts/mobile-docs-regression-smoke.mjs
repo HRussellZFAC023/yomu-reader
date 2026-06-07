@@ -6,7 +6,7 @@ import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
-    closeServer,
+    closeSmokeBrowserAndServer,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
@@ -124,8 +124,7 @@ try {
     writeFileSync(path.join(ARTIFACTS, 'mobile-docs-regression-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
 } finally {
-    await browser.close().catch(() => undefined);
-    await closeServer(fixture.server);
+    await closeSmokeBrowserAndServer(browser, fixture.server);
 }
 
 async function createFixtureServer() {

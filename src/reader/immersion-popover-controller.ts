@@ -3,6 +3,7 @@ import { hasVisiblePageVideo } from './browser-ui';
 import { cardHighlightTargets, highlightCardTargetWords } from './card-highlight';
 import { cardKey } from './card-utils';
 import { pruneOldestCacheEntries } from './core/cache-utils';
+import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from './core/parsed-token-cache';
 import { escapeHtml, renderHighlightedTextHtml, renderTokensToHtml, setInnerHtml } from './dom';
 import { exampleSentenceLookupTokens } from './example-sentence-tokens';
 import {
@@ -71,7 +72,7 @@ export interface ImmersionSearchOptions {
     signal?: AbortSignal;
 }
 
-interface ImmersionPopoverControllerOptions {
+export interface ImmersionPopoverControllerOptions {
     getSettings: () => ReaderSettings;
     client: ImmersionKitClient;
     audio: AudioPlayer;
@@ -91,11 +92,6 @@ interface HeldExampleImage {
     holdUntilReady: boolean;
 }
 
-interface ParsedSentenceCacheEntry {
-    promise: Promise<JPDBToken[]>;
-    tokens?: JPDBToken[];
-}
-
 export class ImmersionPopoverController {
     private audioElement?: HTMLAudioElement;
     private audioKey = '';
@@ -105,7 +101,7 @@ export class ImmersionPopoverController {
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
     private searchResultCache = new Map<string, { expiresAt: number; promise: Promise<ImmersionKitSearchResult> }>();
-    private parsedSentenceCache = new Map<string, ParsedSentenceCacheEntry>();
+    private parsedSentenceCache = new Map<string, ParsedTokenCacheEntry>();
     private loadAbortControllers = new WeakMap<HTMLElement, AbortController>();
     private lazyLoadTimers = new WeakMap<HTMLElement, number>();
     private lazyLoadObservers = new WeakMap<HTMLElement, IntersectionObserver>();
@@ -859,24 +855,16 @@ export class ImmersionPopoverController {
     private parsedExampleSentenceTokens(sentence: string): Promise<JPDBToken[]> {
         const key = sentence.trim();
         if (!key) return Promise.resolve([]);
-        const cached = this.parsedSentenceCache.get(key);
-        if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
-
-        const entry: ParsedSentenceCacheEntry = { promise: Promise.resolve([]) };
-        entry.promise = this.options.parseJapanese([sentence], this.exampleSentenceParseOptions())
+        return loadCachedParsedTokens(
+            this.parsedSentenceCache,
+            key,
+            IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
+            () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions())
             .then(([tokens]) => {
-                const parsed = tokens ?? [];
-                if (shouldCacheParsedExampleSentenceTokens(parsed)) entry.tokens = parsed;
-                else if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
-                return parsed;
-            })
-            .catch(error => {
-                if (this.parsedSentenceCache.get(key) === entry) this.parsedSentenceCache.delete(key);
-                throw error;
-        });
-        this.parsedSentenceCache.set(key, entry);
-        pruneOldestCacheEntries(this.parsedSentenceCache, IMMERSION_PARSED_SENTENCE_CACHE_LIMIT);
-        return entry.promise;
+                return tokens ?? [];
+            }),
+            shouldCacheParsedExampleSentenceTokens,
+        );
     }
 
     private exampleSentenceParseOptions(): ReaderParserParseOptions {

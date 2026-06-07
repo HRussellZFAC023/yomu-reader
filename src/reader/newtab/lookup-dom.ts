@@ -2,7 +2,6 @@ import type { AnkiLookupResult } from '../anki';
 import { escapeHtml, HAS_JAPANESE } from '../dom';
 import { cardStateLabel } from '../i18n';
 import { updateKanjiMiningControlsMount } from '../kanji-mining-controls';
-export { replaceOptionalElement } from '../reader-dom-helpers';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../types';
 
