@@ -59,7 +59,7 @@ This is the part people get stuck on, so here's exactly what happens.
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      0.6.27
+   // @version      0.6.28
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...

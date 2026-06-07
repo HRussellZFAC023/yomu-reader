@@ -1120,20 +1120,17 @@
       anki: "Anki",
       jpdb: "JPDB",
       api: "API",
+      apiCredential: "API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Add a JPDB or Jiten key.",
+      apiAccessHelp: "Paste one JPDB or Jiten API key. Jiten keys start with ak_.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbApiKeyMissing: "No JPDB key.",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
-      checkJitenApi: "Check Jiten connection",
-      jitenCheckingConnection: "Checking Jiten connection...",
-      jitenConnectionReady: "Connected. Jiten Reader API is reachable.",
-      jitenConnectionFailed: "Jiten connection failed.",
       statusEnabled: "enabled",
       statusDisabled: "disabled",
       statusReady: "Ready",
@@ -1148,7 +1145,7 @@
       jpdbPageEnhancementsEnabled: "Enhance JPDB pages",
       jpdbPageWordEnhancementsEnabled: "Add sources to JPDB word/search pages",
       jpdbPageKanjiEnhancementsEnabled: "Add sources to JPDB kanji pages",
-      jpdbPageEnhancementsHelp: "Uses your Dictionaries and Kanji source order.",
+      jpdbPageEnhancementsHelp: "Uses your source order.",
       fivePoint: "Five point: NOTHING to EASY",
       twoPoint: "Two point: FAIL / PASS",
       settingsLanguage: "Settings language",
@@ -1183,7 +1180,7 @@
       popupFontWeight: "Popup Japanese weight",
       enableLogging: "Enable diagnostic logging",
       diagnostics: "Diagnostics",
-      diagnosticsHelp: "Troubleshooting only. Prints diagnostics to the console.",
+      diagnosticsHelp: "Print diagnostics to the console.",
       accentColor: "Accent color",
       newTab: "New tab",
       newTabEnabled: "Enable Yomu new tab study page",
@@ -1239,7 +1236,7 @@
       colorSourceJpdb: "JPDB status",
       colorSourceAnki: "Anki status",
       colorSourcePitch: "Pitch accent",
-      colorChannelsHelp: "Choose which status colors drive each channel.",
+      colorChannelsHelp: "Choose each color source.",
       interfaceHelp: "",
       parseSelection: "Look up selected text",
       lookupOnClick: "Look up on tap or click",
@@ -1263,7 +1260,7 @@
       loadingSimilarWords: "Loading words...",
       openToLoadSimilarWords: "Open to load words.",
       noSimilarWords: "No additional words found.",
-      kanjiHelp: "Click popup kanji for details. Toggle and reorder kanji sources here.",
+      kanjiHelp: "Click popup kanji for details.",
       audioEnabled: "Enable term audio",
       autoPlayAudio: "Auto-play term audio",
       suppressAutoAudioOnVideo: "Disable lookup audio auto-play on video pages",
@@ -1497,7 +1494,7 @@
       ankiScanFieldSummary: "Fields: {fields}",
       ankiUnreachable: "Open desktop Anki and check AnkiConnect.",
       ankiSettingsUnreachable: "AnkiConnect not reached.",
-      ankiHostedBridgeMissing: `Hosted Anki bridge not found.`,
+      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript and refresh.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
@@ -1526,7 +1523,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External dictionary links. Use {query}, {word}, {reading}.",
+      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -2388,7 +2385,7 @@ heisigComment	Heisigコメント
 koohiiStories	Koohiiストーリー
 add	追加
 addToDeck	デッキに追加
-addToDeckHint	採点せずに選択したAPI SRSデッキにこのカードを追加します。
+addToDeckHint	採点せずに追加します。
 deck	デッキ
 deckActions	デッキ操作
 reviewAddsToDeck	レビューすると新しい単語を追加します:
@@ -2545,20 +2542,17 @@ youTube	YouTube
 anki	Anki
 jpdb	JPDB
 api	API
+apiCredential	APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JPDBまたはJiten APIキーを追加できます。JPDB由来のカードにはJPDBキー、Jiten由来のカードにはJitenキーを使います。
+apiAccessHelp	JPDBまたはJiten APIキーを1つ貼り付けます。Jitenキーはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
-jpdbApiKeyMissing	JPDBキーなし。公開検索のみ使えます。
-jitenApiKeyConfigured	Jitenキーあり。Jiten Reader APIワークフローを使う前に接続を確認してください。
-jitenApiKeyMissing	Jiten Reader APIワークフローを使うにはJiten APIキーを追加してください。
-checkJitenApi	Jiten接続を確認
-jitenCheckingConnection	Jiten接続を確認中...
-jitenConnectionReady	接続しました。Jiten Reader APIに到達できます。
-jitenConnectionFailed	Jiten接続に失敗しました。
+jpdbApiKeyMissing	JPDBキーなし。
+jitenApiKeyConfigured	Jitenキーあり。
+jitenApiKeyMissing	Jitenキーなし。
 statusEnabled	有効
 statusDisabled	無効
 statusReady	準備完了
@@ -2573,7 +2567,7 @@ jpdbPageEnhancements	JPDBページ拡張
 jpdbPageEnhancementsEnabled	JPDBページを拡張
 jpdbPageWordEnhancementsEnabled	JPDBの単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	JPDBの漢字ページにソースを追加
-jpdbPageEnhancementsHelp	辞書と漢字パネルのソース順を使います。
+jpdbPageEnhancementsHelp	ソース順を使います。
 fivePoint	5段階: 全く覚えていないから簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -2603,13 +2597,13 @@ customFontFamily	カスタムフォントスタック
 popupFontWeight	ポップアップの日本語の太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
-diagnosticsHelp	診断情報をブラウザコンソールへ出力します。
+diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	新規タブ
 newTabEnabled	よむの新規タブ学習ページを有効にする
 newTabAnkiEnabled	新規タブのAnkiカードを有効にする
 newTabAnkiReviewDecks	Anki復習デッキ
-newTabAnkiReviewDecksHelp	新しいデッキは自動対象です。不要なものだけ外します。
+newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
 newTabSource	新規タブの復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
 newTabApiSrs	API SRS（JPDB / Jiten）
@@ -2630,7 +2624,7 @@ newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	新規タブをオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabUrl	新規タブのアドレス
-newTabOfflineHelp	最近の復習を保存し、インターネットがなくても新規タブページを使えるようにします。
+newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	新規タブのJPDBデッキ
 openNewTabPage	新規タブページを開く
 copyAddress	アドレスをコピー
@@ -2659,7 +2653,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
-colorChannelsHelp	各表示に使う状態色を選びます。
+colorChannelsHelp	各色のソースを選びます。
 interfaceHelp	インターフェイス設定です。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
@@ -2674,13 +2668,13 @@ furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 hideKnownFurigana	既知カードのみふりがなを非表示
-readerHelp	ホバー検索で押し続けるキーを設定します。空欄にすると通常ホバーで検索します。
+readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	ポップアップ内の漢字で詳細表示。ソースも並べ替えます。
+kanjiHelp	ポップアップ内の漢字で詳細表示。
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生する
 suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
@@ -2696,7 +2690,7 @@ audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
 audioTimeoutMs	音声タイムアウト (ms)
 previewAudio	音声を試聴
-audioHelp	ソースURLで{term}、{reading}、{language}を使えます。詳しくはYomitan音声ガイドへ。
+audioHelp	URLトークン: {term}、{reading}、{language}。
 audioSource	音声ソース
 urlVoice	URL / 音声
 addAudioSource	音声ソースを追加
@@ -2828,11 +2822,11 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
-youtubeImmersionEnabled	日本語のYouTube動画だけ表示
+youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
-youtubeShowFilterNotice	非表示動画の通知を一時的に出す
-youtubeHelp	可能な範囲で日本語UIと日本向け内容を要求します。
+youtubeShowFilterNotice	非表示動画の通知を表示
+youtubeHelp	日本語UIと日本向け内容を優先します。
 youtubeFilterOn	YouTubeフィルター: オン
 youtubeFilterOff	YouTubeフィルター: オフ
 youtubeShowHiddenVideos	非表示動画を表示
@@ -2889,7 +2883,7 @@ ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得�
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。
-ankiHostedBridgeMissing	ホスト版Ankiブリッジが見つかりません。
+ankiHostedBridgeMissing	よむユーザースクリプトを有効化して更新してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント
@@ -2917,7 +2911,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部辞書リンクです。{query}、{word}、{reading}が使えます。
+lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -2985,7 +2979,7 @@ donate	寄付
 discord	Discord
 documentation	ドキュメント
 addToMining	デッキに追加
-addToMiningHint	このカードを選択中のAPI SRSデッキに追加します。
+addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
 displayName	表示名
@@ -6501,7 +6495,7 @@ recommendedJiten	jiten.moe頻度データです。
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
-    theme: "auto",
+    theme: "light",
     popupMode: "auto",
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,
@@ -13118,17 +13112,29 @@ ${entry.reading}`;
     if (immediate || typeof window === "undefined") return Promise.resolve(immediate);
     return new Promise((resolve) => {
       let settled = false;
+      const cleanupReadyListeners = [];
       const settle = (request) => {
         if (settled) return;
         settled = true;
         window.clearTimeout(timeoutId);
-        removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+        cleanupReadyListeners.forEach((cleanup) => cleanup());
         resolve(request);
       };
       const onReady = () => settle(getUserscriptHttpRequest());
-      addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady)) {
+        cleanupReadyListeners.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
+      }
+      const documentTarget = userscriptBridgeDocumentTarget();
+      if (documentTarget) {
+        documentTarget.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+        cleanupReadyListeners.push(() => documentTarget.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
+      }
       const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
     });
+  }
+  function userscriptBridgeDocumentTarget() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
   }
   function hostedAnkiBridgeWaitMs(timeoutMs) {
     return Math.max(ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS, Math.max(0, timeoutMs));
@@ -26443,6 +26449,7 @@ ${spelling}`);
       this.getProxyUrl = getProxyUrl;
     }
     retryAfter = 0;
+    rejectedToken = "";
     request(endpoint, body) {
       return this.requestByUrl(`${API_BASE}/${endpoint}`, body);
     }
@@ -26453,7 +26460,8 @@ ${spelling}`);
       const done = log$e.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body, this.getProxyUrl());
       done();
-      this.assertSuccessfulResponse(response, endpoint);
+      this.assertSuccessfulResponse(response, endpoint, token);
+      if (this.rejectedToken === token) this.rejectedToken = "";
       return parseJpdbApiResponse(response, endpoint, options.response);
     }
     assertCanRequest(token, endpoint) {
@@ -26461,18 +26469,23 @@ ${spelling}`);
         log$e.warn("JPDB API key missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
+      if (this.rejectedToken === token) {
+        log$e.warn("JPDB API key was already rejected", { endpoint });
+        throw new Error("JPDB rejected the API key.");
+      }
       if (Date.now() < this.retryAfter) {
         log$e.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
     }
-    assertSuccessfulResponse(response, endpoint) {
+    assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
         log$e.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
+        this.rejectedToken = token;
         log$e.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
@@ -34552,7 +34565,7 @@ ${newTabCardReading(card)}`;
           el(
             "section",
             { class: "jpdb-reader-newtab-study", dataset: { newtabStudy: true }, "aria-live": "polite" },
-            el("div", { class: "jpdb-reader-newtab-count", dataset: { newtabCount: true } }, "0 / 0"),
+            el("div", { class: "jpdb-reader-newtab-count", dataset: { newtabCount: true }, hidden: true }),
             el("h1", { class: "jpdb-reader-newtab-prompt", dataset: { newtabPrompt: true }, lang: "ja" }, APP_NAME),
             el(
               "div",
@@ -40975,6 +40988,25 @@ ${newTabCardReading(card)}`;
     const value = control instanceof HTMLSelectElement ? control.value : "en";
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
+  const JITEN_API_KEY_PREFIX = "ak_";
+  function singleApiCredentialValue(settings) {
+    return settings.jitenApiKey.trim() || settings.apiKey;
+  }
+  function splitApiCredential(value) {
+    const credential = value.trim();
+    if (!credential) return { apiKey: "", jitenApiKey: "" };
+    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
+  }
+  function readApiCredentialsFromFormData(data) {
+    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
+    return {
+      apiKey: String(data.get("apiKey") ?? "").trim(),
+      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
+    };
+  }
+  function isJitenApiCredential(value) {
+    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+  }
   function createSettingsFormReader(data, colorSource) {
     const get = (key2) => String(data.get(key2) ?? "");
     const number = (key2, fallback) => readNumber(get(key2), fallback);
@@ -41075,10 +41107,10 @@ ${newTabCardReading(card)}`;
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
+    const apiCredentials = readApiCredentialsFromFormData(data);
     const settings = {
       ...current,
-      apiKey: get("apiKey").trim(),
-      jitenApiKey: get("jitenApiKey").trim(),
+      ...apiCredentials,
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
       ...readJpdbFormSettings(reader, current, jpdbDefinitionsRowPresent),
       ...readKanjiAddonFormSettings(reader, current),
@@ -42114,18 +42146,11 @@ ${newTabCardReading(card)}`;
     const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
   }
-  function renderJitenStatusLine(settings) {
-    const { message, tone } = jitenStatusLineForSettings(settings, settings.interfaceLanguage);
-    return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jiten-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
-  }
   function formatStatusTemplate(template, values) {
     return template.replace(/\{(\w+)\}/g, (_, key2) => values[key2] ?? "");
   }
   function jpdbStatusLineForSettings(settings, language) {
     return jpdbStatusLineFromValues(Boolean(settings.apiKey.trim()), Boolean(settings.jitenApiKey.trim()), language);
-  }
-  function jitenStatusLineForSettings(settings, language) {
-    return Boolean(settings.jitenApiKey.trim()) ? { message: uiText(language, "jitenApiKeyConfigured"), tone: "pending" } : { message: uiText(language, "jitenApiKeyMissing"), tone: "pending" };
   }
   function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language) {
     if (!hasJpdbApiKey && !hasJitenApiKey) {
@@ -42146,10 +42171,10 @@ ${newTabCardReading(card)}`;
     };
   }
   function jitenAwareMissingApiKeyMessage(language) {
-    return resolveUiLanguage(language) === "ja" ? "JPDBまたはJitenキーなし。公開検索のみ使えます。APIの復習・デッキ変更は使えません。" : "No JPDB or Jiten key. Public lookup works; API reviews and deck changes do not.";
+    return resolveUiLanguage(language) === "ja" ? "JPDBまたはJitenキーなし。" : "No JPDB or Jiten key.";
   }
   function jitenApiKeyConfiguredMessage(language) {
-    return resolveUiLanguage(language) === "ja" ? "Jitenキーあり。Jiten由来カードの復習・デッキ変更は使えます。JPDB由来カードにはJPDBキーが必要です。" : "Jiten key set. Jiten-backed reviews and deck changes are ready; JPDB-backed cards need a JPDB key.";
+    return resolveUiLanguage(language) === "ja" ? "Jitenキーあり。" : "Jiten key set.";
   }
   function ankiStatusLineForSettings(settings, language) {
     return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language);
@@ -42205,22 +42230,10 @@ ${newTabCardReading(card)}`;
   function localizeJpdbStatus(form, language) {
     const status = form.querySelector("[data-jpdb-status]");
     if (!status) return;
-    const hasJpdbApiKey = Boolean(form.querySelector('input[name="apiKey"]')?.value.trim());
-    const hasJitenApiKey = Boolean(form.querySelector('input[name="jitenApiKey"]')?.value.trim());
-    const line = jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language);
+    const credentials = readApiCredentialsFromFormData(new FormData(form));
+    const line = jpdbStatusLineFromValues(Boolean(credentials.apiKey.trim()), Boolean(credentials.jitenApiKey.trim()), language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
-  }
-  function localizeJitenStatus(form, language) {
-    const status = form.querySelector("[data-jiten-status]");
-    if (!status || !isInitialJitenSettingsStatus(status.textContent ?? "")) return;
-    const hasJitenApiKey = Boolean(form.querySelector('input[name="jitenApiKey"]')?.value.trim());
-    const line = hasJitenApiKey ? { message: uiText(language, "jitenApiKeyConfigured"), tone: "pending" } : { message: uiText(language, "jitenApiKeyMissing"), tone: "pending" };
-    status.dataset.statusTone = line.tone;
-    status.replaceChildren(formatSettingsStatusLine(line, language));
-  }
-  function isInitialJitenSettingsStatus(value) {
-    return /Add a Jiten API key|Jiten key configured|Jiten APIキー|Jitenキー/.test(value);
   }
   function localizeInitialAnkiStatus(form, language) {
     const status = form.querySelector("[data-anki-status]");
@@ -42377,21 +42390,15 @@ ${newTabCardReading(card)}`;
   }
   function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
     const jpdbStatus = renderJpdbStatusLine(settings);
-    const jitenStatus = renderJitenStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
                 <legend>API</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input("apiKey", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, settings.apiKey, "password", API_KEY_INPUT_ATTRIBUTES)}
-                        ${input("jitenApiKey", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, settings.jitenApiKey, "password", API_KEY_INPUT_ATTRIBUTES)}
+                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "password", API_KEY_INPUT_ATTRIBUTES)}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add a JPDB API key or a Jiten API key. JPDB-backed cards use the JPDB key; Jiten-backed cards use the Jiten key.</div>
-                    <div class="jpdb-reader-help-actions">
-                        <button class="jpdb-reader-btn" type="button" data-action="check-jiten-api">Check Jiten connection</button>
-                    </div>
-                    ${jitenStatus}
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -42410,7 +42417,7 @@ ${newTabCardReading(card)}`;
                         ${checkbox("jpdbPageWordEnhancementsEnabled", "Add sources to JPDB word/search pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox("jpdbPageKanjiEnhancementsEnabled", "Add sources to JPDB kanji pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>JPDB page additions use the same source order as the Dictionaries and Kanji panels.</div>
+                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>Uses your source order.</div>
                 </div>
             </fieldset>
     `;
@@ -42538,7 +42545,7 @@ ${newTabCardReading(card)}`;
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), COLOR_SOURCE_OPTIONS)).join("")}
                     </div>
-                    <div class="jpdb-reader-help" data-color-channels-help>Each channel uses the source shown here. Defaults keep page text readable, show mining status in highlights, and keep subtitle status and pitch visible.</div>
+                    <div class="jpdb-reader-help" data-color-channels-help>Choose each color source.</div>
                 </div>
     `;
   }
@@ -42682,7 +42689,7 @@ ${newTabCardReading(card)}`;
                 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, "settingsPuckHelp")}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
-                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Hover lookup uses the Hold while hovering shortcut in this panel. Leave it blank for plain hover. Middle-button scanning blocks browser autoscroll while held, but still leaves normal middle-clicks on links alone.</div>
+                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
             </fieldset>
     `;
   }
@@ -42711,7 +42718,7 @@ ${newTabCardReading(card)}`;
                     ${checkbox("kanjiOriginRadicalImagesEnabled", "Show radical images", settings.kanjiOriginRadicalImagesEnabled)}
                     ${input("similarKanjiWordLimit", "Similar word limit", String(settings.similarKanjiWordLimit), "number", { min: 2, max: 24, step: 1 })}
                 </div>
-                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click a kanji inside a popup word to open its detail view. Toggle and reorder the kanji sources here: stroke practice, readings and components, RTK, imported kanji dictionaries, related words, and the component graph.</div>
+                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click popup kanji for details.</div>
             </fieldset>
     `;
   }
@@ -42740,7 +42747,7 @@ ${newTabCardReading(card)}`;
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
-                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Images are read quietly near the viewport. Google Lens handles normal images by default; Cloud Vision can be used with an API key, and embedded OCR metadata is instant. Recognized areas stay transparent until you tap or hover.</div>
+                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
             </fieldset>
     `;
   }
@@ -42791,12 +42798,12 @@ ${newTabCardReading(card)}`;
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>YouTube</legend>
                 <div class="grid">
-                    ${checkbox("youtubeImmersionEnabled", "Only show Japanese YouTube videos", settings.youtubeImmersionEnabled)}
+                    ${checkbox("youtubeImmersionEnabled", "Japanese YouTube only", settings.youtubeImmersionEnabled)}
                     ${checkbox("preferJapaneseSiteLanguage", "Prefer Japanese site language and location", settings.preferJapaneseSiteLanguage)}
                     ${checkbox("youtubeShowChannelRecommendations", "Show Japanese channel suggestions", settings.youtubeShowChannelRecommendations)}
-                    ${checkbox("youtubeShowFilterNotice", "Show a temporary hidden-video notice", settings.youtubeShowFilterNotice)}
+                    ${checkbox("youtubeShowFilterNotice", "Show hidden-video notice", settings.youtubeShowFilterNotice)}
                 </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>On by default. The language preference asks sites for Japanese UI and Japan-local content where a userscript can.</div>
+                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>Prefer Japanese UI and Japan-local content.</div>
             </fieldset>
     `;
   }
@@ -42823,7 +42830,7 @@ ${newTabCardReading(card)}`;
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">Open the current word in external dictionaries. Use {query}, or {word} and {reading} when a site needs them separately.</div>
+                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -42873,7 +42880,7 @@ ${newTabCardReading(card)}`;
                     <div class="grid">
                         ${checkbox("enableLogging", "Enable console logging", settings.enableLogging)}
                     </div>
-                    <div class="jpdb-reader-help" data-diagnostics-help>Use this only when troubleshooting. It prints reader diagnostics to the browser console.</div>
+                    <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
                 </div>
                 ${renderHelpLinksPanel()}
             </fieldset>
@@ -43005,7 +43012,6 @@ ${newTabCardReading(card)}`;
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
     ['[data-action="prepare-anki"]', "prepareAnki"],
-    ['[data-action="check-jiten-api"]', "checkJitenApi"],
     ['[data-action="copy-newtab-url"]', "copyAddress"],
     ["[data-newtab-url-link]", "openNewTabPage"],
     ['[data-action="import-yomitan-settings"]', "importSettings"],
@@ -43359,7 +43365,6 @@ ${newTabCardReading(card)}`;
     localizeDeckControls(form, text2);
     const statusLanguage2 = resolveUiLanguageFromText(text2);
     localizeJpdbStatus(form, statusLanguage2);
-    localizeJitenStatus(form, statusLanguage2);
     localizeInitialAnkiStatus(form, statusLanguage2);
     localizeSourceRows(form, text2);
     localizeRecommendedDictionaryGroups(form, text2);
@@ -43549,8 +43554,7 @@ ${newTabCardReading(card)}`;
     }
   }
   const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    "apiKey",
-    "jitenApiKey",
+    "apiCredential",
     "miningDeck",
     "newTabJpdbDeck",
     "neverForgetDeck",
@@ -44067,9 +44071,9 @@ ${newTabCardReading(card)}`;
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
         `;
     }).join("");
-    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Frequency, pitch, and kanji metadata dictionaries are detected automatically and shown as popup badges or kanji data instead of definition source cards.</div>' : "";
+    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
     if (!rows.some((row) => row.removable)) return `
-        <div class="jpdb-reader-help">Import Yomitan dictionaries to add local or native-language definitions alongside JPDB and Immersion Kit examples.</div>
+        <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
         ${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}
         ${metadataHelp}
         ${hidden}
@@ -44290,13 +44294,6 @@ ${newTabCardReading(card)}`;
       setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
     };
   }
-  function settingsToneStatusSetter(status) {
-    return (message, tone) => {
-      if (!status) return;
-      status.dataset.statusTone = tone;
-      status.textContent = formatSettingsStatusLine({ message, tone }, statusLanguage(status));
-    };
-  }
   function statusLanguage(status) {
     return status.closest("form")?.querySelector('select[name="interfaceLanguage"]')?.value ?? "en";
   }
@@ -44481,7 +44478,6 @@ ${newTabCardReading(card)}`;
       this.syncRecommendedDictionaryInstallControls(form);
       this.syncDictionaryOperationState(form);
       this.syncJpdbStatus(form);
-      this.syncJitenStatus(form);
       void this.refreshAnkiConnectionStatus(form);
       void this.refreshDictionaryStatus(form);
       void this.refreshDeckControls(form);
@@ -44494,7 +44490,6 @@ ${newTabCardReading(card)}`;
       this.syncRecommendedDictionaryInstallControls(form);
       this.syncDictionaryOperationState(form);
       this.syncJpdbStatus(form);
-      this.syncJitenStatus(form);
       void this.refreshAnkiConnectionStatus(form);
       syncSubtitlePreview(form);
       this.refreshSettingsJapaneseParse(form);
@@ -44785,13 +44780,9 @@ ${newTabCardReading(card)}`;
       });
       syncJpdbMiningDependentSettings(form);
       syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      const apiKeyInput = form.querySelector('input[name="apiKey"]');
+      const apiKeyInput = form.querySelector('input[name="apiCredential"]');
       apiKeyInput?.addEventListener("input", () => this.syncJpdbStatus(form));
       apiKeyInput?.addEventListener("change", () => void this.refreshDeckControls(form));
-      form.querySelector('input[name="jitenApiKey"]')?.addEventListener("input", () => {
-        this.syncJpdbStatus(form);
-        this.syncJitenStatus(form);
-      });
       form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
@@ -44889,9 +44880,10 @@ ${newTabCardReading(card)}`;
       const container = form.querySelector("[data-jpdb-decks]");
       if (!container) return;
       this.syncJpdbStatus(form);
-      const apiKey = form.querySelector('input[name="apiKey"]')?.value.trim() ?? this.settings.apiKey.trim();
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const apiKey = formSettings.apiKey.trim();
       if (!apiKey) {
-        setInnerHtml(container, renderDeckControls(this.settings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         this.refreshSettingsJapaneseParse(form);
         return;
@@ -44900,10 +44892,10 @@ ${newTabCardReading(card)}`;
       this.settings.apiKey = apiKey;
       try {
         const decks = await this.dependencies.jpdb.listDecks();
-        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } catch (error) {
         log$2.warn("Deck controls failed to load", error);
-        setInnerHtml(container, renderDeckControls(readFormSettings(new FormData(form), this.settings), [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } finally {
         this.settings.apiKey = originalKey;
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -44919,14 +44911,6 @@ ${newTabCardReading(card)}`;
       );
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-    }
-    syncJitenStatus(form) {
-      const status = form.querySelector("[data-jiten-status]");
-      if (!status) return;
-      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const line = jitenStatusLineForSettings(readFormSettings(new FormData(form), this.settings), language);
-      status.dataset.statusTone = line.tone;
-      status.textContent = formatSettingsStatusLine(line, language);
     }
     async refreshAnkiConnectionStatus(form) {
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
@@ -45136,37 +45120,8 @@ ${newTabCardReading(card)}`;
       if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
-      if (await this.handleJitenConnectionAction(form, action, control)) return true;
       if (await this.handleSettingsConnectionAction(form, action, control)) return true;
       return await this.handleSettingsSupportAction(action, control, setStatus);
-    }
-    async handleJitenConnectionAction(form, action, control) {
-      if (action !== "check-jiten-api") return false;
-      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      const button = settingsActionButton(control);
-      const setJitenStatus = settingsToneStatusSetter(form.querySelector("[data-jiten-status]"));
-      const formSettings = readFormSettings(new FormData(form), this.settings);
-      if (!formSettings.jitenApiKey.trim()) {
-        setJitenStatus(uiText(language, "jitenApiKeyMissing"), "pending");
-        return true;
-      }
-      button?.setAttribute("disabled", "true");
-      setJitenStatus(uiText(language, "jitenCheckingConnection"), "pending");
-      try {
-        await new JitenApiClient(() => formSettings.jitenApiKey, {
-          proxyUrl: () => formSettings.corsProxyUrl
-        }).ping();
-        setJitenStatus(uiText(language, "jitenConnectionReady"), "success");
-        log$2.info("Jiten settings check ok");
-      } catch (error) {
-        const message = errorMessage(error, uiText(language, "jitenConnectionFailed"));
-        log$2.warn("Jiten settings check failed", error);
-        setJitenStatus(message, "error");
-        this.dependencies.toast(message);
-      } finally {
-        button?.removeAttribute("disabled");
-      }
-      return true;
     }
     handleSettingsEditorAction(form, action, control) {
       if (action === "settings-panel") {
@@ -47603,7 +47558,7 @@ ${newTabCardReading(card)}`;
         jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
         allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
         includeLocalPitch: false,
-        allowSegmentedFallback: !this.settings.apiKey.trim()
+        allowSegmentedFallback: true
       };
       const key2 = this.parseContentCacheKey(texts, parseOptions);
       const now = Date.now();

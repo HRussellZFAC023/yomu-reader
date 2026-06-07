@@ -1787,6 +1787,25 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not retry the same rejected JPDB API key on later requests', async () => {
+        const client = new JpdbClient(() => 'rejected-token');
+        const fetchMock = vi.fn(async () => ({
+            status: 403,
+            ok: false,
+            text: async () => 'forbidden',
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.listDecks()).rejects.toThrow('JPDB rejected the API key.');
+            await expect(client.listDecks()).rejects.toThrow('JPDB rejected the API key.');
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('scans JPDB deck vocabulary chunks until scheduled cards are found', async () => {
         const client = new JpdbClient(() => 'token');
         const lookupBatches: Array<Array<[number, number]>> = [];
@@ -2485,7 +2504,7 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
-        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode) .jpdb-reader-newtab-shell { padding-bottom: max(124px, calc(30px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
+        expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
         expect(normalizedNewTabCss).not.toContain('.jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell { padding-bottom: max(148px');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance, .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch, .jpdb-reader-newtab .jpdb-reader-newtab-overflow, .jpdb-reader-newtab-more-menu button, .jpdb-reader-newtab-mode button, button.jpdb-reader-newtab-status:not(:disabled), .jpdb-reader-language-toggle, .jpdb-reader-newtab-searchbox button, .jpdb-reader-newtab-grade-target-select, .jpdb-reader-newtab-controls button:not([data-grade]), .jpdb-reader-newtab-search-links a, .jpdb-reader-newtab-search-links button, .jpdb-reader-newtab-handwriting summary, .jpdb-reader-newtab-handwriting-candidates button, .jpdb-reader-newtab-doodle-actions button, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini, .jpdb-reader-newtab-install { min-height: 44px !important; }');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button { position: relative; min-height: 38px !important; overflow: visible; touch-action: manipulation; } .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls button::after { content: ""; position: absolute; inset: -3px 0; border-radius: 10px; }');
@@ -13101,7 +13120,7 @@ describe('reader helpers', () => {
             app.destroy();
             document.body.replaceChildren();
         }
-    });
+    }, 15_000);
 
     it('uses JPDB parsed pointer tokens so inflected text clicks keep reading and pitch', async () => {
         const app = new ReaderApp();

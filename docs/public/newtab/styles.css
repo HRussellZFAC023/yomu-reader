@@ -357,9 +357,11 @@
 }
 
 .jpdb-reader-newtab-revealed .jpdb-reader-newtab-shell {
-  grid-template-rows: auto auto auto;
-  align-content: start;
   padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
+}
+
+.jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell {
+  padding-bottom: max(96px, calc(20px + env(safe-area-inset-bottom)));
 }
 
 .jpdb-reader-newtab-setup-mode .jpdb-reader-newtab-shell {
@@ -1108,20 +1110,18 @@
   width: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 0.85fr) auto auto;
-  align-items: center;
+  grid-template-rows: auto auto 1fr auto;
+  align-content: start;
+  align-items: start;
   justify-items: center;
   gap: clamp(8px, 1.8vh, 16px);
   cursor: pointer;
   user-select: none;
+  padding-top: clamp(16px, 3vh, 32px);
 }
 
 .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
   .jpdb-reader-newtab-study {
-  grid-template-rows: auto clamp(280px, 61vh, 460px) auto auto;
-  align-content: stretch;
-  align-items: center;
-  gap: clamp(8px, 1.8vh, 16px);
   padding-bottom: 0;
 }
 
@@ -1153,11 +1153,13 @@
   cursor: pointer;
 }
 
-.jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
-  .jpdb-reader-newtab-study {
-  grid-template-rows: auto auto auto auto;
+.jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-study {
+  grid-template-rows: auto auto 1fr auto;
   align-content: start;
+  align-items: start;
   gap: clamp(14px, 2vh, 24px);
+  padding-top: clamp(24px, 4vh, 48px);
+  padding-bottom: clamp(64px, 9vh, 120px);
 }
 
 .jpdb-reader-newtab-revealed.jpdb-reader-newtab-kanji-mode
@@ -1168,15 +1170,6 @@
   max-width: 100%;
   min-width: 0;
   justify-items: center;
-}
-
-.jpdb-reader-newtab-kanji-mode:not(.jpdb-reader-newtab-revealed)
-  .jpdb-reader-newtab-study {
-  grid-template-rows: auto auto auto auto;
-  align-content: start;
-  gap: clamp(14px, 2.2vh, 28px);
-  padding-top: clamp(32px, 5vh, 72px);
-  padding-bottom: clamp(64px, 9vh, 120px);
 }
 
 .jpdb-reader-newtab-count,
@@ -1223,6 +1216,10 @@
     0 8px 20px color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
 }
 
+.jpdb-reader-newtab-count[hidden] {
+  display: none;
+}
+
 .jpdb-reader-newtab-count:empty {
   min-height: 0;
   padding: 0;
@@ -1246,8 +1243,8 @@ button.jpdb-reader-newtab-status {
   padding: 5px 10px;
   border: 1px solid rgba(139, 160, 177, 0.24);
   border-radius: 999px;
-  background: rgba(20, 27, 35, 0.9);
-  color: #f5f8fb;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 8px 22px rgba(2, 6, 10, 0.34);
@@ -1709,10 +1706,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border-radius: 8px;
   background: linear-gradient(
     180deg,
-    rgba(31, 40, 49, 0.92),
-    rgba(19, 26, 34, 0.92)
+    color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%),
+    color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%)
   );
-  color: #f5f8fb;
+  color: var(--jpdb-reader-text);
   font-size: 13px;
   font-weight: 820;
   line-height: 1.05;
@@ -1764,8 +1761,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   padding: 2px 7px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 22%);
   border-radius: 999px;
-  background: rgba(31, 40, 49, 0.94);
-  color: #f5f8fb;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
   font-size: 10px;
   font-weight: 820;
   line-height: 1.1;
@@ -1812,8 +1809,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   min-height: 30px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 26%);
   border-radius: 999px;
-  background: rgba(31, 40, 49, 0.94);
-  color: #f5f8fb;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
   font: inherit;
   font-size: 11px;
   font-weight: 780;
@@ -1877,10 +1874,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   );
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, rgba(31, 40, 49, 0.94) 84%, var(--jpdb-newtab-grade-accent, #7a92a5) 16%),
-    color-mix(in srgb, rgba(18, 25, 33, 0.96) 88%, var(--jpdb-newtab-grade-accent, #7a92a5) 12%)
+    color-mix(in srgb, var(--jpdb-reader-surface-2) 84%, var(--jpdb-newtab-grade-accent, #7a92a5) 16%),
+    color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-newtab-grade-accent, #7a92a5) 12%)
   );
-  color: #f8fafc;
+  color: var(--jpdb-reader-text);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 5%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--jpdb-newtab-grade-accent) 18%, transparent),
@@ -1889,8 +1886,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-controls button[data-grade]:disabled {
   opacity: 1;
-  color: #f8fafc;
-  -webkit-text-fill-color: #f8fafc;
+  color: var(--jpdb-reader-text);
+  -webkit-text-fill-color: var(--jpdb-reader-text);
 }
 
 .jpdb-reader-newtab-controls button[data-grade]:focus-visible {
@@ -1905,12 +1902,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     border-color: var(--jpdb-newtab-grade-accent);
     background: color-mix(
       in srgb,
-      rgba(31, 40, 49, 0.96) 82%,
+      var(--jpdb-reader-surface-2) 82%,
       var(--jpdb-newtab-grade-accent) 18%
     );
     box-shadow: 0 8px 18px
       color-mix(in srgb, var(--jpdb-newtab-grade-accent) 18%, transparent);
-    color: #f8fafc;
+    color: var(--jpdb-reader-text);
     transform: translateY(-0.12rem);
   }
 }
@@ -1918,10 +1915,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-controls button[data-grade]:active {
   background: color-mix(
     in srgb,
-    rgba(31, 40, 49, 0.96) 88%,
+    var(--jpdb-reader-surface-2) 88%,
     var(--jpdb-newtab-grade-accent) 12%
   );
-  color: #f8fafc;
+  color: var(--jpdb-reader-text);
   transform: scale(0.98);
 }
 
@@ -2936,6 +2933,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-decoration: none;
 }
 
+.jpdb-reader-newtab-install[hidden] {
+  display: none !important;
+}
+
 .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-switch:focus-visible,
 .jpdb-reader-language-toggle:focus-visible,
 .jpdb-reader-newtab-overflow:focus-visible,
@@ -3128,9 +3129,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
     .jpdb-reader-newtab-study {
-    grid-template-rows: auto clamp(260px, 62vh, 480px) auto auto;
     gap: 12px;
-    align-content: stretch;
   }
 
   .jpdb-reader-newtab-setup-mode.jpdb-reader-newtab-revealed:not(
@@ -3323,9 +3322,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     font-size: 10px;
   }
 
-  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
-    padding-bottom: max(168px, calc(38px + env(safe-area-inset-bottom)));
+    padding-bottom: max(148px, calc(32px + env(safe-area-inset-bottom)));
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
@@ -3334,9 +3333,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 @media (pointer: coarse) {
-  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
-    padding-bottom: max(124px, calc(30px + env(safe-area-inset-bottom)));
+    padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
   }
 
   .jpdb-reader-language-toggle,
@@ -3398,9 +3397,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 @media (pointer: coarse) and (max-width: 420px) {
-  .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode)
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
     .jpdb-reader-newtab-shell {
-    padding-bottom: max(168px, calc(38px + env(safe-area-inset-bottom)));
+    padding-bottom: max(148px, calc(32px + env(safe-area-inset-bottom)));
   }
 }
 
@@ -9721,9 +9720,41 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .grid > label:not(.inline) > input,
 .jpdb-reader-settings .grid > label:not(.inline) > select,
 .jpdb-reader-settings .grid > label:not(.inline) > textarea,
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display,
+.jpdb-reader-settings .grid > * > label > input,
+.jpdb-reader-settings .grid > * > label > select,
+.jpdb-reader-settings .grid > * > label > textarea,
+.jpdb-reader-settings .grid > * > label > .jpdb-reader-field-display {
   margin-top: auto;
 }
+
+/* Remove margins from wrapper elements when they are direct children of a grid row */
+.jpdb-reader-settings .grid > .jpdb-reader-font-family-control,
+.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field],
+.jpdb-reader-settings .grid > [data-nadeshiko-api-key-field],
+.jpdb-reader-settings .grid > [data-local-ocr],
+.jpdb-reader-settings .grid > details[data-local-ocr],
+.jpdb-reader-settings .grid > .jpdb-reader-theme-field {
+  margin: 0;
+}
+
+/* Ensure nested labels inside wrappers in the grid layout align correctly */
+.jpdb-reader-settings .grid > .jpdb-reader-font-family-control > label,
+.jpdb-reader-settings .grid > [data-nadeshiko-api-key-field] > label,
+.jpdb-reader-settings .grid > [data-local-ocr] > label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
+}
+
+.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] > label.inline {
+  align-content: end;
+  grid-auto-rows: minmax(38px, auto);
+  margin: 0;
+}
+
 .jpdb-reader-settings .jpdb-reader-color-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
 }
@@ -9779,7 +9810,10 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-settings .jpdb-reader-status-line {
   display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: 8px;
+  margin-bottom: 12px;
 }
 .jpdb-reader-settings .jpdb-reader-status-main {
   min-width: 0;
@@ -9787,6 +9821,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .jpdb-reader-status-checklist {
   display: flex;
   flex-wrap: wrap;
+  grid-column: 1 / -1;
   gap: 6px;
   margin: 0;
   padding: 0;
@@ -10414,19 +10449,19 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 50px minmax(0, 1fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.compact.no-remove,
 .jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) max-content;
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -10434,6 +10469,9 @@ html.jpdb-reader-doodle-active * {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+}
+.jpdb-reader-order-head > span:first-child {
+  text-align: center;
 }
 .jpdb-reader-order-row {
   position: relative;
@@ -10454,6 +10492,11 @@ html.jpdb-reader-doodle-active * {
   margin: 0;
   justify-content: center;
   color: var(--jpdb-reader-text);
+}
+.jpdb-reader-settings .jpdb-reader-order-toggle {
+  grid-template-columns: auto auto;
+  justify-content: center;
+  gap: 6px;
 }
 .jpdb-reader-audio-source-choice select,
 .jpdb-reader-audio-source-fields input,
@@ -10618,22 +10661,22 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.no-remove,
   .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 46px minmax(0, 1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.compact.no-remove,
   .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 46px minmax(0, 1fr) max-content;
+    grid-template-columns: 52px minmax(0, 1fr) max-content;
   }
 
   .jpdb-reader-recommended-item {
@@ -10816,7 +10859,7 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-dictionary-row.compact,
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    grid-template-columns: 48px minmax(0, 1fr) 42px;
     align-items: center;
     gap: 8px;
   }
@@ -10852,7 +10895,7 @@ html.jpdb-reader-doodle-active * {
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] {
-    grid-template-columns: 42px minmax(0, 1fr) max-content;
+    grid-template-columns: 48px minmax(0, 1fr) max-content;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display,

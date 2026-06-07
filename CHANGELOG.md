@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.28] - 2026-06-06
+
+### Changed
+
+- Simplified the settings API panel to one JPDB-or-Jiten key field, routing `ak_` keys to Jiten and other keys to JPDB.
+- Removed the separate Jiten connection test button and split API-key fields from the settings UI.
+
 ## [0.6.27] - 2026-06-06
 
 ### Fixed

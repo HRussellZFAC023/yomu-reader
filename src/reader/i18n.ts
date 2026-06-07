@@ -431,7 +431,7 @@ const COPY = {
         ankiScanFieldSummary: 'Fields: {fields}',
         ankiUnreachable: 'Open desktop Anki and check AnkiConnect.',
         ankiSettingsUnreachable: 'AnkiConnect not reached.',
-        ankiHostedBridgeMissing: `Hosted Anki bridge not found.`,
+        ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript and refresh.`,
         ankiStatusOpenDesktop: 'Open desktop Anki',
         ankiStatusInstallAddon: 'Install/enable AnkiConnect',
         ankiStatusMobileDocs: 'Mobile setup docs',
@@ -1826,7 +1826,7 @@ ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得�
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。
-ankiHostedBridgeMissing	ホスト版Ankiブリッジが見つかりません。
+ankiHostedBridgeMissing	よむユーザースクリプトを有効化して更新してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント

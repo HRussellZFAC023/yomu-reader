@@ -559,8 +559,8 @@ function renderSeededNewTabWord(controller: NewTabController, card: JPDBCard, op
         bindRootEvents(root: HTMLElement): void;
         renderWord(root: HTMLElement, card: JPDBCard): void;
     };
-    if (options.bindRootEvents) internals.bindRootEvents(root);
     internals.renderWord(root, card);
+    if (options.bindRootEvents) internals.bindRootEvents(root);
     return root;
 }
 
@@ -984,6 +984,17 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound { order: -1; align-self: center; justify-self: center; margin: 0 0 2px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text); }');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound svg { width: 20px !important; height: 20px !important; max-width: 20px !important; max-height: 20px !important; }');
+    });
+
+    it('keeps new-tab button text tied to the active theme tokens', () => {
+        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss)
+            .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-controls button[data-grade]:disabled { opacity: 1; color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); }');
     });
 
     it('selects the nearest stats day when coarse-pointer users tap compact chart gaps', () => {
@@ -7679,6 +7690,30 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('keeps hosted popover sentence parsing clickable when a stale JPDB key is present', async () => {
+        const runtime = new NewTabRuntime();
+        const parse = vi.fn(async () => [[]]);
+        const popover = document.createElement('div');
+        popover.innerHTML = '<span class="jpdb-reader-parseable">日本語です。</span>';
+        document.body.append(popover);
+        const internals = runtime as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { canParse(): boolean; parse: typeof parse };
+            parseNewTabContent(root: HTMLElement): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'stale-jpdb-key', localDictionariesEnabled: false };
+        internals.parser = { canParse: () => true, parse };
+
+        try {
+            await internals.parseNewTabContent(popover);
+
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true });
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('applies cached Anki status colouring to hosted parsed new-tab content', async () => {
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({ vid: 1234, sid: 5, spelling: '日本語', reading: 'にほんご' });
@@ -9788,71 +9823,25 @@ describe('new tab review helpers', () => {
 
     it('plays Immersion Kit audio by default when revealing a new-tab word card', async () => {
         const card = newTabTestCard({ spelling: '発音', reading: 'はつおん' });
-        const example: ImmersionKitExample = {
-            id: 'ik-1',
-            sentence: '発音を確かめる。',
-            sentenceWithFurigana: '',
-            translation: 'Check the pronunciation.',
-            sourceTitle: 'Test Source',
-            titleSlug: 'test-source',
-            category: 'anime',
-            soundFile: 'line.mp3',
-            imageFile: '',
-            soundUrl: '',
-            imageUrl: '',
-        };
-        const played: string[] = [];
-        class FakeAudio {
-            playbackRate = 1;
-            ended = false;
-            constructor(public src: string) {}
-            addEventListener(): void {}
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-            pause(): void {}
-        }
-        vi.stubGlobal('Audio', FakeAudio);
+        const example = newTabAudioImmersionExample('ik-1');
+        const played = stubNewTabAudioPlayback();
         const search = vi.fn(async () => [example]);
         const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
             immersionKit: {
                 search,
                 mediaUrls: vi.fn((_example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
                 fetchBlobUrl,
             } as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
         });
-        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
-        Object.assign(controller as unknown as {
-            allWords: JPDBCard[];
-            visibleWords: JPDBCard[];
-            sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
-        }, {
-            allWords: [card],
-            visibleWords: [card],
+        const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'dictionary', revealAnswer: false },
+            state: { source: 'dictionary', revealAnswer: false },
+            appendToDocument: true,
+            bindRootEvents: true,
         });
 
         try {
-            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
-            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
-
             root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
 
             await waitForExpect(() => expect(played).toEqual(['blob:http://localhost/line.mp3']));
@@ -9869,75 +9858,29 @@ describe('new tab review helpers', () => {
 
     it('does not append or autoplay delayed Immersion Kit reveal content after hiding the card', async () => {
         const card = newTabTestCard({ spelling: '発音', reading: 'はつおん' });
-        const example: ImmersionKitExample = {
-            id: 'ik-delayed',
-            sentence: '発音を確かめる。',
-            sentenceWithFurigana: '',
-            translation: 'Check the pronunciation.',
-            sourceTitle: 'Test Source',
-            titleSlug: 'test-source',
-            category: 'anime',
-            soundFile: 'line.mp3',
-            imageFile: '',
-            soundUrl: '',
-            imageUrl: '',
-        };
+        const example = newTabAudioImmersionExample('ik-delayed');
         let resolveSearch!: (examples: ImmersionKitExample[]) => void;
         const search = vi.fn(() => new Promise<ImmersionKitExample[]>(resolve => {
             resolveSearch = resolve;
         }));
         const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
-        const played: string[] = [];
-        class FakeAudio {
-            playbackRate = 1;
-            ended = false;
-            constructor(public src: string) {}
-            addEventListener(): void {}
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-            pause(): void {}
-        }
-        vi.stubGlobal('Audio', FakeAudio);
+        const played = stubNewTabAudioPlayback();
 
-        const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
             immersionKit: {
                 search,
                 mediaUrls: vi.fn((_example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
                 fetchBlobUrl,
             } as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
         });
-        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
-        Object.assign(controller as unknown as {
-            allWords: JPDBCard[];
-            visibleWords: JPDBCard[];
-            sourceLabel: string;
-            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
-        }, {
-            allWords: [card],
-            visibleWords: [card],
+        const root = renderSeededNewTabWord(controller, card, {
             sourceLabel: 'Dictionaries',
-            state: { mode: 'word', sort: 'random', filter: 'study', source: 'dictionary', revealAnswer: false },
+            state: { source: 'dictionary', revealAnswer: false },
+            appendToDocument: true,
+            bindRootEvents: true,
         });
 
         try {
-            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
-            (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
-
             root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
             root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();
             resolveSearch([example]);

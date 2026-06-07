@@ -467,9 +467,18 @@ function visiblePuckSnapshotFromDom() {
     const style = puck ? getComputedStyle(puck) : null;
     return {
         exists: Boolean(puck),
-        visible: isVisibleRect(rect, style),
+        visible: Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden'),
         text: puck?.textContent ?? '',
-        rect: rect ? rectSnapshot(rect) : null,
+        rect: rect ? {
+            x: Math.round(rect.x * 100) / 100,
+            y: Math.round(rect.y * 100) / 100,
+            width: Math.round(rect.width * 100) / 100,
+            height: Math.round(rect.height * 100) / 100,
+            left: Math.round(rect.left * 100) / 100,
+            right: Math.round(rect.right * 100) / 100,
+            top: Math.round(rect.top * 100) / 100,
+            bottom: Math.round(rect.bottom * 100) / 100,
+        } : null,
         position: style?.position ?? '',
     };
 }
@@ -516,6 +525,47 @@ function newTabFallbackReadyFromDom() {
 }
 
 function newTabMobileSnapshotFromDom() {
+    const roundRectValue = value => Math.round(value * 100) / 100;
+    const rectSnapshot = rect => ({
+        x: roundRectValue(rect.x),
+        y: roundRectValue(rect.y),
+        width: roundRectValue(rect.width),
+        height: roundRectValue(rect.height),
+        left: roundRectValue(rect.left),
+        right: roundRectValue(rect.right),
+        top: roundRectValue(rect.top),
+        bottom: roundRectValue(rect.bottom),
+    });
+    const elementRect = element => element ? rectSnapshot(element.getBoundingClientRect()) : null;
+    const rectsOverlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const isVisibleRect = (rect, style) => Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden');
+    const newTabModeButtonSnapshot = button => {
+        const rect = button.getBoundingClientRect();
+        return {
+            text: button.textContent?.trim() ?? '',
+            visible: isVisibleRect(rect, getComputedStyle(button)),
+            ...rectSnapshot(rect),
+        };
+    };
+    const newTabMobileLayoutSnapshot = () => {
+        const brandRect = elementRect(document.querySelector('.jpdb-reader-newtab-brand'));
+        const modeRect = elementRect(document.querySelector('.jpdb-reader-newtab-mode'));
+        const controlsRect = elementRect(document.querySelector('.jpdb-reader-newtab-theme-controls'));
+        return {
+            viewportWidth: innerWidth,
+            brand: brandRect,
+            mode: modeRect,
+            controls: controlsRect,
+            overlaps: [
+                ['mode-brand', modeRect, brandRect],
+                ['mode-controls', modeRect, controlsRect],
+            ]
+                .filter(([, first, second]) => first && second && rectsOverlap(first, second))
+                .map(([label]) => label),
+            modeButtons: [...document.querySelectorAll('.jpdb-reader-newtab-mode [data-newtab-action="mode"]')]
+                .map(newTabModeButtonSnapshot),
+        };
+    };
     return {
         hasCard: Boolean(document.querySelector('[data-newtab-card]')),
         prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',

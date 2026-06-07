@@ -352,7 +352,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
-    theme: 'auto',
+    theme: 'light',
     popupMode: 'auto',
     stickyBottomSheet: false,
     popoverBackdropEnabled: true,

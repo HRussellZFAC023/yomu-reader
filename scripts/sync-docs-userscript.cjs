@@ -9,6 +9,7 @@ const {
   fail,
   packageVersion,
 } = require('./userscript-build-utils.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./greasyfork-libraries.cjs');
 
 const source = DIST_USERSCRIPT_PATH;
 const target = DOCS_USERSCRIPT_PATH;
@@ -16,6 +17,10 @@ const target = DOCS_USERSCRIPT_PATH;
 copyBuiltAsset('dist/newtab/app.js', 'docs/public/newtab/app.js');
 copyBuiltAsset('dist/newtab/styles.css', 'docs/public/newtab/styles.css');
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
+for (const library of GREASY_FORK_LIBRARIES) {
+  const libraryPath = greasyForkLibraryPath(library.fileName);
+  copyBuiltAsset(`dist/${libraryPath}`, `docs/public/${libraryPath}`);
+}
 syncNewTabIndex();
 syncUserscript();
 

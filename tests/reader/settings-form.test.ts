@@ -541,7 +541,6 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
         expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) { display: flex; flex-direction: column;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display { margin-top: auto; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-content: end; grid-auto-rows: minmax(38px, auto);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');

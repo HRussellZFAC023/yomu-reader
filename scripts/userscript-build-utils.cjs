@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const pkg = require('../package.json');
+const { greasyForkLibraryUrls } = require('./greasyfork-libraries.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const USERSCRIPT_RELATIVE_PATH = 'dist/yomu.user.js';
@@ -53,11 +54,14 @@ function allowedRequireUrls() {
   return [
     ...(Array.isArray(packageAllowlist) ? packageAllowlist : []),
     ...(envAllowlist ? envAllowlist.split(',') : []),
+    ...greasyForkLibraryUrls(),
   ].map(url => String(url).trim()).filter(Boolean);
 }
 
 function isAllowedRequireUrl(url) {
-  return allowedRequireUrls().includes(url);
+  const bareUrl = urlWithoutHash(url);
+  const allowed = allowedRequireUrls();
+  return allowed.includes(url) || (hasTampermonkeySriHash(url) && allowed.includes(bareUrl));
 }
 
 function assertNoRemoteExecutableMetadata(code) {
@@ -66,6 +70,15 @@ function assertNoRemoteExecutableMetadata(code) {
   if (disallowedRequireUrls.length) {
     fail(`userscript must not download unapproved remote executed code with @require; found: ${disallowedRequireUrls.join(', ')}. Add first-party Greasy Fork library URLs to package.json yomu.allowedRequireUrls only after review.`);
   }
+}
+
+function urlWithoutHash(url) {
+  const hashIndex = url.indexOf('#');
+  return hashIndex === -1 ? url : url.slice(0, hashIndex);
+}
+
+function hasTampermonkeySriHash(url) {
+  return /#sha(?:256|384|512)-[A-Za-z0-9+/=]+(?:[?#].*)?$/.test(url);
 }
 
 function assertNoRemoteExecutableLoaders(code) {

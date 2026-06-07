@@ -1,12 +1,20 @@
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './vite-jpdb-audio-proxy';
 
+const require = createRequire(import.meta.url);
+const { greasyForkLibraryUrls } = require('./scripts/greasyfork-libraries.cjs') as {
+    greasyForkLibraryUrls: () => string[];
+};
+const configRoot = path.dirname(fileURLToPath(import.meta.url));
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
-const rawReaderCssUrl = `https://raw.githubusercontent.com/${githubOwner}/${pkg.name}/main/dist/yomu.css`;
+const rawReaderCssUrl = `${docsUrl}yomu.css`;
 const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 const userscriptConnect = [
@@ -67,18 +75,20 @@ function faviconDevMiddleware(): Plugin {
 
 export default defineConfig(({ command, mode }) => ({
     plugins: readerPlugins(command),
+    resolve: readerResolveConfig(command),
     server: readerDevServerConfig,
     build: readerBuildConfig(mode),
     test: readerTestConfig(),
 }));
 
 function readerPlugins(command: string): PluginOption[] {
+    const splitCompanions = shouldUseGreasyForkCompanions(command);
     return [
         jpdbAudioDevProxyPlugin(),
         faviconDevMiddleware(),
         monkey({
             entry: 'src/reader/userscript-entry.ts',
-            userscript: readerUserscript(command),
+            userscript: readerUserscript(command, splitCompanions),
             build: {
                 fileName: 'yomu.user.js',
             },
@@ -86,7 +96,7 @@ function readerPlugins(command: string): PluginOption[] {
     ];
 }
 
-function readerUserscript(command: string): MonkeyUserScript {
+function readerUserscript(command: string, splitCompanions: boolean): MonkeyUserScript {
     return {
         name: 'よむ',
         namespace: repoUrl,
@@ -105,10 +115,25 @@ function readerUserscript(command: string): MonkeyUserScript {
         icon64: userscriptIcon,
         homepageURL: repoUrl,
         supportURL: `${repoUrl}/issues`,
+        ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),
         resource: {
             yomuCss: rawReaderCssUrl,
         },
     };
+}
+
+function readerResolveConfig(command: string) {
+    return shouldUseGreasyForkCompanions(command)
+        ? {
+            alias: {
+                './companions/register-build-target': path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts'),
+            },
+        }
+        : {};
+}
+
+function shouldUseGreasyForkCompanions(command: string): boolean {
+    return command === 'build' && process.env.YOMU_USERSCRIPT_BUNDLE_MODE !== 'self-contained';
 }
 
 const readerDevServerConfig = {

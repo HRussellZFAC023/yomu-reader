@@ -257,12 +257,14 @@
       .jpdb-reader-newtab-study {
         min-height: 0;
         display: grid;
-        grid-template-rows: auto minmax(0, .82fr) auto auto;
-        align-items: center;
+        grid-template-rows: auto auto 1fr auto;
+        align-content: start;
+        align-items: start;
         justify-items: center;
         gap: clamp(9px, 1.9vh, 17px);
         cursor: pointer;
         user-select: none;
+        padding-top: clamp(16px, 3vh, 32px);
       }
 
       .jpdb-reader-newtab-count,

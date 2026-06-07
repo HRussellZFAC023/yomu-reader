@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-    <link rel="stylesheet" href="./styles.css?v=302ffbabde6c">
+    <link rel="stylesheet" href="./styles.css?v=049e4f960195">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -257,12 +257,14 @@
       .jpdb-reader-newtab-study {
         min-height: 0;
         display: grid;
-        grid-template-rows: auto minmax(0, .82fr) auto auto;
-        align-items: center;
+        grid-template-rows: auto auto 1fr auto;
+        align-content: start;
+        align-items: start;
         justify-items: center;
         gap: clamp(9px, 1.9vh, 17px);
         cursor: pointer;
         user-select: none;
+        padding-top: clamp(16px, 3vh, 32px);
       }
 
       .jpdb-reader-newtab-count,
@@ -447,8 +449,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = 'f97e364027ec';
-        const buildId = '0.6.27-f97e364027ec';
+        const appHash = '6f7222c78955';
+        const buildId = '0.6.28-6f7222c78955';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -473,7 +475,7 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=f97e364027ec"></script>
+    <script src="./app.js?v=6f7222c78955"></script>
   </body>
 
 </html>

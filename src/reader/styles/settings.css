@@ -484,9 +484,41 @@
 .jpdb-reader-settings .grid > label:not(.inline) > input,
 .jpdb-reader-settings .grid > label:not(.inline) > select,
 .jpdb-reader-settings .grid > label:not(.inline) > textarea,
-.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display {
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-field-display,
+.jpdb-reader-settings .grid > * > label > input,
+.jpdb-reader-settings .grid > * > label > select,
+.jpdb-reader-settings .grid > * > label > textarea,
+.jpdb-reader-settings .grid > * > label > .jpdb-reader-field-display {
   margin-top: auto;
 }
+
+/* Remove margins from wrapper elements when they are direct children of a grid row */
+.jpdb-reader-settings .grid > .jpdb-reader-font-family-control,
+.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field],
+.jpdb-reader-settings .grid > [data-nadeshiko-api-key-field],
+.jpdb-reader-settings .grid > [data-local-ocr],
+.jpdb-reader-settings .grid > details[data-local-ocr],
+.jpdb-reader-settings .grid > .jpdb-reader-theme-field {
+  margin: 0;
+}
+
+/* Ensure nested labels inside wrappers in the grid layout align correctly */
+.jpdb-reader-settings .grid > .jpdb-reader-font-family-control > label,
+.jpdb-reader-settings .grid > [data-nadeshiko-api-key-field] > label,
+.jpdb-reader-settings .grid > [data-local-ocr] > label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
+}
+
+.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] > label.inline {
+  align-content: end;
+  grid-auto-rows: minmax(38px, auto);
+  margin: 0;
+}
+
 .jpdb-reader-settings .jpdb-reader-color-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
 }
@@ -542,7 +574,10 @@
 }
 .jpdb-reader-settings .jpdb-reader-status-line {
   display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: 8px;
+  margin-bottom: 12px;
 }
 .jpdb-reader-settings .jpdb-reader-status-main {
   min-width: 0;
@@ -550,6 +585,7 @@
 .jpdb-reader-settings .jpdb-reader-status-checklist {
   display: flex;
   flex-wrap: wrap;
+  grid-column: 1 / -1;
   gap: 6px;
   margin: 0;
   padding: 0;
@@ -1177,19 +1213,19 @@
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 50px minmax(0, 1fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) max-content 42px;
 }
 .jpdb-reader-dictionary-head.compact.no-remove,
 .jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 50px minmax(0, 1fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) max-content;
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -1197,6 +1233,9 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+}
+.jpdb-reader-order-head > span:first-child {
+  text-align: center;
 }
 .jpdb-reader-order-row {
   position: relative;
@@ -1217,6 +1256,11 @@
   margin: 0;
   justify-content: center;
   color: var(--jpdb-reader-text);
+}
+.jpdb-reader-settings .jpdb-reader-order-toggle {
+  grid-template-columns: auto auto;
+  justify-content: center;
+  gap: 6px;
 }
 .jpdb-reader-audio-source-choice select,
 .jpdb-reader-audio-source-fields input,
@@ -1381,22 +1425,22 @@
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.no-remove,
   .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 46px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 46px minmax(0, 1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 1fr) max-content 42px;
   }
 
   .jpdb-reader-dictionary-head.compact.no-remove,
   .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 46px minmax(0, 1fr) max-content;
+    grid-template-columns: 52px minmax(0, 1fr) max-content;
   }
 
   .jpdb-reader-recommended-item {
@@ -1579,7 +1623,7 @@
   .jpdb-reader-dictionary-row.compact,
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    grid-template-columns: 48px minmax(0, 1fr) 42px;
     align-items: center;
     gap: 8px;
   }
@@ -1615,7 +1659,7 @@
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] {
-    grid-template-columns: 42px minmax(0, 1fr) max-content;
+    grid-template-columns: 48px minmax(0, 1fr) max-content;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display,

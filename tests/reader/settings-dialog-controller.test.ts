@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/card-utils';
 import { SettingsDialogController } from '../../src/reader/settings-dialog-controller';
@@ -424,7 +424,11 @@ describe('settings dialog keyboard dismissal', () => {
         window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
             events.push(event as CustomEvent<{ preview?: boolean; settings?: { theme?: unknown } }>);
         }, { signal: controller.signal });
-        const { dependencies, form } = createSettingsDialog();
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, theme: 'dark' };
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+        });
         const button = form.querySelector<HTMLButtonElement>('[data-theme-switch]')!;
         const input = form.querySelector<HTMLInputElement>('[data-theme-value]')!;
 
@@ -885,11 +889,11 @@ describe('settings dialog keyboard dismissal', () => {
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki bridge not found') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the よむ userscript and refresh') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Hosted Anki bridge not found');
+        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Enable the よむ userscript and refresh');
         expect(status?.textContent).toContain('Enable the installed');
         expect(status?.textContent).toContain('userscript');
         expect(status?.textContent).toContain('Refresh, then check again');
@@ -911,11 +915,11 @@ describe('settings dialog keyboard dismissal', () => {
             anki: { isConnected },
         });
 
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Hosted Anki bridge not found') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Enable the よむ userscript and refresh') ?? false);
 
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Hosted Anki bridge not found');
+        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Enable the よむ userscript and refresh');
         expect(status?.textContent).toContain('Enable the installed');
         expect(status?.textContent).toContain('userscript');
         expect(status?.textContent).toContain('Refresh, then check again');

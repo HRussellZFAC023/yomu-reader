@@ -20,6 +20,7 @@ const {
   readText,
   warnIfNearGreasyForkSizeLimit,
 } = require('./userscript-build-utils.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./greasyfork-libraries.cjs');
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;
@@ -85,6 +86,10 @@ function assertSyncedDocsAssets() {
     ['dist/newtab/index.html', 'docs/public/newtab/index.html'],
     ['dist/newtab/sw.js', 'docs/public/newtab/sw.js'],
     ['dist/newtab/version.json', 'docs/public/newtab/version.json'],
+    ...GREASY_FORK_LIBRARIES.map(library => {
+      const libraryPath = greasyForkLibraryPath(library.fileName);
+      return [`dist/${libraryPath}`, `docs/public/${libraryPath}`];
+    }),
   ]) {
     assertSameTextFile(sourcePath, targetPath);
   }
@@ -98,6 +103,10 @@ function assertSyncedDocsAssets() {
     ['docs/public/newtab/index.html', 'docs/.vitepress/dist/newtab/index.html'],
     ['docs/public/newtab/sw.js', 'docs/.vitepress/dist/newtab/sw.js'],
     ['docs/public/newtab/version.json', 'docs/.vitepress/dist/newtab/version.json'],
+    ...GREASY_FORK_LIBRARIES.map(library => {
+      const libraryPath = greasyForkLibraryPath(library.fileName);
+      return [`docs/public/${libraryPath}`, `docs/.vitepress/dist/${libraryPath}`];
+    }),
   ]) {
     assertSameTextFile(sourcePath, targetPath);
   }
