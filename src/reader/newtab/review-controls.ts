@@ -99,8 +99,8 @@ export function newTabMainGradeTargetOptions(
 
 export function renderNewTabGradeControlButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
     return [
-        renderNewTabGradeTargetControl(options),
         ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade])),
+        renderNewTabGradeTargetControl(options),
     ];
 }
 
@@ -119,14 +119,11 @@ export function selectedNewTabMainGradeTarget(root: HTMLElement): NewTabLookupRe
 export function updateNewTabMainGradeTargetLabel(root: HTMLElement, option: HTMLOptionElement | null, bothLabel: string): void {
     if (!option) return;
     const label = option.dataset.newtabGradeTargetLabel ?? '';
+    const shortLabel = mainGradeTargetShortLabel(option, bothLabel);
     const target = root.querySelector<HTMLElement>('[data-newtab-grade-target]');
-    const chip = target?.querySelector<HTMLElement>('[data-newtab-grade-target-chip]');
     const text = target?.querySelector<HTMLElement>('[data-newtab-grade-target-text]');
-    if (chip) {
-        chip.dataset.newtabGradeTargetChip = mainGradeTargetKind(option);
-        chip.textContent = mainGradeTargetShortLabel(option, bothLabel);
-    }
-    if (text) text.textContent = label;
+    if (target) target.setAttribute('aria-label', label || shortLabel);
+    if (text) text.textContent = shortLabel;
     updateMainGradeButtonLabels(root, label);
 }
 
@@ -141,26 +138,22 @@ function newTabMainGradeTargetOptionFromLookupTarget(target: NewTabLookupReviewT
 }
 
 function renderNewTabGradeTargetControl(options: RenderNewTabGradeControlsOptions): HTMLElement {
-    return el('div', { class: 'jpdb-reader-newtab-grade-target', dataset: { newtabGradeTarget: true } },
-        renderNewTabGradeTargetChip(options),
-        options.targetOptions.length > 1
-            ? renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel)
-            : el('span', { dataset: { newtabGradeTargetText: true } }, options.targetLabel),
-    );
-}
-
-function renderNewTabGradeTargetChip(options: RenderNewTabGradeControlsOptions): HTMLElement {
-    const chip = newTabGradeTargetChipState(options);
-    return el('span', { class: 'jpdb-reader-newtab-grade-target-chip', dataset: { newtabGradeTargetChip: chip.source } }, chip.label);
-}
-
-function newTabGradeTargetChipState(options: RenderNewTabGradeControlsOptions): { label: string; source: NewTabMainGradeTargetOption['kind'] } {
-    if (options.selectedOption) return { label: options.selectedOption.shortLabel, source: options.selectedOption.kind };
-    const hasApi = options.summary.hasJpdb || options.summary.hasJiten;
-    return {
-        label: gradeTargetChipLabel(hasApi, options.summary.hasAnki, options.apiShortLabel, options.bothLabel),
-        source: gradeTargetChipSource(hasApi, options.summary.hasAnki, options.summary.hasJiten),
-    };
+    const visibleLabel = options.selectedOption?.shortLabel || visibleGradeTargetLabel(options.targetLabel);
+    if (options.targetOptions.length > 1) {
+        return el('div', { class: 'jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context', dataset: { newtabGradeTarget: true }, 'aria-label': options.targetLabel },
+            el('span', { class: 'jpdb-reader-newtab-grade-target-current', dataset: { newtabGradeTargetText: true } }, visibleLabel),
+            el('label', { class: 'jpdb-reader-newtab-sr-only' },
+                el('span', { class: 'jpdb-reader-newtab-grade-target-selector-label' }, options.selectorLabel),
+                renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel),
+            ),
+        );
+    }
+    if (!visibleLabel) return el('span', { class: 'jpdb-reader-newtab-sr-only', dataset: { newtabGradeTarget: true, newtabGradeTargetText: true } }, options.targetLabel);
+    return el('span', {
+        class: 'jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context',
+        dataset: { newtabGradeTarget: true, newtabGradeTargetText: true },
+        'aria-label': options.targetLabel,
+    }, visibleLabel);
 }
 
 function renderNewTabMainGradeTargetSelector(options: NewTabMainGradeTargetOption[], selectorLabel: string): HTMLElement {
@@ -171,13 +164,14 @@ function renderNewTabMainGradeTargetSelector(options: NewTabMainGradeTargetOptio
     }, ...options.map((option, index) => el('option', {
             value: option.id,
             selected: index === 0,
+            title: option.label,
             dataset: {
                 newtabReviewTarget: option.kind,
                 newtabGradeTargetLabel: option.label,
                 newtabGradeTargetShortLabel: option.shortLabel,
                 ...(option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}),
             },
-        }, option.label)));
+        }, option.shortLabel)));
 }
 
 function renderNewTabGradeButton(
@@ -198,13 +192,13 @@ function renderNewTabGradeButton(
     el('span', { class: 'jpdb-reader-newtab-grade-label' }, label));
 }
 
-function mainGradeTargetKind(option: HTMLOptionElement): NewTabMainGradeTargetOption['kind'] {
-    const kind = option.dataset.newtabReviewTarget;
-    return kind === 'jpdb' || kind === 'jiten' || kind === 'anki' ? kind : 'both';
-}
-
 function mainGradeTargetShortLabel(option: HTMLOptionElement, fallback: string): string {
     return option.dataset.newtabGradeTargetShortLabel || option.textContent?.trim() || fallback;
+}
+
+function visibleGradeTargetLabel(label: string): string {
+    const parts = label.split(': ');
+    return parts.length > 1 ? (parts[parts.length - 1] ?? '').trim() : '';
 }
 
 function updateMainGradeButtonLabels(root: HTMLElement, label: string): void {
@@ -216,15 +210,4 @@ function updateMainGradeButtonLabels(root: HTMLElement, label: string): void {
         gradeButton.title = [label, gradeButton.dataset.gradeInterval].filter(Boolean).join(' · ');
         gradeButton.setAttribute('aria-label', gradeLabel ? `${gradeLabel}: ${label}` : label);
     });
-}
-
-function gradeTargetChipLabel(hasApi: boolean, hasAnki: boolean, apiLabel: string, bothLabel: string): string {
-    if (hasApi && hasAnki) return bothLabel;
-    return hasAnki ? 'Anki' : apiLabel;
-}
-
-function gradeTargetChipSource(hasApi: boolean, hasAnki: boolean, hasJiten: boolean): NewTabMainGradeTargetOption['kind'] {
-    if (hasApi && hasAnki) return 'both';
-    if (hasAnki) return 'anki';
-    return hasJiten ? 'jiten' : 'jpdb';
 }

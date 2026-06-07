@@ -54,6 +54,7 @@ interface ReviewButtonsRenderOptions {
     selectedDeckLabel: string;
     reviewBlockReason: string;
     language: InterfaceLanguage;
+    miningInitiallyExpanded: boolean;
 }
 
 interface PopoverReviewTarget {
@@ -119,6 +120,7 @@ export class CardPopoverRenderer {
         const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : '';
         const miningActions = this.renderApiMiningActions(cardStates, language, data, provider);
         const ankiActions = data.loading ? '' : renderAnkiActionRow(data.ankiLookup, settings);
+        const miningInitiallyExpanded = Boolean(miningActions && (reviewBlockReason || ankiActions));
         return {
             cardStates,
             state,
@@ -129,7 +131,7 @@ export class CardPopoverRenderer {
             language,
             provider,
             miningActions,
-            miningInitiallyExpanded: Boolean(miningActions && (reviewBlockReason || ankiActions)),
+            miningInitiallyExpanded,
             ankiActions,
             reviewButtons: this.renderReviewButtons({
                 card,
@@ -139,6 +141,7 @@ export class CardPopoverRenderer {
                 selectedDeckLabel,
                 reviewBlockReason,
                 language,
+                miningInitiallyExpanded,
             }),
             metaItems: this.renderMetaItems(card, provider, state, data),
             loadingDetails: this.renderLoadingDetails(data.loading, language),
@@ -201,11 +204,13 @@ export class CardPopoverRenderer {
     private renderActions(view: CardPopoverRenderView): string {
         const hasMiningPanel = Boolean(view.miningActions);
         const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
-        const miningClass = hasMiningPanel
+        const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
+        const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+        const miningClass = hasDrawer
             ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? '' : ' jpdb-reader-actions-mining-collapsed'}`
             : '';
         return `<div class="jpdb-reader-actions${miningClass}">
-            ${renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
+            ${hasReviewTargetGutter ? '' : renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
             ${miningPanel}
             ${hasMiningPanel ? '' : view.ankiActions}
             ${view.reviewButtons}
@@ -261,11 +266,11 @@ export class CardPopoverRenderer {
     }
 
     private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
-        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+        const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language, miningInitiallyExpanded } = options;
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
         if (earlyResult !== undefined) return earlyResult;
         const targets = this.popoverReviewTargets(data, provider, language);
-        if (targets.length) return this.renderTargetedReviewButtons(targets, language);
+        if (targets.length) return this.renderTargetedReviewButtons(targets, language, miningInitiallyExpanded);
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
@@ -370,15 +375,17 @@ export class CardPopoverRenderer {
         }));
     }
 
-    private renderTargetedReviewButtons(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
+    private renderTargetedReviewButtons(targets: PopoverReviewTarget[], language: InterfaceLanguage, expanded = false): string {
         const settings = this.settings();
         const grades = reviewButtonGrades(settings);
         const selected = targets[0];
         if (!selected || !grades.length) return '';
         const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : '';
+        const targetGutter = renderReviewTargetGutter(selected, language, expanded);
         const targetLabel = renderReviewTargetLabel(selected);
         const targetAttrs = reviewTargetButtonAttrs(selected);
         return `
+            ${targetGutter}
             ${selector}
             <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-review-target-row>
                 ${targetLabel}
@@ -425,20 +432,60 @@ export class CardPopoverRenderer {
     }
 }
 
+export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): void {
+    const option = select.selectedOptions[0] ?? null;
+    if (!option) return;
+    const actions = select.closest<HTMLElement>('.jpdb-reader-actions');
+    if (!actions) return;
+    const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? '';
+    const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
+    const target = option.dataset.reviewTarget ?? '';
+    const ankiCardId = option.dataset.ankiCardId ?? '';
+    const current = actions.querySelector<HTMLElement>('[data-review-target-current]');
+    if (current) {
+        current.textContent = shortLabel;
+        current.title = label;
+        current.setAttribute('aria-label', label);
+    }
+    const labelText = actions.querySelector<HTMLElement>('[data-review-target-label] [data-newtab-grade-target-text]');
+    if (labelText) labelText.textContent = label;
+    actions.querySelectorAll<HTMLButtonElement>('[data-review-target-row] [data-action="grade"][data-grade]').forEach(button => {
+        button.dataset.reviewTarget = target;
+        if (ankiCardId) button.dataset.ankiCardId = ankiCardId;
+        else delete button.dataset.ankiCardId;
+        const buttonLabel = button.textContent?.trim() ?? '';
+        if (label) {
+            button.title = label;
+            button.setAttribute('aria-label', `${buttonLabel}: ${label}`);
+        } else {
+            button.removeAttribute('title');
+            button.removeAttribute('aria-label');
+        }
+    });
+}
+
+function reviewButtonsIncludeTargetGutter(reviewButtons: string): boolean {
+    return reviewButtons.includes('data-review-target-gutter');
+}
+
+function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage, expanded: boolean): string {
+    const label = uiText(language, expanded ? 'hideMiningActions' : 'showMiningActions');
+    return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
+        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="${String(expanded)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
+    </div>`;
+}
+
 function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
-    return `<label class="jpdb-reader-newtab-grade-target-selector jpdb-reader-popover-grade-target-selector" data-review-target-selector>
-        <span class="jpdb-reader-newtab-grade-target-selector-label">${escapeHtml(newTabText(language, 'gradeTargetSelector'))}</span>
+    return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(newTabText(language, 'gradeTargetSelector'))}">
             ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
-    </label>`;
+    </div>`;
 }
 
 function renderReviewTargetLabel(target: PopoverReviewTarget): string {
-    const chip = target.shortLabel
-        ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml(target.kind)}">${escapeHtml(target.shortLabel)}</span>`
-        : '';
-    return `<div class="jpdb-reader-newtab-grade-target" data-review-target-label>${chip}<span data-newtab-grade-target-text>${escapeHtml(target.label)}</span></div>`;
+    return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml(target.label)}</span></div>`;
 }
 
 function reviewTargetButtonAttrs(target: PopoverReviewTarget): string {

@@ -5,7 +5,7 @@ import { renderReviewButtons } from '../anki/render';
 import { runLimited } from '../core/async-utils';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer } from '../cards/popover-renderer';
+import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
@@ -3807,6 +3807,12 @@ export class ReaderApp {
 
     private installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         popover.addEventListener('click', event => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
+        popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
+    }
+
+    private handlePopoverReviewTargetChange(event: Event, popover: HTMLElement): void {
+        const select = (event.target as HTMLElement | null)?.closest<HTMLSelectElement>('[data-review-target-select]');
+        if (select && popover.contains(select)) updatePopoverReviewTargetSelection(select);
     }
 
     private handleCardPopoverClick(event: MouseEvent, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
@@ -4011,6 +4017,7 @@ export class ReaderApp {
     private installKanjiCardActions(popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
+        popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
     }
 
     private handleKanjiCardActionClick(event: MouseEvent, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {

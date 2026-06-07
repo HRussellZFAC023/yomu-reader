@@ -43,7 +43,7 @@ export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSet
 export function preloadableAudioSources(sources: AudioSourceSetting[], settings: ReaderSettings): AudioSourceSetting[] {
     return settings.audioTtsMode === 'source-order'
         ? sources.filter(source => !isBrowserTextToSpeechSource(source))
-        : sources.filter(source => !isBrowserTextToSpeechSource(source) && source.type !== 'jpdb-tts');
+        : sources.filter(source => !isTextToSpeechFallbackSource(source));
 }
 
 export function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
@@ -92,8 +92,12 @@ export function isJpdbWordAudioSource(source: AudioSourceSetting): boolean {
     return source.type === 'jpdb-tts';
 }
 
+export function isApiTextToSpeechSource(source: AudioSourceSetting): boolean {
+    return source.type === 'jiten-tts' || source.type === 'jpdb-tts';
+}
+
 export function isTextToSpeechFallbackSource(source: AudioSourceSetting): boolean {
-    return isJpdbWordAudioSource(source) || isBrowserTextToSpeechSource(source);
+    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
 }
 
 export function registerAudioAttempt(triedUrls: Set<string>, candidate: AudioCandidate): boolean {

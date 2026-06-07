@@ -1004,6 +1004,7 @@ export class NewTabController {
             const targetSelect = target?.closest<HTMLSelectElement>('[data-newtab-grade-target-select]');
             if (targetSelect && root.contains(targetSelect)) {
                 this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+                targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
                 return;
             }
             const input = event.target instanceof HTMLInputElement
@@ -2098,10 +2099,7 @@ export class NewTabController {
 
     private emptyAutoReviewResultShouldBlockFallback(result: NewTabLoadResult): boolean {
         if (result.reviewCountMode !== true) return false;
-        if (result.sourceLabel.startsWith('JPDB') || result.sourceLabel.startsWith('Jiten')) {
-            return Boolean(result.emptyMessageKey) && this.hasConfiguredApiReviewSource(this.dependencies.getSettings());
-        }
-        return false;
+        return result.sourceLabel.includes(this.text('liveReview'));
     }
 
     private async appendLoadedWordsFromSource(accumulator: NewTabLoadAccumulator, source: ConcreteNewTabWordSource, onProgress?: (message: string) => void): Promise<void> {
@@ -2124,12 +2122,23 @@ export class NewTabController {
         if (this.shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator)) return true;
         if (this.shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator)) return true;
         if (plan.studyFallback.kind !== 'study-supplement') return false;
+        if (this.shouldLoadEmptyApiStudyFallback(accumulator)) return true;
         if (accumulator.reviewCountMode) return false;
         const studyCount = this.state.mode === 'kanji'
             ? this.kanjiStudyCardsFromSourceCards(accumulator.cards).length
             : accumulator.cards.length;
         return studyCount < plan.studyFallback.minCards
             && !accumulator.cards.some(card => this.isDictionaryCard(card));
+    }
+
+    private shouldLoadEmptyApiStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
+        return !accumulator.cards.length
+            && accumulator.reviewCountMode
+            && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+
+    private shouldKeepEmptyReviewLoad(accumulator: NewTabLoadAccumulator): boolean {
+        return accumulator.labels.some(label => label.includes(this.text('liveReview')));
     }
 
     private shouldLoadUnavailableExplicitAnkiFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
@@ -2147,7 +2156,7 @@ export class NewTabController {
     private shouldLoadAutoSettingStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
         return this.dependencies.getSettings().newTabSource === 'auto'
             && !accumulator.cards.length
-            && (!accumulator.reviewCountMode || Boolean(accumulator.emptyMessageKey));
+            && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
 
     private async hasLocalDictionaries(): Promise<boolean> {
@@ -3077,14 +3086,7 @@ export class NewTabController {
         const labels = this.reviewTargetSourceLabels(card);
         return labels.length
             ? labels.join(' + ')
-            : this.explicitFallbackSourceLabel(card)
-                ?? newTabCardSourceLabel(card, this.language());
-    }
-
-    private explicitFallbackSourceLabel(card: JPDBCard): string | null {
-        if (!this.isExplicitReviewSourceFallbackCard(card)) return null;
-        if (this.state.source === 'jpdb' || this.state.source === 'anki') return this.sourceToggleLabel(this.state.source);
-        return null;
+            : newTabCardSourceLabel(card, this.language());
     }
 
     private isExplicitReviewSourceFallbackCard(card: JPDBCard): boolean {
@@ -3264,9 +3266,9 @@ export class NewTabController {
     }
 
     private shouldHideUnavailableAutoAnkiToggleSource(context: SourceToggleContext): boolean {
-        return context.configured === 'auto'
-            && context.current === 'dictionary'
-            && !context.hasAnki;
+        return context.current === 'dictionary'
+            && !context.hasAnki
+            && (context.configured === 'auto' || context.ankiUnavailable);
     }
 
     private hasAvailableAnkiToggleSource(context: SourceToggleContext): boolean {
@@ -3282,8 +3284,7 @@ export class NewTabController {
 
     private shouldIncludeDictionaryToggleSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
         return context.current === 'dictionary'
-            && sources.length === 1
-            && sources[0] === 'anki';
+            && sources.length === 1;
     }
 
     private sourceToggleCurrentSource(card: JPDBCard, sources: ConcreteNewTabWordSource[]): ConcreteNewTabWordSource {
@@ -3353,9 +3354,17 @@ export class NewTabController {
     }
 
     private sourceToggleLabel(source: ConcreteNewTabWordSource): string {
-        if (source === 'jpdb') return 'JPDB';
+        if (source === 'jpdb') return this.jpdbSourceToggleLabel();
         if (source === 'anki') return 'Anki';
         return this.text('dictionary');
+    }
+
+    private jpdbSourceToggleLabel(): string {
+        if (this.sourceLabel.startsWith('Jiten')) return 'Jiten';
+        if (this.sourceLabel.includes('JPDB + Jiten')) return 'JPDB + Jiten';
+        const settings = this.dependencies.getSettings();
+        if (!settings.apiKey.trim() && settings.jitenApiKey.trim()) return 'Jiten';
+        return 'JPDB';
     }
 
     private renderCount(countSlot: HTMLElement | null, label: string, progress: NewTabSessionProgressSnapshot | null = null): void {
@@ -3409,6 +3418,7 @@ export class NewTabController {
         if (!prompt) return;
         prompt.lang = this.state.revealAnswer ? 'ja' : 'en';
         prompt.dataset.newtabExpression = 'true';
+        prompt.closest<HTMLElement>('.jpdb-reader-newtab-study')?.classList.remove('jpdb-reader-newtab-study-anki-card');
         prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card');
         if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
         else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
@@ -3511,6 +3521,7 @@ export class NewTabController {
         slots.prompt.lang = '';
         slots.prompt.classList.remove('jpdb-reader-newtab-prompt-has-sentence');
         slots.prompt.classList.add('jpdb-reader-newtab-prompt-anki-card');
+        slots.prompt.closest<HTMLElement>('.jpdb-reader-newtab-study')?.classList.add('jpdb-reader-newtab-study-anki-card');
         delete slots.prompt.dataset.newtabExpression;
         delete slots.prompt.dataset.newtabSentenceRequest;
         delete slots.prompt.dataset.newtabPromptParseRequest;
@@ -3545,6 +3556,7 @@ export class NewTabController {
         prompt.lang = 'ja';
         prompt.dataset.newtabExpression = 'true';
         prompt.classList.remove('jpdb-reader-newtab-prompt-anki-card');
+        prompt.closest<HTMLElement>('.jpdb-reader-newtab-study')?.classList.remove('jpdb-reader-newtab-study-anki-card');
         prompt.classList.toggle('jpdb-reader-newtab-prompt-has-sentence', Boolean(sentence));
         delete prompt.dataset.newtabSentenceRequest;
         delete prompt.dataset.newtabPromptParseRequest;

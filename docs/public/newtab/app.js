@@ -3917,7 +3917,7 @@ recommendedJiten	jiten.moe頻度データです。
     ];
   }
   function preloadableAudioSources(sources, settings) {
-    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isBrowserTextToSpeechSource(source) && source.type !== "jpdb-tts");
+    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
   }
   function audioPreloadLimits(options) {
     return {
@@ -3946,11 +3946,11 @@ recommendedJiten	jiten.moe頻度データです。
   function isBrowserTextToSpeechSource(source) {
     return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
   }
-  function isJpdbWordAudioSource(source) {
-    return source.type === "jpdb-tts";
+  function isApiTextToSpeechSource(source) {
+    return source.type === "jiten-tts" || source.type === "jpdb-tts";
   }
   function isTextToSpeechFallbackSource(source) {
-    return isJpdbWordAudioSource(source) || isBrowserTextToSpeechSource(source);
+    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
   }
   function registerAudioAttempt(triedUrls, candidate) {
     const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
@@ -5205,8 +5205,8 @@ recommendedJiten	jiten.moe頻度データです。
       const realAudioSources = sources.filter((source) => !isTextToSpeechFallbackSource(source));
       const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), context);
       if (realAudioResult !== "miss") return { state: realAudioResult, errors };
-      const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      if (jpdbWordAudioResult !== "miss") return { state: jpdbWordAudioResult, errors };
+      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, errors };
       const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
       return { state: textToSpeechResult, errors };
     }
@@ -23190,6 +23190,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : "";
       const miningActions = this.renderApiMiningActions(cardStates, language, data, provider);
       const ankiActions = data.loading ? "" : renderAnkiActionRow(data.ankiLookup, settings);
+      const miningInitiallyExpanded = Boolean(miningActions && (reviewBlockReason || ankiActions));
       return {
         cardStates,
         state,
@@ -23200,7 +23201,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         language,
         provider,
         miningActions,
-        miningInitiallyExpanded: Boolean(miningActions && (reviewBlockReason || ankiActions)),
+        miningInitiallyExpanded,
         ankiActions,
         reviewButtons: this.renderReviewButtons({
           card,
@@ -23209,7 +23210,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           provider,
           selectedDeckLabel,
           reviewBlockReason,
-          language
+          language,
+          miningInitiallyExpanded
         }),
         metaItems: this.renderMetaItems(card, provider, state, data),
         loadingDetails: this.renderLoadingDetails(data.loading, language),
@@ -23264,9 +23266,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     renderActions(view) {
       const hasMiningPanel = Boolean(view.miningActions);
       const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
-      const miningClass = hasMiningPanel ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? "" : " jpdb-reader-actions-mining-collapsed"}` : "";
+      const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
+      const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+      const miningClass = hasDrawer ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? "" : " jpdb-reader-actions-mining-collapsed"}` : "";
       return `<div class="jpdb-reader-actions${miningClass}">
-            ${renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
+            ${hasReviewTargetGutter ? "" : renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
             ${view.reviewButtons}
@@ -23311,11 +23315,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             `;
     }
     renderReviewButtons(options) {
-      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language, miningInitiallyExpanded } = options;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(data, provider, language);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language);
+      if (targets.length) return this.renderTargetedReviewButtons(targets, language, miningInitiallyExpanded);
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -23393,15 +23397,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    renderTargetedReviewButtons(targets, language) {
+    renderTargetedReviewButtons(targets, language, expanded = false) {
       const settings = this.settings();
       const grades = reviewButtonGrades(settings);
       const selected = targets[0];
       if (!selected || !grades.length) return "";
       const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : "";
+      const targetGutter = renderReviewTargetGutter(selected, language, expanded);
       const targetLabel = renderReviewTargetLabel(selected);
       const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
+            ${targetGutter}
             ${selector}
             <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row>
                 ${targetLabel}
@@ -23441,17 +23447,56 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || "forq", data.jpdbDecks);
     }
   }
+  function updatePopoverReviewTargetSelection(select2) {
+    const option = select2.selectedOptions[0] ?? null;
+    if (!option) return;
+    const actions = select2.closest(".jpdb-reader-actions");
+    if (!actions) return;
+    const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? "";
+    const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
+    const target = option.dataset.reviewTarget ?? "";
+    const ankiCardId = option.dataset.ankiCardId ?? "";
+    const current = actions.querySelector("[data-review-target-current]");
+    if (current) {
+      current.textContent = shortLabel;
+      current.title = label;
+      current.setAttribute("aria-label", label);
+    }
+    const labelText = actions.querySelector("[data-review-target-label] [data-newtab-grade-target-text]");
+    if (labelText) labelText.textContent = label;
+    actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button) => {
+      button.dataset.reviewTarget = target;
+      if (ankiCardId) button.dataset.ankiCardId = ankiCardId;
+      else delete button.dataset.ankiCardId;
+      const buttonLabel = button.textContent?.trim() ?? "";
+      if (label) {
+        button.title = label;
+        button.setAttribute("aria-label", `${buttonLabel}: ${label}`);
+      } else {
+        button.removeAttribute("title");
+        button.removeAttribute("aria-label");
+      }
+    });
+  }
+  function reviewButtonsIncludeTargetGutter(reviewButtons) {
+    return reviewButtons.includes("data-review-target-gutter");
+  }
+  function renderReviewTargetGutter(target, language, expanded) {
+    const label = uiText(language, expanded ? "hideMiningActions" : "showMiningActions");
+    return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
+        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="${String(expanded)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}"></button>
+    </div>`;
+  }
   function renderReviewTargetSelector(targets, language) {
-    return `<label class="jpdb-reader-newtab-grade-target-selector jpdb-reader-popover-grade-target-selector" data-review-target-selector>
-        <span class="jpdb-reader-newtab-grade-target-selector-label">${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}</span>
+    return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}">
             ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
         </select>
-    </label>`;
+    </div>`;
   }
   function renderReviewTargetLabel(target) {
-    const chip = target.shortLabel ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml$1(target.kind)}">${escapeHtml$1(target.shortLabel)}</span>` : "";
-    return `<div class="jpdb-reader-newtab-grade-target" data-review-target-label>${chip}<span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
+    return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
   }
   function reviewTargetButtonAttrs(target) {
     return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
@@ -26712,7 +26757,7 @@ ${spelling}`);
   function renderNewTabLookupReviewButtons(grades, targets, fallbackLabel) {
     if (!grades.length) return "";
     if (targets.length) return targets.map((target) => renderLookupReviewTargetButtons(target, grades)).join("");
-    return renderLookupReviewTargetButtons({ id: "current", kind: "jpdb", label: fallbackLabel, shortLabel: "JPDB" }, grades);
+    return renderLookupReviewTargetButtons({ id: "current", kind: "jpdb", label: fallbackLabel }, grades);
   }
   function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
     updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2);
@@ -26790,8 +26835,7 @@ ${spelling}`);
   }
   function renderLookupReviewTargetButtons(target, grades) {
     const targetLabel = target.label;
-    const chip = target.shortLabel ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml$1(target.kind)}">${escapeHtml$1(target.shortLabel)}</span>` : "";
-    const label = targetLabel ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${chip}<span data-newtab-grade-target-text>${escapeHtml$1(targetLabel)}</span></div>` : "";
+    const label = targetLabel ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target><span data-newtab-grade-target-text>${escapeHtml$1(targetLabel)}</span></div>` : "";
     const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
     return `
         <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-newtab-review-target-row="${escapeHtml$1(target.id)}">
@@ -32461,8 +32505,8 @@ ${newTabCardReading(card)}`;
   }
   function renderNewTabGradeControlButtons(options) {
     return [
-      renderNewTabGradeTargetControl(options),
-      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade]))
+      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade])),
+      renderNewTabGradeTargetControl(options)
     ];
   }
   function selectedNewTabMainGradeTarget(root) {
@@ -32477,14 +32521,11 @@ ${newTabCardReading(card)}`;
   function updateNewTabMainGradeTargetLabel(root, option, bothLabel) {
     if (!option) return;
     const label = option.dataset.newtabGradeTargetLabel ?? "";
+    const shortLabel = mainGradeTargetShortLabel(option, bothLabel);
     const target = root.querySelector("[data-newtab-grade-target]");
-    const chip = target?.querySelector("[data-newtab-grade-target-chip]");
     const text2 = target?.querySelector("[data-newtab-grade-target-text]");
-    if (chip) {
-      chip.dataset.newtabGradeTargetChip = mainGradeTargetKind(option);
-      chip.textContent = mainGradeTargetShortLabel(option, bothLabel);
-    }
-    if (text2) text2.textContent = label;
+    if (target) target.setAttribute("aria-label", label || shortLabel);
+    if (text2) text2.textContent = shortLabel;
     updateMainGradeButtonLabels(root, label);
   }
   function newTabMainGradeTargetOptionFromLookupTarget(target) {
@@ -32497,24 +32538,26 @@ ${newTabCardReading(card)}`;
     };
   }
   function renderNewTabGradeTargetControl(options) {
-    return el(
-      "div",
-      { class: "jpdb-reader-newtab-grade-target", dataset: { newtabGradeTarget: true } },
-      renderNewTabGradeTargetChip(options),
-      options.targetOptions.length > 1 ? renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel) : el("span", { dataset: { newtabGradeTargetText: true } }, options.targetLabel)
-    );
-  }
-  function renderNewTabGradeTargetChip(options) {
-    const chip = newTabGradeTargetChipState(options);
-    return el("span", { class: "jpdb-reader-newtab-grade-target-chip", dataset: { newtabGradeTargetChip: chip.source } }, chip.label);
-  }
-  function newTabGradeTargetChipState(options) {
-    if (options.selectedOption) return { label: options.selectedOption.shortLabel, source: options.selectedOption.kind };
-    const hasApi = options.summary.hasJpdb || options.summary.hasJiten;
-    return {
-      label: gradeTargetChipLabel(hasApi, options.summary.hasAnki, options.apiShortLabel, options.bothLabel),
-      source: gradeTargetChipSource(hasApi, options.summary.hasAnki, options.summary.hasJiten)
-    };
+    const visibleLabel = options.selectedOption?.shortLabel || visibleGradeTargetLabel(options.targetLabel);
+    if (options.targetOptions.length > 1) {
+      return el(
+        "div",
+        { class: "jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context", dataset: { newtabGradeTarget: true }, "aria-label": options.targetLabel },
+        el("span", { class: "jpdb-reader-newtab-grade-target-current", dataset: { newtabGradeTargetText: true } }, visibleLabel),
+        el(
+          "label",
+          { class: "jpdb-reader-newtab-sr-only" },
+          el("span", { class: "jpdb-reader-newtab-grade-target-selector-label" }, options.selectorLabel),
+          renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel)
+        )
+      );
+    }
+    if (!visibleLabel) return el("span", { class: "jpdb-reader-newtab-sr-only", dataset: { newtabGradeTarget: true, newtabGradeTargetText: true } }, options.targetLabel);
+    return el("span", {
+      class: "jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context",
+      dataset: { newtabGradeTarget: true, newtabGradeTargetText: true },
+      "aria-label": options.targetLabel
+    }, visibleLabel);
   }
   function renderNewTabMainGradeTargetSelector(options, selectorLabel) {
     return el("select", {
@@ -32524,13 +32567,14 @@ ${newTabCardReading(card)}`;
     }, ...options.map((option, index) => el("option", {
       value: option.id,
       selected: index === 0,
+      title: option.label,
       dataset: {
         newtabReviewTarget: option.kind,
         newtabGradeTargetLabel: option.label,
         newtabGradeTargetShortLabel: option.shortLabel,
         ...option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}
       }
-    }, option.label)));
+    }, option.shortLabel)));
   }
   function renderNewTabGradeButton(grade, label, targetLabel, interval) {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || "";
@@ -32547,12 +32591,12 @@ ${newTabCardReading(card)}`;
       el("span", { class: "jpdb-reader-newtab-grade-label" }, label)
     );
   }
-  function mainGradeTargetKind(option) {
-    const kind = option.dataset.newtabReviewTarget;
-    return kind === "jpdb" || kind === "jiten" || kind === "anki" ? kind : "both";
-  }
   function mainGradeTargetShortLabel(option, fallback) {
     return option.dataset.newtabGradeTargetShortLabel || option.textContent?.trim() || fallback;
+  }
+  function visibleGradeTargetLabel(label) {
+    const parts = label.split(": ");
+    return parts.length > 1 ? (parts[parts.length - 1] ?? "").trim() : "";
   }
   function updateMainGradeButtonLabels(root, label) {
     root.querySelectorAll('[data-newtab-action="grade"][data-grade]').forEach((gradeButton) => {
@@ -32563,15 +32607,6 @@ ${newTabCardReading(card)}`;
       gradeButton.title = [label, gradeButton.dataset.gradeInterval].filter(Boolean).join(" · ");
       gradeButton.setAttribute("aria-label", gradeLabel ? `${gradeLabel}: ${label}` : label);
     });
-  }
-  function gradeTargetChipLabel(hasApi, hasAnki, apiLabel, bothLabel) {
-    if (hasApi && hasAnki) return bothLabel;
-    return hasAnki ? "Anki" : apiLabel;
-  }
-  function gradeTargetChipSource(hasApi, hasAnki, hasJiten) {
-    if (hasApi && hasAnki) return "both";
-    if (hasAnki) return "anki";
-    return hasJiten ? "jiten" : "jpdb";
   }
   const DEFAULT_THRESHOLD_PX = 96;
   const DEFAULT_MAX_PROGRESS_PX = 144;
@@ -34962,6 +34997,7 @@ ${newTabCardReading(card)}`;
         const targetSelect = target?.closest("[data-newtab-grade-target-select]");
         if (targetSelect && root.contains(targetSelect)) {
           this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+          targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
           return;
         }
         const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
@@ -35892,10 +35928,7 @@ ${newTabCardReading(card)}`;
     }
     emptyAutoReviewResultShouldBlockFallback(result) {
       if (result.reviewCountMode !== true) return false;
-      if (result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten")) {
-        return Boolean(result.emptyMessageKey) && this.hasConfiguredApiReviewSource(this.dependencies.getSettings());
-      }
-      return false;
+      return result.sourceLabel.includes(this.text("liveReview"));
     }
     async appendLoadedWordsFromSource(accumulator, source, onProgress) {
       appendNewTabLoadResult(accumulator, await this.loadWordsFromSource(source, onProgress));
@@ -35915,9 +35948,16 @@ ${newTabCardReading(card)}`;
       if (this.shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator)) return true;
       if (this.shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator)) return true;
       if (plan.studyFallback.kind !== "study-supplement") return false;
+      if (this.shouldLoadEmptyApiStudyFallback(accumulator)) return true;
       if (accumulator.reviewCountMode) return false;
       const studyCount = this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(accumulator.cards).length : accumulator.cards.length;
       return studyCount < plan.studyFallback.minCards && !accumulator.cards.some((card) => this.isDictionaryCard(card));
+    }
+    shouldLoadEmptyApiStudyFallback(accumulator) {
+      return !accumulator.cards.length && accumulator.reviewCountMode && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+    shouldKeepEmptyReviewLoad(accumulator) {
+      return accumulator.labels.some((label) => label.includes(this.text("liveReview")));
     }
     shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator) {
       return plan.kind === "explicit-source" && plan.primarySources[0] === "anki" && !accumulator.cards.length;
@@ -35926,7 +35966,7 @@ ${newTabCardReading(card)}`;
       return plan.studyFallback.kind === "unconfigured-auto-study" && !accumulator.cards.length && !accumulator.reviewCountMode;
     }
     shouldLoadAutoSettingStudyFallback(accumulator) {
-      return this.dependencies.getSettings().newTabSource === "auto" && !accumulator.cards.length && (!accumulator.reviewCountMode || Boolean(accumulator.emptyMessageKey));
+      return this.dependencies.getSettings().newTabSource === "auto" && !accumulator.cards.length && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     async hasLocalDictionaries() {
       const presence = typeof this.dependencies.dictionaries.hasDictionaries === "function" ? this.dependencies.dictionaries.hasDictionaries() : this.dependencies.dictionaries.summary?.().then((summary) => Boolean(summary.dictionaries.length)) ?? Promise.resolve(false);
@@ -36718,12 +36758,7 @@ ${newTabCardReading(card)}`;
     }
     newTabStatusSourceLabel(card) {
       const labels = this.reviewTargetSourceLabels(card);
-      return labels.length ? labels.join(" + ") : this.explicitFallbackSourceLabel(card) ?? newTabCardSourceLabel(card, this.language());
-    }
-    explicitFallbackSourceLabel(card) {
-      if (!this.isExplicitReviewSourceFallbackCard(card)) return null;
-      if (this.state.source === "jpdb" || this.state.source === "anki") return this.sourceToggleLabel(this.state.source);
-      return null;
+      return labels.length ? labels.join(" + ") : newTabCardSourceLabel(card, this.language());
     }
     isExplicitReviewSourceFallbackCard(card) {
       if (this.dependencies.getSettings().newTabSource === "auto") return false;
@@ -36883,7 +36918,7 @@ ${newTabCardReading(card)}`;
       return !this.shouldHideUnavailableAutoAnkiToggleSource(context) && (this.hasAvailableAnkiToggleSource(context) || context.canOfferAnki && this.canToggleFromJpdbSource(context));
     }
     shouldHideUnavailableAutoAnkiToggleSource(context) {
-      return context.configured === "auto" && context.current === "dictionary" && !context.hasAnki;
+      return context.current === "dictionary" && !context.hasAnki && (context.configured === "auto" || context.ankiUnavailable);
     }
     hasAvailableAnkiToggleSource(context) {
       return context.hasAnki || context.current === "anki" || context.selected === "anki" && context.canOfferAnki || context.canUseAnki;
@@ -36892,7 +36927,7 @@ ${newTabCardReading(card)}`;
       return context.current === "jpdb" || context.selected === "jpdb";
     }
     shouldIncludeDictionaryToggleSource(context, sources) {
-      return context.current === "dictionary" && sources.length === 1 && sources[0] === "anki";
+      return context.current === "dictionary" && sources.length === 1;
     }
     sourceToggleCurrentSource(card, sources) {
       return this.sourceToggleCandidate(card, sources, this.sourceLabelReviewSource()) ?? this.configuredSourceToggleCandidate(card, sources) ?? this.reviewSourceToggleCandidate(card, sources) ?? sources[0] ?? "dictionary";
@@ -36943,9 +36978,16 @@ ${newTabCardReading(card)}`;
       return "dictionary";
     }
     sourceToggleLabel(source) {
-      if (source === "jpdb") return "JPDB";
+      if (source === "jpdb") return this.jpdbSourceToggleLabel();
       if (source === "anki") return "Anki";
       return this.text("dictionary");
+    }
+    jpdbSourceToggleLabel() {
+      if (this.sourceLabel.startsWith("Jiten")) return "Jiten";
+      if (this.sourceLabel.includes("JPDB + Jiten")) return "JPDB + Jiten";
+      const settings = this.dependencies.getSettings();
+      if (!settings.apiKey.trim() && settings.jitenApiKey.trim()) return "Jiten";
+      return "JPDB";
     }
     renderCount(countSlot, label, progress = null) {
       if (!countSlot) return;
@@ -36994,6 +37036,7 @@ ${newTabCardReading(card)}`;
       if (!prompt) return;
       prompt.lang = this.state.revealAnswer ? "ja" : "en";
       prompt.dataset.newtabExpression = "true";
+      prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
       if (this.state.revealAnswer) replaceChildrenWith(prompt, this.kanjiPopoverButton(kanji));
       else replaceChildrenWith(prompt, this.renderKanjiPromptKeywords(keywords));
@@ -37100,6 +37143,7 @@ ${newTabCardReading(card)}`;
       slots.prompt.lang = "";
       slots.prompt.classList.remove("jpdb-reader-newtab-prompt-has-sentence");
       slots.prompt.classList.add("jpdb-reader-newtab-prompt-anki-card");
+      slots.prompt.closest(".jpdb-reader-newtab-study")?.classList.add("jpdb-reader-newtab-study-anki-card");
       delete slots.prompt.dataset.newtabExpression;
       delete slots.prompt.dataset.newtabSentenceRequest;
       delete slots.prompt.dataset.newtabPromptParseRequest;
@@ -37126,6 +37170,7 @@ ${newTabCardReading(card)}`;
       prompt.lang = "ja";
       prompt.dataset.newtabExpression = "true";
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
+      prompt.closest(".jpdb-reader-newtab-study")?.classList.remove("jpdb-reader-newtab-study-anki-card");
       prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(sentence));
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
@@ -47169,6 +47214,7 @@ ${newTabCardReading(card)}`;
       const signal = this.resetLookupHandlers();
       installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
       popover.addEventListener("click", (event) => this.handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence), { signal });
+      popover.addEventListener("change", (event) => this.handleLookupReviewTargetChange(event, popover), { signal });
     }
     handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence) {
       const button = this.lookupPopoverActionButton(event, popover);
@@ -47489,6 +47535,11 @@ ${newTabCardReading(card)}`;
       });
       installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
       popover.addEventListener("click", (event) => this.handleLookupPopoverClick(event, popover, card, sentence, anchor), { signal });
+      popover.addEventListener("change", (event) => this.handleLookupReviewTargetChange(event, popover), { signal });
+    }
+    handleLookupReviewTargetChange(event, popover) {
+      const select2 = event.target?.closest("[data-review-target-select]");
+      if (select2 && popover.contains(select2)) updatePopoverReviewTargetSelection(select2);
     }
     handleLookupPopoverClick(event, popover, card, sentence, anchor) {
       const button = this.lookupPopoverActionButton(event, popover);

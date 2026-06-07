@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.36] - 2026-06-07
+
+### Changed
+
+- Moved verbose Anki/JPDB grade target details into the mining drawer gutter so review controls stay on one row without repeated labels or target pills.
+- Loaded hosted docs companion userscript surfaces alongside the main runtime so settings/video features stay available on the docs install surface.
+
+### Fixed
+
+- Kept generated API text-to-speech sources behind recorded audio in fallback mode and out of fallback preloads.
+
 ## [0.6.35] - 2026-06-07
 
 ### Fixed
