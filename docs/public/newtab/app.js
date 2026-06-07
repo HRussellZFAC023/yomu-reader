@@ -45770,6 +45770,21 @@ ${newTabCardReading(card)}`;
       }
     });
   }
+  function parseContentCacheKey(texts, options, settings) {
+    return JSON.stringify({
+      texts,
+      options,
+      settings: {
+        apiKey: Boolean(settings.apiKey.trim()),
+        localDictionariesEnabled: settings.localDictionariesEnabled,
+        dictionaries: settings.dictionaryPreferences.map((preference) => ({
+          name: preference.name,
+          enabled: preference.enabled,
+          priority: preference.priority
+        }))
+      }
+    });
+  }
   const log$1 = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
@@ -47665,7 +47680,7 @@ ${newTabCardReading(card)}`;
         includeLocalPitch: false,
         allowSegmentedFallback: true
       };
-      const key2 = this.parseContentCacheKey(texts, parseOptions);
+      const key2 = parseContentCacheKey(texts, parseOptions, this.settings);
       const now = Date.now();
       const cached = this.parseContentCache.get(key2);
       if (cached && cached.expiresAt > now) {
@@ -47681,21 +47696,6 @@ ${newTabCardReading(card)}`;
       this.parseContentCache.set(key2, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
       this.pruneParseContentCache(now);
       return promise;
-    }
-    parseContentCacheKey(texts, options) {
-      return JSON.stringify({
-        texts,
-        options,
-        settings: {
-          apiKey: Boolean(this.settings.apiKey.trim()),
-          localDictionariesEnabled: this.settings.localDictionariesEnabled,
-          dictionaries: this.settings.dictionaryPreferences.map((preference) => ({
-            name: preference.name,
-            enabled: preference.enabled,
-            priority: preference.priority
-          }))
-        }
-      });
     }
     pruneParseContentCache(now) {
       for (const [key2, entry] of this.parseContentCache) {

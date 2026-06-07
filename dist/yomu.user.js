@@ -37068,6 +37068,21 @@ ${spelling}`);
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
   }
+  function parseContentCacheKey(texts, options, settings) {
+    return JSON.stringify({
+      texts,
+      options,
+      settings: {
+        apiKey: Boolean(settings.apiKey.trim()),
+        localDictionariesEnabled: settings.localDictionariesEnabled,
+        dictionaries: settings.dictionaryPreferences.map((preference) => ({
+          name: preference.name,
+          enabled: preference.enabled,
+          priority: preference.priority
+        }))
+      }
+    });
+  }
   const READER_CSS_RESOURCE = "yomuCss";
   const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
   const HOSTED_READER_CSS_PATH = "/yomu-reader/yomu.css";
@@ -41046,7 +41061,7 @@ ${spelling}`);
     }
     loadParsedNestedJapaneseContent(texts, options = {}) {
       const parseOptions = normalizedNestedParseOptions(options, this.settings);
-      const key = this.nestedParseContentCacheKey(texts, parseOptions);
+      const key = parseContentCacheKey(texts, parseOptions, this.settings);
       const now = Date.now();
       const cached = this.cachedNestedParseContent(key, now);
       if (cached) return cached;
@@ -41068,21 +41083,6 @@ ${spelling}`);
       this.nestedParseContentCache.set(key, { expiresAt: now + NESTED_PARSE_CONTENT_CACHE_TTL_MS, promise });
       this.pruneNestedParseContentCache(now);
       return promise;
-    }
-    nestedParseContentCacheKey(texts, options) {
-      return JSON.stringify({
-        texts,
-        options,
-        settings: {
-          apiKey: Boolean(this.settings.apiKey.trim()),
-          localDictionariesEnabled: this.settings.localDictionariesEnabled,
-          dictionaries: this.settings.dictionaryPreferences.map((preference) => ({
-            name: preference.name,
-            enabled: preference.enabled,
-            priority: preference.priority
-          }))
-        }
-      });
     }
     pruneNestedParseContentCache(now) {
       for (const [key, entry] of this.nestedParseContentCache) {
