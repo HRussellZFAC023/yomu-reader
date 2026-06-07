@@ -13,8 +13,10 @@ on:
       - package.json
       - package-lock.json
       - vite.config.ts
-      - vite.newtab.config.ts
+      - config/vite/newtab.config.ts
       - scripts/build-extension.mjs
+      - scripts/lib/ci-utils.mjs
+      - scripts/lib/extension-runtime-hardening.mjs
       - .github/workflows/build-extension.yml
 
 permissions:

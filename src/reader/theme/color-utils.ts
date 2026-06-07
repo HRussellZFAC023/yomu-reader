@@ -1,5 +1,5 @@
 import { CORE_COLOR_TOKENS } from './color-tokens';
-import { sanitizeAccentColor } from '../settings';
+import { sanitizeAccentColor } from '../settings/index';
 import {
     sharedContrastRatio,
     sharedHexToRgba,

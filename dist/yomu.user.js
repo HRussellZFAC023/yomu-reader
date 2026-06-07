@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.33
+// @version      0.6.34
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-dv0uhptw6w/JABb58zz6Npi6g84VD79ZZk67E3hZbsk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-prTW6pHRfxy1vbt+0UzS/KFx8PIBFKu6D4ZYOLYOMa8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-5wpqVHUuTDP0G2S17gytJv7HqCHpJ+HY5rHFICW69cE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-+FSEcfqGiEUFX+focaDPFQ/cy6hXzoUcTfZoBPbZXB8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1304,8 +1304,8 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    JPDB_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
+    JPDB_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1722,7 +1722,7 @@
     immersionKitExampleSource: "immersion-kit",
     nadeshikoApiKey: "",
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: false,
+    immersionKitLimitEnabled: true,
     immersionKitLimit: 3,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
@@ -4085,6 +4085,11 @@
       method: "GET",
       route: "yomu-public-only",
       matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
     }
   ];
   function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
@@ -4310,7 +4315,8 @@
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
     const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
@@ -4356,6 +4362,7 @@
       timeoutMs,
       allowPublicProxies: _allowPublicProxies,
       allowConfiguredProxy: _allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
       allowDirectCrossOrigin: _allowDirectCrossOrigin,
       signal,
       ...init
@@ -5161,6 +5168,7 @@
       referrerPolicy: options.referrerPolicy ?? "no-referrer",
       timeoutMs: options.timeoutMs,
       allowConfiguredProxy: options.allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
       allowPublicProxies: options.allowPublicProxies,
       allowDirectCrossOrigin: options.allowDirectCrossOrigin,
       signal: options.signal
@@ -7315,7 +7323,7 @@ recommendedJiten	jiten.moe頻度データです。
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jpdb-tts", "text-to-speech"];
+  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jiten-tts", "jpdb-tts", "text-to-speech"];
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
@@ -7342,7 +7350,7 @@ recommendedJiten	jiten.moe頻度データです。
     })), mode, bagKey, shuffledAudio);
   }
   function audioCandidateSelectionMode(sourceType, mode) {
-    return sourceType === "jpdb-tts" ? "random" : mode;
+    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
   }
   function orderAudioSources(sources, mode, card, shuffledAudio) {
     const bagKey = getAudioSourceBagKey(sources, card);
@@ -7455,6 +7463,8 @@ recommendedJiten	jiten.moe頻度データです。
       data: options.data,
       proxyUrl: options.proxyUrl,
       allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
+      allowPublicProxies: options.allowPublicProxies,
+      allowConfiguredProxy: options.allowConfiguredProxy,
       preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
       credentials: options.credentials,
       withCredentials: options.withCredentials,
@@ -7669,6 +7679,10 @@ recommendedJiten	jiten.moe頻度データです。
   const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
   const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
   const JITEN_TTS_BASE_URL = "https://api.jiten.moe/api/tts/word";
+  const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
+  const JITEN_TTS_RANDOM_VOICES = ["female", "male", "male2", "asmr"];
+  const JISHO_CORS_HTML_PROXY_URL = "https://api.allorigins.win/raw";
+  const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
   const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
@@ -7789,8 +7803,8 @@ recommendedJiten	jiten.moe頻度データです。
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
     "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
-    "jiten-tts": async (source, card) => jitenTtsAudioCandidates(source, card),
-    "jpdb-tts": async (_source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl))
+    "jiten-tts": async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
+    "jpdb-tts": async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice))
   };
   async function loadNoAudioCandidates() {
     return [];
@@ -7825,18 +7839,95 @@ recommendedJiten	jiten.moe頻度データです。
       jpdbAudioId: audioId
     }));
   }
-  function jitenTtsAudioCandidates(source, card) {
-    const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger(card.vid) : void 0);
-    const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger(card.sid) : void 0);
-    if (wordId === void 0 || readingIndex === void 0) return [];
-    const voice = source.voice.trim() || "female";
-    const url = `${JITEN_TTS_BASE_URL}/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
-    return [{ url, sourceUrl: url }];
+  function filterJpdbAudioIdsForVoice(audioIds, voice) {
+    const normalized = voice.trim().toLowerCase();
+    if (normalized === "male") return preferredJpdbAudioIds(audioIds, isMaleJpdbAudioId);
+    if (normalized === "female") return preferredJpdbAudioIds(audioIds, isFemaleJpdbAudioId);
+    return audioIds;
   }
-  function finitePositiveInteger(value) {
+  function preferredJpdbAudioIds(audioIds, predicate) {
+    const preferred = audioIds.filter(predicate);
+    return preferred.length ? preferred : audioIds;
+  }
+  function isMaleJpdbAudioId(audioId) {
+    return /^m\d+\//i.test(audioId.trim());
+  }
+  function isFemaleJpdbAudioId(audioId) {
+    return /^f\d+\//i.test(audioId.trim());
+  }
+  async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
+    if (!reference) return [];
+    const voices = jitenTtsVoicesForSource(source);
+    return voices.map((voice) => {
+      const url = `${JITEN_TTS_BASE_URL}/${reference.wordId}/${reference.readingIndex}?voice=${encodeURIComponent(voice)}`;
+      return { url, sourceUrl: url };
+    });
+  }
+  function jitenTtsVoicesForSource(source) {
+    const voice = source.voice.trim();
+    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+  }
+  function jitenAudioReferenceFromCard(card) {
+    const wordId = finitePositiveInteger$1(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger$1(card.vid) : void 0);
+    const readingIndex = finiteNonNegativeInteger$1(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger$1(card.sid) : void 0);
+    return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
+  }
+  async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
+    const queries = uniqueStrings$2([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    for (const query of queries) {
+      const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
+      const response = await requestAudioUrl(url, "text", timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: false,
+        preferFetch: true
+      }).catch(() => "");
+      if (typeof response !== "string") continue;
+      const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
+      if (reference) return reference;
+    }
+    return null;
+  }
+  function jitenVocabularySearchResults(response) {
+    try {
+      const payload = JSON.parse(response);
+      if (!payload || typeof payload !== "object") return [];
+      const results = payload.results;
+      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
+    } catch {
+      return [];
+    }
+  }
+  function normalizeJitenAudioReferenceSearchResult(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const wordId = finitePositiveInteger$1(record.wordId);
+    const readingIndex = finiteNonNegativeInteger$1(record.readingIndex);
+    if (wordId === void 0 || readingIndex === void 0) return null;
+    return {
+      wordId,
+      readingIndex,
+      text: typeof record.text === "string" ? record.text.trim() : "",
+      reading: cleanJitenRubyText(typeof record.rubyText === "string" ? record.rubyText : "").trim()
+    };
+  }
+  function bestJitenAudioReference(card, results) {
+    if (!results.length) return null;
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    const exact = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
+    const spellingOnly = exact ?? results.find((result) => result.text === spelling);
+    const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
+    const match = readingOnly ?? results[0];
+    return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
+  }
+  function cleanJitenRubyText(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+  }
+  function finitePositiveInteger$1(value) {
     return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
   }
-  function finiteNonNegativeInteger(value) {
+  function finiteNonNegativeInteger$1(value) {
     return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
   }
   function getJapanesePod101Url(card) {
@@ -7989,29 +8080,80 @@ recommendedJiten	jiten.moe頻度データです。
     return null;
   }
   async function getJishoAudioUrls(card, timeoutMs, proxyUrl = "") {
-    if (shouldSkipJishoLookup(proxyUrl)) return [];
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestAudioUrl(url, "text", timeoutMs, {
-      proxyUrl: jishoLookupProxyUrl(proxyUrl),
+    const response = shouldSkipJishoLookup(proxyUrl) ? "" : await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
       preferFetch: false
+    }).catch(() => "");
+    if (typeof response === "string" && response) {
+      const audioHtml = findJishoAudioElement(response, card);
+      const urls = audioHtml ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1) : [];
+      if (urls.length) return urls;
+      return [];
+    }
+    return getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  function shouldSkipJishoLookup(proxyUrl) {
+    return !proxyUrl.trim() && !getUserscriptHttpRequest();
+  }
+  async function getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl) {
+    const htmlUrls = await getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl);
+    return htmlUrls.length ? htmlUrls : getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  async function getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl) {
+    const jishoUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const url = `${JISHO_CORS_HTML_PROXY_URL}?url=${encodeURIComponent(jishoUrl)}`;
+    const response = await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      preferFetch: true
     }).catch(() => "");
     if (typeof response !== "string") return [];
     const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1) : [];
+    return audioHtml ? extractAudioSourceUrls(audioHtml, jishoUrl).filter(isLikelyAudioUrl).slice(0, 1) : [];
   }
-  function shouldSkipJishoLookup(proxyUrl) {
-    return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
+  async function getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl) {
+    const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;
+    const response = await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      preferFetch: true
+    }).catch(() => "");
+    return typeof response === "string" ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1) : [];
   }
-  function jishoLookupProxyUrl(proxyUrl) {
-    return isDefaultYomuPublicProxyUrl(proxyUrl) ? "" : proxyUrl;
+  function extractJishoTextProxyAudioUrls(markdown, card) {
+    const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
+    const rawCandidates = findAudioUrls(wordsSection || markdown).filter((url) => {
+      try {
+        const target = new URL(url);
+        return target.hostname === "d1vjc5dkcd3yh2.cloudfront.net" && target.pathname.startsWith("/audio/");
+      } catch {
+        return false;
+      }
+    });
+    if (!rawCandidates.length) return [];
+    const context = compactJapaneseText((wordsSection || markdown).slice(0, Math.max(0, (wordsSection || markdown).indexOf(rawCandidates[0] ?? "")) + 280));
+    const spelling = compactJapaneseText(card.spelling);
+    const reading = compactJapaneseText(card.reading);
+    if (spelling && !context.includes(spelling) && reading && !context.includes(reading)) return [];
+    return uniqueAudioUrls(rawCandidates.map(normalizeJishoCloudfrontAudioUrl));
   }
-  function isDefaultYomuPublicProxyUrl(proxyUrl) {
-    if (!proxyUrl.trim()) return false;
-    try {
-      return new URL(proxyUrl).origin === new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).origin;
-    } catch {
-      return false;
-    }
+  function normalizeJishoCloudfrontAudioUrl(url) {
+    return url.replace(/^http:\/\//i, "https://");
+  }
+  function markdownSection(markdown, startPattern) {
+    const start = markdown.search(startPattern);
+    if (start < 0) return "";
+    const rest = markdown.slice(start);
+    const nextHeading = rest.slice(1).search(/^#{1,6}\s+/m);
+    return nextHeading < 0 ? rest : rest.slice(0, nextHeading + 1);
+  }
+  function compactJapaneseText(value) {
+    return value.replace(/[^\u3040-\u30ff\u3400-\u9fffー・]/g, "");
   }
   function findJishoAudioElement(html, card) {
     const exact = findHtmlElementById(html, "audio", `audio_${card.spelling}:${card.reading}`);
@@ -14788,6 +14930,7 @@ ${entry.reading}`;
     lookupStatusIndex(index, card, entries) {
       const entry = index ? statusIndexEntryForCard(index, card, entries) : null;
       if (!entry) return null;
+      if (index?.dirtyAt && (!entry.updatedAt || entry.updatedAt < index.dirtyAt)) return null;
       const note = {
         noteId: entry.noteId,
         modelName: entry.modelName,
@@ -19064,7 +19207,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function isJitenBackedCard(card) {
-    return card.source === "jiten";
+    return card.source === "jiten" || finitePositiveInteger(card.jitenWordId) !== void 0 && finiteNonNegativeInteger(card.jitenReadingIndex) !== void 0;
+  }
+  function finitePositiveInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
+  }
+  function finiteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
   }
   function defaultJpdbDeckId$1(settings) {
     return settings.miningDeck.trim() || "forq";
@@ -22210,7 +22359,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     </div>`;
   }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
   function normalizePitchPatternForReading(pattern, reading) {
     const levels = pitchLevels(pattern);
     if (!levels.length) return "";
@@ -22226,6 +22382,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
   }
   function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
     const morae = [];
     for (const char of Array.from(reading)) {
       if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
@@ -22275,10 +22432,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
   }
   function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (pitchNumber === 0) return "heiban";
-    if (pitchNumber === 1) return "atamadaka";
-    if (pitchNumber != null && pitchNumber === moraCount) return "odaka";
-    if (pitchNumber != null && pitchNumber > 1 && pitchNumber < moraCount) return "nakadaka";
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
     return hasComplexPitchShape(pattern) ? "kifuku" : "";
   }
   function hasComplexPitchShape(pattern) {
@@ -22375,12 +22530,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     </svg></div>`;
   }
   function cardPronunciationReading(card) {
-    const reading = cleanPronunciationReading(card.reading);
-    if (reading && !containsKanji(reading)) return reading;
-    const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ""));
-    if (rubyReading && !containsKanji(rubyReading)) return rubyReading;
-    const kanaSpelling = cleanPronunciationReading(card.spelling);
-    return isKanaPronunciation(kanaSpelling) ? kanaSpelling : "";
+    const reading = pronunciationCandidate(card.reading);
+    if (reading) return reading;
+    const rubyReading = pronunciationCandidate(readingFromWordWithReading(card.wordWithReading ?? ""));
+    if (rubyReading) return rubyReading;
+    return pronunciationCandidate(card.spelling);
   }
   function uniqueKanji(value) {
     return [...new Set(Array.from(value).filter(isKanjiCharacter$1))];
@@ -22394,6 +22548,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function cleanPronunciationReading(value) {
     return value.replace(/\s+/g, "").trim();
+  }
+  function pronunciationCandidate(value) {
+    const reading = cleanPronunciationReading(value);
+    if (!reading || containsKanji(reading)) return "";
+    return isKanaPronunciation(reading) ? reading : "";
   }
   function isKanaPronunciation(value) {
     return /^[\u3040-\u30ff]+$/u.test(value);
@@ -23133,7 +23292,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenDecks(card) {
       const settings = this.settings();
-      if (!isApiMiningEnabled(settings) || card.source !== "jiten" || !settings.jitenApiKey.trim()) return Promise.resolve([]);
+      if (!isApiMiningEnabled(settings) || !isJitenBackedCard(card) || !settings.jitenApiKey.trim()) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
         log$i.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
@@ -24875,7 +25034,7 @@ ${spelling}`);
     return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
   }
   function shouldUseJitenParser(settings, options, jiten) {
-    return Boolean(!settings.apiKey.trim() && settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
+    return Boolean(settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
   }
   function shouldSkipApiParser(options) {
     return Boolean(options.skipApi ?? options.skipJpdb);
@@ -26395,8 +26554,10 @@ ${spelling}`);
           failureLabel: "Jiten request",
           statusFailureMessage: (status) => `Jiten request failed (${status}).`,
           proxyUrl: this.proxyUrl(),
-          allowDirectCrossOrigin: true,
+          allowDirectCrossOrigin: false,
           allowConfiguredProxy: true,
+          allowSensitiveConfiguredProxy: true,
+          allowPublicProxies: false,
           preferFetch: true
         });
         return parseJitenPayload(payload);
@@ -27631,6 +27792,7 @@ ${spelling}`);
   function isPublicLookupBackoffError(error) {
     return error instanceof Error && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
   }
+  const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
     const doc = parseHtmlDocument(html);
     const roots = jpdbVocabularyResultRoots(doc);
@@ -27660,12 +27822,15 @@ ${spelling}`);
   function pitchSegmentPattern(segment) {
     const level = pitchSegmentLevel(segment);
     if (!level) return "";
-    return level.repeat(splitMorae(compactJpdbText(segment.textContent ?? "")).length);
+    return level.repeat(splitMorae(pitchSegmentReading(segment)).length);
   }
   function pitchSegmentLevel(segment) {
     const style = segment.getAttribute("style") ?? "";
     if (style.includes("--pitch-high")) return "H";
     return style.includes("--pitch-low") ? "L" : "";
+  }
+  function pitchSegmentReading(segment) {
+    return Array.from(compactJpdbText(segment.textContent ?? "")).filter((character) => PITCH_KANA.test(character)).join("");
   }
   const REQUEST_TIMEOUT_MS = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
@@ -37812,7 +37977,7 @@ ${spelling}`);
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
       toast: (message) => this.toast(message),
       invalidateCardData: () => this.cardRenderData.clear(),
-      onAnkiStatusChanged: (card) => this.scheduleRenderedAnkiStatusRefresh(card)
+      onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card)
     });
     immersionPopover = new ImmersionPopoverController({
       getSettings: () => this.settings,
@@ -38036,6 +38201,10 @@ ${spelling}`);
     }
     scheduleRenderedAnkiStatusRefresh(card) {
       scheduleReaderAnkiStatusRefresh(this.settings, () => this.refreshRenderedAnkiStatusAfterMutation(card));
+    }
+    handleAnkiStatusChanged(card) {
+      this.cardRenderData.clear();
+      this.scheduleRenderedAnkiStatusRefresh(card);
     }
     async refreshRenderedAnkiStatusAfterMutation(card) {
       if (this.isDestroyed || !shouldLookupAnkiStatus(this.settings)) return;

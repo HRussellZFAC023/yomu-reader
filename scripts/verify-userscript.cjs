@@ -19,8 +19,8 @@ const {
   readBuiltUserscript,
   readText,
   warnIfNearGreasyForkSizeLimit,
-} = require('./userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./greasyfork-libraries.cjs');
+} = require('./lib/userscript-build-utils.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;

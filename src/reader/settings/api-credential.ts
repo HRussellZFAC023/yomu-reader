@@ -1,4 +1,4 @@
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 export type ApiCredentialSettings = Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>;
 

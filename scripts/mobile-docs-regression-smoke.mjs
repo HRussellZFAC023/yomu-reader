@@ -15,7 +15,7 @@ import {
     serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
-} from './smoke-harness.mjs';
+} from './lib/smoke-harness.mjs';
 
 const {
     root: ROOT,

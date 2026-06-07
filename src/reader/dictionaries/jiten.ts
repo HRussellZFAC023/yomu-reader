@@ -1,8 +1,8 @@
-import { requestHttp } from '../reader-http-request';
-import type { ReaderHttpOptions } from '../reader-http-options';
+import { requestHttp } from '../network/http-request';
+import type { ReaderHttpOptions } from '../network/http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { pitchPatternFromPosition } from '../pitch-accent';
-import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken, ReviewGradeInterval, ReviewGradeIntervals } from '../types';
+import { pitchPatternFromPosition } from '../lookup/pitch-accent';
+import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
 
 export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 
@@ -256,8 +256,10 @@ export class JitenApiClient {
                 failureLabel: 'Jiten request',
                 statusFailureMessage: status => `Jiten request failed (${status}).`,
                 proxyUrl: this.proxyUrl(),
-                allowDirectCrossOrigin: true,
+                allowDirectCrossOrigin: false,
                 allowConfiguredProxy: true,
+                allowSensitiveConfiguredProxy: true,
+                allowPublicProxies: false,
                 preferFetch: true,
             });
             return parseJitenPayload<T>(payload);

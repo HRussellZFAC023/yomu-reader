@@ -1,5 +1,5 @@
-import type { DeinflectedTerm } from '../../deinflect';
-import type { ReaderSettings } from '../../types';
+import type { DeinflectedTerm } from '../../lookup/deinflect';
+import type { ReaderSettings } from '../../app/types';
 
 export type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo' | 'termSearch';
 export type EntryStoreName = Exclude<StoreName, 'dictionaryInfo' | 'termSearch'>;

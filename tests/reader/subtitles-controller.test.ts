@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/constants';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/app/constants';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
-import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
+import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { withViewport } from './helpers/browser-fixtures';
 
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');

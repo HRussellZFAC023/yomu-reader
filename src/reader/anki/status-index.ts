@@ -1,6 +1,6 @@
-import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSet, gmStorageSetSync } from '../storage';
-import { Logger } from '../logger';
-import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from '../types';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSet, gmStorageSetSync } from '../app/storage';
+import { Logger } from '../app/logger';
+import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from '../app/types';
 import {
     type AnkiNoteInfo,
     type AnkiStatusIndex,

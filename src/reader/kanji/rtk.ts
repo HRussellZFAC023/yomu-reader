@@ -1,5 +1,5 @@
-import { Logger } from '../logger';
-import { requestText as requestReaderText } from '../reader-http';
+import { Logger } from '../app/logger';
+import { requestText as requestReaderText } from '../network/http';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import { parseHtmlDocument } from '../dom';
 

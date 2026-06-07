@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DictionaryStyleController } from '../../src/reader/dictionary-styles';
+import { DictionaryStyleController } from '../../src/reader/sources/styles';
 
 describe('dictionary style controller', () => {
     afterEach(() => {

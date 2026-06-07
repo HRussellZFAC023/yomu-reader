@@ -1,10 +1,10 @@
 import { setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
-import { Logger } from '../logger';
-import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from '../popover-shell';
+import { uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from '../popup/shell';
 import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence, type GrammarHint } from './tools';
 import { renderStudyMeaningBlock } from './section-render';
-import type { InterfaceLanguage } from '../types';
+import type { InterfaceLanguage } from '../app/types';
 
 const log = Logger.scope('StudyRender');
 

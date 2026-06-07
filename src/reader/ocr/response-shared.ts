@@ -1,4 +1,4 @@
-import { HAS_JAPANESE } from '../dom';
+import { HAS_JAPANESE } from '../dom/index';
 
 export interface OcrRect {
     left: number;

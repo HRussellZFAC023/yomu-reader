@@ -1,9 +1,9 @@
-import { HAS_JAPANESE } from '../dom';
+import { HAS_JAPANESE } from '../dom/index';
 import { normalizeCloudVisionResponse } from './cloud-vision';
 import { googleLensUploadCallbackLiteral, parseJsDataLiteral } from './google-lens-data';
 import { cleanOcrText, clampBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
 import type { OcrLine, OcrRect, OcrResult } from './response-shared';
-import type { JPDBToken } from '../types';
+import type { JPDBToken } from '../app/types';
 
 type NullableOcrRect = { left: number | null; top: number | null; width: number | null; height: number | null };
 export type { OcrLine, OcrRect, OcrResult } from './response-shared';

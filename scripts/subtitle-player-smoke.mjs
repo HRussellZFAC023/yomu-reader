@@ -2,9 +2,9 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { assert } from './smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './smoke-test-helpers.mjs';
-import { dragTranscriptResizeHandle, panelSizeDelta } from './subtitle-layout-test-utils.mjs';
+import { assert } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { dragTranscriptResizeHandle, panelSizeDelta } from './lib/subtitle-layout-test-utils.mjs';
 
 const localUrl = process.env.YOMU_SMOKE_LOCAL_URL ?? 'http://127.0.0.1:5173/yomu-reader/video-player/index.html';
 const fixtureVideoUrl = process.env.YOMU_SMOKE_VIDEO_URL ?? 'http://127.0.0.1:8766/tutorial.mp4';

@@ -1,8 +1,8 @@
-import { getSelectionSentence } from '../dom';
-import { compactLookupText, isLookupableJapaneseText, normalizedLookupText } from '../lookup-text-helpers';
-import type { CardNavigationMode, PopupNavigationEntry } from '../popup-navigation';
-import { tokensOverlappingSelection } from '../popup-render';
-import { jpdbFirstParseOptions, type ReaderParserParseOptions } from '../reader-parser';
+import { getSelectionSentence } from '../dom/index';
+import { compactLookupText, isLookupableJapaneseText, normalizedLookupText } from '../lookup/text-helpers';
+import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
+import { tokensOverlappingSelection } from '../popup/render';
+import { jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     connectedElement,
     pickExactTokenForSelection,
@@ -12,8 +12,8 @@ import {
     type TextLookupDisplayContext,
     type TextLookupOptions,
     type TokenListOptions,
-} from '../reader-main-helpers';
-import type { JPDBCard, JPDBToken } from '../types';
+} from '../app/main-helpers';
+import type { JPDBCard, JPDBToken } from '../app/types';
 import { renderedWordLookupText } from './rendered-word-lookup';
 
 type TextLookupTrigger = 'modal' | 'hover';

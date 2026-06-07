@@ -1,7 +1,7 @@
-import type { ImmersionKitExample } from '../immersion-kit';
-import { Logger } from '../logger';
-import { gmStorageGetSync, gmStorageSetSync } from '../storage';
-import type { ReaderSettings } from '../types';
+import type { ImmersionKitExample } from '../immersion/kit';
+import { Logger } from '../app/logger';
+import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
+import type { ReaderSettings } from '../app/types';
 
 const CONTEXT_PREFIX = 'yomu-mining-context:';
 const CONTEXT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 21;

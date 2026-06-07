@@ -1,5 +1,5 @@
 import { parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';
-import { requestText as requestReaderText, type ReaderHttpOptions } from '../reader-http';
+import { requestText as requestReaderText, type ReaderHttpOptions } from '../network/http';
 
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;

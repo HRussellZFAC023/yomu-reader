@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { contrastRatio } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme } from '../../src/reader/theme/reader-theme';
-import { refreshReaderWordContrastForWord } from '../../src/reader/reader-word-contrast';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings';
-import type { ReaderSettings } from '../../src/reader/types';
+import { refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings/index';
+import type { ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const JAPANESE_SURFACE_CSS = [

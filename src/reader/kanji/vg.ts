@@ -1,7 +1,7 @@
 import { escapeHtml, parseXmlDocument } from '../dom';
 import { parseSvgPathPoints } from './vg-path';
-import { Logger } from '../logger';
-import { requestText as requestReaderText } from '../reader-http';
+import { Logger } from '../app/logger';
+import { requestText as requestReaderText } from '../network/http';
 
 const KANJIVG_RAW_BASE = 'https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji';
 const KANJIVG_POSITION_THRESHOLD = 0.12;

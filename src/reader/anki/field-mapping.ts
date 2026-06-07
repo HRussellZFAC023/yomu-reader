@@ -1,4 +1,4 @@
-import type { AnkiFieldMapping, AnkiFieldMappings, JPDBCard, ReaderSettings } from '../types';
+import type { AnkiFieldMapping, AnkiFieldMappings, JPDBCard, ReaderSettings } from '../app/types';
 import {
     ANKI_FIELD_ROLES,
     type AnkiFieldContentSample,

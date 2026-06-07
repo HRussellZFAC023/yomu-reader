@@ -1,7 +1,7 @@
-import { uiText } from '../../i18n';
-import { Logger } from '../../logger';
-import { normalizeAudioSource, normalizeDictionaryPreferences } from '../../settings';
-import type { DictionaryPreference, InterfaceLanguage, ReaderSettings, ScanModifierKey } from '../../types';
+import { uiText } from '../../app/i18n';
+import { Logger } from '../../app/logger';
+import { normalizeAudioSource, normalizeDictionaryPreferences } from '../../settings/index';
+import type { DictionaryPreference, InterfaceLanguage, ReaderSettings, ScanModifierKey } from '../../app/types';
 import type { YomitanSettingsImport } from './types';
 
 const log = Logger.scope('YomitanSettingsImport');

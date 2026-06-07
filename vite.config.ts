@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
-import { jpdbAudioDevProxyPlugin } from './vite-jpdb-audio-proxy';
+import { jpdbAudioDevProxyPlugin } from './config/vite/jpdb-audio-proxy';
 
 const require = createRequire(import.meta.url);
-const { greasyForkLibraryUrls } = require('./scripts/greasyfork-libraries.cjs') as {
+const { greasyForkLibraryUrls } = require('./scripts/lib/greasyfork-libraries.cjs') as {
     greasyForkLibraryUrls: () => string[];
 };
 const configRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -87,7 +87,7 @@ function readerPlugins(command: string): PluginOption[] {
         jpdbAudioDevProxyPlugin(),
         faviconDevMiddleware(),
         monkey({
-            entry: 'src/reader/userscript-entry.ts',
+            entry: 'src/reader/userscript/entry.ts',
             userscript: readerUserscript(command, splitCompanions),
             build: {
                 fileName: 'yomu.user.js',
@@ -126,7 +126,7 @@ function readerResolveConfig(command: string) {
     return shouldUseGreasyForkCompanions(command)
         ? {
             alias: {
-                './companions/register-build-target': path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts'),
+                '../companions/register-build-target': path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts'),
             },
         }
         : {};

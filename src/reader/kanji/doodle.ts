@@ -1,7 +1,7 @@
 import { DOODLE_COLOR_TOKENS } from '../theme/color-tokens';
-import { uiText } from '../i18n';
-import { Logger } from '../logger';
-import type { InterfaceLanguage } from '../types';
+import { uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import type { InterfaceLanguage } from '../app/types';
 
 export type DoodlePoint = { x: number; y: number; pressure: number };
 export type DoodleStroke = DoodlePoint[];

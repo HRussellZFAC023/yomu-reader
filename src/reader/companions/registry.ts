@@ -1,4 +1,4 @@
-export type SettingsDialogControllerClass = typeof import('../settings-dialog-controller').SettingsDialogController;
+export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
 export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;

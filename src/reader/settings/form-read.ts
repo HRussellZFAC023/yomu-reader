@@ -1,9 +1,9 @@
-import { Logger } from '../logger';
+import { Logger } from '../app/logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
-import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../types';
+import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../app/types';
 
 const log = Logger.scope('SettingsForm');
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';

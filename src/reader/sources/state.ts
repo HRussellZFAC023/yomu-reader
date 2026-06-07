@@ -1,7 +1,7 @@
 import { escapeHtml } from '../dom';
 import { installDictionarySourceTracking } from './state-events';
-import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../storage';
-import type { ReaderSettings } from '../types';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../app/storage';
+import type { ReaderSettings } from '../app/types';
 
 const STORAGE_KEY = 'jpdb-reader-source-open-state';
 

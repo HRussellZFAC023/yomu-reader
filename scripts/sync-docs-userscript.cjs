@@ -8,8 +8,8 @@ const {
   ROOT: root,
   fail,
   packageVersion,
-} = require('./userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./greasyfork-libraries.cjs');
+} = require('./lib/userscript-build-utils.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
 
 const source = DIST_USERSCRIPT_PATH;
 const target = DOCS_USERSCRIPT_PATH;

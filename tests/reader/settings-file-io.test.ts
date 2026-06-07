@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getReaderDictionaryExport, readerDictionaryExportHasData } from '../../src/reader/settings-file-io';
+import { getReaderDictionaryExport, readerDictionaryExportHasData } from '../../src/reader/settings/file-io';
 
 describe('settings file IO', () => {
     it('detects legacy bundled dictionary backups with entries rows', () => {

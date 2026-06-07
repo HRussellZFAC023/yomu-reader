@@ -5,7 +5,7 @@ const {
   GREASY_FORK_LIBRARIES,
   greasyForkLibraryPath,
   greasyForkLibraryUrl,
-} = require('./greasyfork-libraries.cjs');
+} = require('./lib/greasyfork-libraries.cjs');
 const {
   DIST_USERSCRIPT_PATH,
   ROOT,
@@ -14,7 +14,7 @@ const {
   readBuiltUserscript,
   readText,
   writeText,
-} = require('./userscript-build-utils.cjs');
+} = require('./lib/userscript-build-utils.cjs');
 
 let code = readBuiltUserscript();
 

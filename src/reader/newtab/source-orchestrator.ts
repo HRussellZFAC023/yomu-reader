@@ -1,8 +1,8 @@
-import type { UiCopyKey } from '../i18n';
+import type { UiCopyKey } from '../app/i18n';
 import { newTabText, type NewTabCopyKey } from './i18n';
 import { newTabCardReading } from './study-queue';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
-import type { JPDBCard, ReaderSettings } from '../types';
+import type { JPDBCard, ReaderSettings } from '../app/types';
 
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 

@@ -1,16 +1,16 @@
 import { pruneOldestCacheEntries } from '../core/cache-utils';
-import { DOCS_BASE_URL } from '../constants';
+import { DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml } from '../dom';
-import { grammarRuleText, uiText, type UiCopyKey } from '../i18n';
-import { Logger } from '../logger';
-import { requestJson as requestReaderJson } from '../reader-http';
+import { grammarRuleText, uiText, type UiCopyKey } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { requestJson as requestReaderJson } from '../network/http';
 import {
     renderStudyEmpty,
     renderStudyList,
     renderStudySentenceAudioButton,
     renderStudySentenceBlock,
 } from './section-render';
-import type { InterfaceLanguage } from '../types';
+import type { InterfaceLanguage } from '../app/types';
 
 const log = Logger.scope('StudyTools');
 

@@ -1,5 +1,5 @@
 import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from './values';
-import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../types';
+import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 12;
 
@@ -82,8 +82,8 @@ export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
 };
 
 export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
-    JPDB_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
+    JPDB_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,

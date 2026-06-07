@@ -1,4 +1,4 @@
-import { createWindowEvent, dispatchWindowEvent } from '../window-events';
+import { createWindowEvent, dispatchWindowEvent } from '../platform/window-events';
 import { setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';

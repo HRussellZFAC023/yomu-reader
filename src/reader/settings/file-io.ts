@@ -1,6 +1,6 @@
-import { Logger } from '../logger';
-import type { RecommendedDictionary } from '../recommended-dictionaries';
-import type { ReaderSettings } from '../types';
+import { Logger } from '../app/logger';
+import type { RecommendedDictionary } from '../dictionaries/recommended';
+import type { ReaderSettings } from '../app/types';
 
 const log = Logger.scope('SettingsFileIO');
 

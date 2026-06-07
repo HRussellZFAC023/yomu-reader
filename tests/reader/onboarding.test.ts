@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OnboardingController } from '../../src/reader/onboarding';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
-import type { ReaderSettings } from '../../src/reader/types';
+import { OnboardingController } from '../../src/reader/app/onboarding';
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
+import type { ReaderSettings } from '../../src/reader/app/types';
 
 describe('OnboardingController', () => {
     afterEach(() => {

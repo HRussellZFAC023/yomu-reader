@@ -1,8 +1,8 @@
-import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
-import { waitForIdle } from '../idle';
+import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
-import { Logger } from '../logger';
+import { Logger } from '../app/logger';
 import {
     cleanOcrLookupLines,
     normalizeOcrResult,
@@ -13,12 +13,12 @@ import {
     type OcrRect,
     type OcrResult,
 } from './response';
-import { accentToRgba } from '../settings';
-import { fallbackJapaneseSegments } from '../reader-parser';
-import type { ReaderParserParseOptions } from '../reader-parser';
+import { accentToRgba } from '../settings/index';
+import { fallbackJapaneseSegments } from '../lookup/parser';
+import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stablePositiveHashId } from '../core/stable-hash';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../types';
-import { getUserscriptHttpRequest } from '../userscript';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import { getUserscriptHttpRequest } from '../userscript/index';
 
 type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Promise<OcrResult | null>;
 

@@ -1,8 +1,8 @@
-import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../constants';
-import { escapeHtml, setInnerHtml } from '../dom';
-import { resolveUiLanguage, uiText } from '../i18n';
+import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
+import { escapeHtml, setInnerHtml } from '../dom/index';
+import { resolveUiLanguage, uiText } from '../app/i18n';
 import { readApiCredentialsFromFormData } from './api-credential';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
 

@@ -25,8 +25,8 @@ import {
     serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
-} from './smoke-harness.mjs';
-import { waitForSelectorText } from './smoke-wait-helpers.mjs';
+} from './lib/smoke-harness.mjs';
+import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const {
     root: ROOT,

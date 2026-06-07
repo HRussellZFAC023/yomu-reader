@@ -1,4 +1,4 @@
-import type { CardState, JPDBGrade, ReviewGradeInterval, ReviewGradeIntervals } from '../types';
+import type { CardState, JPDBGrade, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
 import {
     type AnkiCardInfo,
     type AnkiExistingNote,

@@ -1,6 +1,6 @@
-import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../constants';
-import { uiText, type UiCopyKey } from '../i18n';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { uiText, type UiCopyKey } from '../app/i18n';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
 export const KANJI_JPDB_SOURCE_ID = '__kanji_jpdb__';

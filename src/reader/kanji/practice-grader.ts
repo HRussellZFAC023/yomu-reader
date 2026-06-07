@@ -1,7 +1,7 @@
 import { installKanjiDoodle, type DoodleStroke } from './doodle';
 import { assessKanjiStrokes, type KanjiStrokeAssessment } from './stroke-grader';
 import type { KanjiVGInfo } from './vg';
-import type { InterfaceLanguage } from '../types';
+import type { InterfaceLanguage } from '../app/types';
 
 export interface KanjiPracticeDoodleController {
     reassess: () => void;

@@ -1,5 +1,5 @@
-import { Logger } from '../logger';
-import { requestText as requestReaderText } from '../reader-http';
+import { Logger } from '../app/logger';
+import { requestText as requestReaderText } from '../network/http';
 import { parseHtmlDocument } from '../dom';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
 

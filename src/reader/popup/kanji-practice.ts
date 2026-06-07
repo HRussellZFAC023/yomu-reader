@@ -1,7 +1,7 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { KanjiVGInfo } from '../kanjivg';
-import type { InterfaceLanguage } from '../types';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { KanjiVGInfo } from '../kanji/vg';
+import type { InterfaceLanguage } from '../app/types';
 import { sourceStateAttribute } from './source-state';
 
 export function renderKanjiPractice(info: KanjiVGInfo | null, kanji: string, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'strokePractice')): string {

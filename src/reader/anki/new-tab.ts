@@ -7,9 +7,9 @@ import {
 } from './index';
 import { ankiCardTemplateLabel, pickPrimaryCard, reviewGradeIntervalsFromAnkiCards, stateFromAnkiCards } from './card-details';
 import { flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
-import { Logger } from '../logger';
+import { Logger } from '../app/logger';
 import { stablePositiveHashId } from '../core/stable-hash';
-import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '../types';
+import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '../app/types';
 
 const log = Logger.scope('AnkiNewTab');
 const ANKI_CARD_INFO_CHUNK_SIZE = 250;

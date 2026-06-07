@@ -1,4 +1,4 @@
-import { Logger } from '../logger';
+import { Logger } from '../app/logger';
 import {
     compactJpdbText,
     JpdbPublicLookupBackoff,

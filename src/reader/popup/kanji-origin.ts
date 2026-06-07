@@ -1,7 +1,7 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from '../kanji-origin';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { KanjiFact, KanjiOriginGraph, KanjiSourceInfo } from '../kanji/origin';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { renderKanjiOriginGraph } from './origin-graph';
 import { sourceStateAttribute } from './source-state';
 

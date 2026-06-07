@@ -1,7 +1,7 @@
-import { gmStorageGetSync, gmStorageSetSync } from '../storage';
+import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
 import { clampNumber } from '../core/number-utils';
 import { setStylePropertyIfChanged } from './subtitle-surface';
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 export interface TranscriptPanelLayout {
     placement: ReaderSettings['subtitleTranscriptPlacement'];

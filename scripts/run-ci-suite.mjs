@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatDuration, readPositiveInt } from './ci-utils.mjs';
+import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REGULAR_SHARD_TOTAL = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');

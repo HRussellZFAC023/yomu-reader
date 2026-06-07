@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, vi } from 'vitest';
-import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/preferred-site-language';
+import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language';
 
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;

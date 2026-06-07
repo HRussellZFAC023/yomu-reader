@@ -1,15 +1,15 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { DoodleStroke } from '../kanji-doodle';
-import type { JpdbKanjiInfo, JpdbKanjiVocabulary } from '../jpdb-kanji';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { DoodleStroke } from '../kanji/doodle';
+import type { JpdbKanjiInfo, JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
 import { kanjiCharacters } from './index';
-import { DEFAULT_OVERLAY_BACKGROUND_COLOR } from '../settings';
-import { KANJI_DICTIONARIES_SOURCE_ID, KANJI_JPDB_SOURCE_ID, KANJI_ORIGINS_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID, KANJI_STROKE_SOURCE_ID, kanjiSourceLabel } from '../source-sections';
+import { DEFAULT_OVERLAY_BACKGROUND_COLOR } from '../settings/index';
+import { KANJI_DICTIONARIES_SOURCE_ID, KANJI_JPDB_SOURCE_ID, KANJI_ORIGINS_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID, KANJI_STROKE_SOURCE_ID, kanjiSourceLabel } from '../sources/sections';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import { jpdbVocabularyIdentityFromUrl } from '../jpdb/jpdb-vocabulary-url';
-import type { RtkInfo } from '../rtk';
-import type { JPDBCard, ReaderSettings } from '../types';
+import type { RtkInfo } from '../kanji/rtk';
+import type { JPDBCard, ReaderSettings } from '../app/types';
 
 const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
 const NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT = 12;

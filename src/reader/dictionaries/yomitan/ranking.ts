@@ -1,5 +1,5 @@
-import { normalizeDictionaryPreferences } from '../../settings';
-import type { DictionaryPreference } from '../../types';
+import { normalizeDictionaryPreferences } from '../../settings/index';
+import type { DictionaryPreference } from '../../app/types';
 import type { YomitanMetaEntry, YomitanTermMatch } from './types';
 
 type TermMatchComparator = (a: YomitanTermMatch, b: YomitanTermMatch) => number;

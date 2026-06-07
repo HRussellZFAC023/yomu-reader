@@ -1,8 +1,8 @@
-import { uiText } from '../../i18n';
-import { Logger } from '../../logger';
-import { fetchWithCorsFallbacks } from '../../proxy-fetch';
-import type { InterfaceLanguage } from '../../types';
-import { getUserscriptHttpRequest } from '../../userscript';
+import { uiText } from '../../app/i18n';
+import { Logger } from '../../app/logger';
+import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
+import type { InterfaceLanguage } from '../../app/types';
+import { getUserscriptHttpRequest } from '../../userscript/index';
 
 const log = Logger.scope('Yomitan');
 

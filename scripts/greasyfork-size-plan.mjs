@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { createYomuPaths } from './paths.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -11,7 +11,7 @@ const {
     ROOT,
     byteLengthUtf8,
     formatCount,
-} = require('./userscript-build-utils.cjs');
+} = require('./lib/userscript-build-utils.cjs');
 
 const { artifactsRoot, moduleSizesPath } = createYomuPaths(import.meta.dirname);
 const MODULE_SIZES_PATH = moduleSizesPath;

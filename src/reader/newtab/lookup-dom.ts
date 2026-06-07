@@ -1,9 +1,9 @@
-import type { AnkiLookupResult } from '../anki';
-import { escapeHtml, HAS_JAPANESE } from '../dom';
-import { cardStateLabel } from '../i18n';
-import { updateKanjiMiningControlsMount } from '../kanji-mining-controls';
+import type { AnkiLookupResult } from '../anki/index';
+import { escapeHtml, HAS_JAPANESE } from '../dom/index';
+import { cardStateLabel } from '../app/i18n';
+import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
-import type { JPDBCard, JPDBGrade, ReaderSettings } from '../types';
+import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
 interface NewTabLookupMetaItemsOptions {
     card: JPDBCard;

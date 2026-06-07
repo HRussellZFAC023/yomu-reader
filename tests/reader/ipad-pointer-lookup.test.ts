@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ReaderApp } from '../../src/reader/main';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
-import { pointerTextLookupFromTextNode, type PointerTextLookup } from '../../src/reader/pointer-text-lookup';
+import { ReaderApp } from '../../src/reader/app/main';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { pointerTextLookupFromTextNode, type PointerTextLookup } from '../../src/reader/lookup/pointer-text-lookup';
 
 interface PointerLookupInternals {
     settings: ReaderSettings;
@@ -81,11 +81,11 @@ function fallbackFragmentToken(): JPDBToken {
     };
 }
 
-function splitKanaRunCandidate(): PointerTextLookup | null {
-    document.body.innerHTML = '<div><span id="channel-name"><span>に</span><span id="middle">ほん</span><span>ごのじかん</span></span></div>';
-    const middle = document.getElementById('middle')!;
-    const node = middle.firstChild as Text;
-    return pointerTextLookupFromTextNode(node, 0);
+function splitKanaRunCandidate(targetId = 'middle', characterOffset = 0): PointerTextLookup | null {
+    document.body.innerHTML = '<div><span id="channel-name"><span>に</span><span id="middle">ほん</span><span id="tail">ごのじかん</span></span></div>';
+    const target = document.getElementById(targetId)!;
+    const node = target.firstChild as Text;
+    return pointerTextLookupFromTextNode(node, characterOffset);
 }
 
 function setupPointerKanaRunLookup({
@@ -162,6 +162,27 @@ function token(spelling: string, start: number, end: number): JPDBToken {
 describe('iPad pointer lookup', () => {
     it('reconstructs kana words split across inline mobile text nodes', async () => {
         await expectSplitKanaRunLookup(true);
+    });
+
+    it('reconstructs final kana taps split across inline mobile text nodes', async () => {
+        const { app, internals, jpdbCard, shownCards } = setupPointerKanaRunLookup();
+        const candidate = splitKanaRunCandidate('tail');
+
+        try {
+            expect(candidate).toMatchObject({
+                text: KANA_RUN_SENTENCE,
+                offset: 3,
+                start: 0,
+                end: 8,
+            });
+
+            await internals.showFirstPointerTextCandidate(candidate!, KANA_RUN_SENTENCE, 'modal', { userGesture: true });
+
+            expectPublicKanaLookupShown(internals, shownCards, jpdbCard);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
     });
 
     it('uses public JPDB kana-run identity when JPDB display and pitch are disabled', async () => {

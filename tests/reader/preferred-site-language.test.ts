@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyPreferredJapaneseSiteLanguage,
     installPreferredJapaneseSiteLanguageFromStoredSettings,
-} from '../../src/reader/preferred-site-language';
-import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings';
+} from '../../src/reader/app/preferred-site-language';
+import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 
 describe('preferred Japanese site language', () => {
     const originalFetch = globalThis.fetch;

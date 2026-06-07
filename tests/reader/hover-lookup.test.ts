@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ReaderApp } from '../../src/reader/main';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { ReaderSettings } from '../../src/reader/types';
+import { ReaderApp } from '../../src/reader/app/main';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { ReaderSettings } from '../../src/reader/app/types';
 import {
     appendActivePopoverAndPageWord,
     appendActivePopoverBody,

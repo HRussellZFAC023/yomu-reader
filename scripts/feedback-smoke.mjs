@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { createYomuPaths } from './paths.mjs';
-import { assert, closeServer, serveFile, startLoopbackServer } from './smoke-harness.mjs';
-import { installUserscriptCssResource } from './smoke-test-helpers.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
+import { assert, closeServer, serveFile, startLoopbackServer } from './lib/smoke-harness.mjs';
+import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const SCRIPT_PATH = path.join(ROOT, 'dist', 'yomu.user.js');

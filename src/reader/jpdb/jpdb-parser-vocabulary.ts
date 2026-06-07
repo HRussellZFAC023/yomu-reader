@@ -1,6 +1,6 @@
-import { normalizeCardStates } from '../card-state';
-import { normalizePitchPatternsForReading } from '../pitch-accent';
-import type { JPDBCard, JPDBRawVocabulary } from '../types';
+import { normalizeCardStates } from '../cards/state';
+import { normalizePitchPatternsForReading } from '../lookup/pitch-accent';
+import type { JPDBCard, JPDBRawVocabulary } from '../app/types';
 
 export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard[] {
     const cards = vocabulary.map(([

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARD_STATE_LABEL_KEYS, cardStateLabel } from '../../src/reader/i18n';
+import { CARD_STATE_LABEL_KEYS, cardStateLabel } from '../../src/reader/app/i18n';
 
 describe('card state labels', () => {
     it('maps shared card states to localized labels', () => {

@@ -1,6 +1,6 @@
-import { primaryCardState } from '../card-state';
+import { primaryCardState } from '../cards/state';
 import { isJitenSrsCard, isPositiveJpdbCard, isReviewSource } from './review-targets';
-import type { JPDBCard } from '../types';
+import type { JPDBCard } from '../app/types';
 
 export type NewTabSessionProgressSource = 'jpdb' | 'jiten' | 'anki';
 

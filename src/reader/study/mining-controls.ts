@@ -1,4 +1,4 @@
-import type { JPDBCard } from '../types';
+import type { JPDBCard } from '../app/types';
 
 type MiningControlLabel = (expanded: boolean) => string;
 type MiningCardAction = (button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined) => Promise<void> | void;

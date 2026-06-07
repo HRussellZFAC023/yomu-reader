@@ -4,15 +4,15 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
-import { loadLocalEnv } from './qa-env.mjs';
-import { createYomuPaths } from './paths.mjs';
+import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './lib/a11y-audit-helpers.mjs';
+import { loadLocalEnv } from './lib/qa-env.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     decodeGmRequestBody,
     newAutoClosingPage,
     startLoopbackServer,
-} from './smoke-harness.mjs';
+} from './lib/smoke-harness.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 loadLocalEnv(ROOT);

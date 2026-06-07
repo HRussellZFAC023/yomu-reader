@@ -7,7 +7,7 @@ const {
   packageJson,
   readBuiltUserscript,
   writeText,
-} = require('./userscript-build-utils.cjs');
+} = require('./lib/userscript-build-utils.cjs');
 
 const code = readBuiltUserscript();
 const markerIndex = code.indexOf(USERSCRIPT_METADATA_END);

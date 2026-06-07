@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createAudioPreviewCard } from '../../src/reader/card-utils';
-import { SettingsDialogController } from '../../src/reader/settings-dialog-controller';
-import { SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki-types';
-import type { ReaderSettings } from '../../src/reader/types';
-import type { ImportSummary } from '../../src/reader/yomitan';
+import { createAudioPreviewCard } from '../../src/reader/cards/utils';
+import { SettingsDialogController } from '../../src/reader/settings/dialog-controller';
+import { SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
+import type { ReaderSettings } from '../../src/reader/app/types';
+import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
 
-vi.mock('../../src/reader/settings-form', async importOriginal => {
-    const actual = await importOriginal<typeof import('../../src/reader/settings-form')>();
+vi.mock('../../src/reader/settings/form', async importOriginal => {
+    const actual = await importOriginal<typeof import('../../src/reader/settings/form')>();
     return {
         ...actual,
         // Controller tests exercise settings dialog behavior; full localization and
@@ -856,6 +856,57 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
         expect(ankiStatusText(form)).toContain('expression: Vocabulary-Kanji');
+    });
+
+    it('preserves live custom Anki field mappings while replacing stale scanned roles', async () => {
+        const isConnected = vi.fn().mockResolvedValue(true);
+        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
+            'Custom Mining',
+            'Custom Japanese',
+            ['Term', 'Kana', 'Glossary', 'Example Sentence'],
+            [
+                ['expression', 'Term', 'high'],
+                ['reading', 'Kana', 'high'],
+                ['meaning', 'Glossary', 'high'],
+                ['sentence', 'Example Sentence', 'high'],
+            ],
+        ));
+        const { form } = createSettingsDialog({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                ankiEnabled: true,
+                ankiModel: 'Custom Japanese',
+                ankiFieldMappings: {
+                    'Custom Japanese': {
+                        expression: 'Term',
+                        reading: 'Legacy Reading',
+                        meaning: 'Glossary',
+                        sentence: 'Example Sentence',
+                    },
+                },
+            }),
+            anki: {
+                isConnected,
+                scanLibrary,
+            },
+        });
+
+        await waitForCondition(() => {
+            const mappings = settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]') as Record<string, Partial<Record<string, string>>>;
+            return mappings['Custom Japanese']?.reading === 'Kana';
+        });
+
+        expect(settingsJsonInputValue(form, 'input[name="ankiFieldMappings"]')).toEqual({
+            'Custom Japanese': {
+                expression: 'Term',
+                reading: 'Kana',
+                meaning: 'Glossary',
+                sentence: 'Example Sentence',
+            },
+        });
+        expect(ankiFieldRoleValue(form, 'reading')).toBe('Kana');
+        expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
     });
 
     it('keeps unavailable automatic Anki scan failures quiet after a successful connection', async () => {

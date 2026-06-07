@@ -1,5 +1,5 @@
-import type { InterfaceLanguage, ReaderSettings } from '../types';
-import type { YomitanMetaEntry, YomitanTermEntry } from '../yomitan';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 import { LOOKUP_PILL_COLOR_TOKENS } from '../theme/color-tokens';
 
 const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;

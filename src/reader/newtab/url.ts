@@ -1,4 +1,4 @@
-import { APP_REPOSITORY_NAME } from '../constants';
+import { APP_REPOSITORY_NAME } from '../app/constants';
 
 export function isYomuNewTabUrl(value: string): boolean {
     const url = parseNewTabUrl(value);

@@ -1,4 +1,4 @@
-import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings } from '../types';
+import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings } from '../app/types';
 
 const ANKI_FIELD_MAPPING_ROLES: readonly AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
 

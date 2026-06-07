@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeCardState, normalizeCardStates, primaryCardState } from '../../src/reader/card-state';
+import { normalizeCardState, normalizeCardStates, primaryCardState } from '../../src/reader/cards/state';
 
 describe('normalizeCardState', () => {
     it('returns null for non-string input', () => {

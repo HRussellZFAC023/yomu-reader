@@ -1,9 +1,9 @@
 import { NEW_TAB_COLOR_TOKENS } from '../theme/color-tokens';
 import { hexToRgba, mixHex, readableOn } from '../theme/color-utils';
-import { cleanLearnerGlossaryText, learnerGlossaryWithoutExamples, splitLearnerGlossaryText } from '../learner-glossary';
+import { cleanLearnerGlossaryText, learnerGlossaryWithoutExamples, splitLearnerGlossaryText } from '../dictionaries/learner-glossary';
 import { sanitizeAccentColor } from '../settings';
-import type { JPDBCard } from '../types';
-export { cardKey } from '../card-utils';
+import type { JPDBCard } from '../app/types';
+export { cardKey } from '../cards/utils';
 export { isYomuNewTabUrl } from './url';
 export {
     createNewTabStateChannel,

@@ -1,5 +1,5 @@
-import { uiText } from '../i18n';
-import type { JPDBCard, JPDBGrade, ReaderSettings } from '../types';
+import { uiText } from '../app/i18n';
+import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
 export type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api' | 'jiten-api';
 export type NewTabReviewTarget = QueuedNewTabGradeTarget | 'jpdb-live';

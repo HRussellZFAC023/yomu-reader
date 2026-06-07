@@ -1,29 +1,29 @@
-import { AudioPlayer } from '../audio';
+import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
 import { listNewTabAnkiCards } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
-import { copyText, positionPopover } from '../browser-ui';
-import { CardActionController } from '../card-action-controller';
-import { CardPopoverRenderer } from '../card-popover-renderer';
-import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../card-render-data';
-import { highlightCardTargetScopes } from '../card-highlight';
-import { normalizeCardStates, primaryCardState } from '../card-state';
-import { cardKey } from '../card-utils';
-import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../constants';
+import { copyText, positionPopover } from '../ui/browser';
+import { CardActionController } from '../cards/action-controller';
+import { CardPopoverRenderer } from '../cards/popover-renderer';
+import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
+import { highlightCardTargetScopes } from '../cards/highlight';
+import { normalizeCardStates, primaryCardState } from '../cards/state';
+import { cardKey } from '../cards/utils';
+import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import {
     kanjiSourceStateKey,
     renderKanjiDefinitions,
     renderSimilarKanjiWordsContent,
-} from '../definition-source-render';
-import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../definition-source-stack';
-import { DictionarySourceStateController } from '../dictionary-source-state';
+} from '../sources/definition-render';
+import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
-import { DictionaryStyleController } from '../dictionary-styles';
-import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../factory-reset-coordinator';
-import { ImmersionKitClient } from '../immersion-kit';
-import { ImmersionPopoverController } from '../immersion-popover-controller';
-import { waitForIdle as waitForBrowserIdle } from '../idle';
-import { resolveUiLanguage, uiText, type UiCopyKey } from '../i18n';
+import { DictionaryStyleController } from '../sources/styles';
+import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
+import { ImmersionKitClient } from '../immersion/kit';
+import { ImmersionPopoverController } from '../immersion/popover-controller';
+import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
+import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import { installProgressiveSimilarKanjiLoader } from './progressive-similar-kanji';
 import {
@@ -39,35 +39,35 @@ import {
     renderNewTabLookupReviewButtons as renderNewTabLookupReviewButtonsHtml,
     updateKanjiLookupMiningControls,
 } from './lookup-dom';
-import { JpdbClient } from '../jpdb';
-import { JitenApiClient } from '../jiten';
-import { JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb-kanji';
-import { getPitchClass } from '../jpdb-parser';
-import { JpdbPublicPitchClient } from '../jpdb-public-pitch';
+import { JpdbClient } from '../jpdb/jpdb';
+import { JitenApiClient } from '../dictionaries/jiten';
+import { JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import { getPitchClass } from '../jpdb/jpdb-parser';
+import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
-import { jpdbAudioCard } from '../jpdb-page-targets';
-import { createJpdbReviewBridgeClient } from '../jpdb-review-bridge';
-import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb-vocabulary';
-import { KanjiVGClient, type KanjiVGInfo } from '../kanjivg';
-import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji-origin';
-import { installKanjiPracticeDoodle } from '../kanji-practice-grader';
-import { canAttemptAudiblePlayback } from '../media-activation';
-import { configureLogger, Logger, loggingSettingsSummary } from '../logger';
+import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
+import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
+import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
+import { KanjiVGClient, type KanjiVGInfo } from '../kanji/vg';
+import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji/origin';
+import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
+import { canAttemptAudiblePlayback } from '../audio/media-activation';
+import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
 import {
     inferMiningSourceKind,
     resolveMiningContext as resolveStoredMiningContext,
     type MiningContext,
-} from '../mining-context';
+} from '../study/mining-context';
 import {
     openDeckPickerForCardAdd,
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
-} from '../mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../nested-text-parse';
+} from '../study/mining-controls';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
-import { installOriginGraphInteractions } from '../origin-graph-interactions';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popover-shell';
-import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup-navigation';
+import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
+import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
     buildRtkComponentSummaries,
     cardPronunciationReading,
@@ -78,30 +78,30 @@ import {
     renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderRtkInfo,
-} from '../popup-render';
-import { updateRenderedPitch } from '../reader-dom-helpers';
-import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../reader-parser';
-import { RtkClient, type RtkInfo } from '../rtk';
+} from '../popup/render';
+import { updateRenderedPitch } from '../app/dom-helpers';
+import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
+import { RtkClient, type RtkInfo } from '../kanji/rtk';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
     saveSettings,
     shouldLookupAnkiStatus,
 } from '../settings';
-import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../rendered-word-state';
+import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
-import { showReaderToast } from '../toast';
+import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
-import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../reader-status-warmup';
-import { SettingsDialogController } from '../settings-dialog-controller';
+import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
+import { SettingsDialogController } from '../settings/dialog-controller';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
-} from '../source-sections';
-import { parseContentCacheKey } from '../parse-content-cache-key';
+} from '../sources/sections';
+import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import {
     configuredPopoverMaxHeight,
@@ -110,13 +110,13 @@ import {
     shouldUseFixedPopoverHeight,
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
-import { StudySourceController } from '../study-sources';
-import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../types';
-import { installUchisenCarousel, loadUchisenData } from '../uchisen';
-import { addWindowEventListener } from '../window-events';
-import { renderWordPills, updateHeadingWordPills } from '../word-pills';
+import { StudySourceController } from '../study/sources';
+import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
+import { addWindowEventListener } from '../platform/window-events';
+import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 
-import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../yomitan';
+import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
@@ -298,7 +298,7 @@ export class NewTabRuntime {
         parsePopoverJapanese: popover => this.parseNewTabContent(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
-        onAnkiStatusChanged: card => this.scheduleRenderedAnkiStatusRefresh(card),
+        onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
     });
     private parser = new ReaderParser({
         getSettings: () => this.settings,
@@ -395,6 +395,11 @@ export class NewTabRuntime {
         }));
     }
 
+    private handleAnkiStatusChanged(card: JPDBCard): void {
+        this.cardRenderData.clear();
+        this.scheduleRenderedAnkiStatusRefresh(card);
+    }
+
     destroy(): void {
         if (this.isDestroyed) return;
         this.isDestroyed = true;
@@ -456,6 +461,7 @@ export class NewTabRuntime {
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,
+            onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
             parseContent: (root, options) => this.parseNewTabContent(root, {
                 jpdbTimeoutMs: options?.jpdbTimeoutMs ?? NEW_TAB_STUDY_PARSE_TIMEOUT_MS,
                 allowJpdbTimeoutFallback: options?.allowJpdbTimeoutFallback,
@@ -974,7 +980,7 @@ export class NewTabRuntime {
                 this.toggleMiningControls(button);
             },
             grade: () => {
-                this.gradeLookupFromButton(button);
+                this.gradeLookupFromButton(button, card, sentence);
             },
         };
         const handler = handlers[button.dataset.action ?? ''];
@@ -1348,7 +1354,7 @@ export class NewTabRuntime {
                 this.toggleMiningControls(button);
                 return;
             case 'grade':
-                this.gradeLookupFromButton(button);
+                this.gradeLookupFromButton(button, card, sentence, anchor);
                 return;
             case 'deck-picker':
                 if (this.openDeckPickerForAdd(button, card, sentence)) return;
@@ -1367,17 +1373,29 @@ export class NewTabRuntime {
         return true;
     }
 
-    private gradeLookupFromButton(button: HTMLButtonElement): void {
+    private gradeLookupFromButton(button: HTMLButtonElement, card?: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
         const grade = button.dataset.grade as JPDBGrade | undefined;
-        if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button));
+        if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
 
-    private async gradeCurrentCardFromLookup(button: HTMLButtonElement, grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<void> {
+    private async gradeCurrentCardFromLookup(
+        button: HTMLButtonElement,
+        grade: JPDBGrade,
+        target?: NewTabLookupReviewTargetSelection,
+        card?: JPDBCard,
+        sentence?: string,
+        anchor?: HTMLElement,
+    ): Promise<void> {
         if (!this.newTab || button.disabled) return;
         button.disabled = true;
         try {
             const result = await this.newTab.gradeFromLookup(grade, target);
             if (!result.preserveLookup) this.dismissLookupPopover();
+            else if (card && this.activeLookupPopover?.isConnected) await this.showLookupCard(card, sentence, anchor ?? button, {
+                navigation: 'preserve',
+                reuseActivePopover: true,
+                autoPlay: false,
+            });
         } catch (error) {
             log.warn('New tab lookup grade failed', { grade }, error);
             this.toast(this.text('couldNotSubmitGrade'));

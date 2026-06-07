@@ -6,8 +6,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
-import { run } from './ci-utils.mjs';
-import { hardenGeneratedExtensionBackgrounds } from './extension-runtime-hardening.mjs';
+import { run } from './lib/ci-utils.mjs';
+import { hardenGeneratedExtensionBackgrounds } from './lib/extension-runtime-hardening.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const compilerCli = resolveCompilerCli();

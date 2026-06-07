@@ -1,8 +1,8 @@
-import { requestAudioUrl as requestUrl } from '../audio-request';
-import { normalizeAttemptedAudioUrl } from '../audio-source-resolution';
-import { uiText } from '../i18n';
+import { requestAudioUrl as requestUrl } from '../audio/request';
+import { normalizeAttemptedAudioUrl } from '../audio/source-resolution';
+import { uiText } from '../app/i18n';
 import { isValidJpdbAudioId, normalizeJpdbAudioGroup } from './jpdb-audio-ids';
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";

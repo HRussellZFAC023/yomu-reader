@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr/controller';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { dispatchPointerEvent } from './helpers/browser-fixtures';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 import { waitForExpect } from './test-utils';

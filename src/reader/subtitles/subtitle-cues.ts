@@ -1,4 +1,4 @@
-import { escapeHtml, parseXmlDocument } from '../dom';
+import { escapeHtml, parseXmlDocument } from '../dom/index';
 import { clampNumber } from '../core/number-utils';
 
 export interface SubtitleWordTiming {

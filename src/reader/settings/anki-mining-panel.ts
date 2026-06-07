@@ -1,9 +1,9 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
 import { uniqueStrings } from '../core/string-utils';
 import { checkbox, input, select } from './form-controls';
 import { renderAnkiTagsEditor } from './form-tags';
-import type { AnkiFieldMappingRole, InterfaceLanguage, JPDBDeck, ReaderSettings } from '../types';
+import type { AnkiFieldMappingRole, InterfaceLanguage, JPDBDeck, ReaderSettings } from '../app/types';
 
 const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
 const ANKI_MOBILE_FALLBACK_DECK = 'Default';

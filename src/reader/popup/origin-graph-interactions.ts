@@ -1,4 +1,4 @@
-import { graphEdgePath, type GraphAnchorZone } from '../kanji-graph-geometry';
+import { graphEdgePath, type GraphAnchorZone } from '../kanji/graph-geometry';
 
 const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
 const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;

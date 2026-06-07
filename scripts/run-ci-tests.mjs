@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatDuration, readPositiveInt } from './ci-utils.mjs';
+import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');

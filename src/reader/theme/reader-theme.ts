@@ -6,10 +6,10 @@ import {
     effectiveSubtitleColorSource,
     effectiveSubtitleTextColorSource,
     sanitizeAccentColor,
-} from '../settings';
+} from '../settings/index';
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
 import { READER_THEME_COLOR_TOKENS } from './color-tokens';
-import type { ReaderColorSource, ReaderSettings } from '../types';
+import type { ReaderColorSource, ReaderSettings } from '../app/types';
 
 const COLOR_SOURCE_CLASSES: Exclude<ReaderColorSource, 'auto'>[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 const COLOR_CHANNELS = ['highlight', 'underline', 'text'] as const;

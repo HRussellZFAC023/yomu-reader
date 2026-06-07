@@ -1,4 +1,4 @@
-import { NativeTitleGuard } from '../../src/reader/native-title-guard';
+import { NativeTitleGuard } from '../../src/reader/app/native-title-guard';
 
 describe('NativeTitleGuard', () => {
     afterEach(() => {

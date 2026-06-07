@@ -10,8 +10,8 @@ import {
     pageMiningContext,
     resolveMiningContext,
     saveMiningContext,
-} from '../../src/reader/mining-context';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+} from '../../src/reader/study/mining-context';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 const STORAGE_PREFIX = 'yomu-mining-context:';
 

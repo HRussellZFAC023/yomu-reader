@@ -1,4 +1,4 @@
-import type { DictionaryPreference } from '../../types';
+import type { DictionaryPreference } from '../../app/types';
 import { dictionaryEnabled, dictionaryRank } from './ranking';
 import { glossaryValueToText } from './glossary-text';
 import { renderStructuredGlossaryHtml, type GlossaryRenderOptions } from './structured-content';

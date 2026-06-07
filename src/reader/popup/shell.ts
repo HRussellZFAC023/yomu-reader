@@ -1,7 +1,7 @@
 import { setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
-import { gmStorageGetSync, gmStorageSetSync } from '../storage';
-import type { ReaderSettings } from '../types';
+import { uiText } from '../app/i18n';
+import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
+import type { ReaderSettings } from '../app/types';
 
 const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';

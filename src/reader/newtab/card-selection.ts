@@ -3,7 +3,7 @@ import { mergeDedupeCardMetadata } from './source-orchestrator';
 import { newTabCardOptionalReading, newTabCardReading, normalizeNewTabCard } from './study-queue';
 import { isPositiveJpdbCard, isReviewSource } from './review-targets';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
-import type { JPDBCard } from '../types';
+import type { JPDBCard } from '../app/types';
 
 const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
 

@@ -8,7 +8,7 @@ import {
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     type FactoryResetSignal,
-} from '../../src/reader/storage';
+} from '../../src/reader/app/storage';
 
 function stubGmStorage(values: Map<string, unknown>, options: { listValues?: boolean; deleteValue?: boolean } = {}): void {
     vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));

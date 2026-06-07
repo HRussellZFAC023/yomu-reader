@@ -1,9 +1,9 @@
-import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../card-highlight';
-import { JPDB_DEFINITION_SOURCE_ID } from '../constants';
+import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../cards/highlight';
+import { JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
-import { speakerIcon } from '../icons';
-import { uiText } from '../i18n';
-import type { InterfaceLanguage, JPDBCard } from '../types';
+import { speakerIcon } from '../ui/icons';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
