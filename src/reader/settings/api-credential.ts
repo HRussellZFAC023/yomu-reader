@@ -8,7 +8,7 @@ export function singleApiCredentialValue(settings: ApiCredentialSettings): strin
     return settings.jitenApiKey.trim() || settings.apiKey;
 }
 
-export function splitApiCredential(value: string): ApiCredentialSettings {
+function splitApiCredential(value: string): ApiCredentialSettings {
     const credential = value.trim();
     if (!credential) return { apiKey: '', jitenApiKey: '' };
     return isJitenApiCredential(credential)
@@ -24,6 +24,6 @@ export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSet
     };
 }
 
-export function isJitenApiCredential(value: string): boolean {
+function isJitenApiCredential(value: string): boolean {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
 }

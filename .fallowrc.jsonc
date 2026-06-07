@@ -3,6 +3,7 @@
   "entry": [
     "vite.config.ts",
     "vite.newtab.config.ts",
+    "vite.greasyfork-library.config.ts",
     "vite.size.config.ts",
     "src/reader/userscript-entry.ts",
     "src/reader/newtab-entry.ts",
@@ -15,12 +16,14 @@
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
     "scripts/uchisen-bulk-publish.mjs",
-    "scripts/validate-uchisen-queue.mjs"
+    "scripts/validate-uchisen-queue.mjs",
+    "src/reader/companions/register-empty.ts"
   ],
   "ignorePatterns": [
     "dist/**",
     "dist-dev/**",
     "docs/.vitepress/cache/**",
+    "docs/public/greasyfork/**",
     "docs/public/newtab/**",
     "docs/public/yomu.css",
     "docs/public/yomu.user.js",

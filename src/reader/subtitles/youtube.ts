@@ -211,6 +211,7 @@ export class YoutubeImmersionFilter {
         isActivePage?: () => boolean;
     }) {}
 
+    // fallow-ignore-next-line unused-class-member
     init(): void {
         this.destroy();
         this.destroyed = false;
@@ -249,6 +250,7 @@ export class YoutubeImmersionFilter {
         }, { passive: true, signal: this.events.signal });
     }
 
+    // fallow-ignore-next-line unused-class-member
     refresh(): void {
         if (!this.isActivePage()) {
             this.destroy();
