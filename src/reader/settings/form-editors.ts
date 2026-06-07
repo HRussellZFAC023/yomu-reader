@@ -24,8 +24,10 @@ const JITEN_TTS_VOICE_OPTIONS: Array<[string, string]> = [
 
 const JPDB_TTS_VOICE_OPTIONS: Array<[string, string]> = [
     ['', 'Random JPDB voice'],
-    ['female', 'Female'],
-    ['male', 'Male'],
+    ['f1', 'Female 1'],
+    ['f2', 'Female 2'],
+    ['m1', 'Male 1'],
+    ['m2', 'Male 2'],
 ];
 
 type AudioVoiceKind = 'browser' | 'jiten' | 'jpdb' | 'none';

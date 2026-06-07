@@ -75,6 +75,27 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('keeps all playable source URLs from the exact Jisho audio element', async () => {
+        stubJishoHtml(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio_ogg/yomu.ogg" type="audio/ogg">
+            </audio>
+        `);
+
+        try {
+            await expectJishoCandidates('読む', 'よむ', [
+                jishoCandidate('yomu'),
+                {
+                    url: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio_ogg/yomu.ogg',
+                    sourceUrl: 'https://d1vjc5dkcd3yh2.cloudfront.net/audio_ogg/yomu.ogg',
+                },
+            ]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('uses the CORS-readable Jisho fallback without a proxy or userscript bridge', async () => {
         const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response('', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);

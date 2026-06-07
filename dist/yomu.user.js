@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.34
+// @version      0.6.35
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-5wpqVHUuTDP0G2S17gytJv7HqCHpJ+HY5rHFICW69cE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-JwOQBE5MEcNdqASVqTCU1gFBQRohsInu+gMX4YWet3k=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-+FSEcfqGiEUFX+focaDPFQ/cy6hXzoUcTfZoBPbZXB8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -7681,6 +7681,14 @@ recommendedJiten	jiten.moe頻度データです。
   const JITEN_TTS_BASE_URL = "https://api.jiten.moe/api/tts/word";
   const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
   const JITEN_TTS_RANDOM_VOICES = ["female", "male", "male2", "asmr"];
+  const JPDB_TTS_VOICE_PREFIXES = {
+    female: ["f"],
+    male: ["m"],
+    f1: ["f1"],
+    f2: ["f2"],
+    m1: ["m1"],
+    m2: ["m2"]
+  };
   const JISHO_CORS_HTML_PROXY_URL = "https://api.allorigins.win/raw";
   const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
   const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
@@ -7841,19 +7849,13 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function filterJpdbAudioIdsForVoice(audioIds, voice) {
     const normalized = voice.trim().toLowerCase();
-    if (normalized === "male") return preferredJpdbAudioIds(audioIds, isMaleJpdbAudioId);
-    if (normalized === "female") return preferredJpdbAudioIds(audioIds, isFemaleJpdbAudioId);
+    const prefixes = JPDB_TTS_VOICE_PREFIXES[normalized];
+    if (prefixes) return audioIds.filter((audioId) => jpdbAudioIdMatchesVoice(audioId, prefixes));
     return audioIds;
   }
-  function preferredJpdbAudioIds(audioIds, predicate) {
-    const preferred = audioIds.filter(predicate);
-    return preferred.length ? preferred : audioIds;
-  }
-  function isMaleJpdbAudioId(audioId) {
-    return /^m\d+\//i.test(audioId.trim());
-  }
-  function isFemaleJpdbAudioId(audioId) {
-    return /^f\d+\//i.test(audioId.trim());
+  function jpdbAudioIdMatchesVoice(audioId, prefixes) {
+    const normalized = audioId.trim().toLowerCase();
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp$2(prefix)}\\d+/`).test(normalized));
   }
   async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
     const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
@@ -8087,7 +8089,7 @@ recommendedJiten	jiten.moe頻度データです。
     }).catch(() => "");
     if (typeof response === "string" && response) {
       const audioHtml = findJishoAudioElement(response, card);
-      const urls = audioHtml ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1) : [];
+      const urls = audioHtml ? jishoAudioSourceUrls(audioHtml, url) : [];
       if (urls.length) return urls;
       return [];
     }
@@ -8112,7 +8114,10 @@ recommendedJiten	jiten.moe頻度データです。
     }).catch(() => "");
     if (typeof response !== "string") return [];
     const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml ? extractAudioSourceUrls(audioHtml, jishoUrl).filter(isLikelyAudioUrl).slice(0, 1) : [];
+    return audioHtml ? jishoAudioSourceUrls(audioHtml, jishoUrl) : [];
+  }
+  function jishoAudioSourceUrls(audioHtml, baseUrl) {
+    return extractAudioSourceUrls(audioHtml, baseUrl).filter(isLikelyAudioUrl);
   }
   async function getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl) {
     const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;

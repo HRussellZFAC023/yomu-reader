@@ -6285,8 +6285,10 @@ recommendedJiten	jiten.moe頻度データです。
   ];
   const JPDB_TTS_VOICE_OPTIONS = [
     ["", "Random JPDB voice"],
-    ["female", "Female"],
-    ["male", "Male"]
+    ["f1", "Female 1"],
+    ["f2", "Female 2"],
+    ["m1", "Male 1"],
+    ["m2", "Male 2"]
   ];
   function escapedUiText$3(language, key2) {
     return escapeHtml(uiText(language, key2));
