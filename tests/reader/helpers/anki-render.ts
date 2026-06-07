@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { expect } from 'vitest';
 
-import type { AnkiExistingNote, AnkiLookupResult } from '../../../src/reader/anki';
-import { renderAnkiExistingSection } from '../../../src/reader/anki-render';
-import type { ReaderSettings } from '../../../src/reader/types';
+import type { AnkiExistingNote, AnkiLookupResult } from '../../../src/reader/anki/index';
+import { renderAnkiExistingSection } from '../../../src/reader/anki/render';
+import type { ReaderSettings } from '../../../src/reader/app/types';
 
 const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 

@@ -10,6 +10,7 @@ const TARGETS = [
     path.join(ROOT, 'src'),
     path.join(ROOT, 'scripts'),
     path.join(ROOT, 'tests'),
+    path.join(ROOT, 'config'),
     path.join(ROOT, 'vite.config.ts'),
 ];
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'artifacts', 'dist', 'dist-reader', 'docs/.vitepress/dist', 'qa-artifacts']);

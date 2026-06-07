@@ -5,8 +5,8 @@ import { createServer } from 'node:http';
 import { mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './a11y-audit-helpers.mjs';
-import { createYomuPaths } from './paths.mjs';
+import { summarizeAxeViolations, WCAG_AUDIT_TAGS } from './lib/a11y-audit-helpers.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DOCS_DIST = path.join(ROOT, 'docs/.vitepress/dist');

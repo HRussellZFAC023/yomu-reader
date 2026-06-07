@@ -4,7 +4,7 @@ const {
   USERSCRIPT_RELATIVE_PATH,
   readBuiltUserscript,
   writeText,
-} = require('./userscript-build-utils.cjs');
+} = require('./lib/userscript-build-utils.cjs');
 
 const code = readBuiltUserscript();
 const SIMPLE_ESCAPES = {

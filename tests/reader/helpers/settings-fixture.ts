@@ -1,5 +1,5 @@
-import { createReaderBackdrop } from '../../../src/reader/popover-shell';
-import { DEFAULT_SETTINGS } from '../../../src/reader/settings';
+import { createReaderBackdrop } from '../../../src/reader/popup/shell';
+import { DEFAULT_SETTINGS } from '../../../src/reader/settings/index';
 
 export function stackedSettingsFixtureDom() {
     const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };

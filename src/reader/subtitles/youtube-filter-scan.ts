@@ -1,4 +1,4 @@
-import { HAS_JAPANESE } from '../dom';
+import { HAS_JAPANESE } from '../dom/index';
 
 const HIRAGANA_RE = /\p{Script=Hiragana}/u;
 const KATAKANA_RE = /\p{Script=Katakana}/u;

@@ -1,5 +1,5 @@
-import type { JPDBGrade } from '../types';
-import { eventTargetElement } from '../dom-target';
+import type { JPDBGrade } from '../app/types';
+import { eventTargetElement } from '../dom/target';
 
 export type NewTabSwipeDirection = 'left' | 'right';
 export type NewTabSwipeAction = 'again' | 'good';

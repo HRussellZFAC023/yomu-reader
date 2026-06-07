@@ -1,7 +1,7 @@
-import { APP_NAME } from '../constants';
-import { unwrapReaderWords } from '../dom';
-import { uiText } from '../i18n';
-import type { ReaderSettings } from '../types';
+import { APP_NAME } from '../app/constants';
+import { unwrapReaderWords } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { ReaderSettings } from '../app/types';
 import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
     YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS,

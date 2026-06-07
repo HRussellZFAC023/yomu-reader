@@ -82,6 +82,11 @@
       method: "GET",
       route: "yomu-public-only",
       matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
     }
   ];
   function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
@@ -307,7 +312,8 @@
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configured = proxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
+    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
     const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
@@ -353,6 +359,7 @@
       timeoutMs,
       allowPublicProxies: _allowPublicProxies,
       allowConfiguredProxy: _allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
       allowDirectCrossOrigin: _allowDirectCrossOrigin,
       signal,
       ...init
@@ -1016,6 +1023,7 @@
       referrerPolicy: options.referrerPolicy ?? "no-referrer",
       timeoutMs: options.timeoutMs,
       allowConfiguredProxy: options.allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
       allowPublicProxies: options.allowPublicProxies,
       allowDirectCrossOrigin: options.allowDirectCrossOrigin,
       signal: options.signal
@@ -3898,7 +3906,7 @@ recommendedJiten	jiten.moe頻度データです。
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jpdb-tts", "text-to-speech"];
+  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jiten-tts", "jpdb-tts", "text-to-speech"];
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
@@ -3925,7 +3933,7 @@ recommendedJiten	jiten.moe頻度データです。
     })), mode, bagKey, shuffledAudio);
   }
   function audioCandidateSelectionMode(sourceType, mode) {
-    return sourceType === "jpdb-tts" ? "random" : mode;
+    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
   }
   function orderAudioSources(sources, mode, card, shuffledAudio) {
     const bagKey = getAudioSourceBagKey(sources, card);
@@ -4038,6 +4046,8 @@ recommendedJiten	jiten.moe頻度データです。
       data: options.data,
       proxyUrl: options.proxyUrl,
       allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
+      allowPublicProxies: options.allowPublicProxies,
+      allowConfiguredProxy: options.allowConfiguredProxy,
       preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
       credentials: options.credentials,
       withCredentials: options.withCredentials,
@@ -4252,6 +4262,10 @@ recommendedJiten	jiten.moe頻度データです。
   const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
   const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
   const JITEN_TTS_BASE_URL = "https://api.jiten.moe/api/tts/word";
+  const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
+  const JITEN_TTS_RANDOM_VOICES = ["female", "male", "male2", "asmr"];
+  const JISHO_CORS_HTML_PROXY_URL = "https://api.allorigins.win/raw";
+  const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
   const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
   const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
@@ -4372,8 +4386,8 @@ recommendedJiten	jiten.moe頻度データです。
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
     "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
-    "jiten-tts": async (source, card) => jitenTtsAudioCandidates(source, card),
-    "jpdb-tts": async (_source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl))
+    "jiten-tts": async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
+    "jpdb-tts": async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice))
   };
   async function loadNoAudioCandidates() {
     return [];
@@ -4408,18 +4422,95 @@ recommendedJiten	jiten.moe頻度データです。
       jpdbAudioId: audioId
     }));
   }
-  function jitenTtsAudioCandidates(source, card) {
-    const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger(card.vid) : void 0);
-    const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger(card.sid) : void 0);
-    if (wordId === void 0 || readingIndex === void 0) return [];
-    const voice = source.voice.trim() || "female";
-    const url = `${JITEN_TTS_BASE_URL}/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
-    return [{ url, sourceUrl: url }];
+  function filterJpdbAudioIdsForVoice(audioIds, voice) {
+    const normalized = voice.trim().toLowerCase();
+    if (normalized === "male") return preferredJpdbAudioIds(audioIds, isMaleJpdbAudioId);
+    if (normalized === "female") return preferredJpdbAudioIds(audioIds, isFemaleJpdbAudioId);
+    return audioIds;
   }
-  function finitePositiveInteger(value) {
+  function preferredJpdbAudioIds(audioIds, predicate) {
+    const preferred = audioIds.filter(predicate);
+    return preferred.length ? preferred : audioIds;
+  }
+  function isMaleJpdbAudioId(audioId) {
+    return /^m\d+\//i.test(audioId.trim());
+  }
+  function isFemaleJpdbAudioId(audioId) {
+    return /^f\d+\//i.test(audioId.trim());
+  }
+  async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
+    if (!reference) return [];
+    const voices = jitenTtsVoicesForSource(source);
+    return voices.map((voice) => {
+      const url = `${JITEN_TTS_BASE_URL}/${reference.wordId}/${reference.readingIndex}?voice=${encodeURIComponent(voice)}`;
+      return { url, sourceUrl: url };
+    });
+  }
+  function jitenTtsVoicesForSource(source) {
+    const voice = source.voice.trim();
+    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+  }
+  function jitenAudioReferenceFromCard(card) {
+    const wordId = finitePositiveInteger$1(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger$1(card.vid) : void 0);
+    const readingIndex = finiteNonNegativeInteger$1(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger$1(card.sid) : void 0);
+    return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
+  }
+  async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
+    const queries = uniqueStrings$1([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    for (const query of queries) {
+      const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
+      const response = await requestAudioUrl(url, "text", timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: false,
+        preferFetch: true
+      }).catch(() => "");
+      if (typeof response !== "string") continue;
+      const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
+      if (reference) return reference;
+    }
+    return null;
+  }
+  function jitenVocabularySearchResults(response) {
+    try {
+      const payload = JSON.parse(response);
+      if (!payload || typeof payload !== "object") return [];
+      const results = payload.results;
+      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
+    } catch {
+      return [];
+    }
+  }
+  function normalizeJitenAudioReferenceSearchResult(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const wordId = finitePositiveInteger$1(record.wordId);
+    const readingIndex = finiteNonNegativeInteger$1(record.readingIndex);
+    if (wordId === void 0 || readingIndex === void 0) return null;
+    return {
+      wordId,
+      readingIndex,
+      text: typeof record.text === "string" ? record.text.trim() : "",
+      reading: cleanJitenRubyText(typeof record.rubyText === "string" ? record.rubyText : "").trim()
+    };
+  }
+  function bestJitenAudioReference(card, results) {
+    if (!results.length) return null;
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    const exact = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
+    const spellingOnly = exact ?? results.find((result) => result.text === spelling);
+    const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
+    const match = readingOnly ?? results[0];
+    return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
+  }
+  function cleanJitenRubyText(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+  }
+  function finitePositiveInteger$1(value) {
     return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
   }
-  function finiteNonNegativeInteger(value) {
+  function finiteNonNegativeInteger$1(value) {
     return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
   }
   function getJapanesePod101Url(card) {
@@ -4572,29 +4663,80 @@ recommendedJiten	jiten.moe頻度データです。
     return null;
   }
   async function getJishoAudioUrls(card, timeoutMs, proxyUrl = "") {
-    if (shouldSkipJishoLookup(proxyUrl)) return [];
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestAudioUrl(url, "text", timeoutMs, {
-      proxyUrl: jishoLookupProxyUrl(proxyUrl),
+    const response = shouldSkipJishoLookup(proxyUrl) ? "" : await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
       preferFetch: false
+    }).catch(() => "");
+    if (typeof response === "string" && response) {
+      const audioHtml = findJishoAudioElement(response, card);
+      const urls = audioHtml ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1) : [];
+      if (urls.length) return urls;
+      return [];
+    }
+    return getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  function shouldSkipJishoLookup(proxyUrl) {
+    return !proxyUrl.trim() && !getUserscriptHttpRequest();
+  }
+  async function getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl) {
+    const htmlUrls = await getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl);
+    return htmlUrls.length ? htmlUrls : getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  async function getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl) {
+    const jishoUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const url = `${JISHO_CORS_HTML_PROXY_URL}?url=${encodeURIComponent(jishoUrl)}`;
+    const response = await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      preferFetch: true
     }).catch(() => "");
     if (typeof response !== "string") return [];
     const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1) : [];
+    return audioHtml ? extractAudioSourceUrls(audioHtml, jishoUrl).filter(isLikelyAudioUrl).slice(0, 1) : [];
   }
-  function shouldSkipJishoLookup(proxyUrl) {
-    return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
+  async function getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl) {
+    const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;
+    const response = await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      preferFetch: true
+    }).catch(() => "");
+    return typeof response === "string" ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1) : [];
   }
-  function jishoLookupProxyUrl(proxyUrl) {
-    return isDefaultYomuPublicProxyUrl(proxyUrl) ? "" : proxyUrl;
+  function extractJishoTextProxyAudioUrls(markdown, card) {
+    const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
+    const rawCandidates = findAudioUrls(wordsSection || markdown).filter((url) => {
+      try {
+        const target = new URL(url);
+        return target.hostname === "d1vjc5dkcd3yh2.cloudfront.net" && target.pathname.startsWith("/audio/");
+      } catch {
+        return false;
+      }
+    });
+    if (!rawCandidates.length) return [];
+    const context = compactJapaneseText((wordsSection || markdown).slice(0, Math.max(0, (wordsSection || markdown).indexOf(rawCandidates[0] ?? "")) + 280));
+    const spelling = compactJapaneseText(card.spelling);
+    const reading = compactJapaneseText(card.reading);
+    if (spelling && !context.includes(spelling) && reading && !context.includes(reading)) return [];
+    return uniqueAudioUrls(rawCandidates.map(normalizeJishoCloudfrontAudioUrl));
   }
-  function isDefaultYomuPublicProxyUrl(proxyUrl) {
-    if (!proxyUrl.trim()) return false;
-    try {
-      return new URL(proxyUrl).origin === new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).origin;
-    } catch {
-      return false;
-    }
+  function normalizeJishoCloudfrontAudioUrl(url) {
+    return url.replace(/^http:\/\//i, "https://");
+  }
+  function markdownSection(markdown, startPattern) {
+    const start = markdown.search(startPattern);
+    if (start < 0) return "";
+    const rest = markdown.slice(start);
+    const nextHeading = rest.slice(1).search(/^#{1,6}\s+/m);
+    return nextHeading < 0 ? rest : rest.slice(0, nextHeading + 1);
+  }
+  function compactJapaneseText(value) {
+    return value.replace(/[^\u3040-\u30ff\u3400-\u9fffー・]/g, "");
   }
   function findJishoAudioElement(html, card) {
     const exact = findHtmlElementById(html, "audio", `audio_${card.spelling}:${card.reading}`);
@@ -5987,8 +6129,8 @@ recommendedJiten	jiten.moe頻度データです。
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    JPDB_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
+    JPDB_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -6419,7 +6561,7 @@ recommendedJiten	jiten.moe頻度データです。
     immersionKitExampleSource: "immersion-kit",
     nadeshikoApiKey: "",
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: false,
+    immersionKitLimitEnabled: true,
     immersionKitLimit: 3,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
@@ -14591,6 +14733,7 @@ ${entry.reading}`;
     lookupStatusIndex(index, card, entries) {
       const entry = index ? statusIndexEntryForCard(index, card, entries) : null;
       if (!entry) return null;
+      if (index?.dirtyAt && (!entry.updatedAt || entry.updatedAt < index.dirtyAt)) return null;
       const note = {
         noteId: entry.noteId,
         modelName: entry.modelName,
@@ -18854,7 +18997,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function isJitenBackedCard(card) {
-    return card.source === "jiten";
+    return card.source === "jiten" || finitePositiveInteger(card.jitenWordId) !== void 0 && finiteNonNegativeInteger(card.jitenReadingIndex) !== void 0;
+  }
+  function finitePositiveInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
+  }
+  function finiteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
   }
   function defaultJpdbDeckId$1(settings) {
     return settings.miningDeck.trim() || "forq";
@@ -22632,7 +22781,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return "";
   }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉャュョァィゥェォ");
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
   function normalizePitchPatternForReading(pattern, reading) {
     const levels = pitchLevels(pattern);
     if (!levels.length) return "";
@@ -22648,6 +22804,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
   }
   function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
     const morae = [];
     for (const char of Array.from(reading)) {
       if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
@@ -22697,10 +22854,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
   }
   function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (pitchNumber === 0) return "heiban";
-    if (pitchNumber === 1) return "atamadaka";
-    if (pitchNumber != null && pitchNumber === moraCount) return "odaka";
-    if (pitchNumber != null && pitchNumber > 1 && pitchNumber < moraCount) return "nakadaka";
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
     return hasComplexPitchShape(pattern) ? "kifuku" : "";
   }
   function hasComplexPitchShape(pattern) {
@@ -22797,12 +22952,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     </svg></div>`;
   }
   function cardPronunciationReading(card) {
-    const reading = cleanPronunciationReading(card.reading);
-    if (reading && !containsKanji(reading)) return reading;
-    const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ""));
-    if (rubyReading && !containsKanji(rubyReading)) return rubyReading;
-    const kanaSpelling = cleanPronunciationReading(card.spelling);
-    return isKanaPronunciation(kanaSpelling) ? kanaSpelling : "";
+    const reading = pronunciationCandidate(card.reading);
+    if (reading) return reading;
+    const rubyReading = pronunciationCandidate(readingFromWordWithReading(card.wordWithReading ?? ""));
+    if (rubyReading) return rubyReading;
+    return pronunciationCandidate(card.spelling);
   }
   function isKanjiCharacter$1(value) {
     const code = value.codePointAt(0) ?? 0;
@@ -22813,6 +22967,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function cleanPronunciationReading(value) {
     return value.replace(/\s+/g, "").trim();
+  }
+  function pronunciationCandidate(value) {
+    const reading = cleanPronunciationReading(value);
+    if (!reading || containsKanji(reading)) return "";
+    return isKanaPronunciation(reading) ? reading : "";
   }
   function isKanaPronunciation(value) {
     return /^[\u3040-\u30ff]+$/u.test(value);
@@ -23569,7 +23728,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenDecks(card) {
       const settings = this.settings();
-      if (!isApiMiningEnabled(settings) || card.source !== "jiten" || !settings.jitenApiKey.trim()) return Promise.resolve([]);
+      if (!isApiMiningEnabled(settings) || !isJitenBackedCard(card) || !settings.jitenApiKey.trim()) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
         log$j.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
@@ -25282,7 +25441,7 @@ ${spelling}`);
     return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
   }
   function shouldUseJitenParser(settings, options, jiten) {
-    return Boolean(!settings.apiKey.trim() && settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
+    return Boolean(settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
   }
   function shouldSkipApiParser(options) {
     return Boolean(options.skipApi ?? options.skipJpdb);
@@ -27357,8 +27516,10 @@ ${spelling}`);
           failureLabel: "Jiten request",
           statusFailureMessage: (status) => `Jiten request failed (${status}).`,
           proxyUrl: this.proxyUrl(),
-          allowDirectCrossOrigin: true,
+          allowDirectCrossOrigin: false,
           allowConfiguredProxy: true,
+          allowSensitiveConfiguredProxy: true,
+          allowPublicProxies: false,
           preferFetch: true
         });
         return parseJitenPayload(payload);
@@ -27977,6 +28138,7 @@ ${spelling}`);
   function isPublicLookupBackoffError(error) {
     return error instanceof Error && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
   }
+  const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
     const doc = parseHtmlDocument(html);
     const roots = jpdbVocabularyResultRoots(doc);
@@ -28006,12 +28168,15 @@ ${spelling}`);
   function pitchSegmentPattern(segment) {
     const level = pitchSegmentLevel(segment);
     if (!level) return "";
-    return level.repeat(splitMorae(compactJpdbText(segment.textContent ?? "")).length);
+    return level.repeat(splitMorae(pitchSegmentReading(segment)).length);
   }
   function pitchSegmentLevel(segment) {
     const style = segment.getAttribute("style") ?? "";
     if (style.includes("--pitch-high")) return "H";
     return style.includes("--pitch-low") ? "L" : "";
+  }
+  function pitchSegmentReading(segment) {
+    return Array.from(compactJpdbText(segment.textContent ?? "")).filter((character) => PITCH_KANA.test(character)).join("");
   }
   const REQUEST_TIMEOUT_MS = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
@@ -32291,8 +32456,7 @@ ${newTabCardReading(card)}`;
   }
   function renderNewTabGradeControlButtons(options) {
     return [
-      renderNewTabGradeTargetLabel(options),
-      ...options.targetOptions.length > 1 ? [renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel)] : [],
+      renderNewTabGradeTargetControl(options),
       ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade]))
     ];
   }
@@ -32327,12 +32491,12 @@ ${newTabCardReading(card)}`;
       ankiCardId: target.ankiCardId
     };
   }
-  function renderNewTabGradeTargetLabel(options) {
+  function renderNewTabGradeTargetControl(options) {
     return el(
       "div",
       { class: "jpdb-reader-newtab-grade-target", dataset: { newtabGradeTarget: true } },
       renderNewTabGradeTargetChip(options),
-      el("span", { dataset: { newtabGradeTargetText: true } }, options.targetLabel)
+      options.targetOptions.length > 1 ? renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel) : el("span", { dataset: { newtabGradeTargetText: true } }, options.targetLabel)
     );
   }
   function renderNewTabGradeTargetChip(options) {
@@ -32348,42 +32512,34 @@ ${newTabCardReading(card)}`;
     };
   }
   function renderNewTabMainGradeTargetSelector(options, selectorLabel) {
-    return el(
-      "label",
-      {
-        class: "jpdb-reader-newtab-grade-target-selector",
-        dataset: { newtabGradeTargetSelector: true }
-      },
-      el("span", { class: "jpdb-reader-newtab-grade-target-selector-label" }, selectorLabel),
-      el("select", {
-        class: "jpdb-reader-newtab-grade-target-select",
-        dataset: { newtabGradeTargetSelect: true },
-        "aria-label": selectorLabel
-      }, ...options.map((option, index) => el("option", {
-        value: option.id,
-        selected: index === 0,
-        dataset: {
-          newtabReviewTarget: option.kind,
-          newtabGradeTargetLabel: option.label,
-          newtabGradeTargetShortLabel: option.shortLabel,
-          ...option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}
-        }
-      }, option.shortLabel)))
-    );
+    return el("select", {
+      class: "jpdb-reader-newtab-grade-target-select",
+      dataset: { newtabGradeTargetSelector: true, newtabGradeTargetSelect: true },
+      "aria-label": selectorLabel
+    }, ...options.map((option, index) => el("option", {
+      value: option.id,
+      selected: index === 0,
+      dataset: {
+        newtabReviewTarget: option.kind,
+        newtabGradeTargetLabel: option.label,
+        newtabGradeTargetShortLabel: option.shortLabel,
+        ...option.ankiCardId ? { ankiCardId: String(option.ankiCardId) } : {}
+      }
+    }, option.label)));
   }
   function renderNewTabGradeButton(grade, label, targetLabel, interval) {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || "";
-    const aria = [label, intervalLabel].filter(Boolean).join(" ");
+    const aria = [label, intervalLabel].filter(Boolean).join(", ");
+    const title = [targetLabel, interval?.label || intervalLabel].filter(Boolean).join(" · ");
     return el(
       "button",
       {
         type: "button",
         dataset: { newtabAction: "grade", grade, ...intervalLabel ? { gradeInterval: intervalLabel } : {} },
-        title: targetLabel,
+        title,
         "aria-label": `${aria}: ${targetLabel}`
       },
-      el("span", { class: "jpdb-reader-newtab-grade-label" }, label),
-      intervalLabel ? el("span", { class: "jpdb-reader-newtab-grade-interval" }, intervalLabel) : null
+      el("span", { class: "jpdb-reader-newtab-grade-label" }, label)
     );
   }
   function mainGradeTargetKind(option) {
@@ -32398,8 +32554,8 @@ ${newTabCardReading(card)}`;
       const gradeLabel = [
         gradeButton.querySelector(".jpdb-reader-newtab-grade-label")?.textContent?.trim(),
         gradeButton.dataset.gradeInterval
-      ].filter(Boolean).join(" ") || gradeButton.textContent?.trim() || "";
-      gradeButton.title = label;
+      ].filter(Boolean).join(", ") || gradeButton.textContent?.trim() || "";
+      gradeButton.title = [label, gradeButton.dataset.gradeInterval].filter(Boolean).join(" · ");
       gradeButton.setAttribute("aria-label", gradeLabel ? `${gradeLabel}: ${label}` : label);
     });
   }
@@ -34106,7 +34262,7 @@ ${newTabCardReading(card)}`;
     for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
       prompt = prompt.replace(pattern, replacement);
     }
-    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
+    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
     if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
     return prompt;
   }
@@ -34879,8 +35035,9 @@ ${newTabCardReading(card)}`;
       if (this.shouldIgnoreRootKeydown(root)) return;
       if (this.handleImmersionTranslationKeydown(root, event, target)) return;
       if (this.handleSearchModeKeydown(root, event, target)) return;
+      if (target && isNewTabKeyboardCaptureBlockedTarget(target)) return;
       if (target && isNewTabStudyInteractiveTarget(target)) return;
-      this.handleStudyKeydown(root, event);
+      this.handleStudyKeydown(root, event, target);
     }
     shouldIgnoreRootKeydown(root) {
       return root.dataset.standaloneNewtab === "true" && !this.allWords.length;
@@ -34898,17 +35055,22 @@ ${newTabCardReading(card)}`;
       this.handleSearchKeydown(root, event, target);
       return true;
     }
-    handleStudyKeydown(root, event) {
+    handleStudyKeydown(root, event, target) {
+      if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
       const direction = newTabKeyNavigationDirection(event.key);
       if (direction) {
         event.preventDefault();
         this.showWordInDirection(direction);
         return;
       }
-      if (isNewTabRevealKey(event.key)) {
+      if (isNewTabSpaceRevealKey(event.key) || isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target)) {
         event.preventDefault();
         this.toggleReveal(root);
       }
+    }
+    canRevealFromEnterTarget(root, target) {
+      if (!target) return true;
+      return target === root || Boolean(target.closest("[data-newtab-study]"));
     }
     handleRootImmersionClick(root, target, event) {
       const immersionAction = target.closest("[data-immersion-action]")?.dataset.immersionAction;
@@ -34953,7 +35115,7 @@ ${newTabCardReading(card)}`;
       }
       if (action === "source-toggle") {
         event.preventDefault();
-        const source = this.sourceToggleClickTarget();
+        const source = this.sourceToggleClickTarget(target);
         if (source === "jpdb" || source === "anki" || source === "dictionary") void this.switchReviewSource(root, source);
         return true;
       }
@@ -35735,7 +35897,13 @@ ${newTabCardReading(card)}`;
     }
     async loadFallbackStudyWordsIfNeeded(plan, accumulator, onProgress) {
       if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
-      appendNewTabLoadResult(accumulator, await this.loadFreshStudyWords(onProgress));
+      const fallback = await this.loadFreshStudyWords(onProgress);
+      if (fallback.cards.length && !accumulator.cards.length) {
+        accumulator.labels = [];
+        accumulator.reviewCountMode = false;
+        delete accumulator.emptyMessageKey;
+      }
+      appendNewTabLoadResult(accumulator, fallback);
     }
     shouldLoadFallbackStudyWords(plan, accumulator) {
       if (this.shouldLoadAutoSettingStudyFallback(accumulator)) return true;
@@ -35747,7 +35915,7 @@ ${newTabCardReading(card)}`;
       return studyCount < plan.studyFallback.minCards && !accumulator.cards.some((card) => this.isDictionaryCard(card));
     }
     shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator) {
-      return plan.kind === "explicit-source" && plan.primarySources[0] === "anki" && !accumulator.cards.length && accumulator.emptyMessageKey === "ankiUnreachable";
+      return plan.kind === "explicit-source" && plan.primarySources[0] === "anki" && !accumulator.cards.length;
     }
     shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator) {
       return plan.studyFallback.kind === "unconfigured-auto-study" && !accumulator.cards.length && !accumulator.reviewCountMode;
@@ -36183,7 +36351,7 @@ ${newTabCardReading(card)}`;
       return result.cards.every((card) => this.cardPrimaryNewTabSource(card) === source);
     }
     emptyCachedResultMatchesSource(result, source) {
-      if (source === "anki") return result.sourceLabel === "Anki" && result.emptyMessageKey !== "ankiUnreachable";
+      if (source === "anki") return false;
       if (source === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
       return result.sourceLabel === this.text("dictionary");
     }
@@ -36545,7 +36713,17 @@ ${newTabCardReading(card)}`;
     }
     newTabStatusSourceLabel(card) {
       const labels = this.reviewTargetSourceLabels(card);
-      return labels.length ? labels.join(" + ") : newTabCardSourceLabel(card, this.language());
+      return labels.length ? labels.join(" + ") : this.explicitFallbackSourceLabel(card) ?? newTabCardSourceLabel(card, this.language());
+    }
+    explicitFallbackSourceLabel(card) {
+      if (!this.isExplicitReviewSourceFallbackCard(card)) return null;
+      if (this.state.source === "jpdb" || this.state.source === "anki") return this.sourceToggleLabel(this.state.source);
+      return null;
+    }
+    isExplicitReviewSourceFallbackCard(card) {
+      if (this.dependencies.getSettings().newTabSource === "auto") return false;
+      if (this.state.source !== "jpdb" && this.state.source !== "anki") return false;
+      return this.cardReviewSource(card) === "dictionary" && !this.cardHasToggleSource(card, this.state.source);
     }
     reviewTargetSourceLabels(card) {
       const summary = this.reviewSourceSummary(card);
@@ -36612,6 +36790,44 @@ ${newTabCardReading(card)}`;
       statusSlot.removeAttribute("aria-label");
       if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
     }
+    renderEmptySourceStatus(statusSlot) {
+      if (!statusSlot) return;
+      if (this.dependencies.getSettings().newTabSource === "auto") {
+        this.renderPlainStatus(statusSlot, "");
+        return;
+      }
+      const source = this.state.source === "jpdb" || this.state.source === "anki" ? this.state.source : null;
+      if (!source) {
+        this.renderPlainStatus(statusSlot, "");
+        return;
+      }
+      const target = this.emptySourceToggleTarget(source);
+      replaceChildrenWith(statusSlot, ...[
+        el("span", {
+          class: "jpdb-reader-newtab-status-light",
+          dataset: { source },
+          "aria-hidden": "true"
+        }),
+        document.createTextNode(target ? `${this.sourceToggleLabel(source)} ⇄` : this.sourceToggleLabel(source))
+      ]);
+      if (target) {
+        statusSlot.dataset.newtabAction = "source-toggle";
+        statusSlot.dataset.sourceToggleTarget = target;
+        statusSlot.title = `${this.text("switchReviewSource")}: ${this.sourceToggleLabel(target)}`;
+        statusSlot.setAttribute("aria-label", statusSlot.title);
+        if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = false;
+        return;
+      }
+      delete statusSlot.dataset.newtabAction;
+      delete statusSlot.dataset.sourceToggleTarget;
+      statusSlot.removeAttribute("title");
+      statusSlot.removeAttribute("aria-label");
+      if (statusSlot instanceof HTMLButtonElement) statusSlot.disabled = true;
+    }
+    emptySourceToggleTarget(source) {
+      if (source === "jpdb") return this.canOfferAnkiSource() ? "anki" : null;
+      return this.canUseJpdbSource() ? "jpdb" : null;
+    }
     sourceToggleTarget(card) {
       const sources = this.sourceToggleSources(card);
       if (sources.length < 2) return null;
@@ -36619,7 +36835,9 @@ ${newTabCardReading(card)}`;
       const currentIndex = sources.indexOf(current);
       return sources[(currentIndex + 1) % sources.length] ?? sources[0] ?? null;
     }
-    sourceToggleClickTarget() {
+    sourceToggleClickTarget(target) {
+      const renderedTarget = target.closest("[data-source-toggle-target]")?.dataset.sourceToggleTarget;
+      if (renderedTarget === "jpdb" || renderedTarget === "anki" || renderedTarget === "dictionary") return renderedTarget;
       const card = this.visibleWords[this.index];
       return card ? this.sourceToggleTarget(card) : null;
     }
@@ -36638,6 +36856,7 @@ ${newTabCardReading(card)}`;
       return {
         current,
         selected: this.state.source,
+        configured: this.dependencies.getSettings().newTabSource,
         hasJpdb: summary.hasJpdb,
         hasAnki: summary.hasAnki,
         canUseJpdb: this.canUseJpdbSource(),
@@ -36656,13 +36875,13 @@ ${newTabCardReading(card)}`;
       return this.shouldIncludeAnkiToggleSource(context) ? "anki" : null;
     }
     shouldIncludeAnkiToggleSource(context) {
-      return !this.shouldHideUnavailableAnkiToggleSource(context) && (this.hasAvailableAnkiToggleSource(context) || context.canOfferAnki && this.canToggleFromJpdbSource(context));
+      return !this.shouldHideUnavailableAutoAnkiToggleSource(context) && (this.hasAvailableAnkiToggleSource(context) || context.canOfferAnki && this.canToggleFromJpdbSource(context));
     }
-    shouldHideUnavailableAnkiToggleSource(context) {
-      return context.ankiUnavailable && context.selected === "anki" && context.current !== "anki" && !context.hasAnki;
+    shouldHideUnavailableAutoAnkiToggleSource(context) {
+      return context.configured === "auto" && context.current === "dictionary" && !context.hasAnki;
     }
     hasAvailableAnkiToggleSource(context) {
-      return context.hasAnki || context.current === "anki" || context.selected === "anki" || context.canUseAnki;
+      return context.hasAnki || context.current === "anki" || context.selected === "anki" && context.canOfferAnki || context.canUseAnki;
     }
     canToggleFromJpdbSource(context) {
       return context.current === "jpdb" || context.selected === "jpdb";
@@ -36678,7 +36897,9 @@ ${newTabCardReading(card)}`;
     }
     configuredSourceToggleCandidate(card, sources) {
       const source = this.state.source;
-      return source !== "auto" && this.sourceLabel.includes(" + ") ? this.sourceToggleCandidate(card, sources, source) : null;
+      if (source === "auto") return null;
+      if (this.isExplicitReviewSourceFallbackCard(card) && sources.includes(source)) return source;
+      return this.sourceLabel.includes(" + ") ? this.sourceToggleCandidate(card, sources, source) : null;
     }
     reviewSourceToggleCandidate(card, sources) {
       const current = this.cardReviewSource(card);
@@ -38138,7 +38359,7 @@ ${newTabCardReading(card)}`;
       setOptionalText(slots.answer, message);
       setOptionalText(slots.meaning, "");
       this.renderCount(slots.count, "");
-      this.renderPlainStatus(slots.status, "");
+      this.renderEmptySourceStatus(slots.status);
       this.renderEmptyControls(slots.controls);
     }
     enterEmptyMode(root) {
@@ -38824,6 +39045,7 @@ ${newTabCardReading(card)}`;
       }));
     }
     renderSearchWordDetail(mount, card, detail) {
+      this.searchWordCardCache.set(cardKey(card), card);
       setInnerHtml(mount, this.searchWordDetailHtml(card, detail));
       this.insertSearchWordKanjiSectionIfPresent(mount, card, detail);
       this.installSearchWordDetailEnhancements(mount, card, detail);
@@ -39501,7 +39723,11 @@ ${newTabCardReading(card)}`;
       const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
       if (!cardId) throw new Error(this.text("missingAnkiCardId"));
       await this.dependencies.anki.answerCard(cardId, grade);
-      return await this.refreshAnkiReviewCardState(card, cardId);
+      try {
+        return await this.refreshAnkiReviewCardState(card, cardId);
+      } finally {
+        this.dependencies.onAnkiStatusChanged?.(card);
+      }
     }
     async refreshAnkiReviewCardState(card, preferredCardId) {
       if (!this.dependencies.anki.findExistingCards) return null;
@@ -39947,7 +40173,13 @@ ${newTabCardReading(card)}`;
     return "combined";
   }
   function isNewTabRevealKey(key2) {
-    return key2 === " " || key2 === "Enter";
+    return isNewTabSpaceRevealKey(key2) || isNewTabEnterRevealKey(key2);
+  }
+  function isNewTabSpaceRevealKey(key2) {
+    return key2 === " ";
+  }
+  function isNewTabEnterRevealKey(key2) {
+    return key2 === "Enter";
   }
   function newTabKeyNavigationDirection(key2) {
     if (key2 === "ArrowRight" || key2 === "n") return "next";
@@ -40027,6 +40259,21 @@ ${newTabCardReading(card)}`;
   function isNewTabStudyInteractiveTarget(target) {
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
   }
+  function isNewTabStudyKeyboardMode(mode) {
+    return mode === "word" || mode === "kanji";
+  }
+  function isNewTabKeyboardCaptureBlockedTarget(target) {
+    return Boolean(target.closest([
+      "input",
+      "select",
+      "textarea",
+      '[contenteditable]:not([contenteditable="false"])',
+      "[data-newtab-search]",
+      '[role="search"]',
+      "[data-settings-panel]",
+      ".jpdb-reader-settings"
+    ].join(",")));
+  }
   function hasYomuRuntime() {
     const runtime = globalThis;
     return hasDirectYomuRuntime(runtime) || hasPageYomuRuntime(runtime, yomuRuntimeOwnerMarker());
@@ -40068,7 +40315,7 @@ ${newTabCardReading(card)}`;
   }
   function withBuiltInSearchLookupLinks(links) {
     const lookupLinks = [...links];
-    for (const link of [JPDB_LOOKUP_LINK, JITEN_LOOKUP_LINK, JISHO_LOOKUP_LINK]) {
+    for (const link of [JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, JISHO_LOOKUP_LINK]) {
       if (lookupLinks.some((existing) => existing.id === link.id || existing.urlTemplate === link.urlTemplate)) continue;
       lookupLinks.push(link);
     }
@@ -41759,6 +42006,18 @@ ${newTabCardReading(card)}`;
     "custom-json": "audioCustomJsonPlaceholder",
     custom: "audioCustomUrlPlaceholder"
   };
+  const JITEN_TTS_VOICE_OPTIONS = [
+    ["", "Random Jiten voice"],
+    ["female", "Female"],
+    ["male", "Male"],
+    ["male2", "Male 2"],
+    ["asmr", "ASMR"]
+  ];
+  const JPDB_TTS_VOICE_OPTIONS = [
+    ["", "Random JPDB voice"],
+    ["female", "Female"],
+    ["male", "Male"]
+  ];
   function escapedUiText$3(language, key2) {
     return escapeHtml$1(uiText(language, key2));
   }
@@ -41806,8 +42065,8 @@ ${newTabCardReading(card)}`;
                 </div>
                 <div class="jpdb-reader-audio-source-fields">
                     <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                    <select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
-                        <option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(source.voice || uiText(language, "automaticBrowserVoice"))}</option>
+                    <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                        ${audioVoiceSelectOptions(source, language)}
                     </select>
                 </div>
                 ${orderTools}
@@ -41839,7 +42098,39 @@ ${newTabCardReading(card)}`;
     return type === "custom" || type === "custom-json";
   }
   function audioSourceUsesVoice(type) {
-    return type === "text-to-speech" || type === "text-to-speech-reading";
+    return audioSourceVoiceKind(type) !== "none";
+  }
+  function audioSourceVoiceKind(type) {
+    if (type === "jiten-tts") return "jiten";
+    if (type === "jpdb-tts") return "jpdb";
+    if (type === "text-to-speech" || type === "text-to-speech-reading") return "browser";
+    return "none";
+  }
+  function audioVoiceSelectOptions(source, language) {
+    if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
+    if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
+    const label = source.voice || uiText(language, "automaticBrowserVoice");
+    return `<option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(label)}</option>`;
+  }
+  function jitenTtsVoiceSelectOptions(selectedVoice) {
+    const selected = selectedVoice.trim();
+    const options = JITEN_TTS_VOICE_OPTIONS.map(
+      ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+    );
+    if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+      options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+    }
+    return options.join("");
+  }
+  function jpdbTtsVoiceSelectOptions(selectedVoice) {
+    const selected = selectedVoice.trim();
+    const options = JPDB_TTS_VOICE_OPTIONS.map(
+      ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
+    );
+    if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+      options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
+    }
+    return options.join("");
   }
   function syncAudioSourceRow(row, type) {
     if (!row) return;
@@ -41847,7 +42138,17 @@ ${newTabCardReading(card)}`;
       node.hidden = !audioSourceUsesUrl(type);
     });
     row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
-      node.hidden = !audioSourceUsesVoice(type);
+      const voiceKind = audioSourceVoiceKind(type);
+      node.hidden = voiceKind === "none";
+      node.dataset.audioVoiceKind = voiceKind;
+      if (node instanceof HTMLSelectElement && voiceKind === "jiten") {
+        const selected = node.value || node.dataset.selectedVoice || "";
+        setInnerHtml(node, jitenTtsVoiceSelectOptions(selected));
+      }
+      if (node instanceof HTMLSelectElement && voiceKind === "jpdb") {
+        const selected = node.value || node.dataset.selectedVoice || "";
+        setInnerHtml(node, jpdbTtsVoiceSelectOptions(selected));
+      }
     });
   }
   function syncBrowserTtsVoiceOptions(form) {
@@ -41859,7 +42160,7 @@ ${newTabCardReading(card)}`;
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       return aJapanese - bJapanese || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
     });
-    form.querySelectorAll("select[data-audio-voice-field]").forEach((select2) => {
+    form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
       const selected = select2.value || select2.dataset.selectedVoice || "";
       const options = [
         `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
@@ -45433,8 +45734,11 @@ ${newTabCardReading(card)}`;
       const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
       const next = { ...existing };
       for (const model of scan.models) {
+        const currentMapping = next[model.modelName] ?? {};
+        const liveFields = new Set(model.fields);
         const mapping = Object.fromEntries(model.suggestions.flatMap((suggestion) => {
-          const fieldName = suggestion.fieldName?.trim();
+          const savedField = currentMapping[suggestion.role]?.trim();
+          const fieldName = liveFields.has(savedField ?? "") ? savedField : suggestion.fieldName?.trim();
           return fieldName ? [[suggestion.role, fieldName]] : [];
         }));
         if (Object.keys(mapping).length) next[model.modelName] = mapping;
@@ -46286,7 +46590,7 @@ ${newTabCardReading(card)}`;
       parsePopoverJapanese: (popover) => this.parseNewTabContent(popover),
       toast: (message) => this.toast(message),
       invalidateCardData: () => this.cardRenderData.clear(),
-      onAnkiStatusChanged: (card) => this.scheduleRenderedAnkiStatusRefresh(card)
+      onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card)
     });
     parser = new ReaderParser({
       getSettings: () => this.settings,
@@ -46380,6 +46684,10 @@ ${newTabCardReading(card)}`;
         }
       }));
     }
+    handleAnkiStatusChanged(card) {
+      this.cardRenderData.clear();
+      this.scheduleRenderedAnkiStatusRefresh(card);
+    }
     destroy() {
       if (this.isDestroyed) return;
       this.isDestroyed = true;
@@ -46438,6 +46746,7 @@ ${newTabCardReading(card)}`;
         jpdbReviewBridge: this.jpdbReviewBridge,
         parser: this.parser,
         dictionaries: this.dictionaries,
+        onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
         parseContent: (root, options) => this.parseNewTabContent(root, {
           jpdbTimeoutMs: options?.jpdbTimeoutMs ?? NEW_TAB_STUDY_PARSE_TIMEOUT_MS,
           allowJpdbTimeoutFallback: options?.allowJpdbTimeoutFallback
@@ -46889,7 +47198,7 @@ ${newTabCardReading(card)}`;
           this.toggleMiningControls(button);
         },
         grade: () => {
-          this.gradeLookupFromButton(button);
+          this.gradeLookupFromButton(button, card, sentence);
         }
       };
       const handler = handlers[button.dataset.action ?? ""];
@@ -47196,7 +47505,7 @@ ${newTabCardReading(card)}`;
           this.toggleMiningControls(button);
           return;
         case "grade":
-          this.gradeLookupFromButton(button);
+          this.gradeLookupFromButton(button, card, sentence, anchor);
           return;
         case "deck-picker":
           if (this.openDeckPickerForAdd(button, card, sentence)) return;
@@ -47213,16 +47522,21 @@ ${newTabCardReading(card)}`;
       if (kanji) void this.showKanjiLookupCard(card, kanji, sentence, button, { reuseActivePopover: true });
       return true;
     }
-    gradeLookupFromButton(button) {
+    gradeLookupFromButton(button, card, sentence, anchor) {
       const grade = button.dataset.grade;
-      if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button));
+      if (grade) void this.gradeCurrentCardFromLookup(button, grade, newTabLookupReviewTargetSelection(button), card, sentence, anchor);
     }
-    async gradeCurrentCardFromLookup(button, grade, target) {
+    async gradeCurrentCardFromLookup(button, grade, target, card, sentence, anchor) {
       if (!this.newTab || button.disabled) return;
       button.disabled = true;
       try {
         const result = await this.newTab.gradeFromLookup(grade, target);
         if (!result.preserveLookup) this.dismissLookupPopover();
+        else if (card && this.activeLookupPopover?.isConnected) await this.showLookupCard(card, sentence, anchor ?? button, {
+          navigation: "preserve",
+          reuseActivePopover: true,
+          autoPlay: false
+        });
       } catch (error) {
         log.warn("New tab lookup grade failed", { grade }, error);
         this.toast(this.text("couldNotSubmitGrade"));

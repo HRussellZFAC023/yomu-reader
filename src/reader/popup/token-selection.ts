@@ -1,4 +1,4 @@
-import type { JPDBToken } from '../types';
+import type { JPDBToken } from '../app/types';
 
 export function pickTokenForSelection(tokens: JPDBToken[] = [], selected: string): JPDBToken | undefined {
     const exact = tokens.find(token => token.card.spelling === selected || token.card.reading === selected);

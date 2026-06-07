@@ -1,4 +1,4 @@
-import { escapeHtml } from '../dom';
+import { escapeHtml } from '../dom/index';
 
 export const SETTINGS_LABEL_TEXT_CLASS = 'jpdb-reader-settings-label-text';
 

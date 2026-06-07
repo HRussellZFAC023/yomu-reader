@@ -22,6 +22,7 @@ const BROWSER_FETCH_METADATA_RE = /^(?:cf-|sec-fetch-)/i;
 const RETRYABLE_UPSTREAM_STATUSES = new Set([
   500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527,
 ]);
+const JISHO_SEARCH_RETRY_COUNT = 3;
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -86,7 +87,9 @@ async function fetchProxyTarget(
 
 function upstreamAttempts(request: Request, target: URL): RequestInit[] {
   if (isJishoSearchTarget(target) && isIdempotentRequest(request)) {
-    return [upstreamInit(request, target, { minimalHeaders: true })];
+    return Array.from({ length: JISHO_SEARCH_RETRY_COUNT }, () =>
+      upstreamInit(request, target, { minimalHeaders: true }),
+    );
   }
 
   const attempts = [upstreamInit(request, target)];

@@ -1,7 +1,7 @@
 import { escapeHtml, setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
+import { uiText } from '../app/i18n';
 import { uniqueStrings } from '../core/string-utils';
-import type { InterfaceLanguage } from '../types';
+import type { InterfaceLanguage } from '../app/types';
 
 export function renderAnkiTagsEditor(value: string, language: InterfaceLanguage): string {
     const tags = ankiTagList(value);

@@ -1,6 +1,6 @@
-import { cardHighlightTargets, normalizedJapaneseCardReading } from '../card-highlight';
+import { cardHighlightTargets, normalizedJapaneseCardReading } from '../cards/highlight';
 import { cardKey } from './index';
-import type { JPDBCard } from '../types';
+import type { JPDBCard } from '../app/types';
 
 export function normalizeNewTabCard(card: JPDBCard): JPDBCard {
     const reading = newTabCardReading(card);

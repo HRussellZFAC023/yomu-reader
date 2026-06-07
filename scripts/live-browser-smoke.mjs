@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
 import pkg from '../package.json' with { type: 'json' };
-import { createYomuPaths } from './paths.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     addGmXmlHttpRequestBridgeInitScript,
@@ -21,11 +21,11 @@ import {
     readJsonBody,
     resolveAnkiAction,
     startLoopbackServer,
-} from './smoke-harness.mjs';
-import { waitForSelectorText } from './smoke-wait-helpers.mjs';
+} from './lib/smoke-harness.mjs';
+import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
-const { assertNoRemoteExecutableMetadata } = require('./userscript-build-utils.cjs');
+const { assertNoRemoteExecutableMetadata } = require('./lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
 const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hrussellzfac023.github.io/yomu-reader/').replace(/\/+$/, '');

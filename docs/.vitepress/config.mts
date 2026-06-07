@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitepress';
-import { jpdbAudioDevProxyPlugin } from '../../vite-jpdb-audio-proxy';
+import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 
 const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;

@@ -1,7 +1,7 @@
-import type { UiCopyKey } from '../i18n';
-import { Logger } from '../logger';
-import { gmStorageGetSync, gmStorageSetSync } from '../storage';
-import type { CardState, NewTabWordSource } from '../types';
+import type { UiCopyKey } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
+import type { CardState, NewTabWordSource } from '../app/types';
 
 const log = Logger.scope('NewTab');
 const STATE_STORAGE_KEY = 'jpdb-reader-newtab-ui';

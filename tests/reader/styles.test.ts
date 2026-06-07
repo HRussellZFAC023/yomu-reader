@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { loadReaderCssFallback, readerCssFallbackUrls, readerCssNeedsFallback, READER_CSS } from '../../src/reader/styles';
+import { loadReaderCssFallback, readerCssFallbackUrls, readerCssNeedsFallback, READER_CSS } from '../../src/reader/styles/index';
 
 const FULL_READER_CSS = '.jpdb-reader-popover{} .jpdb-reader-settings{} .jpdb-reader-source-card{} .jpdb-subtitle-player{} .jpdb-ocr-layer{}';
 

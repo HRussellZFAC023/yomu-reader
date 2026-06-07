@@ -75,6 +75,34 @@ describe("Yomu public proxy Worker", () => {
     }
   });
 
+  it("retries transient Jisho upstream failures with minimal headers", async () => {
+    const upstreamFetch = vi.fn((_request: Request) =>
+      Promise.resolve(new Response("<audio></audio>", { status: 200 })),
+    );
+    upstreamFetch.mockResolvedValueOnce(new Response("bad gateway", { status: 502 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    try {
+      const response = await PublicProxyWorker.fetch(
+        new Request(
+          "https://yomu-jpdb-public-proxy.example/?url=https%3A%2F%2Fjisho.org%2Fsearch%2F%25E8%25AA%25AD%25E3%2582%2580",
+          { headers: { origin: "https://example.com" } },
+        ),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+      expect(response.status).toBe(200);
+      expect(upstreamFetch).toHaveBeenCalledTimes(2);
+      for (const [request] of upstreamFetch.mock.calls) {
+        expect((request as Request).url).toBe("https://jisho.org/search/%E8%AA%AD%E3%82%80");
+        expect((request as Request).headers.has("origin")).toBe(false);
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("returns CORS-safe bad gateway responses when upstream fetch throws", async () => {
     vi.stubGlobal(
       "fetch",

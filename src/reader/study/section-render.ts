@@ -1,7 +1,7 @@
 import { escapeHtml } from '../dom';
-import { speakerIcon } from '../icons';
-import { uiText } from '../i18n';
-import type { InterfaceLanguage } from '../types';
+import { speakerIcon } from '../ui/icons';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage } from '../app/types';
 
 export interface StudySentenceAudioOptions {
     audioEnabled: boolean;

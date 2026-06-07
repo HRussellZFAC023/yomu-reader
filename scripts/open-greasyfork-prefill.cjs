@@ -6,7 +6,7 @@ const {
   byteLengthUtf8,
   failIfGreasyForkSizeExceeded,
   readBuiltUserscript,
-} = require('./userscript-build-utils.cjs');
+} = require('./lib/userscript-build-utils.cjs');
 
 const code = readBuiltUserscript();
 const action = process.argv[2] || 'https://greasyfork.org/en/script_versions/prefill';

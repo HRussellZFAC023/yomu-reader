@@ -1,4 +1,4 @@
-import type { UiCopyKey } from '../i18n';
+import type { UiCopyKey } from '../app/i18n';
 
 export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'frequency';
 

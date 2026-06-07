@@ -1,11 +1,11 @@
-import { renderCardHighlightedTextHtml } from '../card-highlight';
-import { renderTokensToHtml, setInnerHtml } from '../dom';
-import { el, type DomAttrs } from '../dom-builder';
-import { exampleSentenceLookupTokens } from '../example-sentence-tokens';
-import type { ImmersionKitClient, ImmersionKitExample } from '../immersion-kit';
-import { localizedImmersionProviderLabel } from '../immersion-labels';
-import { uiText } from '../i18n';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../types';
+import { renderCardHighlightedTextHtml } from '../cards/highlight';
+import { renderTokensToHtml, setInnerHtml } from '../dom/index';
+import { el, type DomAttrs } from '../dom/builder';
+import { exampleSentenceLookupTokens } from '../lookup/example-sentence-tokens';
+import type { ImmersionKitClient, ImmersionKitExample } from '../immersion/kit';
+import { localizedImmersionProviderLabel } from '../immersion/labels';
+import { uiText } from '../app/i18n';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExample, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
     const sentence = document.createElement('div');

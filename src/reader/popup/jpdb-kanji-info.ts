@@ -1,7 +1,7 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo } from '../jpdb-kanji';
-import type { InterfaceLanguage } from '../types';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { InterfaceLanguage } from '../app/types';
 import { sourceStateAttribute } from './source-state';
 
 export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {

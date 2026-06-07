@@ -1,4 +1,4 @@
-import { sanitizeAccentColor } from '../settings';
+import { sanitizeAccentColor } from '../settings/index';
 import { sharedHexToRgb } from '../core/color-math';
 
 export interface RgbaColor {

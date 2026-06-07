@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import imagePromptReplacementDefs from '../src/reader/dictionaries/uchisen-image-prompt-replacements.json' with { type: 'json' };
-import { createYomuPaths } from './paths.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
 
 const DEFAULT_CHECKPOINT = path.join(createYomuPaths(import.meta.dirname).workspaceRoot, 'artifacts', 'uchisen-bulk', 'checkpoint.json');
 const UCHISEN_ORIGIN = 'https://uchisen.com';
@@ -430,8 +430,8 @@ function safeImagePrompt(value) {
     prompt = prompt.replace(pattern, replacement);
   }
   prompt = prompt
-    .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
     .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, 'no text or signage')
+    .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
     .replace(/\s+/g, ' ')
     .trim();
   if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;

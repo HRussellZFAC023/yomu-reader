@@ -1,8 +1,8 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import { graphEdgePath, type GraphAnchorZone } from '../kanji-graph-geometry';
-import type { KanjiOriginGraph } from '../kanji-origin';
-import type { InterfaceLanguage } from '../types';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import { graphEdgePath, type GraphAnchorZone } from '../kanji/graph-geometry';
+import type { KanjiOriginGraph } from '../kanji/origin';
+import type { InterfaceLanguage } from '../app/types';
 
 export function renderKanjiOriginGraph(graph: KanjiOriginGraph | null, language: InterfaceLanguage): string {
     const model = buildKanjiOriginGraphRenderModel(graph);

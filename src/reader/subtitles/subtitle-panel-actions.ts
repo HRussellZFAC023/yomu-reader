@@ -1,6 +1,6 @@
-import { setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import { setInnerHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { compareSubtitleTrackOptions } from './subtitle-track-metadata';
 import type { SubtitleTrackOption } from './subtitle-track-options';
 import { subtitleIcon, transcriptPlacementIcon } from './subtitle-surface';

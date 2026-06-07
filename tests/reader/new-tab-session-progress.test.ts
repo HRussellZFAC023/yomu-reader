@@ -5,8 +5,8 @@ import {
     NewTabSessionProgressTracker,
     sessionProgressSourcesForCard,
 } from '../../src/reader/newtab/session-progress';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard } from '../../src/reader/types';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard } from '../../src/reader/app/types';
 
 function progressCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     const spelling = overrides.spelling ?? '読む';

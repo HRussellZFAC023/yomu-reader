@@ -10,7 +10,7 @@ import {
     queryLength,
     shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
-} from '../../src/reader/immersion-query';
+} from '../../src/reader/immersion/query';
 
 describe('normalizeImmersionSearchQuery', () => {
     it('trims leading and trailing whitespace', () => {

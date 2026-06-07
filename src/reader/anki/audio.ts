@@ -4,7 +4,7 @@ import {
     fetchJpdbAudioBlob,
     getAudioCandidates,
     isJapanesePod101Url,
-} from '../audio';
+} from '../audio/player';
 import {
     getAudioBagKey,
     getOrderedAudioSources,
@@ -13,9 +13,9 @@ import {
     orderAudioSources,
     registerAudioAttempt,
     type AudioCandidate,
-} from '../audio-source-resolution';
-import { ShuffledAudioDeck } from '../audio-playback-queue';
-import type { AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../types';
+} from '../audio/source-resolution';
+import { ShuffledAudioDeck } from '../audio/playback-queue';
+import type { AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 export interface AnkiWordAudioMedia {
     dataUrl?: string;

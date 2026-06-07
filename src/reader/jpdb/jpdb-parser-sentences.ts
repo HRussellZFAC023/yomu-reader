@@ -1,4 +1,4 @@
-import type { JPDBToken } from '../types';
+import type { JPDBToken } from '../app/types';
 
 export function assignSentenceInfo(paragraphs: string[], tokens: JPDBToken[][]): void {
     paragraphs.forEach((paragraph, index) => {

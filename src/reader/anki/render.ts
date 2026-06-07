@@ -1,9 +1,9 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiRenderedCard } from './index';
 import { escapeHtml } from '../dom';
-import { speakerIcon } from '../icons';
+import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
-import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../types';
-import { cardStateLabel, formatUiText, uiText, type UiCopyKey } from '../i18n';
+import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import { cardStateLabel, formatUiText, uiText, type UiCopyKey } from '../app/i18n';
 
 interface AnkiCardSanitizeOptions {
     maxFontPx: number;

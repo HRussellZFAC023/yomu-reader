@@ -1,4 +1,4 @@
-import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml } from '../dom';
+import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml } from '../dom/index';
 import {
     compactTextLength,
     cueHasExactWordTimings,
@@ -138,11 +138,11 @@ import {
     transcriptResizePatchForKeyboard,
     transcriptResizePatchForPointerDrag,
 } from './subtitles-transcript-resize';
-import { OPEN_SUBTITLE_TRACKS_EVENT } from '../constants';
-import { uiText } from '../i18n';
-import { Logger } from '../logger';
-import { accentToRgba, matchesShortcut } from '../settings';
-import type { JPDBToken, ReaderSettings } from '../types';
+import { OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
+import { uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { accentToRgba, matchesShortcut } from '../settings/index';
+import type { JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { DictionarySourceStateController } from '../../src/reader/dictionary-source-state';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DictionarySourceStateController } from '../../src/reader/sources/state';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 const createController = () =>
     new DictionarySourceStateController({

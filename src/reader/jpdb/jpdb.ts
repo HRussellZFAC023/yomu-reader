@@ -2,8 +2,8 @@ import { JpdbApiClient } from './jpdb-api';
 import { jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
 import { runLimited } from '../core/async-utils';
 import { LruCache } from '../core/lru-cache';
-import { Logger } from '../logger';
-import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from '../types';
+import { Logger } from '../app/logger';
+import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from '../app/types';
 
 const TOKEN_FIELDS = ['vocabulary_index', 'position', 'length', 'furigana'];
 const VOCABULARY_FIELDS = [

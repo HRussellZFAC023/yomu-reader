@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { CardState, JPDBToken } from '../../src/reader/types';
-import { VisiblePageScanner } from '../../src/reader/visible-page-scanner';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { CardState, JPDBToken } from '../../src/reader/app/types';
+import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
 

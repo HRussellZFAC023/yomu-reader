@@ -1,11 +1,11 @@
-import { escapeHtml, setInnerHtml } from '../dom';
-import { audioSourceLabel, uiText } from '../i18n';
-import { speakerIcon } from '../icons';
+import { escapeHtml, setInnerHtml } from '../dom/index';
+import { audioSourceLabel, uiText } from '../app/i18n';
+import { speakerIcon } from '../ui/icons';
 import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
-import type { AudioSourceSetting, DictionaryLookupLink, InterfaceLanguage } from '../types';
+import type { AudioSourceSetting, DictionaryLookupLink, InterfaceLanguage } from '../app/types';
 
 type SettingsTextKey = Parameters<typeof uiText>[1];
 
@@ -13,6 +13,22 @@ const AUDIO_URL_PLACEHOLDER_KEYS: Record<string, SettingsTextKey> = {
     'custom-json': 'audioCustomJsonPlaceholder',
     custom: 'audioCustomUrlPlaceholder',
 };
+
+const JITEN_TTS_VOICE_OPTIONS: Array<[string, string]> = [
+    ['', 'Random Jiten voice'],
+    ['female', 'Female'],
+    ['male', 'Male'],
+    ['male2', 'Male 2'],
+    ['asmr', 'ASMR'],
+];
+
+const JPDB_TTS_VOICE_OPTIONS: Array<[string, string]> = [
+    ['', 'Random JPDB voice'],
+    ['female', 'Female'],
+    ['male', 'Male'],
+];
+
+type AudioVoiceKind = 'browser' | 'jiten' | 'jpdb' | 'none';
 
 function escapedUiText(language: InterfaceLanguage, key: SettingsTextKey): string {
     return escapeHtml(uiText(language, key));
@@ -64,8 +80,8 @@ function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLa
                 </div>
                 <div class="jpdb-reader-audio-source-fields">
                     <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${escapeHtml(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? '' : 'hidden'}>
-                    <select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language, 'textToSpeechVoiceNumber').replace('{number}', String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
-                        <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || uiText(language, 'automaticBrowserVoice'))}</option>
+                    <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language, 'textToSpeechVoiceNumber').replace('{number}', String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? '' : 'hidden'}>
+                        ${audioVoiceSelectOptions(source, language)}
                     </select>
                 </div>
                 ${orderTools}
@@ -103,13 +119,61 @@ function audioSourceUsesUrl(type: string): boolean {
 }
 
 function audioSourceUsesVoice(type: string): boolean {
-    return type === 'text-to-speech' || type === 'text-to-speech-reading';
+    return audioSourceVoiceKind(type) !== 'none';
+}
+
+function audioSourceVoiceKind(type: string): AudioVoiceKind {
+    if (type === 'jiten-tts') return 'jiten';
+    if (type === 'jpdb-tts') return 'jpdb';
+    if (type === 'text-to-speech' || type === 'text-to-speech-reading') return 'browser';
+    return 'none';
+}
+
+function audioVoiceSelectOptions(source: AudioSourceSetting, language: InterfaceLanguage): string {
+    if (audioSourceVoiceKind(source.type) === 'jiten') return jitenTtsVoiceSelectOptions(source.voice);
+    if (audioSourceVoiceKind(source.type) === 'jpdb') return jpdbTtsVoiceSelectOptions(source.voice);
+    const label = source.voice || uiText(language, 'automaticBrowserVoice');
+    return `<option value="${escapeHtml(source.voice)}">${escapeHtml(label)}</option>`;
+}
+
+function jitenTtsVoiceSelectOptions(selectedVoice: string): string {
+    const selected = selectedVoice.trim();
+    const options = JITEN_TTS_VOICE_OPTIONS.map(([value, label]) =>
+        `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+    );
+    if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+        options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+    return options.join('');
+}
+
+function jpdbTtsVoiceSelectOptions(selectedVoice: string): string {
+    const selected = selectedVoice.trim();
+    const options = JPDB_TTS_VOICE_OPTIONS.map(([value, label]) =>
+        `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+    );
+    if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+        options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+    return options.join('');
 }
 
 export function syncAudioSourceRow(row: Element | null, type: string): void {
     if (!row) return;
     row.querySelectorAll<HTMLElement>('[data-audio-url-field]').forEach(node => { node.hidden = !audioSourceUsesUrl(type); });
-    row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => { node.hidden = !audioSourceUsesVoice(type); });
+    row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => {
+        const voiceKind = audioSourceVoiceKind(type);
+        node.hidden = voiceKind === 'none';
+        node.dataset.audioVoiceKind = voiceKind;
+        if (node instanceof HTMLSelectElement && voiceKind === 'jiten') {
+            const selected = node.value || node.dataset.selectedVoice || '';
+            setInnerHtml(node, jitenTtsVoiceSelectOptions(selected));
+        }
+        if (node instanceof HTMLSelectElement && voiceKind === 'jpdb') {
+            const selected = node.value || node.dataset.selectedVoice || '';
+            setInnerHtml(node, jpdbTtsVoiceSelectOptions(selected));
+        }
+    });
 }
 
 export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
@@ -124,7 +188,7 @@ export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
             || a.name.localeCompare(b.name);
     });
 
-    form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field]').forEach(select => {
+    form.querySelectorAll<HTMLSelectElement>('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach(select => {
         const selected = select.value || select.dataset.selectedVoice || '';
         const options = [
             `<option value="" ${selected ? '' : 'selected'}>${escapeHtml(text('automaticBrowserVoice'))}</option>`,

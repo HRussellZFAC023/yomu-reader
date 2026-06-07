@@ -2,9 +2,9 @@ import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import http from 'node:http';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
-import { assert } from './smoke-harness.mjs';
-import { createYomuPaths } from './paths.mjs';
-import { dragTranscriptResizeHandle, panelSizeDelta } from './subtitle-layout-test-utils.mjs';
+import { assert } from './lib/smoke-harness.mjs';
+import { createYomuPaths } from './lib/paths.mjs';
+import { dragTranscriptResizeHandle, panelSizeDelta } from './lib/subtitle-layout-test-utils.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');

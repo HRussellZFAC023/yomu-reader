@@ -1,5 +1,5 @@
-import type { JPDBCard, ReaderSettings } from '../types';
-import type { YomitanTermEntry } from '../yomitan';
+import type { JPDBCard, ReaderSettings } from '../app/types';
+import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import { isRubyAnnotation, rubyReadingText } from './jpdb-ruby-text';
 import { cleanText, firstReviewGlyph, JAPANESE_RE } from './jpdb-text';
 

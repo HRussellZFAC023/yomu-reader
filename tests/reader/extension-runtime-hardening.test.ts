@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
-import { hardenExtensionBackgroundSource } from '../../scripts/extension-runtime-hardening.mjs';
+import { hardenExtensionBackgroundSource } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
 describe('extension runtime hardening', () => {
     it('guards generated tabs.onRemoved listeners for browsers without that event', () => {

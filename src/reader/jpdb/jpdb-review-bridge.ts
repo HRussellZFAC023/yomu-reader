@@ -1,6 +1,6 @@
 import { parseJpdbReviewCardValue } from './jpdb-page-targets';
 import { cleanText, firstJapaneseRunOrEmpty } from './jpdb-text';
-import type { JPDBGrade } from '../types';
+import type { JPDBGrade } from '../app/types';
 
 const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
 

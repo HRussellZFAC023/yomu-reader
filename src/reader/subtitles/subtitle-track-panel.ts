@@ -1,5 +1,5 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import {
     renderPanelModeControls,
@@ -7,7 +7,7 @@ import {
     renderPanelPlacementControls,
     renderPausePanelToggle,
 } from './subtitle-surface';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export interface SubtitleTrackPanelTrack {
     id: string;

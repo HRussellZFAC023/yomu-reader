@@ -2,11 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "vite.config.ts",
-    "vite.newtab.config.ts",
-    "vite.greasyfork-library.config.ts",
-    "vite.size.config.ts",
-    "src/reader/userscript-entry.ts",
-    "src/reader/newtab-entry.ts",
+    "config/vite/newtab.config.ts",
+    "config/vite/greasyfork-library.config.ts",
+    "config/vite/size.config.ts",
+    "src/reader/userscript/entry.ts",
+    "src/reader/newtab/entrypoint.ts",
     "scripts/qa-audit.mjs",
     "tests/reader/**/*.test.ts"
   ],
@@ -15,6 +15,8 @@
     "src/reader/styles.css",
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
+    "scripts/fixtures/jiten-fixtures.mjs",
+    "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",
     "scripts/validate-uchisen-queue.mjs",
     "src/reader/companions/register-empty.ts"
@@ -36,11 +38,11 @@
   ],
   "ignoreExports": [
     {
-      "file": "src/reader/card-utils.ts",
+      "file": "src/reader/cards/utils.ts",
       "exports": ["*"]
     },
     {
-      "file": "src/reader/new-tab.ts",
+      "file": "src/reader/newtab/index.ts",
       "exports": ["*"]
     }
   ]

@@ -1,4 +1,4 @@
-import { escapeHtml } from '../dom';
+import { escapeHtml } from '../dom/index';
 import { miniIcon } from './form-controls';
 import type { SettingsSourceRow } from '../sources/sections';
 

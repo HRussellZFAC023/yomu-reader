@@ -1,5 +1,5 @@
-import { APP_NAME } from '../constants';
-import type { InterfaceLanguage } from '../types';
+import { APP_NAME } from '../app/constants';
+import type { InterfaceLanguage } from '../app/types';
 
 type NewTabLanguage = 'en' | 'ja';
 

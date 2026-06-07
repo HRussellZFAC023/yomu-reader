@@ -13,16 +13,16 @@ on:
       - package.json
       - package-lock.json
       - public/newtab/**
-      - src/reader/assets/yomu-icon.svg
+      - public/yomu-icon.svg
       - src/**
       - scripts/annotate-greasyfork-requires.cjs
       - scripts/build-greasyfork-libraries.mjs
-      - scripts/greasyfork-libraries.cjs
+      - scripts/lib/greasyfork-libraries.cjs
       - scripts/sync-docs-userscript.cjs
-      - scripts/userscript-build-utils.cjs
+      - scripts/lib/userscript-build-utils.cjs
       - vite.config.ts
-      - vite.greasyfork-library.config.ts
-      - vite.newtab.config.ts
+      - config/vite/greasyfork-library.config.ts
+      - config/vite/newtab.config.ts
       - .github/workflows/deploy-pages.yml
 
 permissions:

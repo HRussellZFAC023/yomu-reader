@@ -1545,10 +1545,19 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-word-pills {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   margin-top: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.jpdb-reader-word-pills::-webkit-scrollbar {
+  display: none;
 }
 
 @container (max-width: 340px) {
@@ -1581,13 +1590,19 @@ button.jpdb-reader-action-pill {
   .jpdb-reader-word-pills {
     grid-column: 1 / -1;
     grid-row: 3;
-    width: auto;
+    width: 100%;
     gap: 4px;
     margin-top: 5px;
+    overscroll-behavior-inline: contain;
+    padding-bottom: 4px;
   }
   .jpdb-reader-pill {
-    padding: 3px 7px !important;
+    min-height: 30px !important;
+    padding: 4px 8px !important;
     font-size: 10.5px !important;
+  }
+  .jpdb-reader-action-pill {
+    min-height: 34px !important;
   }
 }
 

@@ -1,8 +1,8 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import { renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup-navigation';
-import type { InterfaceLanguage, JPDBToken } from '../types';
-import type { TokenListSource } from '../reader-main-helpers';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import { renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
+import type { InterfaceLanguage, JPDBToken } from '../app/types';
+import type { TokenListSource } from '../app/main-helpers';
 
 export type TokenListContext = {
     trigger: 'modal' | 'hover';

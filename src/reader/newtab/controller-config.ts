@@ -1,7 +1,7 @@
-import type { CardState } from '../types';
+import type { CardState } from '../app/types';
 import type { NewTabConcreteSource } from './source';
 
-export { CARD_STATE_LABEL_KEYS as SEARCH_CARD_STATE_LABEL_KEYS } from '../i18n';
+export { CARD_STATE_LABEL_KEYS as SEARCH_CARD_STATE_LABEL_KEYS } from '../app/i18n';
 
 export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
     'new',

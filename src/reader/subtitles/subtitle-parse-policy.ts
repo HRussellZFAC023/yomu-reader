@@ -1,6 +1,6 @@
 import { stableHashBase36 } from '../core/stable-hash';
-import { isApiMiningEnabled } from '../srs-providers';
-import type { ReaderSettings } from '../types';
+import { isApiMiningEnabled } from '../cards/srs-providers';
+import type { ReaderSettings } from '../app/types';
 
 const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
 export const SUBTITLE_EMPTY_PARSE_RETRY_MS = 2500;

@@ -1,7 +1,7 @@
-import type { JpdbKanjiVocabulary } from '../jpdb-kanji';
-import { cleanLearnerGlossaryText, splitLearnerGlossaryText } from '../learner-glossary';
-import type { JPDBCard } from '../types';
-import { glossaryToText, type YomitanTermEntry } from '../yomitan';
+import type { JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
+import { cleanLearnerGlossaryText, splitLearnerGlossaryText } from './learner-glossary';
+import type { JPDBCard } from '../app/types';
+import { glossaryToText, type YomitanTermEntry } from './yomitan';
 
 export function formatMetaFrequency(value: unknown): string {
     const display = metaFrequencyDisplayValue(value);

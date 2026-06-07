@@ -1,5 +1,5 @@
-import { el } from '../dom-builder';
-import type { UiCopyKey } from '../i18n';
+import { el } from '../dom/builder';
+import type { UiCopyKey } from '../app/i18n';
 import {
     averageReviewSpeed,
     dailyActivityStreakAt,
@@ -17,7 +17,7 @@ import {
     type StatsDashboardSnapshot,
     type StatsSourceId,
     type StatsSourceSnapshot,
-} from '../stats';
+} from '../app/stats';
 import type { NewTabCopyKey } from './i18n';
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;

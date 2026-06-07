@@ -5,15 +5,15 @@ const appMocks = vi.hoisted(() => ({
     init: vi.fn(),
 }));
 
-vi.mock('../../src/reader/main', () => ({
+vi.mock('../../src/reader/app/main', () => ({
     ReaderApp: vi.fn(() => ({
         destroy: appMocks.destroy,
         init: appMocks.init,
     })),
 }));
 
-import { bootReaderApp } from '../../src/reader/reader-boot';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/window-events';
+import { bootReaderApp } from '../../src/reader/app/boot';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
 
 type BootWindow = Window & {
     __yomuReaderAppInitialized?: boolean;

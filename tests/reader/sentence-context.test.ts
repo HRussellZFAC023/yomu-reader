@@ -8,10 +8,10 @@ import {
     nearestReadableSentenceForElement,
     renderTokensToHtml,
     sentenceAroundRange,
-} from '../../src/reader/dom';
-import { ReaderApp } from '../../src/reader/main';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+} from '../../src/reader/dom/index';
+import { ReaderApp } from '../../src/reader/app/main';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
 interface PointerTextCardInternals {
     showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: unknown) => Promise<void>;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
-import { YomitanDictionaryStore } from '../../src/reader/yomitan';
+import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
 import { yomitanZipBlob } from './zip-fixture';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';

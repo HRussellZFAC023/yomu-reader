@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/subtitles/youtube-channel-recommendations';
 import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
@@ -8,7 +8,7 @@ import {
     collectYouTubeVideoCards,
     isProbablyJapaneseYouTubeText,
 } from '../../src/reader/subtitles/youtube';
-import type { ReaderSettings } from '../../src/reader/types';
+import type { ReaderSettings } from '../../src/reader/app/types';
 
 function renderYouTubeCards(): void {
     document.body.innerHTML = `

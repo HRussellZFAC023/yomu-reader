@@ -12,8 +12,8 @@ import {
     statsCardSegments,
     statsFromApiCards,
     statsFromJpdbCards,
-} from '../../src/reader/stats';
-import type { JPDBCard } from '../../src/reader/types';
+} from '../../src/reader/app/stats';
+import type { JPDBCard } from '../../src/reader/app/types';
 
 function statsCard(overrides: Partial<JPDBCard>): JPDBCard {
     return {

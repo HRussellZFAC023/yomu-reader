@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ANKI_SOURCE_ID } from '../../src/reader/constants';
-import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/nested-text-parse';
-import { DEFAULT_SETTINGS, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings';
-import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings-form';
+import { ANKI_SOURCE_ID } from '../../src/reader/app/constants';
+import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { DEFAULT_SETTINGS, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
+import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
-import { orderedDefinitionSourceIds } from '../../src/reader/source-sections';
-import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
+import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
+import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const GETTING_STARTED_DOCS = readFileSync('docs/getting-started.md', 'utf8');
@@ -1265,6 +1265,38 @@ describe('settings form localization', () => {
 
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
         expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
+    });
+
+    it('renders fixed voice selectors for Jiten and JPDB text-to-speech sources', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        document.body.append(form);
+        activateSettingsPanel(form, 'media');
+
+        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
+        const rowFor = (type: string) => rows.find(row =>
+            row.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value === type,
+        );
+        const jitenVoice = rowFor('jiten-tts')?.querySelector<HTMLSelectElement>('[data-audio-voice-field]');
+        const jpdbVoice = rowFor('jpdb-tts')?.querySelector<HTMLSelectElement>('[data-audio-voice-field]');
+
+        expect(jitenVoice?.hidden).toBe(false);
+        expect(jitenVoice?.dataset.audioVoiceKind).toBe('jiten');
+        expect(Array.from(jitenVoice?.options ?? []).map(option => [option.value, option.text])).toEqual([
+            ['', 'Random Jiten voice'],
+            ['female', 'Female'],
+            ['male', 'Male'],
+            ['male2', 'Male 2'],
+            ['asmr', 'ASMR'],
+        ]);
+
+        expect(jpdbVoice?.hidden).toBe(false);
+        expect(jpdbVoice?.dataset.audioVoiceKind).toBe('jpdb');
+        expect(Array.from(jpdbVoice?.options ?? []).map(option => [option.value, option.text])).toEqual([
+            ['', 'Random JPDB voice'],
+            ['female', 'Female'],
+            ['male', 'Male'],
+        ]);
     });
 
     it('unwraps stale parsed settings labels before relocalizing', () => {

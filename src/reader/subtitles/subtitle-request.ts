@@ -1,5 +1,5 @@
 import { isYouTubePage } from './subtitle-youtube';
-import { getUserscriptHttpRequest } from '../userscript';
+import { getUserscriptHttpRequest } from '../userscript/index';
 
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
 

@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
+import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
-import { renderAnkiExistingSection } from '../../src/reader/anki-render';
+import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
-import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
-import { uiText } from '../../src/reader/i18n';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
+import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
+import { uiText } from '../../src/reader/app/i18n';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import {
     existingAnkiNote,
     expectFirstRenderedAnkiCardOpen,
@@ -1328,6 +1328,45 @@ describe('Anki status-only lookup cache', () => {
             expect(actions).not.toContain('findCards:deck:*');
             client.destroy();
         } finally {
+            localStorage.clear();
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses exact Anki status lookups for dirty indexed hits after mutations', async () => {
+        vi.useFakeTimers();
+        localStorage.clear();
+        const ankiConnectUrl = `${window.location.origin}/anki-dirty-hit`;
+        const settingsKey = JSON.stringify({ url: ankiConnectUrl });
+        const now = Date.now();
+        const actions: string[] = [];
+        const fetchMock = activeRebuildExactStatusLookupFetchMock(actions);
+        storeDirtyStatusIndex({
+            settingsKey,
+            checkedAt: now,
+            dirtyAt: now - 1,
+            updatedAt: now - 1,
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiConnectUrl }));
+
+        try {
+            await expect(client.findCachedStatusBatch([
+                jpdbCard({ vid: 13, sid: 4, spelling: '動画', reading: 'どうが' }),
+            ])).resolves.toMatchObject([{
+                state: 'due',
+                primary: {
+                    noteId: 55,
+                    primaryCardId: 7701,
+                    deckNames: ['Anime::Mining'],
+                    reps: 16,
+                },
+            }]);
+            expect(actions).toEqual(['multi', 'notesInfo', 'cardsInfo', 'areDue']);
+            expect(actions).not.toContain('findCards:deck:*');
+        } finally {
+            client.destroy();
             localStorage.clear();
             vi.useRealTimers();
             vi.unstubAllGlobals();

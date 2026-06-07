@@ -1,8 +1,8 @@
-import { IMMERSION_KIT_SOURCE_ID } from '../constants';
-import { escapeHtml } from '../dom';
-import { kanjiSourceStateKey, renderSimilarKanjiWordsShell } from '../definition-source-render';
-import { uiText } from '../i18n';
-import { renderKanjiPractice } from '../popup-render';
+import { IMMERSION_KIT_SOURCE_ID } from '../app/constants';
+import { escapeHtml } from '../dom/index';
+import { kanjiSourceStateKey, renderSimilarKanjiWordsShell } from '../sources/definition-render';
+import { uiText } from '../app/i18n';
+import { renderKanjiPractice } from '../popup/render';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -13,8 +13,8 @@ import {
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
     orderedKanjiSourceIds,
-} from '../source-sections';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+} from '../sources/sections';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 const KANJI_STATIC_SOURCE_MOUNTS: Partial<Record<string, string>> = {
     [KANJI_JPDB_SOURCE_ID]: '<div data-kanji-jpdb-mount></div>',

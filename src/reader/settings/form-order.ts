@@ -1,5 +1,5 @@
-import { uiText } from '../i18n';
-import type { InterfaceLanguage } from '../types';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage } from '../app/types';
 
 export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');

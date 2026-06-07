@@ -1,7 +1,7 @@
-import { isYomuHostedAppUrl } from '../app-pages';
-import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../constants';
-import { getUserscriptHttpRequest } from '../userscript';
-import { addWindowEventListener, removeWindowEventListener } from '../window-events';
+import { isYomuHostedAppUrl } from '../app/pages';
+import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { getUserscriptHttpRequest } from '../userscript/index';
+import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 
 interface UserscriptHttpResponse {
     status: number;

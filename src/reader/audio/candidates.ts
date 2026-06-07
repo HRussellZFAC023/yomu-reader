@@ -1,17 +1,17 @@
 import {
     normalizeAttemptedAudioUrl,
     type AudioCandidate,
-} from '../audio-source-resolution';
-import { requestAudioUrl as requestUrl, type AudioRequestOptions } from '../audio-request';
+} from './source-resolution';
+import { requestAudioUrl as requestUrl, type AudioRequestOptions } from './request';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
-import { isAppleTouchBrowser } from '../browser-platform';
-import { uiText } from '../i18n';
-import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb-audio-file';
+import { isAppleTouchBrowser } from '../platform/browser';
+import { uiText } from '../app/i18n';
+import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
 import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from '../jpdb/jpdb-vocabulary-url';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from '../proxy-fetch';
+import { isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
 import { uniqueStrings } from '../core/string-utils';
-import { getUserscriptHttpRequest } from '../userscript';
-import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../types';
+import { getUserscriptHttpRequest } from '../userscript/index';
+import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
@@ -20,9 +20,18 @@ const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
 const JITEN_TTS_BASE_URL = 'https://api.jiten.moe/api/tts/word';
+const JITEN_VOCABULARY_SEARCH_URL = 'https://api.jiten.moe/api/vocabulary/search';
+const JITEN_TTS_RANDOM_VOICES = ['female', 'male', 'male2', 'asmr'] as const;
+const JISHO_CORS_HTML_PROXY_URL = 'https://api.allorigins.win/raw';
+const JISHO_TEXT_PROXY_BASE_URL = 'https://r.jina.ai/http://jisho.org/search';
 const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
 const preconnectedAudioOrigins = new Set<string>();
+
+interface JitenAudioReference {
+    wordId: number;
+    readingIndex: number;
+}
 
 export function formatAudioUrl(template: string, card: JPDBCard): string {
     const replacements: Record<string, string> = {
@@ -184,8 +193,8 @@ const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoa
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
     'lingua-libre': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs, proxyUrl)),
-    'jiten-tts': async (source, card) => jitenTtsAudioCandidates(source, card),
-    'jpdb-tts': async (_source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl)),
+    'jiten-tts': async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
+    'jpdb-tts': async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice)),
 };
 
 async function loadNoAudioCandidates(): Promise<AudioCandidate[]> {
@@ -228,13 +237,106 @@ function jpdbAudioIdsToCandidates(audioIds: string[]): AudioCandidate[] {
     }));
 }
 
-function jitenTtsAudioCandidates(source: AudioSourceSetting, card: JPDBCard): AudioCandidate[] {
+function filterJpdbAudioIdsForVoice(audioIds: string[], voice: string): string[] {
+    const normalized = voice.trim().toLowerCase();
+    if (normalized === 'male') return preferredJpdbAudioIds(audioIds, isMaleJpdbAudioId);
+    if (normalized === 'female') return preferredJpdbAudioIds(audioIds, isFemaleJpdbAudioId);
+    return audioIds;
+}
+
+function preferredJpdbAudioIds(audioIds: string[], predicate: (audioId: string) => boolean): string[] {
+    const preferred = audioIds.filter(predicate);
+    return preferred.length ? preferred : audioIds;
+}
+
+function isMaleJpdbAudioId(audioId: string): boolean {
+    return /^m\d+\//i.test(audioId.trim());
+}
+
+function isFemaleJpdbAudioId(audioId: string): boolean {
+    return /^f\d+\//i.test(audioId.trim());
+}
+
+async function jitenTtsAudioCandidates(source: AudioSourceSetting, card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<AudioCandidate[]> {
+    const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
+    if (!reference) return [];
+    const voices = jitenTtsVoicesForSource(source);
+    return voices.map(voice => {
+        const url = `${JITEN_TTS_BASE_URL}/${reference.wordId}/${reference.readingIndex}?voice=${encodeURIComponent(voice)}`;
+        return { url, sourceUrl: url };
+    });
+}
+
+function jitenTtsVoicesForSource(source: AudioSourceSetting): string[] {
+    const voice = source.voice.trim();
+    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+}
+
+function jitenAudioReferenceFromCard(card: JPDBCard): JitenAudioReference | null {
     const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === 'jiten' ? finitePositiveInteger(card.vid) : undefined);
     const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === 'jiten' ? finiteNonNegativeInteger(card.sid) : undefined);
-    if (wordId === undefined || readingIndex === undefined) return [];
-    const voice = source.voice.trim() || 'female';
-    const url = `${JITEN_TTS_BASE_URL}/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
-    return [{ url, sourceUrl: url }];
+    return wordId === undefined || readingIndex === undefined ? null : { wordId, readingIndex };
+}
+
+async function lookupJitenAudioReference(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<JitenAudioReference | null> {
+    const queries = uniqueStrings([card.spelling, card.reading].map(value => value.trim()).filter(Boolean));
+    for (const query of queries) {
+        const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
+        const response = await requestUrl(url, 'text', timeoutMs, {
+            proxyUrl,
+            allowDirectCrossOrigin: false,
+            preferFetch: true,
+        }).catch(() => '');
+        if (typeof response !== 'string') continue;
+        const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
+        if (reference) return reference;
+    }
+    return null;
+}
+
+function jitenVocabularySearchResults(response: string): JitenAudioReferenceSearchResult[] {
+    try {
+        const payload = JSON.parse(response) as unknown;
+        if (!payload || typeof payload !== 'object') return [];
+        const results = (payload as { results?: unknown }).results;
+        return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result): result is JitenAudioReferenceSearchResult => Boolean(result)) : [];
+    } catch {
+        return [];
+    }
+}
+
+interface JitenAudioReferenceSearchResult extends JitenAudioReference {
+    text: string;
+    reading: string;
+}
+
+function normalizeJitenAudioReferenceSearchResult(value: unknown): JitenAudioReferenceSearchResult | null {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    const wordId = finitePositiveInteger(record.wordId);
+    const readingIndex = finiteNonNegativeInteger(record.readingIndex);
+    if (wordId === undefined || readingIndex === undefined) return null;
+    return {
+        wordId,
+        readingIndex,
+        text: typeof record.text === 'string' ? record.text.trim() : '',
+        reading: cleanJitenRubyText(typeof record.rubyText === 'string' ? record.rubyText : '').trim(),
+    };
+}
+
+function bestJitenAudioReference(card: JPDBCard, results: JitenAudioReferenceSearchResult[]): JitenAudioReference | null {
+    if (!results.length) return null;
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    const exact = results.find(result => result.text === spelling && (!reading || result.reading === reading));
+    const spellingOnly = exact ?? results.find(result => result.text === spelling);
+    const readingOnly = spellingOnly ?? results.find(result => reading && result.reading === reading);
+    const match = readingOnly ?? results[0];
+    return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
+}
+
+function cleanJitenRubyText(value: string): string {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, '$2');
 }
 
 function finitePositiveInteger(value: unknown): number | undefined {
@@ -441,35 +543,99 @@ function getHtmlAttributeFromOpeningTag(html: string, tag: string, attribute: st
 }
 
 async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
-    if (shouldSkipJishoLookup(proxyUrl)) return [];
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = await requestUrl(url, 'text', timeoutMs, {
-        proxyUrl: jishoLookupProxyUrl(proxyUrl),
-        preferFetch: false,
-    }).catch(() => '');
-    if (typeof response !== 'string') return [];
+    const response = shouldSkipJishoLookup(proxyUrl)
+        ? ''
+        : await requestUrl(url, 'text', timeoutMs, {
+            proxyUrl,
+            preferFetch: false,
+        }).catch(() => '');
 
-    const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml
-        ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1)
-        : [];
+    if (typeof response === 'string' && response) {
+        const audioHtml = findJishoAudioElement(response, card);
+        const urls = audioHtml
+            ? extractAudioSourceUrls(audioHtml, url).filter(isLikelyAudioUrl).slice(0, 1)
+            : [];
+        if (urls.length) return urls;
+        return [];
+    }
+
+    return getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl);
 }
 
 function shouldSkipJishoLookup(proxyUrl: string): boolean {
-    return !jishoLookupProxyUrl(proxyUrl) && !getUserscriptHttpRequest();
+    return !proxyUrl.trim() && !getUserscriptHttpRequest();
 }
 
-function jishoLookupProxyUrl(proxyUrl: string): string {
-    return isDefaultYomuPublicProxyUrl(proxyUrl) ? '' : proxyUrl;
+async function getJishoPublicFallbackAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
+    const htmlUrls = await getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl);
+    return htmlUrls.length ? htmlUrls : getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
 }
 
-function isDefaultYomuPublicProxyUrl(proxyUrl: string): boolean {
-    if (!proxyUrl.trim()) return false;
-    try {
-        return new URL(proxyUrl).origin === new URL(DEFAULT_YOMU_PUBLIC_PROXY_URL).origin;
-    } catch {
-        return false;
-    }
+async function getJishoCorsHtmlAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
+    const jishoUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const url = `${JISHO_CORS_HTML_PROXY_URL}?url=${encodeURIComponent(jishoUrl)}`;
+    const response = await requestUrl(url, 'text', timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        preferFetch: true,
+    }).catch(() => '');
+    if (typeof response !== 'string') return [];
+    const audioHtml = findJishoAudioElement(response, card);
+    return audioHtml
+        ? extractAudioSourceUrls(audioHtml, jishoUrl).filter(isLikelyAudioUrl).slice(0, 1)
+        : [];
+}
+
+async function getJishoTextProxyAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
+    const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;
+    const response = await requestUrl(url, 'text', timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        preferFetch: true,
+    }).catch(() => '');
+    return typeof response === 'string'
+        ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1)
+        : [];
+}
+
+function extractJishoTextProxyAudioUrls(markdown: string, card: JPDBCard): string[] {
+    const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
+    const rawCandidates = findAudioUrls(wordsSection || markdown)
+        .filter(url => {
+            try {
+                const target = new URL(url);
+                return target.hostname === 'd1vjc5dkcd3yh2.cloudfront.net' && target.pathname.startsWith('/audio/');
+            } catch {
+                return false;
+            }
+        });
+    if (!rawCandidates.length) return [];
+    const context = compactJapaneseText((wordsSection || markdown).slice(0, Math.max(0, (wordsSection || markdown).indexOf(rawCandidates[0] ?? '')) + 280));
+    const spelling = compactJapaneseText(card.spelling);
+    const reading = compactJapaneseText(card.reading);
+    if (spelling && !context.includes(spelling) && reading && !context.includes(reading)) return [];
+    return uniqueAudioUrls(rawCandidates.map(normalizeJishoCloudfrontAudioUrl));
+}
+
+function normalizeJishoCloudfrontAudioUrl(url: string): string {
+    return url.replace(/^http:\/\//i, 'https://');
+}
+
+function markdownSection(markdown: string, startPattern: RegExp): string {
+    const start = markdown.search(startPattern);
+    if (start < 0) return '';
+    const rest = markdown.slice(start);
+    const nextHeading = rest.slice(1).search(/^#{1,6}\s+/m);
+    return nextHeading < 0 ? rest : rest.slice(0, nextHeading + 1);
+}
+
+function compactJapaneseText(value: string): string {
+    return value.replace(/[^\u3040-\u30ff\u3400-\u9fffー・]/g, '');
 }
 
 function findJishoAudioElement(html: string, card: JPDBCard): string | null {

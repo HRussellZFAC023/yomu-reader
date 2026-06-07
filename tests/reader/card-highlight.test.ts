@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { cardHighlightScopeAttributes, highlightCardTargetScopes, isCardHighlightWord, renderCardHighlightedTextHtml } from '../../src/reader/card-highlight';
-import { readerWordSurfaceText } from '../../src/reader/dom';
-import { applyNestedParsePlan, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import { cardHighlightScopeAttributes, highlightCardTargetScopes, isCardHighlightWord, renderCardHighlightedTextHtml } from '../../src/reader/cards/highlight';
+import { readerWordSurfaceText } from '../../src/reader/dom/index';
+import { applyNestedParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
 describe('card highlight helpers', () => {
     afterEach(() => {

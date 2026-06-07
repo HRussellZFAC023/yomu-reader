@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSvgPathPoints } from '../../src/reader/kanjivg-path';
+import { parseSvgPathPoints } from '../../src/reader/kanji/vg-path';
 
 describe('KanjiVG SVG path sampling', () => {
     it('samples move, line, horizontal, vertical, relative, and close commands', () => {

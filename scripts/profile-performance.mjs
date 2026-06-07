@@ -8,7 +8,7 @@ import {
     addGmStorageBridgeInitScript,
     gmRequestFetchBody,
     mockJpdbParseFromVocabulary,
-} from './smoke-harness.mjs';
+} from './lib/smoke-harness.mjs';
 
 const ORIGIN = process.env.YOMU_PROFILE_ORIGIN || 'http://127.0.0.1:5175';
 const SLOW_MS = Number(process.env.YOMU_PROFILE_SLOW_MS || 4500);

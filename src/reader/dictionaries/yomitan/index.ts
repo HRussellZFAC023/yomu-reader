@@ -1,8 +1,8 @@
-import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from '../../deinflect';
-import { uiText } from '../../i18n';
-import { Logger } from '../../logger';
-import { normalizeDictionaryPreferences } from '../../settings';
-import type { DictionaryPreference, InterfaceLanguage } from '../../types';
+import { deinflectJapaneseTerm, termRulesMatch, type DeinflectedTerm } from '../../lookup/deinflect';
+import { uiText } from '../../app/i18n';
+import { Logger } from '../../app/logger';
+import { normalizeDictionaryPreferences } from '../../settings/index';
+import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.34] - 2026-06-07
+
+### Fixed
+
+- Refreshed stale Anki status-index hits through exact AnkiConnect lookups after review, add, merge, or update actions, avoiding broad deck rescans while keeping word colors and popover status current.
+- Preserved custom Anki field mappings during automatic library scans when the live model still has those fields, replacing only stale roles with scanned suggestions.
+- Fixed smoke-test path resolution after the script helper refactor, restoring hosted Chromium and Firefox Anki bridge verification.
+- Rebuilt the docs, new-tab, and userscript release artifacts for the current Anki/JPDB integration fixes.
+
 ## [0.6.33] - 2026-06-07
 
 ### Changed

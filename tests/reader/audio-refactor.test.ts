@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderAnkiExistingSection } from '../../src/reader/anki-render';
+import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
-import { getAudioCandidates } from '../../src/reader/audio';
-import { getOrderedAudioSources } from '../../src/reader/audio-source-resolution';
-import { reserveGestureAudioElement } from '../../src/reader/media-activation';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki';
-import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
+import { getAudioCandidates } from '../../src/reader/audio/player';
+import { audioCandidateSelectionMode, getOrderedAudioSources } from '../../src/reader/audio/source-resolution';
+import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 describe('audio module boundaries', () => {
     it('keeps Anki word audio resolution separate from lookup playback', async () => {
@@ -31,7 +31,13 @@ describe('audio module boundaries', () => {
 
     it('keeps built-in lookup source fallbacks in source resolution', () => {
         expect(getOrderedAudioSources({ ...DEFAULT_SETTINGS, audioSources: [] }).map(source => source.type))
-            .toEqual(['jpod101', 'language-pod-101', 'jisho', 'jpdb-tts', 'text-to-speech']);
+            .toEqual(['jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech']);
+    });
+
+    it('shuffles API text-to-speech voices even when source order is fixed', () => {
+        expect(audioCandidateSelectionMode('jiten-tts', 'first')).toBe('random');
+        expect(audioCandidateSelectionMode('jpdb-tts', 'first')).toBe('random');
+        expect(audioCandidateSelectionMode('jisho', 'first')).toBe('first');
     });
 
     it('keeps term audio and automatic lookup playback enabled by default', () => {
@@ -69,14 +75,63 @@ describe('audio module boundaries', () => {
         }
     });
 
-    it('skips Jisho lookup without a userscript bridge when only the default public proxy is configured', async () => {
-        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+    it('uses the CORS-readable Jisho fallback without a proxy or userscript bridge', async () => {
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response('', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, ''))
+                .resolves.toEqual([]);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('https://api.allorigins.win/raw?url=');
+            expect(String(fetchMock.mock.calls[1]?.[0])).toContain('https://r.jina.ai/http://jisho.org/search/');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('extracts exact Jisho audio through the default Yomu proxy', async () => {
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(`
+            <audio id="audio_読む:よむ" preload="none">
+                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
+            </audio>
+        `, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+        }));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
             await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, DEFAULT_SETTINGS.corsProxyUrl))
-                .resolves.toEqual([]);
-            expect(fetchMock).not.toHaveBeenCalled();
+                .resolves.toEqual([jishoCandidate('yomu')]);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain(DEFAULT_SETTINGS.corsProxyUrl);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('jisho.org%2Fsearch%2F');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('resolves Jiten TTS by public vocabulary lookup for non-Jiten cards', async () => {
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(JSON.stringify({
+            results: [{
+                wordId: 1467640,
+                readingIndex: 0,
+                text: '猫',
+                rubyText: '猫[ねこ]',
+            }],
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(getAudioCandidates(jitenSource('asmr'), card('猫', 'ねこ'), 1000, DEFAULT_SETTINGS.corsProxyUrl))
+                .resolves.toEqual([{
+                    url: 'https://api.jiten.moe/api/tts/word/1467640/0?voice=asmr',
+                    sourceUrl: 'https://api.jiten.moe/api/tts/word/1467640/0?voice=asmr',
+                }]);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('api.jiten.moe%2Fapi%2Fvocabulary%2Fsearch');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -238,6 +293,10 @@ type AudioCandidate = Awaited<ReturnType<typeof getAudioCandidates>>[number];
 
 function jishoSource(): Parameters<typeof getAudioCandidates>[0] {
     return { type: 'jisho', url: '', voice: '', enabled: true };
+}
+
+function jitenSource(voice = ''): Parameters<typeof getAudioCandidates>[0] {
+    return { type: 'jiten-tts', url: '', voice, enabled: true };
 }
 
 function jishoCandidate(filename: string): AudioCandidate {

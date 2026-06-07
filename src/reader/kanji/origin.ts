@@ -1,11 +1,11 @@
-import type { JpdbKanjiInfo } from '../jpdb-kanji';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { KanjiVGInfo } from './vg';
-import { Logger } from '../logger';
-import { requestText as requestReaderText } from '../reader-http';
+import { Logger } from '../app/logger';
+import { requestText as requestReaderText } from '../network/http';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import type { RtkInfo } from './rtk';
-import type { ReaderSettings } from '../types';
-import type { YomitanKanjiEntry } from '../yomitan';
+import type { ReaderSettings } from '../app/types';
+import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 
 const KANJI_MAP_KANJI_BASE = 'https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;

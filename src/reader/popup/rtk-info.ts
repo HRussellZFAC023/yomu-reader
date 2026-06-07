@@ -1,10 +1,10 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { JpdbKanjiInfo } from '../jpdb-kanji';
-import type { RtkInfo } from '../rtk';
-import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from '../rtk-elements';
-import type { InterfaceLanguage } from '../types';
-import type { YomitanKanjiEntry } from '../yomitan';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { RtkInfo } from '../kanji/rtk';
+import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from '../kanji/rtk-elements';
+import type { InterfaceLanguage } from '../app/types';
+import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 import { isKanjiCharacter } from './pitch';
 import { sourceStateAttribute } from './source-state';
 

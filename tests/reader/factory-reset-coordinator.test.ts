@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FactoryResetCoordinator } from '../../src/reader/factory-reset-coordinator';
-import { DEFAULT_SETTINGS, endSettingsResetGuard, saveSettings } from '../../src/reader/settings';
+import { FactoryResetCoordinator } from '../../src/reader/app/factory-reset-coordinator';
+import { DEFAULT_SETTINGS, endSettingsResetGuard, saveSettings } from '../../src/reader/settings/index';
 
 describe('FactoryResetCoordinator', () => {
     afterEach(() => {

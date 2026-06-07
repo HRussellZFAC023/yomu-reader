@@ -1,6 +1,6 @@
 import { getPitchClass } from './jpdb-parser-pitch';
 import { assignSentenceInfo } from './jpdb-parser-sentences';
-import type { JPDBCard, JPDBRawToken, JPDBRuby, JPDBToken } from '../types';
+import type { JPDBCard, JPDBRawToken, JPDBRuby, JPDBToken } from '../app/types';
 
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;

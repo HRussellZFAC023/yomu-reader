@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CardRenderDataLoader } from '../../src/reader/card-render-data';
-import { ImmersionPopoverController, type ImmersionPopoverControllerOptions } from '../../src/reader/immersion-popover-controller';
-import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion-kit';
-import { loadMiningContext } from '../../src/reader/mining-context';
-import { requestText as requestReaderText } from '../../src/reader/reader-http';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import { StudySourceController } from '../../src/reader/study-sources';
-import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
-import type { YomitanDictionaryStore } from '../../src/reader/yomitan';
-import type { AnkiConnectClient } from '../../src/reader/anki';
-import type { JpdbClient } from '../../src/reader/jpdb';
-import type { JpdbPublicPitchClient } from '../../src/reader/jpdb-public-pitch';
-import type { JpdbVocabularyClient } from '../../src/reader/jpdb-vocabulary';
+import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
+import { ImmersionPopoverController, type ImmersionPopoverControllerOptions } from '../../src/reader/immersion/popover-controller';
+import type { ImmersionKitClient, ImmersionKitExample } from '../../src/reader/immersion/kit';
+import { loadMiningContext } from '../../src/reader/study/mining-context';
+import { requestText as requestReaderText } from '../../src/reader/network/http';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { StudySourceController } from '../../src/reader/study/sources';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
+import type { AnkiConnectClient } from '../../src/reader/anki/index';
+import type { JpdbClient } from '../../src/reader/jpdb/jpdb';
+import type { JpdbPublicPitchClient } from '../../src/reader/jpdb/jpdb-public-pitch';
+import type { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
 
 type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
 type CardRenderDataLoaderFixture = {

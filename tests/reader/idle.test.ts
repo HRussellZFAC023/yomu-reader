@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { scheduleIdleCallback, waitForIdle } from '../../src/reader/idle';
+import { scheduleIdleCallback, waitForIdle } from '../../src/reader/platform/idle';
 
 const originalRequestIdleCallback = window.requestIdleCallback;
 

@@ -1,5 +1,5 @@
-import { Logger } from '../logger';
-import { isAppleTouchBrowser } from '../browser-platform';
+import { Logger } from '../app/logger';
+import { isAppleTouchBrowser } from '../platform/browser';
 import { getUserscriptHttpRequest } from '../userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';

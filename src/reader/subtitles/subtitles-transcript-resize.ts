@@ -5,7 +5,7 @@ import {
     type TranscriptPanelLayout,
 } from './subtitle-layout';
 import { clampNumber } from '../core/number-utils';
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 export const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
 

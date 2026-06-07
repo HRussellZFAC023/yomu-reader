@@ -1,7 +1,7 @@
-import { cardKey } from '../card-utils';
+import { cardKey } from '../cards/utils';
 import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
-import type { InterfaceLanguage, JPDBCard } from '../types';
+import { uiText } from '../app/i18n';
+import type { InterfaceLanguage, JPDBCard } from '../app/types';
 
 export interface CardNavigationEntry {
     card: JPDBCard;

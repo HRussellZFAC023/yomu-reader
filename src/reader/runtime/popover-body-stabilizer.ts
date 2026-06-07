@@ -3,8 +3,8 @@ import {
     popoverBodyActionElement,
     popoverMaxHeightSetting,
     restorePopoverScrollFrameSoon,
-} from '../popover-shell';
-import type { ReaderSettings } from '../types';
+} from '../popup/shell';
+import type { ReaderSettings } from '../app/types';
 
 function popoverScrollBody(popover: HTMLElement): HTMLElement {
     return popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;

@@ -1,7 +1,7 @@
 import { parsedSubtitleHtmlHasReaderWords } from './subtitle-parse-policy';
 import { renderSubtitlePrimary } from './subtitle-rendering';
 import type { SubtitleCue } from './subtitle-cues';
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 export interface SubtitlePrimaryRenderOptions {
     cue: SubtitleCue | undefined;

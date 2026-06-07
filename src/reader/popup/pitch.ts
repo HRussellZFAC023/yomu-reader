@@ -1,8 +1,8 @@
-import { escapeHtml } from '../dom';
-import { pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../pitch-accent';
-import { localPitchPatternFromMeta } from '../pitch-meta';
-import type { JPDBCard } from '../types';
-import type { YomitanMetaEntry } from '../yomitan';
+import { escapeHtml } from '../dom/index';
+import { pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
+import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import type { JPDBCard } from '../app/types';
+import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
     const reading = cardPronunciationReading(card);
@@ -25,12 +25,11 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
 }
 
 export function cardPronunciationReading(card: Pick<JPDBCard, 'reading' | 'spelling' | 'wordWithReading'>): string {
-    const reading = cleanPronunciationReading(card.reading);
-    if (reading && !containsKanji(reading)) return reading;
-    const rubyReading = cleanPronunciationReading(readingFromWordWithReading(card.wordWithReading ?? ''));
-    if (rubyReading && !containsKanji(rubyReading)) return rubyReading;
-    const kanaSpelling = cleanPronunciationReading(card.spelling);
-    return isKanaPronunciation(kanaSpelling) ? kanaSpelling : '';
+    const reading = pronunciationCandidate(card.reading);
+    if (reading) return reading;
+    const rubyReading = pronunciationCandidate(readingFromWordWithReading(card.wordWithReading ?? ''));
+    if (rubyReading) return rubyReading;
+    return pronunciationCandidate(card.spelling);
 }
 
 export function uniqueKanji(value: string): string[] {
@@ -48,6 +47,12 @@ function containsKanji(value: string): boolean {
 
 function cleanPronunciationReading(value: string): string {
     return value.replace(/\s+/g, '').trim();
+}
+
+function pronunciationCandidate(value: string): string {
+    const reading = cleanPronunciationReading(value);
+    if (!reading || containsKanji(reading)) return '';
+    return isKanaPronunciation(reading) ? reading : '';
 }
 
 function isKanaPronunciation(value: string): boolean {

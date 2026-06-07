@@ -674,8 +674,8 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    JPDB_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
+    JPDB_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1095,7 +1095,7 @@
     immersionKitExampleSource: "immersion-kit",
     nadeshikoApiKey: "",
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: false,
+    immersionKitLimitEnabled: true,
     immersionKitLimit: 3,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,
@@ -6276,6 +6276,18 @@ recommendedJiten	jiten.moe頻度データです。
     "custom-json": "audioCustomJsonPlaceholder",
     custom: "audioCustomUrlPlaceholder"
   };
+  const JITEN_TTS_VOICE_OPTIONS = [
+    ["", "Random Jiten voice"],
+    ["female", "Female"],
+    ["male", "Male"],
+    ["male2", "Male 2"],
+    ["asmr", "ASMR"]
+  ];
+  const JPDB_TTS_VOICE_OPTIONS = [
+    ["", "Random JPDB voice"],
+    ["female", "Female"],
+    ["male", "Male"]
+  ];
   function escapedUiText$3(language, key2) {
     return escapeHtml(uiText(language, key2));
   }
@@ -6323,8 +6335,8 @@ recommendedJiten	jiten.moe頻度データです。
                 </div>
                 <div class="jpdb-reader-audio-source-fields">
                     <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${escapeHtml(audioUrlPlaceholder(source.type, language))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                    <select data-audio-voice-field name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
-                        <option value="${escapeHtml(source.voice)}">${escapeHtml(source.voice || uiText(language, "automaticBrowserVoice"))}</option>
+                    <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                        ${audioVoiceSelectOptions(source, language)}
                     </select>
                 </div>
                 ${orderTools}
@@ -6356,7 +6368,39 @@ recommendedJiten	jiten.moe頻度データです。
     return type === "custom" || type === "custom-json";
   }
   function audioSourceUsesVoice(type) {
-    return type === "text-to-speech" || type === "text-to-speech-reading";
+    return audioSourceVoiceKind(type) !== "none";
+  }
+  function audioSourceVoiceKind(type) {
+    if (type === "jiten-tts") return "jiten";
+    if (type === "jpdb-tts") return "jpdb";
+    if (type === "text-to-speech" || type === "text-to-speech-reading") return "browser";
+    return "none";
+  }
+  function audioVoiceSelectOptions(source, language) {
+    if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
+    if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
+    const label = source.voice || uiText(language, "automaticBrowserVoice");
+    return `<option value="${escapeHtml(source.voice)}">${escapeHtml(label)}</option>`;
+  }
+  function jitenTtsVoiceSelectOptions(selectedVoice) {
+    const selected = selectedVoice.trim();
+    const options = JITEN_TTS_VOICE_OPTIONS.map(
+      ([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`
+    );
+    if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+      options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+    return options.join("");
+  }
+  function jpdbTtsVoiceSelectOptions(selectedVoice) {
+    const selected = selectedVoice.trim();
+    const options = JPDB_TTS_VOICE_OPTIONS.map(
+      ([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`
+    );
+    if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
+      options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+    return options.join("");
   }
   function syncAudioSourceRow(row, type) {
     if (!row) return;
@@ -6364,7 +6408,17 @@ recommendedJiten	jiten.moe頻度データです。
       node.hidden = !audioSourceUsesUrl(type);
     });
     row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
-      node.hidden = !audioSourceUsesVoice(type);
+      const voiceKind = audioSourceVoiceKind(type);
+      node.hidden = voiceKind === "none";
+      node.dataset.audioVoiceKind = voiceKind;
+      if (node instanceof HTMLSelectElement && voiceKind === "jiten") {
+        const selected = node.value || node.dataset.selectedVoice || "";
+        setInnerHtml(node, jitenTtsVoiceSelectOptions(selected));
+      }
+      if (node instanceof HTMLSelectElement && voiceKind === "jpdb") {
+        const selected = node.value || node.dataset.selectedVoice || "";
+        setInnerHtml(node, jpdbTtsVoiceSelectOptions(selected));
+      }
     });
   }
   function syncBrowserTtsVoiceOptions(form) {
@@ -6376,7 +6430,7 @@ recommendedJiten	jiten.moe頻度データです。
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       return aJapanese - bJapanese || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
     });
-    form.querySelectorAll("select[data-audio-voice-field]").forEach((select2) => {
+    form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
       const selected = select2.value || select2.dataset.selectedVoice || "";
       const options = [
         `<option value="" ${selected ? "" : "selected"}>${escapeHtml(text("automaticBrowserVoice"))}</option>`,
@@ -10148,8 +10202,11 @@ recommendedJiten	jiten.moe頻度データです。
       const existing = readFormSettings(new FormData(form), this.settings).ankiFieldMappings;
       const next = { ...existing };
       for (const model of scan.models) {
+        const currentMapping = next[model.modelName] ?? {};
+        const liveFields = new Set(model.fields);
         const mapping = Object.fromEntries(model.suggestions.flatMap((suggestion) => {
-          const fieldName = suggestion.fieldName?.trim();
+          const savedField = currentMapping[suggestion.role]?.trim();
+          const fieldName = liveFields.has(savedField ?? "") ? savedField : suggestion.fieldName?.trim();
           return fieldName ? [[suggestion.role, fieldName]] : [];
         }));
         if (Object.keys(mapping).length) next[model.modelName] = mapping;

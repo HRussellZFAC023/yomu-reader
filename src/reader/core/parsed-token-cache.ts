@@ -1,4 +1,4 @@
-import type { JPDBToken } from '../types';
+import type { JPDBToken } from '../app/types';
 import { pruneOldestCacheEntries } from './cache-utils';
 
 export interface ParsedTokenCacheEntry {

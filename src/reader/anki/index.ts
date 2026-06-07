@@ -1,21 +1,21 @@
 import { runLimited } from '../core/async-utils';
 import { escapeHtml } from '../dom';
 import type { AnkiWordAudioMedia } from './audio';
-import { isAppleTouchBrowser } from '../browser-platform';
+import { isAppleTouchBrowser } from '../platform/browser';
 import { ANKI_CARD_COLOR_TOKENS } from '../theme/color-tokens';
-import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../pos';
-import { resolveUiLanguage, uiText } from '../i18n';
-import { formatMetaFrequency, groupTermEntriesByDictionary } from '../local-dictionary-groups';
-import { Logger } from '../logger';
-import { gmStorageGet, gmStorageGetSync, gmStorageSet } from '../storage';
-import type { AnkiFieldMapping, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from '../types';
+import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
+import { resolveUiLanguage, uiText } from '../app/i18n';
+import { formatMetaFrequency, groupTermEntriesByDictionary } from '../dictionaries/groups';
+import { Logger } from '../app/logger';
+import { gmStorageGet, gmStorageGetSync, gmStorageSet } from '../app/storage';
+import type { AnkiFieldMapping, DictionaryPreference, JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import {
     glossaryToHtml,
     glossaryToText,
     type YomitanKanjiEntry,
     type YomitanMetaEntry,
     type YomitanTermEntry,
-} from '../yomitan';
+} from '../dictionaries/yomitan';
 import {
     ANKI_FIELD_ROLES,
     type AnkiAudioMergeMode,
@@ -647,6 +647,7 @@ export class AnkiConnectClient {
     ): AnkiLookupResult | null {
         const entry = index ? statusIndexEntryForCard(index, card, entries) : null;
         if (!entry) return null;
+        if (index?.dirtyAt && (!entry.updatedAt || entry.updatedAt < index.dirtyAt)) return null;
         const note: AnkiExistingNote = {
             noteId: entry.noteId,
             modelName: entry.modelName,

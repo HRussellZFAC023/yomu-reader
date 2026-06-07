@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exampleSentenceLookupTokens } from '../../src/reader/example-sentence-tokens';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import { exampleSentenceLookupTokens } from '../../src/reader/lookup/example-sentence-tokens';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
 describe('exampleSentenceLookupTokens', () => {
     it('removes short particle tokens from example sentence lookup targets', () => {

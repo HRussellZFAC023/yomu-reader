@@ -1,4 +1,4 @@
-import { gmStorageDelete } from '../storage';
+import { gmStorageDelete } from '../app/storage';
 
 export const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 

@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { assert } from './smoke-harness.mjs';
-import { waitForYoutubeTranscriptRows } from './smoke-wait-helpers.mjs';
-import { dragTranscriptResizeHandle } from './subtitle-layout-test-utils.mjs';
+import { assert } from './lib/smoke-harness.mjs';
+import { waitForYoutubeTranscriptRows } from './lib/smoke-wait-helpers.mjs';
+import { dragTranscriptResizeHandle } from './lib/subtitle-layout-test-utils.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AnkiExistingNote } from '../../src/reader/anki';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { ReaderSettings } from '../../src/reader/types';
+import type { AnkiExistingNote } from '../../src/reader/anki/index';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { ReaderSettings } from '../../src/reader/app/types';
 import {
     existingAnkiNote,
     expectFirstRenderedAnkiCardOpen,

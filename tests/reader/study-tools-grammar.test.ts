@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { nestedTextParsePlan } from '../../src/reader/nested-text-parse';
-import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, type GrammarHint } from '../../src/reader/study-tools';
+import { nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, type GrammarHint } from '../../src/reader/study/tools';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
 const EN_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/en-grammar-rule-copy.json'), 'utf8');
@@ -72,7 +72,7 @@ describe('local Japanese grammar hints', () => {
         vi.stubGlobal('GM_xmlhttpRequest', requestSpy);
 
         try {
-            const { grammarRuleText } = await import('../../src/reader/i18n');
+            const { grammarRuleText } = await import('../../src/reader/app/i18n');
 
             await expect(grammarRuleText('ja', 'particle-wa')).resolves.toMatchObject({
                 short: 'marks the topic',

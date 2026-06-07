@@ -1,8 +1,8 @@
-import { readerWordSurfaceText } from '../dom';
-import { normalizedLookupText } from '../lookup-text-helpers';
-import { japaneseRunAt, JPDB_POINTER_BOUNDARY_SEGMENTS, jpdbPointerLookupCandidates } from '../pointer-text-lookup';
-import { KANA_ONLY_LOOKUP_RUN_RE } from '../reader-main-helpers';
-import type { JPDBCard } from '../types';
+import { readerWordSurfaceText } from '../dom/index';
+import { normalizedLookupText } from '../lookup/text-helpers';
+import { japaneseRunAt, JPDB_POINTER_BOUNDARY_SEGMENTS, jpdbPointerLookupCandidates } from '../lookup/pointer-text-lookup';
+import { KANA_ONLY_LOOKUP_RUN_RE } from '../app/main-helpers';
+import type { JPDBCard } from '../app/types';
 
 const KANA_FRAGMENT_LOOKUP_START_WINDOW = 6;
 const KANA_FRAGMENT_LOOKUP_MAX_LENGTH = 12;

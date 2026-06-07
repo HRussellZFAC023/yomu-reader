@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { graphEdgePath } from '../../src/reader/kanji-graph-geometry';
+import { graphEdgePath } from '../../src/reader/kanji/graph-geometry';
 
 describe('kanji graph geometry', () => {
     it('clips auto edges at the visible node border instead of leaving detached gaps', () => {

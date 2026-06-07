@@ -1,11 +1,11 @@
-import { Logger } from '../logger';
-import { SETTINGS_CHANGE_EVENT } from '../constants';
+import { Logger } from '../app/logger';
+import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../storage';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../types';
+import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../app/storage';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
@@ -241,7 +241,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
-    immersionKitLimitEnabled: false,
+    immersionKitLimitEnabled: true,
     immersionKitLimit: 3,
     immersionKitMinLength: 8,
     immersionKitMaxLength: 80,

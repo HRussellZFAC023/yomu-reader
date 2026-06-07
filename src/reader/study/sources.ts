@@ -1,9 +1,9 @@
-import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../constants';
+import { STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { pruneOldestCacheEntries } from '../core/cache-utils';
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom';
-import { uiText } from '../i18n';
-import { Logger } from '../logger';
-import { definitionSourceStateKey } from '../definition-source-render';
+import { uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { definitionSourceStateKey } from '../sources/definition-render';
 import { renderStudyMeaningBlock, renderStudySentenceBlock } from './section-render';
 import {
     detectGrammarHints as detectLocalGrammarHints,
@@ -13,7 +13,7 @@ import {
     translateJapaneseSentence,
     type GrammarHint,
 } from './tools';
-import type { JPDBToken, ReaderSettings } from '../types';
+import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const log = Logger.scope('StudySources');
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;

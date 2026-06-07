@@ -7,8 +7,8 @@ import {
 } from './jpdb-public-lookup';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';
-import { Logger } from '../logger';
-import type { JPDBCard } from '../types';
+import { Logger } from '../app/logger';
+import type { JPDBCard } from '../app/types';
 import {
     isBetterJpdbAudioIds,
     jpdbAudioIds,

@@ -1,7 +1,7 @@
 import type { AudioPlayer } from './player';
-import { resolveUiLanguage, uiText } from '../i18n';
-import { Logger } from '../logger';
-import type { JPDBCard, ReaderSettings } from '../types';
+import { resolveUiLanguage, uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import type { JPDBCard, ReaderSettings } from '../app/types';
 
 const log = Logger.scope('ReaderAudioActions');
 

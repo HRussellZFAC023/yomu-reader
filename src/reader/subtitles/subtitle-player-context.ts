@@ -2,7 +2,7 @@ import type { SubtitleCue } from './subtitle-cues';
 import type { SubtitleTrackOption } from './subtitle-track-options';
 import { getYouTubeVideoId, isYouTubeOwnedVideoElement, isYouTubePage } from './subtitle-youtube';
 import { mutationInsideClosest } from '../dom/mutation';
-import type { ReaderSettings } from '../types';
+import type { ReaderSettings } from '../app/types';
 
 export function subtitleSourceContextKey(video?: HTMLVideoElement): string {
     const url = new URL(location.href);

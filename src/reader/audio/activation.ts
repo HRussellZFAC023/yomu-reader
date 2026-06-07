@@ -1,6 +1,6 @@
-import { hasVisiblePageVideo } from '../browser-ui';
-import { canAttemptAudiblePlayback } from '../media-activation';
-import type { ReaderSettings } from '../types';
+import { hasVisiblePageVideo } from '../ui/browser';
+import { canAttemptAudiblePlayback } from './media-activation';
+import type { ReaderSettings } from '../app/types';
 
 export interface ReaderAutoAudioActivationOptions {
     anchor?: HTMLElement;

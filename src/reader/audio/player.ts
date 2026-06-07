@@ -1,6 +1,6 @@
-import { uiText } from '../i18n';
-import { Logger } from '../logger';
-import { ShuffledAudioDeck } from '../audio-playback-queue';
+import { uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { ShuffledAudioDeck } from './playback-queue';
 import {
     fetchAudioBlob,
     getAudioCandidates,
@@ -30,17 +30,17 @@ import {
     type AudioCandidate,
     type AudioPreloadOptions,
     type OrderedAudioSource,
-} from '../audio-source-resolution';
-import { canAttemptAudiblePlayback, reserveGestureAudioElement } from '../media-activation';
+} from './source-resolution';
+import { canAttemptAudiblePlayback, reserveGestureAudioElement } from './media-activation';
 import {
     fetchJpdbAudioBlob,
     jpdbAudioPlaybackCandidates,
     type JpdbAudioPlaybackCandidate,
-} from '../jpdb-audio-file';
+} from '../jpdb/jpdb-audio-file';
 import { ObjectUrlCache } from '../core/object-url-cache';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
-import { createPageMediaUrl } from '../page-media-url';
-import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../types';
+import { createPageMediaUrl } from '../app/page-media-url';
+import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 interface AudioPlaybackOptions {
     isCurrent?: () => boolean;
@@ -112,7 +112,7 @@ const SOFT_CHIME_NOTES: SoftChimeNote[] = [
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1000;
 const log = Logger.scope('Audio');
 
-export { ShuffledAudioDeck } from '../audio-playback-queue';
+export { ShuffledAudioDeck } from './playback-queue';
 export { decodeJpdbAudioBlob, fetchJpdbAudioBlob, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
 export {
     blobToDataUrl,

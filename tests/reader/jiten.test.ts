@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createJitenStudyBatchCard } from '../../scripts/jiten-fixtures.mjs';
-import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/jiten';
-import type { JPDBCard } from '../../src/reader/types';
+import { createJitenStudyBatchCard } from '../../scripts/fixtures/jiten-fixtures.mjs';
+import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/dictionaries/jiten';
+import type { JPDBCard } from '../../src/reader/app/types';
 
 function jsonResponse(payload: unknown, status = 200): Response {
     return {
@@ -39,8 +39,10 @@ describe('JitenApiClient', () => {
             data: undefined,
             responseType: 'json',
             proxyUrl: 'https://proxy.example.test',
-            allowDirectCrossOrigin: true,
+            allowDirectCrossOrigin: false,
             allowConfiguredProxy: true,
+            allowSensitiveConfiguredProxy: true,
+            allowPublicProxies: false,
             preferFetch: true,
         }));
     });

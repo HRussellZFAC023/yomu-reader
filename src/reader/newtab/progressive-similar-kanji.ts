@@ -1,5 +1,5 @@
-import type { JpdbKanjiInfo } from '../jpdb-kanji';
-import type { YomitanTermEntry } from '../yomitan';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { YomitanTermEntry } from '../dictionaries/yomitan';
 
 type SimilarKanjiProgress = {
     jpdbLoaded: boolean;

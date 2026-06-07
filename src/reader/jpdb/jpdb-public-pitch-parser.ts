@@ -7,7 +7,9 @@ import {
     jpdbVocabularyRootMatches,
     unique,
 } from './jpdb-public-lookup';
-import { splitMorae } from '../pitch-accent';
+import { splitMorae } from '../lookup/pitch-accent';
+
+const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;
 
 export function parseJpdbPublicPitchHtml(html: string, spelling = '', reading = ''): string[] {
     const doc = parseHtmlDocument(html);
@@ -51,11 +53,17 @@ export function readJpdbPitchPatterns(root: ParentNode): string[] {
 function pitchSegmentPattern(segment: HTMLElement): string {
     const level = pitchSegmentLevel(segment);
     if (!level) return '';
-    return level.repeat(splitMorae(compactJpdbText(segment.textContent ?? '')).length);
+    return level.repeat(splitMorae(pitchSegmentReading(segment)).length);
 }
 
 function pitchSegmentLevel(segment: HTMLElement): string {
     const style = segment.getAttribute('style') ?? '';
     if (style.includes('--pitch-high')) return 'H';
     return style.includes('--pitch-low') ? 'L' : '';
+}
+
+function pitchSegmentReading(segment: HTMLElement): string {
+    return Array.from(compactJpdbText(segment.textContent ?? ''))
+        .filter(character => PITCH_KANA.test(character))
+        .join('');
 }

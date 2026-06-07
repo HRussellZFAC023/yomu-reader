@@ -1,7 +1,7 @@
-import { escapeHtml } from '../dom';
-import { uiText } from '../i18n';
+import { escapeHtml } from '../dom/index';
+import { uiText } from '../app/i18n';
 import { clampNumber } from '../core/number-utils';
-import type { InterfaceLanguage, ReaderSettings } from '../types';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;

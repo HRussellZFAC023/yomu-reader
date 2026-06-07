@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
+import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
 import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
-import { registerReaderMenuCommands } from '../../src/reader/reader-menu-commands';
-import { bindReaderRuntimeEvents } from '../../src/reader/reader-runtime-events';
-import { shouldShowReaderOnboarding } from '../../src/reader/reader-startup';
-import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/reader-status-warmup';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
+import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
+import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
+import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 const originalRequestIdleCallback = window.requestIdleCallback;
 

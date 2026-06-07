@@ -1,4 +1,4 @@
-import type { ReaderColorSource } from '../types';
+import type { ReaderColorSource } from '../app/types';
 
 export interface SettingsFormReader {
     get: (key: string) => string;

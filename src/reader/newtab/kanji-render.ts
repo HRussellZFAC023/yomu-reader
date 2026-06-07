@@ -1,12 +1,12 @@
-import { escapeHtml, htmlToFirstElement } from '../dom';
-import { el } from '../dom-builder';
-import type { JpdbKanjiInfo } from '../jpdb-kanji';
+import { escapeHtml, htmlToFirstElement } from '../dom/index';
+import { el } from '../dom/builder';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { firstCardMeaning } from './index';
-import { uiText } from '../i18n';
+import { uiText } from '../app/i18n';
 import { newTabText } from './i18n';
-import { kanjiSourceStateKey } from '../definition-source-render';
-import { KANJI_JPDB_SOURCE_ID } from '../source-sections';
-import type { JPDBCard, ReaderSettings } from '../types';
+import { kanjiSourceStateKey } from '../sources/definition-render';
+import { KANJI_JPDB_SOURCE_ID } from '../sources/sections';
+import type { JPDBCard, ReaderSettings } from '../app/types';
 
 export function renderNewTabKanjiInfoSection(
     card: JPDBCard,

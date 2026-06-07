@@ -1,5 +1,5 @@
-import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../yomitan';
-import type { CardState, DictionaryPreference, ReaderSettings, ReviewGradeIntervals } from '../types';
+import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import type { CardState, DictionaryPreference, ReaderSettings, ReviewGradeIntervals } from '../app/types';
 
 export interface AnkiResponse<T> {
     result: T;

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { nextExplicitUiLanguage, resolveUiLanguage } from '../../src/reader/i18n';
+import { nextExplicitUiLanguage, resolveUiLanguage } from '../../src/reader/app/i18n';
 
 describe('interface language resolution', () => {
     afterEach(() => {

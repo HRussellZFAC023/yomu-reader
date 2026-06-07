@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { createJitenStudyBatchCard } from './jiten-fixtures.mjs';
+import { createJitenStudyBatchCard } from './fixtures/jiten-fixtures.mjs';
 import {
     addGmStorageBridgeInitScript,
     assert,
@@ -14,7 +14,7 @@ import {
     serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
-} from './smoke-harness.mjs';
+} from './lib/smoke-harness.mjs';
 
 const {
     root: ROOT,

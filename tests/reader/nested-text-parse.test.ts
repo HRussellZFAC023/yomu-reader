@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/nested-text-parse';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
 function renderParseableSection(text: string): HTMLElement {
     document.body.innerHTML = `<section><p class="jpdb-reader-parseable">${text}</p></section>`;

@@ -1,13 +1,13 @@
 import { escapeHtml, parseHtmlDocument, setInnerHtml } from '../dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from '../jpdb/jpdb-text';
-import { createPageMediaUrl, revokePageMediaUrl } from '../page-media-url';
-import { externalLinkIcon } from '../icons';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../proxy-fetch';
-import { requestBlob as requestReaderBlob, requestText as requestReaderText } from '../reader-http';
-import { gmStorageGet, gmStorageSet } from '../storage';
-import { resolveUiLanguage, uiText } from '../i18n';
+import { createPageMediaUrl, revokePageMediaUrl } from '../app/page-media-url';
+import { externalLinkIcon } from '../ui/icons';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../network/proxy-fetch';
+import { requestBlob as requestReaderBlob, requestText as requestReaderText } from '../network/http';
+import { gmStorageGet, gmStorageSet } from '../app/storage';
+import { resolveUiLanguage, uiText } from '../app/i18n';
 import imagePromptReplacementDefs from './uchisen-image-prompt-replacements.json';
-import type { InterfaceLanguage } from '../types';
+import type { InterfaceLanguage } from '../app/types';
 
 export interface UchisenImage {
     url: string;
@@ -841,8 +841,8 @@ function safeUchisenImagePrompt(value: string): string {
         prompt = prompt.replace(pattern, replacement);
     }
     prompt = prompt
-        .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
         .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, 'no text or signage')
+        .replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, 'no text or signage')
         .replace(/\s+/g, ' ')
         .trim();
     if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
