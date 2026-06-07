@@ -1,6 +1,7 @@
 import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult } from './anki';
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './card-render-state';
 import { cardKey } from './card-utils';
+import { pruneExpiringMapEntries } from './core/expiring-map';
 import type { JitenApiClient } from './jiten';
 import type { JpdbClient } from './jpdb';
 import type { JpdbPublicPitchClient } from './jpdb-public-pitch';
@@ -101,7 +102,7 @@ export class CardRenderDataLoader {
             if (this.cache.get(key)?.load === load) this.cache.delete(key);
         });
         this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
-        pruneExpiringMap(this.cache, now, CARD_RENDER_DATA_CACHE_LIMIT);
+        pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
         return load;
     }
 
@@ -359,15 +360,4 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
 
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, ms));
-}
-
-function pruneExpiringMap<T>(cache: Map<string, { expiresAt: number; load: T }>, now: number, limit: number): void {
-    for (const [key, value] of cache) {
-        if (value.expiresAt <= now) cache.delete(key);
-    }
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value;
-        if (typeof oldest !== 'string') break;
-        cache.delete(oldest);
-    }
 }

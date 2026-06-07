@@ -1226,11 +1226,7 @@ export class SubtitlePlayerController {
 
         try {
             const html = await this.parseCueHtml(text, settings);
-            const root = this.replacePrimaryHtml(html, serial);
-            this.lastRenderedPrimaryKey = key;
-            this.lastRenderedPrimaryText = text;
-            this.lastRenderedPrimaryHtml = html;
-            if (root) this.notifyParsedTokensForKey(key, true, [root]);
+            this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
             // Keep plain selectable subtitles if JPDB is unavailable.
         }
@@ -1364,7 +1360,10 @@ export class SubtitlePlayerController {
     private applyAuthoritativeParsedCueHtml(key: string, text: string, html: string): void {
         this.updateTranscriptRowsForParseKey(key, html);
         if (this.currentPrimaryParseCacheKey() !== key) return;
-        const serial = ++this.renderSerial;
+        this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
+    }
+
+    private applyParsedPrimaryHtml(key: string, text: string, html: string, serial: number): void {
         const root = this.replacePrimaryHtml(html, serial);
         this.lastRenderedPrimaryKey = key;
         this.lastRenderedPrimaryText = text;
@@ -1395,21 +1394,8 @@ export class SubtitlePlayerController {
         }
 
         const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), subtitleParseOptions(settings));
-        const parsedHtml = batch.map((item, index) => parsed.then(tokens => {
-            const tokenList = tokens[index] ?? [];
-            const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-            this.rememberParsedCueHtml(item.key, html, tokenList);
-            return { key: item.key, html };
-        }));
-        const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
-        batch.forEach((item, index) => this.pendingParsedHtml.set(item.key, pendingHtml[index]));
-        try {
-            return await Promise.all([...ready, ...parsedHtml]);
-        } finally {
-            batch.forEach((item, index) => {
-                if (this.pendingParsedHtml.get(item.key) === pendingHtml[index]) this.pendingParsedHtml.delete(item.key);
-            });
-        }
+        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings);
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
     }
 
     private async parseCueHtmlBatchWithProvisionalFallback(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
@@ -1424,19 +1410,37 @@ export class SubtitlePlayerController {
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.text), provisionalSubtitleParseOptions())
             : Promise.all(batch.map(item => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
-        const parsedHtml = batch.map((item, index) => parsed.then(tokens => {
+        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true });
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+    }
+
+    private renderParsedHtmlBatch(
+        batch: SubtitleParseBatchItem[],
+        parsed: Promise<JPDBToken[][]>,
+        settings: ReaderSettings,
+        options: { provisional?: boolean } = {},
+    ): Promise<ParsedSubtitleHtmlResult>[] {
+        return batch.map((item, index) => parsed.then(tokens => {
             const tokenList = tokens[index] ?? [];
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-            this.rememberParsedCueHtml(item.key, html, tokenList, { provisional: true });
-            return { key: item.key, html, provisional: true };
+            this.rememberParsedCueHtml(item.key, html, tokenList, options);
+            return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
+    }
+
+    private async resolveParsedHtmlBatch(
+        ready: Promise<ParsedSubtitleHtmlResult>[],
+        batch: SubtitleParseBatchItem[],
+        parsedHtml: Promise<ParsedSubtitleHtmlResult>[],
+        pendingCache: Map<string, Promise<string>>,
+    ): Promise<ParsedSubtitleHtmlResult[]> {
         const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
-        batch.forEach((item, index) => this.pendingProvisionalParsedHtml.set(item.key, pendingHtml[index]));
+        batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
         try {
             return await Promise.all([...ready, ...parsedHtml]);
         } finally {
             batch.forEach((item, index) => {
-                if (this.pendingProvisionalParsedHtml.get(item.key) === pendingHtml[index]) this.pendingProvisionalParsedHtml.delete(item.key);
+                if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
             });
         }
     }

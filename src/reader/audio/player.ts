@@ -38,6 +38,7 @@ import {
     type JpdbAudioPlaybackCandidate,
 } from '../jpdb-audio-file';
 import { ObjectUrlCache } from '../core/object-url-cache';
+import { pruneExpiringMapEntries } from '../core/expiring-map';
 import { createPageMediaUrl } from '../page-media-url';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../types';
 
@@ -688,7 +689,7 @@ export class AudioPlayer {
                 throw error;
             });
         this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
-        pruneTimedCache(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
+        pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
         return promise;
     }
 
@@ -743,7 +744,7 @@ export class AudioPlayer {
                 throw error;
             });
         this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
-        pruneTimedCache(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
+        pruneExpiringMapEntries(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
         return promise.then(cloneAudioCandidates);
     }
 
@@ -902,15 +903,4 @@ function delayAudioSourceRace(ms: number): Promise<null> {
 function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {
     errors.push(error instanceof Error ? error.message : String(error));
     return error instanceof AudioPlaybackAttemptError ? 'playback-error' : 'miss';
-}
-
-function pruneTimedCache<T>(cache: Map<string, { expiresAt: number; promise: Promise<T> }>, limit: number, now = Date.now()): void {
-    for (const [key, entry] of cache) {
-        if (entry.expiresAt <= now) cache.delete(key);
-    }
-    while (cache.size > limit) {
-        const oldest = cache.keys().next().value;
-        if (typeof oldest !== 'string') break;
-        cache.delete(oldest);
-    }
 }

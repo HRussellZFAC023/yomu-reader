@@ -22,6 +22,7 @@ import {
     resolveAnkiAction,
     startLoopbackServer,
 } from './smoke-harness.mjs';
+import { waitForSelectorText } from './smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { assertNoRemoteExecutableMetadata } = require('./userscript-build-utils.cjs');
@@ -471,13 +472,7 @@ async function runAnkiConnectSmoke() {
 
 async function runHostedAnkiBridgeSmoke(browser, browserName) {
     const bridgeRequests = [];
-    const context = await browser.newContext({ bypassCSP: true });
-    const page = await context.newPage();
-    const pageMessages = [];
-    page.on('console', message => {
-        if (message.type() === 'error' || message.type() === 'warning') pageMessages.push(`${message.type()}: ${message.text()}`);
-    });
-    page.on('pageerror', error => pageMessages.push(`pageerror: ${firstErrorLine(error)}`));
+    const { context, page, pageMessages } = await newHostedAnkiSmokePage(browser, { bypassCSP: true });
     await page.exposeFunction('__yomuLiveSmokeAnkiRequest', createHostedAnkiRequestHandler(bridgeRequests));
     await addGmXmlHttpRequestBridgeInitScript(page, { requestBridgeName: '__yomuLiveSmokeAnkiRequest' });
     try {
@@ -538,13 +533,7 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
 
 async function runHostedClickedWordAnkiStatusSmoke(browser, browserName) {
     const bridgeRequests = [];
-    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 980, height: 680 } });
-    const page = await context.newPage();
-    const pageMessages = [];
-    page.on('console', message => {
-        if (message.type() === 'error' || message.type() === 'warning') pageMessages.push(`${message.type()}: ${message.text()}`);
-    });
-    page.on('pageerror', error => pageMessages.push(`pageerror: ${firstErrorLine(error)}`));
+    const { context, page, pageMessages } = await newHostedAnkiSmokePage(browser, { bypassCSP: true, viewport: { width: 980, height: 680 } });
     await page.exposeFunction('__yomuLiveSmokeAnkiStatusRequest', createHostedAnkiStatusRequestHandler(bridgeRequests));
     await addGmStorageBridgeInitScript(page, {
         key: SETTINGS_KEY,
@@ -599,6 +588,17 @@ async function runHostedClickedWordAnkiStatusSmoke(browser, browserName) {
     } finally {
         await context.close();
     }
+}
+
+async function newHostedAnkiSmokePage(browser, contextOptions) {
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    const pageMessages = [];
+    page.on('console', message => {
+        if (message.type() === 'error' || message.type() === 'warning') pageMessages.push(`${message.type()}: ${message.text()}`);
+    });
+    page.on('pageerror', error => pageMessages.push(`pageerror: ${firstErrorLine(error)}`));
+    return { context, page, pageMessages };
 }
 
 // Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
@@ -832,15 +832,6 @@ function waitForMessage(details) {
 
 async function documentTextSnapshot(page) {
     return await page.evaluate(() => (document.querySelector('.jpdb-reader-popover')?.textContent ?? document.body.textContent ?? '').slice(0, 1200));
-}
-
-async function waitForSelectorText(page, selector, expectations, timeout = 12_000) {
-    await page.waitForFunction(selectorTextMatches, { selector, ...expectations }, { timeout });
-}
-
-function selectorTextMatches({ selector, includes = [], excludes = [] }) {
-    const text = document.querySelector(selector)?.textContent ?? '';
-    return includes.every(term => text.includes(term)) && excludes.every(term => !text.includes(term));
 }
 
 async function main() {

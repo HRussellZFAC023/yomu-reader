@@ -17,6 +17,7 @@ import {
     shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
 } from './immersion-query';
+import { isAbortError } from './immersion/errors';
 import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample, type ImmersionKitSearchOptions } from './immersion-kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './immersion-labels';
 import { uiText } from './i18n';
@@ -1079,16 +1080,6 @@ function isConnectedImmersionSurface(popover: HTMLElement, container: HTMLElemen
 
 function clearImmersionLoadingState(container: HTMLElement): void {
     if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
-}
-
-function isAbortError(error: unknown): boolean {
-    return errorName(error) === 'AbortError';
-}
-
-function errorName(error: unknown): string {
-    if (!error || typeof error !== 'object') return '';
-    const name = (error as { name?: unknown }).name;
-    return typeof name === 'string' ? name : '';
 }
 
 function raceAgainstAbortOrTimeout<T>(promise: Promise<T>, signal: AbortSignal, timeoutMs: number): Promise<T> {

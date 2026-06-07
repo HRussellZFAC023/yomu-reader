@@ -11,6 +11,7 @@ import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKi
 import { localizedImmersionSourceTitle } from '../immersion-labels';
 import { waitForIdle as waitForBrowserIdle } from '../idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
+import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
@@ -1018,21 +1019,21 @@ export class NewTabController {
         }, { signal: controller.signal });
 
         root.addEventListener('dragover', event => {
-            const dropzone = eventTargetElement(event.target)?.closest<HTMLElement>('[data-stats-dropzone]');
-            if (!dropzone || !root.contains(dropzone)) return;
+            const dropzone = this.statsDropzoneTarget(root, event);
+            if (!dropzone) return;
             event.preventDefault();
             dropzone.dataset.dragging = 'true';
         }, { signal: controller.signal });
 
         root.addEventListener('dragleave', event => {
-            const dropzone = eventTargetElement(event.target)?.closest<HTMLElement>('[data-stats-dropzone]');
-            if (!dropzone || !root.contains(dropzone)) return;
+            const dropzone = this.statsDropzoneTarget(root, event);
+            if (!dropzone) return;
             dropzone.dataset.dragging = 'false';
         }, { signal: controller.signal });
 
         root.addEventListener('drop', event => {
-            const dropzone = eventTargetElement(event.target)?.closest<HTMLElement>('[data-stats-dropzone]');
-            if (!dropzone || !root.contains(dropzone)) return;
+            const dropzone = this.statsDropzoneTarget(root, event);
+            if (!dropzone) return;
             event.preventDefault();
             dropzone.dataset.dragging = 'false';
             const file = event.dataTransfer?.files?.[0];
@@ -1056,6 +1057,11 @@ export class NewTabController {
             if (!document.hidden) syncQueuedGrades();
         }, { signal: controller.signal });
         this.rootEventController = controller;
+    }
+
+    private statsDropzoneTarget(root: HTMLElement, event: Event): HTMLElement | null {
+        const dropzone = eventTargetElement(event.target)?.closest<HTMLElement>('[data-stats-dropzone]');
+        return dropzone && root.contains(dropzone) ? dropzone : null;
     }
 
     private handleRootClick(root: HTMLElement, event: MouseEvent): void {
@@ -1693,13 +1699,17 @@ export class NewTabController {
         if (this.allWords.length || this.state.mode === 'search') return false;
         const cached = await this.readOfflineCache();
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length || !this.canPrimeWithOfflineCache(cached.cards)) return false;
+        this.applyOfflineWordCacheState(cached);
+        this.dependencies.parser.cacheCards?.(this.allWords);
+        this.applyWords(root, preferStoredWord);
+        return true;
+    }
+
+    private applyOfflineWordCacheState(cached: { cards: JPDBCard[]; sourceLabel: string }): void {
         this.allWords = cached.cards;
         this.reviewCountMode = false;
         this.emptyLoadMessageKey = null;
         this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
-        this.dependencies.parser.cacheCards?.(this.allWords);
-        this.applyWords(root, preferStoredWord);
-        return true;
     }
 
     private canPrimeWithOfflineCache(cards: JPDBCard[]): boolean {
@@ -1723,10 +1733,7 @@ export class NewTabController {
     private async applyOfflineCacheIfAvailable(root: HTMLElement, loadGeneration: number): Promise<void> {
         const cached = await this.readOfflineCache();
         if (!this.isCurrentLoad(loadGeneration) || !cached.cards.length) return;
-        this.allWords = cached.cards;
-        this.reviewCountMode = false;
-        this.emptyLoadMessageKey = null;
-        this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
+        this.applyOfflineWordCacheState(cached);
         this.setStatus(root, this.text('offlineCache'));
     }
 
@@ -2008,10 +2015,7 @@ export class NewTabController {
         const cached = useOfflineCache ? await this.readOfflineCache() : { cards: [], sourceLabel: '' };
         if (!this.isCurrentLoad(loadGeneration)) return;
         if (cached.cards.length) {
-            this.allWords = cached.cards;
-            this.reviewCountMode = false;
-            this.emptyLoadMessageKey = null;
-            this.sourceLabel = this.offlineSourceLabel(cached.sourceLabel);
+            this.applyOfflineWordCacheState(cached);
             this.dependencies.parser.cacheCards(this.allWords);
             this.applyWords(root, preferStoredWord);
             this.setStatus(root, this.text(this.offlineCacheStatusKey(cached.cards)));
@@ -2667,11 +2671,7 @@ export class NewTabController {
     }
 
     private hasConfiguredApiReviewSource(settings: ReaderSettings): boolean {
-        if (settings.apiKey.trim()) return true;
-        if (settings.jitenApiKey.trim()) return true;
-        if (settings.newTabJpdbReviewMode === 'api-vocabulary') return false;
-        const status = this.liveJpdbStatus ?? this.dependencies.jpdbReviewBridge.latestStatus?.();
-        return settings.jpdbMiningEnabled && Boolean(status?.card);
+        return this.hasAvailableJpdbReviewSource(settings);
     }
 
     private async applyExternalState(state: NewTabUiState): Promise<void> {
@@ -3257,7 +3257,10 @@ export class NewTabController {
     }
 
     private canUseJpdbSource(): boolean {
-        const settings = this.dependencies.getSettings();
+        return this.hasAvailableJpdbReviewSource(this.dependencies.getSettings());
+    }
+
+    private hasAvailableJpdbReviewSource(settings: ReaderSettings): boolean {
         if (settings.apiKey.trim()) return true;
         if (settings.jitenApiKey.trim()) return true;
         if (settings.newTabJpdbReviewMode === 'api-vocabulary') return false;
@@ -4127,13 +4130,19 @@ export class NewTabController {
     private prefetchNearbyImmersionExamples(card: JPDBCard, generation: number): void {
         if (!this.shouldPrefetchNewTabImmersion()) return;
         this.prefetchNewTabImmersionCard(card, { generation, current: true });
-        for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
-            const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
-            if (!nearby || cardKey(nearby) === cardKey(card)) continue;
+        this.prefetchNearbyCards(card, nearby => {
             void this.waitForIdle().then(() => {
                 if (!this.isCurrentImmersionPrefetchGeneration(generation)) return;
                 this.prefetchNewTabImmersionCard(nearby, { generation, current: false });
             });
+        });
+    }
+
+    private prefetchNearbyCards(card: JPDBCard, prefetch: (nearby: JPDBCard) => void): void {
+        for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
+            const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
+            if (!nearby || cardKey(nearby) === cardKey(card)) continue;
+            prefetch(nearby);
         }
     }
 
@@ -5613,17 +5622,8 @@ export class NewTabController {
     }
 
     private toggleSearchWordResult(root: HTMLElement, button: HTMLElement, card: JPDBCard): void {
-        const host = button.closest<HTMLElement>('[data-newtab-search-card-shell]');
-        const existing = host?.querySelector<HTMLElement>('[data-newtab-search-detail]');
-        if (!host || !existing) return;
-        const expanded = button.getAttribute('aria-expanded') === 'true';
-        button.setAttribute('aria-expanded', String(!expanded));
-        existing.hidden = expanded;
-        if (expanded) {
-            delete host.dataset.newtabSearchExpanded;
-            return;
-        }
-        host.dataset.newtabSearchExpanded = 'true';
+        const existing = this.expandSearchResultDetail(button);
+        if (!existing) return;
         const kanjiDetailsPromise = this.shouldLoadSearchWordKanjiDetails(card)
             ? this.loadSearchWordKanjiDetails(card)
             : null;
@@ -5664,6 +5664,21 @@ export class NewTabController {
             };
             renderCurrentDetail();
         });
+    }
+
+    private expandSearchResultDetail(button: HTMLElement): HTMLElement | null {
+        const host = button.closest<HTMLElement>('[data-newtab-search-card-shell]');
+        const existing = host?.querySelector<HTMLElement>('[data-newtab-search-detail]');
+        if (!host || !existing) return null;
+        const expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', String(!expanded));
+        existing.hidden = expanded;
+        if (expanded) {
+            delete host.dataset.newtabSearchExpanded;
+            return null;
+        }
+        host.dataset.newtabSearchExpanded = 'true';
+        return existing;
     }
 
     private instantSearchWordDetail(): NewTabSearchWordDetail {
@@ -5950,17 +5965,8 @@ export class NewTabController {
     }
 
     private toggleSearchKanjiResult(button: HTMLElement, kanji: string): void {
-        const host = button.closest<HTMLElement>('[data-newtab-search-card-shell]');
-        const existing = host?.querySelector<HTMLElement>('[data-newtab-search-detail]');
-        if (!host || !existing) return;
-        const expanded = button.getAttribute('aria-expanded') === 'true';
-        button.setAttribute('aria-expanded', String(!expanded));
-        existing.hidden = expanded;
-        if (expanded) {
-            delete host.dataset.newtabSearchExpanded;
-            return;
-        }
-        host.dataset.newtabSearchExpanded = 'true';
+        const existing = this.expandSearchResultDetail(button);
+        if (!existing) return;
         replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('loadingKanjiDetails')));
         void this.loadKanjiDetails(kanji).then(details => {
             if (!existing.isConnected || button.getAttribute('aria-expanded') !== 'true') return;
@@ -6297,41 +6303,22 @@ export class NewTabController {
     }
 
     private lookupAnkiReviewTargets(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
-        const candidates = new Map<number, string>();
-        const add = (cardId: number | null | undefined, label: string, cardName = ''): void => {
-            const id = Number(cardId);
-            if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
-            const deck = label.trim() || 'Anki';
-            const template = cardName.trim();
-            candidates.set(id, template ? [deck, `${template} #${id}`].join(' · ') : [deck, `#${id}`].join(' '));
-        };
-        card.ankiRenderedCards?.forEach(rendered => add(
-            rendered.cardId,
-            rendered.deckName || card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki',
-            rendered.cardName,
-        ));
-        add(this.ankiCardIdForReview(card), card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki');
-        const notes = data?.ankiLookup.notes ?? [];
-        notes.forEach(note => {
-            const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
-            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
-            add(note.primaryCardId, noteLabel);
-            note.cardIds.forEach(cardId => add(cardId, noteLabel));
-        });
-        return Array.from(candidates, ([cardId, label]) => ({
+        const cardLabel = card.ankiDeckNames?.join(', ') || card.ankiModelName || 'Anki';
+        const seeds = [
+            ...(card.ankiRenderedCards ?? []).map(rendered => ({
+                cardId: rendered.cardId,
+                label: rendered.deckName || cardLabel,
+                cardName: rendered.cardName,
+            })),
+            { cardId: this.ankiCardIdForReview(card), label: cardLabel },
+        ];
+        return collectAnkiReviewTargetLabels(seeds, data?.ankiLookup.notes ?? []).map(({ cardId, label }) => ({
             id: `anki:${cardId}`,
             kind: 'anki',
             ankiCardId: cardId,
             label: this.formatNewTabText('gradeTargetAnki', { target: label }),
-            shortLabel: this.compactAnkiGradeTargetLabel(label, cardId),
+            shortLabel: compactAnkiReviewTargetLabel(label, cardId),
         }));
-    }
-
-    private compactAnkiGradeTargetLabel(label: string, cardId: number): string {
-        const suffix = `#${cardId}`;
-        const clean = label.replace(/\s+/g, ' ').trim();
-        if (!clean) return `Anki ${suffix}`;
-        return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
     }
 
     private formatNewTabText(key: NewTabCopyKey, values: Record<string, string>): string {
@@ -6832,11 +6819,9 @@ export class NewTabController {
     private prefetchNearbyWordPitch(card: JPDBCard): void {
         if (!this.shouldPrefetchWordPitch()) return;
         this.prefetchWordPitch(card);
-        for (let offset = 1; offset <= NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD; offset++) {
-            const nearby = this.visibleWords[(this.index + offset) % this.visibleWords.length];
-            if (!nearby || cardKey(nearby) === cardKey(card)) continue;
+        this.prefetchNearbyCards(card, nearby => {
             void this.waitForIdle().then(() => this.prefetchWordPitch(nearby));
-        }
+        });
     }
 
     private shouldPrefetchWordPitch(): boolean {

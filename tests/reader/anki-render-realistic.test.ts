@@ -35,8 +35,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
 
     it('renders Core 2k-style vocab media as separated image and Anki audio controls', () => {
         const section = renderExistingAnkiLookup([core2kVocabNote()]);
-        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
-        const audioControls = [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')];
+        const { bodies, audioControls } = renderedAnkiCardParts(section);
         const audioNames = audioControls.map(button => button.dataset.ankiMediaName);
         const image = section.querySelector<HTMLImageElement>('img[data-anki-media-name="core-2k-market.webp"]');
         const nativeAudio = section.querySelector<HTMLAudioElement>('audio[data-anki-media-name="tanoshii-sentence.mp3"]');
@@ -59,8 +58,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
 
     it('renders Jlab-style cards from template HTML without leaking fallback fields', () => {
         const section = renderExistingAnkiLookup([jlabBeginnerNote()]);
-        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
-        const audioControls = [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')];
+        const { bodies, audioControls } = renderedAnkiCardParts(section);
         const image = section.querySelector<HTMLImageElement>('img[data-anki-media-name="jlab-start.png"]');
 
         expectReadableRenderedAnkiSection(section);
@@ -77,16 +75,12 @@ describe('Anki realistic rendered card QA fixtures', () => {
             'jlab-hajimeru-sentence.mp3',
         ]);
         expect(image?.src).toBe('data:image/png;base64,jlab');
-        expect(section.querySelector('script')).toBeNull();
-        expect(section.querySelector('style')).toBeNull();
-        expectNoNestedScrollStyles(section);
-        expectNoHugeInlineFontLeak(section);
+        expectSafeRenderedAnkiFixture(section);
     });
 
     it('renders Kaishi 1.5k cards without long audio filenames or fallback labels', () => {
         const section = renderExistingAnkiLookup([kaishiVocabNote()]);
-        const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
-        const audioControls = [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')];
+        const { bodies, audioControls } = renderedAnkiCardParts(section);
         const image = section.querySelector<HTMLImageElement>('img[data-anki-media-name="button_start2.webp"]');
 
         expectReadableRenderedAnkiSection(section);
@@ -110,10 +104,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
             'e79a8072345e2d2560af1e7ca2540eee-1bd2024a27767f03ad514d91142e19a4e6e77ac6.mp3',
         ]);
         expect(image?.src).toBe('data:image/webp;base64,kaishi');
-        expect(section.querySelector('script')).toBeNull();
-        expect(section.querySelector('style')).toBeNull();
-        expectNoNestedScrollStyles(section);
-        expectNoHugeInlineFontLeak(section);
+        expectSafeRenderedAnkiFixture(section);
     });
 
     it('separates Yomu notes from other matches and keeps generated labels natural-case', () => {
@@ -149,6 +140,23 @@ describe('Anki realistic rendered card QA fixtures', () => {
 
 function renderExistingAnkiLookup(notes: AnkiExistingNote[], settings: ReaderSettings = ankiRenderSettings()): HTMLElement {
     return renderExistingAnkiLookupWithSettings(notes, settings);
+}
+
+function renderedAnkiCardParts(section: ParentNode): {
+    bodies: HTMLElement[];
+    audioControls: HTMLButtonElement[];
+} {
+    return {
+        bodies: [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')],
+        audioControls: [...section.querySelectorAll<HTMLButtonElement>('[data-action="anki-media-audio"]')],
+    };
+}
+
+function expectSafeRenderedAnkiFixture(section: ParentNode): void {
+    expect(section.querySelector('script')).toBeNull();
+    expect(section.querySelector('style')).toBeNull();
+    expectNoNestedScrollStyles(section);
+    expectNoHugeInlineFontLeak(section);
 }
 
 function ankiRenderSettings(): ReaderSettings {

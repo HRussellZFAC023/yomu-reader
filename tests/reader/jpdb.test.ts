@@ -19196,12 +19196,17 @@ describe('reader helpers', () => {
         const originalUserAgent = navigator.userAgent;
         const originalPlatform = navigator.platform;
         const originalMaxTouchPoints = navigator.maxTouchPoints;
+        const originalLocation = window.location;
         Object.defineProperty(window.navigator, 'userAgent', {
             value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
             configurable: true,
         });
         Object.defineProperty(window.navigator, 'platform', { value: 'MacIntel', configurable: true });
         Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('http://127.0.0.1:5173/yomu-reader/') as unknown as Location,
+        });
         const fetchMock = vi.fn(() => Promise.reject(new Error('Failed to fetch')));
         vi.stubGlobal('fetch', fetchMock);
 
@@ -19213,6 +19218,10 @@ describe('reader helpers', () => {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });
             Object.defineProperty(window.navigator, 'platform', { value: originalPlatform, configurable: true });
             Object.defineProperty(window.navigator, 'maxTouchPoints', { value: originalMaxTouchPoints, configurable: true });
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
             vi.unstubAllGlobals();
         }
     });

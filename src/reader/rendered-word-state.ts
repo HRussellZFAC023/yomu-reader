@@ -1,4 +1,5 @@
 import type { JPDBCard } from './types';
+import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -6,14 +7,7 @@ export function clearRenderedWordAnkiState(word: HTMLElement): void {
         .forEach(className => word.classList.remove(className));
     delete word.dataset.ankiState;
     delete word.dataset.ankiDecks;
-    word.style.removeProperty('--jpdb-reader-page-bg');
-    word.style.removeProperty('--jpdb-reader-highlight-backdrop');
-    word.style.removeProperty('--jpdb-reader-furi-accessible-color');
-    word.style.removeProperty('--jpdb-reader-word-accessible-color');
-    word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
-    word.style.removeProperty('--jpdb-reader-word-accessible-underline');
-    word.style.removeProperty('--jpdb-reader-word-highlight-text');
-    word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
+    RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
     if (word.title.startsWith('Anki:')) word.removeAttribute('title');
 }
 

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './smoke-harness.mjs';
+import { waitForYoutubeTranscriptRows } from './smoke-wait-helpers.mjs';
 import { dragTranscriptResizeHandle } from './subtitle-layout-test-utils.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
@@ -729,9 +730,7 @@ async function runSpaWatchNavigationCheck(page) {
         player.loadModule = () => {};
         window.dispatchEvent(new Event('yt-navigate-finish'));
     }, { playerResponse: youtubePlayerResponse('feature123') });
-    await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 12000 });
-    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length >= 3, null, { timeout: 30000 });
-    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    await waitForYoutubeTranscriptRows(page);
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
         && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
     const spaWatch = await readWatchState(page);
@@ -829,9 +828,7 @@ async function runWatchCheck(page) {
 
 async function waitForWatchFeatureReady(page) {
     await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
-    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length >= 3, null, { timeout: 30000 });
-    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    await waitForYoutubeTranscriptRows(page);
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
         && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0
         && document.querySelectorAll('yt-live-chat-text-message-renderer .jpdb-reader-word').length > 0, null, { timeout: 30000 });

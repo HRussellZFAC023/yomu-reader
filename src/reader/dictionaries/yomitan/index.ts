@@ -1609,25 +1609,24 @@ export class YomitanDictionaryStore {
     }
 
     private addTermSearchIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction('termSearch', 'readwrite');
-            const store = tx.objectStore('termSearch');
-            for (const term of terms) {
-                for (const row of termSearchEntries(term)) store.add(row);
-            }
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error);
-            commitTransaction(tx);
-        });
+        return this.addDerivedTermIndexChunk(db, 'termSearch', terms, termSearchEntries);
     }
 
     private addTermKanjiIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
+        return this.addDerivedTermIndexChunk(db, 'termKanji', terms, termKanjiEntries);
+    }
+
+    private addDerivedTermIndexChunk<Row>(
+        db: IDBDatabase,
+        storeName: 'termSearch' | 'termKanji',
+        terms: YomitanTermEntry[],
+        rowsForTerm: (term: YomitanTermEntry) => Row[],
+    ): Promise<void> {
         return new Promise((resolve, reject) => {
-            const tx = db.transaction('termKanji', 'readwrite');
-            const store = tx.objectStore('termKanji');
+            const tx = db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
             for (const term of terms) {
-                for (const row of termKanjiEntries(term)) store.add(row);
+                for (const row of rowsForTerm(term)) store.add(row);
             }
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);

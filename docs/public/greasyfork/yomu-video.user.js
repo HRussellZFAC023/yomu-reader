@@ -5868,6 +5868,20 @@ recommendedJiten	jiten.moe頻度データです。
   function isSelectedSubtitleTrack(option, state) {
     return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
   }
+  function mutationNodes(mutation, options = {}) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
+    return nodes;
+  }
+  function mutationInsideClosest(mutation, selector) {
+    return mutationNodes(mutation, { removed: true }).every((node) => {
+      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element?.closest?.(selector));
+    });
+  }
   function subtitleSourceContextKey(video) {
     const url = new URL(location.href);
     url.hash = "";
@@ -5924,15 +5938,7 @@ recommendedJiten	jiten.moe頻度データです。
     }
   }
   function mutationInsideReaderRoot$1(mutation) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes),
-      ...Array.from(mutation.removedNodes)
-    ];
-    return nodes.every((node) => {
-      const element = node.nodeType === 1 ? node : node.parentElement;
-      return Boolean(element?.closest?.("[data-jpdb-reader-root]"));
-    });
+    return mutationInsideClosest(mutation, "[data-jpdb-reader-root]");
   }
   function mutationCouldAffectVideoDiscovery(mutation) {
     return Array.from(mutation.addedNodes).concat(Array.from(mutation.removedNodes)).some(nodeContainsVideoElement);
@@ -7460,11 +7466,7 @@ recommendedJiten	jiten.moe頻度データです。
       }
       try {
         const html = await this.parseCueHtml(text, settings);
-        const root = this.replacePrimaryHtml(html, serial);
-        this.lastRenderedPrimaryKey = key2;
-        this.lastRenderedPrimaryText = text;
-        this.lastRenderedPrimaryHtml = html;
-        if (root) this.notifyParsedTokensForKey(key2, true, [root]);
+        this.applyParsedPrimaryHtml(key2, text, html, serial);
       } catch {
       }
     }
@@ -7578,7 +7580,9 @@ recommendedJiten	jiten.moe頻度データです。
     applyAuthoritativeParsedCueHtml(key2, text, html) {
       this.updateTranscriptRowsForParseKey(key2, html);
       if (this.currentPrimaryParseCacheKey() !== key2) return;
-      const serial = ++this.renderSerial;
+      this.applyParsedPrimaryHtml(key2, text, html, ++this.renderSerial);
+    }
+    applyParsedPrimaryHtml(key2, text, html, serial) {
       const root = this.replacePrimaryHtml(html, serial);
       this.lastRenderedPrimaryKey = key2;
       this.lastRenderedPrimaryText = text;
@@ -7605,21 +7609,8 @@ recommendedJiten	jiten.moe頻度データです。
         }))]);
       }
       const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), subtitleParseOptions());
-      const parsedHtml = batch.map((item, index) => parsed.then((tokens) => {
-        const tokenList = tokens[index] ?? [];
-        const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        this.rememberParsedCueHtml(item.key, html, tokenList);
-        return { key: item.key, html };
-      }));
-      const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
-      batch.forEach((item, index) => this.pendingParsedHtml.set(item.key, pendingHtml[index]));
-      try {
-        return await Promise.all([...ready, ...parsedHtml]);
-      } finally {
-        batch.forEach((item, index) => {
-          if (this.pendingParsedHtml.get(item.key) === pendingHtml[index]) this.pendingParsedHtml.delete(item.key);
-        });
-      }
+      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings);
+      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
     }
     async parseCueHtmlBatchWithProvisionalFallback(items, settings) {
       this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
@@ -7631,19 +7622,25 @@ recommendedJiten	jiten.moe頻度データです。
       );
       if (!batch.length) return Promise.all(ready);
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
-      const parsedHtml = batch.map((item, index) => parsed.then((tokens) => {
+      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true });
+      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+    }
+    renderParsedHtmlBatch(batch, parsed, settings, options = {}) {
+      return batch.map((item, index) => parsed.then((tokens) => {
         const tokenList = tokens[index] ?? [];
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        this.rememberParsedCueHtml(item.key, html, tokenList, { provisional: true });
-        return { key: item.key, html, provisional: true };
+        this.rememberParsedCueHtml(item.key, html, tokenList, options);
+        return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
+    }
+    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache) {
       const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
-      batch.forEach((item, index) => this.pendingProvisionalParsedHtml.set(item.key, pendingHtml[index]));
+      batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
       try {
         return await Promise.all([...ready, ...parsedHtml]);
       } finally {
         batch.forEach((item, index) => {
-          if (this.pendingProvisionalParsedHtml.get(item.key) === pendingHtml[index]) this.pendingProvisionalParsedHtml.delete(item.key);
+          if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
         });
       }
     }

@@ -26,6 +26,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './smoke-harness.mjs';
+import { waitForSelectorText } from './smoke-wait-helpers.mjs';
 
 const {
     root: ROOT,
@@ -634,15 +635,6 @@ async function waitForRenderedExistingAnkiCardText(page) {
         includes: EXISTING_ANKI_RENDERED_TERMS,
         excludes: EXISTING_ANKI_RAW_FIELD_TERMS,
     });
-}
-
-async function waitForSelectorText(page, selector, expectations, timeout = 12000) {
-    await page.waitForFunction(selectorTextMatches, { selector, ...expectations }, { timeout });
-}
-
-function selectorTextMatches({ selector, includes = [], excludes = [] }) {
-    const text = document.querySelector(selector)?.textContent ?? '';
-    return includes.every(term => text.includes(term)) && excludes.every(term => !text.includes(term));
 }
 
 function writingPopoverLocator(page) {

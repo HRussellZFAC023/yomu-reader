@@ -1,6 +1,7 @@
 import type { SubtitleCue } from './subtitle-cues';
 import type { SubtitleTrackOption } from './subtitle-track-options';
 import { getYouTubeVideoId, isYouTubeOwnedVideoElement, isYouTubePage } from './subtitle-youtube';
+import { mutationInsideClosest } from '../dom/mutation';
 import type { ReaderSettings } from '../types';
 
 export function subtitleSourceContextKey(video?: HTMLVideoElement): string {
@@ -76,17 +77,7 @@ function safeHost(value: string): string {
 }
 
 export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
-    const nodes = [
-        mutation.target,
-        ...Array.from(mutation.addedNodes),
-        ...Array.from(mutation.removedNodes),
-    ];
-    return nodes.every(node => {
-        const element = node.nodeType === 1
-            ? node as Element
-            : node.parentElement;
-        return Boolean(element?.closest?.('[data-jpdb-reader-root]'));
-    });
+    return mutationInsideClosest(mutation, '[data-jpdb-reader-root]');
 }
 
 export function mutationCouldAffectVideoDiscovery(mutation: MutationRecord): boolean {

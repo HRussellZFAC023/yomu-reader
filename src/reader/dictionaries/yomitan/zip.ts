@@ -1,4 +1,5 @@
 import { inflateSync } from 'fflate';
+import { readBlobWithFileReader } from './blob-reader';
 
 export interface ZipFileEntry {
     name: string;
@@ -204,10 +205,5 @@ function arrayBufferSlice(bytes: Uint8Array): ArrayBuffer {
 
 function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
     if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read file.'));
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.readAsArrayBuffer(blob);
-    });
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), reader => reader.result as ArrayBuffer);
 }

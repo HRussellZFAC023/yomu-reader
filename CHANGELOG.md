@@ -1,10 +1,11 @@
 # Changelog
 
-## [0.6.31] - 2026-06-07
+## [0.6.32] - 2026-06-07
 
 ### Changed
 
-- Deduplicated JPDB vocabulary URL parsing, pointer-rectangle helpers, and rendered-word expansion display paths without changing lookup behavior.
+- Deduplicated JPDB vocabulary URL parsing, pointer-rectangle helpers, popover height stabilization, Anki review targets, audio cache pruning, and rendered-word expansion display paths without changing lookup behavior.
+- Kept the userscript release gate on Vite builds with readable Greasy Fork output under the 2 MB script limit.
 
 ## [0.6.30] - 2026-06-07
 
