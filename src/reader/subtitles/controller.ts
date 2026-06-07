@@ -1995,13 +1995,7 @@ export class SubtitlePlayerController {
     }
 
     private finishPrimaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
-        this.setNativeTrackModes();
-        this.updateFromLoadedCues();
-        this.warmParseAroundActiveCue();
-        this.render();
-        this.refreshTranscriptPanelAfterTrackChange();
-        this.syncControls();
-        log.info('Primary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.cues.length });
+        this.finishTrackSelection('Primary', id, selected, this.cues.length);
     }
 
     private async selectSecondaryTrack(id: string): Promise<void> {
@@ -2049,13 +2043,17 @@ export class SubtitlePlayerController {
     }
 
     private finishSecondaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
+        this.finishTrackSelection('Secondary', id, selected, this.secondaryCues.length);
+    }
+
+    private finishTrackSelection(role: 'Primary' | 'Secondary', id: string, selected: SubtitleTrackOption | undefined, cues: number): void {
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
         this.warmParseAroundActiveCue();
         this.render();
         this.refreshTranscriptPanelAfterTrackChange();
         this.syncControls();
-        log.info('Secondary subtitle track selected', { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues: this.secondaryCues.length });
+        log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues });
     }
 
     private setNativeTrackModes(): void {

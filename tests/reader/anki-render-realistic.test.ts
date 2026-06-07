@@ -1,12 +1,15 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import type { AnkiExistingNote } from '../../src/reader/anki';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
-import { existingAnkiNote, renderExistingAnkiLookup as renderExistingAnkiLookupWithSettings } from './helpers/anki-render';
-
-const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
+import {
+    existingAnkiNote,
+    expectNoHugeInlineFontLeak,
+    expectNoNestedScrollStyles,
+    expectReadableRenderedAnkiSection,
+    renderExistingAnkiLookup as renderExistingAnkiLookupWithSettings,
+} from './helpers/anki-render';
 
 describe('Anki realistic rendered card QA fixtures', () => {
     it('keeps repeated large RRTK kanji blocks readable without nested template scrolling', () => {
@@ -146,36 +149,6 @@ describe('Anki realistic rendered card QA fixtures', () => {
 
 function renderExistingAnkiLookup(notes: AnkiExistingNote[], settings: ReaderSettings = ankiRenderSettings()): HTMLElement {
     return renderExistingAnkiLookupWithSettings(notes, settings);
-}
-
-function expectReadableRenderedAnkiSection(section: HTMLElement): void {
-    const bodies = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-anki-rendered-side-body')];
-    expect(bodies.length).toBeGreaterThan(0);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*max-height:\s*none;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*overflow:\s*visible;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-side\s*\+\s*\.jpdb-reader-anki-rendered-side\s*\{[^}]*border-top:\s*1px solid/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-rendered-card\s*\+\s*\.jpdb-reader-anki-rendered-card\s*\{[^}]*border-top:\s*1px solid/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .toMatch(/\.jpdb-reader-anki-existing\s*>\s*summary\s*>\s*span\s*\{[^}]*text-transform:\s*none;/);
-    expect(LOCAL_DICTIONARY_CSS)
-        .not.toMatch(/\.jpdb-reader-anki(?:-[^{]+)?\s*\{[^}]*text-transform:\s*uppercase;/);
-}
-
-function expectNoNestedScrollStyles(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[style]').forEach(element => {
-        expect(element.getAttribute('style')).not.toMatch(/(?:max-height|overflow|overscroll-behavior)\s*:/i);
-    });
-}
-
-function expectNoHugeInlineFontLeak(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[style]').forEach(element => {
-        expect(element.getAttribute('style')).not.toMatch(/font(?:-size)?\s*:\s*(?:[4-9]\d|[1-9]\d{2,})px/i);
-        expect(element.getAttribute('style')).not.toMatch(/font(?:-size)?\s*:\s*[3-9](?:\.\d+)?rem/i);
-    });
 }
 
 function ankiRenderSettings(): ReaderSettings {

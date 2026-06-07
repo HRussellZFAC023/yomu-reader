@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.30] - 2026-06-07
+
+### Fixed
+
+- Rechecked hosted AnkiConnect automatically when the userscript bridge becomes ready, avoiding stale "needs setup" status after the page bridge loads.
+- Kept the new-tab JPDB/Anki source switch from reusing unreachable Anki cache entries, restoring fallback study words instead of "No review cards ready."
+- Sped up the CI suite by sharding long generated settings, new-tab, subtitles, and JPDB tests with stable generated imports.
+
 ## [0.6.29] - 2026-06-07
 
 ### Fixed

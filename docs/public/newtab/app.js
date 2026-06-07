@@ -4058,10 +4058,20 @@ recommendedJiten	jiten.moe頻度データです。
       reader.readAsDataURL(blob);
     });
   }
+  const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+  function parseJpdbAudioData(value) {
+    return value.split(",").map(normalizeJpdbAudioGroup).filter(Boolean);
+  }
+  function isValidJpdbAudioId(value) {
+    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes("..") && !value.startsWith("//"));
+  }
+  function normalizeJpdbAudioGroup(value) {
+    const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
+    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join("+") : "";
+  }
   const JPDB_AUDIO_BASE_URL = "https://jpdb.io/static/v";
   const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
   const JPDB_AUDIO_XOR_BYTES = [6, 35, 84, 15];
-  const JPDB_AUDIO_ID_RE$1 = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
   const LOOPBACK_AUDIO_HOSTS$1 = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
   function normalizeJpdbAudioIds(value) {
     return uniqueJpdbAudioValues(normalizeJpdbAudioGroups(value).flatMap((group) => group.split("+")));
@@ -4071,7 +4081,7 @@ recommendedJiten	jiten.moe頻度データです。
     return groups.map((group) => ({ audioIds: group.split("+"), deckId: `jpdb:${group}` }));
   }
   function jpdbAudioRequest(audioId, language = "en") {
-    if (!isValidJpdbAudioId$1(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
+    if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
     if (audioId.startsWith("/static/user/")) {
       return { url: new URL(audioId, "https://jpdb.io").toString(), encoded: false };
     }
@@ -4116,11 +4126,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function normalizeJpdbAudioGroups(value) {
     const values = Array.isArray(value) ? value : value.split(",");
-    return uniqueJpdbAudioValues(values.map(normalizeJpdbAudioGroup$1).filter(Boolean));
-  }
-  function normalizeJpdbAudioGroup$1(value) {
-    const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
-    return ids.length && ids.every(isValidJpdbAudioId$1) ? ids.join("+") : "";
+    return uniqueJpdbAudioValues(values.map(normalizeJpdbAudioGroup).filter(Boolean));
   }
   function blobArrayBuffer(blob, language = "en") {
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
@@ -4184,9 +4190,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function encodeJpdbAudioPath(value) {
     return value.split("/").map(encodeURIComponent).join("/");
-  }
-  function isValidJpdbAudioId$1(value) {
-    return Boolean(value && JPDB_AUDIO_ID_RE$1.test(value) && !value.includes("..") && !value.startsWith("//"));
   }
   function uniqueJpdbAudioValues(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -5863,6 +5866,24 @@ recommendedJiten	jiten.moe頻度データです。
     const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
     return sentence.slice(start, end).trim();
   }
+  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  function normalizeAnkiFieldMappings(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const out = {};
+    Object.entries(value).forEach(([modelName, mapping]) => {
+      const normalizedModelName = modelName.trim();
+      if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
+      const normalizedMapping = {};
+      for (const role of ANKI_FIELD_MAPPING_ROLES$2) {
+        const fieldName = mapping[role];
+        if (typeof fieldName !== "string") continue;
+        const normalizedFieldName = fieldName.trim();
+        if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+      }
+      if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+    });
+    return out;
+  }
   function hasOwn(value, key2) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
   }
@@ -6809,24 +6830,6 @@ recommendedJiten	jiten.moe頻度データです。
   function normalizeStringList(value) {
     if (!Array.isArray(value)) return [];
     return [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
-  }
-  const ANKI_FIELD_MAPPING_ROLES$3 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  function normalizeAnkiFieldMappings(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    const out = {};
-    Object.entries(value).forEach(([modelName, mapping]) => {
-      const normalizedModelName = modelName.trim();
-      if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-      const normalizedMapping = {};
-      for (const role of ANKI_FIELD_MAPPING_ROLES$3) {
-        const fieldName = mapping[role];
-        if (typeof fieldName !== "string") continue;
-        const normalizedFieldName = fieldName.trim();
-        if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-      }
-      if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-    });
-    return out;
   }
   function normalizeAnkiName(value, fallback, oldDefault) {
     if (typeof value !== "string") return fallback;
@@ -9973,24 +9976,12 @@ ${scopedInner}
     const state = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
     for (let index = 0; index < styles.length; index++) {
       const character = styles[index];
-      if (consumeCssBlockStringCharacter(state, character)) continue;
-      if (openCssBlockString(state, character)) continue;
+      if (consumeStringScanCharacter(state, character)) continue;
+      if (openStringScan(state, character)) continue;
       if (openCssBlock(state, styles, index, character)) continue;
       closeCssBlock(state, styles, index, character);
     }
     return state.blocks;
-  }
-  function consumeCssBlockStringCharacter(state, character) {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (character === "\\") state.escaped = true;
-    else if (character === state.inString) state.inString = null;
-    return true;
-  }
-  function openCssBlockString(state, character) {
-    if (character !== '"' && character !== "'") return false;
-    state.inString = character;
-    return true;
   }
   function openCssBlock(state, styles, index, character) {
     if (character !== "{") return false;
@@ -10009,8 +10000,8 @@ ${scopedInner}
     const state = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
     for (let index = 0; index < selector.length; index++) {
       const character = selector[index];
-      if (consumeSelectorStringCharacter(state, character)) continue;
-      if (openSelectorString(state, character)) continue;
+      if (consumeStringScanCharacter(state, character)) continue;
+      if (openStringScan(state, character)) continue;
       updateSelectorDepth(state, character);
       if (!isSelectorSeparator(state, character)) continue;
       state.selectors.push(selector.slice(state.start, index).trim());
@@ -10019,14 +10010,14 @@ ${scopedInner}
     state.selectors.push(selector.slice(state.start).trim());
     return state.selectors.filter(Boolean);
   }
-  function consumeSelectorStringCharacter(state, character) {
+  function consumeStringScanCharacter(state, character) {
     if (!state.inString) return false;
     if (state.escaped) state.escaped = false;
     else if (character === "\\") state.escaped = true;
     else if (character === state.inString) state.inString = null;
     return true;
   }
-  function openSelectorString(state, character) {
+  function openStringScan(state, character) {
     if (character !== '"' && character !== "'") return false;
     state.inString = character;
     return true;
@@ -11152,19 +11143,7 @@ ${scopedInner}
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
-        const reservoir = [];
-        const seen = /* @__PURE__ */ new Set();
-        const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
-        const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
-        let count = 0;
-        await scanObjectStoreCursor(
-          db,
-          { storeName: "terms", maxRows, maxMs, errorMessage: "Could not list dictionary terms." },
-          (entry) => {
-            count = addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count);
-          }
-        );
-        return reservoir;
+        return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
         log$r.warn("Random term listing failed", { limit, error });
         return [];
@@ -11254,6 +11233,9 @@ ${scopedInner}
       });
     }
     async listRandomCommonTerms(db, limit, rank, options = {}) {
+      return await this.collectRandomTermReservoir(db, limit, rank, options, addCommonTermToReservoir);
+    }
+    async collectRandomTermReservoir(db, limit, rank, options, addTerm) {
       const reservoir = [];
       const seen = /* @__PURE__ */ new Set();
       const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
@@ -11263,7 +11245,7 @@ ${scopedInner}
         db,
         { storeName: "terms", maxRows, maxMs, errorMessage: "Could not list dictionary terms." },
         (entry) => {
-          count = addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count);
+          count = addTerm(entry, rank, seen, reservoir, limit, count);
         }
       );
       return reservoir;
@@ -11747,32 +11729,10 @@ ${scopedInner}
     }
     async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
       const queries = [
-        { indexName: "expression", value: expression, limit: expressionLimit },
-        ...reading ? [{ indexName: "reading", value: reading, limit: readingLimit }] : []
+        { indexName: "expression", range: IDBKeyRange.only(expression), limit: expressionLimit },
+        ...reading ? [{ indexName: "reading", range: IDBKeyRange.only(reading), limit: readingLimit }] : []
       ];
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const entries = [];
-        let pending = queries.length;
-        const finish = () => {
-          if (--pending <= 0) resolve(entries);
-        };
-        const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
-        for (const query of queries) {
-          readIndexRequestValues(
-            store.index(query.indexName),
-            IDBKeyRange.only(query.value),
-            query.limit,
-            (found) => {
-              entries.push(...found);
-              finish();
-            },
-            fail
-          );
-        }
-        tx.onerror = () => fail(tx.error);
-      });
+      return this.getTermIndexEntries(db, queries);
     }
     async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
       if (hasStore(db, "termKanji")) {
@@ -11836,37 +11796,34 @@ ${entry.reading}`;
       });
     }
     async getIndexedTermSearchEntries(db, query, limit) {
+      return this.getTermIndexEntries(db, [
+        { indexName: "expression", range: IDBKeyRange.only(query), limit },
+        { indexName: "reading", range: IDBKeyRange.only(query), limit },
+        { indexName: "expression", range: termSearchPrefixRange(query), limit },
+        { indexName: "reading", range: termSearchPrefixRange(query), limit }
+      ]);
+    }
+    async getTermIndexEntries(db, queries) {
       return new Promise((resolve, reject) => {
         const tx = db.transaction("terms", "readonly");
         const store = tx.objectStore("terms");
         const entries = [];
-        const queries = [
-          { indexName: "expression", exact: true },
-          { indexName: "reading", exact: true },
-          { indexName: "expression", exact: false },
-          { indexName: "reading", exact: false }
-        ];
         let pending = queries.length;
         const finish = () => {
           if (--pending <= 0) resolve(entries);
         };
         const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
         for (const item of queries) {
-          const index = store.index(item.indexName);
-          const range = item.exact ? IDBKeyRange.only(query) : termSearchPrefixRange(query);
-          const request = index.openCursor(range);
-          let count = 0;
-          request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor || count >= limit) {
+          readIndexRequestValues(
+            store.index(item.indexName),
+            item.range,
+            item.limit,
+            (found) => {
+              entries.push(...found);
               finish();
-              return;
-            }
-            entries.push(cursor.value);
-            count++;
-            cursor.continue();
-          };
-          request.onerror = () => fail(request.error);
+            },
+            fail
+          );
         }
         tx.onerror = () => fail(tx.error);
       });
@@ -11893,51 +11850,45 @@ ${entry.reading}`;
       void this.prepareTermSearchIndex();
     }
     async getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, options = {}) {
-      return new Promise((resolve, reject) => {
-        const candidates = [];
-        const startedAt = performance.now();
-        let visited = 0;
-        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary glossaries."));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) {
-            resolve(candidates);
-            return;
-          }
-          if (options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs) {
-            resolve(candidates);
-            return;
-          }
-          visited++;
-          const entry = cursor.value;
-          if (dictionaryEnabled(entry.dictionary, rank)) {
-            const searchRank = glossaryTermSearchRank(entry.glossary, query);
-            if (searchRank < Number.POSITIVE_INFINITY) {
-              candidates.push({ entry, rank: searchRank });
-              trimTermSearchCandidates(candidates, candidateLimit, query, rank);
-            }
-          }
-          cursor.continue();
-        };
-      });
+      const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
+      return this.collectGlossaryTermSearchCandidates(
+        request,
+        query,
+        candidateLimit,
+        rank,
+        options,
+        "Could not search local dictionary glossaries.",
+        (entry) => {
+          trimTermSearchCandidates(entry.candidates, candidateLimit, query, rank);
+        },
+        false
+      );
     }
     async getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, options = {}) {
       const token = termSearchIndexToken(query);
       if (!token) return [];
+      const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
+      return this.collectGlossaryTermSearchCandidates(
+        request,
+        query,
+        candidateLimit,
+        rank,
+        options,
+        "Could not search local dictionary glossary index.",
+        void 0,
+        true,
+        (entry) => termEntryFromSearchEntry(entry)
+      );
+    }
+    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage2, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
       return new Promise((resolve, reject) => {
         const candidates = [];
         const startedAt = performance.now();
         let visited = 0;
-        const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary glossary index."));
+        request.onerror = () => reject(request.error ?? new Error(errorMessage2));
         request.onsuccess = () => {
           const cursor = request.result;
-          if (!cursor || candidates.length >= candidateLimit) {
-            resolve(candidates);
-            return;
-          }
-          if (options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs) {
+          if (!cursor || stopAtCandidateLimit && candidates.length >= candidateLimit || glossaryCursorSearchExpired(options, visited, startedAt)) {
             resolve(candidates);
             return;
           }
@@ -11946,7 +11897,8 @@ ${entry.reading}`;
           if (dictionaryEnabled(entry.dictionary, rank)) {
             const searchRank = glossaryTermSearchRank(entry.glossary, query);
             if (searchRank < Number.POSITIVE_INFINITY) {
-              candidates.push({ entry: termEntryFromSearchEntry(entry), rank: searchRank });
+              candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
+              afterPush?.({ candidates });
             }
           }
           cursor.continue();
@@ -12476,6 +12428,9 @@ ${entry.reading}`;
       maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS
     };
   }
+  function glossaryCursorSearchExpired(options, visited, startedAt) {
+    return Boolean(options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs);
+  }
   function hasReadyEmptyGlossarySearchIndex(indexedCount, building) {
     return indexedCount > 0 && !building;
   }
@@ -12630,9 +12585,7 @@ ${glossaryKey}`;
   }
   function rankedTermSearchResults(candidates, query, limit, rank) {
     const seen = /* @__PURE__ */ new Set();
-    return candidates.filter((candidate) => dictionaryEnabled(candidate.entry.dictionary, rank)).sort(
-      (a, b) => a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length
-    ).filter((candidate) => {
+    return candidates.filter((candidate) => dictionaryEnabled(candidate.entry.dictionary, rank)).sort((a, b) => compareTermSearchCandidates(a, b, query, rank)).filter((candidate) => {
       const key2 = termLookupDedupKey(candidate.entry);
       if (seen.has(key2)) return false;
       seen.add(key2);
@@ -12726,10 +12679,11 @@ ${glossaryKey}`;
   }
   function trimTermSearchCandidates(candidates, candidateLimit, query, rank) {
     if (candidates.length <= candidateLimit * 2) return;
-    candidates.sort(
-      (a, b) => a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length
-    );
+    candidates.sort((a, b) => compareTermSearchCandidates(a, b, query, rank));
     candidates.length = candidateLimit;
+  }
+  function compareTermSearchCandidates(a, b, query, rank) {
+    return a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length;
   }
   function normalizeDexieKanjiRow(row) {
     const record = dexieKanjiRecord(row);
@@ -23892,6 +23846,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function resetFactoryResetDictionaryDatabase(dictionaries) {
     return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
   }
+  function createFactoryResetCoordinator(options) {
+    return new FactoryResetCoordinator({
+      isDestroyed: options.isDestroyed,
+      getLanguage: options.getLanguage,
+      invalidateRuntimeStores: options.invalidateRuntimeStores,
+      resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(options.dictionaries),
+      toast: options.toast,
+      reload: options.reload
+    });
+  }
   class FactoryResetCoordinator {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -26462,6 +26426,161 @@ ${spelling}`);
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
+  function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
+    const actions = popover.querySelector("[data-kanji-actions]");
+    const miningMount = popover.querySelector("[data-kanji-mining-mount]");
+    if (!actions || !miningMount) return;
+    const hasControls = Boolean(controls);
+    const hasReview = actions.dataset.kanjiHasReview === "true";
+    actions.hidden = !hasControls && !hasReview;
+    actions.classList.toggle("jpdb-reader-actions-has-mining", hasControls);
+    actions.classList.toggle("jpdb-reader-actions-mining-collapsed", hasControls);
+    const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
+    if (gutter) gutter.hidden = !hasControls;
+    const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
+    if (collapseButton && hasControls) setMiningControlsExpanded2(collapseButton, false);
+    miningMount.hidden = !hasControls;
+    setInnerHtml(miningMount, controls);
+  }
+  function isRubyAnnotation(element) {
+    return element.tagName === "RT" || element.tagName === "RP";
+  }
+  function rubyReadingText(element, fallback, rtText = defaultRubyText) {
+    let text2 = "";
+    let base = "";
+    element.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        base += child.textContent ?? "";
+        return;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+      const childElement = child;
+      if (childElement.tagName === "RT") {
+        text2 += rtText(childElement, base);
+        base = "";
+        return;
+      }
+      if (childElement.tagName === "RP") return;
+      base += fallback(childElement);
+    });
+    return text2 + base || fallback(element);
+  }
+  function defaultRubyText(element, base) {
+    return element.textContent || base;
+  }
+  function jpdbAudioCard(term, reading) {
+    return {
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: term,
+      reading: reading || term,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "local"
+    };
+  }
+  Logger.scope("OCR");
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
+  function readableOnAll(color, backgrounds, targetContrast) {
+    const safe = sanitizeAccentColor(color);
+    if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
+    const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
+    if (candidates[0]) return candidates[0].color;
+    return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
+  }
+  function contrastRatio(a, b) {
+    return sharedContrastRatio(a, b, sanitizeAccentColor);
+  }
+  function mixHex(from, to, amount) {
+    return sharedMixHex(from, to, amount, sanitizeAccentColor);
+  }
+  function isHexColor(value) {
+    return /^#[0-9a-f]{6}$/i.test(value);
+  }
+  function closestReadableMix(color, toward, backgrounds, targetContrast) {
+    for (let amount = 0.04; amount <= 1; amount += 0.04) {
+      const mixed = mixHex(color, toward, amount);
+      const contrast = minContrast(mixed, backgrounds);
+      if (contrast >= targetContrast) return { color: mixed, amount, contrast };
+    }
+    return null;
+  }
+  function minContrast(color, backgrounds) {
+    return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
+  }
+  function clearRenderedWordAnkiState(word) {
+    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    word.style.removeProperty("--jpdb-reader-page-bg");
+    word.style.removeProperty("--jpdb-reader-highlight-backdrop");
+    word.style.removeProperty("--jpdb-reader-furi-accessible-color");
+    word.style.removeProperty("--jpdb-reader-word-accessible-color");
+    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+    word.style.removeProperty("--jpdb-reader-word-highlight-text");
+    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
+  }
+  function setRenderedWordPitchClass(word, pitchClass) {
+    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+    word.classList.add(`jpdb-pitch-${pitchClass}`);
+    word.dataset.pitchClass = pitchClass;
+  }
+  function setRenderedWordCardIdentity(word, card) {
+    word.dataset.vid = String(card.vid);
+    word.dataset.sid = String(card.sid);
+    word.dataset.expression = card.spelling;
+    word.dataset.reading = card.reading;
+  }
+  function replaceOptionalElement(parent, selector, html, before = null) {
+    const existing = parent.querySelector(selector);
+    const next = htmlToFirstElement(html);
+    if (existing && next) {
+      existing.replaceWith(next);
+      return;
+    }
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    if (next) parent.insertBefore(next, before);
+  }
   function newTabLookupReviewTargetSelection(button) {
     if (button.dataset.newtabReviewTarget === "jpdb") return { kind: "jpdb" };
     if (button.dataset.newtabReviewTarget === "jiten") return { kind: "jiten" };
@@ -26484,20 +26603,7 @@ ${spelling}`);
     return renderLookupReviewTargetButtons({ id: "current", kind: "jpdb", label: fallbackLabel, shortLabel: "JPDB" }, grades);
   }
   function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
-    const actions = popover.querySelector("[data-kanji-actions]");
-    const miningMount = popover.querySelector("[data-kanji-mining-mount]");
-    if (!actions || !miningMount) return;
-    const hasControls = Boolean(controls);
-    const hasReview = actions.dataset.kanjiHasReview === "true";
-    actions.hidden = !hasControls && !hasReview;
-    actions.classList.toggle("jpdb-reader-actions-has-mining", hasControls);
-    actions.classList.toggle("jpdb-reader-actions-mining-collapsed", hasControls);
-    const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
-    if (gutter) gutter.hidden = !hasControls;
-    const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
-    if (collapseButton && hasControls) setMiningControlsExpanded2(collapseButton, false);
-    miningMount.hidden = !hasControls;
-    setInnerHtml(miningMount, controls);
+    updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2);
   }
   function lookupTextRequestFromPopoverButton(button) {
     const expression = button.dataset.expression ?? button.dataset.lookup ?? button.dataset.term ?? "";
@@ -26546,19 +26652,6 @@ ${spelling}`);
   }
   function parsedWordLookupSentence(word, expression, card) {
     return word.dataset.sentence || expression || card?.spelling || "";
-  }
-  function replaceOptionalElement(parent, selector, html, before = null) {
-    const existing = parent.querySelector(selector);
-    const next = htmlToFirstElement(html);
-    if (existing && next) {
-      existing.replaceWith(next);
-      return;
-    }
-    if (existing) {
-      existing.remove();
-      return;
-    }
-    if (next) parent.insertBefore(next, before);
   }
   function newLookupMetaLabel(label, stateClass = "") {
     const item = document.createElement("span");
@@ -28039,22 +28132,6 @@ ${normalizedReading}`;
       timeoutLabel: "Public JPDB pitch request timed out."
     });
   }
-  function jpdbAudioCard(term, reading) {
-    return {
-      vid: 0,
-      sid: 0,
-      rid: 0,
-      spelling: term,
-      reading: reading || term,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "local"
-    };
-  }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
   const EMPTY_STATUS = {
     connected: false,
@@ -28122,7 +28199,6 @@ ${normalizedReading}`;
   function canUseFallbackVocabularyRoot(doc, roots, spelling, reading) {
     return canUseGenericVocabularyRoot(roots, spelling, reading) || jpdbDocumentMatchesVocabulary(doc, spelling, reading, cleanText$1);
   }
-  const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
   function jpdbAudioIds(root) {
     return unique(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element) => parseJpdbAudioData(element.dataset.audio ?? "")));
   }
@@ -28131,16 +28207,6 @@ ${normalizedReading}`;
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return [];
     return unique(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element) => !element.closest(".subsection-used-in, .subsection-examples")).flatMap((element) => parseJpdbAudioData(element.dataset.audio ?? "")));
-  }
-  function parseJpdbAudioData(value) {
-    return value.split(",").map(normalizeJpdbAudioGroup).filter(Boolean);
-  }
-  function isValidJpdbAudioId(value) {
-    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes("..") && !value.startsWith("//"));
-  }
-  function normalizeJpdbAudioGroup(value) {
-    const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
-    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join("+") : "";
   }
   function shouldRefreshVocabularyEntryAudio(entry) {
     return Boolean(entry.url && parseJpdbVocabularyUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
@@ -28187,31 +28253,8 @@ ${normalizedReading}`;
   }
   function readingElementText(element) {
     if (isRubyAnnotation(element)) return "";
-    if (element.tagName === "RUBY") return rubyReadingText(element);
+    if (element.tagName === "RUBY") return rubyReadingText(element, baseText);
     return Array.from(element.childNodes).map(readingText).join("");
-  }
-  function isRubyAnnotation(element) {
-    return element.tagName === "RT" || element.tagName === "RP";
-  }
-  function rubyReadingText(element) {
-    let text2 = "";
-    let base = "";
-    element.childNodes.forEach((child) => {
-      if (child.nodeType === Node.TEXT_NODE) {
-        base += child.textContent ?? "";
-        return;
-      }
-      if (child.nodeType !== Node.ELEMENT_NODE) return;
-      const childElement = child;
-      if (childElement.tagName === "RT") {
-        text2 += childElement.textContent || base;
-        base = "";
-        return;
-      }
-      if (childElement.tagName === "RP") return;
-      base += baseText(childElement);
-    });
-    return text2 + base || baseText(element);
   }
   function optionalRichHtml(key2, root, options = {}) {
     const html = jpdbRichTextHtml(root, options);
@@ -28799,50 +28842,54 @@ ${normalizedReading}`;
       return true;
     }
     readCubics(relative) {
-      while (this.hasNumbers(6)) {
+      return this.readCurve(6, () => {
         const c1 = this.absolute(this.read(), this.read(), relative);
         const c2 = this.absolute(this.read(), this.read(), relative);
         const end = this.absolute(this.read(), this.read(), relative);
         sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
         this.current = end;
-        this.lastCubicControl = c2;
-        this.lastQuadraticControl = null;
-      }
-      return true;
+        this.setCubicControl(c2);
+      });
     }
     readSmoothCubics(relative) {
-      while (this.hasNumbers(4)) {
+      return this.readCurve(4, () => {
         const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
         const c2 = this.absolute(this.read(), this.read(), relative);
         const end = this.absolute(this.read(), this.read(), relative);
         sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
         this.current = end;
-        this.lastCubicControl = c2;
-        this.lastQuadraticControl = null;
-      }
-      return true;
+        this.setCubicControl(c2);
+      });
     }
     readQuadratics(relative) {
-      while (this.hasNumbers(4)) {
+      return this.readCurve(4, () => {
         const control = this.absolute(this.read(), this.read(), relative);
         const end = this.absolute(this.read(), this.read(), relative);
         sampleQuadratic(this.current, control, end, (point) => this.push(point));
         this.current = end;
-        this.lastQuadraticControl = control;
-        this.lastCubicControl = null;
-      }
-      return true;
+        this.setQuadraticControl(control);
+      });
     }
     readSmoothQuadratics(relative) {
-      while (this.hasNumbers(2)) {
+      return this.readCurve(2, () => {
         const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
         const end = this.absolute(this.read(), this.read(), relative);
         sampleQuadratic(this.current, control, end, (point) => this.push(point));
         this.current = end;
-        this.lastQuadraticControl = control;
-        this.lastCubicControl = null;
-      }
+        this.setQuadraticControl(control);
+      });
+    }
+    readCurve(numberCount, readSegment) {
+      while (this.hasNumbers(numberCount)) readSegment();
       return true;
+    }
+    setCubicControl(control) {
+      this.lastCubicControl = control;
+      this.lastQuadraticControl = null;
+    }
+    setQuadraticControl(control) {
+      this.lastQuadraticControl = control;
+      this.lastCubicControl = null;
     }
     readArcs(relative) {
       while (this.hasNumbers(7)) {
@@ -30707,64 +30754,6 @@ ${normalizedReading}`;
   }
   function clampGraphPercent(value, min = 0, max2 = 100) {
     return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
-  }
-  const FALLBACK_HEX_COLOR = "#000000";
-  function normalizeHexColor(color) {
-    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-  }
-  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-    const l1 = relativeLuminance(a, normalizeColor);
-    const l2 = relativeLuminance(b, normalizeColor);
-    const light = Math.max(l1, l2);
-    const dark = Math.min(l1, l2);
-    return (light + 0.05) / (dark + 0.05);
-  }
-  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-      const channel = value / 255;
-      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  }
-  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-    const a = sharedHexToRgb(from, normalizeColor);
-    const b = sharedHexToRgb(to, normalizeColor);
-    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-  }
-  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-    const safe = normalizeHexColor(normalizeColor(color));
-    return [
-      parseInt(safe.slice(1, 3), 16),
-      parseInt(safe.slice(3, 5), 16),
-      parseInt(safe.slice(5, 7), 16)
-    ];
-  }
-  function readableOnAll(color, backgrounds, targetContrast) {
-    const safe = sanitizeAccentColor(color);
-    if (backgrounds.every((background) => contrastRatio(safe, background) >= targetContrast)) return safe;
-    const candidates = [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((toward) => closestReadableMix(safe, toward, backgrounds, targetContrast)).filter((candidate) => Boolean(candidate)).sort((a, b) => a.amount - b.amount || b.contrast - a.contrast);
-    if (candidates[0]) return candidates[0].color;
-    return [CORE_COLOR_TOKENS.black, CORE_COLOR_TOKENS.white].map((fallback) => ({ color: fallback, contrast: minContrast(fallback, backgrounds) })).sort((a, b) => b.contrast - a.contrast)[0]?.color ?? CORE_COLOR_TOKENS.black;
-  }
-  function contrastRatio(a, b) {
-    return sharedContrastRatio(a, b, sanitizeAccentColor);
-  }
-  function mixHex(from, to, amount) {
-    return sharedMixHex(from, to, amount, sanitizeAccentColor);
-  }
-  function isHexColor(value) {
-    return /^#[0-9a-f]{6}$/i.test(value);
-  }
-  function closestReadableMix(color, toward, backgrounds, targetContrast) {
-    for (let amount = 0.04; amount <= 1; amount += 0.04) {
-      const mixed = mixHex(color, toward, amount);
-      const contrast = minContrast(mixed, backgrounds);
-      if (contrast >= targetContrast) return { color: mixed, amount, contrast };
-    }
-    return null;
-  }
-  function minContrast(color, backgrounds) {
-    return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
   }
   const log$8 = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
@@ -35905,7 +35894,9 @@ ${newTabCardReading(card)}`;
       return result.cards.length ? result : this.loadBuiltInFreshStudyWords();
     }
     loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN) {
-      const cards = randomPublicJpdbSeedWords(limit).map((term) => this.dependencies.parser.fallbackCardFromText(term));
+      const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
+      if (typeof fallbackCardFromText !== "function") return emptyNewTabLoadResult(this.text("dictionary"));
+      const cards = randomPublicJpdbSeedWords(limit).map((term) => fallbackCardFromText.call(this.dependencies.parser, term));
       return {
         cards,
         sourceLabel: this.text("dictionary"),
@@ -36165,7 +36156,7 @@ ${newTabCardReading(card)}`;
       return result.cards.every((card) => this.cardPrimaryNewTabSource(card) === source);
     }
     emptyCachedResultMatchesSource(result, source) {
-      if (source === "anki") return result.sourceLabel === "Anki" || result.emptyMessageKey === "ankiUnreachable";
+      if (source === "anki") return result.sourceLabel === "Anki" && result.emptyMessageKey !== "ankiUnreachable";
       if (source === "jpdb") return result.sourceLabel.startsWith("JPDB") || result.sourceLabel.startsWith("Jiten");
       return result.sourceLabel === this.text("dictionary");
     }
@@ -36180,14 +36171,7 @@ ${newTabCardReading(card)}`;
       const source = this.effectiveNewTabSourceFromSettings(settings);
       if (this.state.source === source) return;
       this.state = { ...this.state, source, revealAnswer: false };
-      this.allWords = [];
-      this.visibleWords = [];
-      this.visiblePoolSignature = "";
-      this.navigationSupplementPromise = null;
-      this.index = 0;
-      this.sourceLabel = "";
-      this.reviewCountMode = false;
-      this.emptyLoadMessageKey = null;
+      this.resetLoadedSourceState();
       this.persistState();
     }
     effectiveNewTabSourceFromSettings(settings) {
@@ -36213,19 +36197,22 @@ ${newTabCardReading(card)}`;
       if (!root) return;
       this.syncMode(root);
       if (sourceChanged) {
-        this.allWords = [];
-        this.visibleWords = [];
-        this.visiblePoolSignature = "";
-        this.navigationSupplementPromise = null;
-        this.index = 0;
-        this.sourceLabel = "";
-        this.reviewCountMode = false;
-        this.emptyLoadMessageKey = null;
+        this.resetLoadedSourceState();
         this.setStatus(root, this.text("loading"));
         await this.loadWordsInto(root, false, { useOfflineCache: false });
         return;
       }
       this.applyWords(root, true, preferredCardKey);
+    }
+    resetLoadedSourceState() {
+      this.allWords = [];
+      this.visibleWords = [];
+      this.visiblePoolSignature = "";
+      this.navigationSupplementPromise = null;
+      this.index = 0;
+      this.sourceLabel = "";
+      this.reviewCountMode = false;
+      this.emptyLoadMessageKey = null;
     }
     persistState() {
       saveNewTabUiState(this.state);
@@ -40525,31 +40512,6 @@ ${newTabCardReading(card)}`;
       timeoutLabel: "RTK request timed out."
     });
   }
-  function clearRenderedWordAnkiState(word) {
-    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
-    delete word.dataset.ankiState;
-    delete word.dataset.ankiDecks;
-    word.style.removeProperty("--jpdb-reader-page-bg");
-    word.style.removeProperty("--jpdb-reader-highlight-backdrop");
-    word.style.removeProperty("--jpdb-reader-furi-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-    word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-    word.style.removeProperty("--jpdb-reader-word-highlight-text");
-    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
-  }
-  function setRenderedWordPitchClass(word, pitchClass) {
-    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-    word.classList.add(`jpdb-pitch-${pitchClass}`);
-    word.dataset.pitchClass = pitchClass;
-  }
-  function setRenderedWordCardIdentity(word, card) {
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
-    word.dataset.expression = card.spelling;
-    word.dataset.reading = card.reading;
-  }
   const COLOR_SOURCE_CLASSES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_CHANNELS = ["highlight", "underline", "text"];
   const READER_THEME_COLORS = READER_THEME_COLOR_TOKENS;
@@ -40711,6 +40673,16 @@ ${newTabCardReading(card)}`;
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
+  }
+  function showReaderToast(message, durationMs = 3200) {
+    const toast = document.createElement("div");
+    toast.className = "jpdb-reader-toast";
+    toast.dataset.jpdbReaderRoot = "true";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.textContent = message;
+    document.body.append(toast);
+    window.setTimeout(() => toast.remove(), durationMs);
   }
   const log$5 = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
@@ -41405,26 +41377,11 @@ ${newTabCardReading(card)}`;
   function shouldAutoEnableAnkiSection(ankiEnabled, current) {
     return ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled;
   }
-  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function readAnkiFieldMappings(value, fallback) {
     if (!value.trim()) return fallback;
     try {
       const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return fallback;
-      const out = {};
-      Object.entries(parsed).forEach(([modelName, mapping]) => {
-        const normalizedModelName = modelName.trim();
-        if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-        const normalizedMapping = {};
-        for (const role of ANKI_FIELD_MAPPING_ROLES$2) {
-          const fieldName = mapping[role];
-          if (typeof fieldName !== "string") continue;
-          const normalizedFieldName = fieldName.trim();
-          if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-        }
-        if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-      });
-      return out;
+      return normalizeAnkiFieldMappings(parsed);
     } catch {
       return fallback;
     }
@@ -43990,14 +43947,7 @@ ${newTabCardReading(card)}`;
       search.value = "";
       applySettingsSearch(form, "");
     }
-    form.querySelectorAll("[data-settings-panel]").forEach((section) => {
-      section.hidden = section.dataset.settingsPanel !== normalizedPanel;
-    });
-    form.querySelectorAll('[data-action="settings-panel"]').forEach((button) => {
-      const active = button.dataset.panel === normalizedPanel;
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
+    applySettingsPanelState(form, normalizedPanel);
   }
   function applySettingsSearch(form, query) {
     const searchInput = form.querySelector("[data-settings-search]");
@@ -44019,7 +43969,9 @@ ${newTabCardReading(card)}`;
     if (empty) empty.hidden = visibleCount > 0;
   }
   function activateSettingsPanelWithoutClearingSearch(form, panel) {
-    const normalizedPanel = normalizeSettingsPanel(panel);
+    applySettingsPanelState(form, normalizeSettingsPanel(panel));
+  }
+  function applySettingsPanelState(form, normalizedPanel) {
     form.querySelectorAll("[data-settings-panel]").forEach((section) => {
       section.hidden = section.dataset.settingsPanel !== normalizedPanel;
     });
@@ -44378,6 +44330,8 @@ ${newTabCardReading(card)}`;
     return (message, tone, action) => {
       if (!status) return;
       status.dataset.statusTone = tone;
+      if (action) status.dataset.statusAction = action;
+      else delete status.dataset.statusAction;
       setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
     };
   }
@@ -44546,6 +44500,7 @@ ${newTabCardReading(card)}`;
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    ankiBridgeReadyCleanup;
     open(panel) {
       log$2.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -44555,6 +44510,7 @@ ${newTabCardReading(card)}`;
       this.bindFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
       this.bindSettingsTabs(form);
+      this.bindAnkiBridgeReadyRefresh(form);
       this.bindLivePreview(form);
       this.bindEditorControls(form);
       this.currentForm = form;
@@ -44634,6 +44590,7 @@ ${newTabCardReading(card)}`;
     dismissSettings() {
       const restoreTarget = this.previouslyFocusedElement;
       this.previouslyFocusedElement = void 0;
+      this.clearAnkiBridgeReadyRefresh();
       this.currentForm = void 0;
       this.restoreBackgroundFromModal();
       this.dependencies.dismiss();
@@ -44675,7 +44632,34 @@ ${newTabCardReading(card)}`;
     // fallow-ignore-next-line unused-class-member
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
+      if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
       this.restoreBackgroundFromModal();
+    }
+    bindAnkiBridgeReadyRefresh(form) {
+      this.clearAnkiBridgeReadyRefresh();
+      const listener = () => {
+        if (!this.shouldRefreshAnkiStatusAfterBridgeReady(form)) return;
+        void this.refreshAnkiConnectionStatus(form);
+      };
+      const cleanups = [];
+      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener)) {
+        cleanups.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+      }
+      const documentRoot = document.documentElement;
+      documentRoot?.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener);
+      if (documentRoot) cleanups.push(() => documentRoot.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+      this.ankiBridgeReadyCleanup = () => {
+        cleanups.forEach((cleanup) => cleanup());
+      };
+    }
+    clearAnkiBridgeReadyRefresh() {
+      this.ankiBridgeReadyCleanup?.();
+      this.ankiBridgeReadyCleanup = void 0;
+    }
+    shouldRefreshAnkiStatusAfterBridgeReady(form) {
+      if (this.currentForm !== form || !form.isConnected) return false;
+      const status = form.querySelector("[data-anki-status]");
+      return status?.dataset.statusAction === "anki-hosted-bridge";
     }
     trapFocus(form, event) {
       const focusable = Array.from(form.querySelectorAll(SETTINGS_FOCUSABLE_SELECTOR)).filter((element) => !element.closest("[hidden]") && element.getAttribute("aria-hidden") !== "true");
@@ -45084,6 +45068,8 @@ ${newTabCardReading(card)}`;
       const status = form.querySelector("[data-anki-status]");
       if (!status) return;
       status.dataset.statusTone = tone;
+      if (action) status.dataset.statusAction = action;
+      else delete status.dataset.statusAction;
       setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
     }
     async refreshDictionaryStatus(form) {
@@ -45853,22 +45839,7 @@ ${newTabCardReading(card)}`;
         `;
     }
     installGrammarLoader(popover, sentence) {
-      const containers = Array.from(popover.querySelectorAll("[data-study-grammar]"));
-      if (!containers.length || !sentence) return;
-      for (const container of containers) {
-        const load = () => {
-          if (!isStudyDetailsOpen(container) || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
-          container.dataset.loading = "true";
-          void this.loadGrammar(popover, sentence, container).finally(() => {
-            if (!container.isConnected) return;
-            delete container.dataset.loading;
-            container.dataset.loaded = "true";
-          });
-        };
-        container.addEventListener("toggle", load);
-        container.parentElement?.closest("details")?.addEventListener("toggle", load);
-        load();
-      }
+      this.installLazyStudyLoader(popover, sentence, "[data-study-grammar]", (container) => this.loadGrammar(popover, sentence, container));
     }
     async loadGrammar(popover, sentence, container) {
       const panel = container.querySelector("[data-study-grammar-panel]");
@@ -45893,15 +45864,20 @@ ${newTabCardReading(card)}`;
       return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     installTranslationLoader(popover, sentence) {
-      const containers = Array.from(popover.querySelectorAll("[data-study-translation]"));
+      this.installLazyStudyLoader(popover, sentence, "[data-study-translation]", (container) => {
+        const result = container.querySelector("[data-study-translation-result]");
+        if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translating");
+        return this.loadTranslation(popover, sentence, container);
+      });
+    }
+    installLazyStudyLoader(popover, sentence, selector, loadContainer) {
+      const containers = Array.from(popover.querySelectorAll(selector));
       if (!containers.length || !sentence) return;
       for (const container of containers) {
         const load = () => {
           if (!isStudyDetailsOpen(container) || container.dataset.loaded === "true" || container.dataset.loading === "true") return;
           container.dataset.loading = "true";
-          const result = container.querySelector("[data-study-translation-result]");
-          if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translating");
-          void this.loadTranslation(popover, sentence, container).finally(() => {
+          void loadContainer(container).finally(() => {
             if (!container.isConnected) return;
             delete container.dataset.loading;
             container.dataset.loaded = "true";
@@ -46181,11 +46157,11 @@ ${newTabCardReading(card)}`;
       jpdb: this.jpdb,
       dictionaries: this.dictionaries
     });
-    factoryReset = new FactoryResetCoordinator({
+    factoryReset = createFactoryResetCoordinator({
+      dictionaries: this.dictionaries,
       isDestroyed: () => this.isDestroyed,
       getLanguage: () => this.settings.interfaceLanguage,
       invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-      resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
       toast: (message) => this.toast(message),
       reload: () => location.reload()
     });
@@ -47630,14 +47606,7 @@ ${newTabCardReading(card)}`;
       this.settingsPreviewOriginalTheme = void 0;
     }
     toast(message) {
-      const toast = document.createElement("div");
-      toast.className = "jpdb-reader-toast";
-      toast.dataset.jpdbReaderRoot = "true";
-      toast.setAttribute("role", "status");
-      toast.setAttribute("aria-live", "polite");
-      toast.textContent = message;
-      document.body.append(toast);
-      window.setTimeout(() => toast.remove(), 3e3);
+      showReaderToast(message, 3e3);
     }
     applyTheme(settings = this.settings) {
       applyReaderTheme(settings);

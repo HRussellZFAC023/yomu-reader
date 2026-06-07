@@ -20,7 +20,7 @@ import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from 
 import { DictionarySourceStateController } from '../dictionary-source-state';
 import { escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
 import { DictionaryStyleController } from '../dictionary-styles';
-import { FactoryResetCoordinator, resetFactoryResetDictionaryDatabase } from '../factory-reset-coordinator';
+import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../factory-reset-coordinator';
 import { ImmersionKitClient } from '../immersion-kit';
 import { ImmersionPopoverController } from '../immersion-popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../idle';
@@ -91,6 +91,7 @@ import {
 } from '../settings';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../rendered-word-state';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
+import { showReaderToast } from '../toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../reader-status-warmup';
 import { SettingsDialogController } from '../settings-dialog-controller';
@@ -308,11 +309,11 @@ export class NewTabRuntime {
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
     });
-    private factoryReset = new FactoryResetCoordinator({
+    private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
+        dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
         getLanguage: () => this.settings.interfaceLanguage,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
@@ -1976,14 +1977,7 @@ export class NewTabRuntime {
     }
 
     private toast(message: string): void {
-        const toast = document.createElement('div');
-        toast.className = 'jpdb-reader-toast';
-        toast.dataset.jpdbReaderRoot = 'true';
-        toast.setAttribute('role', 'status');
-        toast.setAttribute('aria-live', 'polite');
-        toast.textContent = message;
-        document.body.append(toast);
-        window.setTimeout(() => toast.remove(), 3000);
+        showReaderToast(message, 3000);
     }
 
     private applyTheme(settings = this.settings): void {

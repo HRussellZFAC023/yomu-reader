@@ -395,26 +395,22 @@ function applyContainedVideoHeight(video: HTMLVideoElement, height: number): voi
 }
 
 function restoreGenericSideInsetStyles(target: HTMLElement): void {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, 'width', previous.width);
-    setRestoredStyleProperty(target, 'height', previous.height);
-    setRestoredStyleProperty(target, 'max-width', previous.maxWidth);
-    setRestoredStyleProperty(target, 'max-height', previous.maxHeight);
-    setRestoredStyleProperty(target, 'min-width', previous.minWidth);
-    setRestoredStyleProperty(target, 'min-height', previous.minHeight);
-    setRestoredStyleProperty(target, 'margin-left', previous.marginLeft);
-    setRestoredStyleProperty(target, 'margin-right', previous.marginRight);
-    setRestoredStyleProperty(target, 'justify-self', previous.justifySelf);
-    setRestoredStyleProperty(target, 'object-fit', previous.objectFit);
+    restoreGenericInsetStyleProperties(target, [
+        'width',
+        'height',
+        'maxWidth',
+        'maxHeight',
+        'minWidth',
+        'minHeight',
+        'marginLeft',
+        'marginRight',
+        'justifySelf',
+        'objectFit',
+    ]);
 }
 
 function restoreGenericBottomInsetStyles(target: HTMLElement): void {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, 'height', previous.height);
-    setRestoredStyleProperty(target, 'max-height', previous.maxHeight);
-    setRestoredStyleProperty(target, 'min-height', previous.minHeight);
+    restoreGenericInsetStyleProperties(target, ['height', 'maxHeight', 'minHeight']);
 }
 
 function clearGenericVideoInset(video: HTMLVideoElement): void {
@@ -425,20 +421,33 @@ function clearGenericVideoInset(video: HTMLVideoElement): void {
 }
 
 function clearGenericVideoInsetTarget(target: HTMLElement): void {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, 'width', previous.width);
-    setRestoredStyleProperty(target, 'height', previous.height);
-    setRestoredStyleProperty(target, 'max-width', previous.maxWidth);
-    setRestoredStyleProperty(target, 'max-height', previous.maxHeight);
-    setRestoredStyleProperty(target, 'min-width', previous.minWidth);
-    setRestoredStyleProperty(target, 'min-height', previous.minHeight);
-    setRestoredStyleProperty(target, 'margin-left', previous.marginLeft);
-    setRestoredStyleProperty(target, 'margin-right', previous.marginRight);
-    setRestoredStyleProperty(target, 'justify-self', previous.justifySelf);
-    setRestoredStyleProperty(target, 'object-fit', previous.objectFit);
+    if (!restoreGenericInsetStyleProperties(target, [
+        'width',
+        'height',
+        'maxWidth',
+        'maxHeight',
+        'minWidth',
+        'minHeight',
+        'marginLeft',
+        'marginRight',
+        'justifySelf',
+        'objectFit',
+    ])) return;
     genericVideoInsetStyles.delete(target);
     genericVideoInsetBaseRects.delete(target);
+}
+
+function restoreGenericInsetStyleProperties(target: HTMLElement, properties: GenericInsetProperty[]): boolean {
+    const previous = genericVideoInsetStyles.get(target);
+    if (!previous) return false;
+    properties.forEach(property => {
+        setRestoredStyleProperty(target, stylePropertyName(property), previous[property]);
+    });
+    return true;
+}
+
+function stylePropertyName(property: GenericInsetProperty): string {
+    return property.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
 }
 
 function genericVideoLayoutTarget(video: HTMLVideoElement, side: SubtitleVideoInsetSide = 'right'): HTMLElement {

@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatDuration, readPositiveInt } from './ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REGULAR_SHARD_TOTAL = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');
@@ -206,19 +207,4 @@ function startPendingShards(pending, active, concurrency, startShard) {
 
 function allShardsFinished(pending, active) {
     return !active.size && !pending.length;
-}
-
-function readPositiveInt(value, label) {
-    const parsed = Number.parseInt(String(value), 10);
-    if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`);
-    return parsed;
-}
-
-function formatDuration(ms) {
-    if (ms < 1000) return `${ms}ms`;
-    const seconds = Math.round(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }

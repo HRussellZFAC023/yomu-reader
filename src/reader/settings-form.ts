@@ -1725,14 +1725,7 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
         search.value = '';
         applySettingsSearch(form, '');
     }
-    form.querySelectorAll<HTMLElement>('[data-settings-panel]').forEach(section => {
-        section.hidden = section.dataset.settingsPanel !== normalizedPanel;
-    });
-    form.querySelectorAll<HTMLButtonElement>('[data-action="settings-panel"]').forEach(button => {
-        const active = button.dataset.panel === normalizedPanel;
-        button.setAttribute('aria-selected', String(active));
-        button.tabIndex = active ? 0 : -1;
-    });
+    applySettingsPanelState(form, normalizedPanel);
 }
 
 export function applySettingsSearch(form: HTMLFormElement, query: string): void {
@@ -1758,7 +1751,10 @@ export function applySettingsSearch(form: HTMLFormElement, query: string): void 
 }
 
 function activateSettingsPanelWithoutClearingSearch(form: HTMLFormElement, panel: string): void {
-    const normalizedPanel = normalizeSettingsPanel(panel);
+    applySettingsPanelState(form, normalizeSettingsPanel(panel));
+}
+
+function applySettingsPanelState(form: HTMLFormElement, normalizedPanel: string): void {
     form.querySelectorAll<HTMLElement>('[data-settings-panel]').forEach(section => {
         section.hidden = section.dataset.settingsPanel !== normalizedPanel;
     });

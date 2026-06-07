@@ -84,53 +84,60 @@ class SvgPathSampler {
     }
 
     readCubics(relative: boolean): boolean {
-        while (this.hasNumbers(6)) {
+        return this.readCurve(6, () => {
             const c1 = this.absolute(this.read(), this.read(), relative);
             const c2 = this.absolute(this.read(), this.read(), relative);
             const end = this.absolute(this.read(), this.read(), relative);
             sampleCubic(this.current, c1, c2, end, point => this.push(point));
             this.current = end;
-            this.lastCubicControl = c2;
-            this.lastQuadraticControl = null;
-        }
-        return true;
+            this.setCubicControl(c2);
+        });
     }
 
     readSmoothCubics(relative: boolean): boolean {
-        while (this.hasNumbers(4)) {
+        return this.readCurve(4, () => {
             const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
             const c2 = this.absolute(this.read(), this.read(), relative);
             const end = this.absolute(this.read(), this.read(), relative);
             sampleCubic(this.current, c1, c2, end, point => this.push(point));
             this.current = end;
-            this.lastCubicControl = c2;
-            this.lastQuadraticControl = null;
-        }
-        return true;
+            this.setCubicControl(c2);
+        });
     }
 
     readQuadratics(relative: boolean): boolean {
-        while (this.hasNumbers(4)) {
+        return this.readCurve(4, () => {
             const control = this.absolute(this.read(), this.read(), relative);
             const end = this.absolute(this.read(), this.read(), relative);
             sampleQuadratic(this.current, control, end, point => this.push(point));
             this.current = end;
-            this.lastQuadraticControl = control;
-            this.lastCubicControl = null;
-        }
-        return true;
+            this.setQuadraticControl(control);
+        });
     }
 
     readSmoothQuadratics(relative: boolean): boolean {
-        while (this.hasNumbers(2)) {
+        return this.readCurve(2, () => {
             const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
             const end = this.absolute(this.read(), this.read(), relative);
             sampleQuadratic(this.current, control, end, point => this.push(point));
             this.current = end;
-            this.lastQuadraticControl = control;
-            this.lastCubicControl = null;
-        }
+            this.setQuadraticControl(control);
+        });
+    }
+
+    private readCurve(numberCount: number, readSegment: () => void): boolean {
+        while (this.hasNumbers(numberCount)) readSegment();
         return true;
+    }
+
+    private setCubicControl(control: SvgPathPoint): void {
+        this.lastCubicControl = control;
+        this.lastQuadraticControl = null;
+    }
+
+    private setQuadraticControl(control: SvgPathPoint): void {
+        this.lastQuadraticControl = control;
+        this.lastCubicControl = null;
     }
 
     readArcs(relative: boolean): boolean {

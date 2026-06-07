@@ -1,5 +1,6 @@
 import type { JPDBCard, ReaderSettings } from '../types';
 import type { YomitanTermEntry } from '../yomitan';
+import { isRubyAnnotation, rubyReadingText } from './jpdb-ruby-text';
 import { cleanText, firstReviewGlyph, JAPANESE_RE } from './jpdb-text';
 
 export interface JpdbTermTarget {
@@ -405,15 +406,11 @@ function extractSearchQuery(): string {
 }
 
 function extractTermFromUrl(): string {
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (parts[0] === 'vocabulary' && parts[2]) return decodePathPart(parts[2]);
-    if (parts[0] === 'kanji' && parts[1]) return decodePathPart(parts[1]);
-    return '';
+    return jpdbPathTerm(location.pathname);
 }
 
 function extractReadingFromUrl(): string {
-    const parts = location.pathname.split('/').filter(Boolean);
-    return parts[0] === 'vocabulary' && parts[3] ? decodePathPart(parts[3]) : '';
+    return vocabularyPathReading(location.pathname);
 }
 
 function decodePathPart(value: string): string {
@@ -469,16 +466,12 @@ function extractReadingText(root: Node): string {
 
 function extractReadingElementText(element: HTMLElement): string {
     if (isIgnoredSourceTextElement(element)) return '';
-    if (element.tagName === 'RUBY') return rubyReadingText(element, extractBaseText);
+    if (element.tagName === 'RUBY') return rubyReadingText(element, extractBaseText, generatedAwareRubyText);
     return Array.from(element.childNodes).map(extractReadingText).join('');
 }
 
 function isJapaneseTerm(value: string): boolean {
     return Boolean(value && JAPANESE_RE.test(value));
-}
-
-function isRubyAnnotation(element: Element): boolean {
-    return element.tagName === 'RT' || element.tagName === 'RP';
 }
 
 function isIgnoredSourceTextElement(element: Element): boolean {
@@ -491,25 +484,8 @@ function isGeneratedReaderAnnotation(element: Element): boolean {
     return element.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
 }
 
-function rubyReadingText(element: Element, fallback: (root: Node) => string): string {
-    let text = '';
-    let base = '';
-    element.childNodes.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE) {
-            base += child.textContent ?? '';
-            return;
-        }
-        if (child.nodeType !== Node.ELEMENT_NODE) return;
-        const childElement = child as Element;
-        if (childElement.tagName === 'RT') {
-            text += isGeneratedReaderAnnotation(childElement) ? base : childElement.textContent || base;
-            base = '';
-            return;
-        }
-        if (childElement.tagName === 'RP') return;
-        base += fallback(childElement);
-    });
-    return text + base || fallback(element);
+function generatedAwareRubyText(element: Element, base: string): string {
+    return isGeneratedReaderAnnotation(element) ? base : element.textContent || base;
 }
 
 function extractAlternateTerms(root: ParentNode): string[] {
@@ -532,20 +508,24 @@ function searchResultTerms(limit: number): Array<{ term: string; reading: string
 }
 
 function vocabularyPathTerm(pathname: string): string {
-    const parts = pathname.split('/').filter(Boolean);
+    const parts = jpdbPathParts(pathname);
     return parts[0] === 'vocabulary' && parts[2] ? decodePathPart(parts[2]) : '';
 }
 
 function vocabularyPathReading(pathname: string): string {
-    const parts = pathname.split('/').filter(Boolean);
+    const parts = jpdbPathParts(pathname);
     return parts[0] === 'vocabulary' && parts[3] ? decodePathPart(parts[3]) : '';
 }
 
 function jpdbPathTerm(pathname: string): string {
-    const parts = pathname.split('/').filter(Boolean);
+    const parts = jpdbPathParts(pathname);
     if (parts[0] === 'vocabulary' && parts[2]) return decodePathPart(parts[2]);
     if (parts[0] === 'kanji' && parts[1]) return decodePathPart(parts[1]);
     return '';
+}
+
+function jpdbPathParts(pathname: string): string[] {
+    return pathname.split('/').filter(Boolean);
 }
 
 function sourceElements<T extends HTMLElement = HTMLElement>(root: ParentNode, selector: string): T[] {

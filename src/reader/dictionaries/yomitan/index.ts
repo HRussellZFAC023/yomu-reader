@@ -91,6 +91,12 @@ interface GlossaryCursorSearchOptions {
     maxMs?: number;
 }
 
+interface TermIndexQuery {
+    indexName: string;
+    range: IDBKeyRange;
+    limit: number;
+}
+
 interface StoreCursorScanOptions {
     storeName: StoreName;
     maxRows: number;
@@ -504,20 +510,7 @@ export class YomitanDictionaryStore {
         try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
-            const reservoir: YomitanTermEntry[] = [];
-            const seen = new Set<string>();
-            const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
-            const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
-            let count = 0;
-            await scanObjectStoreCursor<YomitanTermEntry>(
-                db,
-                { storeName: 'terms', maxRows, maxMs, errorMessage: 'Could not list dictionary terms.' },
-                entry => {
-                    count = addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count);
-                },
-            );
-
-            return reservoir;
+            return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
         } catch (error) {
             log.warn('Random term listing failed', { limit, error });
             return [];
@@ -634,6 +627,23 @@ export class YomitanDictionaryStore {
         rank: Map<string, DictionaryPreference>,
         options: GlossaryCursorSearchOptions = {},
     ): Promise<YomitanTermEntry[]> {
+        return await this.collectRandomTermReservoir(db, limit, rank, options, addCommonTermToReservoir);
+    }
+
+    private async collectRandomTermReservoir(
+        db: IDBDatabase,
+        limit: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions,
+        addTerm: (
+            entry: YomitanTermEntry,
+            rank: Map<string, DictionaryPreference>,
+            seen: Set<string>,
+            reservoir: YomitanTermEntry[],
+            limit: number,
+            count: number,
+        ) => number,
+    ): Promise<YomitanTermEntry[]> {
         const reservoir: YomitanTermEntry[] = [];
         const seen = new Set<string>();
         const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
@@ -643,7 +653,7 @@ export class YomitanDictionaryStore {
             db,
             { storeName: 'terms', maxRows, maxMs, errorMessage: 'Could not list dictionary terms.' },
             entry => {
-                count = addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count);
+                count = addTerm(entry, rank, seen, reservoir, limit, count);
             },
         );
         return reservoir;
@@ -1168,33 +1178,10 @@ export class YomitanDictionaryStore {
 
     private async getTermLookupEntries(db: IDBDatabase, expression: string, reading: string, expressionLimit: number, readingLimit: number): Promise<YomitanTermEntry[]> {
         const queries = [
-            { indexName: 'expression', value: expression, limit: expressionLimit },
-            ...(reading ? [{ indexName: 'reading', value: reading, limit: readingLimit }] : []),
+            { indexName: 'expression', range: IDBKeyRange.only(expression), limit: expressionLimit },
+            ...(reading ? [{ indexName: 'reading', range: IDBKeyRange.only(reading), limit: readingLimit }] : []),
         ];
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction('terms', 'readonly');
-            const store = tx.objectStore('terms');
-            const entries: YomitanTermEntry[] = [];
-            let pending = queries.length;
-            const finish = () => {
-                if (--pending <= 0) resolve(entries);
-            };
-            const fail = (error: unknown) => reject(error ?? new Error('Could not search local dictionary terms.'));
-
-            for (const query of queries) {
-                readIndexRequestValues<YomitanTermEntry>(
-                    store.index(query.indexName),
-                    IDBKeyRange.only(query.value),
-                    query.limit,
-                    found => {
-                        entries.push(...found);
-                        finish();
-                    },
-                    fail,
-                );
-            }
-            tx.onerror = () => fail(tx.error);
-        });
+        return this.getTermIndexEntries(db, queries);
     }
 
     private async getSimilarTermEntriesByKanji(
@@ -1280,16 +1267,19 @@ export class YomitanDictionaryStore {
     }
 
     private async getIndexedTermSearchEntries(db: IDBDatabase, query: string, limit: number): Promise<YomitanTermEntry[]> {
+        return this.getTermIndexEntries(db, [
+            { indexName: 'expression', range: IDBKeyRange.only(query), limit },
+            { indexName: 'reading', range: IDBKeyRange.only(query), limit },
+            { indexName: 'expression', range: termSearchPrefixRange(query), limit },
+            { indexName: 'reading', range: termSearchPrefixRange(query), limit },
+        ]);
+    }
+
+    private async getTermIndexEntries(db: IDBDatabase, queries: TermIndexQuery[]): Promise<YomitanTermEntry[]> {
         return new Promise((resolve, reject) => {
             const tx = db.transaction('terms', 'readonly');
             const store = tx.objectStore('terms');
             const entries: YomitanTermEntry[] = [];
-            const queries = [
-                { indexName: 'expression', exact: true },
-                { indexName: 'reading', exact: true },
-                { indexName: 'expression', exact: false },
-                { indexName: 'reading', exact: false },
-            ];
             let pending = queries.length;
             const finish = () => {
                 if (--pending <= 0) resolve(entries);
@@ -1297,21 +1287,16 @@ export class YomitanDictionaryStore {
             const fail = (error: unknown) => reject(error ?? new Error('Could not search local dictionary terms.'));
 
             for (const item of queries) {
-                const index = store.index(item.indexName);
-                const range = item.exact ? IDBKeyRange.only(query) : termSearchPrefixRange(query);
-                const request = index.openCursor(range);
-                let count = 0;
-                request.onsuccess = () => {
-                    const cursor = request.result;
-                    if (!cursor || count >= limit) {
+                readIndexRequestValues<YomitanTermEntry>(
+                    store.index(item.indexName),
+                    item.range,
+                    item.limit,
+                    found => {
+                        entries.push(...found);
                         finish();
-                        return;
-                    }
-                    entries.push(cursor.value as YomitanTermEntry);
-                    count++;
-                    cursor.continue();
-                };
-                request.onerror = () => fail(request.error);
+                    },
+                    fail,
+                );
             }
             tx.onerror = () => fail(tx.error);
         });
@@ -1361,35 +1346,19 @@ export class YomitanDictionaryStore {
         rank: Map<string, DictionaryPreference>,
         options: GlossaryCursorSearchOptions = {},
     ): Promise<TermSearchCandidate[]> {
-        return new Promise((resolve, reject) => {
-            const candidates: TermSearchCandidate[] = [];
-            const startedAt = performance.now();
-            let visited = 0;
-            const request = db.transaction('terms', 'readonly').objectStore('terms').openCursor();
-            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary glossaries.'));
-            request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor) {
-                    resolve(candidates);
-                    return;
-                }
-                if ((options.maxRows && visited >= options.maxRows)
-                    || (options.maxMs && performance.now() - startedAt >= options.maxMs)) {
-                    resolve(candidates);
-                    return;
-                }
-                visited++;
-                const entry = cursor.value as YomitanTermEntry;
-                if (dictionaryEnabled(entry.dictionary, rank)) {
-                    const searchRank = glossaryTermSearchRank(entry.glossary, query);
-                    if (searchRank < Number.POSITIVE_INFINITY) {
-                        candidates.push({ entry, rank: searchRank });
-                        trimTermSearchCandidates(candidates, candidateLimit, query, rank);
-                    }
-                }
-                cursor.continue();
-            };
-        });
+        const request = db.transaction('terms', 'readonly').objectStore('terms').openCursor();
+        return this.collectGlossaryTermSearchCandidates(
+            request,
+            query,
+            candidateLimit,
+            rank,
+            options,
+            'Could not search local dictionary glossaries.',
+            entry => {
+                trimTermSearchCandidates(entry.candidates, candidateLimit, query, rank);
+            },
+            false,
+        );
     }
 
     private async getGlossaryTermSearchIndexCandidates(
@@ -1401,32 +1370,54 @@ export class YomitanDictionaryStore {
     ): Promise<TermSearchCandidate[]> {
         const token = termSearchIndexToken(query);
         if (!token) return [];
+        const request = db.transaction('termSearch', 'readonly')
+            .objectStore('termSearch')
+            .index('token')
+            .openCursor(termSearchPrefixRange(token));
+        return this.collectGlossaryTermSearchCandidates(
+            request,
+            query,
+            candidateLimit,
+            rank,
+            options,
+            'Could not search local dictionary glossary index.',
+            undefined,
+            true,
+            entry => termEntryFromSearchEntry(entry as YomitanTermSearchEntry),
+        );
+    }
+
+    private async collectGlossaryTermSearchCandidates(
+        request: IDBRequest<IDBCursorWithValue | null>,
+        query: string,
+        candidateLimit: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions,
+        errorMessage: string,
+        afterPush?: (state: { candidates: TermSearchCandidate[] }) => void,
+        stopAtCandidateLimit = true,
+        entryFromCursorValue: (entry: YomitanTermEntry | YomitanTermSearchEntry) => YomitanTermEntry = entry => entry,
+    ): Promise<TermSearchCandidate[]> {
         return new Promise((resolve, reject) => {
             const candidates: TermSearchCandidate[] = [];
             const startedAt = performance.now();
             let visited = 0;
-            const request = db.transaction('termSearch', 'readonly')
-                .objectStore('termSearch')
-                .index('token')
-                .openCursor(termSearchPrefixRange(token));
-            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary glossary index.'));
+            request.onerror = () => reject(request.error ?? new Error(errorMessage));
             request.onsuccess = () => {
                 const cursor = request.result;
-                if (!cursor || candidates.length >= candidateLimit) {
-                    resolve(candidates);
-                    return;
-                }
-                if ((options.maxRows && visited >= options.maxRows)
-                    || (options.maxMs && performance.now() - startedAt >= options.maxMs)) {
+                if (!cursor
+                    || (stopAtCandidateLimit && candidates.length >= candidateLimit)
+                    || glossaryCursorSearchExpired(options, visited, startedAt)) {
                     resolve(candidates);
                     return;
                 }
                 visited++;
-                const entry = cursor.value as YomitanTermSearchEntry;
+                const entry = cursor.value as YomitanTermEntry | YomitanTermSearchEntry;
                 if (dictionaryEnabled(entry.dictionary, rank)) {
                     const searchRank = glossaryTermSearchRank(entry.glossary, query);
                     if (searchRank < Number.POSITIVE_INFINITY) {
-                        candidates.push({ entry: termEntryFromSearchEntry(entry), rank: searchRank });
+                        candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
+                        afterPush?.({ candidates });
                     }
                 }
                 cursor.continue();
@@ -2100,6 +2091,11 @@ function glossaryFallbackSearchOptions(options: TermSearchOptions): GlossaryCurs
     };
 }
 
+function glossaryCursorSearchExpired(options: GlossaryCursorSearchOptions, visited: number, startedAt: number): boolean {
+    return Boolean((options.maxRows && visited >= options.maxRows)
+        || (options.maxMs && performance.now() - startedAt >= options.maxMs));
+}
+
 function hasReadyEmptyGlossarySearchIndex(indexedCount: number, building: boolean): boolean {
     return indexedCount > 0 && !building;
 }
@@ -2302,13 +2298,7 @@ function rankedTermSearchResults(
     const seen = new Set<string>();
     return candidates
         .filter(candidate => dictionaryEnabled(candidate.entry.dictionary, rank))
-        .sort((a, b) =>
-            a.rank - b.rank
-            || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank)
-            || (b.entry.score ?? 0) - (a.entry.score ?? 0)
-            || Number(b.entry.expression === query) - Number(a.entry.expression === query)
-            || a.entry.expression.length - b.entry.expression.length,
-        )
+        .sort((a, b) => compareTermSearchCandidates(a, b, query, rank))
         .filter(candidate => {
             const key = termLookupDedupKey(candidate.entry);
             if (seen.has(key)) return false;
@@ -2425,14 +2415,21 @@ function trimTermSearchCandidates(
     rank: Map<string, DictionaryPreference>,
 ): void {
     if (candidates.length <= candidateLimit * 2) return;
-    candidates.sort((a, b) =>
-        a.rank - b.rank
+    candidates.sort((a, b) => compareTermSearchCandidates(a, b, query, rank));
+    candidates.length = candidateLimit;
+}
+
+function compareTermSearchCandidates(
+    a: TermSearchCandidate,
+    b: TermSearchCandidate,
+    query: string,
+    rank: Map<string, DictionaryPreference>,
+): number {
+    return a.rank - b.rank
         || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank)
         || (b.entry.score ?? 0) - (a.entry.score ?? 0)
         || Number(b.entry.expression === query) - Number(a.entry.expression === query)
-        || a.entry.expression.length - b.entry.expression.length,
-    );
-    candidates.length = candidateLimit;
+        || a.entry.expression.length - b.entry.expression.length;
 }
 
 function normalizeDexieKanjiRow(row: unknown): YomitanKanjiEntry | null {

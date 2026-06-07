@@ -3,6 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { ReaderSettings } from '../../src/reader/types';
+import {
+    appendActivePopoverAndPageWord,
+    appendActivePopoverBody,
+    appendKeyboardLookupWords,
+    appendParsedWordPair,
+    appendSingleWordOcrLine,
+} from './helpers/hover-fixtures';
 
 interface HoverLookupInternals {
     settings: ReaderSettings;
@@ -37,19 +44,6 @@ interface HoverLookupSpyOptions {
     activePopoverMode?: 'modal' | 'hover';
     hoverLookupShortcut?: string;
     settings?: Partial<ReaderSettings>;
-}
-
-function makeKeyboardNavigable(word: HTMLElement): void {
-    Object.defineProperties(word, {
-        getClientRects: {
-            configurable: true,
-            value: () => [new DOMRect(0, 0, 24, 24)],
-        },
-        scrollIntoView: {
-            configurable: true,
-            value: vi.fn(),
-        },
-    });
 }
 
 function hoverPointerEvent(
@@ -90,23 +84,6 @@ function activePopoverWordFixture(): { popover: HTMLElement; word: HTMLElement }
     `;
     document.body.append(popover);
     return { popover, word: popover.querySelector<HTMLElement>('.jpdb-reader-word')! };
-}
-
-function parsedWordPairFixture(): { firstWord: HTMLElement; nextWord: HTMLElement } {
-    const firstWord = parsedWordFixture('1', '2', '猫を見る', '猫');
-    const nextWord = parsedWordFixture('3', '4', '犬を見る', '犬');
-    document.body.append(firstWord, nextWord);
-    return { firstWord, nextWord };
-}
-
-function parsedWordFixture(vid: string, sid: string, sentence: string, text: string): HTMLElement {
-    const word = document.createElement('span');
-    word.className = 'jpdb-reader-word';
-    word.dataset.vid = vid;
-    word.dataset.sid = sid;
-    word.dataset.sentence = sentence;
-    word.textContent = text;
-    return word;
 }
 
 function setupHoverLookupSpies(
@@ -350,15 +327,7 @@ describe('hover lookup', () => {
 
     it('treats a hovered single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
-        const layer = document.createElement('div');
-        layer.className = 'jpdb-ocr-layer';
-        layer.dataset.jpdbReaderRoot = 'true';
-        const line = document.createElement('div');
-        line.className = 'jpdb-ocr-line';
-        line.innerHTML = '<span class="jpdb-ocr-line-text"><span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="読む">読む</span></span>';
-        layer.append(line);
-        document.body.append(layer);
-        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const { line, word } = appendSingleWordOcrLine();
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
         const originalElementFromPoint = document.elementFromPoint;
@@ -390,15 +359,7 @@ describe('hover lookup', () => {
 
     it('treats a clicked single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
-        const layer = document.createElement('div');
-        layer.className = 'jpdb-ocr-layer';
-        layer.dataset.jpdbReaderRoot = 'true';
-        const line = document.createElement('div');
-        line.className = 'jpdb-ocr-line';
-        line.innerHTML = '<span class="jpdb-ocr-line-text"><span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="読む">読む</span></span>';
-        layer.append(line);
-        document.body.append(layer);
-        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const { line, word } = appendSingleWordOcrLine();
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
 
@@ -430,12 +391,7 @@ describe('hover lookup', () => {
 
     it('keeps plain pointer-text hover disabled inside the active popover chrome', () => {
         const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        popover.innerHTML = '<div class="jpdb-reader-popover-body">説明</div>';
-        document.body.append(popover);
-        const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+        const { popover, body } = appendActivePopoverBody();
         const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
@@ -449,18 +405,7 @@ describe('hover lookup', () => {
 
     it('disables page hover lookups while a clicked popover is open', () => {
         const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        popover.textContent = '読む';
-        const pageWord = document.createElement('span');
-        pageWord.className = 'jpdb-reader-word';
-        pageWord.dataset.vid = '3';
-        pageWord.dataset.sid = '4';
-        pageWord.dataset.sentence = '本を読む';
-        pageWord.textContent = '読む';
-        document.body.append(popover, pageWord);
-
+        const { popover, pageWord } = appendActivePopoverAndPageWord();
         const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
@@ -475,12 +420,7 @@ describe('hover lookup', () => {
 
     it('does not schedule hover close when the pointer leaves a clicked popover', () => {
         const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        popover.innerHTML = '<div class="jpdb-reader-popover-body">説明</div>';
-        document.body.append(popover);
-        const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+        const { popover, body } = appendActivePopoverBody();
         const internals = app as unknown as HoverLookupInternals;
         const scheduleHoverClose = vi.fn();
 
@@ -537,7 +477,7 @@ describe('hover lookup', () => {
 
     it('keeps the hover card live when moving directly between parsed words', () => {
         const app = new ReaderApp();
-        const { firstWord, nextWord } = parsedWordPairFixture();
+        const { firstWord, nextWord } = appendParsedWordPair();
 
         const internals = app as unknown as HoverLookupInternals;
         const scheduleHoverClose = vi.fn();
@@ -562,7 +502,7 @@ describe('hover lookup', () => {
 
     it('opens the next word immediately while an existing hover card is active', () => {
         const app = new ReaderApp();
-        const { firstWord, nextWord } = parsedWordPairFixture();
+        const { firstWord, nextWord } = appendParsedWordPair();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         document.body.append(popover);
@@ -601,14 +541,10 @@ describe('hover lookup', () => {
 
     it('moves keyboard lookup focus across parsed words without hovering', async () => {
         const app = new ReaderApp();
-        document.body.innerHTML = `
-            <p>
-                <span class="jpdb-reader-word" data-vid="1" data-sid="1" data-sentence="猫を見る">猫</span>
-                <span class="jpdb-reader-word" data-vid="2" data-sid="2" data-sentence="犬を見る">犬</span>
-            </p>
-        `;
-        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        words.forEach(makeKeyboardNavigable);
+        const words = appendKeyboardLookupWords([
+            { vid: '1', sid: '1', sentence: '猫を見る', text: '猫' },
+            { vid: '2', sid: '2', sentence: '犬を見る', text: '犬' },
+        ]);
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
 
@@ -633,15 +569,11 @@ describe('hover lookup', () => {
 
     it('keeps keyboard word navigation inside the selected text range', async () => {
         const app = new ReaderApp();
-        document.body.innerHTML = `
-            <p>
-                <span class="jpdb-reader-word" data-vid="1" data-sid="1" data-sentence="猫を見る">猫</span>
-                <span class="jpdb-reader-word" data-vid="2" data-sid="2" data-sentence="犬を見る">犬</span>
-                <span class="jpdb-reader-word" data-vid="3" data-sid="3" data-sentence="鳥を見る">鳥</span>
-            </p>
-        `;
-        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        words.forEach(makeKeyboardNavigable);
+        const words = appendKeyboardLookupWords([
+            { vid: '1', sid: '1', sentence: '猫を見る', text: '猫' },
+            { vid: '2', sid: '2', sentence: '犬を見る', text: '犬' },
+            { vid: '3', sid: '3', sentence: '鳥を見る', text: '鳥' },
+        ]);
         const range = document.createRange();
         range.setStartBefore(words[1]);
         range.setEndAfter(words[2]);
