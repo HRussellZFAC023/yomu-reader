@@ -4,7 +4,7 @@ import { listNewTabAnkiCards } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer } from '../cards/popover-renderer';
+import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
@@ -942,6 +942,7 @@ export class NewTabRuntime {
         const signal = this.resetLookupHandlers();
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => this.handleKanjiLookupPopoverClick(event, popover, card, kanji, sentence), { signal });
+        popover.addEventListener('change', event => this.handleLookupReviewTargetChange(event, popover), { signal });
     }
 
     private handleKanjiLookupPopoverClick(event: MouseEvent, popover: HTMLElement, card: JPDBCard, kanji: string, sentence?: string): void {
@@ -1328,6 +1329,12 @@ export class NewTabRuntime {
         });
         installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => this.handleLookupPopoverClick(event, popover, card, sentence, anchor), { signal });
+        popover.addEventListener('change', event => this.handleLookupReviewTargetChange(event, popover), { signal });
+    }
+
+    private handleLookupReviewTargetChange(event: Event, popover: HTMLElement): void {
+        const select = (event.target as HTMLElement | null)?.closest<HTMLSelectElement>('[data-review-target-select]');
+        if (select && popover.contains(select)) updatePopoverReviewTargetSelection(select);
     }
 
     private handleLookupPopoverClick(event: MouseEvent, popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor?: HTMLElement): void {

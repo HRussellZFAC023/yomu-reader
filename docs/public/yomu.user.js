@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.35
+// @version      0.6.36
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -7334,7 +7334,7 @@ recommendedJiten	jiten.moe頻度データです。
     ];
   }
   function preloadableAudioSources(sources, settings) {
-    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isBrowserTextToSpeechSource(source) && source.type !== "jpdb-tts");
+    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
   }
   function audioPreloadLimits$1(options) {
     return {
@@ -7363,11 +7363,11 @@ recommendedJiten	jiten.moe頻度データです。
   function isBrowserTextToSpeechSource(source) {
     return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
   }
-  function isJpdbWordAudioSource(source) {
-    return source.type === "jpdb-tts";
+  function isApiTextToSpeechSource(source) {
+    return source.type === "jiten-tts" || source.type === "jpdb-tts";
   }
   function isTextToSpeechFallbackSource(source) {
-    return isJpdbWordAudioSource(source) || isBrowserTextToSpeechSource(source);
+    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
   }
   function registerAudioAttempt(triedUrls, candidate) {
     const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
@@ -8619,8 +8619,8 @@ recommendedJiten	jiten.moe頻度データです。
       const realAudioSources = sources.filter((source) => !isTextToSpeechFallbackSource(source));
       const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), context);
       if (realAudioResult !== "miss") return { state: realAudioResult, errors };
-      const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      if (jpdbWordAudioResult !== "miss") return { state: jpdbWordAudioResult, errors };
+      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, errors };
       const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
       return { state: textToSpeechResult, errors };
     }
@@ -22770,6 +22770,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : "";
       const miningActions = this.renderApiMiningActions(cardStates, language, data, provider);
       const ankiActions = data.loading ? "" : renderAnkiActionRow(data.ankiLookup, settings);
+      const miningInitiallyExpanded = Boolean(miningActions && (reviewBlockReason || ankiActions));
       return {
         cardStates,
         state,
@@ -22780,7 +22781,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         language,
         provider,
         miningActions,
-        miningInitiallyExpanded: Boolean(miningActions && (reviewBlockReason || ankiActions)),
+        miningInitiallyExpanded,
         ankiActions,
         reviewButtons: this.renderReviewButtons({
           card,
@@ -22789,7 +22790,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           provider,
           selectedDeckLabel,
           reviewBlockReason,
-          language
+          language,
+          miningInitiallyExpanded
         }),
         metaItems: this.renderMetaItems(card, provider, state, data),
         loadingDetails: this.renderLoadingDetails(data.loading, language),
@@ -22844,9 +22846,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     renderActions(view) {
       const hasMiningPanel = Boolean(view.miningActions);
       const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
-      const miningClass = hasMiningPanel ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? "" : " jpdb-reader-actions-mining-collapsed"}` : "";
+      const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
+      const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
+      const miningClass = hasDrawer ? ` jpdb-reader-actions-has-mining${view.miningInitiallyExpanded ? "" : " jpdb-reader-actions-mining-collapsed"}` : "";
       return `<div class="jpdb-reader-actions${miningClass}">
-            ${renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
+            ${hasReviewTargetGutter ? "" : renderMiningGutter(miningPanel, view.language, view.miningInitiallyExpanded)}
             ${miningPanel}
             ${hasMiningPanel ? "" : view.ankiActions}
             ${view.reviewButtons}
@@ -22891,11 +22895,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             `;
     }
     renderReviewButtons(options) {
-      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+      const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language, miningInitiallyExpanded } = options;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(data, provider, language);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language);
+      if (targets.length) return this.renderTargetedReviewButtons(targets, language, miningInitiallyExpanded);
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -22973,15 +22977,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    renderTargetedReviewButtons(targets, language) {
+    renderTargetedReviewButtons(targets, language, expanded = false) {
       const settings = this.settings();
       const grades = reviewButtonGrades(settings);
       const selected = targets[0];
       if (!selected || !grades.length) return "";
       const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : "";
+      const targetGutter = renderReviewTargetGutter(selected, language, expanded);
       const targetLabel = renderReviewTargetLabel(selected);
       const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
+            ${targetGutter}
             ${selector}
             <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}" data-review-target-row>
                 ${targetLabel}
@@ -23021,17 +23027,56 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || "forq", data.jpdbDecks);
     }
   }
+  function updatePopoverReviewTargetSelection(select) {
+    const option = select.selectedOptions[0] ?? null;
+    if (!option) return;
+    const actions = select.closest(".jpdb-reader-actions");
+    if (!actions) return;
+    const label = option.dataset.reviewTargetLabel ?? option.textContent?.trim() ?? "";
+    const shortLabel = option.dataset.reviewTargetShortLabel ?? option.textContent?.trim() ?? label;
+    const target = option.dataset.reviewTarget ?? "";
+    const ankiCardId = option.dataset.ankiCardId ?? "";
+    const current = actions.querySelector("[data-review-target-current]");
+    if (current) {
+      current.textContent = shortLabel;
+      current.title = label;
+      current.setAttribute("aria-label", label);
+    }
+    const labelText = actions.querySelector("[data-review-target-label] [data-newtab-grade-target-text]");
+    if (labelText) labelText.textContent = label;
+    actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button2) => {
+      button2.dataset.reviewTarget = target;
+      if (ankiCardId) button2.dataset.ankiCardId = ankiCardId;
+      else delete button2.dataset.ankiCardId;
+      const buttonLabel = button2.textContent?.trim() ?? "";
+      if (label) {
+        button2.title = label;
+        button2.setAttribute("aria-label", `${buttonLabel}: ${label}`);
+      } else {
+        button2.removeAttribute("title");
+        button2.removeAttribute("aria-label");
+      }
+    });
+  }
+  function reviewButtonsIncludeTargetGutter(reviewButtons) {
+    return reviewButtons.includes("data-review-target-gutter");
+  }
+  function renderReviewTargetGutter(target, language, expanded) {
+    const label = uiText(language, expanded ? "hideMiningActions" : "showMiningActions");
+    return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
+        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="${String(expanded)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}"></button>
+    </div>`;
+  }
   function renderReviewTargetSelector(targets, language) {
-    return `<label class="jpdb-reader-newtab-grade-target-selector jpdb-reader-popover-grade-target-selector" data-review-target-selector>
-        <span class="jpdb-reader-newtab-grade-target-selector-label">${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}</span>
+    return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(newTabText(language, "gradeTargetSelector"))}">
             ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
         </select>
-    </label>`;
+    </div>`;
   }
   function renderReviewTargetLabel(target) {
-    const chip = target.shortLabel ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml$1(target.kind)}">${escapeHtml$1(target.shortLabel)}</span>` : "";
-    return `<div class="jpdb-reader-newtab-grade-target" data-review-target-label>${chip}<span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
+    return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
   }
   function reviewTargetButtonAttrs(target) {
     return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}`;
@@ -40670,6 +40715,11 @@ ${spelling}`);
     }
     installCardPopoverHandlers(popover, card, sentence, anchor, trigger) {
       popover.addEventListener("click", (event) => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
+      popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
+    }
+    handlePopoverReviewTargetChange(event, popover) {
+      const select = event.target?.closest("[data-review-target-select]");
+      if (select && popover.contains(select)) updatePopoverReviewTargetSelection(select);
     }
     handleCardPopoverClick(event, card, sentence, anchor, trigger) {
       if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
@@ -40844,6 +40894,7 @@ ${spelling}`);
     installKanjiCardActions(popover, card, kanji, sentence, anchor) {
       installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
       popover.addEventListener("click", (event) => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
+      popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
     }
     handleKanjiCardActionClick(event, card, kanji, sentence, anchor) {
       if (this.handleDictionaryLookupLink(event, anchor, "modal")) return;

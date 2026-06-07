@@ -19,8 +19,8 @@ import {
     getAudioCandidateCacheKey,
     getJpdbAudioBagKey,
     getOrderedAudioSources,
+    isApiTextToSpeechSource,
     isBrowserTextToSpeechSource,
-    isJpdbWordAudioSource,
     isTextToSpeechFallbackSource,
     orderAudioCandidates,
     orderAudioSources,
@@ -235,8 +235,8 @@ export class AudioPlayer {
         const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), context);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
-        const jpdbWordAudioResult = await this.playOrderedSources(orderAudioSources(sources.filter(isJpdbWordAudioSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-        if (jpdbWordAudioResult !== 'miss') return { state: jpdbWordAudioResult, errors };
+        const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+        if (apiTextToSpeechResult !== 'miss') return { state: apiTextToSpeechResult, errors };
 
         const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
         return { state: textToSpeechResult, errors };

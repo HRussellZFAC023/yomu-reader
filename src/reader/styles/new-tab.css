@@ -37,6 +37,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.jpdb-reader-newtab-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .jpdb-reader-newtab-shell {
   width: min(920px, calc(100vw - 28px));
   min-height: 100dvh;
@@ -828,6 +840,15 @@
   padding-top: clamp(16px, 3vh, 32px);
 }
 
+.jpdb-reader-newtab-study-anki-card {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  align-content: stretch;
+}
+
+.jpdb-reader-newtab-study-anki-card .jpdb-reader-newtab-prompt-anki-card {
+  align-self: center;
+}
+
 .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
   .jpdb-reader-newtab-study {
   padding-bottom: 0;
@@ -988,6 +1009,21 @@ button.jpdb-reader-newtab-status:disabled {
   cursor: default;
 }
 
+button.jpdb-reader-newtab-status:disabled:not(:empty) {
+  max-width: min(360px, calc(100vw - 56px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--jpdb-reader-muted) 86%, var(--jpdb-reader-text));
+  box-shadow: none;
+}
+
+button.jpdb-reader-newtab-status:disabled:empty {
+  display: none;
+}
+
 .jpdb-reader-newtab-status-light {
   width: 7px;
   height: 7px;
@@ -1110,13 +1146,16 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-prompt-anki-card {
-  width: min(100%, 720px);
+  width: min(100%, 1120px);
+  max-width: min(100%, 1120px);
   min-width: 0;
+  min-height: clamp(220px, 34vh, 420px);
   position: relative;
   display: grid;
+  align-content: center;
   justify-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: clamp(10px, 1.8vh, 18px);
+  font-size: clamp(18px, 2.1vw, 26px);
   font-weight: 520;
   line-height: 1.45;
   text-align: center;
@@ -1129,6 +1168,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   max-width: 100%;
   min-width: 0;
   margin: 0 auto;
+  align-content: center;
   justify-items: center;
   text-align: center;
 }
@@ -1137,17 +1177,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-rendered-side {
   width: 100%;
   min-width: 0;
+  align-content: center;
   justify-items: center;
 }
 
 .jpdb-reader-newtab-prompt-anki-card
   .jpdb-reader-anki-rendered-side-body {
-  width: fit-content;
-  max-width: 100%;
+  width: min(100%, 980px);
+  max-width: min(100%, 980px);
   min-width: 0;
   border-left: 0;
   padding: 0;
   text-align: center;
+  font-size: clamp(19px, 1.7vw, 26px);
   overflow-wrap: anywhere;
 }
 
@@ -1155,7 +1197,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-anki-rendered-side-body
   :where(*) {
   max-width: 100%;
-  font-size: min(1em, 1.45rem) !important;
+  font-size: min(1em, 1.9rem) !important;
   line-height: 1.35 !important;
   overflow-wrap: anywhere;
 }
@@ -1400,11 +1442,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
-  grid-template-columns: minmax(130px, max-content) repeat(5, minmax(92px, 1fr));
-  width: min(920px, calc(100vw - 28px));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(860px, calc(100vw - 28px));
   justify-content: start;
-  overflow-x: auto;
-  overflow-y: hidden;
+  align-items: center;
+  overflow: visible;
   scrollbar-width: none;
 }
 
@@ -1451,12 +1493,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-grade-target {
   justify-self: center;
+  position: relative;
   min-width: 0;
-  max-width: min(260px, 34vw);
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 720;
@@ -1464,62 +1507,54 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-align: center;
 }
 
-.jpdb-reader-newtab-grade-target [data-newtab-grade-target-text] {
-  min-width: 0;
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls
+  .jpdb-reader-newtab-grade-target-context {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 7px);
+  z-index: 22;
+  max-width: min(360px, calc(100vw - 32px));
+  display: block;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 780;
+  line-height: 1.2;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
-.jpdb-reader-newtab-grade-target-chip {
-  flex: 0 0 auto;
-  max-width: 120px;
-  padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 22%);
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font-size: 10px;
-  font-weight: 820;
-  line-height: 1.1;
+.jpdb-reader-newtab-grade-target-current {
+  max-width: min(220px, calc(100vw - 52px));
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 780;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.jpdb-reader-newtab-grade-target-chip[data-newtab-grade-target-chip="jpdb"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-border), #8b5cf6 36%);
-  background: color-mix(in srgb, var(--jpdb-reader-surface-raised), #8b5cf6 12%);
-}
-
-.jpdb-reader-newtab-grade-target-chip[data-newtab-grade-target-chip="anki"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-border), #38bdf8 36%);
-  background: color-mix(in srgb, var(--jpdb-reader-surface-raised), #38bdf8 12%);
-}
-
-.jpdb-reader-newtab-grade-target-chip[data-newtab-grade-target-chip="both"] {
-  border-color: color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 42%);
-  background: color-mix(in srgb, var(--jpdb-reader-surface-raised), var(--jpdb-reader-accent) 14%);
-}
-
-.jpdb-reader-newtab-grade-target-selector {
-  min-width: 0;
 }
 
 .jpdb-reader-newtab-grade-target-selector-label {
-  flex: 0 0 auto;
+  color: var(--jpdb-reader-muted);
+  font-size: 10px;
+  font-weight: 780;
+  line-height: 1.2;
+  text-align: left;
 }
 
 .jpdb-reader-newtab-grade-target-select {
   min-width: 0;
-  width: min(190px, 100%);
-  min-height: 30px;
+  width: min(220px, calc(100vw - 52px));
+  min-height: 34px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 26%);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--jpdb-reader-surface);
   color: var(--jpdb-reader-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 780;
   line-height: 1;
   padding: 0 28px 0 11px;
@@ -2914,7 +2949,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
-    grid-template-columns: minmax(116px, max-content) repeat(5, minmax(86px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
   }
 
@@ -2923,24 +2958,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     font-size: 10px;
   }
 
-  .jpdb-reader-newtab-grade-target [data-newtab-grade-target-text] {
-    flex: 1 1 auto;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .jpdb-reader-newtab-grade-target-chip {
-    max-width: min(100%, 180px);
-  }
-
   .jpdb-reader-newtab-grade-target-select {
-    flex: 1 1 auto;
-    width: min(150px, 42vw);
-    min-height: 28px;
-    font-size: 10px;
-    padding-inline: 9px 24px;
+    width: min(210px, calc(100vw - 52px));
+    min-height: 34px;
+    font-size: 12px;
   }
 
   .jpdb-reader-newtab-controls button {
@@ -3084,8 +3105,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
-    grid-template-columns: minmax(116px, max-content) repeat(5, minmax(86px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(420px, calc(100vw - 12px));
+    gap: 4px;
   }
+
 }
 
 @media (pointer: coarse) {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { getAudioCandidates } from '../../src/reader/audio/player';
-import { audioCandidateSelectionMode, getOrderedAudioSources } from '../../src/reader/audio/source-resolution';
+import { audioCandidateSelectionMode, getOrderedAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
@@ -38,6 +38,20 @@ describe('audio module boundaries', () => {
         expect(audioCandidateSelectionMode('jiten-tts', 'first')).toBe('random');
         expect(audioCandidateSelectionMode('jpdb-tts', 'first')).toBe('random');
         expect(audioCandidateSelectionMode('jisho', 'first')).toBe('first');
+    });
+
+    it('keeps generated API text-to-speech out of fallback preloads', () => {
+        const sources = [
+            jishoSource(),
+            jitenSource(),
+            { type: 'jpdb-tts' as const, url: '', voice: '', enabled: true },
+            { type: 'text-to-speech' as const, url: '', voice: '', enabled: true },
+        ];
+
+        expect(preloadableAudioSources(sources, { ...DEFAULT_SETTINGS, audioTtsMode: 'fallback' }).map(source => source.type))
+            .toEqual(['jisho']);
+        expect(preloadableAudioSources(sources, { ...DEFAULT_SETTINGS, audioTtsMode: 'source-order' }).map(source => source.type))
+            .toEqual(['jisho', 'jiten-tts', 'jpdb-tts']);
     });
 
     it('keeps term audio and automatic lookup playback enabled by default', () => {

@@ -154,11 +154,8 @@ function lookupStateLabel(state: string, language: ReaderSettings['interfaceLang
 
 function renderLookupReviewTargetButtons(target: NewTabLookupReviewTarget, grades: Array<[JPDBGrade, string]>): string {
     const targetLabel = target.label;
-    const chip = target.shortLabel
-        ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml(target.kind)}">${escapeHtml(target.shortLabel)}</span>`
-        : '';
     const label = targetLabel
-        ? `<div class="jpdb-reader-newtab-grade-target" data-newtab-grade-target>${chip}<span data-newtab-grade-target-text>${escapeHtml(targetLabel)}</span></div>`
+        ? `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-newtab-grade-target><span data-newtab-grade-target-text>${escapeHtml(targetLabel)}</span></div>`
         : '';
     const targetAttrs = ` data-newtab-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
     return `

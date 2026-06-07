@@ -897,16 +897,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.jpdb-reader-popover-grade-target-selector {
+.jpdb-reader-review-target-panel {
   width: 100%;
-  margin: 0 auto 2px;
-}
-.jpdb-reader-actions .jpdb-reader-newtab-grade-target {
-  width: 100%;
-  max-width: 100%;
+  margin: 0;
 }
 .jpdb-reader-actions .jpdb-reader-newtab-grade-target-select {
-  width: min(280px, 100%);
+  width: min(360px, 100%);
+  min-height: 38px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  padding: 0 28px 0 10px;
 }
 .jpdb-reader-anki-note-action-row {
   display: grid;

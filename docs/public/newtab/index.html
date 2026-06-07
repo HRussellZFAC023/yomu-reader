@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-    <link rel="stylesheet" href="./styles.css?v=9da6290b7c60">
+    <link rel="stylesheet" href="./styles.css?v=50b3739e3006">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -267,6 +267,11 @@
         padding-top: clamp(16px, 3vh, 32px);
       }
 
+      .jpdb-reader-newtab-study.jpdb-reader-newtab-study-anki-card {
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        align-content: stretch;
+      }
+
       .jpdb-reader-newtab-count,
       .jpdb-reader-newtab-status {
         color: var(--ink);
@@ -449,8 +454,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '145937f9b253';
-        const buildId = '0.6.35-145937f9b253';
+        const appHash = 'dd006e8f16ae';
+        const buildId = '0.6.36-dd006e8f16ae';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -475,7 +480,7 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=145937f9b253"></script>
+    <script src="./app.js?v=dd006e8f16ae"></script>
   </body>
 
 </html>

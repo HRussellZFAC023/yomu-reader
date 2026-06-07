@@ -867,7 +867,7 @@ async function expectNewTabDictionaryCard(spelling: string, root: ParentNode = d
 }
 
 async function expectNewTabDictionaryFallbackCard(spelling = '書く'): Promise<void> {
-    await expectNewTabDictionaryCard(spelling, document, 'Anki');
+    await expectNewTabDictionaryCard(spelling, document, 'Dictionary');
     expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
 }
 
@@ -2995,7 +2995,7 @@ describe('new tab review helpers', () => {
 
             (controller as unknown as { index: number }).index = 1;
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[1]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 4 · Jiten');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 4 · Jiten ⇄');
             expect(root.querySelector<HTMLElement>('[data-newtab-status] .jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
 
             (controller as unknown as { index: number }).index = 2;
@@ -3005,8 +3005,38 @@ describe('new tab review helpers', () => {
 
             (controller as unknown as { index: number }).index = 3;
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, cards[3]!);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Dictionary ⇄');
             expect(root.querySelector('[data-newtab-status] .jpdb-reader-newtab-status-light')).toBeNull();
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('labels the shared API source toggle as Jiten when only Jiten SRS is configured', () => {
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            jpdbMiningEnabled: true,
+            newTabAnkiEnabled: true,
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        });
+        const card = newTabTestCard({ spelling: '暗記', reading: 'あんき', source: 'anki', reviewSource: 'anki' });
+        const root = renderSeededNewTabWord(controller, card, {
+            allWords: [card],
+            visibleWords: [card],
+            sourceLabel: 'Anki',
+            state: { source: 'anki' },
+        });
+
+        try {
+            const status = newTabStatusButton(root);
+
+            expect(status.textContent).toContain('Anki ⇄');
+            expect(status.dataset.sourceToggleTarget).toBe('jpdb');
+            expect(status.title).toBe('Switch review source: Jiten');
         } finally {
             controller.destroy();
             root.remove();
@@ -3142,9 +3172,11 @@ describe('new tab review helpers', () => {
         const select = mount.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
         expect(targetRows).toHaveLength(1);
         expect(mount.querySelectorAll('[data-newtab-grade-target-selector]')).toHaveLength(1);
-        expect(mount.querySelector('[data-newtab-grade-target-text]')).toBeNull();
-        expect(mount.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Both');
-        expect(select?.selectedOptions[0]?.textContent).toBe('Grades JPDB + Anki card: Core #404');
+        expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Both');
+        expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+        expect(mount.querySelector('[data-newtab-grade-target]')?.classList.contains('jpdb-reader-newtab-grade-target-context')).toBe(true);
+        expect(select?.selectedOptions[0]?.textContent).toBe('Both');
+        expect(select?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
         expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
     });
 
@@ -3458,7 +3490,7 @@ describe('new tab review helpers', () => {
             await waitForExpect(() => {
                 expect(settings.newTabSource).toBe('anki');
                 expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
-                expect(newTabStatusButton().textContent).toContain('Anki');
+                expect(newTabStatusButton().textContent).toContain('Dictionary');
                 expect(newTabStatusButton().dataset.sourceToggleTarget).toBe('jpdb');
             }, 3000);
             expect(listNewTabCards).toHaveBeenCalledOnce();
@@ -3711,7 +3743,7 @@ describe('new tab review helpers', () => {
         try {
             await controller.renderPage();
 
-            await expectNewTabDictionaryCard('書く', document, 'Anki');
+            await expectNewTabDictionaryCard('書く', document, 'Dictionary');
             expect(listNewTabCards).toHaveBeenCalledOnce();
             expect(listRandomTopTerms).toHaveBeenCalled();
         } finally {
@@ -3764,7 +3796,7 @@ describe('new tab review helpers', () => {
         status.click();
 
         await waitForExpect(() => expect(settings.newTabSource).toBe('anki'));
-        await expectNewTabDictionaryCard('書く', document, 'Anki');
+        await expectNewTabDictionaryCard('書く', document, 'Dictionary');
         expect(listNewTabCards).toHaveBeenCalledTimes(2);
         expect(listRandomTopTerms).toHaveBeenCalled();
 
@@ -4110,7 +4142,7 @@ describe('new tab review helpers', () => {
         await waitForExpect(() => {
             expect(settings.newTabSource).toBe('anki');
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).not.toBe('日本語');
-            expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Anki');
+            expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
         });
 
         expect(listNewTabCards).toHaveBeenCalledTimes(2);
@@ -4552,6 +4584,36 @@ describe('new tab review helpers', () => {
         expect(listDeckCards).not.toHaveBeenCalled();
     });
 
+    it('falls back to study words when the configured Jiten SRS queue is empty', async () => {
+        resetNewTabReviewStorage();
+        const localCard = newTabTestCard({ spelling: '余白', reading: 'よはく', source: 'local', reviewSource: 'dictionary' });
+        const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['余白', 'よはく', 'blank space']));
+        const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
+        const controller = newTabLocalFallbackController(() => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        }), localCard, listRandomTopTerms, {
+            jpdb: { listDeckCards: vi.fn(async () => []) } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+        });
+
+        try {
+            const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+            expect(listStudyBatchCards).toHaveBeenCalledWith(180);
+            expect(result.cards.map(card => card.spelling)).toEqual(['余白']);
+            expect(result.sourceLabel).toBe('Dictionary');
+            expect(result.reviewCountMode).toBe(false);
+            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('interleaves JPDB and Jiten SRS cards through the shared new-tab API source', async () => {
         const jpdbCard = newTabTestCard({
             spelling: '復習',
@@ -4740,7 +4802,7 @@ describe('new tab review helpers', () => {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
             expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Jiten');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
 
             await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
@@ -5006,11 +5068,11 @@ describe('new tab review helpers', () => {
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
 
         expect(listDeckCards).toHaveBeenCalledWith('deck', 180, { scheduledOnly: true });
-        expect(result.cards).toEqual([]);
-        expect(result.sourceLabel).toBe('JPDB');
-        expect(result.reviewCountMode).toBe(true);
-        expect(publicSearch).not.toHaveBeenCalled();
-        expect(listRandomTopTerms).not.toHaveBeenCalled();
+        expect(result.cards.length).toBeGreaterThan(0);
+        expect(result.sourceLabel).toBe('JPDB + Dictionary');
+        expect(result.reviewCountMode).toBe(false);
+        expect(publicSearch).toHaveBeenCalled();
+        expect(listRandomTopTerms).toHaveBeenCalled();
     });
 
     it('uses navigation instead of grade buttons for JPDB cards when JPDB writes are disabled', () => {
@@ -5424,7 +5486,7 @@ describe('new tab review helpers', () => {
 
             expect(root.querySelectorAll('[data-grade]').length).toBeGreaterThan(0);
             expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Anki #404');
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Anki');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
 
             await (controller as unknown as { gradeCurrentCard(grade: 'pass'): Promise<void> }).gradeCurrentCard('pass');
 
@@ -5609,9 +5671,10 @@ describe('new tab review helpers', () => {
 
         try {
             const targetSelect = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
-            expect(targetSelect?.selectedOptions[0]?.textContent).toBe('Grades JPDB + Anki card: Core #404');
+            expect(targetSelect?.selectedOptions[0]?.textContent).toBe('Both');
+            expect(targetSelect?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
             expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Both');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
 
             await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
@@ -5628,19 +5691,19 @@ describe('new tab review helpers', () => {
         try {
             const targetSelect = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
             expect(Array.from(targetSelect.options).map(option => option.textContent)).toEqual([
-                'Grades JPDB + Anki card: Core #404',
-                'Grades JPDB',
-                'Grades Anki card: Core #404',
-                'Grades Anki card: Core #405',
+                'Both',
+                'JPDB',
+                'Core #404',
+                'Core #405',
             ]);
             expect(targetSelect.value).toBe('both');
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Both');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
             expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
 
             targetSelect.value = 'jpdb';
             targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('JPDB');
-            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Grades JPDB');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+            expect(targetSelect.selectedOptions[0]?.textContent).toBe('JPDB');
             expect(root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.getAttribute('aria-label')).toBe('Okay: Grades JPDB');
             root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
 
@@ -5651,8 +5714,9 @@ describe('new tab review helpers', () => {
 
             targetSelect.value = 'anki:405';
             targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Core #405');
-            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Grades Anki card: Core #405');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Core #405');
+            expect(targetSelect.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades Anki card: Core #405');
             expect(root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.getAttribute('aria-label')).toBe('Easy: Grades Anki card: Core #405');
             root.querySelector<HTMLButtonElement>('[data-grade="easy"]')?.click();
 
@@ -5714,19 +5778,20 @@ describe('new tab review helpers', () => {
         try {
             const targetSelect = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]')!;
             expect(Array.from(targetSelect.options).map(option => option.textContent)).toEqual([
-                'Grades Anki card: RRTK · Recognition #404',
-                'Grades Anki card: Core · Production #405',
+                'RRTK · Recognition #404',
+                'Core · Production #405',
             ]);
             expect(targetSelect.value).toBe('anki:404');
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('RRTK · Recognition #404');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
             expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
             expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Anki');
             expect(root.querySelector('[data-newtab-status]')?.textContent).not.toContain('JPDB');
 
             targetSelect.value = 'anki:405';
             targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            expect(root.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Core · Production #405');
-            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Grades Anki card: Core · Production #405');
+            expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+            expect(targetSelect.selectedOptions[0]?.textContent).toBe('Core · Production #405');
+            expect(targetSelect.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades Anki card: Core · Production #405');
             root.querySelector<HTMLButtonElement>('[data-grade="hard"]')?.click();
 
             await waitForExpect(() => {
@@ -8933,7 +8998,7 @@ describe('new tab review helpers', () => {
             await vi.waitFor(() => {
                 const pass = document.querySelector<HTMLButtonElement>('[data-grade="pass"]');
                 expect(document.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Core #404');
-                expect(document.querySelector('[data-newtab-grade-target-chip]')?.textContent).toBe('Anki #404');
+                expect(document.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
                 expect(pass?.dataset.newtabReviewTarget).toBe('anki');
                 expect(pass?.dataset.ankiCardId).toBe('404');
                 expect(pass?.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #404');
@@ -8996,11 +9061,7 @@ describe('new tab review helpers', () => {
                     'Grades Anki card: Core #404',
                     'Grades Anki card: Core #405',
                 ]);
-                expect(Array.from(document.querySelectorAll('[data-newtab-grade-target-chip]'), element => element.textContent)).toEqual([
-                    'JPDB',
-                    'Anki #404',
-                    'Core #405',
-                ]);
+                expect(document.querySelectorAll('[data-newtab-grade-target-chip]')).toHaveLength(0);
             });
 
             const ankiPassButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-newtab-review-target="anki"][data-grade="pass"]'));
@@ -10722,7 +10783,7 @@ describe('new tab review helpers', () => {
         try {
             await controller.renderPage();
 
-            await expectNewTabDictionaryCard('飲み物', document, 'Anki');
+            await expectNewTabDictionaryCard('飲み物', document, 'Dictionary');
             expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
         } finally {
             resetNewTabReviewStorage();
@@ -10841,9 +10902,9 @@ describe('new tab review helpers', () => {
             await vi.advanceTimersByTimeAsync(8000);
             const result = await resultPromise;
 
-            expect(result.cards).toEqual([]);
-            expect(result.reviewCountMode).toBe(true);
-            expect(listRandomTopTerms).not.toHaveBeenCalled();
+            expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
+            expect(result.reviewCountMode).toBe(false);
+            expect(listRandomTopTerms).toHaveBeenCalled();
         } finally {
             vi.useRealTimers();
         }

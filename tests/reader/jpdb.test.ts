@@ -7,7 +7,7 @@ import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, getAudioCandidates, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, ShuffledAudioDeck } from '../../src/reader/audio/player';
 import { positionPopover } from '../../src/reader/ui/browser';
 import { CardActionController } from '../../src/reader/cards/action-controller';
-import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
+import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/cards/render-data';
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
@@ -441,7 +441,11 @@ function popoverGradeButtons(): HTMLButtonElement[] {
 }
 
 function popoverGradeTargetText(): string {
-    return document.querySelector<HTMLElement>('.jpdb-reader-newtab-grade-target[data-review-target-label]')?.textContent?.trim() ?? '';
+    return document.querySelector<HTMLElement>('.jpdb-reader-sr-only[data-review-target-label]')?.textContent?.trim() ?? '';
+}
+
+function popoverGradeTargetCurrentText(): string {
+    return document.querySelector<HTMLElement>('[data-review-target-current]')?.textContent?.trim() ?? '';
 }
 
 function popoverGradeTargetOptions(): Array<{ text: string; target: string; cardId: string; selected: boolean }> {
@@ -4227,7 +4231,8 @@ describe('reader helpers', () => {
         }));
         expect(ankiBacked).toContain('data-action="grade"');
         expect(ankiBacked).toContain('data-anki-card-id="20"');
-        expect(ankiBacked).not.toContain('jpdb-reader-actions-has-mining');
+        expect(ankiBacked).toContain('jpdb-reader-actions-has-mining');
+        expect(ankiBacked).toContain('data-review-target-gutter');
     });
 
     it('allows locked JPDB review buttons while keeping Anki review available', () => {
@@ -4252,8 +4257,11 @@ describe('reader helpers', () => {
         document.body.innerHTML = jpdbOnly;
         expect(popoverGradeButtons()).toHaveLength(5);
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
-        expect(popoverGradeTargetText()).toBe('JPDBGrades JPDB');
+        expect(popoverGradeTargetCurrentText()).toBe('JPDB');
+        expect(popoverGradeTargetText()).toBe('Grades JPDB');
         expect(popoverGradeTargetOptions()).toEqual([]);
+        expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
+        expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
         expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
 
         const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
@@ -4300,7 +4308,10 @@ describe('reader helpers', () => {
         expect(gradeButtons).toHaveLength(5);
         expect(gradeButtons.every(button => button.dataset.reviewTarget === 'both')).toBe(true);
         expect(gradeButtons.every(button => button.dataset.ankiCardId === '777')).toBe(true);
-        expect(popoverGradeTargetText()).toBe('BothGrades JPDB + Anki card: Anime::Mining #777');
+        expect(popoverGradeTargetCurrentText()).toBe('Both');
+        expect(popoverGradeTargetText()).toBe('Grades JPDB + Anki card: Anime::Mining #777');
+        expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
+        expect(document.querySelector('[data-review-target-selector]')?.classList.contains('jpdb-reader-review-target-panel')).toBe(true);
         expect(popoverGradeTargetOptions()).toEqual([
             { text: 'Both', target: 'both', cardId: '777', selected: true },
             { text: 'JPDB', target: 'jpdb', cardId: '', selected: false },
@@ -4674,11 +4685,21 @@ describe('reader helpers', () => {
         expect(popoverGradeButtons()).toHaveLength(5);
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'anki')).toBe(true);
         expect(popoverGradeButtons().every(button => button.dataset.ankiCardId === '20')).toBe(true);
-        expect(popoverGradeTargetText()).toBe('Core #20Grades Anki card: Core #20');
+        expect(popoverGradeTargetCurrentText()).toBe('Core #20');
+        expect(popoverGradeTargetText()).toBe('Grades Anki card: Core #20');
+        expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
         expect(popoverGradeTargetOptions()).toEqual([
             { text: 'Core #20', target: 'anki', cardId: '20', selected: true },
             { text: 'Mining #21', target: 'anki', cardId: '21', selected: false },
         ]);
+        const targetSelect = document.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
+        targetSelect.value = 'anki:21';
+        updatePopoverReviewTargetSelection(targetSelect);
+        expect(popoverGradeTargetCurrentText()).toBe('Mining #21');
+        expect(popoverGradeTargetText()).toBe('Grades Anki card: Mining #21');
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'anki')).toBe(true);
+        expect(popoverGradeButtons().every(button => button.dataset.ankiCardId === '21')).toBe(true);
+        expect(popoverGradeButtons()[0]?.title).toBe('Grades Anki card: Mining #21');
     });
 
     it('renders unfamiliar Anki notes from their rendered card without exposing raw fields by default', () => {
@@ -4976,11 +4997,19 @@ describe('reader helpers', () => {
         const html = renderer.render(jitenTestCard(), '本を読みます。', 'modal', emptyCardRenderData({
             jitenDecks: [{ id: '12', name: 'Mining' }],
         }));
+        const mount = document.createElement('div');
+        mount.innerHTML = html;
 
         expect(html).toContain('Jiten New');
         expect(html).toContain('data-deck-source="jiten"');
         expect(html).toContain('data-deck-id="12"');
         expect(html).toContain('Jiten: Mining');
+        expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+        expect(mount.querySelector('[data-review-target-label]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
+        expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
+        expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.dataset.reviewTarget).toBe('jiten');
+        expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.getAttribute('aria-label')).toBe('Okay: Grades Jiten');
+        expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.title).toBe('Grades Jiten');
     });
 
     it('keeps dictionary, Immersion Kit, and study source stacks available for Jiten-backed cards', () => {
@@ -11172,6 +11201,57 @@ describe('reader helpers', () => {
                 'http://x.test/missing.mp3',
             ]);
             expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3', 'blob:http://localhost/random-source-audio.mp3']);
+            expect(spoken).toEqual([]);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps Jiten text-to-speech behind recorded audio in fallback mode', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            objectUrl: 'blob:http://localhost/recorded-audio.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(() => {
+            throw new Error('Jiten lookup should not run while recorded audio is playable');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'jiten-tts', url: '', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/available.mp3', voice: '', enabled: true },
+                    { type: 'jpdb-tts', url: '', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(jitenTestCard({
+                spelling: 'よむ',
+                reading: 'よむ',
+                jitenWordId: 1456360,
+                jitenReadingIndex: 0,
+            }))).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/available.mp3']);
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(played).toEqual(['blob:http://localhost/recorded-audio.mp3']);
             expect(spoken).toEqual([]);
         } finally {
             restoreAudio();
