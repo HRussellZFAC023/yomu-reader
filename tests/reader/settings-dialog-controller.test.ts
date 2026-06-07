@@ -556,21 +556,25 @@ describe('settings dialog keyboard dismissal', () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
         const ensureDeckAndModel = vi.fn().mockResolvedValue(undefined);
+        const warmStatusIndex = vi.fn().mockResolvedValue(null);
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
             anki: {
                 isConnected,
                 ensureDeckAndModel,
+                warmStatusIndex,
             },
         });
 
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
+        await waitForCondition(() => warmStatusIndex.mock.calls.length === 1);
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).not.toHaveBeenCalled();
+        expect(warmStatusIndex).toHaveBeenCalledOnce();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Ready:');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Connected. AnkiConnect is reachable.');
@@ -593,15 +597,18 @@ describe('settings dialog keyboard dismissal', () => {
     it('checks AnkiConnect automatically when Anki mining is enabled on open', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
         const isConnected = vi.fn().mockResolvedValue(true);
+        const warmStatusIndex = vi.fn().mockResolvedValue(null);
         const { form } = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
-            anki: { isConnected },
+            anki: { isConnected, warmStatusIndex },
         });
 
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
+        await waitForCondition(() => warmStatusIndex.mock.calls.length === 1);
 
         expect(isConnected).toHaveBeenCalledOnce();
+        expect(warmStatusIndex).toHaveBeenCalledOnce();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Ready:');
     });
@@ -1015,6 +1022,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const isConnected = vi.fn().mockResolvedValue(false);
         const scanLibrary = vi.fn().mockResolvedValue({ deckNames: [], models: [], suggestedModel: null });
+        const warmStatusIndex = vi.fn().mockResolvedValue(null);
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, ankiMobileHandoff: true };
         const { form } = createSettingsDialog({
             getSettings: () => settings,
@@ -1022,6 +1030,7 @@ describe('settings dialog keyboard dismissal', () => {
             anki: {
                 isConnected,
                 scanLibrary,
+                warmStatusIndex,
             },
         });
 
@@ -1036,6 +1045,7 @@ describe('settings dialog keyboard dismissal', () => {
 
             expect(isConnected).toHaveBeenCalledOnce();
             expect(scanLibrary).not.toHaveBeenCalled();
+            expect(warmStatusIndex).not.toHaveBeenCalled();
             expect(fallbackText).toContain('create notes');
         } finally {
             Object.defineProperty(window.navigator, 'userAgent', { value: originalUserAgent, configurable: true });

@@ -2813,9 +2813,9 @@
       ankiScanSummary: "Decks {decks}, note types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "Open desktop Anki and check AnkiConnect.",
-      ankiSettingsUnreachable: "AnkiConnect not reached.",
-      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript and refresh.`,
+      ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
+      ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
+      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
@@ -4188,9 +4188,9 @@ ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み
 ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
-ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
-ankiSettingsUnreachable	AnkiConnectに接続できません。
-ankiHostedBridgeMissing	よむユーザースクリプトを有効化して更新してください。
+ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
+ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント
@@ -4866,7 +4866,8 @@ recommendedJiten	jiten.moe頻度データです。
   function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref()) {
     if (getUserscriptHttpRequest()) return false;
     const current = readAnkiUrl(currentHref);
-    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    if (!current || !isYomuHostedAppUrl(current.href)) return false;
+    if (canLocalPreviewFetchAnkiConnect(current)) return false;
     const target = readAnkiUrl(url, current.href);
     return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
   }
@@ -4882,6 +4883,17 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function isLoopbackHostname(hostname) {
     return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
+  }
+  function canLocalPreviewFetchAnkiConnect(current) {
+    if (current.protocol !== "file:" && !isLocalPreviewHostname(current.hostname)) return false;
+    return isYomuHostedAppUrl(current.href) || isLocalPreviewYomuAppPath(current.pathname);
+  }
+  function isLocalPreviewHostname(hostname) {
+    return isLoopbackHostname(hostname) || hostname === "0.0.0.0";
+  }
+  function isLocalPreviewYomuAppPath(pathname) {
+    const path = pathname.replace(/\/index\.html$/, "/");
+    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || path.endsWith("/video-player/");
   }
   function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
@@ -9746,7 +9758,9 @@ recommendedJiten	jiten.moe頻度データです。
     queueAutomaticAnkiLibraryScan(form, language) {
       const requestId = ++this.ankiLibraryScanId;
       window.setTimeout(() => {
-        void this.refreshAnkiLibraryScan(form, requestId, language);
+        void this.refreshAnkiLibraryScan(form, requestId, language).finally(() => {
+          void this.warmAnkiStatusIndexForConnection(form, requestId);
+        });
       }, 0);
     }
     async refreshAnkiLibraryScan(form, requestId, language) {
@@ -9772,6 +9786,21 @@ recommendedJiten	jiten.moe頻度データです。
     }
     shouldApplyAnkiLibraryScan(form, requestId) {
       return this.currentForm === form && form.isConnected && requestId === this.ankiLibraryScanId;
+    }
+    async warmAnkiStatusIndexForConnection(form, requestId) {
+      if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+      const warmStatusIndex = this.dependencies.anki.warmStatusIndex;
+      if (typeof warmStatusIndex !== "function") return;
+      const previous = this.settings;
+      this.settings = readFormSettings(new FormData(form), this.settings);
+      try {
+        await warmStatusIndex.call(this.dependencies.anki);
+        log.info("Auto Anki status index warmup ok");
+      } catch (error) {
+        log.warn("Automatic Anki status index warmup failed", error);
+      } finally {
+        this.settings = previous;
+      }
     }
     setAnkiStatusLine(form, line) {
       this.setAnkiStatus(form, line.message, line.tone, line.action);

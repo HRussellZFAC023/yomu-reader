@@ -134,7 +134,8 @@ export function canFetchAnkiConnectFrom(url: string, currentHref: string): boole
 export function needsHostedAnkiConnectSetupHint(url: string, currentHref = safeLocationHref()): boolean {
     if (getUserscriptHttpRequest()) return false;
     const current = readAnkiUrl(currentHref);
-    if (!current || current.origin !== GITHUB_PAGES_ORIGIN || !isYomuHostedAppUrl(current.href)) return false;
+    if (!current || !isYomuHostedAppUrl(current.href)) return false;
+    if (canLocalPreviewFetchAnkiConnect(current)) return false;
     const target = readAnkiUrl(url, current.href);
     return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
 }

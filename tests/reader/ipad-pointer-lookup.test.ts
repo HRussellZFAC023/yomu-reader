@@ -37,6 +37,8 @@ interface RenderedWordLookupInternals {
     showWord(word: HTMLElement, options?: { trigger?: 'click' | 'hover'; userGesture?: boolean }): Promise<void>;
 }
 
+const KANA_RUN_SENTENCE = 'にほんごのじかん';
+
 function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
         vid: 1,
@@ -52,6 +54,92 @@ function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         wordWithReading: null,
         ...overrides,
     };
+}
+
+function japaneseLanguageCard(): JPDBCard {
+    return testCard({
+        vid: 1464530,
+        sid: 0,
+        spelling: '日本語',
+        reading: 'にほんご',
+        source: 'jpdb',
+        meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
+    });
+}
+
+function fallbackFragmentToken(): JPDBToken {
+    return {
+        ...token('ほん', 1, 3),
+        card: testCard({
+            vid: 22,
+            sid: 0,
+            spelling: 'ほん',
+            reading: 'ほん',
+            source: 'fallback',
+            meanings: [{ glosses: ['fragment'], partOfSpeech: [] }],
+        }),
+    };
+}
+
+function splitKanaRunCandidate(): PointerTextLookup | null {
+    document.body.innerHTML = '<div><span id="channel-name"><span>に</span><span id="middle">ほん</span><span>ごのじかん</span></span></div>';
+    const middle = document.getElementById('middle')!;
+    const node = middle.firstChild as Text;
+    return pointerTextLookupFromTextNode(node, 0);
+}
+
+function setupPointerKanaRunLookup({
+    jpdbDefinitionsEnabled = true,
+    parsedTokens = [fallbackFragmentToken()],
+}: {
+    jpdbDefinitionsEnabled?: boolean;
+    parsedTokens?: JPDBToken[];
+} = {}) {
+    const app = new ReaderApp();
+    const internals = app as unknown as PointerLookupInternals;
+    const jpdbCard = japaneseLanguageCard();
+    const shownCards: JPDBCard[] = [];
+
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        apiKey: '',
+        jpdbDefinitionsEnabled,
+        showPitchAccent: false,
+        localDictionariesEnabled: false,
+    };
+    internals.parseJapanese = vi.fn(async () => [parsedTokens]);
+    internals.publicLookupCard = vi.fn(async term => term === 'にほんご' ? jpdbCard : undefined);
+    internals.showPointerTextCard = vi.fn(async card => {
+        shownCards.push(card);
+    });
+
+    return { app, internals, jpdbCard, shownCards };
+}
+
+function expectPublicKanaLookupShown(internals: PointerLookupInternals, shownCards: JPDBCard[], jpdbCard: JPDBCard): void {
+    expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+    expect(shownCards).toEqual([jpdbCard]);
+}
+
+async function expectSplitKanaRunLookup(jpdbDefinitionsEnabled: boolean): Promise<void> {
+    const { app, internals, jpdbCard, shownCards } = setupPointerKanaRunLookup({ jpdbDefinitionsEnabled });
+    const candidate = splitKanaRunCandidate();
+
+    try {
+        expect(candidate).toMatchObject({
+            text: KANA_RUN_SENTENCE,
+            offset: 1,
+            start: 0,
+            end: 8,
+        });
+
+        await internals.showFirstPointerTextCandidate(candidate!, KANA_RUN_SENTENCE, 'modal', { userGesture: true });
+
+        expectPublicKanaLookupShown(internals, shownCards, jpdbCard);
+    } finally {
+        app.destroy();
+        document.body.replaceChildren();
+    }
 }
 
 function token(spelling: string, start: number, end: number): JPDBToken {
@@ -73,61 +161,11 @@ function token(spelling: string, start: number, end: number): JPDBToken {
 
 describe('iPad pointer lookup', () => {
     it('reconstructs kana words split across inline mobile text nodes', async () => {
-        const app = new ReaderApp();
-        document.body.innerHTML = '<div><span id="channel-name"><span>に</span><span id="middle">ほん</span><span>ごのじかん</span></span></div>';
-        const middle = document.getElementById('middle')!;
-        const node = middle.firstChild as Text;
-        const candidate = pointerTextLookupFromTextNode(node, 0);
-        const internals = app as unknown as PointerLookupInternals;
-        const jpdbCard = testCard({
-            vid: 1464530,
-            sid: 0,
-            spelling: '日本語',
-            reading: 'にほんご',
-            source: 'jpdb',
-            meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
-        });
-        const shownCards: JPDBCard[] = [];
+        await expectSplitKanaRunLookup(true);
+    });
 
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jpdbDefinitionsEnabled: true,
-            showPitchAccent: false,
-            localDictionariesEnabled: false,
-        };
-        internals.parseJapanese = vi.fn(async () => [[{
-            ...token('ほん', 1, 3),
-            card: testCard({
-                vid: 22,
-                sid: 0,
-                spelling: 'ほん',
-                reading: 'ほん',
-                source: 'fallback',
-                meanings: [{ glosses: ['fragment'], partOfSpeech: [] }],
-            }),
-        }]]);
-        internals.publicLookupCard = vi.fn(async term => term === 'にほんご' ? jpdbCard : undefined);
-        internals.showPointerTextCard = vi.fn(async card => {
-            shownCards.push(card);
-        });
-
-        try {
-            expect(candidate).toMatchObject({
-                text: 'にほんごのじかん',
-                offset: 1,
-                start: 0,
-                end: 8,
-            });
-
-            await internals.showFirstPointerTextCandidate(candidate!, 'にほんごのじかん', 'modal', { userGesture: true });
-
-            expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
-            expect(shownCards).toEqual([jpdbCard]);
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
+    it('uses public JPDB kana-run identity when JPDB display and pitch are disabled', async () => {
+        await expectSplitKanaRunLookup(false);
     });
 
     it('uses the full tapped kana run when parsing only finds single-mora fragments', async () => {
@@ -170,46 +208,24 @@ describe('iPad pointer lookup', () => {
         { offset: 1, fragment: 'ほ', fragmentStart: 1, fragmentEnd: 2 },
         { offset: 3, fragment: 'ご', fragmentStart: 3, fragmentEnd: 4 },
     ])('resolves にほんごのじかん tap offset $offset through the full public JPDB kana word', async ({ offset, fragment, fragmentStart, fragmentEnd }) => {
-        const app = new ReaderApp();
         const anchor = document.createElement('span');
         document.body.append(anchor);
-        const internals = app as unknown as PointerLookupInternals;
-        const jpdbCard = testCard({
-            vid: 1464530,
-            sid: 0,
-            spelling: '日本語',
-            reading: 'にほんご',
-            source: 'jpdb',
-            meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
-        });
-        const shownCards: JPDBCard[] = [];
-
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jpdbDefinitionsEnabled: true,
-            showPitchAccent: false,
-            localDictionariesEnabled: false,
-        };
-        internals.parseJapanese = vi.fn(async () => [[token(fragment, fragmentStart, fragmentEnd)]]);
-        internals.publicLookupCard = vi.fn(async term => term === 'にほんご' ? jpdbCard : undefined);
-        internals.showPointerTextCard = vi.fn(async card => {
-            shownCards.push(card);
+        const { app, internals, jpdbCard, shownCards } = setupPointerKanaRunLookup({
+            parsedTokens: [token(fragment, fragmentStart, fragmentEnd)],
         });
 
         try {
             await internals.showFirstPointerTextCandidate(
-                { text: 'にほんごのじかん', offset, start: 0, end: 8, anchor },
-                'にほんごのじかん',
+                { text: KANA_RUN_SENTENCE, offset, start: 0, end: 8, anchor },
+                KANA_RUN_SENTENCE,
                 'modal',
                 { userGesture: true },
             );
 
-            expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
-            expect(shownCards).toEqual([jpdbCard]);
+            expectPublicKanaLookupShown(internals, shownCards, jpdbCard);
             expect(internals.showPointerTextCard).toHaveBeenCalledWith(
                 jpdbCard,
-                'にほんごのじかん',
+                KANA_RUN_SENTENCE,
                 expect.objectContaining({ offset, anchor }),
                 { term: 'にほんご', start: 0, end: 4 },
                 'modal',

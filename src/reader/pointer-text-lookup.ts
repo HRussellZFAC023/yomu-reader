@@ -316,15 +316,19 @@ function pointerTextInlineContextRoot(anchor: HTMLElement): HTMLElement | null {
     let current = anchor.parentElement;
     for (let depth = 0; current && depth < POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH; depth++, current = current.parentElement) {
         if (current === document.body || current === document.documentElement) return null;
-        const text = current.textContent ?? '';
-        if (text.length > localText.length
-            && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH
-            && JAPANESE_RUN_RE.test(text)
-            && isPointerTextParentEligible(current)) {
+        if (isPointerTextInlineContextCandidate(current, localText.length)) {
             return current;
         }
     }
     return null;
+}
+
+function isPointerTextInlineContextCandidate(element: HTMLElement, localTextLength: number): boolean {
+    const text = element.textContent ?? '';
+    return text.length > localTextLength
+        && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH
+        && JAPANESE_RUN_RE.test(text)
+        && isPointerTextParentEligible(element);
 }
 
 function readablePointerTextContext(root: HTMLElement, target: Text): { text: string; start: number; end: number } | null {

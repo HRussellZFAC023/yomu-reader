@@ -1,5 +1,5 @@
 import { ANKI_SOURCE_ID } from './constants';
-import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons } from './anki-render';
+import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons, reviewButtonGrades } from './anki-render';
 import { normalizeCardStates, primaryCardState } from './card-state';
 import type { CardRenderData } from './card-render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
@@ -14,6 +14,7 @@ import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView 
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
+import { newTabText } from './newtab/i18n';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -51,6 +52,15 @@ interface ReviewButtonsRenderOptions {
     selectedDeckLabel: string;
     reviewBlockReason: string;
     language: InterfaceLanguage;
+}
+
+interface PopoverReviewTarget {
+    id: string;
+    kind: 'both' | 'jpdb' | 'jiten' | 'anki';
+    label: string;
+    shortLabel: string;
+    ankiCardId?: number;
+    plainLabel?: string;
 }
 
 export interface CardPopoverRendererDependencies {
@@ -164,7 +174,9 @@ export class CardPopoverRenderer {
     }
 
     private renderAnkiExistingSection(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
-        return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings());
+        return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
+            suppressReviewButtons: Boolean(view.reviewButtons),
+        });
     }
 
     private renderAnkiSourceSection(card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
@@ -248,12 +260,33 @@ export class CardPopoverRenderer {
 
     private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
         const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
-        if (reviewBlockReason) {
-            return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
-        }
+        const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
+        if (earlyResult !== undefined) return earlyResult;
+        const targets = this.popoverReviewTargets(data, provider, language);
+        if (targets.length) return this.renderTargetedReviewButtons(targets, language);
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
+        return this.renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language);
+    }
+
+    private reviewButtonsEarlyResult(
+        card: JPDBCard,
+        data: CardRenderData & { loading: boolean },
+        reviewBlockReason: string,
+    ): string | undefined {
+        if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
+        if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
+        return undefined;
+    }
+
+    private renderApiReviewButtons(
+        provider: ApiSrsProviderView | null,
+        data: CardRenderData & { loading: boolean },
+        cardStates: ReturnType<typeof normalizeCardStates>,
+        selectedDeckLabel: string,
+        language: InterfaceLanguage,
+    ): string {
         return renderReviewButtons(this.settings(), null, {
             targetLabel: provider?.label ?? uiText(language, 'gradeJpdbCardTarget'),
             title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
@@ -268,6 +301,110 @@ export class CardPopoverRenderer {
     private canReviewWithApiProvider(provider: ApiSrsProviderView | null): boolean {
         const settings = this.settings();
         return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+    }
+
+    private popoverReviewTargets(
+        data: CardRenderData & { loading: boolean },
+        provider: ApiSrsProviderView | null,
+        language: InterfaceLanguage,
+    ): PopoverReviewTarget[] {
+        const apiTarget = provider && this.canReviewWithApiProvider(provider) ? this.apiReviewTarget(provider, language) : null;
+        const ankiTargets = this.ankiReviewTargets(data, language);
+        if (apiTarget && ankiTargets.length) {
+            const apiProvider = provider;
+            if (!apiProvider) return ankiTargets;
+            const primaryAnki = ankiTargets[0];
+            return [
+                this.bothReviewTarget(apiProvider, primaryAnki, language),
+                apiTarget,
+                ...ankiTargets,
+            ];
+        }
+        if (ankiTargets.length) return ankiTargets;
+        return apiTarget ? [apiTarget] : [];
+    }
+
+    private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage): PopoverReviewTarget {
+        const isJiten = provider.id === 'jiten';
+        return {
+            id: provider.id,
+            kind: isJiten ? 'jiten' : 'jpdb',
+            label: newTabText(language, isJiten ? 'gradeTargetJiten' : 'gradeTargetJpdb'),
+            shortLabel: provider.label,
+        };
+    }
+
+    private bothReviewTarget(provider: ApiSrsProviderView, ankiTarget: PopoverReviewTarget, language: InterfaceLanguage): PopoverReviewTarget {
+        const label = provider.id === 'jiten'
+            ? newTabText(language, 'gradeTargetJitenAndAnki')
+            : newTabText(language, 'gradeTargetJpdbAndAnki');
+        return {
+            id: 'both',
+            kind: 'both',
+            label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
+            shortLabel: newTabText(language, 'gradeTargetBoth'),
+            ankiCardId: ankiTarget.ankiCardId,
+        };
+    }
+
+    private ankiReviewTargets(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage): PopoverReviewTarget[] {
+        const settings = this.settings();
+        if (!settings.enableReviews || !settings.ankiSectionEnabled) return [];
+        const candidates = new Map<number, string>();
+        const add = (cardId: number | null | undefined, label: string, cardName = ''): void => {
+            const id = Number(cardId);
+            if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
+            const deck = label.trim() || 'Anki';
+            const template = cardName.trim();
+            candidates.set(id, template ? [deck, `${template} #${id}`].join(' · ') : [deck, `#${id}`].join(' '));
+        };
+        const orderedNotes = data.ankiLookup.primary
+            ? [
+                data.ankiLookup.primary,
+                ...data.ankiLookup.notes.filter(note => note !== data.ankiLookup.primary),
+            ]
+            : data.ankiLookup.notes;
+        orderedNotes.forEach(note => {
+            const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
+            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
+            add(note.primaryCardId, noteLabel);
+            note.cardIds.forEach(cardId => add(cardId, noteLabel));
+        });
+        const primary = data.ankiLookup.primary;
+        if (primary && !data.ankiLookup.notes.includes(primary)) {
+            const noteLabel = primary.deckNames.join(', ') || primary.modelName || 'Anki';
+            primary.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
+            add(primary.primaryCardId, noteLabel);
+            primary.cardIds.forEach(cardId => add(cardId, noteLabel));
+        }
+        return Array.from(candidates, ([cardId, label]) => ({
+            id: `anki:${cardId}`,
+            kind: 'anki' as const,
+            ankiCardId: cardId,
+            plainLabel: label,
+            label: formatTargetLabel(newTabText(language, 'gradeTargetAnki'), label),
+            shortLabel: compactAnkiTargetLabel(label, cardId),
+        }));
+    }
+
+    private renderTargetedReviewButtons(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
+        const settings = this.settings();
+        const grades = reviewButtonGrades(settings);
+        const selected = targets[0];
+        if (!selected || !grades.length) return '';
+        const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : '';
+        const targetLabel = renderReviewTargetLabel(selected);
+        const targetAttrs = reviewTargetButtonAttrs(selected);
+        return `
+            ${selector}
+            <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}" data-review-target-row>
+                ${targetLabel}
+                ${grades.map(([grade, label]) => {
+                    const title = selected.label ? ` title="${escapeHtml(selected.label)}" aria-label="${escapeHtml(`${label}: ${selected.label}`)}"` : '';
+                    return `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${targetAttrs}${title}>${escapeHtml(label)}</button>`;
+                }).join('')}
+            </div>
+        `;
     }
 
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
@@ -303,6 +440,37 @@ export class CardPopoverRenderer {
         if (provider?.id === 'jiten') return jitenDeckLabel((data.jitenDecks ?? [])[0]);
         return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || 'forq', data.jpdbDecks);
     }
+}
+
+function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
+    return `<label class="jpdb-reader-newtab-grade-target-selector jpdb-reader-popover-grade-target-selector" data-review-target-selector>
+        <span class="jpdb-reader-newtab-grade-target-selector-label">${escapeHtml(newTabText(language, 'gradeTargetSelector'))}</span>
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(newTabText(language, 'gradeTargetSelector'))}">
+            ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
+        </select>
+    </label>`;
+}
+
+function renderReviewTargetLabel(target: PopoverReviewTarget): string {
+    const chip = target.shortLabel
+        ? `<span class="jpdb-reader-newtab-grade-target-chip" data-newtab-grade-target-chip="${escapeHtml(target.kind)}">${escapeHtml(target.shortLabel)}</span>`
+        : '';
+    return `<div class="jpdb-reader-newtab-grade-target" data-review-target-label>${chip}<span data-newtab-grade-target-text>${escapeHtml(target.label)}</span></div>`;
+}
+
+function reviewTargetButtonAttrs(target: PopoverReviewTarget): string {
+    return ` data-review-target="${target.kind}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}`;
+}
+
+function formatTargetLabel(template: string, target: string): string {
+    return template.replaceAll('{target}', target);
+}
+
+function compactAnkiTargetLabel(label: string, cardId: number): string {
+    const suffix = `#${cardId}`;
+    const clean = label.replace(/\s+/g, ' ').trim();
+    if (!clean) return `Anki ${suffix}`;
+    return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
 }
 
 function reviewButtonTitle(

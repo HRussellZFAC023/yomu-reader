@@ -308,19 +308,43 @@ function wikipediaWordStyleSnapshot(element) {
     const host = element.closest('p,li,td,th,section,article,main,body') ?? element.parentElement;
     const hostColor = host ? getComputedStyle(host).color : '';
     return {
-        text: element.textContent?.replace(/\s+/g, '').trim() ?? '',
-        ankiState: element.dataset.ankiState ?? '',
-        statusClass: classes.find(className => /^(?:anki-|jpdb-(?:known|learning|due|new|never-forget|failed|locked|not-in-deck))/.test(className)) ?? '',
-        pitchClass: classes.find(className => /^jpdb-pitch-/.test(className)) ?? '',
-        sourceClass: classes.find(className => /^jpdb-reader-word-(?:text|highlight|underline)-/.test(className)) ?? '',
-        hasRuby: Boolean(element.querySelector('ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby')),
+        text: compactElementText(element),
+        ankiState: datasetValue(element, 'ankiState'),
+        statusClass: firstClassMatching(classes, /^(?:anki-|jpdb-(?:known|learning|due|new|never-forget|failed|locked|not-in-deck))/),
+        pitchClass: firstClassMatching(classes, /^jpdb-pitch-/),
+        sourceClass: firstClassMatching(classes, /^jpdb-reader-word-(?:text|highlight|underline)-/),
+        hasRuby: hasRubyMarkup(element),
         color: style.color,
         hostColor,
         textDecorationColor: style.textDecorationColor,
         backgroundColor: style.backgroundColor,
-        isColored: style.color !== hostColor || style.backgroundColor !== 'rgba(0, 0, 0, 0)' || style.textDecorationColor !== 'rgba(0, 0, 0, 0)',
+        isColored: hasReaderColor(style, hostColor),
         classes,
     };
+
+    function compactElementText(element) {
+        return element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    }
+
+    function datasetValue(element, key) {
+        return element.dataset[key] ?? '';
+    }
+
+    function firstClassMatching(classes, pattern) {
+        return classes.find(className => pattern.test(className)) ?? '';
+    }
+
+    function hasRubyMarkup(element) {
+        return Boolean(element.querySelector('ruby,rt,.jpdb-reader-furi,.jpdb-reader-ruby'));
+    }
+
+    function hasReaderColor(style, hostColor) {
+        return [
+            style.color !== hostColor,
+            style.backgroundColor !== 'rgba(0, 0, 0, 0)',
+            style.textDecorationColor !== 'rgba(0, 0, 0, 0)',
+        ].some(Boolean);
+    }
 }
 
 function isMockedApiOrigin(url) {

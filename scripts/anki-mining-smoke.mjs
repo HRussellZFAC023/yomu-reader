@@ -1338,35 +1338,13 @@ async function readMobileNewTabTopbarLayout(page) {
 async function assertNewTabAnkiCardAudioButton(page, requests) {
     const selector = `[data-newtab-prompt] [data-action="anki-media-audio"][data-anki-media-name="${ANKI_MEDIA_FILENAME}"]`;
     await page.locator(selector).waitFor({ state: 'visible', timeout: 8000 });
-    const beforeMediaRequests = requests.filter(item => item.kind === 'anki' && item.action === 'retrieveMediaFile').length;
-    const audio = await page.locator(selector).evaluate(button => {
-        const prompt = button.closest('[data-newtab-prompt]');
-        const rect = button.getBoundingClientRect();
-        return {
-            text: button.textContent?.trim() ?? '',
-            ariaLabel: button.getAttribute('aria-label') ?? '',
-            title: button.getAttribute('title') ?? '',
-            firstChild: prompt?.firstElementChild === button,
-            hasIconButtonClass: button.classList.contains('jpdb-reader-icon-btn'),
-            hasMiniClass: button.classList.contains('jpdb-reader-icon-mini'),
-            hasSpeakerIcon: Boolean(button.querySelector('svg')),
-            promptText: prompt?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-            rect: { width: rect.width, height: rect.height },
-        };
-    });
-    assert(audio.text === '', 'Anki card audio button should render as an icon-only control', audio);
-    assert(audio.ariaLabel === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button did not expose the media filename to assistive tech', audio);
-    assert(audio.title === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button title was incorrect', audio);
-    assert(audio.firstChild, 'Anki card audio button was not positioned before the prompt content', audio);
-    assert(audio.hasIconButtonClass && !audio.hasMiniClass && audio.hasSpeakerIcon, 'Anki card audio did not use the newtab speaker-button pattern', audio);
-    assert(!audio.promptText.includes('Card audio'), 'Anki card audio leaked the old text chip label', audio);
+    const beforeMediaRequests = retrieveMediaFileRequestCount(requests);
+    const audio = await page.locator(selector).evaluate(newTabAudioButtonSnapshot);
+    assertNewTabAnkiCardAudioSnapshot(audio);
 
     await page.locator(selector).click();
     try {
-        await waitForRequest(requests, item => item.kind === 'anki'
-            && item.action === 'retrieveMediaFile'
-            && String(item.params?.filename ?? '') === ANKI_MEDIA_FILENAME
-            && requests.filter(request => request.kind === 'anki' && request.action === 'retrieveMediaFile').length > beforeMediaRequests);
+        await waitForRequest(requests, item => isNewAnkiMediaRequest(item, requests, beforeMediaRequests));
     } catch (error) {
         const afterClick = await readNewTabAnkiCardAudioButtonDebug(page, selector).catch(debugError => ({
             error: debugError instanceof Error ? debugError.message : String(debugError),
@@ -1380,15 +1358,96 @@ async function assertNewTabAnkiCardAudioButton(page, requests) {
     return audio;
 }
 
+function assertNewTabAnkiCardAudioSnapshot(audio) {
+    assert(audio.text === '', 'Anki card audio button should render as an icon-only control', audio);
+    assert(audio.ariaLabel === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button did not expose the media filename to assistive tech', audio);
+    assert(audio.title === `Anki audio ${ANKI_MEDIA_FILENAME}`, 'Anki card audio button title was incorrect', audio);
+    assert(audio.firstChild, 'Anki card audio button was not positioned before the prompt content', audio);
+    assert(hasNewTabSpeakerButtonShape(audio), 'Anki card audio did not use the newtab speaker-button pattern', audio);
+    assert(!audio.promptText.includes('Card audio'), 'Anki card audio leaked the old text chip label', audio);
+}
+
+function hasNewTabSpeakerButtonShape(audio) {
+    return [
+        audio.hasIconButtonClass,
+        !audio.hasMiniClass,
+        audio.hasSpeakerIcon,
+    ].every(Boolean);
+}
+
+function newTabAudioButtonSnapshot(button) {
+    const prompt = button.closest('[data-newtab-prompt]');
+    const rect = button.getBoundingClientRect();
+    return {
+        text: trimmedButtonText(button),
+        ariaLabel: attributeValue(button, 'aria-label'),
+        title: attributeValue(button, 'title'),
+        firstChild: isFirstPromptChild(prompt, button),
+        hasIconButtonClass: button.classList.contains('jpdb-reader-icon-btn'),
+        hasMiniClass: button.classList.contains('jpdb-reader-icon-mini'),
+        hasSpeakerIcon: Boolean(button.querySelector('svg')),
+        promptText: compactPromptText(prompt),
+        rect: { width: rect.width, height: rect.height },
+    };
+
+    function trimmedButtonText(button) {
+        return button.textContent?.trim() ?? '';
+    }
+
+    function attributeValue(button, name) {
+        return button.getAttribute(name) ?? '';
+    }
+
+    function isFirstPromptChild(prompt, button) {
+        return Boolean(prompt) && prompt.firstElementChild === button;
+    }
+
+    function compactPromptText(prompt) {
+        return prompt ? prompt.textContent?.replace(/\s+/g, ' ').trim() ?? '' : '';
+    }
+}
+
+function isNewAnkiMediaRequest(item, requests, beforeMediaRequests) {
+    return isAnkiMediaRequest(item) && retrieveMediaFileRequestCount(requests) > beforeMediaRequests;
+}
+
+function isAnkiMediaRequest(item) {
+    return [
+        item.kind === 'anki',
+        item.action === 'retrieveMediaFile',
+        mediaRequestFilename(item) === ANKI_MEDIA_FILENAME,
+    ].every(Boolean);
+}
+
+function mediaRequestFilename(item) {
+    return item.params ? String(item.params.filename ?? '') : '';
+}
+
+function retrieveMediaFileRequestCount(requests) {
+    return requests.filter(item => item.kind === 'anki' && item.action === 'retrieveMediaFile').length;
+}
+
 async function readNewTabAnkiCardAudioButtonDebug(page, selector) {
-    return page.locator(selector).evaluate(button => ({
+    return page.locator(selector).evaluate(newTabAudioButtonDebugSnapshot);
+}
+
+function newTabAudioButtonDebugSnapshot(button) {
+    return {
         disabled: button.hasAttribute('disabled'),
-        text: button.textContent?.trim() ?? '',
+        text: trimmedButtonText(button),
         ariaLabel: button.getAttribute('aria-label') ?? '',
         classes: [...button.classList],
-        promptText: button.closest('[data-newtab-prompt]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-        bodyText: document.body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 800) ?? '',
-    }));
+        promptText: compactElementText(button.closest('[data-newtab-prompt]')),
+        bodyText: compactElementText(document.body).slice(0, 800),
+    };
+
+    function trimmedButtonText(button) {
+        return button.textContent?.trim() ?? '';
+    }
+
+    function compactElementText(element) {
+        return element ? element.textContent?.replace(/\s+/g, ' ').trim() ?? '' : '';
+    }
 }
 
 async function main() {

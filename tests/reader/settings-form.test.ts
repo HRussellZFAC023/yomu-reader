@@ -417,6 +417,29 @@ describe('settings form localization', () => {
         expect(customLegacyAnki.ankiSectionEnabled).toBe(true);
         expect(customLegacyAnki.ankiMobileHandoff).toBe(true);
         expect(customLegacyAnki.ankiMineWithJpdb).toBe(true);
+        expect(customLegacyAnki.newTabAnkiEnabled).toBe(false);
+
+        const customLegacyUrl = normalizeReaderSettings(legacyStoredSettings({
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+            ankiMobileHandoff: true,
+            ankiMineWithJpdb: true,
+            ankiConnectUrl: 'http://100.64.1.2:8765',
+        }));
+        expect(customLegacyUrl.ankiEnabled).toBe(true);
+        expect(customLegacyUrl.ankiMobileHandoff).toBe(true);
+
+        const customLegacyMappings = normalizeReaderSettings(legacyStoredSettings({
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+            ankiMobileHandoff: true,
+            ankiMineWithJpdb: true,
+            ankiFieldMappings: {
+                Custom: { expression: 'Word' },
+            },
+        }));
+        expect(customLegacyMappings.ankiEnabled).toBe(true);
+        expect(customLegacyMappings.ankiMobileHandoff).toBe(true);
 
         const customLegacyNewTab = normalizeReaderSettings(legacyStoredSettings({
             newTabEnabled: true,

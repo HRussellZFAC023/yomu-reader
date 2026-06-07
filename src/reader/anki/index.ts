@@ -504,7 +504,6 @@ export class AnkiConnectClient {
         const empty = emptyAnkiLookupResult();
         if (!cards.length) return [];
         if (this.isDestroyed) return cards.map(() => empty);
-        if (this.isLookupCoolingDown()) return cards.map(() => empty);
         const results: AnkiLookupResult[] = cards.map(() => empty);
         const pending = this.collectPendingLookupGroups(cards, results, cacheKey => this.readLookupCache(cacheKey));
         if (!pending.length) return results;

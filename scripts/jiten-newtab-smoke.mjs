@@ -335,10 +335,7 @@ async function runCombinedApiSmoke(browser, fixture) {
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-chip]', 'JPDB');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades JPDB');
-        await page.click('[data-newtab-action="grade"][data-grade="easy"]');
-        const jpdbReview = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
-        assert(jpdbReview, 'JPDB review request was not submitted in combined smoke', { requests });
-        assert(jpdbReview.body.vid === 101 && jpdbReview.body.sid === 1 && jpdbReview.body.grade === 'easy', 'JPDB review request body was incorrect', jpdbReview.body);
+        const jpdbReview = await gradeCombinedJpdbReview(page, requests);
         await expectText(page, '[data-newtab-prompt]', '日本語');
         await expectText(page, '[data-newtab-status]', 'Jiten');
         await expectText(page, '[data-newtab-status]', '1 / 1');
@@ -347,10 +344,7 @@ async function runCombinedApiSmoke(browser, fixture) {
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-chip]', 'Jiten');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
-        await page.click('[data-newtab-action="grade"][data-grade="okay"]');
-        const jitenReview = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
-        assert(jitenReview, 'Jiten review request was not submitted in combined smoke', { requests });
-        assert(jitenReview.body.wordId === 42 && jitenReview.body.readingIndex === 2 && jitenReview.body.rating === 3, 'Combined Jiten review request body was incorrect', jitenReview.body);
+        const jitenReview = await gradeCombinedJitenReview(page, requests);
         await screenshot(page, 'jiten-newtab-combined-api.png');
         assertRequestCountAtLeast(requests, 'jpdb-list-vocabulary', 1);
         assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 2);
@@ -370,6 +364,22 @@ async function runCombinedApiSmoke(browser, fixture) {
     } finally {
         await context.close();
     }
+}
+
+async function gradeCombinedJpdbReview(page, requests) {
+    await page.click('[data-newtab-action="grade"][data-grade="easy"]');
+    const review = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
+    assert(review, 'JPDB review request was not submitted in combined smoke', { requests });
+    assert(review.body.vid === 101 && review.body.sid === 1 && review.body.grade === 'easy', 'JPDB review request body was incorrect', review.body);
+    return review;
+}
+
+async function gradeCombinedJitenReview(page, requests) {
+    await page.click('[data-newtab-action="grade"][data-grade="okay"]');
+    const review = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
+    assert(review, 'Jiten review request was not submitted in combined smoke', { requests });
+    assert(review.body.wordId === 42 && review.body.readingIndex === 2 && review.body.rating === 3, 'Combined Jiten review request body was incorrect', review.body);
+    return review;
 }
 
 async function runLiveJitenHealthCheck() {

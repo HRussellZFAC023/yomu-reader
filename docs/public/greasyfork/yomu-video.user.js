@@ -2614,9 +2614,9 @@
       ankiScanSummary: "Decks {decks}, note types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "Open desktop Anki and check AnkiConnect.",
-      ankiSettingsUnreachable: "AnkiConnect not reached.",
-      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript and refresh.`,
+      ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
+      ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
+      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
@@ -3989,9 +3989,9 @@ ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み
 ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
-ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
-ankiSettingsUnreachable	AnkiConnectに接続できません。
-ankiHostedBridgeMissing	よむユーザースクリプトを有効化して更新してください。
+ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
+ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント

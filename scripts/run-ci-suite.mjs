@@ -67,16 +67,36 @@ function runTargetedVitest(args) {
         env: process.env,
         timeout: TEST_TIMEOUT_MS,
     });
+    reportTargetedVitestFailure(result);
+    process.exit(targetedVitestStatus(result));
+}
+
+function reportTargetedVitestFailure(result) {
     if (result.error) {
         console.error('[ci-suite] Targeted Vitest run failed:');
         console.error(result.error);
-        process.exit(result.error.code === 'ETIMEDOUT' ? 124 : 1);
+        return;
     }
     if (result.signal) {
         console.error(`[ci-suite] Targeted Vitest run exited from signal ${result.signal}.`);
-        process.exit(1);
     }
-    process.exit(result.status ?? 1);
+}
+
+function targetedVitestStatus(result) {
+    return [
+        targetedVitestErrorStatus(result),
+        targetedVitestSignalStatus(result),
+        result.status ?? 1,
+    ].find(status => status !== null);
+}
+
+function targetedVitestErrorStatus(result) {
+    if (!result.error) return null;
+    return result.error.code === 'ETIMEDOUT' ? 124 : 1;
+}
+
+function targetedVitestSignalStatus(result) {
+    return result.signal ? 1 : null;
 }
 
 function hasVitestApiArg(args) {

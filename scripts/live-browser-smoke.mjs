@@ -8,6 +8,7 @@ import { createYomuPaths } from './paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     addGmXmlHttpRequestBridgeInitScript,
+    arrayParam,
     assert,
     assertBuiltArtifacts,
     closeServer,
@@ -15,6 +16,10 @@ import {
     gmRequestFetchBody,
     launchOptionalBrowser,
     launchSmokeBrowser,
+    mockAnkiConnectResponse,
+    mockJpdbParseFromVocabulary,
+    readJsonBody,
+    resolveAnkiAction,
     startLoopbackServer,
 } from './smoke-harness.mjs';
 
@@ -60,6 +65,32 @@ const jishoSettings = {
     showFloatingButton: false,
     enableLogging: false,
 };
+
+const ankiStatusSettings = {
+    ...jishoSettings,
+    audioEnabled: false,
+    autoPlayAudio: false,
+    ankiEnabled: true,
+    ankiSectionEnabled: true,
+    ankiConnectUrl: ANKI_URL,
+    ankiDeck: 'Mining',
+    ankiModel: 'よむ Japanese',
+    wordTextColorSource: 'anki',
+    wordUnderlineColorSource: 'off',
+    wordHighlightColorSource: 'off',
+};
+
+const hostedAnkiStatusFixtureHtml = `
+<main class="vp-doc yomu-live-anki-status-fixture" style="font: 28px/1.8 system-ui; margin: 48px;">
+  <article>
+    <p>今日は本を読みます。読む練習を続けます。</p>
+  </article>
+</main>`;
+const HOSTED_ANKI_STATUS_WORD_SELECTOR = '.yomu-live-anki-status-fixture .jpdb-reader-word[data-expression="読む"]';
+const HOSTED_ANKI_EXISTING_SELECTOR = '.jpdb-reader-popover .jpdb-reader-anki-existing';
+const HOSTED_ANKI_STATUS_TERMS = ['Anki', 'Mining', '12'];
+const HOSTED_ANKI_RENDERED_TERMS = ['to read'];
+const HOSTED_ANKI_RAW_FIELD_TERMS = ['今日は本を読む', 'Sentence'];
 
 const BUILT_ARTIFACTS = [USERSCRIPT_PATH, CSS_PATH];
 
@@ -295,11 +326,13 @@ const LIVE_SMOKE_BRIDGE_RESPONDERS = [
     liveSmokePrefixTextResponse,
 ];
 
+const LIVE_SMOKE_JPDB_VOCABULARY = [
+    ['下', '下', 'した', 'below', ['n'], 400, ['not-in-deck'], ['LH']],
+    ['読みます', '読む', 'よみます', 'to read', ['v5m'], 401, ['not-in-deck'], ['LHH']],
+    ['読む', '読む', 'よむ', 'to read', ['v5m'], 401, ['not-in-deck'], ['LHH']],
+];
+
 const LIVE_SMOKE_JPDB_JSON = new Map([
-    ['https://jpdb.io/api/v1/parse', {
-        vocabulary: [[101, 201, 0, '下', 'した', 400, ['n'], [['below']], [['n']], ['not-in-deck'], ['LH']]],
-        tokens: [[[0, 0, 1, [['下', 'した']]]]],
-    }],
     ['https://jpdb.io/api/v1/deck/list-vocabulary', { vocabulary: [] }],
     ['https://jpdb.io/api/v1/list-user-decks', { decks: [] }],
 ]);
@@ -321,11 +354,14 @@ const LIVE_SMOKE_PREFIX_TEXT = [
 ];
 
 function liveSmokeJpdbApiResponse(url, request) {
-    const body = liveSmokeJpdbJsonBody(url);
+    const body = liveSmokeJpdbJsonBody(url, request);
     return body ? textBridgeResponse(url, request, JSON.stringify(body), 'application/json; charset=utf-8') : null;
 }
 
-function liveSmokeJpdbJsonBody(url) {
+function liveSmokeJpdbJsonBody(url, request) {
+    if (url === 'https://jpdb.io/api/v1/parse') {
+        return mockJpdbParseFromVocabulary(readJsonBody(request.data), LIVE_SMOKE_JPDB_VOCABULARY);
+    }
     if (LIVE_SMOKE_JPDB_JSON.has(url)) return LIVE_SMOKE_JPDB_JSON.get(url);
     return url.startsWith('https://jpdb.io/api/v1/') ? {} : null;
 }
@@ -500,6 +536,102 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
     }
 }
 
+async function runHostedClickedWordAnkiStatusSmoke(browser, browserName) {
+    const bridgeRequests = [];
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 980, height: 680 } });
+    const page = await context.newPage();
+    const pageMessages = [];
+    page.on('console', message => {
+        if (message.type() === 'error' || message.type() === 'warning') pageMessages.push(`${message.type()}: ${message.text()}`);
+    });
+    page.on('pageerror', error => pageMessages.push(`pageerror: ${firstErrorLine(error)}`));
+    await page.exposeFunction('__yomuLiveSmokeAnkiStatusRequest', createHostedAnkiStatusRequestHandler(bridgeRequests));
+    await addGmStorageBridgeInitScript(page, {
+        key: SETTINGS_KEY,
+        value: ankiStatusSettings,
+        css: readFileSync(CSS_PATH, 'utf8'),
+        requestBridgeName: '__yomuLiveSmokeAnkiStatusRequest',
+    });
+
+    try {
+        await page.goto(`${LIVE_ORIGIN}/?yomu-anki-status-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+        await page.evaluate(html => {
+            document.body.innerHTML = html;
+            document.title = 'Yomu hosted Anki status smoke';
+        }, hostedAnkiStatusFixtureHtml);
+        await page.addScriptTag({ path: USERSCRIPT_PATH });
+        await page.waitForFunction(() => document.documentElement.dataset.yomuUserscriptHttpBridge === 'true', { timeout: 10_000 });
+        await page.waitForSelector(HOSTED_ANKI_STATUS_WORD_SELECTOR, { timeout: 12_000 });
+        await page.waitForFunction(selector => {
+            const word = document.querySelector(selector);
+            return word instanceof HTMLElement
+                && word.dataset.ankiState === 'due'
+                && word.classList.contains('anki-due');
+        }, HOSTED_ANKI_STATUS_WORD_SELECTOR, { timeout: 12_000 });
+
+        await page.locator(HOSTED_ANKI_STATUS_WORD_SELECTOR).first().click({ force: true });
+        await page.waitForSelector(HOSTED_ANKI_EXISTING_SELECTOR, { timeout: 8_000 });
+        await waitForSelectorText(page, HOSTED_ANKI_EXISTING_SELECTOR, {
+            includes: HOSTED_ANKI_STATUS_TERMS,
+        });
+        await waitForSelectorText(page, HOSTED_ANKI_EXISTING_SELECTOR, {
+            includes: HOSTED_ANKI_RENDERED_TERMS,
+            excludes: HOSTED_ANKI_RAW_FIELD_TERMS,
+        });
+
+        const snapshot = await page.evaluate(hostedAnkiStatusSnapshotFromDom);
+
+        assert(snapshot.word?.ankiState === 'due', 'Hosted clicked word did not keep Anki due status', { browserName, snapshot, bridgeRequests, pageMessages });
+        assert(snapshot.hasExisting, 'Hosted clicked word popover did not render existing Anki details', { browserName, snapshot, bridgeRequests, pageMessages });
+        assert(!snapshot.hasAdd && snapshot.hasMerge && snapshot.hasEdit, 'Hosted clicked word did not expose existing-card Anki actions', { browserName, snapshot, bridgeRequests, pageMessages });
+        assert(hostedAnkiActions(bridgeRequests).includes('multi'), 'Hosted clicked word status did not use Anki lookup through the userscript bridge', { browserName, bridgeRequests, pageMessages });
+        assert(hostedAnkiActions(bridgeRequests).includes('areDue'), 'Hosted clicked word status did not hydrate detailed Anki due status', { browserName, bridgeRequests, pageMessages });
+
+        await page.screenshot({ path: path.join(ARTIFACTS, `live-hosted-anki-status-${browserName}.png`), fullPage: false });
+        return {
+            browser: browserName,
+            href: snapshot.href,
+            word: snapshot.word,
+            hasExisting: snapshot.hasExisting,
+            actions: hostedAnkiActions(bridgeRequests),
+            requestCount: bridgeRequests.length,
+        };
+    } finally {
+        await context.close();
+    }
+}
+
+// Browser-serialized DOM snapshot must stay self-contained for page.evaluate.
+// fallow-ignore-next-line complexity
+function hostedAnkiStatusSnapshotFromDom() {
+    const word = document.querySelector('.yomu-live-anki-status-fixture .jpdb-reader-word[data-expression="読む"]');
+    const popover = document.querySelector('.jpdb-reader-popover');
+    const existing = popover?.querySelector('.jpdb-reader-anki-existing');
+    const add = popover?.querySelector('[data-action="anki"]');
+    const merge = popover?.querySelector('[data-action="anki-merge"]');
+    const edit = popover?.querySelector('[data-action="anki-edit"]');
+    const wordSnapshot = word instanceof HTMLElement
+        ? {
+            text: word.textContent ?? '',
+            expression: word.dataset.expression ?? '',
+            reading: word.dataset.reading ?? '',
+            ankiState: word.dataset.ankiState ?? '',
+            classes: [...word.classList],
+            title: word.title,
+        }
+        : null;
+    return {
+        href: location.href,
+        bridgeReady: document.documentElement.dataset.yomuUserscriptHttpBridge === 'true',
+        word: wordSnapshot,
+        popoverText: popover?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        hasExisting: Boolean(existing),
+        hasAdd: Boolean(add),
+        hasMerge: Boolean(merge),
+        hasEdit: Boolean(edit),
+    };
+}
+
 function createHostedAnkiRequestHandler(bridgeRequests) {
     return async function handleHostedAnkiRequest(request) {
         bridgeRequests.push(hostedAnkiRequestSummary(request));
@@ -511,6 +643,137 @@ function createHostedAnkiRequestHandler(bridgeRequests) {
         const responseText = await response.text();
         return hostedAnkiResponse(request, response, responseText);
     };
+}
+
+function createHostedAnkiStatusRequestHandler(bridgeRequests) {
+    return async function handleHostedAnkiStatusRequest(request) {
+        if (isAnkiConnectRequest(request)) return recordMockedBridgeResponse(bridgeRequests, hostedAnkiStatusResponse(request));
+        const mocked = liveSmokeBridgeMock(request);
+        if (mocked) return recordMockedBridgeResponse(bridgeRequests, mocked);
+        return await fetchLiveSmokeBridgeRequest(bridgeRequests, request);
+    };
+}
+
+function isAnkiConnectRequest(request) {
+    try {
+        return new URL(request.url).origin === new URL(ANKI_URL).origin;
+    } catch {
+        return false;
+    }
+}
+
+function hostedAnkiStatusResponse(request) {
+    const body = readJsonBody(request.data);
+    const response = mockAnkiConnectResponse(body, resolveHostedAnkiStatusAction);
+    const responseText = JSON.stringify(response);
+    return {
+        summary: hostedAnkiStatusRequestSummary(request, body),
+        response: {
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            responseText,
+            response,
+            bytes: [...Buffer.from(responseText, 'utf8')],
+        },
+    };
+}
+
+function hostedAnkiStatusRequestSummary(request, body) {
+    const action = String(body.action ?? '');
+    const params = body.params ?? {};
+    return {
+        kind: 'anki',
+        mocked: true,
+        method: requestMethod(request),
+        url: request.url,
+        responseType: requestResponseType(request),
+        action,
+        actions: hostedAnkiStatusActions(action, params),
+        params,
+    };
+}
+
+function requestMethod(request) {
+    return request.method || 'GET';
+}
+
+function requestResponseType(request) {
+    return request.responseType || '';
+}
+
+function hostedAnkiStatusActions(action, params) {
+    if (action !== 'multi') return [action].filter(Boolean);
+    return arrayParam(params?.actions)
+        .map(item => String(item?.action ?? ''))
+        .filter(Boolean);
+}
+
+function resolveHostedAnkiStatusAction(action, params, context) {
+    return resolveAnkiAction(action, params, HOSTED_ANKI_STATUS_HANDLERS, context);
+}
+
+const HOSTED_ANKI_STATUS_HANDLERS = {
+    version: () => 6,
+    deckNames: () => ['Mining'],
+    getDeckStats: () => ({ 1: { name: 'Mining', total_in_deck: 1 } }),
+    findCards: params => hostedAnkiFindCards(String(params.query ?? '')),
+    findNotes: params => hostedAnkiFindNotes(String(params.query ?? '')),
+    notesInfo: params => arrayParam(params.notes).map(() => hostedAnkiNoteInfo()),
+    cardsInfo: params => arrayParam(params.cards).map(cardId => hostedAnkiCardInfo(Number(cardId))),
+    areDue: params => arrayParam(params.cards).map(cardId => Number(cardId) === 8801),
+    canAddNotes: params => arrayParam(params.notes).map(() => false),
+};
+
+function hostedAnkiFindCards(query) {
+    if (query === 'deck:*' || query.includes('is:due') || query.includes('is:learn')) return [8801];
+    return [];
+}
+
+function hostedAnkiFindNotes(query) {
+    return /読む|よむ|読みます|よみます/.test(query) ? [9901] : [];
+}
+
+function hostedAnkiNoteInfo() {
+    return {
+        noteId: 9901,
+        modelName: 'よむ Japanese',
+        tags: ['yomu-live-smoke'],
+        fields: {
+            Expression: { value: '読む', order: 0 },
+            Reading: { value: 'よむ', order: 1 },
+            Meaning: { value: 'to read', order: 2 },
+            Sentence: { value: '今日は本を読む。', order: 3 },
+            DictionaryDefinitions: { value: 'to read', order: 12 },
+        },
+        cards: [8801],
+    };
+}
+
+function hostedAnkiCardInfo(cardId) {
+    return {
+        cardId: cardId || 8801,
+        note: 9901,
+        deckName: 'Mining',
+        cardName: 'Recognition',
+        queue: 2,
+        type: 2,
+        due: 1,
+        reps: 12,
+        lapses: 1,
+        interval: 15,
+        question: '<div>読む</div>',
+        answer: '<div>to read</div>',
+    };
+}
+
+function hostedAnkiActions(bridgeRequests) {
+    return bridgeRequests
+        .flatMap(request => request.kind === 'anki' ? hostedAnkiRequestActions(request) : [])
+        .filter(Boolean);
+}
+
+function hostedAnkiRequestActions(request) {
+    return request.action === 'multi' ? [request.action, ...(request.actions ?? [])] : [request.action];
 }
 
 function hostedAnkiRequestSummary(request) {
@@ -571,6 +834,15 @@ async function documentTextSnapshot(page) {
     return await page.evaluate(() => (document.querySelector('.jpdb-reader-popover')?.textContent ?? document.body.textContent ?? '').slice(0, 1200));
 }
 
+async function waitForSelectorText(page, selector, expectations, timeout = 12_000) {
+    await page.waitForFunction(selectorTextMatches, { selector, ...expectations }, { timeout });
+}
+
+function selectorTextMatches({ selector, includes = [], excludes = [] }) {
+    const text = document.querySelector(selector)?.textContent ?? '';
+    return includes.every(term => text.includes(term)) && excludes.every(term => !text.includes(term));
+}
+
 async function main() {
     assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT);
     mkdirSync(ARTIFACTS, { recursive: true });
@@ -581,17 +853,20 @@ async function main() {
         const jishoAudio = await runJishoAudioSmoke(browser, fixture);
         const ankiConnect = await runAnkiConnectSmoke();
         const hostedAnkiBridge = [await runHostedAnkiBridgeSmoke(browser, 'chromium')];
+        const hostedClickedWordAnkiStatus = [await runHostedClickedWordAnkiStatusSmoke(browser, 'chromium')];
         const firefoxLaunch = await launchOptionalBrowser(firefox, 'firefox', { headless: true });
         if (firefoxLaunch.browser) {
             try {
                 hostedAnkiBridge.push(await runHostedAnkiBridgeSmoke(firefoxLaunch.browser, 'firefox'));
+                hostedClickedWordAnkiStatus.push(await runHostedClickedWordAnkiStatusSmoke(firefoxLaunch.browser, 'firefox'));
             } finally {
                 await firefoxLaunch.browser.close().catch(() => undefined);
             }
         } else {
             hostedAnkiBridge.push({ browser: 'firefox', skipped: true, reason: firefoxLaunch.reason });
+            hostedClickedWordAnkiStatus.push({ browser: 'firefox', skipped: true, reason: firefoxLaunch.reason });
         }
-        const report = { liveAssets, jishoAudio, ankiConnect, hostedAnkiBridge };
+        const report = { liveAssets, jishoAudio, ankiConnect, hostedAnkiBridge, hostedClickedWordAnkiStatus };
         writeFileSync(path.join(ARTIFACTS, 'live-browser-smoke.json'), JSON.stringify(report, null, 2));
         console.log(JSON.stringify(report, null, 2));
     } finally {

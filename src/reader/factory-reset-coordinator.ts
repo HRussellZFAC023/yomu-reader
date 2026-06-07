@@ -21,7 +21,7 @@ import type { InterfaceLanguage } from './types';
 const log = Logger.scope('FactoryReset');
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 30000;
-export const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
+const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
 
 export interface FactoryResetCoordinatorDependencies {
     isDestroyed: () => boolean;
@@ -30,6 +30,15 @@ export interface FactoryResetCoordinatorDependencies {
     resetDictionaryDatabase: () => Promise<unknown>;
     toast: (message: string) => void;
     reload: () => void;
+}
+
+export interface FactoryResetDictionaryStore {
+    deleteDatabase(options: { timeoutMs: number }): Promise<unknown>;
+}
+
+export function resetFactoryResetDictionaryDatabase(dictionaries: FactoryResetDictionaryStore): Promise<{ deleted: true }> {
+    return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
+        .then(() => ({ deleted: true }));
 }
 
 export class FactoryResetCoordinator {

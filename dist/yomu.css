@@ -2914,6 +2914,17 @@ button.jpdb-reader-jpdb-example-audio.jpdb-reader-icon-mini svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.jpdb-reader-popover-grade-target-selector {
+  width: 100%;
+  margin: 0 auto 2px;
+}
+.jpdb-reader-actions .jpdb-reader-newtab-grade-target {
+  width: 100%;
+  max-width: 100%;
+}
+.jpdb-reader-actions .jpdb-reader-newtab-grade-target-select {
+  width: min(280px, 100%);
+}
 .jpdb-reader-anki-note-action-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

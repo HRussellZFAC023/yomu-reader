@@ -2725,11 +2725,16 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 
   .jpdb-reader-newtab-topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand controls"
+      "mode mode";
     gap: 8px;
   }
 
   .jpdb-reader-newtab-brand {
+    grid-area: brand;
+    justify-self: start;
     min-width: 32px;
   }
 
@@ -2741,11 +2746,17 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     display: none;
   }
 
+  .jpdb-reader-newtab-theme-controls {
+    grid-area: controls;
+    justify-self: end;
+  }
+
   .jpdb-reader-newtab-mode {
+    grid-area: mode;
     width: 100%;
-    max-width: 300px;
+    max-width: none;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    justify-self: center;
+    justify-self: stretch;
   }
 
   .jpdb-reader-newtab-mode button {

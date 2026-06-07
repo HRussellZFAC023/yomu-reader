@@ -11,6 +11,10 @@ interface AnkiCardSanitizeOptions {
     maxFontRelative: number;
 }
 
+interface RenderAnkiExistingSectionOptions {
+    suppressReviewButtons?: boolean;
+}
+
 const POPOVER_ANKI_SANITIZE: AnkiCardSanitizeOptions = {
     maxFontPx: 30,
     maxFontPt: 22,
@@ -47,7 +51,12 @@ function shouldRenderMobileAnkiHandoffAction(ankiLookup: AnkiLookupResult, setti
     return canUseMobileAnkiHandoff(settings) && !ankiLookup.primary;
 }
 
-export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedContext: StoredMiningContext | null, settings: ReaderSettings): string {
+export function renderAnkiExistingSection(
+    ankiLookup: AnkiLookupResult,
+    storedContext: StoredMiningContext | null,
+    settings: ReaderSettings,
+    options: RenderAnkiExistingSectionOptions = {},
+): string {
     if (!settings.ankiSectionEnabled) return '';
     const notes = orderedExistingAnkiNotes(ankiLookup);
     const primary = notes[0];
@@ -62,8 +71,8 @@ export function renderAnkiExistingSection(ankiLookup: AnkiLookupResult, storedCo
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ''}
             ${notes.length === 1
-                ? renderAnkiExistingNote(primary, storedContext, settings, false, true)
-                : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0)).join('')}
+                ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options)
+                : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join('')}
         </details>
     `;
 }
@@ -121,7 +130,14 @@ function renderAnkiCollisionSummary(notes: AnkiExistingNote[], language: Interfa
     </div>`;
 }
 
-function renderAnkiExistingNote(note: AnkiExistingNote, storedContext: StoredMiningContext | null, settings: ReaderSettings, collapsible: boolean, open: boolean): string {
+function renderAnkiExistingNote(
+    note: AnkiExistingNote,
+    storedContext: StoredMiningContext | null,
+    settings: ReaderSettings,
+    collapsible: boolean,
+    open: boolean,
+    options: RenderAnkiExistingSectionOptions,
+): string {
     const language = settings.interfaceLanguage;
     const preview = ankiExistingPreview(note, storedContext, language);
     const content = `<div class="jpdb-reader-anki-existing-note-body">
@@ -130,7 +146,7 @@ function renderAnkiExistingNote(note: AnkiExistingNote, storedContext: StoredMin
         ${preview.pending}
         ${preview.context}
         ${renderAnkiNoteActions(note, language)}
-        ${settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ''}
+        ${!options.suppressReviewButtons && settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ''}
     </div>`;
     if (!collapsible) {
         return `<div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview" data-anki-note-id="${note.noteId}">
@@ -667,7 +683,7 @@ function reviewButtonAttrs(options: { disabled?: boolean; title?: string; target
     return `${disabled}${titleAttr}${aria}`;
 }
 
-function reviewButtonGrades(settings: ReaderSettings): Array<[string, string]> {
+export function reviewButtonGrades(settings: ReaderSettings): Array<[string, string]> {
     const language = settings.interfaceLanguage;
     return settings.twoButtonReviews
         ? [['fail', uiText(language, 'gradeFailLabel')], ['pass', uiText(language, 'gradePassLabel')]]

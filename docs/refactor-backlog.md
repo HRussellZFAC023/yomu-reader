@@ -1,6 +1,6 @@
 # Yomu Refactor Backlog
 
-Last updated: 2026-06-06.
+Last updated: 2026-06-07.
 
 ## Current Scoreboard
 
@@ -12,11 +12,12 @@ Last updated: 2026-06-06.
 - Fallow remaining penalties: hotspots 10, unit size 6.8, coupling 1.6, duplication 3.4.
 - Fallow duplication: 30 top reported clone groups, 13,462 duplicated lines, 8.37% in the current no-cache top-30 run.
 - Readable `npm run build`: passing.
-- `npm run verify`: failing because readable `dist/yomu.user.js` is over the 2,000,000 byte Greasy Fork limit.
-- Current userscript size: `dist/yomu.user.js` is 2,499,442 bytes in the latest policy-readable build, 499,442 bytes over the Greasy Fork limit.
-- Release-size root cause: the single-script bundle only fit after a local whitespace/syntax compaction step. That step is now removed from the build path; use `npm run size:greasyfork-plan` to generate the concrete companion-script/data-pack extraction budget.
+- `npm run verify`: passing, with a non-blocking 90% size warning.
+- Current user direction: do not let file size block the current product-fix pass. Keep builds policy-readable and offline-capable, but prioritize parsing, Anki stability, new-tab UX, settings defaults, and browser verification until the behavioral regressions are closed.
+- Current userscript size: `dist/yomu.user.js` is 1,930,737 bytes in the latest policy-readable build, 69,263 bytes below the Greasy Fork hard limit.
+- Release-size status: the current product-fix batch is verified without minification/compaction; size remains tight but is not blocking this pass per user direction.
 - Most recent top rendered source modules: `src/reader/main.ts` 213,643 bytes, `src/reader/subtitles/controller.ts` 119,635, `src/reader/settings-form.ts` 106,202, `src/reader/anki/index.ts` 89,611, `src/reader/dictionaries/yomitan/index.ts` 87,195, `src/reader/i18n.ts` 81,324, `src/reader/dom.ts` 74,134.
-- Current exact generated sizes: `dist/yomu.user.js` 2,499,442 bytes, `docs/public/yomu.user.js` 2,499,442 bytes, `dist/newtab/app.js` 2,219,064 bytes, `docs/public/newtab/app.js` 2,219,064 bytes.
+- Current exact generated sizes: `dist/yomu.user.js` 1,930,737 bytes, `docs/public/yomu.user.js` 1,930,737 bytes, `dist/newtab/app.js` 2,192,792 bytes, `docs/public/newtab/app.js` 2,192,792 bytes.
 - Current `npm run size:greasyfork-plan` recommendation: extract Yomu Settings Surface, Yomu Video, and Yomu Kanji/Study first. Conservative estimate leaves the core at 1,671,428 bytes, under the 1,850,000-byte target with 150 KB Greasy Fork headroom.
 
 ## Completed Manager Lanes
@@ -42,16 +43,25 @@ Last updated: 2026-06-06.
 
 ## Active Worker Lanes
 
-- Worker A: live hosted AnkiConnect transport and clicked-word Anki status.
-- Worker B: new-tab fallback, source toggle, mobile layout, and card-audio controls.
-- Worker C: settings defaults, migrations, and mobile settings ergonomics.
-- Worker D: kana-run pointer lookup and immediate card-state refresh after grading/mining.
-- Worker E: policy-safe Greasy Fork size/build architecture.
-- Worker F: Anki card rendering, duplicate entries, and target selection UX.
-- Worker G: Jisho/lookup audio and outside-click popover dismissal.
-- Worker H: nontechnical Anki/Tailscale docs and troubleshooting copy.
-- Worker I: nonstandard deck compatibility and automatic library adaptation.
-- Worker J: browser/Playwright smoke coverage for recurring mobile/docs regressions.
+- Worker P: kana-run pointer lookup, with `にほんご`/mobile-token tests and no Anki/settings edits. Done in dirty tree and covered by focused tests.
+- Worker N: mobile new-tab layout, deterministic JPDB/Anki source switching, and new-tab card-audio affordances. Done in dirty tree and covered by focused tests plus browser viewport check.
+- Worker M: settings defaults, migrations, mobile ergonomics, tags/swatches, and drawer copy. Done in dirty tree and covered by focused tests.
+- Worker C: hosted/local AnkiConnect transport and clicked-word details hydration. Done in dirty tree and covered by Anki tests.
+- Explorer R: Jiten Reader and anki-jpdb.reader reference patterns for parser identity, request batching, and state updates. Reference repos are at `../../resources/JitenReader` and `../../references/anki-jpdb.reader`.
+- Next local lane: keep this backlog current, review remaining worker patches, and add broader browser/live smoke only after the current source/test integration stays green.
+
+## Current Batch Status
+
+- Done: kana-run pointer lookup now accepts parser-backed multi-character kana tokens and public JPDB kana-run identity repairs even when JPDB definition and pitch display are off.
+- Done: mobile new-tab header puts brand/controls on the first row and Word/Kanji/Search/Stats on a full-width second row; source-toggle clicks recompute the next source instead of trusting stale DOM data.
+- Done: legacy-default-looking Anki settings are quieted again, while custom legacy decks, LAN/Tailscale URLs, and field mappings are preserved.
+- Done: successful AnkiConnect checks now silently warm the Anki status index through the existing automatic library scan path, so normal users do not need a manual scan to start seeing deck/status matches.
+- Done: hosted clicked-word Anki status smoke now covers Chromium and Firefox on the live origin, including userscript-bridge AnkiConnect lookup, `ankiState="due"` coloring, and existing-card details in the popover.
+- Verified: in-app browser at `390x844` mobile viewport measured zero overlap between new-tab mode tabs and brand/theme controls, and no horizontal overflow.
+- Verified: `npm run smoke:live-browser` passed with live hosted assets, Jisho audio mock playback, real local AnkiConnect version 6, Chromium/Firefox hosted bridge checks, and clicked-word Anki status/card-detail checks.
+- Done: duplicate/mixed grading UX in the popover now uses one compact target-aware grade row, not one JPDB row plus one Anki row per duplicate. `Both` means JPDB plus the primary/due Anki card only; duplicate Anki entries are selected by exact card id/deck/template, while full meanings/front/back stay in the collapsible Anki details.
+- Verified: focused popover tests cover JPDB-only, JPDB+Anki, JPDB-not-in-deck+Anki, multiple Anki notes, and the controller path that submits one grade to both JPDB and the selected Anki card.
+- Verified: `npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify` passed for this integrated product-fix batch.
 
 ## Worker 6 Release Readiness Notes
 
@@ -89,7 +99,7 @@ These came from the running product feedback thread and should stay visible unti
 - P0: Mobile new-tab layout must be usable. Tabs should not overlap the logo/theme/language controls, the current card should be aligned with the viewport, the audio control should use the same speaker pattern as the dictionary, and card audio must come from Anki media rather than lookup audio.
 - P0: Anki should be opt-in on fresh installs and factory reset. This includes the mobile "send to Anki" button, Anki mining/status scans, and loud default handoff behavior.
 - P0: Kana-run lookup must work on mobile YouTube and Mokuro. Tapping any part of にほんご should recover the full word, preferably from JPDB parse/public lookup, not per-character fragments like に, ほん, or ご.
-- P0: Greasy Fork publishability must be policy-safe. The userscript must remain readable, unminified, extension-packaged offline, and free of unapproved remote executed code while getting back under the 2 MB limit. First-party Greasy Fork libraries are allowed only through the release allowlist.
+- P0 paused by user direction: Greasy Fork publishability must remain policy-safe, but file size is not part of the current critical path. The userscript must remain readable, unminified, extension-packaged offline, and free of unapproved remote executed code; revisit the 2 MB plan after the product regressions are closed.
 - P1: Existing Anki library discovery should be automatic after AnkiConnect becomes reachable. The user should not need a "Scan" button for normal deck toggles, status indexing, field choices, or Core/RTK/nonstandard deck adaptation.
 - P1: Duplicate Anki entries and mixed JPDB/Anki grading need a calm target selector. Multiple same-spelling or same-reading entries should be collapsible, clearly labeled by deck/card, and gradeable without overloading the main bar.
 - P1: Anki card rendering should preserve the spirit of the original card. Avoid all-caps field labels, cap runaway font sizes, divide definitions clearly, support multiple cards, and keep lookup audio separate from Anki card audio.
@@ -99,13 +109,13 @@ These came from the running product feedback thread and should stay visible unti
 - P1: Default/migration handling needs an audit. Term audio and autoplay should be on by default, popover mode should be auto, Anki should be off by default, stale pitch underline/highlight settings should not leak from old installs or subtitle styles, and changes should not strand existing users.
 - P1: Settings save and scanning should never freeze the page. Expensive refreshes should be queued, cancellable, and observable in logs or smoke tests.
 
-## P0: Release Gate
+## P0: Current Product Gate
 
 - Keep `npm run typecheck` green after every refactor batch.
 - Keep Fallow dead-code at 0.
 - Drive Fallow health complexity findings back to 0 before calling the Fallow pass perfect.
 - Keep the build reviewable: no identifier minification, no obfuscation, no whitespace compactor, and no remote executable loader.
-- Do not claim Greasy Fork readiness until `npm run build && node scripts/sync-docs-userscript.cjs && npm run verify` passes.
+- Do not claim Greasy Fork readiness until `npm run build && node scripts/sync-docs-userscript.cjs && npm run verify` passes, but do not block the current product-fix pass only on size.
 
 ## P1: Greasy Fork Size Strategy
 
