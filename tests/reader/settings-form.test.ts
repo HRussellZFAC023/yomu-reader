@@ -9,6 +9,7 @@ import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
+const DOCS_THEME_SOURCE = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 const GETTING_STARTED_DOCS = readFileSync('docs/getting-started.md', 'utf8');
 const FEATURES_DOCS = readFileSync('docs/features.md', 'utf8');
 const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -593,6 +594,26 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip-list, .jpdb-reader-settings .jpdb-reader-tag-add-row { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-chip:hover, .jpdb-reader-settings .jpdb-reader-tag-chip:focus-visible { border-color: var(--jpdb-reader-accent);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
+    });
+
+    it('keeps mobile source editor row controls in a side rail', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 48px minmax(0, 1fr) 81px; align-items: start; }');
+        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; flex-wrap: wrap; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 48px minmax(0, 1fr) 81px; align-items: start; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; flex-wrap: wrap; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 3; align-self: start; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
+        expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px;');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-tools { gap: 5px; width: 73px; min-width: 73px; max-width: 73px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools, .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools, .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools, .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools, .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { width: 73px; min-width: 73px; max-width: 73px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; flex-wrap: wrap;');
+    });
+
+    it('keeps hosted settings companions available when the reader runtime already exists', () => {
+        const normalizedTheme = DOCS_THEME_SOURCE.replace(/\s+/g, ' ');
+
+        expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady()) return;');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {

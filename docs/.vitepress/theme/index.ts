@@ -23,6 +23,8 @@ const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 const LANGUAGE_EVENT = 'yomu-interface-language-change';
 const LANGUAGE_TOGGLE_ID = 'yomu-hud-language-toggle';
 const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-runtime';
+const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion';
+const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
@@ -1116,6 +1118,8 @@ function installHostedDocsEnhancements(): void {
 }
 
 function prepareHostedYomuRuntime(): void {
+    const forceLocalRuntime = isLocalHostedRuntime();
+    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedYomuRuntimeLoadingOrReady()) return;
     const target = findHostedYomuRuntimeTarget();
     if (!target) {
@@ -1178,7 +1182,8 @@ function installHostedYomuRuntime(): HTMLScriptElement | undefined {
     prepareLocalHostedRuntime(forceLocalRuntime);
     if (shouldSkipHostedRuntimeInstall(runtime, forceLocalRuntime, currentScript)) return undefined;
     enableLocalHostedRuntime(runtime, forceLocalRuntime);
-    return appendHostedRuntimeScript(hostedRuntimeScriptSrc(forceLocalRuntime));
+    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
+    return appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {
@@ -1218,18 +1223,43 @@ function enableLocalHostedRuntime(runtime: HostedYomuRuntimeWindow, forceLocalRu
     if (forceLocalRuntime) runtime.__yomuDevRuntime = true;
 }
 
-function appendHostedRuntimeScript(src: string): HTMLScriptElement {
+function appendHostedRuntimeCompanionScripts(forceLocalRuntime: boolean): void {
+    for (const script of hostedRuntimeCompanionScripts(forceLocalRuntime)) {
+        if (document.getElementById(script.id)) continue;
+        appendHostedRuntimeScript(script.id, script.src);
+    }
+}
+
+function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: string; src: string }> {
+    return [
+        {
+            id: YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
+        },
+        {
+            id: YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-video.user.js', forceLocalRuntime),
+        },
+    ];
+}
+
+function appendHostedRuntimeScript(id: string, src: string): HTMLScriptElement {
     const script = document.createElement('script');
-    script.id = YOMU_HOSTED_RUNTIME_SCRIPT_ID;
+    script.id = id;
     script.src = src;
-    script.async = true;
+    script.async = false;
     document.head.append(script);
     return script;
 }
 
 function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
-    if (forceLocalRuntime) return `/yomu-reader/yomu.user.js?t=${Date.now()}`;
-    return '/yomu-reader/yomu.user.js';
+    return hostedRuntimeAssetSrc('/yomu-reader/yomu.user.js', forceLocalRuntime);
+}
+
+function hostedRuntimeAssetSrc(src: string, forceLocalRuntime: boolean): string {
+    if (!forceLocalRuntime) return src;
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}t=${Date.now()}`;
 }
 
 function isLocalHostedRuntime(): boolean {
