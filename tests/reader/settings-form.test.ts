@@ -1294,8 +1294,10 @@ describe('settings form localization', () => {
         expect(jpdbVoice?.dataset.audioVoiceKind).toBe('jpdb');
         expect(Array.from(jpdbVoice?.options ?? []).map(option => [option.value, option.text])).toEqual([
             ['', 'Random JPDB voice'],
-            ['female', 'Female'],
-            ['male', 'Male'],
+            ['f1', 'Female 1'],
+            ['f2', 'Female 2'],
+            ['m1', 'Male 1'],
+            ['m2', 'Male 2'],
         ]);
     });
 

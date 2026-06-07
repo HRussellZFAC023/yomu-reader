@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.35] - 2026-06-07
+
+### Fixed
+
+- Kept JPDB and Anki new-tab fallback tests aligned with the current Jiten-first lookup order and smaller Immersion Kit sentence limits, restoring the GitHub CI shards.
+- Preserved all playable Jisho audio sources from the exact matching audio element instead of dropping alternate formats.
+- Let JPDB audio voice selection target explicit voices such as Female 1, Female 2, Male 1, and Male 2 without falling back to the wrong voice.
+
 ## [0.6.34] - 2026-06-07
 
 ### Fixed

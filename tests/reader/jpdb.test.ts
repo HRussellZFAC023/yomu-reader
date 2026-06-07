@@ -6707,6 +6707,15 @@ describe('reader helpers', () => {
             const jpdbCard = { ...card, vid: 1456360, sid: 1456360, spelling: '読む', reading: 'よむ', source: 'jpdb' as const };
 
             await expect(getAudioCandidates(
+                { type: 'jpdb-tts', url: '', voice: 'f1', enabled: true },
+                jpdbCard,
+                1000,
+                DEFAULT_YOMU_PUBLIC_PROXY_URL,
+            )).resolves.toEqual([
+                expect.objectContaining({ jpdbAudioId: 'f1/word' }),
+            ]);
+
+            await expect(getAudioCandidates(
                 { type: 'jpdb-tts', url: '', voice: 'female', enabled: true },
                 jpdbCard,
                 1000,
@@ -6717,12 +6726,11 @@ describe('reader helpers', () => {
             ]);
 
             await expect(getAudioCandidates(
-                { type: 'jpdb-tts', url: '', voice: 'male', enabled: true },
+                { type: 'jpdb-tts', url: '', voice: 'm2', enabled: true },
                 jpdbCard,
                 1000,
                 DEFAULT_YOMU_PUBLIC_PROXY_URL,
             )).resolves.toEqual([
-                expect.objectContaining({ jpdbAudioId: 'm1/word' }),
                 expect.objectContaining({ jpdbAudioId: 'm2/word' }),
             ]);
         } finally {
@@ -6730,7 +6738,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('falls back to available JPDB audio when the preferred voice is absent from public HTML', async () => {
+    it('does not play a different JPDB voice when the selected voice is absent from public HTML', async () => {
         const fetchMock = vi.fn((input: RequestInfo | URL) => {
             const target = unproxiedFetchTarget(input);
             if (target.includes('/vocabulary/1456360/')) {
@@ -6754,9 +6762,7 @@ describe('reader helpers', () => {
                 { ...card, vid: 1456360, sid: 1456360, spelling: '読む', reading: 'よむ', source: 'jpdb' as const },
                 1000,
                 DEFAULT_YOMU_PUBLIC_PROXY_URL,
-            )).resolves.toEqual([
-                expect.objectContaining({ jpdbAudioId: 'm1/public-only' }),
-            ]);
+            )).resolves.toEqual([]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -8974,13 +8980,14 @@ describe('reader helpers', () => {
             `<div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div>`,
             '[data-lookup-link-row]',
         );
+        const firstId = rows[0].querySelector<HTMLInputElement>('input[name$=".id"]')?.value;
 
         const afterLastRow = rows.length * 48 + 20;
         dragSourceRow(form, rows, afterLastRow);
 
         const ids = Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value);
-        expect(ids.at(-1)).toBe('jpdb');
-        expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe('jpdb');
+        expect(ids.at(-1)).toBe(firstId);
+        expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe(firstId);
     });
 
     it('builds configured proxy URLs before public fallback URLs', () => {
@@ -10082,8 +10089,8 @@ describe('reader helpers', () => {
 
         const result = await controller.searchExamples(compoundCard, { relatedQueries: ['国家', '主席'] });
 
-        expect(search).toHaveBeenNthCalledWith(1, '国家主席', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: 6 }));
-        expect(search).toHaveBeenNthCalledWith(2, '国家', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: 6 }));
+        expect(search).toHaveBeenNthCalledWith(1, '国家主席', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
+        expect(search).toHaveBeenNthCalledWith(2, '国家', expect.any(Object), expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }));
         expect(result.query).toBe('国家');
         expect(result.examples[0]?.sourceTitle).toBe('Show');
         expect(result.examples[0]?.sentence).toBe('国家のために働く。');
@@ -11879,7 +11886,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimitEnabled: false });
 
             expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate', imageFile: 'A_SteinsGateS01_E07_1_0.19.51.112.jpg' });
             expect(client.mediaUrl(examples[0], 'image')).toContain('https://us-southeast-1.linodeobjects.com/immersionkit/media/anime/Steins%20Gate/media/A_SteinsGateS01_E07_1_0.19.51.112.jpg');
@@ -11909,7 +11916,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimitEnabled: false });
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
             expect(String(fetchMock.mock.calls[0][0])).toContain(DEFAULT_YOMU_PUBLIC_PROXY_URL);
@@ -12060,7 +12067,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimit: 1 });
+            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimitEnabled: false });
 
             expect(new URL(requestUrl).searchParams.get('limit')).toBe('250');
             expect(examples).toHaveLength(30);
