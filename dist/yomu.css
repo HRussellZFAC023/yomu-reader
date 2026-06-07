@@ -5630,6 +5630,19 @@ html.jpdb-reader-doodle-active * {
   min-width: 0;
   padding: 8px;
 }
+.jpdb-reader-settings select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
 @media (hover: none), (pointer: coarse) {
   .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
   .jpdb-reader-settings select,
@@ -6906,7 +6919,8 @@ html.jpdb-reader-doodle-active * {
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display {
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   .jpdb-reader-settings {
@@ -7031,8 +7045,51 @@ html.jpdb-reader-doodle-active * {
     min-width: 0;
   }
 
+  .jpdb-reader-dictionary-row {
+    grid-template-columns: 48px minmax(0, 1fr) 81px;
+    align-items: start;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle {
+    align-self: start;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
+  .jpdb-reader-dictionary-row > input[name$=".name"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-dictionary-row > input[name$=".alias"],
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display[aria-label="Display name"] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: start;
+    align-content: flex-start;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 81px;
+    min-width: 81px;
+    max-width: 81px;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools {
+    grid-column: 3;
+    grid-row: 3;
+    align-self: start;
+    justify-content: flex-end;
+    width: 81px;
+    min-width: 81px;
+    max-width: 81px;
+  }
+
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] {
-    grid-template-columns: 48px minmax(0, 1fr) max-content;
+    grid-template-columns: 48px minmax(0, 1fr) 81px;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display,
@@ -7043,9 +7100,13 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools {
     grid-column: 3;
     grid-row: 1 / span 2;
-    align-self: center;
+    align-self: start;
+    align-content: flex-start;
+    flex-wrap: wrap;
     justify-content: flex-end;
-    min-width: max-content;
+    width: 81px;
+    min-width: 81px;
+    max-width: 81px;
   }
 
   .jpdb-reader-row-remove-tools {
@@ -7062,16 +7123,52 @@ html.jpdb-reader-doodle-active * {
     min-width: 0;
   }
 
+  .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-row {
+    grid-template-columns: 48px minmax(0, 1fr) 81px;
+    align-items: start;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-order-toggle,
+  .jpdb-reader-lookup-link-row .jpdb-reader-order-toggle {
+    align-self: start;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-audio-source-choice,
+  .jpdb-reader-lookup-link-row > input[name$=".label"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-audio-source-row .jpdb-reader-audio-source-fields,
+  .jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
+  .jpdb-reader-lookup-link-row > .jpdb-reader-lookup-link-note {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
   .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools {
-    grid-column: 2;
-    grid-row: 3;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: start;
+    align-content: flex-start;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 81px;
+    min-width: 81px;
+    max-width: 81px;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
   .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
     grid-column: 3;
     grid-row: 3;
+    align-self: start;
+    justify-content: flex-end;
+    width: 81px;
+    min-width: 81px;
+    max-width: 81px;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-icon-mini {
@@ -7084,11 +7181,73 @@ html.jpdb-reader-doodle-active * {
   }
 
   .jpdb-reader-lookup-link-row .jpdb-reader-row-tools {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .jpdb-reader-dictionary-row-help {
     grid-column: 1 / -1;
+  }
+
+  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-dictionary-row-help {
+    grid-column: 2;
+  }
+
+  @media (max-width: 380px) {
+    .jpdb-reader-order-row {
+      grid-template-columns: 44px minmax(0, 1fr) 73px;
+      gap: 7px;
+      padding: 8px;
+    }
+
+    .jpdb-reader-order-row .jpdb-reader-icon-mini {
+      width: 34px !important;
+      min-width: 34px !important;
+      max-width: 34px !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      max-height: 34px !important;
+    }
+
+    .jpdb-reader-order-row .jpdb-reader-row-tools {
+      gap: 5px;
+      width: 73px;
+      min-width: 73px;
+      max-width: 73px;
+    }
+
+    .jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools,
+    .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools,
+    .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
+    .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools,
+    .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools,
+    .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
+    .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
+      width: 73px;
+      min-width: 73px;
+      max-width: 73px;
+    }
+
+    .jpdb-reader-order-row .jpdb-reader-row-order-tools {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+      align-self: start;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      justify-content: flex-end;
+    }
+
+    .jpdb-reader-order-row .jpdb-reader-row-remove-tools {
+      grid-column: 3;
+      grid-row: 3;
+      align-self: start;
+      justify-content: flex-end;
+    }
+
+    .jpdb-reader-dictionary-row.compact[data-dictionary-source-row],
+    .jpdb-reader-audio-source-row,
+    .jpdb-reader-lookup-link-row {
+      grid-template-columns: 44px minmax(0, 1fr) 73px;
+    }
   }
 
   .jpdb-reader-settings .footer {
