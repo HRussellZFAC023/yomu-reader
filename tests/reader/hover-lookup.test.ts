@@ -79,6 +79,36 @@ function cleanupReaderApp(app: ReaderApp): void {
     document.body.replaceChildren();
 }
 
+function activePopoverWordFixture(): { popover: HTMLElement; word: HTMLElement } {
+    const popover = document.createElement('div');
+    popover.className = 'jpdb-reader-popover';
+    popover.dataset.jpdbReaderRoot = 'true';
+    popover.innerHTML = `
+        <div class="jpdb-reader-example-sentence">
+            <span class="jpdb-reader-word jpdb-known" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>
+        </div>
+    `;
+    document.body.append(popover);
+    return { popover, word: popover.querySelector<HTMLElement>('.jpdb-reader-word')! };
+}
+
+function parsedWordPairFixture(): { firstWord: HTMLElement; nextWord: HTMLElement } {
+    const firstWord = parsedWordFixture('1', '2', '猫を見る', '猫');
+    const nextWord = parsedWordFixture('3', '4', '犬を見る', '犬');
+    document.body.append(firstWord, nextWord);
+    return { firstWord, nextWord };
+}
+
+function parsedWordFixture(vid: string, sid: string, sentence: string, text: string): HTMLElement {
+    const word = document.createElement('span');
+    word.className = 'jpdb-reader-word';
+    word.dataset.vid = vid;
+    word.dataset.sid = sid;
+    word.dataset.sentence = sentence;
+    word.textContent = text;
+    return word;
+}
+
 function setupHoverLookupSpies(
     app: ReaderApp,
     options: HoverLookupSpyOptions = {},
@@ -164,16 +194,7 @@ describe('hover lookup', () => {
 
     it('keeps parsed words inside the active popover click-only on hover', () => {
         const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        popover.innerHTML = `
-            <div class="jpdb-reader-example-sentence">
-                <span class="jpdb-reader-word jpdb-known" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>
-            </div>
-        `;
-        document.body.append(popover);
-        const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const { popover, word } = activePopoverWordFixture();
         const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover });
 
         try {
@@ -187,16 +208,7 @@ describe('hover lookup', () => {
 
     it('keeps modifier-hover disabled while a clicked popover is open', () => {
         const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.dataset.jpdbReaderRoot = 'true';
-        popover.innerHTML = `
-            <div class="jpdb-reader-example-sentence">
-                <span class="jpdb-reader-word jpdb-known" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>
-            </div>
-        `;
-        document.body.append(popover);
-        const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const { popover, word } = activePopoverWordFixture();
         const hoverLookup = setupHoverLookupSpies(app, {
             activePopover: popover,
             hoverLookupShortcut: 'Shift',
@@ -525,19 +537,7 @@ describe('hover lookup', () => {
 
     it('keeps the hover card live when moving directly between parsed words', () => {
         const app = new ReaderApp();
-        const firstWord = document.createElement('span');
-        firstWord.className = 'jpdb-reader-word';
-        firstWord.dataset.vid = '1';
-        firstWord.dataset.sid = '2';
-        firstWord.dataset.sentence = '猫を見る';
-        firstWord.textContent = '猫';
-        const nextWord = document.createElement('span');
-        nextWord.className = 'jpdb-reader-word';
-        nextWord.dataset.vid = '3';
-        nextWord.dataset.sid = '4';
-        nextWord.dataset.sentence = '犬を見る';
-        nextWord.textContent = '犬';
-        document.body.append(firstWord, nextWord);
+        const { firstWord, nextWord } = parsedWordPairFixture();
 
         const internals = app as unknown as HoverLookupInternals;
         const scheduleHoverClose = vi.fn();
@@ -562,21 +562,10 @@ describe('hover lookup', () => {
 
     it('opens the next word immediately while an existing hover card is active', () => {
         const app = new ReaderApp();
-        const firstWord = document.createElement('span');
-        firstWord.className = 'jpdb-reader-word';
-        firstWord.dataset.vid = '1';
-        firstWord.dataset.sid = '2';
-        firstWord.dataset.sentence = '猫を見る';
-        firstWord.textContent = '猫';
-        const nextWord = document.createElement('span');
-        nextWord.className = 'jpdb-reader-word';
-        nextWord.dataset.vid = '3';
-        nextWord.dataset.sid = '4';
-        nextWord.dataset.sentence = '犬を見る';
-        nextWord.textContent = '犬';
+        const { firstWord, nextWord } = parsedWordPairFixture();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
-        document.body.append(firstWord, nextWord, popover);
+        document.body.append(popover);
 
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
