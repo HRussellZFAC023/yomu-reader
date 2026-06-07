@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatDuration, readPositiveInt } from './ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');
@@ -385,6 +386,7 @@ function rewriteGeneratedImports(contents) {
     return contents
         .replaceAll("from '../../src/", "from '../../../src/")
         .replaceAll("from '../../workers/", "from '../../../workers/")
+        .replaceAll("from './helpers/", "from '../helpers/")
         .replaceAll("from './test-utils'", "from '../test-utils'")
         .replaceAll("from './zip-fixture'", "from '../zip-fixture'");
 }
@@ -487,19 +489,4 @@ function readCliArg(rawArgs, index) {
 
 function isExplicitCliValue(value) {
     return typeof value === 'string' && !value.startsWith('--');
-}
-
-function readPositiveInt(value, label) {
-    const parsed = Number.parseInt(String(value), 10);
-    if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`);
-    return parsed;
-}
-
-function formatDuration(ms) {
-    if (ms < 1000) return `${ms}ms`;
-    const seconds = Math.round(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }

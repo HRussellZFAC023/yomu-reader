@@ -2,7 +2,7 @@ import { AudioPlayer } from './audio';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, needsHostedAnkiConnectSetupHint } from './anki';
 import { copyText } from './browser-ui';
 import { createAudioPreviewCard } from './card-utils';
-import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from './constants';
+import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from './dom';
 import { JpdbClient } from './jpdb';
 import { configureLogger, Logger, loggingSettingsSummary } from './logger';
@@ -51,6 +51,7 @@ import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsEx
 import type { AnkiLibraryScanResult } from './anki-types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from './types';
 import { uiText } from './i18n';
+import { addWindowEventListener, removeWindowEventListener } from './window-events';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from './yomitan';
 
 interface Refreshable {
@@ -231,6 +232,8 @@ function ankiStatusSetter(status: HTMLElement | null): AnkiStatusSetter {
     return (message, tone, action) => {
         if (!status) return;
         status.dataset.statusTone = tone;
+        if (action) status.dataset.statusAction = action;
+        else delete status.dataset.statusAction;
         setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
     };
 }
@@ -448,6 +451,7 @@ export class SettingsDialogController {
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
+    private ankiBridgeReadyCleanup?: () => void;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
@@ -463,6 +467,7 @@ export class SettingsDialogController {
         this.bindFocusedControlScrolling(form);
         this.bindSettingsSearch(form);
         this.bindSettingsTabs(form);
+        this.bindAnkiBridgeReadyRefresh(form);
         this.bindLivePreview(form);
         this.bindEditorControls(form);
         this.currentForm = form;
@@ -549,6 +554,7 @@ export class SettingsDialogController {
     private dismissSettings(): void {
         const restoreTarget = this.previouslyFocusedElement;
         this.previouslyFocusedElement = undefined;
+        this.clearAnkiBridgeReadyRefresh();
         this.currentForm = undefined;
         this.restoreBackgroundFromModal();
         this.dependencies.dismiss();
@@ -595,7 +601,37 @@ export class SettingsDialogController {
     // fallow-ignore-next-line unused-class-member
     releaseModalBackground(): void {
         if (!this.currentForm?.isConnected) this.currentForm = undefined;
+        if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
         this.restoreBackgroundFromModal();
+    }
+
+    private bindAnkiBridgeReadyRefresh(form: HTMLFormElement): void {
+        this.clearAnkiBridgeReadyRefresh();
+        const listener = () => {
+            if (!this.shouldRefreshAnkiStatusAfterBridgeReady(form)) return;
+            void this.refreshAnkiConnectionStatus(form);
+        };
+        const cleanups: Array<() => void> = [];
+        if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener)) {
+            cleanups.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+        }
+        const documentRoot = document.documentElement;
+        documentRoot?.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener);
+        if (documentRoot) cleanups.push(() => documentRoot.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+        this.ankiBridgeReadyCleanup = () => {
+            cleanups.forEach(cleanup => cleanup());
+        };
+    }
+
+    private clearAnkiBridgeReadyRefresh(): void {
+        this.ankiBridgeReadyCleanup?.();
+        this.ankiBridgeReadyCleanup = undefined;
+    }
+
+    private shouldRefreshAnkiStatusAfterBridgeReady(form: HTMLFormElement): boolean {
+        if (this.currentForm !== form || !form.isConnected) return false;
+        const status = form.querySelector<HTMLElement>('[data-anki-status]');
+        return status?.dataset.statusAction === 'anki-hosted-bridge';
     }
 
     private trapFocus(form: HTMLFormElement, event: KeyboardEvent): void {
@@ -1032,6 +1068,8 @@ export class SettingsDialogController {
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         if (!status) return;
         status.dataset.statusTone = tone;
+        if (action) status.dataset.statusAction = action;
+        else delete status.dataset.statusAction;
         setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
     }
 

@@ -561,12 +561,31 @@
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
+  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const ANKI_SOURCE_ID = "__anki__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  function normalizeAnkiFieldMappings(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const out = {};
+    Object.entries(value).forEach(([modelName, mapping]) => {
+      const normalizedModelName = modelName.trim();
+      if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
+      const normalizedMapping = {};
+      for (const role of ANKI_FIELD_MAPPING_ROLES$2) {
+        const fieldName = mapping[role];
+        if (typeof fieldName !== "string") continue;
+        const normalizedFieldName = fieldName.trim();
+        if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+      }
+      if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+    });
+    return out;
+  }
   function hasOwn(value, key2) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
   }
@@ -1502,24 +1521,6 @@
   function normalizeStringList(value) {
     if (!Array.isArray(value)) return [];
     return [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
-  }
-  const ANKI_FIELD_MAPPING_ROLES$3 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  function normalizeAnkiFieldMappings(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    const out = {};
-    Object.entries(value).forEach(([modelName, mapping]) => {
-      const normalizedModelName = modelName.trim();
-      if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-      const normalizedMapping = {};
-      for (const role of ANKI_FIELD_MAPPING_ROLES$3) {
-        const fieldName = mapping[role];
-        if (typeof fieldName !== "string") continue;
-        const normalizedFieldName = fieldName.trim();
-        if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-      }
-      if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-    });
-    return out;
   }
   function normalizeAnkiName(value, fallback, oldDefault) {
     if (typeof value !== "string") return fallback;
@@ -5932,26 +5933,11 @@ recommendedJiten	jiten.moe頻度データです。
   function shouldAutoEnableAnkiSection(ankiEnabled, current) {
     return ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled;
   }
-  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function readAnkiFieldMappings(value, fallback) {
     if (!value.trim()) return fallback;
     try {
       const parsed = JSON.parse(value);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return fallback;
-      const out = {};
-      Object.entries(parsed).forEach(([modelName, mapping]) => {
-        const normalizedModelName = modelName.trim();
-        if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-        const normalizedMapping = {};
-        for (const role of ANKI_FIELD_MAPPING_ROLES$2) {
-          const fieldName = mapping[role];
-          if (typeof fieldName !== "string") continue;
-          const normalizedFieldName = fieldName.trim();
-          if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-        }
-        if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-      });
-      return out;
+      return normalizeAnkiFieldMappings(parsed);
     } catch {
       return fallback;
     }
@@ -8715,14 +8701,7 @@ recommendedJiten	jiten.moe頻度データです。
       search.value = "";
       applySettingsSearch(form, "");
     }
-    form.querySelectorAll("[data-settings-panel]").forEach((section) => {
-      section.hidden = section.dataset.settingsPanel !== normalizedPanel;
-    });
-    form.querySelectorAll('[data-action="settings-panel"]').forEach((button) => {
-      const active = button.dataset.panel === normalizedPanel;
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
+    applySettingsPanelState(form, normalizedPanel);
   }
   function applySettingsSearch(form, query) {
     const searchInput = form.querySelector("[data-settings-search]");
@@ -8744,7 +8723,9 @@ recommendedJiten	jiten.moe頻度データです。
     if (empty) empty.hidden = visibleCount > 0;
   }
   function activateSettingsPanelWithoutClearingSearch(form, panel) {
-    const normalizedPanel = normalizeSettingsPanel(panel);
+    applySettingsPanelState(form, normalizeSettingsPanel(panel));
+  }
+  function applySettingsPanelState(form, normalizedPanel) {
     form.querySelectorAll("[data-settings-panel]").forEach((section) => {
       section.hidden = section.dataset.settingsPanel !== normalizedPanel;
     });
@@ -9103,6 +9084,8 @@ recommendedJiten	jiten.moe頻度データです。
     return (message, tone, action) => {
       if (!status) return;
       status.dataset.statusTone = tone;
+      if (action) status.dataset.statusAction = action;
+      else delete status.dataset.statusAction;
       setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, statusLanguage(status)));
     };
   }
@@ -9271,6 +9254,7 @@ recommendedJiten	jiten.moe頻度データです。
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    ankiBridgeReadyCleanup;
     open(panel) {
       log.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -9280,6 +9264,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.bindFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
       this.bindSettingsTabs(form);
+      this.bindAnkiBridgeReadyRefresh(form);
       this.bindLivePreview(form);
       this.bindEditorControls(form);
       this.currentForm = form;
@@ -9359,6 +9344,7 @@ recommendedJiten	jiten.moe頻度データです。
     dismissSettings() {
       const restoreTarget = this.previouslyFocusedElement;
       this.previouslyFocusedElement = void 0;
+      this.clearAnkiBridgeReadyRefresh();
       this.currentForm = void 0;
       this.restoreBackgroundFromModal();
       this.dependencies.dismiss();
@@ -9400,7 +9386,34 @@ recommendedJiten	jiten.moe頻度データです。
     // fallow-ignore-next-line unused-class-member
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
+      if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
       this.restoreBackgroundFromModal();
+    }
+    bindAnkiBridgeReadyRefresh(form) {
+      this.clearAnkiBridgeReadyRefresh();
+      const listener = () => {
+        if (!this.shouldRefreshAnkiStatusAfterBridgeReady(form)) return;
+        void this.refreshAnkiConnectionStatus(form);
+      };
+      const cleanups = [];
+      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener)) {
+        cleanups.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+      }
+      const documentRoot = document.documentElement;
+      documentRoot?.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener);
+      if (documentRoot) cleanups.push(() => documentRoot.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
+      this.ankiBridgeReadyCleanup = () => {
+        cleanups.forEach((cleanup) => cleanup());
+      };
+    }
+    clearAnkiBridgeReadyRefresh() {
+      this.ankiBridgeReadyCleanup?.();
+      this.ankiBridgeReadyCleanup = void 0;
+    }
+    shouldRefreshAnkiStatusAfterBridgeReady(form) {
+      if (this.currentForm !== form || !form.isConnected) return false;
+      const status = form.querySelector("[data-anki-status]");
+      return status?.dataset.statusAction === "anki-hosted-bridge";
     }
     trapFocus(form, event) {
       const focusable = Array.from(form.querySelectorAll(SETTINGS_FOCUSABLE_SELECTOR)).filter((element) => !element.closest("[hidden]") && element.getAttribute("aria-hidden") !== "true");
@@ -9809,6 +9822,8 @@ recommendedJiten	jiten.moe頻度データです。
       const status = form.querySelector("[data-anki-status]");
       if (!status) return;
       status.dataset.statusTone = tone;
+      if (action) status.dataset.statusAction = action;
+      else delete status.dataset.statusAction;
       setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
     }
     async refreshDictionaryStatus(form) {

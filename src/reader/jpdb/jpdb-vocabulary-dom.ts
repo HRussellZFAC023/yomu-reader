@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom';
+import { isRubyAnnotation, rubyReadingText } from './jpdb-ruby-text';
 import { cleanText, JAPANESE_RE } from './jpdb-text';
 
 interface JpdbRichTextOptions {
@@ -33,33 +34,8 @@ export function readingText(root: Node): string {
 
 function readingElementText(element: HTMLElement): string {
     if (isRubyAnnotation(element)) return '';
-    if (element.tagName === 'RUBY') return rubyReadingText(element);
+    if (element.tagName === 'RUBY') return rubyReadingText(element, baseText);
     return Array.from(element.childNodes).map(readingText).join('');
-}
-
-function isRubyAnnotation(element: Element): boolean {
-    return element.tagName === 'RT' || element.tagName === 'RP';
-}
-
-function rubyReadingText(element: Element): string {
-    let text = '';
-    let base = '';
-    element.childNodes.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE) {
-            base += child.textContent ?? '';
-            return;
-        }
-        if (child.nodeType !== Node.ELEMENT_NODE) return;
-        const childElement = child as Element;
-        if (childElement.tagName === 'RT') {
-            text += childElement.textContent || base;
-            base = '';
-            return;
-        }
-        if (childElement.tagName === 'RP') return;
-        base += baseText(childElement);
-    });
-    return text + base || baseText(element);
 }
 
 export function optionalRichHtml<K extends 'termHtml' | 'sentenceHtml'>(

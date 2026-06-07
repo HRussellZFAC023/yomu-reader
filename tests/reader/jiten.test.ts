@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createJitenStudyBatchCard } from '../../scripts/jiten-fixtures.mjs';
 import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/jiten';
 import type { JPDBCard } from '../../src/reader/types';
 
@@ -82,27 +83,14 @@ describe('JitenApiClient', () => {
     it('loads Jiten SRS study-batch cards for new-tab reviews', async () => {
         const fetchMock = createFetchMock({
             sessionId: 'session-1',
-            cards: [{
-                cardId: 9001,
-                wordId: 42,
-                readingIndex: 2,
-                state: 2,
-                isNewCard: false,
-                wordText: '日本語[にほんご]',
-                wordTextPlain: '日本語',
-                readings: [{ text: 'にほんご', rubyText: '日本語[にほんご]', readingIndex: 2, formType: 0 }],
-                definitions: [{ index: 0, meanings: ['Japanese language'], partsOfSpeech: ['n'] }],
-                partsOfSpeech: ['n'],
-                pitchAccents: [0],
-                frequencyRank: 123,
-                exampleSentence: { text: '日本語を読む。' },
+            cards: [createJitenStudyBatchCard({
                 reviewButtons: [
                     { rating: 1, nextInterval: '1m' },
                     { rating: 2, nextInterval: '5m' },
                     { rating: 3, nextInterval: '10m' },
                     { rating: 4, nextInterval: '4.1y' },
                 ],
-            }],
+            })],
             newCardsRemaining: 3,
             reviewsRemaining: 4,
             newCardsToday: 1,

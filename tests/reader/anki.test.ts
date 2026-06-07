@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki';
@@ -9,9 +8,16 @@ import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/constants';
 import { uiText } from '../../src/reader/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/types';
-import { existingAnkiNote, renderExistingAnkiNote } from './helpers/anki-render';
-
-const LOCAL_DICTIONARY_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
+import {
+    existingAnkiNote,
+    expectCappedRenderedAnkiMediaCss,
+    expectCollapsibleAnkiNoteCss,
+    expectCollapsibleRenderedAnkiCardCss,
+    expectReadableAnkiLabelCss,
+    expectRenderedAnkiInlineLaneCss,
+    expectRenderedAnkiPopoverScrollCss,
+    renderExistingAnkiNote,
+} from './helpers/anki-render';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -1485,77 +1491,27 @@ describe('Anki status-only lookup cache', () => {
 
 describe('Anki rendered card scroll behavior', () => {
     it('lets the popover own scrolling for rendered Anki cards', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*max-height:\s*none;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*overflow:\s*visible;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*overscroll-behavior:\s*contain;/);
+        expectRenderedAnkiPopoverScrollCss();
     });
 
     it('keeps rendered-card content as an inline lane instead of a nested card', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-source-card\s*>\s*\.jpdb-reader-anki-card-preview\s*\{[^}]*background:\s*transparent;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*border-left:\s*2px solid/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .not.toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*border:\s*1px solid/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side\s*\+\s*\.jpdb-reader-anki-rendered-side\s*\{[^}]*border-top:\s*1px solid/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-card\s*\+\s*\.jpdb-reader-anki-rendered-card\s*\{[^}]*border-top:\s*1px solid/);
+        expectRenderedAnkiInlineLaneCss();
     });
 
     it('keeps Anki labels readable without forcing Yomu-style uppercase', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-existing\s*>\s*summary\s*>\s*span\s*\{[^}]*text-transform:\s*none;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-field\s*>\s*strong,\s*\.jpdb-reader-anki-context\s*>\s*strong\s*\{[^}]*color:\s*var\(--jpdb-reader-muted\);/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .not.toMatch(/\.jpdb-reader-anki-field\s*>\s*strong,[^}]*text-transform:\s*uppercase;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .not.toMatch(/\.jpdb-reader-anki-audio-merge span\s*\{[^}]*text-transform:\s*uppercase;/);
+        expectReadableAnkiLabelCss();
     });
 
     it('keeps multiple Anki notes collapsible with stable summary lanes', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-existing-note-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*20px;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"\+";/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-existing-note\[open\]\s*>\s*\.jpdb-reader-anki-existing-note-title::after\s*\{[^}]*content:\s*"-";/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-existing-note-title small\s*\{[^}]*text-overflow:\s*ellipsis;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-match-summary-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/);
+        expectCollapsibleAnkiNoteCss();
     });
 
     it('keeps multiple rendered Anki cards collapsible without adding labels to card bodies', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-card-title\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*20px;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"\+";/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-card\[open\]\s*>\s*\.jpdb-reader-anki-rendered-card-title::after\s*\{[^}]*content:\s*"-";/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-size:\s*clamp\(16px,\s*1\.35em,\s*30px\);/);
+        expectCollapsibleRenderedAnkiCardCss();
     });
 
     it('caps rendered-card media and keeps Anki audio as separate controls', () => {
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*font-size:\s*14px;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .not.toMatch(/\.jpdb-reader-anki-rendered-side-body\s+\*\s*\{[^}]*max-height:/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body\s+:is\(img,\s*video,\s*canvas,\s*svg\)\s*\{[^}]*max-height:\s*min\(70vh,\s*420px\);/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body :where\(\*\)\s*\{[^}]*font-size:\s*min\(1em,\s*30px\);/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-rendered-side-body audio\[data-anki-media-name\]\s*\{[^}]*display:\s*none;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-sound svg\s*\{[^}]*stroke-width:\s*2\.6;/);
-        expect(LOCAL_DICTIONARY_CSS)
-            .toMatch(/\.jpdb-reader-anki-sound\s*\{[^}]*background:\s*color-mix\(in srgb,\s*var\(--jpdb-reader-surface\)\s*78%,\s*var\(--jpdb-reader-state-known\)\s*22%\);/);
+        expectCappedRenderedAnkiMediaCss();
     });
 });
 

@@ -5,8 +5,8 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 import { unzipSync } from 'fflate';
+import { run } from './ci-utils.mjs';
 import { hardenGeneratedExtensionBackgrounds } from './extension-runtime-hardening.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,7 +52,7 @@ await run(process.execPath, [
     '--target', 'chrome,firefox,safari',
     '--runtime', 'content-script',
     '--newtab-dir', newtab,
-]);
+], { cwd: root });
 
 await hardenGeneratedExtensionBackgrounds(out);
 await run(process.execPath, [path.join(out, 'tools', 'verify.mjs')], { cwd: out });
@@ -205,19 +205,4 @@ function resolveCompilerCli() {
         path.join(root, 'node_modules', '.bin', 'userscript-compiler'),
     ].filter(Boolean);
     return candidates.find(candidate => existsSync(candidate));
-}
-
-function run(command, args, options = {}) {
-    return new Promise((resolve, reject) => {
-        const child = spawn(command, args, {
-            cwd: options.cwd || root,
-            stdio: 'inherit',
-            env: process.env,
-        });
-        child.on('error', reject);
-        child.on('exit', code => {
-            if (code === 0) resolve();
-            else reject(new Error(`${command} ${args.join(' ')} exited with ${code}`));
-        });
-    });
 }

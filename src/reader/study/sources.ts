@@ -111,22 +111,7 @@ export class StudySourceController {
     }
 
     private installGrammarLoader(popover: HTMLElement, sentence?: string): void {
-        const containers = Array.from(popover.querySelectorAll<HTMLDetailsElement>('[data-study-grammar]'));
-        if (!containers.length || !sentence) return;
-        for (const container of containers) {
-            const load = () => {
-                if (!isStudyDetailsOpen(container) || container.dataset.loaded === 'true' || container.dataset.loading === 'true') return;
-                container.dataset.loading = 'true';
-                void this.loadGrammar(popover, sentence, container).finally(() => {
-                    if (!container.isConnected) return;
-                    delete container.dataset.loading;
-                    container.dataset.loaded = 'true';
-                });
-            };
-            container.addEventListener('toggle', load);
-            container.parentElement?.closest('details')?.addEventListener('toggle', load);
-            load();
-        }
+        this.installLazyStudyLoader(popover, sentence, '[data-study-grammar]', container => this.loadGrammar(popover, sentence!, container));
     }
 
     private async loadGrammar(popover: HTMLElement, sentence: string, container: HTMLElement): Promise<void> {
@@ -154,15 +139,26 @@ export class StudySourceController {
     }
 
     private installTranslationLoader(popover: HTMLElement, sentence?: string): void {
-        const containers = Array.from(popover.querySelectorAll<HTMLDetailsElement>('[data-study-translation]'));
+        this.installLazyStudyLoader(popover, sentence, '[data-study-translation]', container => {
+            const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
+            if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translating');
+            return this.loadTranslation(popover, sentence, container);
+        });
+    }
+
+    private installLazyStudyLoader(
+        popover: HTMLElement,
+        sentence: string | undefined,
+        selector: string,
+        loadContainer: (container: HTMLDetailsElement) => Promise<void>,
+    ): void {
+        const containers = Array.from(popover.querySelectorAll<HTMLDetailsElement>(selector));
         if (!containers.length || !sentence) return;
         for (const container of containers) {
             const load = () => {
                 if (!isStudyDetailsOpen(container) || container.dataset.loaded === 'true' || container.dataset.loading === 'true') return;
                 container.dataset.loading = 'true';
-                const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-                if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translating');
-                void this.loadTranslation(popover, sentence, container).finally(() => {
+                void loadContainer(container).finally(() => {
                     if (!container.isConnected) return;
                     delete container.dataset.loading;
                     container.dataset.loaded = 'true';

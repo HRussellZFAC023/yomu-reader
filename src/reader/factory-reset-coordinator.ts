@@ -36,9 +36,29 @@ export interface FactoryResetDictionaryStore {
     deleteDatabase(options: { timeoutMs: number }): Promise<unknown>;
 }
 
-export function resetFactoryResetDictionaryDatabase(dictionaries: FactoryResetDictionaryStore): Promise<{ deleted: true }> {
+export interface FactoryResetRuntimeOptions {
+    dictionaries: FactoryResetDictionaryStore;
+    getLanguage: () => InterfaceLanguage;
+    invalidateRuntimeStores: () => Promise<void>;
+    isDestroyed: () => boolean;
+    reload: () => void;
+    toast: (message: string) => void;
+}
+
+function resetFactoryResetDictionaryDatabase(dictionaries: FactoryResetDictionaryStore): Promise<{ deleted: true }> {
     return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS })
         .then(() => ({ deleted: true }));
+}
+
+export function createFactoryResetCoordinator(options: FactoryResetRuntimeOptions): FactoryResetCoordinator {
+    return new FactoryResetCoordinator({
+        isDestroyed: options.isDestroyed,
+        getLanguage: options.getLanguage,
+        invalidateRuntimeStores: options.invalidateRuntimeStores,
+        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(options.dictionaries),
+        toast: options.toast,
+        reload: options.reload,
+    });
 }
 
 export class FactoryResetCoordinator {

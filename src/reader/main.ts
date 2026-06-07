@@ -21,7 +21,7 @@ import {
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
-import { FactoryResetCoordinator, resetFactoryResetDictionaryDatabase } from './factory-reset-coordinator';
+import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
 import {
     HAS_JAPANESE,
     appendToDocumentHead,
@@ -71,6 +71,7 @@ import {
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from './jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from './kanji-origin';
 import { installKanjiPracticeDoodle } from './kanji-practice-grader';
+import { updateKanjiMiningControlsMount } from './kanji-mining-controls';
 import { KanjiVGClient, type KanjiVGInfo } from './kanjivg';
 import {
     canExpandLocalPointerRange,
@@ -262,6 +263,7 @@ import {
     shouldLookupAnkiStatus,
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './theme/reader-theme';
+import { showReaderToast } from './toast';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -467,11 +469,11 @@ export class ReaderApp {
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });
-    private factoryReset = new FactoryResetCoordinator({
+    private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
+        dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
         getLanguage: () => this.settings.interfaceLanguage,
         invalidateRuntimeStores: () => this.invalidateRuntimeStoresForFactoryReset(),
-        resetDictionaryDatabase: () => resetFactoryResetDictionaryDatabase(this.dictionaries),
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
@@ -3347,19 +3349,7 @@ export class ReaderApp {
     ): Promise<void> {
         const previous = context.previousNavigationEntry;
         if (!previous) return;
-        if (previous.kind === 'kanji') {
-            await this.showKanjiCard(previous.card, previous.kanji, previous.sentence, anchor, {
-                navigation: 'preserve',
-                preservePosition: true,
-            });
-            return;
-        }
-        await this.showCard(previous.card, previous.sentence, anchor, {
-            autoPlay: false,
-            trigger: context.trigger,
-            navigation: 'preserve',
-            preservePosition: true,
-        });
+        await this.showPreviousNavigationEntry(previous, anchor, context.trigger);
     }
 
     private showTokenListCard(
@@ -3879,6 +3869,14 @@ export class ReaderApp {
     private async showPreviousWord(anchor?: HTMLElement, trigger: 'modal' | 'hover' = 'modal'): Promise<void> {
         const previous = this.navigation.popPreviousWord();
         if (!previous) return;
+        await this.showPreviousNavigationEntry(previous, anchor, trigger);
+    }
+
+    private async showPreviousNavigationEntry(
+        previous: PopupNavigationEntry,
+        anchor: HTMLElement | undefined,
+        trigger: 'modal' | 'hover',
+    ): Promise<void> {
         if (previous.kind === 'kanji') {
             await this.showKanjiCard(previous.card, previous.kanji, previous.sentence, anchor, {
                 navigation: 'preserve',
@@ -4159,20 +4157,7 @@ export class ReaderApp {
     }
 
     private updateKanjiMiningControls(popover: HTMLElement, controls: string): void {
-        const actions = popover.querySelector<HTMLElement>('[data-kanji-actions]');
-        const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
-        if (!actions || !miningMount) return;
-        const hasControls = Boolean(controls);
-        const hasReview = actions.dataset.kanjiHasReview === 'true';
-        actions.hidden = !hasControls && !hasReview;
-        actions.classList.toggle('jpdb-reader-actions-has-mining', hasControls);
-        actions.classList.toggle('jpdb-reader-actions-mining-collapsed', hasControls);
-        const gutter = actions.querySelector<HTMLElement>('.jpdb-reader-actions-gutter');
-        if (gutter) gutter.hidden = !hasControls;
-        const collapseButton = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
-        if (collapseButton && hasControls) this.setMiningControlsExpanded(collapseButton, false);
-        miningMount.hidden = !hasControls;
-        setInnerHtml(miningMount, controls);
+        updateKanjiMiningControlsMount(popover, controls, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
     }
 
     private async renderKanjiDetailsInto(
@@ -5797,14 +5782,7 @@ export class ReaderApp {
     }
 
     private toast(message: string): void {
-        const toast = document.createElement('div');
-        toast.className = 'jpdb-reader-toast';
-        toast.dataset.jpdbReaderRoot = 'true';
-        toast.setAttribute('role', 'status');
-        toast.setAttribute('aria-live', 'polite');
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        window.setTimeout(() => toast.remove(), 3200);
+        showReaderToast(message);
     }
 }
 

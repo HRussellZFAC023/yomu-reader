@@ -4857,25 +4857,21 @@ recommendedJiten	jiten.moe頻度データです。
     setStylePropertyIfChanged(video, "object-fit", "contain");
   }
   function restoreGenericSideInsetStyles(target) {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, "width", previous.width);
-    setRestoredStyleProperty(target, "height", previous.height);
-    setRestoredStyleProperty(target, "max-width", previous.maxWidth);
-    setRestoredStyleProperty(target, "max-height", previous.maxHeight);
-    setRestoredStyleProperty(target, "min-width", previous.minWidth);
-    setRestoredStyleProperty(target, "min-height", previous.minHeight);
-    setRestoredStyleProperty(target, "margin-left", previous.marginLeft);
-    setRestoredStyleProperty(target, "margin-right", previous.marginRight);
-    setRestoredStyleProperty(target, "justify-self", previous.justifySelf);
-    setRestoredStyleProperty(target, "object-fit", previous.objectFit);
+    restoreGenericInsetStyleProperties(target, [
+      "width",
+      "height",
+      "maxWidth",
+      "maxHeight",
+      "minWidth",
+      "minHeight",
+      "marginLeft",
+      "marginRight",
+      "justifySelf",
+      "objectFit"
+    ]);
   }
   function restoreGenericBottomInsetStyles(target) {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, "height", previous.height);
-    setRestoredStyleProperty(target, "max-height", previous.maxHeight);
-    setRestoredStyleProperty(target, "min-height", previous.minHeight);
+    restoreGenericInsetStyleProperties(target, ["height", "maxHeight", "minHeight"]);
   }
   function clearGenericVideoInset(video) {
     const target = genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video, "right");
@@ -4884,20 +4880,31 @@ recommendedJiten	jiten.moe頻度データです。
     genericVideoInsetTargets.delete(video);
   }
   function clearGenericVideoInsetTarget(target) {
-    const previous = genericVideoInsetStyles.get(target);
-    if (!previous) return;
-    setRestoredStyleProperty(target, "width", previous.width);
-    setRestoredStyleProperty(target, "height", previous.height);
-    setRestoredStyleProperty(target, "max-width", previous.maxWidth);
-    setRestoredStyleProperty(target, "max-height", previous.maxHeight);
-    setRestoredStyleProperty(target, "min-width", previous.minWidth);
-    setRestoredStyleProperty(target, "min-height", previous.minHeight);
-    setRestoredStyleProperty(target, "margin-left", previous.marginLeft);
-    setRestoredStyleProperty(target, "margin-right", previous.marginRight);
-    setRestoredStyleProperty(target, "justify-self", previous.justifySelf);
-    setRestoredStyleProperty(target, "object-fit", previous.objectFit);
+    if (!restoreGenericInsetStyleProperties(target, [
+      "width",
+      "height",
+      "maxWidth",
+      "maxHeight",
+      "minWidth",
+      "minHeight",
+      "marginLeft",
+      "marginRight",
+      "justifySelf",
+      "objectFit"
+    ])) return;
     genericVideoInsetStyles.delete(target);
     genericVideoInsetBaseRects.delete(target);
+  }
+  function restoreGenericInsetStyleProperties(target, properties) {
+    const previous = genericVideoInsetStyles.get(target);
+    if (!previous) return false;
+    properties.forEach((property) => {
+      setRestoredStyleProperty(target, stylePropertyName(property), previous[property]);
+    });
+    return true;
+  }
+  function stylePropertyName(property) {
+    return property.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
   function genericVideoLayoutTarget(video, side = "right") {
     const parent = video.parentElement;
@@ -8111,13 +8118,7 @@ recommendedJiten	jiten.moe頻度データです。
       if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
     }
     finishPrimaryTrackSelection(id, selected) {
-      this.setNativeTrackModes();
-      this.updateFromLoadedCues();
-      this.warmParseAroundActiveCue();
-      this.render();
-      this.refreshTranscriptPanelAfterTrackChange();
-      this.syncControls();
-      log.info("Primary subtitle track selected", { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues: this.cues.length });
+      this.finishTrackSelection("Primary", id, selected, this.cues.length);
     }
     async selectSecondaryTrack(id) {
       const requestId = this.prepareSecondaryTrackSelection(id);
@@ -8159,13 +8160,16 @@ recommendedJiten	jiten.moe頻度データです。
       if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
     finishSecondaryTrackSelection(id, selected) {
+      this.finishTrackSelection("Secondary", id, selected, this.secondaryCues.length);
+    }
+    finishTrackSelection(role, id, selected, cues) {
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.warmParseAroundActiveCue();
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
-      log.info("Secondary subtitle track selected", { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues: this.secondaryCues.length });
+      log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();

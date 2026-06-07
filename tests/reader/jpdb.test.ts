@@ -71,6 +71,8 @@ import { renderWordPills } from '../../src/reader/word-pills';
 import { YomitanDictionaryStore, glossaryToHtml, glossaryToText, parseYomitanSettingsExport, renderDictionaryScopedStyles, type YomitanTermEntry } from '../../src/reader/yomitan';
 import { glossaryValueToSearchText } from '../../src/reader/dictionaries/yomitan/glossary-text';
 import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSettings } from '../../src/reader/types';
+import { createPointerEvent, createVisualViewportFixture, dispatchPointerEvent as dispatchBrowserPointerEvent, restoreWindowDescriptor, withViewport as withBrowserViewport } from './helpers/browser-fixtures';
+import { mockElementBoundingClientRect, stubInstantIntersectionObserver, testDomRect } from './helpers/dom-fixtures';
 import { stackedSettingsFixtureDom } from './helpers/settings-fixture';
 import { waitForExpect } from './test-utils';
 import { yomitanZipBlob } from './zip-fixture';
@@ -135,7 +137,6 @@ const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-r
 
 type FakeSegmenterSegment = { segment: string; index: number; isWordLike: boolean };
 type FakeSegmenterSegments = FakeSegmenterSegment[] | ((value: string) => FakeSegmenterSegment[]);
-type TestDomRectInit = Partial<Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom' | 'width' | 'height' | 'x' | 'y'>>;
 type TestAnkiConnectRequest = { action: string; params: Record<string, unknown> };
 type TestAnkiConnectResponse = { status: number; response: { result: unknown; error: null } };
 type TestAnkiConnectResult = unknown | Promise<unknown>;
@@ -482,6 +483,36 @@ function testAnkiLookup(overrides: Partial<AnkiLookupResult> = {}): AnkiLookupRe
     };
 }
 
+function testCardActionController(
+    overrides: Partial<ConstructorParameters<typeof CardActionController>[0]> = {},
+): CardActionController {
+    return new CardActionController({
+        getSettings: () => DEFAULT_SETTINGS,
+        jpdb: {} as unknown as JpdbClient,
+        jiten: {} as unknown as JitenApiClient,
+        anki: {} as unknown as AnkiConnectClient,
+        dictionaries: {} as unknown as YomitanDictionaryStore,
+        isJpdbBackedCard: () => true,
+        resolveMiningContext: vi.fn(),
+        showCard: vi.fn(),
+        getActivePopoverAnchor: () => undefined,
+        getActivePopoverMode: () => undefined,
+        showSettings: vi.fn(),
+        playAudio: vi.fn(),
+        playSentenceAudio: vi.fn(),
+        detectGrammarHints: vi.fn(),
+        parsePopoverJapanese: vi.fn(),
+        toast: vi.fn(),
+        ...overrides,
+    });
+}
+
+function expectRenderedPitchWord(word: HTMLElement, pitchClass: string): void {
+    expect(word.dataset.pitchClass).toBe(pitchClass);
+    expect(word.classList.contains(`jpdb-pitch-${pitchClass}`)).toBe(true);
+    expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+}
+
 function cardDetailLoaderSettings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
@@ -771,27 +802,11 @@ async function openLazyImmersionSource(container: HTMLDetailsElement): Promise<v
 }
 
 function dispatchPointerEvent(target: EventTarget, type: string, clientY: number, pointerType = 'mouse', clientX = 0): void {
-    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
-    Object.defineProperties(event, {
-        button: { value: 0 },
-        clientX: { value: clientX },
-        clientY: { value: clientY },
-        pointerId: { value: 1 },
-        pointerType: { value: pointerType },
-    });
-    target.dispatchEvent(event);
+    dispatchBrowserPointerEvent(target, type, { clientX, clientY, pointerType });
 }
 
 function pointerEventLike(pointerType = 'mouse', button = 0): PointerEvent {
-    const event = new Event('pointermove', { bubbles: true, cancelable: true }) as PointerEvent;
-    Object.defineProperties(event, {
-        button: { value: button },
-        clientX: { value: 0 },
-        clientY: { value: 0 },
-        pointerId: { value: 1 },
-        pointerType: { value: pointerType },
-    });
-    return event;
+    return createPointerEvent('pointermove', { button, pointerType });
 }
 
 function dispatchTouchEvent(target: EventTarget, type: string, clientY: number, identifier = 1): void {
@@ -902,79 +917,6 @@ function domRectList(rects: Array<{ left: number; top: number; width: number; he
         toJSON: () => ({}),
     })) as DOMRect[];
     return Object.assign(items, { item: (index: number) => items[index] ?? null }) as unknown as DOMRectList;
-}
-
-function testDomRect(rect: TestDomRectInit = {}): DOMRect {
-    const left = testDomRectLeft(rect);
-    const top = testDomRectTop(rect);
-    const width = testDomRectWidth(rect, left);
-    const height = testDomRectHeight(rect, top);
-    return {
-        x: testDomRectX(rect, left),
-        y: testDomRectY(rect, top),
-        left,
-        top,
-        right: testDomRectRight(rect, left, width),
-        bottom: testDomRectBottom(rect, top, height),
-        width,
-        height,
-        toJSON: () => ({}),
-    } as DOMRect;
-}
-
-function testDomRectLeft(rect: TestDomRectInit): number {
-    return rect.left ?? rect.x ?? 0;
-}
-
-function testDomRectTop(rect: TestDomRectInit): number {
-    return rect.top ?? rect.y ?? 0;
-}
-
-function testDomRectWidth(rect: TestDomRectInit, left: number): number {
-    return rect.width ?? testDomRectEdgeSize(rect.right, left, 800);
-}
-
-function testDomRectHeight(rect: TestDomRectInit, top: number): number {
-    return rect.height ?? testDomRectEdgeSize(rect.bottom, top, 200);
-}
-
-function testDomRectEdgeSize(edge: number | undefined, start: number, fallback: number): number {
-    return edge === undefined ? fallback : edge - start;
-}
-
-function testDomRectX(rect: TestDomRectInit, left: number): number {
-    return rect.x ?? left;
-}
-
-function testDomRectY(rect: TestDomRectInit, top: number): number {
-    return rect.y ?? top;
-}
-
-function testDomRectRight(rect: TestDomRectInit, left: number, width: number): number {
-    return rect.right ?? left + width;
-}
-
-function testDomRectBottom(rect: TestDomRectInit, top: number, height: number): number {
-    return rect.bottom ?? top + height;
-}
-
-function mockElementBoundingClientRect(rect: TestDomRectInit = {}) {
-    return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(testDomRect(rect));
-}
-
-function stubInstantIntersectionObserver(): void {
-    vi.stubGlobal('IntersectionObserver', class {
-        constructor(private readonly callback: IntersectionObserverCallback) {}
-        observe(target: Element): void {
-            this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-        }
-        unobserve(): void {}
-        disconnect(): void {}
-        takeRecords(): IntersectionObserverEntry[] { return []; }
-        root = null;
-        rootMargin = '0px';
-        thresholds = [0];
-    });
 }
 
 const YOUTUBE_WATCH_TEST_URL = 'https://www.youtube.com/watch?v=TAorfFcb8_g';
@@ -1717,25 +1659,40 @@ function lookupCandidateFromPoint(
 }
 
 function withViewport<T>(width: number, height: number, callback: () => T): T {
-    const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    return withBrowserViewport(width, height, callback, { visualViewport: true });
+}
+
+function installVisualViewportFixture(init: { height: number; width: number }): {
+    restore: () => void;
+    viewport: VisualViewport;
+} {
     const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-    Object.defineProperty(window, 'visualViewport', {
-        configurable: true,
-        value: { offsetLeft: 0, offsetTop: 0, width, height, scale: 1 },
+    const viewport = createVisualViewportFixture(init);
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+    return {
+        restore: () => restoreWindowDescriptor('visualViewport', viewportDescriptor),
+        viewport,
+    };
+}
+
+function sourceSummaryClickFixture(detailsHtml: string, installCount = 1): {
+    click: MouseEvent;
+    controller: DictionarySourceStateController;
+    popover: HTMLElement;
+} {
+    const popover = document.createElement('div');
+    popover.innerHTML = detailsHtml;
+    const controller = new DictionarySourceStateController({
+        getSettings: () => DEFAULT_SETTINGS,
+        onStateChange: vi.fn(),
     });
-    try {
-        return callback();
-    } finally {
-        if (widthDescriptor) Object.defineProperty(window, 'innerWidth', widthDescriptor);
-        else delete (window as unknown as Record<string, unknown>).innerWidth;
-        if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
-        else delete (window as unknown as Record<string, unknown>).innerHeight;
-        if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
-        else delete (window as unknown as Record<string, unknown>).visualViewport;
+    for (let index = 0; index < installCount; index += 1) {
+        controller.installTracking(popover);
     }
+    const summary = popover.querySelector<HTMLElement>('summary')!;
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    summary.dispatchEvent(click);
+    return { click, controller, popover };
 }
 
 function withImmediateAnimationFrame<T>(callback: () => T): T {
@@ -2929,18 +2886,7 @@ describe('reader helpers', () => {
 
     it('resets sheet viewport sizing when the visual viewport changes', () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
-        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
-        const viewport = new EventTarget() as VisualViewport;
-        Object.defineProperties(viewport, {
-            height: { configurable: true, writable: true, value: 640 },
-            width: { configurable: true, writable: true, value: 390 },
-            offsetLeft: { configurable: true, writable: true, value: 0 },
-            offsetTop: { configurable: true, writable: true, value: 0 },
-            pageLeft: { configurable: true, writable: true, value: 0 },
-            pageTop: { configurable: true, writable: true, value: 0 },
-            scale: { configurable: true, writable: true, value: 1 },
-        });
-        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+        const { restore, viewport } = installVisualViewportFixture({ height: 640, width: 390 });
 
         try {
             const popover = document.createElement('div');
@@ -2967,8 +2913,7 @@ describe('reader helpers', () => {
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-collapsed-height')).toBe('568px');
             expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('568px');
         } finally {
-            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
-            else delete (window as unknown as Record<string, unknown>).visualViewport;
+            restore();
             localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
         }
     });
@@ -3279,19 +3224,8 @@ describe('reader helpers', () => {
     it('lifts the mobile settings drawer above the keyboard visual viewport', () => {
         localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
         const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
-        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
-        const viewport = new EventTarget() as VisualViewport;
-        Object.defineProperties(viewport, {
-            height: { configurable: true, writable: true, value: 500 },
-            width: { configurable: true, writable: true, value: 390 },
-            offsetLeft: { configurable: true, writable: true, value: 0 },
-            offsetTop: { configurable: true, writable: true, value: 0 },
-            pageLeft: { configurable: true, writable: true, value: 0 },
-            pageTop: { configurable: true, writable: true, value: 0 },
-            scale: { configurable: true, writable: true, value: 1 },
-        });
+        const { restore, viewport } = installVisualViewportFixture({ height: 500, width: 390 });
         Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
-        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
 
         try {
             const drawer = document.createElement('form');
@@ -3321,10 +3255,8 @@ describe('reader helpers', () => {
             expect(drawer.style.getPropertyValue('--jpdb-reader-settings-drawer-viewport-height')).toBe('620px');
             expect(drawer.style.getPropertyValue('--jpdb-reader-settings-drawer-height')).toBe('546px');
         } finally {
-            if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
-            else delete (window as unknown as Record<string, unknown>).innerHeight;
-            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
-            else delete (window as unknown as Record<string, unknown>).visualViewport;
+            restoreWindowDescriptor('innerHeight', heightDescriptor);
+            restore();
             localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
         }
     });
@@ -3391,45 +3323,22 @@ describe('reader helpers', () => {
     });
 
     it('leaves source summary clicks to native details toggling even when tracking is installed twice', () => {
-        const popover = document.createElement('div');
-        popover.innerHTML = `
+        const { click } = sourceSummaryClickFixture(`
             <details class="jpdb-reader-local jpdb-reader-source-card" data-source-state-key="definition-source:test" data-source-initial-open="true" open>
                 <summary class="jpdb-reader-local-title">Test</summary>
                 <p>Definition</p>
             </details>
-        `;
-        const controller = new DictionarySourceStateController({
-            getSettings: () => DEFAULT_SETTINGS,
-            onStateChange: vi.fn(),
-        });
-
-        controller.installTracking(popover);
-        controller.installTracking(popover);
-
-        const summary = popover.querySelector<HTMLElement>('summary')!;
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        summary.dispatchEvent(click);
+        `, 2);
 
         expect(click.defaultPrevented).toBe(false);
     });
 
     it('still blocks empty immersion source summary toggles', () => {
-        const popover = document.createElement('div');
-        popover.innerHTML = `
+        const { click } = sourceSummaryClickFixture(`
             <details class="jpdb-reader-local jpdb-reader-source-card" data-source-state-key="definition-source:immersion" data-source-initial-open="false" data-immersion-empty="true">
                 <summary class="jpdb-reader-local-title">Immersion</summary>
             </details>
-        `;
-        const controller = new DictionarySourceStateController({
-            getSettings: () => DEFAULT_SETTINGS,
-            onStateChange: vi.fn(),
-        });
-
-        controller.installTracking(popover);
-
-        const summary = popover.querySelector<HTMLElement>('summary')!;
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        summary.dispatchEvent(click);
+        `);
 
         expect(click.defaultPrevented).toBe(true);
     });
@@ -3518,23 +3427,13 @@ describe('reader helpers', () => {
 
     it('renders the mining drawer affordance as a bar instead of text', () => {
         const settings = {
-            ...DEFAULT_SETTINGS,
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
             enableReviews: true,
         };
         const renderer = testCardPopoverRenderer(settings);
 
-        const html = renderer.render(card, '食べる。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-        });
+        const html = renderModalCard(renderer, card, '食べる。');
 
         expect(html).toContain('jpdb-reader-mining-drawer-handle');
         expect(html).toContain('aria-label="Show mining actions"');
@@ -3549,23 +3448,13 @@ describe('reader helpers', () => {
 
     it('keeps Add to Anki visible inside the mining drawer panel', () => {
         const settings = {
-            ...DEFAULT_SETTINGS,
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
             ankiEnabled: true,
         };
         const renderer = testCardPopoverRenderer(settings);
 
-        document.body.innerHTML = renderer.render(card, '食べる。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
-        });
+        document.body.innerHTML = renderModalCard(renderer, card, '食べる。');
 
         const panel = document.querySelector<HTMLElement>('.jpdb-reader-mining-panel')!;
         const ankiButton = document.querySelector<HTMLButtonElement>('[data-action="anki"]')!;
@@ -3577,22 +3466,14 @@ describe('reader helpers', () => {
 
     it('does not show Add to Anki while an Anki miss is still untrusted', () => {
         const settings = {
-            ...DEFAULT_SETTINGS,
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
             ankiEnabled: true,
         };
         const renderer = testCardPopoverRenderer(settings);
 
-        document.body.innerHTML = renderer.render(card, '食べる。', 'modal', {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
+        document.body.innerHTML = renderModalCard(renderer, card, '食べる。', {
             ankiLookup: { state: 'not-in-deck', notes: [], primary: null, trusted: false },
-            jpdbDecks: [],
-            ankiDecks: [],
-            jpdbVocabularyInfo: null,
-            loading: false,
         });
 
         expect(document.querySelector<HTMLButtonElement>('[data-action="anki"]')).toBeNull();
@@ -4429,24 +4310,11 @@ describe('reader helpers', () => {
         const mediaFileDataUrl = vi.fn(async () => 'data:audio/mpeg;base64,audio-data');
         const playMediaUrl = vi.fn(async () => undefined);
         const playAudio = vi.fn(async () => undefined);
-        const controller = new CardActionController({
-            getSettings: () => DEFAULT_SETTINGS,
-            jpdb: {} as unknown as JpdbClient,
-            jiten: {} as unknown as JitenApiClient,
+        const controller = testCardActionController({
             anki: { mediaFileDataUrl } as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
-            isJpdbBackedCard: () => true,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
             playAudio,
             playMediaUrl,
-            playSentenceAudio: vi.fn(),
             detectGrammarHints: vi.fn(async () => []),
-            parsePopoverJapanese: vi.fn(),
-            toast: vi.fn(),
         });
         const button = document.createElement('button');
         button.dataset.ankiMediaName = 'h2k-167.mp3';
@@ -4467,7 +4335,7 @@ describe('reader helpers', () => {
         const answerCard = vi.fn(async () => undefined);
         const invalidateCardData = vi.fn();
         const onAnkiStatusChanged = vi.fn();
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
@@ -4475,20 +4343,7 @@ describe('reader helpers', () => {
                 enableReviews: true,
             }),
             jpdb: { reviewCard } as unknown as JpdbClient,
-            jiten: {} as unknown as JitenApiClient,
             anki: { answerCard } as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
-            isJpdbBackedCard: () => true,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
-            playAudio: vi.fn(),
-            playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(),
-            parsePopoverJapanese: vi.fn(),
-            toast: vi.fn(),
             invalidateCardData,
             onAnkiStatusChanged,
         });
@@ -4509,7 +4364,7 @@ describe('reader helpers', () => {
         const answerCard = vi.fn(async () => undefined);
         const invalidateCardData = vi.fn();
         const onAnkiStatusChanged = vi.fn();
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
@@ -4517,20 +4372,7 @@ describe('reader helpers', () => {
                 enableReviews: true,
             }),
             jpdb: { reviewCard } as unknown as JpdbClient,
-            jiten: {} as unknown as JitenApiClient,
             anki: { answerCard } as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
-            isJpdbBackedCard: () => true,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
-            playAudio: vi.fn(),
-            playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(),
-            parsePopoverJapanese: vi.fn(),
-            toast: vi.fn(),
             invalidateCardData,
             onAnkiStatusChanged,
         });
@@ -4553,7 +4395,7 @@ describe('reader helpers', () => {
         const answerCard = vi.fn(async () => undefined);
         const invalidateCardData = vi.fn();
         const onAnkiStatusChanged = vi.fn();
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
@@ -4563,20 +4405,7 @@ describe('reader helpers', () => {
                 enableReviews: true,
             }),
             jpdb: { addToDeck, reviewCard } as unknown as JpdbClient,
-            jiten: {} as unknown as JitenApiClient,
             anki: { answerCard } as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
-            isJpdbBackedCard: () => true,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
-            playAudio: vi.fn(),
-            playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(),
-            parsePopoverJapanese: vi.fn(),
-            toast: vi.fn(),
             invalidateCardData,
             onAnkiStatusChanged,
         });
@@ -4593,7 +4422,7 @@ describe('reader helpers', () => {
     it('allows locked JPDB cards to be added to the mining deck', async () => {
         const addToDeck = vi.fn(async () => undefined);
         const toast = vi.fn();
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
@@ -4601,19 +4430,6 @@ describe('reader helpers', () => {
                 jpdbMiningEnabled: true,
             }),
             jpdb: { addToDeck } as unknown as JpdbClient,
-            jiten: {} as unknown as JitenApiClient,
-            anki: {} as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
-            isJpdbBackedCard: () => true,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
-            playAudio: vi.fn(),
-            playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(),
-            parsePopoverJapanese: vi.fn(),
             toast,
         });
         const button = document.createElement('button');
@@ -4717,7 +4533,7 @@ describe('reader helpers', () => {
         const addToDeck = vi.fn(async () => undefined);
         const toast = vi.fn();
         document.title = 'Example Page';
-        const controller = new CardActionController({
+        const controller = testCardActionController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 apiKey: '',
@@ -4728,18 +4544,7 @@ describe('reader helpers', () => {
             }),
             jpdb: { addToDeck } as unknown as JpdbClient,
             jiten: { addToStudyDeck, reviewCard, setVocabularyState } as unknown as JitenApiClient,
-            anki: {} as unknown as AnkiConnectClient,
-            dictionaries: {} as unknown as YomitanDictionaryStore,
             isJpdbBackedCard: () => false,
-            resolveMiningContext: vi.fn(),
-            showCard: vi.fn(),
-            getActivePopoverAnchor: () => undefined,
-            getActivePopoverMode: () => undefined,
-            showSettings: vi.fn(),
-            playAudio: vi.fn(),
-            playSentenceAudio: vi.fn(),
-            detectGrammarHints: vi.fn(),
-            parsePopoverJapanese: vi.fn(),
             toast,
         });
         const button = document.createElement('button');
@@ -13247,7 +13052,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps local pointer lookup for a real segment when the pointer is inside the word', async () => {
+    it('keeps pointer lookup on the real segment when the pointer is inside the word', async () => {
         const app = new ReaderApp();
         const anchor = document.createElement('span');
         const sentence = '好きなものを読む';
@@ -13266,7 +13071,7 @@ describe('reader helpers', () => {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
             expect(showPointerTextCard).toHaveBeenCalledWith(
-                expect.objectContaining({ spelling: '好き', reading: 'すき', source: 'local' }),
+                expect.objectContaining({ spelling: '好き', reading: 'すき' }),
                 sentence,
                 candidate,
                 expect.objectContaining({ start: 0, end: 2 }),
@@ -22224,9 +22029,7 @@ describe('reader helpers', () => {
             expect(token.pitchClass).toBe('nakadaka');
             expect(word.dataset.vid).toBe('2069890');
             expect(word.dataset.reading).toBe('あらゆる');
-            expect(word.dataset.pitchClass).toBe('nakadaka');
-            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expectRenderedPitchWord(word, 'nakadaka');
         } finally {
             word.remove();
             app.destroy();
@@ -22595,9 +22398,7 @@ describe('reader helpers', () => {
             expect(publicPitch).not.toHaveBeenCalled();
             expect(lookupCard.pitchAccent).toEqual(['LHHLL']);
             expect(token.pitchClass).toBe('nakadaka');
-            expect(word.dataset.pitchClass).toBe('nakadaka');
-            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expectRenderedPitchWord(word, 'nakadaka');
         } finally {
             word.remove();
             app.destroy();
@@ -22857,9 +22658,7 @@ describe('reader helpers', () => {
             expect(tokens[tokens.length - 1]!.pitchClass).toBe('nakadaka');
             expect(word.dataset.vid).toBe('1381470');
             expect(word.dataset.reading).toBe('あおぞら');
-            expect(word.dataset.pitchClass).toBe('nakadaka');
-            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expectRenderedPitchWord(word, 'nakadaka');
         } finally {
             word.remove();
             app.destroy();

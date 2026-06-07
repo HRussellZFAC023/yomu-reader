@@ -72,34 +72,18 @@ function splitTopLevelCssBlocks(styles: string): string[] {
     const state: CssBlockSplitState = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
     for (let index = 0; index < styles.length; index++) {
         const character = styles[index];
-        if (consumeCssBlockStringCharacter(state, character)) continue;
-        if (openCssBlockString(state, character)) continue;
+        if (consumeStringScanCharacter(state, character)) continue;
+        if (openStringScan(state, character)) continue;
         if (openCssBlock(state, styles, index, character)) continue;
         closeCssBlock(state, styles, index, character);
     }
     return state.blocks;
 }
 
-interface CssBlockSplitState {
+interface CssBlockSplitState extends StringScanState {
     blocks: string[];
     depth: number;
     start: number;
-    inString: string | null;
-    escaped: boolean;
-}
-
-function consumeCssBlockStringCharacter(state: CssBlockSplitState, character: string): boolean {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (character === '\\') state.escaped = true;
-    else if (character === state.inString) state.inString = null;
-    return true;
-}
-
-function openCssBlockString(state: CssBlockSplitState, character: string): boolean {
-    if (character !== '"' && character !== "'") return false;
-    state.inString = character;
-    return true;
 }
 
 function openCssBlock(state: CssBlockSplitState, styles: string, index: number, character: string): boolean {
@@ -121,8 +105,8 @@ function splitSelectorList(selector: string): string[] {
     const state: SelectorSplitState = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
     for (let index = 0; index < selector.length; index++) {
         const character = selector[index];
-        if (consumeSelectorStringCharacter(state, character)) continue;
-        if (openSelectorString(state, character)) continue;
+        if (consumeStringScanCharacter(state, character)) continue;
+        if (openStringScan(state, character)) continue;
         updateSelectorDepth(state, character);
         if (!isSelectorSeparator(state, character)) continue;
         state.selectors.push(selector.slice(state.start, index).trim());
@@ -132,16 +116,19 @@ function splitSelectorList(selector: string): string[] {
     return state.selectors.filter(Boolean);
 }
 
-interface SelectorSplitState {
+interface SelectorSplitState extends StringScanState {
     selectors: string[];
     start: number;
     bracketDepth: number;
     parenDepth: number;
+}
+
+interface StringScanState {
     inString: string | null;
     escaped: boolean;
 }
 
-function consumeSelectorStringCharacter(state: SelectorSplitState, character: string): boolean {
+function consumeStringScanCharacter(state: StringScanState, character: string): boolean {
     if (!state.inString) return false;
     if (state.escaped) state.escaped = false;
     else if (character === '\\') state.escaped = true;
@@ -149,7 +136,7 @@ function consumeSelectorStringCharacter(state: SelectorSplitState, character: st
     return true;
 }
 
-function openSelectorString(state: SelectorSplitState, character: string): boolean {
+function openStringScan(state: StringScanState, character: string): boolean {
     if (character !== '"' && character !== "'") return false;
     state.inString = character;
     return true;

@@ -1,10 +1,11 @@
 import { Logger } from '../logger';
 import { SETTINGS_CHANGE_EVENT } from '../constants';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
+import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../storage';
-import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
@@ -721,26 +722,6 @@ function normalizeStringList(value: unknown): string[] {
     return [...new Set(value
         .map(item => typeof item === 'string' ? item.trim() : '')
         .filter(Boolean))];
-}
-
-const ANKI_FIELD_MAPPING_ROLES: readonly AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
-
-function normalizeAnkiFieldMappings(value: unknown): AnkiFieldMappings {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-    const out: AnkiFieldMappings = {};
-    Object.entries(value as Record<string, unknown>).forEach(([modelName, mapping]) => {
-        const normalizedModelName = modelName.trim();
-        if (!normalizedModelName || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return;
-        const normalizedMapping: AnkiFieldMapping = {};
-        for (const role of ANKI_FIELD_MAPPING_ROLES) {
-            const fieldName = (mapping as Record<string, unknown>)[role];
-            if (typeof fieldName !== 'string') continue;
-            const normalizedFieldName = fieldName.trim();
-            if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-        }
-        if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-    });
-    return out;
 }
 
 function normalizeAnkiName(value: unknown, fallback: string, oldDefault: string): string {

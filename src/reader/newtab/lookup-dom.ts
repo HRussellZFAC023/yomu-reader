@@ -1,6 +1,8 @@
 import type { AnkiLookupResult } from '../anki';
-import { escapeHtml, HAS_JAPANESE, htmlToFirstElement, setInnerHtml } from '../dom';
+import { escapeHtml, HAS_JAPANESE } from '../dom';
 import { cardStateLabel } from '../i18n';
+import { updateKanjiMiningControlsMount } from '../kanji-mining-controls';
+export { replaceOptionalElement } from '../reader-dom-helpers';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../types';
 
@@ -66,20 +68,7 @@ export function updateKanjiLookupMiningControls(
     controls: string,
     setMiningControlsExpanded: (button: HTMLButtonElement, expanded: boolean) => void,
 ): void {
-    const actions = popover.querySelector<HTMLElement>('[data-kanji-actions]');
-    const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
-    if (!actions || !miningMount) return;
-    const hasControls = Boolean(controls);
-    const hasReview = actions.dataset.kanjiHasReview === 'true';
-    actions.hidden = !hasControls && !hasReview;
-    actions.classList.toggle('jpdb-reader-actions-has-mining', hasControls);
-    actions.classList.toggle('jpdb-reader-actions-mining-collapsed', hasControls);
-    const gutter = actions.querySelector<HTMLElement>('.jpdb-reader-actions-gutter');
-    if (gutter) gutter.hidden = !hasControls;
-    const collapseButton = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
-    if (collapseButton && hasControls) setMiningControlsExpanded(collapseButton, false);
-    miningMount.hidden = !hasControls;
-    setInnerHtml(miningMount, controls);
+    updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded);
 }
 
 export function lookupTextRequestFromPopoverButton(button: HTMLButtonElement): LookupTextButtonRequest {
@@ -135,20 +124,6 @@ export function lookupPopoverParsedWordElement(event: MouseEvent, popover: HTMLE
 
 export function parsedWordLookupSentence(word: HTMLElement, expression: string, card: Pick<JPDBCard, 'spelling'> | undefined): string {
     return word.dataset.sentence || expression || card?.spelling || '';
-}
-
-export function replaceOptionalElement(parent: Element, selector: string, html: string, before: Element | null = null): void {
-    const existing = parent.querySelector<HTMLElement>(selector);
-    const next = htmlToFirstElement(html);
-    if (existing && next) {
-        existing.replaceWith(next);
-        return;
-    }
-    if (existing) {
-        existing.remove();
-        return;
-    }
-    if (next) parent.insertBefore(next, before);
 }
 
 function newLookupMetaLabel(label: string, stateClass = ''): HTMLElement {

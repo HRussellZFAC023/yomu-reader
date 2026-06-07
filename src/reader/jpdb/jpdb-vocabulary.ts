@@ -21,7 +21,7 @@ import { vocabularyRoot } from './jpdb-vocabulary-root';
 import { mergeVocabularyInfo, needsSupplement, requestText, vocabularyLookupUrls, vocabularySupplementUrls } from './jpdb-vocabulary-request';
 import type { JpdbVocabularyCompound, JpdbVocabularyExample, JpdbVocabularyInfo } from './jpdb-vocabulary-types';
 
-export { parseJpdbAudioData } from './jpdb-vocabulary-audio';
+export { parseJpdbAudioData } from './jpdb-audio-ids';
 export type { JpdbVocabularyInfo } from './jpdb-vocabulary-types';
 
 const log = Logger.scope('JpdbVocabulary');

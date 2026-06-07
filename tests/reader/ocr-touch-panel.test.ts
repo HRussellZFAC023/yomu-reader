@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import { dispatchPointerEvent } from './helpers/browser-fixtures';
+import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 import { waitForExpect } from './test-utils';
 
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
@@ -60,21 +62,6 @@ function fallbackToken(sentence: string, spelling: string, start: number, end: n
     };
 }
 
-function installIntersectionObserver(): void {
-    vi.stubGlobal('IntersectionObserver', class {
-        constructor(private readonly callback: IntersectionObserverCallback) {}
-        observe(target: Element): void {
-            this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-        }
-        unobserve(): void {}
-        disconnect(): void {}
-        takeRecords(): IntersectionObserverEntry[] { return []; }
-        root = null;
-        rootMargin = '0px';
-        thresholds = [0];
-    });
-}
-
 function installCanvasEncodingMock(): () => void {
     const getContextDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
     const toBlobDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
@@ -106,21 +93,9 @@ function restorePrototypeDescriptor(prototype: object, key: PropertyKey, descrip
     delete (prototype as Record<PropertyKey, unknown>)[key];
 }
 
-function dispatchPointerEvent(target: EventTarget, type: string, clientX = 120, clientY = 120, pointerType = 'mouse'): void {
-    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
-    Object.defineProperties(event, {
-        button: { value: 0 },
-        clientX: { value: clientX },
-        clientY: { value: clientY },
-        pointerId: { value: 1 },
-        pointerType: { value: pointerType },
-    });
-    target.dispatchEvent(event);
-}
-
 describe('OCR sentence focus', () => {
     it('focuses an OCR sentence inline and clears it when clicking away', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const sentence = '日本語を読む';
         const image = document.createElement('img');
         image.src = '/ocr-test.png';
@@ -170,7 +145,7 @@ describe('OCR sentence focus', () => {
     });
 
     it('pins an OCR sentence when tapping a nested OCR word', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const sentence = '日本語を読む';
         const image = document.createElement('img');
         image.src = '/ocr-test.png';
@@ -221,7 +196,7 @@ describe('OCR sentence focus', () => {
     });
 
     it('renders clickable parsed words in OCR lines without treating the frame as a word', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const sentence = '日本語を読む';
         const image = document.createElement('img');
         image.src = '/ocr-test.png';
@@ -272,7 +247,7 @@ describe('OCR sentence focus', () => {
     });
 
     it('fills unparsed OCR text with fallback reader words so hover lookup and enrichment can attach', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const sentence = '日本語を読む';
         const image = document.createElement('img');
         image.src = '/ocr-test.png';
@@ -341,7 +316,7 @@ describe('OCR sentence focus', () => {
     });
 
     it('keeps standalone Firefox OCR words even when Segmenter marks them non-word-like', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
         class FakeSegmenter {
             segment(value: string): Array<{ segment: string; index: number; isWordLike: boolean }> {
@@ -460,7 +435,7 @@ describe('OCR sentence focus', () => {
     });
 
     it('renders OCR fallback compounds as separate clickable word spans', async () => {
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const sentence = '事実上日本国内';
         const image = document.createElement('img');
         image.src = '/ocr-compound.png';
@@ -552,7 +527,7 @@ describe('OCR sentence focus', () => {
 
     it('does not render a status banner when OCR finds no Japanese text', async () => {
         const restoreCanvas = installCanvasEncodingMock();
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const image = document.createElement('img');
         image.src = '/ocr-english-only.png';
         Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
@@ -602,7 +577,7 @@ describe('OCR sentence focus', () => {
 
     it('pauses local OCR fetches after the endpoint is unreachable', async () => {
         const restoreCanvas = installCanvasEncodingMock();
-        installIntersectionObserver();
+        stubInstantIntersectionObserver();
         const first = document.createElement('img');
         first.src = '/ocr-local-down-1.png';
         Object.defineProperty(first, 'naturalWidth', { configurable: true, value: 1000 });

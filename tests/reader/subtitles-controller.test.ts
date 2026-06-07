@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/types';
+import { withViewport } from './helpers/browser-fixtures';
 
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 const SUBTITLE_PARSE_OPTIONS = {
@@ -13,21 +14,6 @@ const SUBTITLE_PARSE_OPTIONS = {
     allowSegmentedFallback: true,
     includeLocalPitch: false,
 };
-
-function withViewport<T>(width: number, height: number, callback: () => T): T {
-    const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-    try {
-        return callback();
-    } finally {
-        if (widthDescriptor) Object.defineProperty(window, 'innerWidth', widthDescriptor);
-        else delete (window as unknown as Record<string, unknown>).innerWidth;
-        if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
-        else delete (window as unknown as Record<string, unknown>).innerHeight;
-    }
-}
 
 async function withMatchMedia<T>(matches: (query: string) => boolean, callback: () => T | Promise<T>): Promise<T> {
     const descriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');

@@ -17,6 +17,7 @@ import { definitionSourceRows } from '../../src/reader/source-sections';
 import { renderNewTabGradeControlButtons, summarizeNewTabReviewSources } from '../../src/reader/newtab/review-controls';
 import type { JPDBCard, JPDBGrade, JPDBToken } from '../../src/reader/types';
 import { stackedSettingsFixtureDom } from './helpers/settings-fixture';
+import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } from './helpers/stacked-lookup-assertions';
 import { waitForExpect } from './test-utils';
 
 const NEW_TAB_GRADE_QUEUE_KEY = 'jpdb-reader-newtab-grade-queue';
@@ -3120,6 +3121,41 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('does not reuse an unreachable empty Anki cache entry when switching from JPDB', async () => {
+        resetNewTabReviewStorage();
+        const { settings, listDeckCards, listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');
+
+        try {
+            await controller.renderPage();
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('日本語');
+            const internals = controller as unknown as {
+                sourceResultCache: Map<string, { signature: string; result: { cards: JPDBCard[]; sourceLabel: string; reviewCountMode: boolean; emptyMessageKey?: string } }>;
+                sourceCacheSignature(source: 'anki'): string;
+            };
+            internals.sourceResultCache.set('anki', {
+                signature: internals.sourceCacheSignature('anki'),
+                result: {
+                    cards: [],
+                    sourceLabel: 'Anki',
+                    reviewCountMode: false,
+                    emptyMessageKey: 'ankiUnreachable',
+                },
+            });
+
+            document.querySelector<HTMLButtonElement>('[data-newtab-status]')?.click();
+
+            await waitForExpect(() => {
+                expect(settings.newTabSource).toBe('anki');
+                expect(listNewTabCards).toHaveBeenCalledOnce();
+                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('暗記');
+            }, 3000);
+            expect(listDeckCards).toHaveBeenCalledOnce();
+            expect(document.querySelector<HTMLButtonElement>('[data-newtab-status]')?.dataset.sourceToggleTarget).toBe('jpdb');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('switches from Anki to JPDB when saved source state is already stale JPDB', async () => {
         resetNewTabReviewStorage();
         const { settings, listDeckCards, listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('anki');
@@ -3434,7 +3470,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('uses cached unavailable Anki guidance after auto review loads JPDB first', async () => {
+    it('retries unavailable Anki and falls back to study words after auto review loads JPDB first', async () => {
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
         localStorage.removeItem('jpdb-reader-newtab-card-cache');
@@ -3453,6 +3489,7 @@ describe('new tab review helpers', () => {
         const listNewTabCards = vi.fn(async () => {
             throw new Error('AnkiConnect is not reachable.');
         });
+        const listRandomTopTerms = vi.fn(async () => [newTabLocalDictionaryEntry('書く', 'かく', 'to write')]);
         const controller = newTabBareController(settings, {
             anki: {
                 listNewTabCards,
@@ -3463,10 +3500,11 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: disconnectedJpdbReviewBridge(),
             parser: {
                 cacheCards: vi.fn(),
+                localCardFromEntry: vi.fn(newTabLocalCardFromEntry),
             } as never,
             dictionaries: {
-                summary: vi.fn(async () => ({ dictionaries: [], dictionaryTypes: {} })),
-                listRandomTopTerms: vi.fn(async () => []),
+                summary: vi.fn(async () => newTabLocalDictionarySummary()),
+                listRandomTopTerms,
             } as never,
         });
 
@@ -3481,11 +3519,12 @@ describe('new tab review helpers', () => {
 
         await waitForExpect(() => {
             expect(settings.newTabSource).toBe('anki');
-            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('よむ');
-            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('Open desktop Anki');
-            expect(document.querySelector('[data-newtab-answer]')?.textContent).toContain('AnkiConnect');
+            expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(document.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
         });
-        expect(listNewTabCards).toHaveBeenCalledOnce();
+        expect(listNewTabCards).toHaveBeenCalledTimes(2);
+        expect(listRandomTopTerms).toHaveBeenCalled();
 
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
@@ -8417,23 +8456,23 @@ describe('new tab review helpers', () => {
             lookup.innerHTML = '<div class="jpdb-reader-popover-body">辞書</div>';
             internals.mountLookupPopover(lookup, anchor, { stackOverSettings: true });
 
-            expect(settingsForm.isConnected).toBe(true);
-            expect(settingsBackdrop.isConnected).toBe(true);
-            expect(lookup.isConnected).toBe(true);
-            expect(lookup.getAttribute('aria-modal')).toBe('false');
-            expect(lookup.classList.contains('jpdb-reader-sheet')).toBe(false);
-            expect(lookup.querySelector('.jpdb-reader-sheet-handle')).toBeNull();
-            expect(document.querySelectorAll('.jpdb-reader-backdrop')).toHaveLength(1);
-            expect(internals.activeLookupPopover).toBe(lookup);
-            expect(internals.activeLookupBackdrop).toBeUndefined();
+            expectStackedLookupOverSettings({
+                lookup,
+                settingsForm,
+                settingsBackdrop,
+                activeLookup: internals.activeLookupPopover,
+                activeBackdrop: internals.activeLookupBackdrop,
+            });
 
             internals.dismissLookupPopover();
 
             expect(lookup.isConnected).toBe(false);
-            expect(settingsForm.isConnected).toBe(true);
-            expect(settingsBackdrop.isConnected).toBe(true);
-            expect(internals.activeDialog).toBe(settingsForm);
-            expect(internals.activeBackdrop).toBe(settingsBackdrop);
+            expectSettingsDialogStillMounted({
+                settingsForm,
+                settingsBackdrop,
+                activeDialog: internals.activeDialog,
+                activeBackdrop: internals.activeBackdrop,
+            });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

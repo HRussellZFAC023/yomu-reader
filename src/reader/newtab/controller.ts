@@ -2331,8 +2331,10 @@ export class NewTabController {
     }
 
     private loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN): NewTabLoadResult {
+        const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
+        if (typeof fallbackCardFromText !== 'function') return emptyNewTabLoadResult(this.text('dictionary'));
         const cards = randomPublicJpdbSeedWords(limit)
-            .map(term => this.dependencies.parser.fallbackCardFromText(term));
+            .map(term => fallbackCardFromText.call(this.dependencies.parser, term));
         return {
             cards,
             sourceLabel: this.text('dictionary'),
@@ -2628,7 +2630,7 @@ export class NewTabController {
     }
 
     private emptyCachedResultMatchesSource(result: NewTabLoadResult, source: ConcreteNewTabWordSource): boolean {
-        if (source === 'anki') return result.sourceLabel === 'Anki' || result.emptyMessageKey === 'ankiUnreachable';
+        if (source === 'anki') return result.sourceLabel === 'Anki' && result.emptyMessageKey !== 'ankiUnreachable';
         if (source === 'jpdb') return result.sourceLabel.startsWith('JPDB') || result.sourceLabel.startsWith('Jiten');
         return result.sourceLabel === this.text('dictionary');
     }
@@ -2649,14 +2651,7 @@ export class NewTabController {
         const source = this.effectiveNewTabSourceFromSettings(settings);
         if (this.state.source === source) return;
         this.state = { ...this.state, source, revealAnswer: false };
-        this.allWords = [];
-        this.visibleWords = [];
-        this.visiblePoolSignature = '';
-        this.navigationSupplementPromise = null;
-        this.index = 0;
-        this.sourceLabel = '';
-        this.reviewCountMode = false;
-        this.emptyLoadMessageKey = null;
+        this.resetLoadedSourceState();
         this.persistState();
     }
 
@@ -2688,19 +2683,23 @@ export class NewTabController {
         if (!root) return;
         this.syncMode(root);
         if (sourceChanged) {
-            this.allWords = [];
-            this.visibleWords = [];
-            this.visiblePoolSignature = '';
-            this.navigationSupplementPromise = null;
-            this.index = 0;
-            this.sourceLabel = '';
-            this.reviewCountMode = false;
-            this.emptyLoadMessageKey = null;
+            this.resetLoadedSourceState();
             this.setStatus(root, this.text('loading'));
             await this.loadWordsInto(root, false, { useOfflineCache: false });
             return;
         }
         this.applyWords(root, true, preferredCardKey);
+    }
+
+    private resetLoadedSourceState(): void {
+        this.allWords = [];
+        this.visibleWords = [];
+        this.visiblePoolSignature = '';
+        this.navigationSupplementPromise = null;
+        this.index = 0;
+        this.sourceLabel = '';
+        this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
     }
 
     private persistState(): void {

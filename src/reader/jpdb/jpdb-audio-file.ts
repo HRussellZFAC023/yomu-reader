@@ -1,12 +1,12 @@
 import { requestAudioUrl as requestUrl } from '../audio-request';
 import { normalizeAttemptedAudioUrl } from '../audio-source-resolution';
 import { uiText } from '../i18n';
+import { isValidJpdbAudioId, normalizeJpdbAudioGroup } from './jpdb-audio-ids';
 import type { ReaderSettings } from '../types';
 
 const JPDB_AUDIO_BASE_URL = 'https://jpdb.io/static/v';
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const JPDB_AUDIO_XOR_BYTES = [0x06, 0x23, 0x54, 0x0f] as const;
-const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 export interface JpdbAudioPlaybackCandidate {
@@ -85,13 +85,6 @@ function normalizeJpdbAudioGroups(value: string | string[]): string[] {
         .filter(Boolean));
 }
 
-function normalizeJpdbAudioGroup(value: string): string {
-    const ids = value.split('+')
-        .map(item => item.trim())
-        .filter(Boolean);
-    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join('+') : '';
-}
-
 function blobArrayBuffer(blob: Blob, language: ReaderSettings['interfaceLanguage'] = 'en'): Promise<ArrayBuffer> {
     if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
     return new Promise((resolve, reject) => {
@@ -168,10 +161,6 @@ function isLocalNewTabDevOrigin(): boolean {
 
 function encodeJpdbAudioPath(value: string): string {
     return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function isValidJpdbAudioId(value: string): boolean {
-    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes('..') && !value.startsWith('//'));
 }
 
 function uniqueJpdbAudioValues(values: string[]): string[] {

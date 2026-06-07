@@ -1,8 +1,9 @@
 import { Logger } from '../logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
-import type { AnkiFieldMapping, AnkiFieldMappingRole, AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../types';
+import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../types';
 
 const log = Logger.scope('SettingsForm');
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
@@ -348,27 +349,11 @@ function shouldAutoEnableAnkiSection(ankiEnabled: boolean, current: ReaderSettin
     return ankiEnabled && !current.ankiEnabled && !current.ankiSectionEnabled;
 }
 
-const ANKI_FIELD_MAPPING_ROLES: readonly AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
-
 function readAnkiFieldMappings(value: string, fallback: AnkiFieldMappings): AnkiFieldMappings {
     if (!value.trim()) return fallback;
     try {
         const parsed = JSON.parse(value) as unknown;
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
-        const out: AnkiFieldMappings = {};
-        Object.entries(parsed as Record<string, unknown>).forEach(([modelName, mapping]) => {
-            const normalizedModelName = modelName.trim();
-            if (!normalizedModelName || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) return;
-            const normalizedMapping: AnkiFieldMapping = {};
-            for (const role of ANKI_FIELD_MAPPING_ROLES) {
-                const fieldName = (mapping as Record<string, unknown>)[role];
-                if (typeof fieldName !== 'string') continue;
-                const normalizedFieldName = fieldName.trim();
-                if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-            }
-            if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-        });
-        return out;
+        return normalizeAnkiFieldMappings(parsed);
     } catch {
         return fallback;
     }
