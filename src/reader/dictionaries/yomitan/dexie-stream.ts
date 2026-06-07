@@ -1,3 +1,5 @@
+import { readBlobWithFileReader } from './blob-reader';
+
 type DexieRowHandler = (row: unknown) => Promise<void>;
 type DexieStreamMode = 'seek-table' | 'seek-rows' | 'rows';
 
@@ -86,12 +88,7 @@ export async function streamDexieTables(
 
 export function readBlobText(blob: Blob): Promise<string> {
     if (typeof blob.text === 'function') return blob.text();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read file.'));
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.readAsText(blob);
-    });
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsText(value), reader => String(reader.result ?? ''));
 }
 
 async function processDexieStreamBuffer(

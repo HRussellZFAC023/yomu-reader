@@ -66,7 +66,7 @@ import {
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import { installOriginGraphInteractions } from '../origin-graph-interactions';
-import { capturePopoverScrollFrame, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverBodyActionElement, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, restorePopoverScrollFrameSoon } from '../popover-shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -107,6 +107,13 @@ import {
     orderedKanjiSourceIds,
 } from '../source-sections';
 import { parseContentCacheKey } from '../parse-content-cache-key';
+import {
+    configuredPopoverMaxHeight,
+    installPopoverBodyStabilizers as installRuntimePopoverBodyStabilizers,
+    popoverMaxHeightAtTop as runtimePopoverMaxHeightAtTop,
+    shouldUseFixedPopoverHeight,
+    syncFixedPopoverHeight,
+} from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study-sources';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../types';
 import { installUchisenCarousel, loadUchisenData } from '../uchisen';
@@ -1687,7 +1694,7 @@ export class NewTabRuntime {
             return;
         }
         positionPopover(popover, this.activeLookupAnchor, undefined, {
-            maxHeight: popoverMaxHeightSetting(this.settings),
+            maxHeight: configuredPopoverMaxHeight(this.settings),
         });
         this.lockLookupPopoverPosition(popover.getBoundingClientRect());
     }
@@ -1727,39 +1734,11 @@ export class NewTabRuntime {
     }
 
     private lookupPopoverMaxHeightAtTop(top: number): number {
-        const margin = 8;
-        const availableHeight = Math.max(0, window.innerHeight - top - margin);
-        const configuredMaxHeight = popoverMaxHeightSetting(this.settings);
-        return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
+        return runtimePopoverMaxHeightAtTop(this.settings, top);
     }
 
     private installLookupPopoverBodyStabilizers(popover: HTMLElement): void {
-        if (popover.dataset.jpdbReaderBodyStabilizers === 'true') return;
-        popover.dataset.jpdbReaderBodyStabilizers = 'true';
-        popover.addEventListener('click', event => {
-            const target = event.target instanceof HTMLElement ? event.target : null;
-            if (!target) return;
-            const scrollBody = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
-            if (!scrollBody.contains(target)) return;
-            const summary = target?.closest<HTMLElement>('summary');
-            if (summary && scrollBody.contains(summary)) {
-                this.stabilizeLookupPopoverBodyAround(popover, summary);
-                return;
-            }
-            if (!popoverBodyActionElement(target, scrollBody)) return;
-            restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
-        }, true);
-    }
-
-    private stabilizeLookupPopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
-        const scrollBody = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
-        const scrollTop = scrollBody.scrollTop;
-        const anchorTop = anchor.getBoundingClientRect().top;
-        requestAnimationFrame(() => {
-            if (!popover.isConnected || !anchor.isConnected) return;
-            const delta = anchor.getBoundingClientRect().top - anchorTop;
-            if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
-        });
+        installRuntimePopoverBodyStabilizers(popover);
     }
 
     private lookupPopoverScrollBody(): HTMLElement | undefined {
@@ -1767,23 +1746,11 @@ export class NewTabRuntime {
     }
 
     private shouldUseFixedLookupHeight(): boolean {
-        return Boolean(
-            this.activeLookupPopover
-                && this.settings.popoverHeightMode === 'fixed'
-                && !this.activeLookupPopover.classList.contains('jpdb-reader-sheet')
-                && this.activeLookupPopover.querySelector('.jpdb-reader-popover-body'),
-        );
+        return shouldUseFixedPopoverHeight(this.activeLookupPopover, this.settings);
     }
 
     private syncLookupPopoverFixedHeight(): void {
-        const popover = this.activeLookupPopover;
-        if (!popover) return;
-        if (!this.shouldUseFixedLookupHeight()) {
-            popover.style.height = '';
-            return;
-        }
-        const maxHeight = Number.parseFloat(popover.style.maxHeight);
-        if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
+        syncFixedPopoverHeight(this.activeLookupPopover, this.shouldUseFixedLookupHeight());
     }
 
     private renderDefinitionSources(

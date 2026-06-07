@@ -302,11 +302,7 @@ export class CardActionController {
         const noteId = Number(button.dataset.noteId);
         if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, 'ankiNoteNotFound'));
 
-        const [dictionaryContext, context, wordAudio] = await Promise.all([
-            this.loadAnkiDictionaryContext(card, settings),
-            this.options.resolveMiningContext(card, sentence),
-            resolveAnkiWordAudio(card, settings).catch(() => null),
-        ]);
+        const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
         const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
             imageDataUrl: context.imageDataUrl,
             audioDataUrl: context.audioDataUrl,
@@ -419,11 +415,7 @@ export class CardActionController {
     }
 
     private async prepareAnkiAdd(card: JPDBCard, sentence: string | undefined, deckName: string | undefined, settings: ReaderSettings, actionContext: CardActionContext): Promise<PreparedAnkiAdd> {
-        const [dictionaryContext, context, wordAudio] = await Promise.all([
-            this.loadAnkiDictionaryContext(card, settings),
-            this.options.resolveMiningContext(card, sentence),
-            resolveAnkiWordAudio(card, settings).catch(() => null),
-        ]);
+        const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
         return {
             context,
             hasWordAudio: hasResolvedAnkiWordAudio(wordAudio),
@@ -449,6 +441,19 @@ export class CardActionController {
         } catch (error) {
             return duplicateAnkiAddResult(error);
         }
+    }
+
+    private async loadAnkiCardAssets(card: JPDBCard, sentence: string | undefined, settings: ReaderSettings): Promise<{
+        dictionaryContext: Awaited<ReturnType<CardActionController['loadAnkiDictionaryContext']>>;
+        context: MiningContext;
+        wordAudio: ResolvedAnkiWordAudio | null;
+    }> {
+        const [dictionaryContext, context, wordAudio] = await Promise.all([
+            this.loadAnkiDictionaryContext(card, settings),
+            this.options.resolveMiningContext(card, sentence),
+            resolveAnkiWordAudio(card, settings).catch(() => null),
+        ]);
+        return { dictionaryContext, context, wordAudio };
     }
 
     private toastMobileAnkiHandoff(settings: ReaderSettings): void {

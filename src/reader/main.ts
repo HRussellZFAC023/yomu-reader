@@ -111,6 +111,13 @@ import {
     type TextLookupResultCallbacks,
 } from './main/text-lookup';
 import {
+    configuredPopoverMaxHeight,
+    installPopoverBodyStabilizers as installRuntimePopoverBodyStabilizers,
+    popoverMaxHeightAtTop as runtimePopoverMaxHeightAtTop,
+    shouldUseFixedPopoverHeight,
+    syncFixedPopoverHeight,
+} from './runtime/popover-body-stabilizer';
+import {
     ANKI_RECOLOR_SCAN_CHUNK_SIZE,
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
@@ -218,7 +225,7 @@ import {
     type PointerTextSpanCandidate,
     type PointerTextLookup,
 } from './pointer-text-lookup';
-import { capturePopoverScrollFrame, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, popoverBodyActionElement, popoverMaxHeightSetting, refreshForcedReaderPopoverSurface, restorePopoverScrollFrameSoon, shouldUseSheet } from './popover-shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface, shouldUseSheet } from './popover-shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from './popup-navigation';
 import {
     buildRtkComponentSummaries,
@@ -5502,7 +5509,7 @@ export class ReaderApp {
             this.activePopoverAnchorRect,
             {
                 followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : undefined,
-                maxHeight: popoverMaxHeightSetting(this.settings),
+                maxHeight: configuredPopoverMaxHeight(this.settings),
                 preferBefore: this.shouldPreferActiveHoverPopoverBefore(),
             },
         );
@@ -5534,10 +5541,7 @@ export class ReaderApp {
     }
 
     private activePopoverMaxHeightAtTop(top: number): number {
-        const margin = 8;
-        const availableHeight = Math.max(0, window.innerHeight - top - margin);
-        const configuredMaxHeight = popoverMaxHeightSetting(this.settings);
-        return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
+        return runtimePopoverMaxHeightAtTop(this.settings, top);
     }
 
     private refreshActivePopoverAnchorRect(): void {
@@ -5555,50 +5559,16 @@ export class ReaderApp {
     }
 
     private shouldUseFixedModalHeight(popover: HTMLElement): boolean {
-        return this.activePopoverMode !== 'hover'
-            && this.settings.popoverHeightMode === 'fixed'
-            && !popover.classList.contains('jpdb-reader-sheet')
-            && Boolean(popover.querySelector('.jpdb-reader-popover-body'));
+        return shouldUseFixedPopoverHeight(popover, this.settings, this.activePopoverMode !== 'hover');
     }
 
     private syncActivePopoverFixedHeight(): void {
         const popover = this.activePopover;
-        if (!popover) return;
-        if (!this.shouldUseFixedModalHeight(popover)) {
-            popover.style.height = '';
-            return;
-        }
-        const maxHeight = Number.parseFloat(popover.style.maxHeight);
-        if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
+        syncFixedPopoverHeight(popover, popover ? this.shouldUseFixedModalHeight(popover) : false);
     }
 
     private installPopoverBodyStabilizers(popover: HTMLElement): void {
-        if (popover.dataset.jpdbReaderBodyStabilizers === 'true') return;
-        popover.dataset.jpdbReaderBodyStabilizers = 'true';
-        popover.addEventListener('click', event => {
-            const target = event.target instanceof HTMLElement ? event.target : null;
-            if (!target) return;
-            const scrollBody = this.popoverScrollBody(popover);
-            if (!scrollBody.contains(target)) return;
-            const summary = target?.closest<HTMLElement>('summary');
-            if (summary && scrollBody.contains(summary)) {
-                this.stabilizePopoverBodyAround(popover, summary);
-                return;
-            }
-            if (!popoverBodyActionElement(target, scrollBody)) return;
-            restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
-        }, true);
-    }
-
-    private stabilizePopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
-        const scrollBody = this.popoverScrollBody(popover);
-        const scrollTop = scrollBody.scrollTop;
-        const anchorTop = anchor.getBoundingClientRect().top;
-        requestAnimationFrame(() => {
-            if (!popover.isConnected || !anchor.isConnected) return;
-            const delta = anchor.getBoundingClientRect().top - anchorTop;
-            if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
-        });
+        installRuntimePopoverBodyStabilizers(popover);
     }
 
     private popoverScrollBody(popover: HTMLElement): HTMLElement {

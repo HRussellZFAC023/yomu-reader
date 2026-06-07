@@ -1,6 +1,7 @@
 import { pruneOldestCacheEntries } from './core/cache-utils';
 import { readBlobAsDataUrl } from './core/blob-data-url';
 import { formatUiText, uiText } from './i18n';
+import { isAbortError } from './immersion/errors';
 import { Logger } from './logger';
 import { ObjectUrlCache } from './core/object-url-cache';
 import { createPageMediaUrl } from './page-media-url';
@@ -798,16 +799,6 @@ function requestJsonCandidate(url: string, timeoutMs: number, proxyUrl = '', sig
         }
         throw requestError(error, uiText(language, 'immersionKitRequestFailed'));
     });
-}
-
-function isAbortError(error: unknown): boolean {
-    return errorName(error) === 'AbortError';
-}
-
-function errorName(error: unknown): string {
-    if (!error || typeof error !== 'object') return '';
-    const name = (error as { name?: unknown }).name;
-    return typeof name === 'string' ? name : '';
 }
 
 export function isImmersionKitRateLimitError(error: unknown): boolean {

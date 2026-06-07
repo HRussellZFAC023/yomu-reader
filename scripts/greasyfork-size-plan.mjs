@@ -118,7 +118,7 @@ const plan = {
     surfaces: surfaceReports,
     recommendedExtractionBatch: extractionBatch,
     notes: [
-        `Module bytes are Rollup renderedLength values from ${path.relative(ROOT, MODULE_SIZES_PATH)}.`,
+        `Module bytes are Vite module renderedLength values from ${path.relative(ROOT, MODULE_SIZES_PATH)}.`,
         'Remaining-core estimates subtract rendered module bytes from the exact readable userscript and keep all wrapper/shared overhead in core; this is a conservative planning estimate, not a substitute for actual companion builds.',
         'Greasy Fork library candidates must be readable first-party library scripts, not minified loaders, and must be explicitly allowlisted before @require is accepted.',
     ],

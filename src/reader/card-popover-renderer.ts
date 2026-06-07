@@ -1,4 +1,5 @@
 import { ANKI_SOURCE_ID } from './constants';
+import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from './anki/review-targets';
 import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPreview, renderReviewButtons, reviewButtonGrades } from './anki-render';
 import { normalizeCardStates, primaryCardState } from './card-state';
 import type { CardRenderData } from './card-render-data';
@@ -350,40 +351,21 @@ export class CardPopoverRenderer {
     private ankiReviewTargets(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage): PopoverReviewTarget[] {
         const settings = this.settings();
         if (!settings.enableReviews || !settings.ankiSectionEnabled) return [];
-        const candidates = new Map<number, string>();
-        const add = (cardId: number | null | undefined, label: string, cardName = ''): void => {
-            const id = Number(cardId);
-            if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
-            const deck = label.trim() || 'Anki';
-            const template = cardName.trim();
-            candidates.set(id, template ? [deck, `${template} #${id}`].join(' · ') : [deck, `#${id}`].join(' '));
-        };
         const orderedNotes = data.ankiLookup.primary
             ? [
                 data.ankiLookup.primary,
                 ...data.ankiLookup.notes.filter(note => note !== data.ankiLookup.primary),
             ]
             : data.ankiLookup.notes;
-        orderedNotes.forEach(note => {
-            const noteLabel = note.deckNames.join(', ') || note.modelName || 'Anki';
-            note.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
-            add(note.primaryCardId, noteLabel);
-            note.cardIds.forEach(cardId => add(cardId, noteLabel));
-        });
         const primary = data.ankiLookup.primary;
-        if (primary && !data.ankiLookup.notes.includes(primary)) {
-            const noteLabel = primary.deckNames.join(', ') || primary.modelName || 'Anki';
-            primary.renderedCards?.forEach(rendered => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
-            add(primary.primaryCardId, noteLabel);
-            primary.cardIds.forEach(cardId => add(cardId, noteLabel));
-        }
-        return Array.from(candidates, ([cardId, label]) => ({
+        const notes = primary && !data.ankiLookup.notes.includes(primary) ? [...orderedNotes, primary] : orderedNotes;
+        return collectAnkiReviewTargetLabels([], notes).map(({ cardId, label }) => ({
             id: `anki:${cardId}`,
             kind: 'anki' as const,
             ankiCardId: cardId,
             plainLabel: label,
             label: formatTargetLabel(newTabText(language, 'gradeTargetAnki'), label),
-            shortLabel: compactAnkiTargetLabel(label, cardId),
+            shortLabel: compactAnkiReviewTargetLabel(label, cardId),
         }));
     }
 
@@ -464,13 +446,6 @@ function reviewTargetButtonAttrs(target: PopoverReviewTarget): string {
 
 function formatTargetLabel(template: string, target: string): string {
     return template.replaceAll('{target}', target);
-}
-
-function compactAnkiTargetLabel(label: string, cardId: number): string {
-    const suffix = `#${cardId}`;
-    const clean = label.replace(/\s+/g, ' ').trim();
-    if (!clean) return `Anki ${suffix}`;
-    return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
 }
 
 function reviewButtonTitle(

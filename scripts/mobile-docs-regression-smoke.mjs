@@ -225,9 +225,7 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
     const requests = [];
     const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests);
     try {
-        await page.goto(`${fixtureServer.origin}${DOCS_PATH}`, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ path: CSS_PATH });
-        await page.addScriptTag({ path: SCRIPT_PATH });
+        await loadDocsPageWithYomu(page, fixtureServer);
         await page.waitForFunction(() => document.querySelectorAll('[data-smoke-docs-text] .jpdb-reader-word').length >= 3, null, { timeout: 12_000 });
         await page.waitForFunction(() => document.querySelectorAll('.yomu-try-me .jpdb-reader-word').length >= 5, null, { timeout: 12_000 });
 
@@ -255,9 +253,7 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
     });
     try {
-        await page.goto(`${fixtureServer.origin}${DOCS_PATH}?mobile-settings=1`, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ path: CSS_PATH });
-        await page.addScriptTag({ path: SCRIPT_PATH });
+        await loadDocsPageWithYomu(page, fixtureServer, '?mobile-settings=1');
         await page.waitForSelector('.jpdb-reader-fab', { timeout: 8_000 });
         const puck = await page.evaluate(visiblePuckSnapshotFromDom);
         assert(puck.visible, 'Mobile settings puck was not visible on first install settings', puck);
@@ -276,6 +272,12 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
     } finally {
         await context.close();
     }
+}
+
+async function loadDocsPageWithYomu(page, fixtureServer, search = '') {
+    await page.goto(`${fixtureServer.origin}${DOCS_PATH}${search}`, { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({ path: CSS_PATH });
+    await page.addScriptTag({ path: SCRIPT_PATH });
 }
 
 async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {
@@ -526,16 +528,10 @@ function visiblePuckSnapshotFromDom() {
     }
 
     function rectSnapshot(rect) {
-        return {
-            x: roundRectValue(rect.x),
-            y: roundRectValue(rect.y),
-            width: roundRectValue(rect.width),
-            height: roundRectValue(rect.height),
-            left: roundRectValue(rect.left),
-            right: roundRectValue(rect.right),
-            top: roundRectValue(rect.top),
-            bottom: roundRectValue(rect.bottom),
-        };
+        return ['x', 'y', 'width', 'height', 'left', 'right', 'top', 'bottom'].reduce((snapshot, key) => {
+            snapshot[key] = roundRectValue(rect[key]);
+            return snapshot;
+        }, {});
     }
 
     function roundRectValue(value) {

@@ -553,7 +553,7 @@ function matchesSkippedFragmentElement(
     state: FragmentTextCollectionState,
     isRoot: boolean,
 ): boolean {
-    if (state.excludeSelector && element.matches(state.excludeSelector)) return true;
+    if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
     return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
 
@@ -623,8 +623,8 @@ function shouldSkipFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    if (options.includeFormChrome) return element.matches(FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    return element.matches(options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+    if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+    return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
 }
 
 function isFragmentParagraphBoundary(
@@ -684,7 +684,7 @@ function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
 }
 
 function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
-    const style = getComputedStyle(element);
+    const style = safeComputedStyle(element);
     return hasLineClamp(style)
         || hasClippedTextConstraint(style)
         || isPositionedTextOverlay(style);
@@ -1744,7 +1744,7 @@ function isKanjiForInlineNavigation(value: string): boolean {
 function isVisible(element: HTMLElement): boolean {
     const rect = element.getBoundingClientRect();
     if (!isVisibleRect(rect)) return false;
-    const style = getComputedStyle(element);
+    const style = safeComputedStyle(element);
     return isVisibleStyle(style);
 }
 
@@ -1759,7 +1759,7 @@ function isVisibleStyle(style: CSSStyleDeclaration): boolean {
 }
 
 function isParagraphBoundary(element: HTMLElement): boolean {
-    const display = getComputedStyle(element).display;
+    const display = safeComputedStyle(element).display;
     if (element.tagName === 'BR') return true;
     if (isInlineDisplay(display)) return false;
     if (BLOCK_TAGS.has(element.tagName)) return true;
@@ -1790,7 +1790,7 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
 function isShortCenteredDisplayHeading(element: HTMLElement, text: string): boolean {
     const heading = closestDisplayHeading(element);
     if (!heading) return false;
-    const style = getComputedStyle(heading);
+    const style = safeComputedStyle(heading);
     const headingText = heading.textContent?.trim() || text;
     if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
     return style.textAlign === 'center' && compactLength(headingText) <= 40;
@@ -1829,7 +1829,7 @@ function fragileTextMetrics(element: HTMLElement, text: string): {
     lineHeight: number;
     prose: boolean;
 } {
-    const style = getComputedStyle(element);
+    const style = safeComputedStyle(element);
     const rect = element.getBoundingClientRect();
     const compactLength = Array.from(text.replace(/\s+/g, '')).length;
     const fontSize = cssPixels(style.fontSize);
@@ -1947,13 +1947,37 @@ function isExplicitControlLink(link: HTMLElement): boolean {
 }
 
 function linkHasControlMedia(link: HTMLElement): boolean {
-    return Boolean(link.querySelector('svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
 }
 
 function linkHasControlShape(link: HTMLElement, text: string): boolean {
-    const style = getComputedStyle(link);
+    const style = safeComputedStyle(link);
     const rect = link.getBoundingClientRect();
     return hasControlLinkStyle(style) && hasShortControlLinkText(link, text) && hasControlLinkWidth(rect);
+}
+
+function safeElementMatches(element: HTMLElement, selector: string): boolean {
+    try {
+        return element.matches(selector);
+    } catch {
+        return false;
+    }
+}
+
+function safeQuerySelector(root: HTMLElement, selector: string): Element | null {
+    try {
+        return root.querySelector(selector);
+    } catch {
+        return null;
+    }
+}
+
+function safeComputedStyle(element: HTMLElement): CSSStyleDeclaration {
+    try {
+        return getComputedStyle(element);
+    } catch {
+        return element.style;
+    }
 }
 
 function hasShortControlLinkText(link: HTMLElement, text: string): boolean {

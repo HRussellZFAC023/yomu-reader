@@ -20,10 +20,7 @@ export class ReaderAudioActions {
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
     async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean } = {}): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
-            return;
-        }
+        if (!this.ensureAudioEnabled()) return;
         const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === undefined
             ? undefined
             : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
@@ -43,10 +40,7 @@ export class ReaderAudioActions {
     }
 
     async playSentenceAudio(sentence?: string): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
-            return;
-        }
+        if (!this.ensureAudioEnabled()) return;
         const text = sentence?.trim();
         if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSentenceToRead'));
         const voice = this.dependencies.getSettings().audioSources.find(source =>
@@ -57,22 +51,23 @@ export class ReaderAudioActions {
     }
 
     async playJpdbExampleAudio(audioIds: string | string[], fallbackSentence?: string): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
-            return;
-        }
+        if (!this.ensureAudioEnabled()) return;
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.playJpdbAudio(audioIds, { userGesture: true });
         if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
     }
 
     async playMediaUrl(audioUrl: string): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) {
-            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackDisabledToast'));
-            return;
-        }
+        if (!this.ensureAudioEnabled()) return;
         this.dependencies.stopImmersionAudio();
         await this.dependencies.audio.playMediaUrl(audioUrl);
+    }
+
+    private ensureAudioEnabled(): boolean {
+        const settings = this.dependencies.getSettings();
+        if (settings.audioEnabled) return true;
+        this.dependencies.toast(uiText(settings.interfaceLanguage, 'audioPlaybackDisabledToast'));
+        return false;
     }
 
     private audioErrorMessage(error: unknown): string {

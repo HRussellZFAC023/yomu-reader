@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.31
+// @version      0.6.32
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-dv0uhptw6w/JABb58zz6Npi6g84VD79ZZk67E3hZbsk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-seOTJ+yV5U05FlQA+K1nR2pkcCDH7aFQnne3S3tLhAY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-prTW6pHRfxy1vbt+0UzS/KFx8PIBFKu6D4ZYOLYOMa8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2945,7 +2945,7 @@
     return shouldSkipFragmentTextPresentation(element2, state.options);
   }
   function matchesSkippedFragmentElement(element2, state, isRoot) {
-    if (state.excludeSelector && element2.matches(state.excludeSelector)) return true;
+    if (state.excludeSelector && safeElementMatches(element2, state.excludeSelector)) return true;
     return !isRoot && shouldSkipFragmentElement(element2, state.options);
   }
   function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {
@@ -2982,8 +2982,8 @@
     return state.targets.length >= state.limit;
   }
   function shouldSkipFragmentElement(element2, options) {
-    if (options.includeFormChrome) return element2.matches(FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    return element2.matches(options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+    if (options.includeFormChrome) return safeElementMatches(element2, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+    return safeElementMatches(element2, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element2, options) {
     return options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element2.tagName) || isParagraphBoundary(element2);
@@ -3027,7 +3027,7 @@
     return false;
   }
   function isLayoutSensitiveTextBox(element2) {
-    const style = getComputedStyle(element2);
+    const style = safeComputedStyle(element2);
     return hasLineClamp(style) || hasClippedTextConstraint(style) || isPositionedTextOverlay(style);
   }
   function hasLineClamp(style) {
@@ -3816,7 +3816,7 @@
   function isVisible(element2) {
     const rect = element2.getBoundingClientRect();
     if (!isVisibleRect(rect)) return false;
-    const style = getComputedStyle(element2);
+    const style = safeComputedStyle(element2);
     return isVisibleStyle(style);
   }
   function isVisibleRect(rect) {
@@ -3826,7 +3826,7 @@
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
   }
   function isParagraphBoundary(element2) {
-    const display = getComputedStyle(element2).display;
+    const display = safeComputedStyle(element2).display;
     if (element2.tagName === "BR") return true;
     if (isInlineDisplay(display)) return false;
     if (BLOCK_TAGS.has(element2.tagName)) return true;
@@ -3851,7 +3851,7 @@
   function isShortCenteredDisplayHeading(element2, text2) {
     const heading = closestDisplayHeading(element2);
     if (!heading) return false;
-    const style = getComputedStyle(heading);
+    const style = safeComputedStyle(heading);
     const headingText = heading.textContent?.trim() || text2;
     if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
     return style.textAlign === "center" && compactLength(headingText) <= 40;
@@ -3876,7 +3876,7 @@
     return isLikelyProseElement(element2) && Boolean(element2.closest('article, main, [role="main"]'));
   }
   function fragileTextMetrics(element2, text2) {
-    const style = getComputedStyle(element2);
+    const style = safeComputedStyle(element2);
     const rect = element2.getBoundingClientRect();
     const compactLength2 = Array.from(text2.replace(/\s+/g, "")).length;
     const fontSize = cssPixels(style.fontSize);
@@ -3962,12 +3962,33 @@
     return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
   }
   function linkHasControlMedia(link) {
-    return Boolean(link.querySelector('svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
   }
   function linkHasControlShape(link, text2) {
-    const style = getComputedStyle(link);
+    const style = safeComputedStyle(link);
     const rect = link.getBoundingClientRect();
     return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
+  }
+  function safeElementMatches(element2, selector) {
+    try {
+      return element2.matches(selector);
+    } catch {
+      return false;
+    }
+  }
+  function safeQuerySelector(root, selector) {
+    try {
+      return root.querySelector(selector);
+    } catch {
+      return null;
+    }
+  }
+  function safeComputedStyle(element2) {
+    try {
+      return getComputedStyle(element2);
+    } catch {
+      return element2.style;
+    }
   }
   function hasShortControlLinkText(link, text2) {
     return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
@@ -8312,6 +8333,16 @@ recommendedJiten	jiten.moe頻度データです。
       }
     }
   }
+  function pruneExpiringMapEntries(cache, limit, now = Date.now()) {
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now) cache.delete(key);
+    }
+    while (cache.size > limit) {
+      const oldest = cache.keys().next().value;
+      if (typeof oldest !== "string") break;
+      cache.delete(oldest);
+    }
+  }
   const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
   async function createPageMediaUrl(blob) {
     if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(blob);
@@ -8736,7 +8767,7 @@ recommendedJiten	jiten.moe頻度データです。
         throw error;
       });
       this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
-      pruneTimedCache(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
+      pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
       return promise;
     }
     async createReadyAudio(audioUrl, audio = this.createAudioElement(audioUrl)) {
@@ -8782,7 +8813,7 @@ recommendedJiten	jiten.moe頻度データです。
         throw error;
       });
       this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
-      pruneTimedCache(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
+      pruneExpiringMapEntries(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
       return promise.then(cloneAudioCandidates);
     }
     async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
@@ -8910,16 +8941,6 @@ recommendedJiten	jiten.moe頻度データです。
   function audioPlaybackAttemptResult(error, errors) {
     errors.push(error instanceof Error ? error.message : String(error));
     return error instanceof AudioPlaybackAttemptError ? "playback-error" : "miss";
-  }
-  function pruneTimedCache(cache, limit, now = Date.now()) {
-    for (const [key, entry] of cache) {
-      if (entry.expiresAt <= now) cache.delete(key);
-    }
-    while (cache.size > limit) {
-      const oldest = cache.keys().next().value;
-      if (typeof oldest !== "string") break;
-      cache.delete(oldest);
-    }
   }
   async function runLimited(items, concurrency, worker) {
     if (!items.length) return;
@@ -9317,6 +9338,14 @@ recommendedJiten	jiten.moe頻度データです。
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
+  function readBlobWithFileReader(blob, read, result) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
+      reader.onload = () => resolve(result(reader));
+      read(reader, blob);
+    });
+  }
   async function readDexieTableRowCounts(file) {
     const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
     const tables = readDexieTablesArray(head);
@@ -9368,12 +9397,7 @@ ${candidate.depth}`;
   }
   function readBlobText(blob) {
     if (typeof blob.text === "function") return blob.text();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.readAsText(blob);
-    });
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsText(value), (reader) => String(reader.result ?? ""));
   }
   async function processDexieStreamBuffer(state, handlers, onTable) {
     let progress = true;
@@ -11002,12 +11026,7 @@ ${scopedInner}
   }
   function readBlobArrayBuffer(blob) {
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
-      reader.onload = () => resolve(reader.result);
-      reader.readAsArrayBuffer(blob);
-    });
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
   Logger.scope("YomitanSettingsImport");
   const DB_NAME = "jpdb-popup-reader-yomitan";
@@ -12279,24 +12298,17 @@ ${entry.reading}`;
       this.termKanjiIndexReady = false;
     }
     addTermSearchIndexChunk(db, terms) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("termSearch", "readwrite");
-        const store = tx.objectStore("termSearch");
-        for (const term of terms) {
-          for (const row of termSearchEntries(term)) store.add(row);
-        }
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-        commitTransaction(tx);
-      });
+      return this.addDerivedTermIndexChunk(db, "termSearch", terms, termSearchEntries);
     }
     addTermKanjiIndexChunk(db, terms) {
+      return this.addDerivedTermIndexChunk(db, "termKanji", terms, termKanjiEntries);
+    }
+    addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
       return new Promise((resolve, reject) => {
-        const tx = db.transaction("termKanji", "readwrite");
-        const store = tx.objectStore("termKanji");
+        const tx = db.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
         for (const term of terms) {
-          for (const row of termKanjiEntries(term)) store.add(row);
+          for (const row of rowsForTerm(term)) store.add(row);
         }
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
@@ -17360,12 +17372,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "[data-yomu-immersion-action]",
     "[data-uchisen-action]"
   ].join(",");
-  function popoverScrollBody(popover) {
+  function popoverScrollBody$1(popover) {
     return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
   }
   function capturePopoverScrollFrame(target) {
     const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody(popover);
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
     return { scrollBody, scrollTop: scrollBody.scrollTop };
   }
   function restorePopoverScrollFrame(frame) {
@@ -19464,11 +19476,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.options.getSettings();
       const noteId = Number(button2.dataset.noteId);
       if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
-      const [dictionaryContext, context, wordAudio] = await Promise.all([
-        this.loadAnkiDictionaryContext(card, settings),
-        this.options.resolveMiningContext(card, sentence),
-        resolveAnkiWordAudio(card, settings).catch(() => null)
-      ]);
+      const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
       const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
         imageDataUrl: context.imageDataUrl,
         audioDataUrl: context.audioDataUrl,
@@ -19569,11 +19577,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return true;
     }
     async prepareAnkiAdd(card, sentence, deckName, settings, actionContext) {
-      const [dictionaryContext, context, wordAudio] = await Promise.all([
-        this.loadAnkiDictionaryContext(card, settings),
-        this.options.resolveMiningContext(card, sentence),
-        resolveAnkiWordAudio(card, settings).catch(() => null)
-      ]);
+      const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
       return {
         context,
         hasWordAudio: hasResolvedAnkiWordAudio(wordAudio),
@@ -19598,6 +19602,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       } catch (error) {
         return duplicateAnkiAddResult(error);
       }
+    }
+    async loadAnkiCardAssets(card, sentence, settings) {
+      const [dictionaryContext, context, wordAudio] = await Promise.all([
+        this.loadAnkiDictionaryContext(card, settings),
+        this.options.resolveMiningContext(card, sentence),
+        resolveAnkiWordAudio(card, settings).catch(() => null)
+      ]);
+      return { dictionaryContext, context, wordAudio };
     }
     toastMobileAnkiHandoff(settings) {
       this.options.toast(uiText(settings.interfaceLanguage, "openedMobileAnkiHandoff"));
@@ -19717,6 +19729,36 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function defaultJpdbDeckId(settings) {
     return settings.miningDeck.trim() || "forq";
+  }
+  function collectAnkiReviewTargetLabels(seeds, notes) {
+    const candidates = /* @__PURE__ */ new Map();
+    seeds.forEach((seed) => addAnkiReviewTargetLabel(candidates, seed.cardId, seed.label, seed.cardName));
+    notes.forEach((note) => addAnkiReviewTargetNote(candidates, note));
+    return Array.from(candidates, ([cardId, label]) => ({ cardId, label }));
+  }
+  function compactAnkiReviewTargetLabel(label, cardId) {
+    const suffix = `#${cardId}`;
+    const clean = label.replace(/\s+/g, " ").trim();
+    if (!clean) return `Anki ${suffix}`;
+    return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
+  }
+  function addAnkiReviewTargetNote(candidates, note) {
+    const noteLabel = note.deckNames.join(", ") || note.modelName || "Anki";
+    note.renderedCards?.forEach((rendered) => addAnkiReviewTargetLabel(
+      candidates,
+      rendered.cardId,
+      rendered.deckName || noteLabel,
+      rendered.cardName
+    ));
+    addAnkiReviewTargetLabel(candidates, note.primaryCardId, noteLabel);
+    note.cardIds.forEach((cardId) => addAnkiReviewTargetLabel(candidates, cardId, noteLabel));
+  }
+  function addAnkiReviewTargetLabel(candidates, cardId, label, cardName = "") {
+    const id = Number(cardId);
+    if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
+    const deck = label.trim() || "Anki";
+    const template = cardName.trim();
+    candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
   }
   const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
   function cardHighlightTargets(card) {
@@ -22722,38 +22764,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ankiReviewTargets(data, language) {
       const settings = this.settings();
       if (!settings.enableReviews || !settings.ankiSectionEnabled) return [];
-      const candidates = /* @__PURE__ */ new Map();
-      const add = (cardId, label, cardName = "") => {
-        const id = Number(cardId);
-        if (!Number.isFinite(id) || id <= 0 || candidates.has(id)) return;
-        const deck = label.trim() || "Anki";
-        const template = cardName.trim();
-        candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
-      };
       const orderedNotes = data.ankiLookup.primary ? [
         data.ankiLookup.primary,
         ...data.ankiLookup.notes.filter((note) => note !== data.ankiLookup.primary)
       ] : data.ankiLookup.notes;
-      orderedNotes.forEach((note) => {
-        const noteLabel = note.deckNames.join(", ") || note.modelName || "Anki";
-        note.renderedCards?.forEach((rendered) => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
-        add(note.primaryCardId, noteLabel);
-        note.cardIds.forEach((cardId) => add(cardId, noteLabel));
-      });
       const primary = data.ankiLookup.primary;
-      if (primary && !data.ankiLookup.notes.includes(primary)) {
-        const noteLabel = primary.deckNames.join(", ") || primary.modelName || "Anki";
-        primary.renderedCards?.forEach((rendered) => add(rendered.cardId, rendered.deckName || noteLabel, rendered.cardName));
-        add(primary.primaryCardId, noteLabel);
-        primary.cardIds.forEach((cardId) => add(cardId, noteLabel));
-      }
-      return Array.from(candidates, ([cardId, label]) => ({
+      const notes = primary && !data.ankiLookup.notes.includes(primary) ? [...orderedNotes, primary] : orderedNotes;
+      return collectAnkiReviewTargetLabels([], notes).map(({ cardId, label }) => ({
         id: `anki:${cardId}`,
         kind: "anki",
         ankiCardId: cardId,
         plainLabel: label,
         label: formatTargetLabel(newTabText(language, "gradeTargetAnki"), label),
-        shortLabel: compactAnkiTargetLabel(label, cardId)
+        shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
     renderTargetedReviewButtons(targets, language) {
@@ -22821,12 +22844,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function formatTargetLabel(template, target) {
     return template.replaceAll("{target}", target);
-  }
-  function compactAnkiTargetLabel(label, cardId) {
-    const suffix = `#${cardId}`;
-    const clean = label.replace(/\s+/g, " ").trim();
-    if (!clean) return `Anki ${suffix}`;
-    return clean.endsWith(suffix) ? clean : `${clean} ${suffix}`;
   }
   function reviewButtonTitle(data, cardStates, selectedDeckLabel, language) {
     const reviewAddsToDeck = !data.ankiLookup.primary?.primaryCardId && cardStates.includes("not-in-deck");
@@ -22975,7 +22992,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         if (this.cache.get(key)?.load === load) this.cache.delete(key);
       });
       this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
-      pruneExpiringMap(this.cache, now, CARD_RENDER_DATA_CACHE_LIMIT);
+      pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
       return load;
     }
     fetch(card) {
@@ -23198,16 +23215,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function delay$1(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
-  }
-  function pruneExpiringMap(cache, now, limit) {
-    for (const [key, value] of cache) {
-      if (value.expiresAt <= now) cache.delete(key);
-    }
-    while (cache.size > limit) {
-      const oldest = cache.keys().next().value;
-      if (typeof oldest !== "string") break;
-      cache.delete(oldest);
-    }
   }
   function yomuSettingsDialogController() {
     return yomuCompanions().settings?.SettingsDialogController;
@@ -23543,6 +23550,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderImmersionSource(params) {
     return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
   }
+  function isAbortError$3(error) {
+    return errorName(error) === "AbortError";
+  }
+  function errorName(error) {
+    if (!error || typeof error !== "object") return "";
+    const name = error.name;
+    return typeof name === "string" ? name : "";
+  }
   function stableHash32(value) {
     let hash = 2166136261;
     for (let index = 0; index < value.length; index += 1) {
@@ -23728,11 +23743,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError$4(error)) throw error;
+        if (isAbortError$3(error)) throw error;
         log$g.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError$4(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
         log$g.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
@@ -24148,7 +24163,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       try {
         return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
       } catch (error) {
-        if (isAbortError$4(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -24173,21 +24188,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
       timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
     }).catch((error) => {
-      if (isAbortError$4(error)) throw error;
+      if (isAbortError$3(error)) throw error;
       if (isImmersionKitRateLimitError(error)) throw error;
       if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
         throw new Error(uiText(language, "immersionKitSearchBlocked"));
       }
       throw requestError(error, uiText(language, "immersionKitRequestFailed"));
     });
-  }
-  function isAbortError$4(error) {
-    return errorName$1(error) === "AbortError";
-  }
-  function errorName$1(error) {
-    if (!error || typeof error !== "object") return "";
-    const name = error.name;
-    return typeof name === "string" ? name : "";
   }
   function isImmersionKitRateLimitError(error) {
     return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
@@ -25865,14 +25872,6 @@ ${spelling}`);
   }
   function clearImmersionLoadingState(container) {
     if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-  }
-  function isAbortError$3(error) {
-    return errorName(error) === "AbortError";
-  }
-  function errorName(error) {
-    if (!error || typeof error !== "object") return "";
-    const name = error.name;
-    return typeof name === "string" ? name : "";
   }
   function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
     if (signal.aborted) return Promise.reject(abortErrorForRace());
@@ -32280,6 +32279,59 @@ ${glossaryKey}`;
   function lookupResultTokens(tokens = [], isJpdbBackedCard) {
     return tokens.filter((token) => isJpdbBackedCard(token.card) || token.card.source === "jiten" || token.card.source === "local" || token.card.source === "fallback");
   }
+  function popoverScrollBody(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function stabilizePopoverBodyAround(popover, anchor) {
+    const scrollBody = popoverScrollBody(popover);
+    const scrollTop = scrollBody.scrollTop;
+    const anchorTop = anchor.getBoundingClientRect().top;
+    requestAnimationFrame(() => {
+      if (!popover.isConnected || !anchor.isConnected) return;
+      const delta = anchor.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
+    });
+  }
+  function installPopoverBodyStabilizers(popover) {
+    if (popover.dataset.jpdbReaderBodyStabilizers === "true") return;
+    popover.dataset.jpdbReaderBodyStabilizers = "true";
+    popover.addEventListener("click", (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!target) return;
+      const scrollBody = popoverScrollBody(popover);
+      if (!scrollBody.contains(target)) return;
+      const summary = target.closest("summary");
+      if (summary && scrollBody.contains(summary)) {
+        stabilizePopoverBodyAround(popover, summary);
+        return;
+      }
+      if (!popoverBodyActionElement(target, scrollBody)) return;
+      restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
+    }, true);
+  }
+  function popoverMaxHeightAtTop(settings, top) {
+    const margin = 8;
+    const availableHeight = Math.max(0, window.innerHeight - top - margin);
+    const configuredMaxHeight = configuredPopoverMaxHeight(settings);
+    return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
+  }
+  function configuredPopoverMaxHeight(settings) {
+    return popoverMaxHeightSetting(settings);
+  }
+  function shouldUseFixedPopoverHeight(popover, settings, enabled = true) {
+    return Boolean(
+      enabled && popover && settings.popoverHeightMode === "fixed" && !popover.classList.contains("jpdb-reader-sheet") && popover.querySelector(".jpdb-reader-popover-body")
+    );
+  }
+  function syncFixedPopoverHeight(popover, shouldUseFixedHeight) {
+    if (!popover) return;
+    if (!shouldUseFixedHeight) {
+      popover.style.height = "";
+      return;
+    }
+    const maxHeight = Number.parseFloat(popover.style.maxHeight);
+    if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
+  }
   const MINING_ACTIONS_CLASS = "jpdb-reader-actions";
   const MINING_COLLAPSED_CLASS = "jpdb-reader-actions-mining-collapsed";
   const DECK_PICKER_OPEN_CLASS = "jpdb-reader-add-deck-select-open";
@@ -32372,6 +32424,20 @@ ${glossaryKey}`;
     } catch {
     }
   }
+  function mutationNodes(mutation, options = {}) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
+    return nodes;
+  }
+  function mutationInsideClosest(mutation, selector) {
+    return mutationNodes(mutation, { removed: true }).every((node) => {
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element2?.closest?.(selector));
+    });
+  }
   const AUTO_SCAN_OBSERVER_OPTIONS = {
     childList: true,
     subtree: true,
@@ -32415,15 +32481,7 @@ ${glossaryKey}`;
     });
   }
   function mutationInsideReaderRoot(mutation) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes),
-      ...Array.from(mutation.removedNodes)
-    ];
-    return nodes.every((node) => {
-      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean(element2?.closest?.("[data-jpdb-reader-root]"));
-    });
+    return mutationInsideClosest(mutation, READER_ROOT_SELECTOR);
   }
   function mutationMayContainJapaneseText(mutation) {
     if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
@@ -35905,10 +35963,7 @@ ${spelling}`);
     }
     loadingRequest = 0;
     async playTermAudio(card, options = {}) {
-      if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
-        return;
-      }
+      if (!this.ensureAudioEnabled()) return;
       const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
       const loadingPopover = this.dependencies.getActivePopover();
       const loadingRequest = ++this.loadingRequest;
@@ -35925,10 +35980,7 @@ ${spelling}`);
       }
     }
     async playSentenceAudio(sentence) {
-      if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
-        return;
-      }
+      if (!this.ensureAudioEnabled()) return;
       const text2 = sentence?.trim();
       if (!text2) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
       const voice = this.dependencies.getSettings().audioSources.find(
@@ -35938,21 +35990,21 @@ ${spelling}`);
       await this.dependencies.audio.playJapaneseText(text2, voice);
     }
     async playJpdbExampleAudio(audioIds, fallbackSentence) {
-      if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
-        return;
-      }
+      if (!this.ensureAudioEnabled()) return;
       this.dependencies.stopImmersionAudio();
       const played = await this.dependencies.audio.playJpdbAudio(audioIds, { userGesture: true });
       if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
     }
     async playMediaUrl(audioUrl) {
-      if (!this.dependencies.getSettings().audioEnabled) {
-        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackDisabledToast"));
-        return;
-      }
+      if (!this.ensureAudioEnabled()) return;
       this.dependencies.stopImmersionAudio();
       await this.dependencies.audio.playMediaUrl(audioUrl);
+    }
+    ensureAudioEnabled() {
+      const settings = this.dependencies.getSettings();
+      if (settings.audioEnabled) return true;
+      this.dependencies.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
+      return false;
     }
     audioErrorMessage(error) {
       const language = this.dependencies.getSettings().interfaceLanguage;
@@ -36468,6 +36520,19 @@ ${spelling}`);
   function minContrast(color, backgrounds) {
     return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
   }
+  const RENDERED_WORD_CONTRAST_VARS = [
+    "--jpdb-reader-page-bg",
+    "--jpdb-reader-highlight-backdrop",
+    "--jpdb-reader-furi-accessible-color",
+    "--jpdb-reader-word-accessible-color",
+    "--jpdb-reader-word-accessible-highlight",
+    "--jpdb-reader-word-accessible-underline",
+    "--jpdb-reader-word-highlight-text",
+    "--jpdb-reader-word-contrast-shadow"
+  ];
+  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-word-contrast-shadow"
+  );
   const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
   const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
   const TEXT_CONTRAST = 4.5;
@@ -36497,16 +36562,6 @@ ${spelling}`);
     "jpdb-pitch-odaka",
     "jpdb-pitch-kifuku"
   ]);
-  const CONTRAST_VARS = [
-    "--jpdb-reader-page-bg",
-    "--jpdb-reader-highlight-backdrop",
-    "--jpdb-reader-furi-accessible-color",
-    "--jpdb-reader-word-accessible-color",
-    "--jpdb-reader-word-accessible-highlight",
-    "--jpdb-reader-word-accessible-underline",
-    "--jpdb-reader-word-highlight-text",
-    "--jpdb-reader-word-contrast-shadow"
-  ];
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   function refreshReaderWordContrast(root = document) {
     readerWords(root).forEach(refreshReaderWordContrastForWord);
@@ -36641,25 +36696,19 @@ ${spelling}`);
     return color;
   }
   function applyUnknownBackgroundFallback(word) {
-    word.style.removeProperty("--jpdb-reader-page-bg");
-    word.style.removeProperty("--jpdb-reader-highlight-backdrop");
-    word.style.removeProperty("--jpdb-reader-furi-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-    word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-    word.style.removeProperty("--jpdb-reader-word-highlight-text");
+    RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
     word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
   }
   function clearContrastVars(word) {
-    CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
   }
   function withContrastVarsDisabled(word, read) {
-    const saved = CONTRAST_VARS.map((name) => ({
+    const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
       name,
       value: word.style.getPropertyValue(name),
       priority: word.style.getPropertyPriority(name)
     }));
-    CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
     try {
       return read();
     } finally {
@@ -36672,14 +36721,7 @@ ${spelling}`);
     Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
     delete word.dataset.ankiState;
     delete word.dataset.ankiDecks;
-    word.style.removeProperty("--jpdb-reader-page-bg");
-    word.style.removeProperty("--jpdb-reader-highlight-backdrop");
-    word.style.removeProperty("--jpdb-reader-furi-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-color");
-    word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-    word.style.removeProperty("--jpdb-reader-word-accessible-underline");
-    word.style.removeProperty("--jpdb-reader-word-highlight-text");
-    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
     if (word.title.startsWith("Anki:")) word.removeAttribute("title");
   }
   function renderedWordHasAnkiState(word) {
@@ -41797,7 +41839,7 @@ ${spelling}`);
         this.activePopoverAnchorRect,
         {
           followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : void 0,
-          maxHeight: popoverMaxHeightSetting(this.settings),
+          maxHeight: configuredPopoverMaxHeight(this.settings),
           preferBefore: this.shouldPreferActiveHoverPopoverBefore()
         }
       );
@@ -41824,10 +41866,7 @@ ${spelling}`);
       popover.style.maxHeight = `${maxHeight}px`;
     }
     activePopoverMaxHeightAtTop(top) {
-      const margin = 8;
-      const availableHeight = Math.max(0, window.innerHeight - top - margin);
-      const configuredMaxHeight = popoverMaxHeightSetting(this.settings);
-      return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
+      return popoverMaxHeightAtTop(this.settings, top);
     }
     refreshActivePopoverAnchorRect() {
       if (!this.activePopoverAnchor?.isConnected) return;
@@ -41841,44 +41880,14 @@ ${spelling}`);
       return this.shouldFollowActiveHoverPointer();
     }
     shouldUseFixedModalHeight(popover) {
-      return this.activePopoverMode !== "hover" && this.settings.popoverHeightMode === "fixed" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(popover.querySelector(".jpdb-reader-popover-body"));
+      return shouldUseFixedPopoverHeight(popover, this.settings, this.activePopoverMode !== "hover");
     }
     syncActivePopoverFixedHeight() {
       const popover = this.activePopover;
-      if (!popover) return;
-      if (!this.shouldUseFixedModalHeight(popover)) {
-        popover.style.height = "";
-        return;
-      }
-      const maxHeight = Number.parseFloat(popover.style.maxHeight);
-      if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
+      syncFixedPopoverHeight(popover, popover ? this.shouldUseFixedModalHeight(popover) : false);
     }
     installPopoverBodyStabilizers(popover) {
-      if (popover.dataset.jpdbReaderBodyStabilizers === "true") return;
-      popover.dataset.jpdbReaderBodyStabilizers = "true";
-      popover.addEventListener("click", (event) => {
-        const target = event.target instanceof HTMLElement ? event.target : null;
-        if (!target) return;
-        const scrollBody = this.popoverScrollBody(popover);
-        if (!scrollBody.contains(target)) return;
-        const summary = target?.closest("summary");
-        if (summary && scrollBody.contains(summary)) {
-          this.stabilizePopoverBodyAround(popover, summary);
-          return;
-        }
-        if (!popoverBodyActionElement(target, scrollBody)) return;
-        restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
-      }, true);
-    }
-    stabilizePopoverBodyAround(popover, anchor) {
-      const scrollBody = this.popoverScrollBody(popover);
-      const scrollTop = scrollBody.scrollTop;
-      const anchorTop = anchor.getBoundingClientRect().top;
-      requestAnimationFrame(() => {
-        if (!popover.isConnected || !anchor.isConnected) return;
-        const delta = anchor.getBoundingClientRect().top - anchorTop;
-        if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
-      });
+      installPopoverBodyStabilizers(popover);
     }
     popoverScrollBody(popover) {
       return popover.querySelector(".jpdb-reader-popover-body") ?? popover;

@@ -1,5 +1,6 @@
 import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from './theme/color-tokens';
 import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, rgbaToHex, type RgbaColor } from './theme/color-utils';
+import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
 const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen';
@@ -30,16 +31,6 @@ const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-pitch-odaka',
     'jpdb-pitch-kifuku',
 ]);
-const CONTRAST_VARS = [
-    '--jpdb-reader-page-bg',
-    '--jpdb-reader-highlight-backdrop',
-    '--jpdb-reader-furi-accessible-color',
-    '--jpdb-reader-word-accessible-color',
-    '--jpdb-reader-word-accessible-highlight',
-    '--jpdb-reader-word-accessible-underline',
-    '--jpdb-reader-word-highlight-text',
-    '--jpdb-reader-word-contrast-shadow',
-] as const;
 const pendingHoverContrastRefresh = new WeakSet<HTMLElement>();
 
 interface PageBackground {
@@ -209,27 +200,21 @@ function readableHighlightBackground(color: string, background: string): string 
 }
 
 function applyUnknownBackgroundFallback(word: HTMLElement): void {
-    word.style.removeProperty('--jpdb-reader-page-bg');
-    word.style.removeProperty('--jpdb-reader-highlight-backdrop');
-    word.style.removeProperty('--jpdb-reader-furi-accessible-color');
-    word.style.removeProperty('--jpdb-reader-word-accessible-color');
-    word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
-    word.style.removeProperty('--jpdb-reader-word-accessible-underline');
-    word.style.removeProperty('--jpdb-reader-word-highlight-text');
+    RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach(name => word.style.removeProperty(name));
     word.style.setProperty('--jpdb-reader-word-contrast-shadow', PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
 }
 
 function clearContrastVars(word: HTMLElement): void {
-    CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+    RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
 }
 
 function withContrastVarsDisabled<T>(word: HTMLElement, read: () => T): T {
-    const saved = CONTRAST_VARS.map(name => ({
+    const saved = RENDERED_WORD_CONTRAST_VARS.map(name => ({
         name,
         value: word.style.getPropertyValue(name),
         priority: word.style.getPropertyPriority(name),
     }));
-    CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+    RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
     try {
         return read();
     } finally {
