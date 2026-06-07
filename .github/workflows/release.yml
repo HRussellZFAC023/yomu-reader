@@ -49,6 +49,8 @@ jobs:
         run: |
           cd dist/extension/release/safari
           zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension
+      - name: Restore split userscript release artifact
+        run: npm run build:userscript
       - name: Prepare release notes
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
