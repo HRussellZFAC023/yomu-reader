@@ -9,6 +9,7 @@ const log = Logger.scope('JpdbApi');
 
 export class JpdbApiClient {
     private retryAfter = 0;
+    private rejectedToken = '';
 
     constructor(
         private getApiKey: () => string,
@@ -27,7 +28,8 @@ export class JpdbApiClient {
         const done = log.time('request', { endpoint, hasBody: Boolean(body) });
         const response = await postJson(url, token, body, this.getProxyUrl());
         done();
-        this.assertSuccessfulResponse(response, endpoint);
+        this.assertSuccessfulResponse(response, endpoint, token);
+        if (this.rejectedToken === token) this.rejectedToken = '';
         return parseJpdbApiResponse<T>(response, endpoint, options.response);
     }
 
@@ -36,19 +38,24 @@ export class JpdbApiClient {
             log.warn('JPDB API key missing', { endpoint });
             throw new Error('JPDB API key is not set.');
         }
+        if (this.rejectedToken === token) {
+            log.warn('JPDB API key was already rejected', { endpoint });
+            throw new Error('JPDB rejected the API key.');
+        }
         if (Date.now() < this.retryAfter) {
             log.warn('JPDB rate-limit backoff', { endpoint, retryAfterMs: this.retryAfter - Date.now() });
             throw new Error('JPDB is rate limited. Try again in a moment.');
         }
     }
 
-    private assertSuccessfulResponse(response: JsonPostResponse, endpoint: string): void {
+    private assertSuccessfulResponse(response: JsonPostResponse, endpoint: string, token: string): void {
         if (response.status === 429) {
             this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
             log.warn('JPDB rate limit reached', { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
             throw new Error('JPDB rate limit reached.');
         }
         if (response.status === 403) {
+            this.rejectedToken = token;
             log.warn('JPDB rejected API key', { endpoint });
             throw new Error('JPDB rejected the API key.');
         }

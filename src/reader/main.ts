@@ -10,6 +10,14 @@ import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type 
 import { highlightCardTargetScopes } from './card-highlight';
 import { cardKey } from './card-utils';
 import { normalizeCardStates } from './card-state';
+import {
+    yomuSettingsDialogController,
+    yomuSubtitlePlayerController,
+    yomuYoutubeImmersionFilter,
+    type SettingsDialogControllerInstance,
+    type SubtitlePlayerControllerInstance,
+    type YoutubeImmersionFilterInstance,
+} from './companions/registry';
 import { APP_NAME, IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT } from './constants';
 import { DictionarySourceStateController } from './dictionary-source-state';
 import { DictionaryStyleController } from './dictionary-styles';
@@ -253,7 +261,6 @@ import {
     shouldLookupAnkiStatus,
 } from './settings';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from './theme/reader-theme';
-import { SettingsDialogController } from './settings-dialog-controller';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -267,12 +274,10 @@ import {
 } from './source-sections';
 import { loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from './styles';
 import { StudySourceController } from './study-sources';
-import { SubtitlePlayerController } from './subtitles/controller';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills } from './word-pills';
 import { addWindowEventListener } from './window-events';
-import { YoutubeImmersionFilter } from './subtitles/youtube';
 import {
     YomitanDictionaryStore,
     type YomitanKanjiEntry,
@@ -281,6 +286,11 @@ import {
 } from './yomitan';
 
 const log = Logger.scope('ReaderApp');
+type ReaderLifecycleSurface = {
+    init: () => void;
+    refresh: () => void;
+    destroy: () => void;
+};
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
@@ -433,13 +443,7 @@ export class ReaderApp {
         },
         showSettings: panel => this.showSettings(panel),
     });
-    private subtitles = new SubtitlePlayerController({
-        getSettings: () => this.settings,
-        parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
-        parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
-        afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
-        onSettingsChange: () => void saveSettings(this.settings),
-    });
+    private subtitles = this.createSubtitlePlayer();
     private ocr = new ImageOcrController({
         getSettings: () => this.settings,
         parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
@@ -449,11 +453,7 @@ export class ReaderApp {
         enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
         fallbackCardFromText: text => this.parser.fallbackCardFromText(text),
     });
-    private youtube = new YoutubeImmersionFilter({
-        getSettings: () => this.settings,
-        setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
-        setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
-    });
+    private youtube = this.createYoutubeFilter();
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
@@ -474,7 +474,7 @@ export class ReaderApp {
         toast: message => this.toast(message),
         reload: () => location.reload(),
     });
-    private settingsDialog?: SettingsDialogController;
+    private settingsDialog?: SettingsDialogControllerInstance;
     private stackedSettingsDialog?: SettingsDialogStack;
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
@@ -544,6 +544,36 @@ export class ReaderApp {
 
     constructor() {
         configureLogger({ settingsProvider: () => this.settings });
+    }
+
+    private createSubtitlePlayer(): SubtitlePlayerControllerInstance | ReaderLifecycleSurface {
+        const Controller = yomuSubtitlePlayerController();
+        if (!Controller) return this.missingCompanionSurface('Video companion', 'subtitles');
+        return new Controller({
+            getSettings: () => this.settings,
+            parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
+            parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+            afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
+            onSettingsChange: () => void saveSettings(this.settings),
+        });
+    }
+
+    private createYoutubeFilter(): YoutubeImmersionFilterInstance | ReaderLifecycleSurface {
+        const Controller = yomuYoutubeImmersionFilter();
+        if (!Controller) return this.missingCompanionSurface('Video companion', 'youtube');
+        return new Controller({
+            getSettings: () => this.settings,
+            setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
+            setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
+        });
+    }
+
+    private missingCompanionSurface(label: string, key: string): ReaderLifecycleSurface {
+        return {
+            init: () => log.warnOnce(`${key}-companion-missing`, `${label} is missing; related features are disabled.`),
+            refresh: () => undefined,
+            destroy: () => undefined,
+        };
     }
 
     async init(options?: ReaderAppInitOptions): Promise<void> {
@@ -5232,11 +5262,18 @@ export class ReaderApp {
     }
 
     private showSettings(panel?: string): void {
-        this.getSettingsDialog().open(panel);
+        const dialog = this.getSettingsDialog();
+        if (dialog) dialog.open(panel);
     }
 
-    private getSettingsDialog(): SettingsDialogController {
-        this.settingsDialog ??= new SettingsDialogController({
+    private getSettingsDialog(): SettingsDialogControllerInstance | undefined {
+        const Controller = yomuSettingsDialogController();
+        if (!Controller) {
+            log.warnOnce('settings-companion-missing', 'Settings companion is missing; settings are unavailable.');
+            this.toast('Settings are unavailable because the settings companion did not load.');
+            return undefined;
+        }
+        this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
                 this.settings = settings;

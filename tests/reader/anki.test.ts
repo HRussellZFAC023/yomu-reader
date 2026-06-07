@@ -407,6 +407,44 @@ describe('AnkiConnect browser fetch eligibility', () => {
         }
     });
 
+    it('accepts hosted bridge readiness announced from the document target', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+        });
+        const fetchMock = vi.fn(async () => {
+            throw new Error('hosted bridge requests should not direct-fetch loopback AnkiConnect');
+        });
+        const bridgeRequest = vi.fn(async () => ({
+            status: 200,
+            response: { result: 6, error: null },
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+            const connected = client.isConnected();
+            let resolved: boolean | undefined;
+            void connected.then(value => { resolved = value; });
+
+            await vi.advanceTimersByTimeAsync(250);
+            vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
+            document.documentElement.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(resolved).toBe(true);
+            await expect(connected).resolves.toBe(true);
+            expect(bridgeRequest).toHaveBeenCalledWith(expect.objectContaining({
+                method: 'POST',
+                url: 'http://127.0.0.1:8765',
+            }));
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('prefers the userscript bridge over direct hosted fetch when the bridge exists', async () => {
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',

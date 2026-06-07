@@ -85,17 +85,30 @@ function waitForUserscriptAnkiBridge(timeoutMs: number): Promise<UserscriptHttpR
     if (immediate || typeof window === 'undefined') return Promise.resolve(immediate);
     return new Promise(resolve => {
         let settled = false;
+        const cleanupReadyListeners: Array<() => void> = [];
         const settle = (request?: UserscriptHttpRequest) => {
             if (settled) return;
             settled = true;
             window.clearTimeout(timeoutId);
-            removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+            cleanupReadyListeners.forEach(cleanup => cleanup());
             resolve(request);
         };
         const onReady = () => settle(getUserscriptHttpRequest());
-        addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+        if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady)) {
+            cleanupReadyListeners.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
+        }
+        const documentTarget = userscriptBridgeDocumentTarget();
+        if (documentTarget) {
+            documentTarget.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
+            cleanupReadyListeners.push(() => documentTarget.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
+        }
         const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
     });
+}
+
+function userscriptBridgeDocumentTarget(): HTMLElement | undefined {
+    if (typeof document === 'undefined') return undefined;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : undefined;
 }
 
 function hostedAnkiBridgeWaitMs(timeoutMs: number): number {

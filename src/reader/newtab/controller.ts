@@ -898,7 +898,7 @@ export class NewTabController {
                     ),
                 ),
                 el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
-                    el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true } }, '0 / 0'),
+                    el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true }, hidden: true }),
                     el('h1', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, APP_NAME),
                     el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
                         el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),

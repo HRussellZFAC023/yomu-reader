@@ -192,7 +192,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                     <div class="grid">
                         ${input('apiCredential', `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), 'password', API_KEY_INPUT_ATTRIBUTES)}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten key.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>

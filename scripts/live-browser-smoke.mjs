@@ -479,7 +479,6 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
                     timeout: 5_000,
                 };
                 const eventDetail = { id, options };
-                window.dispatchEvent(new CustomEvent(requestEvent, { detail: eventDetail }));
                 document.documentElement.dispatchEvent(new CustomEvent(requestEvent, { detail: eventDetail }));
             });
         }, { ankiUrl: ANKI_URL, requestEvent: BRIDGE_REQUEST_EVENT, responseEvent: BRIDGE_RESPONSE_EVENT });
@@ -492,6 +491,7 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
         return {
             browser: browserName,
             readyEvent: USERSCRIPT_HTTP_BRIDGE_READY_EVENT,
+            requestTarget: 'documentElement',
             requestCount: bridgeRequests.length,
             ankiVersion: result.response.response.result,
         };

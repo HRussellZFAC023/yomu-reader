@@ -2032,7 +2032,7 @@ export class NewTabRuntime {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
             allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
-            allowSegmentedFallback: !this.settings.apiKey.trim(),
+            allowSegmentedFallback: true,
         };
         const key = this.parseContentCacheKey(texts, parseOptions);
         const now = Date.now();
