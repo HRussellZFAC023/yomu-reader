@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-+9V4hiyG7X7tfyBVcQqauLVyjuHOwKXGExBtf2BMz+Y=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-ZPULbBknmvu1RXBfUMRIkvGSRGqONLiYDT/fNQtNMbw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zeEYvJH0NWDvWk7rfYvoDqoiBJGRFarjgiy1uqFtdNk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-tc8dy0GI9MYsU37wZrbhL8coAP/mm8/jqA4t8S1be/0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com

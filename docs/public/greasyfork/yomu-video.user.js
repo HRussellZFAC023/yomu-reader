@@ -9581,6 +9581,7 @@ recommendedJiten	jiten.moe頻度データです。
     channelIdCache = /* @__PURE__ */ new Map();
     pendingChannelPreviews = /* @__PURE__ */ new Set();
     cardTimers = /* @__PURE__ */ new WeakMap();
+    // fallow-ignore-next-line unused-class-member
     init() {
       this.destroy();
       this.destroyed = false;
@@ -9616,6 +9617,7 @@ recommendedJiten	jiten.moe頻度データです。
         if (isNearPageBottom()) this.schedule(180);
       }, { passive: true, signal: this.events.signal });
     }
+    // fallow-ignore-next-line unused-class-member
     refresh() {
       if (!this.isActivePage()) {
         this.destroy();
