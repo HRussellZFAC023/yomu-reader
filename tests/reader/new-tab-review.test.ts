@@ -445,6 +445,41 @@ function stubAnkiConnectFetch(responder: AnkiConnectResponder): void {
     });
 }
 
+function stubPagedAnkiCandidateFetch(
+    ids: number[],
+    noteForId: (noteId: number) => { modelName: string; fields: Record<string, unknown> },
+): { cardInfoBatchSizes: number[]; noteInfoBatchSizes: number[] } {
+    const cardInfoBatchSizes: number[] = [];
+    const noteInfoBatchSizes: number[] = [];
+    stubAnkiConnectFetch((request, { cards, notes }) => {
+        if (request.action === 'deckNames') return ['Yomu'];
+        if (request.action === 'findCards') return ids;
+        if (request.action === 'areDue') return cards.map(() => true);
+        if (request.action === 'cardsInfo') {
+            cardInfoBatchSizes.push(cards.length);
+            return cards.map(cardId => ({
+                cardId,
+                note: cardId,
+                deckName: 'Yomu',
+                queue: 2,
+                type: 2,
+                due: cardId,
+            }));
+        }
+        if (request.action === 'notesInfo') {
+            noteInfoBatchSizes.push(notes.length);
+            return notes.map(noteId => ({
+                noteId,
+                tags: [],
+                cards: [noteId],
+                ...noteForId(noteId),
+            }));
+        }
+        return null;
+    });
+    return { cardInfoBatchSizes, noteInfoBatchSizes };
+}
+
 function newTabLookupRenderData(overrides: Partial<NewTabLookupRenderData> = {}): NewTabLookupRenderData {
     return {
         localEntries: [],
@@ -1709,41 +1744,16 @@ describe('new tab review helpers', () => {
 
     it('over-fetches a bounded Anki candidate window to find usable new-tab cards', async () => {
         const ids = Array.from({ length: 260 }, (_, index) => index + 1);
-        const cardInfoBatchSizes: number[] = [];
-        const noteInfoBatchSizes: number[] = [];
-        stubAnkiConnectFetch((request, { cards, notes }) => {
-            if (request.action === 'deckNames') return ['Yomu'];
-            if (request.action === 'findCards') return ids;
-            if (request.action === 'areDue') return cards.map(() => true);
-            if (request.action === 'cardsInfo') {
-                cardInfoBatchSizes.push(cards.length);
-                return cards.map(cardId => ({
-                    cardId,
-                    note: cardId,
-                    deckName: 'Yomu',
-                    queue: 2,
-                    type: 2,
-                    due: cardId,
-                }));
-            }
-            if (request.action === 'notesInfo') {
-                noteInfoBatchSizes.push(notes.length);
-                return notes.map(noteId => ({
-                    noteId,
-                    modelName: 'Yomu Japanese',
-                    tags: [],
-                    cards: [noteId],
-                    fields: noteId === 3
-                        ? {
-                            Expression: { value: '突破' },
-                            Reading: { value: 'とっぱ' },
-                            Meaning: { value: 'breakthrough' },
-                        }
-                        : {},
-                }));
-            }
-            return null;
-        });
+        const { cardInfoBatchSizes, noteInfoBatchSizes } = stubPagedAnkiCandidateFetch(ids, noteId => ({
+            modelName: 'Yomu Japanese',
+            fields: noteId === 3
+                ? {
+                    Expression: { value: '突破' },
+                    Reading: { value: 'とっぱ' },
+                    Meaning: { value: 'breakthrough' },
+                }
+                : {},
+        }));
 
         const { settings, client } = newTabAnkiClient({
             ankiEnabled: true,
@@ -1910,43 +1920,18 @@ describe('new tab review helpers', () => {
 
     it('keeps paging Anki candidates when early cards cannot be adapted for reviews', async () => {
         const ids = Array.from({ length: 90 }, (_, index) => index + 1);
-        const cardInfoBatchSizes: number[] = [];
-        const noteInfoBatchSizes: number[] = [];
-        stubAnkiConnectFetch((request, { cards, notes }) => {
-            if (request.action === 'deckNames') return ['Yomu'];
-            if (request.action === 'findCards') return ids;
-            if (request.action === 'areDue') return cards.map(() => true);
-            if (request.action === 'cardsInfo') {
-                cardInfoBatchSizes.push(cards.length);
-                return cards.map(cardId => ({
-                    cardId,
-                    note: cardId,
-                    deckName: 'Yomu',
-                    queue: 2,
-                    type: 2,
-                    due: cardId,
-                }));
-            }
-            if (request.action === 'notesInfo') {
-                noteInfoBatchSizes.push(notes.length);
-                return notes.map(noteId => ({
-                    noteId,
-                    modelName: 'Imported Japanese',
-                    tags: [],
-                    cards: [noteId],
-                    fields: noteId === 40
-                        ? {
-                            Front: { value: '後続' },
-                            Back: { value: 'later queue item' },
-                        }
-                        : {
-                            Front: { value: '' },
-                            Back: { value: 'not Japanese' },
-                        },
-                }));
-            }
-            return null;
-        });
+        const { cardInfoBatchSizes, noteInfoBatchSizes } = stubPagedAnkiCandidateFetch(ids, noteId => ({
+            modelName: 'Imported Japanese',
+            fields: noteId === 40
+                ? {
+                    Front: { value: '後続' },
+                    Back: { value: 'later queue item' },
+                }
+                : {
+                    Front: { value: '' },
+                    Back: { value: 'not Japanese' },
+                },
+        }));
 
         const { settings, client } = newTabAnkiClient({
             ankiEnabled: true,

@@ -675,6 +675,7 @@ function isFragmentPassiveInteractionElement(element: Element, options: Fragment
 }
 
 function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
+    if (element && isInsideOwnedReaderRoot(element)) return false;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (isLayoutSensitiveTextBox(current)) return true;
@@ -899,7 +900,7 @@ function singleFragmentTokenPlans(
             localEnd: bounds.end.localOffset,
             token,
             tokenWithSentence: tokensWithSentence[index] ?? token,
-            layoutSensitive: target.layoutSensitive === true
+            layoutSensitive: fragmentTargetLayoutSensitive(target)
                 || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
             passiveInteraction: target.passiveInteraction === true
                 || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end),
@@ -949,7 +950,11 @@ function renderSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
-    const allowRuby = !fragment.hasNativeRuby && !plan.layoutSensitive;
+    const allowRuby = scanFragmentAllowsRuby(
+        fragment.hasNativeRuby,
+        plan.layoutSensitive,
+        plan.passiveInteraction && isInsideOwnedReaderRoot(target.parent),
+    );
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -976,7 +981,7 @@ function applyTokenToIndexedFragments(
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true
         || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
-    const layoutSensitive = target.layoutSensitive === true
+    const layoutSensitive = fragmentTargetLayoutSensitive(target)
         || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end);
     if (isSingleFragment) {
         insertSingleFragmentToken(
@@ -1075,6 +1080,12 @@ function fragmentRangeHasLayoutSensitive(fragments: IndexedTextFragment[], start
         && fragment.globalEnd > start);
 }
 
+function fragmentTargetLayoutSensitive(target: FragmentTextTarget): boolean {
+    if (isInsideOwnedReaderRoot(target.parent)) return false;
+    return target.layoutSensitive === true
+        && (!target.fragments.length || target.fragments.every(fragment => fragment.layoutSensitive !== false));
+}
+
 function fragmentRangeHasNativeRuby(fragments: IndexedTextFragment[], start: number, end: number): boolean {
     return fragments.some(fragment => fragment.hasNativeRuby
         && fragment.globalStart < end
@@ -1114,7 +1125,11 @@ function insertSingleFragmentToken(
     passiveInteraction: boolean,
     layoutSensitive: boolean,
 ): void {
-    const allowRuby = !fragment.hasNativeRuby && !layoutSensitive;
+    const allowRuby = scanFragmentAllowsRuby(
+        fragment.hasNativeRuby,
+        layoutSensitive,
+        passiveInteraction && isInsideOwnedReaderRoot(target.parent),
+    );
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
@@ -1129,6 +1144,15 @@ function insertSingleFragmentToken(
 
 function scanTargetAllowsRuby(target: ScanTextTarget): boolean {
     return target.layoutSensitive !== true;
+}
+
+function scanFragmentAllowsRuby(hasNativeRuby: boolean, layoutSensitive: boolean, passiveInteraction: boolean): boolean {
+    return !hasNativeRuby && (!layoutSensitive || passiveInteraction);
+}
+
+function isInsideOwnedReaderRoot(element: Element): boolean {
+    const readerRoot = element.closest(READER_ROOT_SELECTOR);
+    return Boolean(readerRoot && readerRoot !== document.body && readerRoot !== document.documentElement);
 }
 
 function replaceTextNodeRange(node: Text, start: number, end: number, replacement: Node): void {

@@ -10,11 +10,12 @@ import { cardStateLabel } from './i18n';
 import { normalizedLookupText } from './lookup-text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 import { normalizeOcrRenderedText } from './ocr/controller';
-import { isKanjiCharacter } from './popup-render';
+import { isKanjiCharacter, renderPitch } from './popup-render';
 import { refreshReaderWordContrastForWord } from './reader-word-contrast';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from './rendered-word-state';
 import type { AnkiLookupResult } from './anki';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
+import type { YomitanMetaEntry } from './yomitan';
 
 export function isOcrLineFrameWord(word: HTMLElement): boolean {
     return word.classList.contains('jpdb-ocr-line') && !word.dataset.vid && !word.dataset.sid;
@@ -86,6 +87,12 @@ export function replaceOptionalElement(parent: Element, selector: string, html: 
         return;
     }
     if (next) parent.insertBefore(next, before);
+}
+
+export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], showPitchAccent: boolean): void {
+    const tools = popover.querySelector<HTMLElement>('.jpdb-reader-card-tools');
+    if (!tools || !showPitchAccent) return;
+    replaceOptionalElement(tools, '.jpdb-reader-pitch', renderPitch(card, metaEntries), tools.firstElementChild);
 }
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {

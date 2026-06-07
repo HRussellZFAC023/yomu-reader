@@ -85,43 +85,31 @@ class SvgPathSampler {
 
     readCubics(relative: boolean): boolean {
         return this.readCurve(6, () => {
-            const c1 = this.absolute(this.read(), this.read(), relative);
-            const c2 = this.absolute(this.read(), this.read(), relative);
-            const end = this.absolute(this.read(), this.read(), relative);
-            sampleCubic(this.current, c1, c2, end, point => this.push(point));
-            this.current = end;
-            this.setCubicControl(c2);
+            this.sampleCubicTo(
+                this.readAbsolutePoint(relative),
+                this.readAbsolutePoint(relative),
+                this.readAbsolutePoint(relative),
+            );
         });
     }
 
     readSmoothCubics(relative: boolean): boolean {
         return this.readCurve(4, () => {
             const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
-            const c2 = this.absolute(this.read(), this.read(), relative);
-            const end = this.absolute(this.read(), this.read(), relative);
-            sampleCubic(this.current, c1, c2, end, point => this.push(point));
-            this.current = end;
-            this.setCubicControl(c2);
+            this.sampleCubicTo(c1, this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
         });
     }
 
     readQuadratics(relative: boolean): boolean {
         return this.readCurve(4, () => {
-            const control = this.absolute(this.read(), this.read(), relative);
-            const end = this.absolute(this.read(), this.read(), relative);
-            sampleQuadratic(this.current, control, end, point => this.push(point));
-            this.current = end;
-            this.setQuadraticControl(control);
+            this.sampleQuadraticTo(this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
         });
     }
 
     readSmoothQuadratics(relative: boolean): boolean {
         return this.readCurve(2, () => {
             const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
-            const end = this.absolute(this.read(), this.read(), relative);
-            sampleQuadratic(this.current, control, end, point => this.push(point));
-            this.current = end;
-            this.setQuadraticControl(control);
+            this.sampleQuadraticTo(control, this.readAbsolutePoint(relative));
         });
     }
 
@@ -138,6 +126,22 @@ class SvgPathSampler {
     private setQuadraticControl(control: SvgPathPoint): void {
         this.lastQuadraticControl = control;
         this.lastCubicControl = null;
+    }
+
+    private readAbsolutePoint(relative: boolean): SvgPathPoint {
+        return this.absolute(this.read(), this.read(), relative);
+    }
+
+    private sampleCubicTo(c1: SvgPathPoint, c2: SvgPathPoint, end: SvgPathPoint): void {
+        sampleCubic(this.current, c1, c2, end, point => this.push(point));
+        this.current = end;
+        this.setCubicControl(c2);
+    }
+
+    private sampleQuadraticTo(control: SvgPathPoint, end: SvgPathPoint): void {
+        sampleQuadratic(this.current, control, end, point => this.push(point));
+        this.current = end;
+        this.setQuadraticControl(control);
     }
 
     readArcs(relative: boolean): boolean {

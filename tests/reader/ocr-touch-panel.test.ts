@@ -4,12 +4,58 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController, normalizeOcrRenderedText } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
-import type { JPDBCard, JPDBToken } from '../../src/reader/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/types';
 import { dispatchPointerEvent } from './helpers/browser-fixtures';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 import { waitForExpect } from './test-utils';
 
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+type ImageOcrControllerOptions = ConstructorParameters<typeof ImageOcrController>[0];
+type OcrLineFixtureBox = { left: number; top: number; width: number; height: number };
+
+function createOcrImageControllerFixture(options: {
+    sentence?: string;
+    src?: string;
+    box?: OcrLineFixtureBox;
+    settings?: Partial<ReaderSettings>;
+    parseJapanese?: ImageOcrControllerOptions['parseJapanese'];
+    shouldAutoScan?: ImageOcrControllerOptions['shouldAutoScan'];
+} = {}): {
+    sentence: string;
+    image: HTMLImageElement;
+    controller: ImageOcrController;
+    parseJapanese: ImageOcrControllerOptions['parseJapanese'];
+} {
+    const sentence = options.sentence ?? '日本語を読む';
+    const image = document.createElement('img');
+    image.src = options.src ?? '/ocr-test.png';
+    image.dataset.ocrLines = JSON.stringify([
+        { text: sentence, box: options.box ?? { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+    ]);
+    Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+    image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+    document.body.replaceChildren(image);
+
+    const parseJapanese = options.parseJapanese ?? vi.fn(async () => [parsedToken(sentence)]);
+    const controller = new ImageOcrController({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            ocrEnabled: true,
+            ocrAutoScanImages: true,
+            ocrShowTextOverlay: false,
+            ocrMinImageArea: 1,
+            ocrMaxImagesPerPage: 5,
+            ocrPrefetchMargin: 0,
+            ...options.settings,
+        }),
+        parseJapanese,
+        onToast: vi.fn(),
+        shouldAutoScan: options.shouldAutoScan ?? (() => true),
+    });
+
+    return { sentence, image, controller, parseJapanese };
+}
 
 function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -96,31 +142,7 @@ function restorePrototypeDescriptor(prototype: object, key: PropertyKey, descrip
 describe('OCR sentence focus', () => {
     it('focuses an OCR sentence inline and clears it when clicking away', async () => {
         stubInstantIntersectionObserver();
-        const sentence = '日本語を読む';
-        const image = document.createElement('img');
-        image.src = '/ocr-test.png';
-        image.dataset.ocrLines = JSON.stringify([
-            { text: sentence, box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
-        ]);
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
-        document.body.replaceChildren(image);
-
-        const controller = new ImageOcrController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ocrEnabled: true,
-                ocrAutoScanImages: true,
-                ocrShowTextOverlay: false,
-                ocrMinImageArea: 1,
-                ocrMaxImagesPerPage: 5,
-                ocrPrefetchMargin: 0,
-            }),
-            parseJapanese: vi.fn(async () => [parsedToken(sentence)]),
-            onToast: vi.fn(),
-            shouldAutoScan: () => true,
-        });
+        const { sentence, controller } = createOcrImageControllerFixture();
 
         try {
             controller.init();
@@ -146,31 +168,7 @@ describe('OCR sentence focus', () => {
 
     it('pins an OCR sentence when tapping a nested OCR word', async () => {
         stubInstantIntersectionObserver();
-        const sentence = '日本語を読む';
-        const image = document.createElement('img');
-        image.src = '/ocr-test.png';
-        image.dataset.ocrLines = JSON.stringify([
-            { text: sentence, box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
-        ]);
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
-        document.body.replaceChildren(image);
-
-        const controller = new ImageOcrController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ocrEnabled: true,
-                ocrAutoScanImages: true,
-                ocrShowTextOverlay: false,
-                ocrMinImageArea: 1,
-                ocrMaxImagesPerPage: 5,
-                ocrPrefetchMargin: 0,
-            }),
-            parseJapanese: vi.fn(async () => [parsedToken(sentence)]),
-            onToast: vi.fn(),
-            shouldAutoScan: () => true,
-        });
+        const { controller } = createOcrImageControllerFixture();
 
         try {
             controller.init();
@@ -437,36 +435,20 @@ describe('OCR sentence focus', () => {
     it('renders OCR fallback compounds as separate clickable word spans', async () => {
         stubInstantIntersectionObserver();
         const sentence = '事実上日本国内';
-        const image = document.createElement('img');
-        image.src = '/ocr-compound.png';
-        image.dataset.ocrLines = JSON.stringify([
-            { text: sentence, box: { left: 0.1, top: 0.2, width: 0.5, height: 0.12 } },
-        ]);
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
-        document.body.replaceChildren(image);
-
-        const controller = new ImageOcrController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
+        const { controller } = createOcrImageControllerFixture({
+            sentence,
+            src: '/ocr-compound.png',
+            box: { left: 0.1, top: 0.2, width: 0.5, height: 0.12 },
+            settings: {
                 apiKey: '',
                 localDictionariesEnabled: false,
-                ocrEnabled: true,
-                ocrAutoScanImages: true,
-                ocrShowTextOverlay: false,
-                ocrMinImageArea: 1,
-                ocrMaxImagesPerPage: 5,
-                ocrPrefetchMargin: 0,
-            }),
+            },
             parseJapanese: vi.fn(async () => [
                 fallbackToken(sentence, '事実', 0, 2),
                 fallbackToken(sentence, '上', 2, 3),
                 fallbackToken(sentence, '日本', 3, 5),
                 fallbackToken(sentence, '国内', 5, 7),
             ]),
-            onToast: vi.fn(),
-            shouldAutoScan: () => true,
         });
 
         try {

@@ -1,0 +1,82 @@
+import { IMMERSION_KIT_SOURCE_ID } from '../constants';
+import { escapeHtml } from '../dom';
+import { kanjiSourceStateKey, renderSimilarKanjiWordsShell } from '../definition-source-render';
+import { uiText } from '../i18n';
+import { renderKanjiPractice } from '../popup-render';
+import {
+    KANJI_DICTIONARIES_SOURCE_ID,
+    KANJI_JPDB_SOURCE_ID,
+    KANJI_ORIGINS_SOURCE_ID,
+    KANJI_RTK_SOURCE_ID,
+    KANJI_SIMILAR_WORDS_SOURCE_ID,
+    KANJI_STROKE_SOURCE_ID,
+    KANJI_UCHISEN_SOURCE_ID,
+    kanjiDictionaryNameFromSourceId,
+    orderedKanjiSourceIds,
+} from '../source-sections';
+import type { InterfaceLanguage, ReaderSettings } from '../types';
+
+const KANJI_STATIC_SOURCE_MOUNTS: Partial<Record<string, string>> = {
+    [KANJI_JPDB_SOURCE_ID]: '<div data-kanji-jpdb-mount></div>',
+    [KANJI_RTK_SOURCE_ID]: '<div data-kanji-rtk-mount></div>',
+    [KANJI_ORIGINS_SOURCE_ID]: '<div data-kanji-origin-mount></div>',
+    [KANJI_UCHISEN_SOURCE_ID]: '<div data-kanji-uchisen-mount></div>',
+    [KANJI_DICTIONARIES_SOURCE_ID]: '<div data-kanji-definitions-mount></div>',
+};
+
+type KanjiSourceMountRendererOptions = {
+    settings: ReaderSettings;
+    kanji: string;
+    language: InterfaceLanguage;
+    isSourceOpen: (key: string) => boolean;
+    sourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
+    sourceTitle: (sourceId: string) => string;
+    renderImmersionMount?: () => string;
+    staticMounts?: Partial<Record<string, string>>;
+};
+
+export function renderKanjiSourceMounts(options: KanjiSourceMountRendererOptions): string {
+    const mounts: string[] = [];
+    for (const sourceId of orderedKanjiSourceIds(options.settings)) {
+        const mount = renderKanjiSourceMount(sourceId, options);
+        if (mount) mounts.push(mount);
+    }
+    return mounts.join('');
+}
+
+export function renderKanjiImmersionKitMount(settings: ReaderSettings, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string): string {
+    if (!settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return '';
+    const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
+            <summary class="jpdb-reader-local-title">${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
+            <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, 'loadingExamples')}</div>
+        </details>
+    `;
+}
+
+function renderKanjiSourceMount(sourceId: string, options: KanjiSourceMountRendererOptions): string {
+    const staticMount = (options.staticMounts ?? KANJI_STATIC_SOURCE_MOUNTS)[sourceId];
+    if (staticMount) return staticMount;
+
+    const sourceStateKey = kanjiSourceStateKey(sourceId);
+    if (sourceId === KANJI_STROKE_SOURCE_ID) {
+        return renderKanjiPractice(null, options.kanji, options.language, options.isSourceOpen(sourceStateKey), sourceStateKey, options.sourceTitle(sourceId));
+    }
+    if (sourceId === IMMERSION_KIT_SOURCE_ID) return options.renderImmersionMount?.() ?? '';
+    if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) {
+        return renderSimilarKanjiWordsShell(
+            options.kanji,
+            options.language,
+            sourceStateKey,
+            options.isSourceOpen(sourceStateKey),
+            options.sourceAttributes,
+            options.sourceTitle(sourceId),
+        );
+    }
+
+    const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
+    return dictionaryName
+        ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`
+        : '';
+}

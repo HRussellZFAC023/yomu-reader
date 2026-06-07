@@ -14,6 +14,7 @@ import { cardPronunciationReading, renderPitch } from './popup-render';
 import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from './types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
+import { jpdbVocabularyUrl } from './jpdb/jpdb-vocabulary-url';
 import type { YomitanMetaEntry, YomitanTermEntry } from './yomitan';
 import { newTabText } from './newtab/i18n';
 
@@ -122,7 +123,7 @@ export class CardPopoverRenderer {
             cardStates,
             state,
             storedContext: data.loading ? null : loadMiningContext(card.spelling),
-            jpdbUrl: `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`,
+            jpdbUrl: jpdbVocabularyUrl(card),
             cardPos: formatPartOfSpeech(card.partOfSpeech),
             cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
             language,

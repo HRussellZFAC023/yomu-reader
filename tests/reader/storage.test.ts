@@ -10,6 +10,14 @@ import {
     type FactoryResetSignal,
 } from '../../src/reader/storage';
 
+function stubGmStorage(values: Map<string, unknown>, options: { listValues?: boolean; deleteValue?: boolean } = {}): void {
+    vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
+    vi.stubGlobal('GM_deleteValue', options.deleteValue === false ? undefined : vi.fn((key: string) => {
+        values.delete(key);
+    }));
+    vi.stubGlobal('GM_listValues', options.listValues ? vi.fn(() => [...values.keys()]) : undefined);
+}
+
 describe('storage reset', () => {
     afterEach(() => {
         localStorage.clear();
@@ -46,11 +54,7 @@ describe('storage reset', () => {
             ['yomu:anki-status-index:v1', { version: 1, entries: {} }],
             ['yomu:prefer-japanese-site-language', true],
         ]);
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => gmValues.has(key) ? gmValues.get(key) : fallback));
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => {
-            gmValues.delete(key);
-        }));
-        vi.stubGlobal('GM_listValues', undefined);
+        stubGmStorage(gmValues);
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ apiKey: 'local-secret' }));
         sessionStorage.setItem('jpdb-reader-transcript-panel-size', JSON.stringify({ sideWidth: 900 }));
         localStorage.setItem('unrelated-site-setting', 'keep me');
@@ -146,11 +150,7 @@ describe('storage reset', () => {
         const gmValues = new Map<string, unknown>([
             ['yomu:factory-reset-signal', createFactoryResetSignal('complete', 'reset-test')],
         ]);
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => gmValues.has(key) ? gmValues.get(key) : fallback));
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => {
-            gmValues.delete(key);
-        }));
-        vi.stubGlobal('GM_listValues', undefined);
+        stubGmStorage(gmValues);
 
         await clearManagedStoredValues();
 
@@ -185,8 +185,7 @@ describe('managed storage backup', () => {
             ['yomu:prefer-japanese-site-language', true],
             ['unrelated-key', 'ignore'],
         ]);
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => gmValues.has(key) ? gmValues.get(key) : fallback));
-        vi.stubGlobal('GM_listValues', undefined);
+        stubGmStorage(gmValues, { deleteValue: false });
 
         await expect(exportManagedStoredValues()).resolves.toEqual({
             'jpdb-reader-newtab-disabled-anki-decks': ['Archive'],

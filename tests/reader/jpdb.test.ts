@@ -74,6 +74,7 @@ import type { AudioSourceSetting, JPDBCard, JPDBRawToken, JPDBToken, ReaderSetti
 import { createPointerEvent, createVisualViewportFixture, dispatchPointerEvent as dispatchBrowserPointerEvent, restoreWindowDescriptor, withViewport as withBrowserViewport } from './helpers/browser-fixtures';
 import { mockElementBoundingClientRect, stubInstantIntersectionObserver, testDomRect } from './helpers/dom-fixtures';
 import { stackedSettingsFixtureDom } from './helpers/settings-fixture';
+import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } from './helpers/stacked-lookup-assertions';
 import { waitForExpect } from './test-utils';
 import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
@@ -107,6 +108,47 @@ function jitenTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
         ...overrides,
     };
+}
+
+function expectScheduledDeckCards(cards: JPDBCard[], spellings: string[]): void {
+    expect(cards.map(card => card.spelling)).toEqual(spellings);
+    expect(cards.map(card => card.cardState)).toEqual([['locked'], ['due']]);
+}
+
+function createJpdbParseFetchMock(
+    parseBodies: string[][],
+    renderVocabularyText: (paragraph: string, index: number) => string,
+    renderMeaning: (paragraph: string, index: number) => string,
+    tokenLength: (paragraph: string) => number,
+) {
+    return vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
+        const text = body.text ?? [];
+        parseBodies.push(text);
+        return {
+            status: 200,
+            ok: true,
+            text: async () => JSON.stringify({
+                vocabulary: text.map((paragraph, index) => {
+                    const vocabularyText = renderVocabularyText(paragraph, index);
+                    return [
+                        index + 1,
+                        index + 2,
+                        index + 3,
+                        vocabularyText,
+                        vocabularyText,
+                        100 + index,
+                        [],
+                        [[renderMeaning(paragraph, index)]],
+                        [[]],
+                        ['new'],
+                        [],
+                    ];
+                }),
+                tokens: text.map((paragraph, index) => [[index, 0, tokenLength(paragraph), null]]),
+            }),
+        };
+    });
 }
 
 function readingTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -237,6 +279,7 @@ type TestImmersionPopoverInternals = {
 
 const JPDB_DECK_LIST_VOCABULARY_API = 'https://jpdb.io/api/v1/deck/list-vocabulary';
 const JPDB_LOOKUP_VOCABULARY_API = 'https://jpdb.io/api/v1/lookup-vocabulary';
+const JPDB_LIST_USER_DECKS_API = 'https://jpdb.io/api/v1/list-user-decks';
 const TEST_IOS_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 const TEST_IPAD_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 const TEST_IPADOS_DESKTOP_SAFARI_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
@@ -793,6 +836,66 @@ function immersionLazyLoadSurface(open: boolean): { popover: HTMLElement; contai
     return { popover, container };
 }
 
+function lazyImmersionSearchFixture(open: boolean) {
+    const search = vi.fn(async () => [immersionExample('食べる。')]);
+    const controller = immersionPopoverTestController(search);
+    const { popover, container } = immersionLazyLoadSurface(open);
+    return { search, controller, popover, container };
+}
+
+function kanjiRelatedWordNavigationFixture(lookupCard: JPDBCard) {
+    const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+    const originalWord = { ...card, spelling: '漢字', reading: 'かんじ' };
+    const internals = app as unknown as {
+        settings: typeof DEFAULT_SETTINGS;
+        showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+        parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
+        parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+    };
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        apiKey: '',
+        jpdbMiningEnabled: false,
+        ankiEnabled: false,
+        localDictionariesEnabled: false,
+        localDictionaryShowKanji: false,
+        jpdbDefinitionsEnabled: false,
+        jpdbKanjiEnabled: false,
+        uchisenEnabled: false,
+        rtkEnabled: false,
+        kanjivgEnabled: false,
+        kanjiOriginsEnabled: false,
+        similarKanjiWords: false,
+        showPitchAccent: false,
+        immersionKitEnabled: false,
+    };
+    internals.parsePopoverJapanese = vi.fn(async () => undefined);
+    internals.parseJapanese = vi.fn(async () => [[{
+        card: lookupCard,
+        start: 0,
+        end: 2,
+        length: 2,
+        rubies: [],
+        pitchClass: '',
+        sentence: '漢語',
+    }]]);
+    return { app, restoreAnimationFrame, internals, originalWord };
+}
+
+async function expectKanjiRelatedWordBackNavigation(): Promise<void> {
+    await waitForExpect(() => {
+        expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
+        expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to kanji: 漢');
+    });
+
+    document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.click();
+
+    await waitForExpect(() => {
+        expect(document.querySelector('.jpdb-reader-kanji-display')?.textContent).toBe('漢');
+        expect(document.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
+    });
+}
+
 async function openLazyImmersionSource(container: HTMLDetailsElement): Promise<void> {
     container.open = true;
     container.dispatchEvent(new Event('toggle'));
@@ -854,6 +957,28 @@ function mockSourceRowRects(rows: HTMLElement[], rowHeight = 40, rowGap = 8): vo
             toJSON: () => ({}),
         });
     });
+}
+
+function createSourceRowDragFixture(html: string, rowSelector: string): { form: HTMLFormElement; rows: HTMLElement[] } {
+    document.body.innerHTML = `<form>${html}</form>`;
+    const form = document.querySelector('form')!;
+    installSourceRowDrag(form);
+    const rows = Array.from(form.querySelectorAll<HTMLElement>(rowSelector));
+    mockSourceRowRects(rows);
+    return { form, rows };
+}
+
+function dragSourceRow(
+    form: HTMLFormElement,
+    rows: HTMLElement[],
+    clientY: number,
+    pointerType = 'mouse',
+    moveTarget: EventTarget = form,
+): void {
+    const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
+    dispatchPointerEvent(handle, 'pointerdown', 4, pointerType);
+    dispatchPointerEvent(moveTarget, 'pointermove', clientY, pointerType);
+    dispatchPointerEvent(moveTarget, 'pointerup', clientY, pointerType);
 }
 
 function withPointerTextLookupMock<T>(
@@ -2179,8 +2304,7 @@ describe('reader helpers', () => {
         try {
             const cards = await client.listDeckCards('deck', 10, { scheduledOnly: true });
 
-            expect(cards.map(card => card.spelling)).toEqual(['語1', '語2']);
-            expect(cards.map(card => card.cardState)).toEqual([['locked'], ['due']]);
+            expectScheduledDeckCards(cards, ['語1', '語2']);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -2214,8 +2338,7 @@ describe('reader helpers', () => {
             const cards = await client.listDeckCards('all', 10, { scheduledOnly: true });
 
             expect(requestedDeckIds).toEqual(['all']);
-            expect(cards.map(card => card.spelling)).toEqual(['全9', '全7']);
-            expect(cards.map(card => card.cardState)).toEqual([['locked'], ['due']]);
+            expectScheduledDeckCards(cards, ['全9', '全7']);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -2289,7 +2412,7 @@ describe('reader helpers', () => {
                 }
                 return jpdbJsonResponse({ vocabulary: body.id === 'deck-b' ? [[1464530, 0]] : [[1, 1]] });
             }
-            if (href === 'https://jpdb.io/api/v1/list-user-decks') {
+            if (href === JPDB_LIST_USER_DECKS_API) {
                 return jpdbJsonResponse({ decks: [['deck-a', 'Deck A'], ['deck-b', 'Deck B']] });
             }
             throw new Error(`Unexpected URL: ${href}`);
@@ -2311,46 +2434,34 @@ describe('reader helpers', () => {
         const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
             const href = String(url);
             const body = JSON.parse(String(init?.body ?? '{}')) as { id?: string; list?: Array<[number, number]> };
-            if (href === 'https://jpdb.io/api/v1/deck/list-vocabulary') {
+            if (href === JPDB_DECK_LIST_VOCABULARY_API) {
                 requestedDecks.push(body.id);
                 if (body.id === 'all') {
-                    return { status: 400, ok: false, text: async () => JSON.stringify({ error_message: 'unsupported deck' }) };
+                    return jpdbJsonResponse({ error_message: 'unsupported deck' }, 400);
                 }
-                return {
-                    status: 200,
-                    ok: true,
-                    text: async () => JSON.stringify({ vocabulary: body.id === 'deck-b' ? [[1464530, 0]] : [[12345, 0]] }),
-                };
+                return jpdbJsonResponse({ vocabulary: body.id === 'deck-b' ? [[1464530, 0]] : [[12345, 0]] });
             }
-            if (href === 'https://jpdb.io/api/v1/list-user-decks') {
-                return {
-                    status: 200,
-                    ok: true,
-                    text: async () => JSON.stringify({ decks: [['deck-a', 'Deck A'], ['deck-b', 'Deck B']] }),
-                };
+            if (href === JPDB_LIST_USER_DECKS_API) {
+                return jpdbJsonResponse({ decks: [['deck-a', 'Deck A'], ['deck-b', 'Deck B']] });
             }
-            if (href === 'https://jpdb.io/api/v1/lookup-vocabulary') {
+            if (href === JPDB_LOOKUP_VOCABULARY_API) {
                 const list = body.list ?? [];
                 lookupPairs.push(...list);
-                return {
-                    status: 200,
-                    ok: true,
-                    text: async () => JSON.stringify({
-                        vocabulary_info: list.map(([vid, sid]) => [
-                            vid,
-                            sid,
-                            vid + 2000,
-                            `語${vid}`,
-                            `ご${vid}`,
-                            vid,
-                            ['n'],
-                            [[`word ${vid}`]],
-                            [['n']],
-                            ['due'],
-                            [],
-                        ]),
-                    }),
-                };
+                return jpdbJsonResponse({
+                    vocabulary_info: list.map(([vid, sid]) => [
+                        vid,
+                        sid,
+                        vid + 2000,
+                        `語${vid}`,
+                        `ご${vid}`,
+                        vid,
+                        ['n'],
+                        [[`word ${vid}`]],
+                        [['n']],
+                        ['due'],
+                        [],
+                    ]),
+                });
             }
             throw new Error(`Unexpected URL: ${href}`);
         });
@@ -2369,32 +2480,12 @@ describe('reader helpers', () => {
     it('reuses JPDB parse results for individual paragraphs after a batch parse', async () => {
         const client = new JpdbClient(() => 'token');
         const parseBodies: string[][] = [];
-        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
-            const text = body.text ?? [];
-            parseBodies.push(text);
-            const vocabulary = text.map((paragraph, index) => [
-                index + 1,
-                index + 2,
-                index + 3,
-                paragraph,
-                paragraph,
-                100 + index,
-                [],
-                [[`meaning ${paragraph}`]],
-                [[]],
-                ['new'],
-                [],
-            ]);
-            return {
-                status: 200,
-                ok: true,
-                text: async () => JSON.stringify({
-                    vocabulary,
-                    tokens: text.map((paragraph, index) => [[index, 0, paragraph.length, null]]),
-                }),
-            };
-        });
+        const fetchMock = createJpdbParseFetchMock(
+            parseBodies,
+            paragraph => paragraph,
+            paragraph => `meaning ${paragraph}`,
+            paragraph => paragraph.length,
+        );
         vi.stubGlobal('fetch', fetchMock);
 
         try {
@@ -2419,31 +2510,12 @@ describe('reader helpers', () => {
     it('batches large JPDB parse requests by UTF-8 size like the reference reader', async () => {
         const client = new JpdbClient(() => 'token');
         const parseBodies: string[][] = [];
-        const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
-            const text = body.text ?? [];
-            parseBodies.push(text);
-            return {
-                status: 200,
-                ok: true,
-                text: async () => JSON.stringify({
-                    vocabulary: text.map((paragraph, index) => [
-                        index + 1,
-                        index + 2,
-                        index + 3,
-                        paragraph.slice(0, 2),
-                        paragraph.slice(0, 2),
-                        100 + index,
-                        [],
-                        [[`meaning ${index}`]],
-                        [[]],
-                        ['new'],
-                        [],
-                    ]),
-                    tokens: text.map((_paragraph, index) => [[index, 0, 2, null]]),
-                }),
-            };
-        });
+        const fetchMock = createJpdbParseFetchMock(
+            parseBodies,
+            paragraph => paragraph.slice(0, 2),
+            (_paragraph, index) => `meaning ${index}`,
+            () => 2,
+        );
         vi.stubGlobal('fetch', fetchMock);
 
         try {
@@ -3167,21 +3239,23 @@ describe('reader helpers', () => {
             lookup.innerHTML = '<div class="jpdb-reader-popover-body">辞書</div>';
             internals.mountPopover(lookup, anchor, { mode: 'modal', stackOverSettings: true });
 
-            expect(settingsForm.isConnected).toBe(true);
-            expect(settingsBackdrop.isConnected).toBe(true);
-            expect(lookup.isConnected).toBe(true);
-            expect(lookup.getAttribute('aria-modal')).toBe('false');
-            expect(lookup.classList.contains('jpdb-reader-sheet')).toBe(false);
-            expect(lookup.querySelector('.jpdb-reader-sheet-handle')).toBeNull();
-            expect(internals.activePopover).toBe(lookup);
+            expectStackedLookupOverSettings({
+                lookup,
+                settingsForm,
+                settingsBackdrop,
+                activeLookup: internals.activePopover,
+                activeBackdrop: internals.activeBackdrop,
+            });
 
             internals.dismiss();
 
             expect(lookup.isConnected).toBe(false);
-            expect(settingsForm.isConnected).toBe(true);
-            expect(settingsBackdrop.isConnected).toBe(true);
-            expect(internals.activePopover).toBe(settingsForm);
-            expect(internals.activeBackdrop).toBe(settingsBackdrop);
+            expectSettingsDialogStillMounted({
+                settingsForm,
+                settingsBackdrop,
+                activeDialog: internals.activePopover,
+                activeBackdrop: internals.activeBackdrop,
+            });
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -8309,17 +8383,13 @@ describe('reader helpers', () => {
                 type: 'terms' as const,
             }],
         };
-        document.body.innerHTML = `<form><div class="jpdb-reader-dictionary-priorities" data-source-editor>${renderDictionarySourceRows(settings)}</div></form>`;
-        const form = document.querySelector('form')!;
-        installSourceRowDrag(form);
-        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
-        mockSourceRowRects(rows);
+        const { form, rows } = createSourceRowDragFixture(
+            `<div class="jpdb-reader-dictionary-priorities" data-source-editor>${renderDictionarySourceRows(settings)}</div>`,
+            '[data-dictionary-source-row]',
+        );
 
         const firstId = rows[0].dataset.sourceId;
-        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
-        dispatchPointerEvent(handle, 'pointerdown', 4, 'mouse');
-        dispatchPointerEvent(form, 'pointermove', 999, 'mouse');
-        dispatchPointerEvent(form, 'pointerup', 999, 'mouse');
+        dragSourceRow(form, rows, 999);
 
         const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
         expect(reordered.at(-1)?.dataset.sourceId).toBe(firstId);
@@ -8327,17 +8397,13 @@ describe('reader helpers', () => {
     });
 
     it('reorders audio source rows while keeping form indexes readable', () => {
-        document.body.innerHTML = `<form><div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>${renderAudioSourceEditor(DEFAULT_AUDIO_SOURCES)}</div></form>`;
-        const form = document.querySelector('form')!;
-        installSourceRowDrag(form);
-        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
-        mockSourceRowRects(rows);
+        const { form, rows } = createSourceRowDragFixture(
+            `<div class="jpdb-reader-audio-sources" data-source-editor data-audio-source-editor>${renderAudioSourceEditor(DEFAULT_AUDIO_SOURCES)}</div>`,
+            '[data-audio-source-row]',
+        );
 
         const firstType = rows[0].querySelector<HTMLSelectElement>('select[name$=".type"]')?.value;
-        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
-        dispatchPointerEvent(handle, 'pointerdown', 4, 'mouse');
-        dispatchPointerEvent(form, 'pointermove', 500, 'mouse');
-        dispatchPointerEvent(form, 'pointerup', 500, 'mouse');
+        dragSourceRow(form, rows, 500);
 
         const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
         expect(reordered.at(-1)?.dataset.sourceId).toBe(`audio-${reordered.length - 1}`);
@@ -8345,33 +8411,25 @@ describe('reader helpers', () => {
     });
 
     it('reorders kanji source rows with iPad-style touch drag events tracked on the document', () => {
-        document.body.innerHTML = `<form><div class="jpdb-reader-kanji-priorities" data-source-editor>${renderKanjiSourceRows(DEFAULT_SETTINGS)}</div></form>`;
-        const form = document.querySelector('form')!;
-        installSourceRowDrag(form);
-        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
-        mockSourceRowRects(rows);
+        const { form, rows } = createSourceRowDragFixture(
+            `<div class="jpdb-reader-kanji-priorities" data-source-editor>${renderKanjiSourceRows(DEFAULT_SETTINGS)}</div>`,
+            '[data-dictionary-source-row]',
+        );
 
         const firstId = rows[0].dataset.sourceId;
-        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
-        dispatchPointerEvent(handle, 'pointerdown', 4, 'touch');
-        dispatchPointerEvent(document, 'pointermove', 500, 'touch');
-        dispatchPointerEvent(document, 'pointerup', 500, 'touch');
+        dragSourceRow(form, rows, 500, 'touch', document);
 
         expect(Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]')).at(-1)?.dataset.sourceId).toBe(firstId);
     });
 
     it('reorders lookup pill rows through the drag handle', () => {
-        document.body.innerHTML = `<form><div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div></form>`;
-        const form = document.querySelector('form')!;
-        installSourceRowDrag(form);
-        const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-lookup-link-row]'));
-        mockSourceRowRects(rows);
+        const { form, rows } = createSourceRowDragFixture(
+            `<div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div>`,
+            '[data-lookup-link-row]',
+        );
 
-        const handle = rows[0].querySelector<HTMLElement>('[data-source-drag-handle]')!;
-        dispatchPointerEvent(handle, 'pointerdown', 4);
         const afterLastRow = rows.length * 48 + 20;
-        dispatchPointerEvent(form, 'pointermove', afterLastRow);
-        dispatchPointerEvent(form, 'pointerup', afterLastRow);
+        dragSourceRow(form, rows, afterLastRow);
 
         const ids = Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value);
         expect(ids.at(-1)).toBe('jpdb');
@@ -9654,9 +9712,7 @@ describe('reader helpers', () => {
     it('does not start lazy Immersion Kit popup searches until the source is opened', async () => {
         vi.useFakeTimers();
         try {
-            const search = vi.fn(async () => [immersionExample('食べる。')]);
-            const controller = immersionPopoverTestController(search);
-            const { popover, container } = immersionLazyLoadSurface(false);
+            const { search, controller, popover, container } = lazyImmersionSearchFixture(false);
 
             controller.installLazyLoad(popover, card);
             await vi.advanceTimersByTimeAsync(500);
@@ -9675,9 +9731,7 @@ describe('reader helpers', () => {
     it('cancels scheduled lazy Immersion Kit popup searches when the source closes', async () => {
         vi.useFakeTimers();
         try {
-            const search = vi.fn(async () => [immersionExample('食べる。')]);
-            const controller = immersionPopoverTestController(search);
-            const { popover, container } = immersionLazyLoadSurface(true);
+            const { search, controller, popover, container } = lazyImmersionSearchFixture(true);
 
             controller.installLazyLoad(popover, card);
             container.open = false;
@@ -12170,45 +12224,10 @@ describe('reader helpers', () => {
     });
 
     it('returns from a kanji related word back to the kanji page before the original word', async () => {
-        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const relatedWord = { ...card, vid: 10, sid: 20, spelling: '漢語', reading: 'かんご' };
+        const { app, restoreAnimationFrame, internals, originalWord } = kanjiRelatedWordNavigationFixture(relatedWord);
 
         try {
-            const originalWord = { ...card, spelling: '漢字', reading: 'かんじ' };
-            const relatedWord = { ...card, vid: 10, sid: 20, spelling: '漢語', reading: 'かんご' };
-            const internals = app as unknown as {
-                settings: typeof DEFAULT_SETTINGS;
-                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
-                parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
-                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
-            };
-            internals.settings = {
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                jpdbMiningEnabled: false,
-                ankiEnabled: false,
-                localDictionariesEnabled: false,
-                localDictionaryShowKanji: false,
-                jpdbDefinitionsEnabled: false,
-                jpdbKanjiEnabled: false,
-                uchisenEnabled: false,
-                rtkEnabled: false,
-                kanjivgEnabled: false,
-                kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
-                showPitchAccent: false,
-                immersionKitEnabled: false,
-            };
-            internals.parsePopoverJapanese = vi.fn(async () => undefined);
-            internals.parseJapanese = vi.fn(async () => [[{
-                card: relatedWord,
-                start: 0,
-                end: 2,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence: '漢語',
-            }]]);
-
             await internals.showKanjiCard(originalWord, '漢', '漢字です。');
             document.querySelector('.jpdb-reader-popover')?.insertAdjacentHTML(
                 'beforeend',
@@ -12216,17 +12235,7 @@ describe('reader helpers', () => {
             );
             document.querySelector<HTMLButtonElement>('[data-action="similar-word"]')?.click();
 
-            await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
-                expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to kanji: 漢');
-            });
-
-            document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.click();
-
-            await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-reader-kanji-display')?.textContent).toBe('漢');
-                expect(document.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
-            });
+            await expectKanjiRelatedWordBackNavigation();
         } finally {
             restoreAnimationFrame();
             vi.unstubAllGlobals();
@@ -12235,45 +12244,10 @@ describe('reader helpers', () => {
     });
 
     it('returns from a kanji dictionary link back to the kanji page before the original word', async () => {
-        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const linkedWord = { ...card, vid: 11, sid: 21, spelling: '漢語', reading: 'かんご' };
+        const { app, restoreAnimationFrame, internals, originalWord } = kanjiRelatedWordNavigationFixture(linkedWord);
 
         try {
-            const originalWord = { ...card, spelling: '漢字', reading: 'かんじ' };
-            const linkedWord = { ...card, vid: 11, sid: 21, spelling: '漢語', reading: 'かんご' };
-            const internals = app as unknown as {
-                settings: typeof DEFAULT_SETTINGS;
-                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
-                parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
-                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
-            };
-            internals.settings = {
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                jpdbMiningEnabled: false,
-                ankiEnabled: false,
-                localDictionariesEnabled: false,
-                localDictionaryShowKanji: false,
-                jpdbDefinitionsEnabled: false,
-                jpdbKanjiEnabled: false,
-                uchisenEnabled: false,
-                rtkEnabled: false,
-                kanjivgEnabled: false,
-                kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
-                showPitchAccent: false,
-                immersionKitEnabled: false,
-            };
-            internals.parsePopoverJapanese = vi.fn(async () => undefined);
-            internals.parseJapanese = vi.fn(async () => [[{
-                card: linkedWord,
-                start: 0,
-                end: 2,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence: '漢語',
-            }]]);
-
             await internals.showKanjiCard(originalWord, '漢', '漢字です。');
             document.querySelector('.jpdb-reader-popover')?.insertAdjacentHTML(
                 'beforeend',
@@ -12281,17 +12255,7 @@ describe('reader helpers', () => {
             );
             document.querySelector<HTMLElement>('a.gloss-link[data-dictionary-lookup] .jpdb-reader-word')?.click();
 
-            await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
-                expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to kanji: 漢');
-            });
-
-            document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.click();
-
-            await waitForExpect(() => {
-                expect(document.querySelector('.jpdb-reader-kanji-display')?.textContent).toBe('漢');
-                expect(document.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
-            });
+            await expectKanjiRelatedWordBackNavigation();
         } finally {
             restoreAnimationFrame();
             vi.unstubAllGlobals();
@@ -25197,7 +25161,7 @@ describe('reader helpers', () => {
                 pitchClass: '',
                 sentence: 'ぴったりよね',
             },
-        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
 
         const words = Array.from(document.querySelectorAll<HTMLElement>('.textBox .jpdb-reader-word'));
         expect(words.map(word => readerWordSurfaceText(word))).toEqual(['ぴっ', 'たり', 'よね']);
@@ -25395,7 +25359,7 @@ describe('reader helpers', () => {
                 pitchClass: '',
                 sentence: '青空を読む',
             },
-        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
 
         const linkWord = document.querySelector<HTMLElement>('a.gloss-link .jpdb-reader-word')!;
         const proseWord = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'))

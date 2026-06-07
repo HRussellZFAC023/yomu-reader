@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.33] - 2026-06-07
+
+### Changed
+
+- Reused shared smoke-test cleanup and dictionary ranking helpers, keeping live/mobile smoke scripts and local dictionary lookup paths smaller and easier to maintain.
+- Shared kanji source mount rendering and progressive similar-kanji loading between the reader and new tab, reducing duplicated popover code.
+- Reused JPDB vocabulary URL generation and Anki lookup hydration helpers across dictionary and new-tab popovers.
+
+### Fixed
+
+- Kept ruby visible inside Yomu-owned popovers, settings, and docs even when reader CSS is already installed, while still suppressing ruby on external clipped titles that would otherwise shift page layout.
+
 ## [0.6.32] - 2026-06-07
 
 ### Changed

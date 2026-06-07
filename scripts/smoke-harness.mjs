@@ -107,6 +107,11 @@ export function closeServer(server) {
     return new Promise(resolve => server.close(resolve));
 }
 
+export async function closeSmokeBrowserAndServer(browser, server) {
+    await browser.close().catch(() => undefined);
+    await closeServer(server);
+}
+
 export async function newAutoClosingPage(browser, contextOptions) {
     const context = await browser.newContext(contextOptions);
     const page = await context.newPage();

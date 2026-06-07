@@ -32,6 +32,32 @@ function statsCard(overrides: Partial<JPDBCard>): JPDBCard {
     };
 }
 
+function createStatsApiMock(options: {
+    decks?: string[];
+    reviewedToday?: number;
+    reviewedByDay?: unknown[];
+    deckStats?: Record<string, unknown>;
+    cards?: number[];
+} = {}) {
+    const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
+    const decks = options.decks ?? ['Core', 'Mining', 'Anime::Subs'];
+    const responses: Record<string, unknown> = {
+        deckNames: decks,
+        getNumCardsReviewedToday: options.reviewedToday ?? 0,
+        getNumCardsReviewedByDay: options.reviewedByDay ?? [],
+        getDeckStats: options.deckStats ?? {},
+        findCards: options.cards ?? [],
+    };
+    const api = {
+        invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
+            calls.push({ action, params });
+            if (Object.hasOwn(responses, action)) return responses[action] as T;
+            throw new Error(`unexpected action ${action}`);
+        },
+    } as Parameters<typeof loadAnkiConnectStats>[0];
+    return { api, calls };
+}
+
 describe('stats aggregation', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -189,19 +215,7 @@ describe('stats aggregation', () => {
     });
 
     it('loads Anki stats across every deck returned by AnkiConnect', async () => {
-        const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
-        const api = {
-            invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
-                calls.push({ action, params });
-                const reply = (value: unknown): T => value as T;
-                if (action === 'deckNames') return reply(['Core', 'Mining', 'Anime::Subs']);
-                if (action === 'getNumCardsReviewedToday') return reply(0);
-                if (action === 'getNumCardsReviewedByDay') return reply([]);
-                if (action === 'getDeckStats') return reply({});
-                if (action === 'findCards') return reply([]);
-                throw new Error(`unexpected action ${action}`);
-            },
-        } as Parameters<typeof loadAnkiConnectStats>[0];
+        const { api, calls } = createStatsApiMock();
 
         const anki = await loadAnkiConnectStats(api);
 
@@ -215,17 +229,7 @@ describe('stats aggregation', () => {
     });
 
     it('filters Anki stats with disabled deck toggles', async () => {
-        const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
-        const api = {
-            invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
-                calls.push({ action, params });
-                const reply = (value: unknown): T => value as T;
-                if (action === 'deckNames') return reply(['Core', 'Mining', 'Anime::Subs']);
-                if (action === 'getDeckStats') return reply({});
-                if (action === 'findCards') return reply([]);
-                throw new Error(`unexpected action ${action}`);
-            },
-        } as Parameters<typeof loadAnkiConnectStats>[0];
+        const { api, calls } = createStatsApiMock();
 
         const anki = await loadAnkiConnectStats(api, { disabledDeckNames: ['Mining'] });
 
