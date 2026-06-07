@@ -19,6 +19,12 @@ const VITEST_API_BASE_PORT = readPositiveInt(process.env.YOMU_CI_VITEST_API_BASE
 const TEST_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
 const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 30000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
 const SUITE_CHILD_KILL_GRACE_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_KILL_GRACE_MS ?? '5000', 'YOMU_CI_SUITE_CHILD_KILL_GRACE_MS');
+const targetedVitestArgs = process.argv.slice(2);
+
+if (targetedVitestArgs.length) {
+    runTargetedVitest(targetedVitestArgs);
+    process.exit(0);
+}
 
 runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
 await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
@@ -46,6 +52,35 @@ function runShard(kind, shard, total, extraArgs = []) {
         env: process.env,
     });
     if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+function runTargetedVitest(args) {
+    const apiArgs = hasVitestApiArg(args) ? [] : ['--api', String(VITEST_API_BASE_PORT)];
+    const result = spawnSync(process.execPath, [
+        join(ROOT, 'node_modules/vitest/vitest.mjs'),
+        'run',
+        ...args,
+        ...apiArgs,
+    ], {
+        cwd: ROOT,
+        stdio: 'inherit',
+        env: process.env,
+        timeout: TEST_TIMEOUT_MS,
+    });
+    if (result.error) {
+        console.error('[ci-suite] Targeted Vitest run failed:');
+        console.error(result.error);
+        process.exit(result.error.code === 'ETIMEDOUT' ? 124 : 1);
+    }
+    if (result.signal) {
+        console.error(`[ci-suite] Targeted Vitest run exited from signal ${result.signal}.`);
+        process.exit(1);
+    }
+    process.exit(result.status ?? 1);
+}
+
+function hasVitestApiArg(args) {
+    return args.some(arg => arg === '--api' || arg.startsWith('--api=') || arg.startsWith('--api.'));
 }
 
 async function runParallelShards(kind, total, concurrency, extraArgsForShard = () => []) {
