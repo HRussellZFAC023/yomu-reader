@@ -1,3 +1,5 @@
+import { coordinateInRange, hasPositiveRectArea } from './dom/rect';
+
 const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
 const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
@@ -439,12 +441,4 @@ function rectContainsPoint(rect: DOMRect, x: number, y: number): boolean {
     return hasPositiveRectArea(rect, right, bottom)
         && coordinateInRange(x, rect.left, right, slack)
         && coordinateInRange(y, rect.top, bottom, slack);
-}
-
-function hasPositiveRectArea(rect: DOMRect, right: number, bottom: number): boolean {
-    return right > rect.left && bottom > rect.top;
-}
-
-function coordinateInRange(value: number, start: number, end: number, slack: number): boolean {
-    return value >= start - slack && value <= end + slack;
 }

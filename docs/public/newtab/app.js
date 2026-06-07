@@ -4200,6 +4200,29 @@ recommendedJiten	jiten.moe頻度データです。
       return true;
     });
   }
+  function jpdbVocabularyIdentityFromUrl$1(value) {
+    if (!value) return null;
+    try {
+      const url = new URL(value, "https://jpdb.io");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return {
+        vid: Number.isFinite(vid) ? vid : 0,
+        spelling: decodeUrlPathPart(parts[2] ?? ""),
+        reading: decodeUrlPathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function decodeUrlPathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
   function uniqueStrings$1(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
@@ -4472,29 +4495,18 @@ recommendedJiten	jiten.moe頻度データです。
   function jpdbHtmlMatchesCard(html, card) {
     if (jpdbVocabularyBlockMatchesCard(html, card)) return true;
     const canonical = getHtmlAttributeFromOpeningTag(html, "link", "href", /\brel\s*=\s*(["'])canonical\1/i);
-    return canonical ? jpdbVocabularyIdentityMatches$1(jpdbVocabularyIdentityFromUrl$1(canonical), card) : false;
+    return canonical ? jpdbVocabularyIdentityMatches$1(jpdbVocabularyIdentityFromUrl(canonical), card) : false;
   }
   function jpdbVocabularyIdentities$1(html) {
     const pattern = /\bhref\s*=\s*(["'])([\s\S]*?\/vocabulary\/[\s\S]*?)\1/gi;
     const identities = [];
     let match;
-    while (match = pattern.exec(html)) identities.push(jpdbVocabularyIdentityFromUrl$1(match[2] ?? ""));
+    while (match = pattern.exec(html)) identities.push(jpdbVocabularyIdentityFromUrl(match[2] ?? ""));
     return identities;
   }
-  function jpdbVocabularyIdentityFromUrl$1(value) {
-    try {
-      const url = new URL(value, "https://jpdb.io");
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] !== "vocabulary") return null;
-      const vid = Number.parseInt(parts[1] ?? "", 10);
-      return {
-        vid: Number.isFinite(vid) ? vid : 0,
-        expression: decodeURIComponent(parts[2] ?? ""),
-        reading: decodeURIComponent(parts[3] ?? "")
-      };
-    } catch {
-      return null;
-    }
+  function jpdbVocabularyIdentityFromUrl(value) {
+    const identity = jpdbVocabularyIdentityFromUrl$1(value);
+    return identity ? { vid: identity.vid, expression: identity.spelling, reading: identity.reading } : null;
   }
   function jpdbVocabularyIdentityMatches$1(identity, card) {
     if (!identity) return false;
@@ -32733,7 +32745,7 @@ ${newTabCardReading(card)}`;
     return shuffled;
   }
   function jpdbKanjiVocabularyToNewTabCard(entry) {
-    const identity = jpdbVocabularyIdentityFromUrl(entry.url);
+    const identity = jpdbVocabularyIdentityFromUrl$1(entry.url);
     const spelling = cleanNewTabTextValue(identity?.spelling) || cleanNewTabTextValue(entry.expression);
     const reading = cleanNewTabTextValue(identity?.reading) || cleanNewTabTextValue(entry.reading) || spelling;
     const meaning = cleanNewTabTextValue(entry.meaning);
@@ -32754,29 +32766,6 @@ ${entry.url}`),
       source: "jpdb",
       sentence: spelling
     };
-  }
-  function jpdbVocabularyIdentityFromUrl(value) {
-    if (!value) return null;
-    try {
-      const url = new URL(value, "https://jpdb.io");
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] !== "vocabulary") return null;
-      const vid = Number.parseInt(parts[1] ?? "", 10);
-      return {
-        vid: Number.isFinite(vid) ? vid : 0,
-        spelling: decodeUrlPathPart(parts[2] ?? ""),
-        reading: decodeUrlPathPart(parts[3] ?? "")
-      };
-    } catch {
-      return null;
-    }
-  }
-  function decodeUrlPathPart(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
   }
   const cleanNewTabTextValue = (value) => (value ?? "").replace(/\s+/g, " ").trim();
   const stableNegativeNewTabId = (value) => -stablePositiveHashId(value);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.31] - 2026-06-07
+
+### Changed
+
+- Deduplicated JPDB vocabulary URL parsing, pointer-rectangle helpers, and rendered-word expansion display paths without changing lookup behavior.
+
 ## [0.6.30] - 2026-06-07
 
 ### Fixed

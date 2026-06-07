@@ -7,6 +7,7 @@ import { DEFAULT_OVERLAY_BACKGROUND_COLOR } from '../settings';
 import { KANJI_DICTIONARIES_SOURCE_ID, KANJI_JPDB_SOURCE_ID, KANJI_ORIGINS_SOURCE_ID, KANJI_SIMILAR_WORDS_SOURCE_ID, KANJI_STROKE_SOURCE_ID, kanjiSourceLabel } from '../source-sections';
 import { stablePositiveHashId } from '../core/stable-hash';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
+import { jpdbVocabularyIdentityFromUrl } from '../jpdb/jpdb-vocabulary-url';
 import type { RtkInfo } from '../rtk';
 import type { JPDBCard, ReaderSettings } from '../types';
 
@@ -93,31 +94,6 @@ export function jpdbKanjiVocabularyToNewTabCard(entry: JpdbKanjiVocabulary): JPD
         source: 'jpdb',
         sentence: spelling,
     };
-}
-
-function jpdbVocabularyIdentityFromUrl(value: string): { vid: number; spelling: string; reading: string } | null {
-    if (!value) return null;
-    try {
-        const url = new URL(value, 'https://jpdb.io');
-        const parts = url.pathname.split('/').filter(Boolean);
-        if (parts[0] !== 'vocabulary') return null;
-        const vid = Number.parseInt(parts[1] ?? '', 10);
-        return {
-            vid: Number.isFinite(vid) ? vid : 0,
-            spelling: decodeUrlPathPart(parts[2] ?? ''),
-            reading: decodeUrlPathPart(parts[3] ?? ''),
-        };
-    } catch {
-        return null;
-    }
-}
-
-function decodeUrlPathPart(value: string): string {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
 }
 
 const cleanNewTabTextValue = (value: string | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
