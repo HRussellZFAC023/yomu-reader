@@ -1,5 +1,6 @@
-import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { uiText, type UiCopyKey } from '../app/i18n';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
@@ -18,7 +19,6 @@ const BUILT_IN_SOURCE_NAME_KEYS: Record<string, UiCopyKey> = {
     [KANJI_STROKE_SOURCE_ID]: 'sourceNameStrokePractice',
     [KANJI_JPDB_SOURCE_ID]: 'readingsComponents',
     [KANJI_DICTIONARIES_SOURCE_ID]: 'sourceNameImportedKanjiDictionaries',
-    [KANJI_SIMILAR_WORDS_SOURCE_ID]: 'sourceNameWordsUsingKanji',
     [KANJI_ORIGINS_SOURCE_ID]: 'originStructure',
 };
 
@@ -37,16 +37,17 @@ export interface SettingsSourceRow {
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const language = settings.interfaceLanguage;
+    const apiSource = activeApiDefinitionSource(settings);
     const builtInRows: SettingsSourceRow[] = [
         {
-            id: JPDB_DEFINITION_SOURCE_ID,
-            name: 'JPDB',
-            alias: 'JPDB',
+            id: apiSource.id,
+            name: apiSource.name,
+            alias: apiSource.name,
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
             prefix: 'jpdbDefinitions',
             readonly: true,
-            help: uiText(language, 'sourceHelpJpdb'),
+            help: uiText(language, apiSource.helpKey),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -113,6 +114,8 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
 
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const language = settings.interfaceLanguage;
+    const apiSource = activeApiDefinitionSource(settings);
+    const readingsComponentsName = apiSource.name === 'Jiten' ? uiText(language, 'sourceNameJitenKanjiFacts') : uiText(language, 'readingsComponents');
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter(preference => preference.type === 'kanji').map(preference => ({
         id: kanjiDictionarySourceId(preference.name),
         name: preference.name,
@@ -138,13 +141,13 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         },
         {
             id: KANJI_JPDB_SOURCE_ID,
-            name: uiText(language, 'readingsComponents'),
-            alias: uiText(language, 'readingsComponents'),
+            name: readingsComponentsName,
+            alias: readingsComponentsName,
             enabled: settings.jpdbKanjiEnabled,
             priority: settings.jpdbKanjiPriority,
             prefix: 'jpdbKanji',
             readonly: true,
-            help: uiText(language, 'sourceHelpReadingsComponents'),
+            help: apiSource.name === 'Jiten' ? uiText(language, 'sourceHelpJitenKanjiFacts') : uiText(language, 'sourceHelpReadingsComponents'),
         },
         {
             id: KANJI_RTK_SOURCE_ID,
@@ -188,16 +191,6 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
         }]),
         ...kanjiDictionaryRows,
         {
-            id: KANJI_SIMILAR_WORDS_SOURCE_ID,
-            name: uiText(language, 'sourceNameWordsUsingKanji'),
-            alias: uiText(language, 'sourceNameWordsUsingKanji'),
-            enabled: settings.similarKanjiWords,
-            priority: settings.similarKanjiWordsPriority,
-            prefix: 'similarKanjiWords',
-            readonly: true,
-            help: uiText(language, 'sourceHelpWordsUsingKanji'),
-        },
-        {
             id: KANJI_ORIGINS_SOURCE_ID,
             name: uiText(language, 'originStructure'),
             alias: uiText(language, 'originStructure'),
@@ -212,12 +205,13 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
 
 export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryNames: string[]): string[] {
     const preferences = new Map(settings.dictionaryPreferences.map(item => [item.name, item]));
+    const apiSource = activeApiDefinitionSource(settings);
     const sources = [
         {
-            id: JPDB_DEFINITION_SOURCE_ID,
+            id: apiSource.id,
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
-            name: 'JPDB',
+            name: apiSource.name,
         },
         {
             id: ANKI_SOURCE_ID,
@@ -261,9 +255,16 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
         .map(source => source.id);
 }
 
+function activeApiDefinitionSource(settings: ReaderSettings): { id: string; name: 'JPDB' | 'Jiten'; helpKey: UiCopyKey } {
+    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings)
+        ? { id: JITEN_DEFINITION_SOURCE_ID, name: 'Jiten', helpKey: 'sourceHelpJiten' }
+        : { id: JPDB_DEFINITION_SOURCE_ID, name: 'JPDB', helpKey: 'sourceHelpJpdb' };
+}
+
 export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {
     return kanjiSourceRows(settings)
         .filter(row => row.enabled)
+        .filter(row => row.id !== KANJI_SIMILAR_WORDS_SOURCE_ID)
         .filter(row => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled)
         .filter(row => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some(preference => preference.type === 'kanji'))
         .map(row => row.id);
@@ -294,6 +295,7 @@ function compareSourceOrder(a: { priority: number; name: string }, b: { priority
 
 function localizedSourceRowLabel(row: SettingsSourceRow | undefined, language: InterfaceLanguage): string {
     if (!row) return '';
+    if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, 'readingsComponents')) return row.alias || row.name;
     const key = builtInSourceNameKey(row.id);
     return key ? uiText(language, key) : row.alias || row.name;
 }

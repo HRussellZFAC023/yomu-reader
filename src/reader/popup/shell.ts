@@ -733,12 +733,19 @@ export function installMiningDrawerHandle(
     });
 
     root.addEventListener('click', event => {
-        if (!suppressNextHandleClick) return;
         const handle = getHandleFromEvent(event.target);
         if (!handle) return;
-        suppressNextHandleClick = false;
+        if (suppressNextHandleClick) {
+            suppressNextHandleClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+        const target = event.target;
+        if (target instanceof Element && target.closest('.jpdb-reader-mining-drawer-handle') === handle) return;
         event.preventDefault();
         event.stopPropagation();
+        handle.click();
     }, true);
     root.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);

@@ -2,6 +2,7 @@ import type { AnkiLookupResult } from '../anki/index';
 import { normalizeCardStates } from '../cards/state';
 import { collectVisibleTextTargets, readerWordSurfaceText } from '../dom/index';
 import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { JitenKanjiInfo } from '../dictionaries/jiten';
 import type { KanjiVGInfo } from '../kanji/vg';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import type { ActivePointerTextLookup, PointerTextLookup } from '../lookup/pointer-text-lookup';
@@ -203,6 +204,7 @@ export function mountedHoverPointerPosition(
 
 export interface KanjiDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
+    jitenInfo: Promise<JitenKanjiInfo | null>;
     kanjiEntries: Promise<YomitanKanjiEntry[]>;
     rtkInfo: Promise<RtkInfo | null>;
     kanjiVGInfo: Promise<KanjiVGInfo | null>;

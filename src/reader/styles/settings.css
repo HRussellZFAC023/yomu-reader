@@ -466,11 +466,16 @@
   display: none !important;
 }
 .jpdb-reader-settings .inline {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 32px;
+  min-height: 40px;
+  margin: 0;
+  line-height: 1.35;
+}
+.jpdb-reader-settings .inline > input[type="checkbox"],
+.jpdb-reader-settings .inline > input[type="radio"] {
+  flex: 0 0 auto;
 }
 .jpdb-reader-settings .grid {
   display: grid;
@@ -527,8 +532,7 @@
 }
 
 .jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] > label.inline {
-  align-content: end;
-  grid-auto-rows: minmax(38px, auto);
+  align-self: end;
   margin: 0;
 }
 
@@ -547,8 +551,7 @@
    bottom of the cell inside a control-height band, so the box and its label
    sit on the same line as the dropdowns and inputs beside them. */
 .jpdb-reader-settings .grid > label.inline {
-  align-content: end;
-  grid-auto-rows: minmax(38px, auto);
+  align-self: end;
   margin: 0;
 }
 .jpdb-reader-settings .jpdb-reader-radio-group {
@@ -569,7 +572,6 @@
   line-height: 1.35;
 }
 .jpdb-reader-settings .jpdb-reader-radio-group label {
-  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin: 0;
@@ -1312,7 +1314,7 @@
 }
 .jpdb-reader-audio-source-choice {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 6px;
   align-items: center;
   min-width: 0;
@@ -1544,10 +1546,15 @@
     max-width: none;
   }
 
-  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display {
+  .jpdb-reader-dictionary-row[data-dictionary-source-row] > .jpdb-reader-field-display {
+    height: auto;
+    min-height: 38px;
+    overflow: visible;
+    text-overflow: clip;
     white-space: normal;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
     word-break: normal;
+    line-height: 1.25;
   }
 
   .jpdb-reader-settings {
@@ -1637,9 +1644,9 @@
   .jpdb-reader-dictionary-row.compact,
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 48px minmax(0, 1fr) 42px;
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle,
@@ -1673,7 +1680,7 @@
   }
 
   .jpdb-reader-dictionary-row {
-    grid-template-columns: 48px minmax(0, 1fr) 81px;
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
     align-items: start;
   }
 
@@ -1698,30 +1705,30 @@
     grid-row: 1 / span 2;
     align-self: start;
     align-content: flex-start;
-    flex-wrap: wrap;
     justify-content: flex-end;
-    width: 81px;
-    min-width: 81px;
-    max-width: 81px;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools {
     grid-column: 3;
-    grid-row: 3;
+    grid-row: 1;
     align-self: start;
     justify-content: flex-end;
-    width: 81px;
-    min-width: 81px;
-    max-width: 81px;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] {
-    grid-template-columns: 48px minmax(0, 1fr) 81px;
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display,
-  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-dictionary-row-help {
+  .jpdb-reader-dictionary-row[data-dictionary-source-row] > .jpdb-reader-dictionary-row-help {
     grid-column: 2;
+    overflow-wrap: anywhere;
   }
 
   .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools {
@@ -1729,16 +1736,15 @@
     grid-row: 1 / span 2;
     align-self: start;
     align-content: flex-start;
-    flex-wrap: wrap;
     justify-content: flex-end;
-    width: 81px;
-    min-width: 81px;
-    max-width: 81px;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-row-remove-tools {
     grid-column: 3;
-    grid-row: 3;
+    grid-row: 1;
     align-self: start;
     justify-content: flex-end;
   }
@@ -1752,7 +1758,7 @@
 
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 48px minmax(0, 1fr) 81px;
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
     align-items: start;
   }
 
@@ -1780,22 +1786,21 @@
     grid-row: 1 / span 2;
     align-self: start;
     align-content: flex-start;
-    flex-wrap: wrap;
     justify-content: flex-end;
-    width: 81px;
-    min-width: 81px;
-    max-width: 81px;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
   .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
     grid-column: 3;
-    grid-row: 3;
+    grid-row: 1;
     align-self: start;
     justify-content: flex-end;
-    width: 81px;
-    min-width: 81px;
-    max-width: 81px;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
   }
 
   .jpdb-reader-audio-source-row .jpdb-reader-icon-mini {
@@ -1819,10 +1824,80 @@
     grid-column: 2;
   }
 
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools,
+  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools,
+  .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
+    justify-content: flex-end;
+    align-self: start;
+    align-content: flex-start;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools {
+    display: grid;
+    grid-template-columns: 34px 34px;
+    grid-template-rows: 34px 34px;
+    gap: 5px;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools,
+  .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
+    grid-column: 3;
+    grid-row: 1;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
+    justify-content: flex-end;
+  }
+
+  .jpdb-reader-audio-source-choice,
+  .jpdb-reader-audio-source-fields,
+  .jpdb-reader-lookup-link-row > input[name$=".label"],
+  .jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
+  .jpdb-reader-lookup-link-row > .jpdb-reader-lookup-link-note,
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
+  .jpdb-reader-dictionary-row > input[name$=".alias"] {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .jpdb-reader-audio-source-fields select,
+  .jpdb-reader-audio-source-fields input,
+  .jpdb-reader-lookup-link-row input,
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display {
+    min-height: 40px;
+  }
+
+  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-dictionary-row-help,
+  .jpdb-reader-lookup-link-note {
+    line-height: 1.3;
+  }
+
   @media (max-width: 380px) {
     .jpdb-reader-order-row {
       grid-template-columns: 44px minmax(0, 1fr) 73px;
-      gap: 7px;
+      gap: 5px;
       padding: 8px;
     }
 
@@ -1858,14 +1933,13 @@
       grid-column: 3;
       grid-row: 1 / span 2;
       align-self: start;
-      flex-wrap: wrap;
       align-content: flex-start;
       justify-content: flex-end;
     }
 
     .jpdb-reader-order-row .jpdb-reader-row-remove-tools {
       grid-column: 3;
-      grid-row: 3;
+      grid-row: 1;
       align-self: start;
       justify-content: flex-end;
     }

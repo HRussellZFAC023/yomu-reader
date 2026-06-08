@@ -1,4 +1,5 @@
 import { uiText } from '../app/i18n';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
 export type QueuedNewTabGradeTarget = 'anki' | 'jpdb-api' | 'jiten-api';
@@ -59,14 +60,14 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         if (settings.jpdbMiningEnabled) add('jpdb-live');
     } else if ((card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
         && settings.jpdbMiningEnabled
-        && Boolean(settings.apiKey.trim())) {
+        && hasJpdbApiCredential(settings)) {
         add('jpdb-api');
     } else if (isJitenSrsCard(card)
         && settings.jpdbMiningEnabled
-        && Boolean(settings.jitenApiKey.trim())) {
+        && hasJitenApiCredential(settings)) {
         add('jiten-api');
     }
-    if (settings.newTabAnkiEnabled && ankiCardId) add('anki');
+    if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add('anki');
     return targets;
 }
 

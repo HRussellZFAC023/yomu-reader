@@ -74,7 +74,7 @@
         position: fixed;
         inset: 0 0 auto;
         height: 2px;
-        background: var(--accent);
+        background: var(--jpdb-reader-accent, var(--accent));
         opacity: .8;
         pointer-events: none;
       }
@@ -120,6 +120,10 @@
         background: transparent;
         color: var(--muted);
         text-decoration: none;
+      }
+
+      .jpdb-reader-newtab-brand {
+        margin-left: clamp(4px, 1vw, 10px);
       }
 
       .jpdb-reader-newtab-overflow {
@@ -250,7 +254,7 @@
       }
 
       .jpdb-reader-newtab-mode button[data-active="true"] {
-        background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 18%, var(--surface-2));
         color: var(--ink);
       }
 
@@ -364,7 +368,7 @@
       .jpdb-reader-newtab-sentence .jpdb-reader-word {
         padding: 0 .08em;
         border-radius: .12em;
-        background: color-mix(in srgb, var(--accent) 16%, transparent);
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 16%, transparent);
       }
 
       .jpdb-reader-newtab-install {

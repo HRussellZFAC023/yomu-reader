@@ -136,6 +136,7 @@
   min-width: 112px;
   display: flex;
   align-items: center;
+  padding-left: clamp(6px, 1.2vw, 14px);
 }
 
 .jpdb-reader-newtab-brand .title {
@@ -359,10 +360,12 @@
 .jpdb-reader-newtab-mode button[data-active="true"] {
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-accent) 18%,
-    var(--jpdb-reader-surface-2)
+    var(--jpdb-reader-accent-soft) 88%,
+    var(--jpdb-reader-surface)
   );
-  color: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--jpdb-reader-accent-soft) 58%, transparent);
 }
 
 .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-study {
@@ -841,12 +844,13 @@
 }
 
 .jpdb-reader-newtab-study-anki-card {
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  align-content: stretch;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
+  gap: clamp(12px, 2vh, 22px);
 }
 
 .jpdb-reader-newtab-study-anki-card .jpdb-reader-newtab-prompt-anki-card {
-  align-self: center;
+  align-self: start;
 }
 
 .jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-kanji-mode)
@@ -942,7 +946,7 @@
     );
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 24%, transparent),
-    0 8px 20px color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent);
+    0 8px 20px color-mix(in srgb, var(--jpdb-reader-accent-soft) 58%, transparent);
 }
 
 .jpdb-reader-newtab-count[hidden] {
@@ -968,6 +972,7 @@ button.jpdb-reader-newtab-status {
   align-items: center;
   justify-content: center;
   gap: 5px;
+  max-width: min(360px, calc(100vw - 56px));
   min-height: 26px;
   padding: 5px 10px;
   border: 1px solid rgba(139, 160, 177, 0.24);
@@ -978,6 +983,9 @@ button.jpdb-reader-newtab-status {
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 8px 22px rgba(2, 6, 10, 0.34);
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 button.jpdb-reader-newtab-status:not(:disabled) {
@@ -1010,7 +1018,6 @@ button.jpdb-reader-newtab-status:disabled {
 }
 
 button.jpdb-reader-newtab-status:disabled:not(:empty) {
-  max-width: min(360px, calc(100vw - 56px));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1094,7 +1101,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   left: 0;
   background: radial-gradient(
     ellipse at left center,
-    color-mix(in srgb, var(--jpdb-reader-state-failed) 46%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
     transparent 70%
   );
 }
@@ -1103,7 +1110,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   right: 0;
   background: radial-gradient(
     ellipse at right center,
-    color-mix(in srgb, var(--jpdb-reader-state-known) 44%, transparent),
+    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
     transparent 70%
   );
 }
@@ -1146,10 +1153,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-prompt-anki-card {
-  width: min(100%, 1120px);
-  max-width: min(100%, 1120px);
+  width: min(100%, 760px);
+  max-width: min(100%, 760px);
   min-width: 0;
-  min-height: clamp(220px, 34vh, 420px);
+  min-height: 0;
   position: relative;
   display: grid;
   align-content: center;
@@ -1183,8 +1190,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-prompt-anki-card
   .jpdb-reader-anki-rendered-side-body {
-  width: min(100%, 980px);
-  max-width: min(100%, 980px);
+  width: min(100%, 680px);
+  max-width: min(100%, 680px);
   min-width: 0;
   border-left: 0;
   padding: 0;
@@ -1436,6 +1443,21 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   backdrop-filter: blur(16px);
 }
 
+.jpdb-reader-theme-light .jpdb-reader-newtab-controls,
+.yomu-page-theme-light .jpdb-reader-newtab-controls {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-border));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--jpdb-reader-surface) 94%, var(--jpdb-reader-accent) 6%),
+      color-mix(in srgb, var(--jpdb-reader-surface-2) 84%, var(--jpdb-reader-white) 16%)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 78%, transparent),
+    0 -14px 34px color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
+}
+
 .jpdb-reader-newtab-controls[hidden],
 .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-controls {
   display: none !important;
@@ -1485,10 +1507,45 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   -webkit-tap-highlight-color: transparent;
 }
 
+.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]),
+.yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--jpdb-reader-white) 88%, var(--jpdb-reader-accent) 6%),
+      color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-white) 24%)
+    );
+  color: var(--jpdb-reader-text);
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 72%, transparent),
+    0 5px 14px color-mix(in srgb, var(--jpdb-reader-accent) 8%, transparent);
+}
+
 .jpdb-reader-newtab-controls button[data-newtab-action="reveal"] {
   background: var(--jpdb-reader-text);
   border-color: var(--jpdb-reader-text);
   color: var(--jpdb-reader-bg);
+}
+
+.jpdb-reader-theme-light
+  .jpdb-reader-newtab-controls
+  button[data-newtab-action="reveal"],
+.yomu-page-theme-light
+  .jpdb-reader-newtab-controls
+  button[data-newtab-action="reveal"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%),
+      var(--jpdb-reader-accent)
+    );
+  color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 26%, transparent),
+    0 8px 20px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
 
 .jpdb-reader-newtab-grade-target {
@@ -1496,10 +1553,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   position: relative;
   min-width: 0;
   max-width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 720;
@@ -1507,34 +1560,104 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-align: center;
 }
 
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
+    .jpdb-reader-newtab-grade-target-context
+  ) {
+  position: relative;
+  padding-top: 34px;
+}
+
+.jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
+    .jpdb-reader-newtab-grade-target-context[open]
+  ) {
+  padding-top: 104px;
+}
+
 .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls
   .jpdb-reader-newtab-grade-target-context {
   position: absolute;
-  left: 12px;
-  bottom: calc(100% + 7px);
+  top: 2px;
+  right: 8px;
+  left: 8px;
   z-index: 22;
-  max-width: min(360px, calc(100vw - 32px));
-  display: block;
+  display: grid;
+  justify-items: center;
+  max-width: none;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 780;
   line-height: 1.2;
-  text-align: left;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.jpdb-reader-newtab-grade-target-summary {
+  width: 100%;
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jpdb-reader-newtab-grade-target-summary::-webkit-details-marker {
+  display: none;
+}
+
+.jpdb-reader-newtab-grade-target-summary::marker {
+  content: "";
+}
+
+.jpdb-reader-newtab-grade-target-summary .jpdb-reader-mining-collapse {
+  grid-column: 2;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 28px;
+  min-width: 72px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  padding: 0;
+  pointer-events: none;
+}
+
+.jpdb-reader-newtab-grade-target-summary .jpdb-reader-mining-collapse::before {
+  content: "";
+  position: relative;
+  display: block;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-faint);
+}
+
+.jpdb-reader-newtab-grade-target-summary:hover .jpdb-reader-mining-collapse::before,
+.jpdb-reader-newtab-grade-target-summary:focus-visible .jpdb-reader-mining-collapse::before {
+  background: var(--jpdb-reader-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
+}
+
+.jpdb-reader-newtab-grade-target-current {
+  grid-column: 1;
+  justify-self: end;
+  min-width: 0;
+  max-width: min(180px, 34vw);
+  color: var(--jpdb-reader-muted);
+  font-size: 10.5px;
+  font-weight: 760;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.jpdb-reader-newtab-grade-target-current {
-  max-width: min(220px, calc(100vw - 52px));
-  color: var(--jpdb-reader-muted);
-  font-size: 11px;
-  font-weight: 780;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .jpdb-reader-newtab-grade-target-selector-label {
@@ -1545,9 +1668,22 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-align: left;
 }
 
+.jpdb-reader-newtab-grade-target-panel {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  width: min(280px, 100%);
+  margin-top: 4px;
+}
+
+.jpdb-reader-newtab-grade-target-context:not([open])
+  .jpdb-reader-newtab-grade-target-panel {
+  display: none;
+}
+
 .jpdb-reader-newtab-grade-target-select {
   min-width: 0;
-  width: min(220px, calc(100vw - 52px));
+  width: 100%;
   min-height: 34px;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border), var(--jpdb-reader-accent) 26%);
   border-radius: 8px;
@@ -1943,6 +2079,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   min-width: 0;
 }
 
+.jpdb-reader-newtab-kanji-details .jpdb-reader-jiten-kanji-more {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card {
   margin-top: 0;
@@ -2011,34 +2152,40 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts,
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   overflow: visible;
   padding-bottom: 0;
 }
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts > span,
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts > span {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  flex: 0 1 auto;
+  gap: 4px;
   min-width: 0;
-  min-height: 38px;
-  padding: 7px 8px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface-2);
+  max-width: 100%;
+  min-height: 23px;
+  padding: 3px 7px;
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 82%,
+    var(--jpdb-reader-bg) 18%
+  );
   color: var(--jpdb-reader-text);
   font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--jpdb-reader-popup-font-weight, 400);
-  line-height: 1.1;
+  line-height: 1.15;
   overflow: visible;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -2048,9 +2195,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts :is(strong, small) {
   display: inline;
   color: var(--jpdb-reader-muted);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 850;
-  line-height: 1.1;
+  line-height: 1;
   text-transform: uppercase;
 }
 .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-fact-value,
@@ -2060,25 +2207,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-overflow: clip;
   white-space: normal;
 }
-@media (max-width: 900px) {
-  .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (max-width: 720px) {
-  .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 520px) {
-  .jpdb-reader-newtab-kanji-info-source .jpdb-reader-kanji-facts,
-  .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts {
-    grid-template-columns: 1fr;
-  }
-}
 
 .jpdb-reader-newtab-origin-graph .jpdb-reader-kanji-facts {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .jpdb-reader-newtab-origin-graph
@@ -2127,11 +2258,61 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 5px;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > span,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid
+    color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 86%,
+    var(--jpdb-reader-accent) 8%
+  );
+  color: var(--jpdb-reader-muted);
+  font-family: var(--jpdb-reader-popup-font, var(--jpdb-reader-font));
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--jpdb-reader-popup-font-weight, 400);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button small {
+  color: var(--jpdb-reader-faint);
+  font-size: 10px;
+  font-weight: 800;
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:hover,
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:focus-visible {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
+  color: var(--jpdb-reader-text);
+  outline: none;
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface-2));
+  color: var(--jpdb-reader-accent-readable);
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button[aria-pressed="true"] small {
+  color: currentColor;
+  opacity: 0.78;
+}
+
 .jpdb-reader-newtab-kanji-vocab > span,
 .jpdb-reader-newtab-kanji-vocab > button {
   display: inline-flex;
@@ -2637,6 +2818,89 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-decoration-color: transparent !important;
 }
 
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-text);
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 94%,
+    var(--jpdb-reader-white) 6%
+  );
+  box-shadow:
+    0 8px 24px var(--jpdb-reader-shadow),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+  text-shadow: none;
+  -webkit-text-stroke: 0 transparent;
+  paint-order: normal;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-text))
+  ) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none;
+  -webkit-text-stroke: 0 transparent;
+  paint-order: normal;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word:hover,
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word:focus-visible {
+  background: var(
+    --jpdb-reader-word-accessible-highlight,
+    var(--jpdb-reader-word-highlight-source, var(--jpdb-reader-hover))
+  ) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-furi {
+  color: currentColor;
+  opacity: 0.82;
+  text-shadow: none;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word.jpdb-reader-example-target,
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
+  .jpdb-reader-ruby-base {
+  background: var(
+    --jpdb-reader-example-target-bg,
+    var(--jpdb-reader-accent-soft)
+  ) !important;
+  box-shadow: inset 0 -0.1em 0
+    var(--jpdb-reader-example-target-underline, color-mix(in srgb, var(--jpdb-reader-accent) 58%, transparent)) !important;
+  text-decoration-color: transparent !important;
+}
+
 .jpdb-reader-newtab-immersion .jpdb-reader-example-translation {
   width: min(100%, 38em);
   color: var(--jpdb-reader-muted);
@@ -2658,6 +2922,14 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-shadow:
     0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 6px color-mix(in srgb, var(--jpdb-reader-black) 70%, transparent);
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-translation {
+  color: var(--jpdb-reader-muted);
+  text-shadow: none;
 }
 
 .jpdb-reader-newtab-immersion
@@ -2695,6 +2967,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-more-menu button:focus-visible,
 .jpdb-reader-newtab-status:focus-visible,
 .jpdb-reader-newtab-controls button:not([data-grade]):focus-visible,
+.jpdb-reader-newtab-grade-target-summary:focus-visible,
 .jpdb-reader-newtab-grade-target-select:focus-visible,
 .jpdb-reader-newtab-doodle-actions button:focus-visible,
 .jpdb-reader-newtab-searchbox button:focus-visible,
@@ -2886,7 +3159,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
   .jpdb-reader-newtab-prompt-anki-card {
     width: min(100%, 480px);
-    padding: 46px clamp(10px, 3vw, 16px) 0;
+    padding: 42px clamp(10px, 3vw, 16px) 0;
   }
 
   .jpdb-reader-newtab-prompt-anki-card .jpdb-reader-anki-primary-sound {
@@ -2953,13 +3226,41 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     gap: 5px;
   }
 
+  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
+      .jpdb-reader-newtab-grade-target-context
+    ) {
+    padding-top: 32px;
+  }
+
+  .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls:has(
+      .jpdb-reader-newtab-grade-target-context[open]
+    ) {
+    padding-top: 104px;
+  }
+
   .jpdb-reader-newtab-grade-target {
     max-width: 100%;
     font-size: 10px;
   }
 
+  .jpdb-reader-newtab-grade-target-current {
+    max-width: min(150px, 38vw);
+    font-size: 10px;
+  }
+
+  .jpdb-reader-newtab-grade-target-summary .jpdb-reader-mining-collapse {
+    width: 64px;
+    height: 28px;
+    min-width: 64px;
+    min-height: 28px;
+  }
+
+  .jpdb-reader-newtab-grade-target-panel {
+    width: min(250px, 100%);
+  }
+
   .jpdb-reader-newtab-grade-target-select {
-    width: min(210px, calc(100vw - 52px));
+    width: 100%;
     min-height: 34px;
     font-size: 12px;
   }

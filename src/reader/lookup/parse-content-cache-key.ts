@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 
 export function parseContentCacheKey(
     texts: string[],
@@ -9,7 +10,8 @@ export function parseContentCacheKey(
         texts,
         options,
         settings: {
-            apiKey: Boolean(settings.apiKey.trim()),
+            apiKey: hasJpdbApiCredential(settings),
+            jitenApiKey: hasJitenApiCredential(settings),
             localDictionariesEnabled: settings.localDictionariesEnabled,
             dictionaries: settings.dictionaryPreferences.map(preference => ({
                 name: preference.name,

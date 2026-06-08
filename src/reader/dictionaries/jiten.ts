@@ -40,6 +40,9 @@ type JitenRequest = (url: string, options?: ReaderHttpOptions) => Promise<unknow
 type JitenEndpointMap = {
     'reader/ping': [undefined, unknown];
     'reader/parse': [JitenParseRequest, JitenParseResult];
+    'reader/lookup-vocabulary': [JitenLookupVocabularyRequest, JitenLookupVocabularyResult];
+    'kanji': [undefined, JitenKanjiInfo];
+    'kanji/words': [undefined, JitenKanjiWordsPage];
     'srs/reader-study-decks': [undefined, JitenReaderStudyDeck[]];
     'srs/study-batch': [undefined, JitenStudyBatchResponse];
     'srs/review': [JitenReviewRequest, unknown];
@@ -53,6 +56,14 @@ interface JitenRequestOptions {
 
 interface JitenParseRequest {
     text: string[];
+}
+
+interface JitenLookupVocabularyRequest {
+    words: Array<[number, number]>;
+}
+
+interface JitenLookupVocabularyResult {
+    result: unknown[];
 }
 
 interface JitenParseResult {
@@ -140,6 +151,93 @@ interface JitenStudyExampleSentenceDto {
     text: string;
 }
 
+export interface JitenVocabularyDefinition {
+    index: number;
+    meanings: string[];
+    partsOfSpeech: string[];
+    field: string[];
+    dial: string[];
+    misc: string[];
+    restrictedToReadingIndices: number[];
+}
+
+export interface JitenVocabularyReading {
+    text: string;
+    readingIndex: number;
+    frequencyRank: number | null;
+    usedInMediaAmount: number | null;
+}
+
+export interface JitenVocabularyWordSummary {
+    wordId: number;
+    readingIndex: number;
+    reading: string;
+    readingFurigana: string;
+    mainDefinition: string;
+    frequencyRank: number | null;
+    matchSurface: string;
+    audioUrls?: string[];
+}
+
+export interface JitenVocabularyExample {
+    sentenceId: number;
+    text: string;
+    wordPosition: number;
+    wordLength: number;
+    difficulty: number | null;
+    sourceTitle: string;
+    audioUrls?: string[];
+}
+
+export interface JitenVocabularyInfo {
+    wordId: number;
+    mainReading: JitenVocabularyReading | null;
+    alternativeReadings: JitenVocabularyReading[];
+    partsOfSpeech: string[];
+    definitions: JitenVocabularyDefinition[];
+    pitchAccents: number[];
+    knownStates: CardState[];
+    composedOf: JitenVocabularyWordSummary[];
+    usedIn: JitenVocabularyWordSummary[];
+    usedInTotal: number;
+    examples: JitenVocabularyExample[];
+}
+
+export interface JitenKanjiReadingWords {
+    reading: string;
+    totalWords: number;
+    words: JitenVocabularyWordSummary[];
+}
+
+export interface JitenKanjiGroupingTags {
+    kanken: string | null;
+    wanikani: string | null;
+    rtk: string | null;
+    klc: string | null;
+    tmw: string | null;
+}
+
+export interface JitenKanjiInfo {
+    character: string;
+    onReadings: string[];
+    kunReadings: string[];
+    meanings: string[];
+    strokeCount: number | null;
+    jlptLevel: number | null;
+    grade: number | null;
+    frequencyRank: number | null;
+    groupingTags: JitenKanjiGroupingTags;
+    topWords: JitenVocabularyWordSummary[];
+    wordsByReading: JitenKanjiReadingWords[];
+}
+
+export interface JitenKanjiWordsPage {
+    items: JitenVocabularyWordSummary[];
+    total: number;
+    pageSize: number;
+    offset: number;
+}
+
 interface JitenReviewRequest extends JitenCardReference {
     rating: number;
 }
@@ -178,6 +276,46 @@ export class JitenApiClient {
         return jitenParseResultToTokens(paragraphs, response);
     }
 
+    async lookupVocabularyStates(cards: JitenCardReference[]): Promise<CardState[][]> {
+        if (!cards.length) return [];
+        const response = await this.request('reader/lookup-vocabulary', {
+            words: cards.map(card => [card.wordId, card.readingIndex]),
+        });
+        return normalizeJitenLookupVocabularyStates(response, cards.length);
+    }
+
+    async lookupVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
+        const reference = jitenCardReference(card);
+        const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
+        const info = await this.requestEndpoint<unknown>(endpoint, undefined, { method: 'GET' });
+        if (!isJsonRecord(info)) return null;
+        const normalized = normalizeJitenVocabularyInfo(info);
+        if (!normalized) return null;
+        normalized.examples = await this.lookupVocabularyExamples(reference).catch(() => []);
+        return normalized;
+    }
+
+    async lookupKanji(character: string): Promise<JitenKanjiInfo | null> {
+        const kanji = character.trim();
+        if (!kanji) return null;
+        const payload = await this.requestEndpoint<unknown>(`kanji/${encodeURIComponent(kanji)}`, undefined, { method: 'GET' });
+        return normalizeJitenKanjiInfo(payload);
+    }
+
+    async lookupKanjiWords(character: string, options: { reading?: string; page?: number; pageSize?: number } = {}): Promise<JitenKanjiWordsPage | null> {
+        const kanji = character.trim();
+        if (!kanji) return null;
+        const payload = await this.requestEndpoint<unknown>(`kanji/${encodeURIComponent(kanji)}/words`, undefined, {
+            method: 'GET',
+            query: {
+                reading: options.reading,
+                page: options.page,
+                pageSize: options.pageSize,
+            },
+        });
+        return normalizeJitenKanjiWordsPage(payload);
+    }
+
     async listReaderStudyDecks(): Promise<JitenReaderStudyDeck[]> {
         const response = await this.request('srs/reader-study-decks', undefined);
         return normalizeReaderStudyDecks(response);
@@ -214,6 +352,12 @@ export class JitenApiClient {
             sentence,
             source,
         });
+    }
+
+    private async lookupVocabularyExamples(card: JitenCardReference): Promise<JitenVocabularyExample[]> {
+        const endpoint = `vocabulary/${card.wordId}/${card.readingIndex}/random-example-sentences`;
+        const payload = await this.requestEndpoint<unknown>(endpoint, [], { method: 'POST' });
+        return normalizeJitenVocabularyExamples(payload);
     }
 
     private async request<Key extends keyof JitenEndpointMap>(
@@ -453,18 +597,186 @@ function jitenKnownStateToCardStates(states: unknown): CardState[] {
     const mapped = jitenStateNumbers(states)
         .map(state => JITEN_CARD_STATE_MAP[state])
         .filter((state): state is CardState => Boolean(state));
-    return mapped.length ? mapped : ['known'];
+    return mapped.length ? mapped : ['mature'];
 }
 
 const JITEN_CARD_STATE_MAP: Record<number, CardState> = {
     0: 'new',
-    1: 'learning',
-    2: 'known',
+    1: 'young',
+    2: 'mature',
     3: 'blacklisted',
     4: 'due',
-    5: 'never-forget',
+    5: 'mastered',
     6: 'redundant',
 };
+
+function normalizeJitenLookupVocabularyStates(value: unknown, expectedLength: number): CardState[][] {
+    const result = isJsonRecord(value) && Array.isArray(value.result) ? value.result : [];
+    return Array.from({ length: expectedLength }, (_, index) => {
+        const states = jitenStateNumbers(result[index])
+            .map(state => JITEN_CARD_STATE_MAP[state])
+            .filter((state): state is CardState => Boolean(state));
+        return states.length ? states : ['new'];
+    });
+}
+
+function normalizeJitenVocabularyInfo(value: unknown): JitenVocabularyInfo | null {
+    if (!isJsonRecord(value)) return null;
+    const wordId = finiteJitenInteger(value.wordId);
+    if (wordId === undefined || wordId <= 0) return null;
+    const mainReading = normalizeJitenVocabularyReading(value.mainReading);
+    return {
+        wordId,
+        mainReading,
+        alternativeReadings: arrayOfRecords(value.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item): item is JitenVocabularyReading => Boolean(item)),
+        partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
+        definitions: arrayOfRecords(value.definitions).map(normalizeJitenVocabularyDefinition).filter((item): item is JitenVocabularyDefinition => Boolean(item)),
+        pitchAccents: jitenStateNumbers(value.pitchAccents),
+        knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : [],
+        composedOf: normalizeJitenVocabularyWordSummaries(value.composedOf),
+        usedIn: normalizeJitenVocabularyWordSummaries(value.usedIn),
+        usedInTotal: finiteJitenInteger(value.usedInTotal) ?? 0,
+        examples: [],
+    };
+}
+
+function normalizeJitenVocabularyReading(value: unknown): JitenVocabularyReading | null {
+    if (!isJsonRecord(value)) return null;
+    const text = firstRecordString(value, ['text']);
+    const readingIndex = finiteJitenInteger(value.readingIndex);
+    if (!text || readingIndex === undefined) return null;
+    return {
+        text,
+        readingIndex,
+        frequencyRank: nullableFiniteInteger(value.frequencyRank),
+        usedInMediaAmount: nullableFiniteInteger(value.usedInMediaAmount),
+    };
+}
+
+function normalizeJitenVocabularyDefinition(value: unknown): JitenVocabularyDefinition | null {
+    if (!isJsonRecord(value)) return null;
+    const meanings = arrayOfStrings(value.meanings);
+    if (!meanings.length) return null;
+    return {
+        index: finiteJitenInteger(value.index) ?? 0,
+        meanings,
+        partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
+        field: arrayOfStrings(value.field),
+        dial: arrayOfStrings(value.dial),
+        misc: arrayOfStrings(value.misc),
+        restrictedToReadingIndices: jitenStateNumbers(value.restrictedToReadingIndices),
+    };
+}
+
+function normalizeJitenVocabularyWordSummaries(value: unknown): JitenVocabularyWordSummary[] {
+    return arrayOfRecords(value)
+        .map(normalizeJitenVocabularyWordSummary)
+        .filter((item): item is JitenVocabularyWordSummary => Boolean(item));
+}
+
+function normalizeJitenVocabularyWordSummary(value: unknown): JitenVocabularyWordSummary | null {
+    if (!isJsonRecord(value)) return null;
+    const wordId = finiteJitenInteger(value.wordId);
+    const readingIndex = finiteJitenInteger(value.readingIndex);
+    const reading = firstRecordString(value, ['reading']) ?? '';
+    if (wordId === undefined || readingIndex === undefined || !reading) return null;
+    return {
+        wordId,
+        readingIndex,
+        reading,
+        readingFurigana: firstRecordString(value, ['readingFurigana']) ?? '',
+        mainDefinition: firstRecordString(value, ['mainDefinition']) ?? '',
+        frequencyRank: nullableFiniteInteger(value.frequencyRank),
+        matchSurface: firstRecordString(value, ['matchSurface']) ?? '',
+        audioUrls: normalizeJitenAudioUrls(value),
+    };
+}
+
+function normalizeJitenVocabularyExamples(value: unknown): JitenVocabularyExample[] {
+    return arrayOfRecords(value)
+        .map(normalizeJitenVocabularyExample)
+        .filter((item): item is JitenVocabularyExample => Boolean(item));
+}
+
+function normalizeJitenVocabularyExample(value: unknown): JitenVocabularyExample | null {
+    if (!isJsonRecord(value)) return null;
+    const text = firstRecordString(value, ['text']);
+    if (!text) return null;
+    return {
+        sentenceId: finiteJitenInteger(value.sentenceId) ?? 0,
+        text,
+        wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
+        wordLength: finiteJitenInteger(value.wordLength) ?? 0,
+        difficulty: nullableFiniteNumber(value.difficulty),
+        sourceTitle: jitenExampleSourceTitle(value),
+        audioUrls: normalizeJitenAudioUrls(value),
+    };
+}
+
+function normalizeJitenKanjiInfo(value: unknown): JitenKanjiInfo | null {
+    if (!isJsonRecord(value)) return null;
+    const character = firstRecordString(value, ['character']);
+    if (!character) return null;
+    return {
+        character,
+        onReadings: arrayOfStrings(value.onReadings),
+        kunReadings: arrayOfStrings(value.kunReadings),
+        meanings: arrayOfStrings(value.meanings),
+        strokeCount: nullableFiniteInteger(value.strokeCount),
+        jlptLevel: nullableFiniteInteger(value.jlptLevel),
+        grade: nullableFiniteInteger(value.grade),
+        frequencyRank: nullableFiniteInteger(value.frequencyRank),
+        groupingTags: normalizeJitenKanjiGroupingTags(value),
+        topWords: normalizeJitenVocabularyWordSummaries(value.topWords),
+        wordsByReading: arrayOfRecords(value.wordsByReading).map(normalizeJitenKanjiReadingWords).filter((item): item is JitenKanjiReadingWords => Boolean(item)),
+    };
+}
+
+const JITEN_KANJI_GROUPING_TAG_FIELDS: Record<keyof JitenKanjiGroupingTags, string[]> = {
+    kanken: ['kanken', 'kankenLevel'],
+    wanikani: ['wanikani', 'waniKani', 'wanikaniLevel', 'waniKaniLevel', 'wk', 'wkLevel'],
+    rtk: ['rtk', 'rtkFrame', 'rtkIndex'],
+    klc: ['klc', 'klcFrame', 'klcIndex'],
+    tmw: ['tmw', 'tmwLevel', 'tmwIndex', 'theMoeWay', 'theMoeWayLevel'],
+};
+
+function normalizeJitenKanjiGroupingTags(value: Record<string, unknown>): JitenKanjiGroupingTags {
+    return {
+        kanken: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.kanken),
+        wanikani: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.wanikani),
+        rtk: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.rtk),
+        klc: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.klc),
+        tmw: jitenKanjiGroupingTag(value, JITEN_KANJI_GROUPING_TAG_FIELDS.tmw),
+    };
+}
+
+function jitenKanjiGroupingTag(value: Record<string, unknown>, keys: string[]): string | null {
+    const text = firstRecordString(value, keys);
+    if (text) return text;
+    const number = firstRecordFiniteNumber(value, keys);
+    return number === null ? null : String(number);
+}
+
+function normalizeJitenKanjiReadingWords(value: unknown): JitenKanjiReadingWords | null {
+    if (!isJsonRecord(value)) return null;
+    const reading = firstRecordString(value, ['reading']);
+    if (!reading) return null;
+    return {
+        reading,
+        totalWords: finiteJitenInteger(value.totalWords) ?? 0,
+        words: normalizeJitenVocabularyWordSummaries(value.words),
+    };
+}
+
+function normalizeJitenKanjiWordsPage(value: unknown): JitenKanjiWordsPage | null {
+    if (!isJsonRecord(value)) return null;
+    return {
+        items: normalizeJitenVocabularyWordSummaries(value.items ?? value.data),
+        total: finiteJitenInteger(value.total ?? value.totalItems) ?? 0,
+        pageSize: finiteJitenInteger(value.pageSize) ?? 0,
+        offset: finiteJitenInteger(value.offset ?? value.currentOffset) ?? 0,
+    };
+}
 
 function jitenMeaningPartOfSpeech(value: JitenRawVocabulary['meaningsPartOfSpeech'], index: number): string[] {
     if (!Array.isArray(value)) return [];
@@ -552,6 +864,70 @@ function splitJitenJapaneseTextIntoSentences(text: string): string[] {
 function arrayOfStrings(value: unknown): string[] {
     if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
     return typeof value === 'string' ? [value] : [];
+}
+
+function arrayOfRecords(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value) ? value.filter(isJsonRecord) : [];
+}
+
+function nullableFiniteInteger(value: unknown): number | null {
+    return finiteJitenInteger(value) ?? null;
+}
+
+function nullableFiniteNumber(value: unknown): number | null {
+    return finiteJitenNumber(value) ?? null;
+}
+
+function firstRecordString(record: Record<string, unknown>, keys: string[]): string | null {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+}
+
+function firstRecordFiniteNumber(record: Record<string, unknown>, keys: string[]): number | null {
+    for (const key of keys) {
+        const value = finiteJitenNumber(record[key]);
+        if (value !== undefined) return value;
+    }
+    return null;
+}
+
+function jitenExampleSourceTitle(value: Record<string, unknown>): string {
+    const direct = firstRecordString(value, ['sourceTitle', 'title']);
+    if (direct) return direct;
+    const sourceDeck = isJsonRecord(value.sourceDeck) ? firstRecordString(value.sourceDeck, ['title', 'name']) : null;
+    const sourceDeckParent = isJsonRecord(value.sourceDeckParent) ? firstRecordString(value.sourceDeckParent, ['title', 'name']) : null;
+    return sourceDeck ?? sourceDeckParent ?? '';
+}
+
+function normalizeJitenAudioUrls(value: Record<string, unknown>): string[] | undefined {
+    const urls = uniqueJitenText([
+        ...arrayOfStrings(value.audioUrls),
+        ...arrayOfStrings(value.audioUrl),
+        ...arrayOfStrings(value.soundUrls),
+        ...arrayOfStrings(value.soundUrl),
+    ]).filter(isLikelyJitenAudioUrl);
+    return urls.length ? urls : undefined;
+}
+
+function uniqueJitenText(values: string[]): string[] {
+    const seen = new Set<string>();
+    return values.map(value => value.trim()).filter(value => {
+        if (!value || seen.has(value)) return false;
+        seen.add(value);
+        return true;
+    });
+}
+
+function isLikelyJitenAudioUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+        return /^https?:$/i.test(url.protocol);
+    } catch {
+        return false;
+    }
 }
 
 function jitenVocabularyEntries(value: unknown): JitenRawVocabulary[] {

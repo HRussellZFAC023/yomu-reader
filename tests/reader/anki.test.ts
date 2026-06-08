@@ -974,6 +974,57 @@ describe('Anki existing-card lookup', () => {
         );
     });
 
+    it('prefers known over new when multiple Anki notes match the same word', async () => {
+        const ankiConnectUrl = `${window.location.origin}/anki-connect`;
+        const notes = [
+            mockAnkiNoteInfo({ noteId: 101, word: '動画', reading: 'どうが', cardId: 1001 }),
+            mockAnkiNoteInfo({ noteId: 102, word: '動画', reading: 'どうが', cardId: 1002 }),
+        ];
+        const cards = [
+            mockAnkiCardInfo({ cardId: 1001, noteId: 101, deckName: 'New Mining', queue: 0, type: 0, reps: 0 }),
+            mockAnkiCardInfo({ cardId: 1002, noteId: 102, deckName: 'Known Mining', queue: 2, type: 2, reps: 12 }),
+        ];
+        vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = parseMockAnkiAction(init);
+            const resultForAction = (): unknown => {
+                if (body.action === 'multi') {
+                    const actions = body.params?.actions ?? [];
+                    return actions.map(action => ({
+                        result: action.action === 'findNotes' ? [101, 102] : [],
+                        error: null,
+                    }));
+                }
+                if (body.action === 'notesInfo') {
+                    const requested = new Set((body.params?.notes ?? []).map(Number));
+                    return notes.filter(note => requested.has(note.noteId));
+                }
+                if (body.action === 'cardsInfo') {
+                    const requested = new Set((body.params?.cards ?? []).map(Number));
+                    return cards.filter(card => requested.has(card.cardId));
+                }
+                if (body.action === 'areDue') return [false];
+                throw new Error(`Unexpected Anki action: ${body.action}`);
+            };
+            return ankiJsonResponse(resultForAction());
+        }));
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ankiConnectUrl }));
+            const result = await client.findExistingCards(jpdbCard({ spelling: '動画', reading: 'どうが' }));
+
+            expect(result.state).toBe('known');
+            expect(result.primary).toMatchObject({
+                noteId: 102,
+                state: 'known',
+                deckNames: ['Known Mining'],
+            });
+            expect(result.notes.map(note => note.noteId)).toEqual([101, 102]);
+            expect(result.notes.map(note => note.state)).toEqual(['new', 'known']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('does not match a kanji page term to a different expression with the same reading', async () => {
         const ankiConnectUrl = `${window.location.origin}/anki-connect`;
         stubExistingCardLookupFetch({
@@ -1049,6 +1100,30 @@ describe('Anki status-only lookup cache', () => {
             modelName: 'Imported Core',
             updatedAt: 100,
         })).toBe(false);
+    });
+
+    it('keeps known status ahead of new status for competing lookup index entries', () => {
+        const newEntry = {
+            state: 'new' as const,
+            noteId: 55,
+            primaryCardId: 7701,
+            deckNames: ['New Mining'],
+            reps: 0,
+            lapses: 0,
+            modelName: 'Imported Core',
+        };
+        const knownEntry = {
+            state: 'known' as const,
+            noteId: 56,
+            primaryCardId: 7702,
+            deckNames: ['Known Mining'],
+            reps: 8,
+            lapses: 0,
+            modelName: 'Imported Core',
+        };
+
+        expect(shouldReplaceAnkiStatusIndexEntry(newEntry, knownEntry)).toBe(true);
+        expect(shouldReplaceAnkiStatusIndexEntry(knownEntry, newEntry)).toBe(false);
     });
 
     it('dedupes duplicate lookup keys before loading status index entries', async () => {
@@ -1815,6 +1890,34 @@ describe('Anki rendered card details', () => {
         expect(summary?.textContent).toContain('Due');
         expect(summary?.textContent).toContain('New');
     });
+
+    it('uses the aggregate Anki status in the section header when one duplicate is known', () => {
+        const newMatch = existingAnkiNote({
+            noteId: 101,
+            modelName: 'Core 2k',
+            deckNames: ['Vocab 2k'],
+            state: 'new',
+            reps: 0,
+        });
+        const knownMatch = existingAnkiNote({
+            noteId: 102,
+            modelName: 'Yomu Japanese',
+            deckNames: ['Yomu'],
+            state: 'known',
+            reps: 12,
+        });
+        const lookup: AnkiLookupResult = { state: 'known', primary: newMatch, notes: [newMatch, knownMatch], trusted: true };
+        const container = document.createElement('div');
+        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings());
+
+        const header = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing > summary');
+        const matches = container.querySelector<HTMLElement>('.jpdb-reader-anki-match-summary');
+        expect(header?.querySelector('.jpdb-reader-state-dot')?.className).toContain('anki-known');
+        expect(header?.textContent).toContain('Known');
+        expect(header?.textContent).toContain('2 matches');
+        expect(matches?.textContent).toContain('New');
+        expect(matches?.textContent).toContain('Known');
+    });
 });
 
 function renderExistingAnkiSection(note: AnkiExistingNote, settings: ReaderSettings = ankiRenderSettings()): HTMLElement {
@@ -1825,6 +1928,7 @@ function ankiRenderSettings(): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
+        ankiEnabled: true,
         ankiSectionEnabled: true,
         enableReviews: false,
     };

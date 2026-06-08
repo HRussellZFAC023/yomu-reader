@@ -5,7 +5,35 @@ export type ApiCredentialSettings = Pick<ReaderSettings, 'apiKey' | 'jitenApiKey
 const JITEN_API_KEY_PREFIX = 'ak_';
 
 export function singleApiCredentialValue(settings: ApiCredentialSettings): string {
-    return settings.jitenApiKey.trim() || settings.apiKey;
+    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
+}
+
+export function activeApiCredentialLabel(settings: ApiCredentialSettings): 'JPDB' | 'Jiten' {
+    return effectiveJitenApiKey(settings) ? 'Jiten' : 'JPDB';
+}
+
+export function apiCredentialLabelFromValue(value: string): 'JPDB' | 'Jiten' {
+    return isJitenApiCredential(value) ? 'Jiten' : 'JPDB';
+}
+
+export function effectiveJpdbApiKey(settings: ApiCredentialSettings): string {
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? '' : apiKey;
+}
+
+export function effectiveJitenApiKey(settings: ApiCredentialSettings): string {
+    const explicit = settings.jitenApiKey.trim();
+    if (explicit) return explicit;
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? apiKey : '';
+}
+
+export function hasJpdbApiCredential(settings: ApiCredentialSettings): boolean {
+    return Boolean(effectiveJpdbApiKey(settings));
+}
+
+export function hasJitenApiCredential(settings: ApiCredentialSettings): boolean {
+    return Boolean(effectiveJitenApiKey(settings));
 }
 
 function splitApiCredential(value: string): ApiCredentialSettings {
@@ -24,6 +52,6 @@ export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSet
     };
 }
 
-function isJitenApiCredential(value: string): boolean {
+export function isJitenApiCredential(value: string): boolean {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
 }

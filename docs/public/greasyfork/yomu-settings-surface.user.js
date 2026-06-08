@@ -358,8 +358,8 @@
     return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
   }
   function asyncGmListValues() {
-    const legacy = globalThis.GM_listValues;
-    if (typeof legacy === "function") return legacy;
+    const directListValues = globalThis.GM_listValues;
+    if (typeof directListValues === "function") return directListValues;
     const modern = globalThis.GM?.listValues;
     return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
   }
@@ -371,6 +371,47 @@
   }
   function debugStorageError(message, key2, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  }
+  const JITEN_API_KEY_PREFIX = "ak_";
+  function singleApiCredentialValue(settings) {
+    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
+  }
+  function activeApiCredentialLabel(settings) {
+    return effectiveJitenApiKey(settings) ? "Jiten" : "JPDB";
+  }
+  function apiCredentialLabelFromValue(value) {
+    return isJitenApiCredential(value) ? "Jiten" : "JPDB";
+  }
+  function effectiveJpdbApiKey(settings) {
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? "" : apiKey;
+  }
+  function effectiveJitenApiKey(settings) {
+    const explicit = settings.jitenApiKey.trim();
+    if (explicit) return explicit;
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? apiKey : "";
+  }
+  function hasJpdbApiCredential(settings) {
+    return Boolean(effectiveJpdbApiKey(settings));
+  }
+  function hasJitenApiCredential(settings) {
+    return Boolean(effectiveJitenApiKey(settings));
+  }
+  function splitApiCredential(value) {
+    const credential = value.trim();
+    if (!credential) return { apiKey: "", jitenApiKey: "" };
+    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
+  }
+  function readApiCredentialsFromFormData(data) {
+    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
+    return {
+      apiKey: String(data.get("apiKey") ?? "").trim(),
+      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
+    };
+  }
+  function isJitenApiCredential(value) {
+    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
   }
   const __vite_import_meta_env__ = { "DEV": false };
   const LOG_PREFIX = "[Yomu]";
@@ -465,7 +506,8 @@
   function loggingSettingsSummary(settings) {
     return {
       enableLogging: settings.enableLogging,
-      hasApiKey: Boolean(settings.apiKey.trim()),
+      hasApiKey: hasJpdbApiCredential(settings),
+      hasJitenApiKey: hasJitenApiCredential(settings),
       localDictionariesEnabled: settings.localDictionariesEnabled,
       localDictionarySources: settings.dictionaryPreferences.length,
       ankiEnabled: settings.ankiEnabled,
@@ -564,6 +606,7 @@
   const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
   const ANKI_SOURCE_ID = "__anki__";
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
@@ -1135,7 +1178,7 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
-    furiganaMode: "auto",
+    furiganaMode: "all",
     showPitchAccent: true,
     hideKnownFurigana: true,
     ocrEnabled: true,
@@ -1267,10 +1310,11 @@
     const settingsValue = migrateLegacyDefaultMobileSettings(value);
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
+    const apiCredentials = normalizeApiCredentialSettings(settingsValue);
     return {
       ...DEFAULT_SETTINGS,
       ...supportedSettings ?? {},
-      jitenApiKey: trimmedStringSetting(settingsValue, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey),
+      ...apiCredentials,
       ...normalizeLookupSettings(settingsValue),
       ...normalizeNewTabSettings(settingsValue),
       ...normalizeReaderDisplaySettings(settingsValue),
@@ -1288,6 +1332,13 @@
   }
   function normalizeReaderSettings(value) {
     return mergeSettings(value);
+  }
+  function normalizeApiCredentialSettings(value) {
+    const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
+    const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
+    if (jitenApiKey) return { apiKey: "", jitenApiKey };
+    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: apiKey };
+    return { apiKey, jitenApiKey: "" };
   }
   function stripUnsupportedSettings(value) {
     if (!value) return null;
@@ -2463,11 +2514,11 @@
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
-      jpdbPageEnhancements: "JPDB page enhancements",
-      jpdbPageEnhancementsEnabled: "Enhance JPDB pages",
-      jpdbPageWordEnhancementsEnabled: "Add sources to JPDB word/search pages",
-      jpdbPageKanjiEnhancementsEnabled: "Add sources to JPDB kanji pages",
-      jpdbPageEnhancementsHelp: "Uses your source order.",
+      jpdbPageEnhancements: "Dictionary site enhancements",
+      jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
+      jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
+      jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
+      jpdbPageEnhancementsHelp: "",
       fivePoint: "Five point: NOTHING to EASY",
       twoPoint: "Two point: FAIL / PASS",
       settingsLanguage: "Settings language",
@@ -2483,7 +2534,7 @@
       popupMode: "Popup mode",
       bottomSheet: "Bottom sheet",
       popover: "Popover",
-      stickyBottomSheet: "Keep bottom sheet open until closed",
+      stickyBottomSheet: "Keep sheet open after lookup",
       popoverBackdropEnabled: "Dim page behind popover",
       popoverWidth: "Popover width (px)",
       popoverHeight: "Popover height (px)",
@@ -2504,12 +2555,12 @@
       diagnostics: "Diagnostics",
       diagnosticsHelp: "Print diagnostics to the console.",
       accentColor: "Accent color",
-      newTab: "New tab",
-      newTabEnabled: "Enable Yomu new tab study page",
-      newTabAnkiEnabled: "Enable Anki cards on new tab",
+      newTab: "Study",
+      newTabEnabled: "Enable Yomu study page",
+      newTabAnkiEnabled: "Use Anki cards in Study",
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
-      newTabSource: "New tab review source",
+      newTabSource: "Study review source",
       newTabAuto: "Auto: API/Anki, then study words",
       newTabApiSrs: "API SRS (JPDB / Jiten)",
       dictionaryFallback: "Dictionary fallback",
@@ -2519,19 +2570,20 @@
       newTabApiVocabulary: "API vocabulary only",
       corsProxyUrl: "Cross-origin proxy URL",
       newTabKanjiKeywordSource: "Kanji keyword source",
-      newTabKanjiKeywordAuto: "Auto: RTK, then JPDB, then local",
+      newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
       newTabKanjiKeywordRtk: "RTK / Heisig",
+      newTabKanjiKeywordApiFacts: "{service} kanji facts (JPDB / Jiten)",
       newTabKanjiKeywordLocal: "Local card meaning",
-      newTabParsingEnabled: "Enable sentence parsing on new tab",
+      newTabParsingEnabled: "Enable sentence parsing on Study",
       newTabFrontSentenceEnabled: "Show sentence on word fronts",
       newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
       newTabKanjiAutoSubmit: "Auto-submit kanji grade",
-      newTabOfflineEnabled: "Cache new tab for offline use",
+      newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
-      newTabUrl: "New tab address",
+      newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
-      newTabJpdbDeck: "New tab JPDB deck",
-      openNewTabPage: "Open new tab page",
+      newTabJpdbDeck: "Study JPDB deck",
+      openNewTabPage: "Open Study",
       copyAddress: "Copy address",
       wordColors: "Word colors",
       wordColorNew: "New and in deck",
@@ -2558,7 +2610,7 @@
       colorSourceJpdb: "JPDB status",
       colorSourceAnki: "Anki status",
       colorSourcePitch: "Pitch accent",
-      colorChannelsHelp: "Choose each color source.",
+      colorChannelsHelp: "",
       interfaceHelp: "",
       parseSelection: "Look up selected text",
       lookupOnClick: "Look up on tap or click",
@@ -2582,7 +2634,7 @@
       loadingSimilarWords: "Loading words...",
       openToLoadSimilarWords: "Open to load words.",
       noSimilarWords: "No additional words found.",
-      kanjiHelp: "Click popup kanji for details.",
+      kanjiHelp: "",
       audioEnabled: "Enable term audio",
       autoPlayAudio: "Auto-play term audio",
       suppressAutoAudioOnVideo: "Disable lookup audio auto-play on video pages",
@@ -2794,7 +2846,7 @@
       exampleMeaning: "to read",
       scanAnkiFirst: "Connect Anki first",
       notMapped: "Not mapped",
-      noScannedFields: "Fields fill after AnkiConnect is reachable.",
+      noScannedFields: "",
       mappingForNoteType: "Mapping for {model}",
       currentNoteType: "current note type",
       ankiFieldMappingSelect: "{role} field",
@@ -3043,7 +3095,7 @@
       search: "Search",
       statsImportJpdbHistory: "Import JPDB review history",
       openYomuSettings: `Open ${APP_NAME} settings`,
-      newTabAddressCopied: "New tab address copied.",
+      newTabAddressCopied: "Study address copied.",
       loading: "Loading...",
       refreshing: "Refreshing...",
       reveal: "Reveal",
@@ -3073,14 +3125,19 @@
       sortState: "State",
       stateNew: "New",
       stateLearning: "Learning",
+      stateYoung: "Young",
+      stateMature: "Mature",
       stateDue: "Due",
       stateFailed: "Failed",
       stateKnown: "Known",
+      stateMastered: "Mastered",
       stateNeverForget: "Never forget",
       stateSuspended: "Suspended",
       stateLocked: "Locked",
       stateBlacklisted: "Blacklisted",
       stateRedundant: "Redundant",
+      stateFrequent: "Frequent",
+      stateUnparsed: "Unparsed",
       stateInDeck: "In deck",
       stateNotInDeck: "Not in deck",
       ankiReviewSingular: "review",
@@ -3240,6 +3297,7 @@
       loadingDictionaryDetails: "Loading dictionary details...",
       sourceSingular: "source",
       sourcePlural: "sources",
+      jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
       playJpdbExampleAudio: "Play JPDB example audio",
@@ -3272,6 +3330,7 @@
       importLocalDefinitionsHelp: "Import Yomitan dictionaries for local definitions.",
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata appear in badges and kanji data.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
+      sourceHelpJiten: "Jiten meanings, examples, and related vocabulary from the current card.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -3282,10 +3341,12 @@
       sourceNameGrammar: "Grammar",
       sourceNameStrokePractice: "Stroke practice",
       sourceNameImportedKanjiDictionaries: "Imported kanji dictionaries",
-      sourceNameWordsUsingKanji: "Words using this kanji",
+      sourceNameWordsUsingKanji: "Related vocabulary",
+      sourceNameJitenKanjiFacts: "Jiten kanji facts",
       sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
       sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
+      sourceHelpJitenKanjiFacts: "Jiten kanji facts, exact frequency, readings, and vocabulary.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       uchisenMnemonicImages: "Uchisen mnemonic images",
@@ -3408,7 +3469,7 @@ statsImportJpdbHistory	JPDB復習履歴を読み込む
 switchToLightTheme	ライトテーマに切り替え
 switchToDarkTheme	ダークテーマに切り替え
 openYomuSettings	{APP_NAME}の設定を開く
-newTabAddressCopied	新規タブのアドレスをコピーしました。
+newTabAddressCopied	学習ページのアドレスをコピーしました。
 getApp	{APP_NAME}を入手
 loading	読み込み中...
 refreshing	更新中...
@@ -3517,14 +3578,19 @@ sortFrequency	頻度
 sortState	状態
 stateNew	新規
 stateLearning	学習中
+stateYoung	若い
+stateMature	成熟
 stateDue	復習予定
 stateFailed	失敗
 stateKnown	既知
+stateMastered	習得済み
 stateNeverForget	忘れない
 stateSuspended	停止中
 stateLocked	ロック中
 stateBlacklisted	ブラックリスト
 stateRedundant	重複
+stateFrequent	頻出
+stateUnparsed	未解析
 stateInDeck	デッキ内
 stateNotInDeck	デッキ外
 gradeAnkiCardTarget	Ankiカードを採点: {target}
@@ -3783,12 +3849,13 @@ kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
 sourcePlural	ソース
+jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
 playJpdbExampleAudio	JPDB例文音声を再生
 wordsUsingKanji	{kanji}を使う単語
 kanjiDictionaries	漢字辞書
-sourceNameWordsUsingKanji	この漢字を使う単語
+sourceNameWordsUsingKanji	関連語彙
 contextVideo	動画
 contextImage	画像
 contextCurrentPage	現在のページ
@@ -3871,11 +3938,11 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
-jpdbPageEnhancements	JPDBページ拡張
-jpdbPageEnhancementsEnabled	JPDBページを拡張
-jpdbPageWordEnhancementsEnabled	JPDBの単語・検索ページにソースを追加
-jpdbPageKanjiEnhancementsEnabled	JPDBの漢字ページにソースを追加
-jpdbPageEnhancementsHelp	ソース順を使います。
+jpdbPageEnhancements	辞書サイト拡張
+jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
+jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
+jpdbPageEnhancementsHelp	
 fivePoint	5段階: 全く覚えていないから簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -3886,7 +3953,7 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	閉じるまで下部シートを開いたままにする
+stickyBottomSheet	検索後もシートを開いたままにする
 popoverBackdropEnabled	ポップオーバーの背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
@@ -3907,12 +3974,12 @@ enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
-newTab	新規タブ
-newTabEnabled	よむの新規タブ学習ページを有効にする
-newTabAnkiEnabled	新規タブのAnkiカードを有効にする
+newTab	学習
+newTabEnabled	よむの学習ページを有効にする
+newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
-newTabSource	新規タブの復習ソース
+newTabSource	学習の復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
 newTabApiSrs	API SRS（JPDB / Jiten）
 dictionaryFallback	辞書フォールバック
@@ -3922,19 +3989,20 @@ newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、JPDB、ローカルの順
+newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
 newTabKanjiKeywordRtk	RTK / Heisig
+newTabKanjiKeywordApiFacts	{service}漢字情報（JPDB / Jiten）
 newTabKanjiKeywordLocal	ローカルカードの意味
-newTabParsingEnabled	新規タブの文解析を有効にする
+newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
-newTabOfflineEnabled	新規タブをオフライン用にキャッシュ
+newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
-newTabUrl	新規タブのアドレス
+newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
-newTabJpdbDeck	新規タブのJPDBデッキ
-openNewTabPage	新規タブページを開く
+newTabJpdbDeck	学習のJPDBデッキ
+openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
 wordColorNew	新規・デッキ内
@@ -3961,7 +4029,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
-colorChannelsHelp	各色のソースを選びます。
+colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
@@ -3982,7 +4050,7 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	ポップアップ内の漢字で詳細表示。
+kanjiHelp	
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生する
 suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
@@ -4169,7 +4237,7 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
-noScannedFields	AnkiConnect接続後にフィールド候補が入ります。
+noScannedFields	
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -4306,6 +4374,7 @@ customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書をインポートします。
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
+sourceHelpJiten	現在のカードのJiten定義、例文、関連語です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -4316,10 +4385,12 @@ sourceNameTranslation	翻訳
 sourceNameGrammar	文法
 sourceNameStrokePractice	筆順練習
 sourceNameImportedKanjiDictionaries	インポート済み漢字辞書
-sourceNameWordsUsingKanji	この漢字を使う単語
+sourceNameWordsUsingKanji	相关词汇
+sourceNameJitenKanjiFacts	Jiten漢字情報
 sourceHelpImportedKanjiDictionary	インポート済みYomitan漢字辞書です。
 sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
+sourceHelpJitenKanjiFacts	Jitenの漢字情報、正確な頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
@@ -5603,25 +5674,6 @@ recommendedJiten	jiten.moe頻度データです。
     const value = control instanceof HTMLSelectElement ? control.value : "en";
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
-  const JITEN_API_KEY_PREFIX = "ak_";
-  function singleApiCredentialValue(settings) {
-    return settings.jitenApiKey.trim() || settings.apiKey;
-  }
-  function splitApiCredential(value) {
-    const credential = value.trim();
-    if (!credential) return { apiKey: "", jitenApiKey: "" };
-    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
-  }
-  function readApiCredentialsFromFormData(data) {
-    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
-    return {
-      apiKey: String(data.get("apiKey") ?? "").trim(),
-      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
-    };
-  }
-  function isJitenApiCredential(value) {
-    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
-  }
   function createSettingsFormReader(data, colorSource) {
     const get = (key2) => String(data.get(key2) ?? "");
     const number = (key2, fallback) => readNumber(get(key2), fallback);
@@ -5712,6 +5764,13 @@ recommendedJiten	jiten.moe頻度データです。
   function settingsColorSourceValue(settings, name) {
     const source = settings[name];
     return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
+  }
+  function colorSourceOptions(settings) {
+    const apiLabel = activeApiCredentialLabel(settings);
+    return COLOR_SOURCE_OPTIONS.map(([value, label]) => [
+      value,
+      value === "status" ? `${apiLabel} + Anki status` : value === "jpdb" ? `${apiLabel} status` : label
+    ]);
   }
   function readFormSettings(data, current) {
     const colorSource = (key2, fallback) => readOption(String(data.get(key2) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key2, fallback));
@@ -6152,12 +6211,12 @@ recommendedJiten	jiten.moe頻度データです。
   }
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
+    __jiten__: { helpKey: "sourceHelpJiten" },
     __anki__: { nameKey: "sourceNameAnki", helpKey: "sourceHelpAnki" },
     __study_translation__: { nameKey: "sourceNameTranslation", helpKey: "sourceHelpTranslation" },
     __study_grammar__: { nameKey: "sourceNameGrammar", helpKey: "sourceHelpGrammar" },
     __immersion_kit__: { nameKey: "sourceNameImmersionKit", helpKey: "sourceHelpImmersionKit" },
     __kanji_stroke__: { nameKey: "sourceNameStrokePractice", helpKey: "sourceHelpStrokePractice" },
-    __kanji_jpdb__: { nameKey: "readingsComponents", helpKey: "sourceHelpReadingsComponents" },
     __kanji_rtk__: { helpKey: "sourceHelpRtk" },
     __kanji_uchisen__: { helpKey: "sourceHelpUchisen" },
     __kanji_dictionaries__: { nameKey: "sourceNameImportedKanjiDictionaries", helpKey: "sourceHelpImportedKanjiDictionaries" },
@@ -6279,6 +6338,7 @@ recommendedJiten	jiten.moe頻度データです。
   const JITEN_TTS_VOICE_OPTIONS = [
     ["", "Random Jiten voice"],
     ["female", "Female"],
+    ["female2", "Female 2"],
     ["male", "Male"],
     ["male2", "Male 2"],
     ["asmr", "ASMR"]
@@ -6819,7 +6879,7 @@ recommendedJiten	jiten.moe頻度データです。
     return template.replace(/\{(\w+)\}/g, (_, key2) => values[key2] ?? "");
   }
   function jpdbStatusLineForSettings(settings, language) {
-    return jpdbStatusLineFromValues(Boolean(settings.apiKey.trim()), Boolean(settings.jitenApiKey.trim()), language);
+    return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
   }
   function jpdbStatusLineFromValues(hasJpdbApiKey, hasJitenApiKey, language) {
     if (!hasJpdbApiKey && !hasJitenApiKey) {
@@ -6900,7 +6960,7 @@ recommendedJiten	jiten.moe頻度データです。
     const status = form.querySelector("[data-jpdb-status]");
     if (!status) return;
     const credentials = readApiCredentialsFromFormData(new FormData(form));
-    const line = jpdbStatusLineFromValues(Boolean(credentials.apiKey.trim()), Boolean(credentials.jitenApiKey.trim()), language);
+    const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
   }
@@ -6921,21 +6981,21 @@ recommendedJiten	jiten.moe頻度データです。
   const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
   const KANJI_UCHISEN_SOURCE_ID = "__kanji_uchisen__";
   const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
-  const KANJI_SIMILAR_WORDS_SOURCE_ID = "__kanji_similar_words__";
   const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
   const KANJI_DICTIONARY_SOURCE_PREFIX = "__kanji_dictionary__:";
   function definitionSourceRows(settings) {
     const language = settings.interfaceLanguage;
+    const apiSource = activeApiDefinitionSource(settings);
     const builtInRows = [
       {
-        id: JPDB_DEFINITION_SOURCE_ID,
-        name: "JPDB",
-        alias: "JPDB",
+        id: apiSource.id,
+        name: apiSource.name,
+        alias: apiSource.name,
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
         prefix: "jpdbDefinitions",
         readonly: true,
-        help: uiText(language, "sourceHelpJpdb")
+        help: uiText(language, apiSource.helpKey)
       },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
@@ -6999,6 +7059,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
+    const apiSource = activeApiDefinitionSource(settings);
+    const readingsComponentsName = apiSource.name === "Jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter((preference) => preference.type === "kanji").map((preference) => ({
       id: kanjiDictionarySourceId(preference.name),
       name: preference.name,
@@ -7024,13 +7086,13 @@ recommendedJiten	jiten.moe頻度データです。
       },
       {
         id: KANJI_JPDB_SOURCE_ID,
-        name: uiText(language, "readingsComponents"),
-        alias: uiText(language, "readingsComponents"),
+        name: readingsComponentsName,
+        alias: readingsComponentsName,
         enabled: settings.jpdbKanjiEnabled,
         priority: settings.jpdbKanjiPriority,
         prefix: "jpdbKanji",
         readonly: true,
-        help: uiText(language, "sourceHelpReadingsComponents")
+        help: apiSource.name === "Jiten" ? uiText(language, "sourceHelpJitenKanjiFacts") : uiText(language, "sourceHelpReadingsComponents")
       },
       {
         id: KANJI_RTK_SOURCE_ID,
@@ -7074,16 +7136,6 @@ recommendedJiten	jiten.moe頻度データです。
       }],
       ...kanjiDictionaryRows,
       {
-        id: KANJI_SIMILAR_WORDS_SOURCE_ID,
-        name: uiText(language, "sourceNameWordsUsingKanji"),
-        alias: uiText(language, "sourceNameWordsUsingKanji"),
-        enabled: settings.similarKanjiWords,
-        priority: settings.similarKanjiWordsPriority,
-        prefix: "similarKanjiWords",
-        readonly: true,
-        help: uiText(language, "sourceHelpWordsUsingKanji")
-      },
-      {
         id: KANJI_ORIGINS_SOURCE_ID,
         name: uiText(language, "originStructure"),
         alias: uiText(language, "originStructure"),
@@ -7094,6 +7146,9 @@ recommendedJiten	jiten.moe頻度データです。
         help: uiText(language, "sourceHelpComponentGraph")
       }
     ].sort(compareSourceRows);
+  }
+  function activeApiDefinitionSource(settings) {
+    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { id: JITEN_DEFINITION_SOURCE_ID, name: "Jiten", helpKey: "sourceHelpJiten" } : { id: JPDB_DEFINITION_SOURCE_ID, name: "JPDB", helpKey: "sourceHelpJpdb" };
   }
   function kanjiDictionarySourceId(name) {
     return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;
@@ -7125,7 +7180,7 @@ recommendedJiten	jiten.moe頻度データです。
   ];
   const SETTINGS_TABS = [
     { panel: "api", label: "API", active: true },
-    { panel: "newTab", label: "New tab" },
+    { panel: "newTab", label: "Study" },
     { panel: "appearance", label: "Appearance" },
     { panel: "reading", label: "Reading" },
     { panel: "dictionaries", label: "Dictionaries" },
@@ -7256,7 +7311,7 @@ recommendedJiten	jiten.moe頻度データです。
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
-                    ${renderDeckControls(settings, [], Boolean(settings.apiKey.trim()), settings.interfaceLanguage)}
+                    ${renderDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox("jpdbMiningEnabled", "Allow API review/deck changes", settings.jpdbMiningEnabled)}
                 ${checkbox("addToForq", "Also copy JPDB adds to forq", settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
@@ -7265,13 +7320,12 @@ recommendedJiten	jiten.moe頻度データです。
                     ${select("twoButtonReviews", "Review rating scale", settings.twoButtonReviews ? "true" : "false", [["false", "Five point: NOTHING to EASY"], ["true", "Two point: FAIL / PASS"]])}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">JPDB page enhancements</div>
+                    <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
                     <div class="grid">
-                        ${checkbox("jpdbPageEnhancementsEnabled", "Enhance JPDB pages", settings.jpdbPageEnhancementsEnabled)}
-                        ${checkbox("jpdbPageWordEnhancementsEnabled", "Add sources to JPDB word/search pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
-                        ${checkbox("jpdbPageKanjiEnhancementsEnabled", "Add sources to JPDB kanji pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox("jpdbPageEnhancementsEnabled", "Enhance dictionary pages", settings.jpdbPageEnhancementsEnabled)}
+                        ${checkbox("jpdbPageWordEnhancementsEnabled", "Add sources to word/search pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox("jpdbPageKanjiEnhancementsEnabled", "Add sources to kanji pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>Uses your source order.</div>
                 </div>
             </fieldset>
     `;
@@ -7303,13 +7357,13 @@ recommendedJiten	jiten.moe頻度データです。
     const unavailable = settings.popupMode === "popover";
     return `
                     <div data-sticky-bottom-sheet-field ${unavailable ? "hidden" : ""}>
-                        ${checkbox("stickyBottomSheet", "Keep bottom sheet open until closed", settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
+                        ${checkbox("stickyBottomSheet", "Keep sheet open after lookup", settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
                     </div>`;
   }
   function renderNewTabSettingsPanel(settings) {
     return `
             <fieldset id="jpdb-reader-settings-panel-newtab" role="tabpanel" data-settings-panel="newTab" data-legend-key="newTab" hidden>
-                <legend>New tab</legend>
+                <legend>Study</legend>
                 ${renderNewTabSettingsSubsection(settings)}
             </fieldset>
     `;
@@ -7317,29 +7371,40 @@ recommendedJiten	jiten.moe頻度データです。
   function renderNewTabSettingsSubsection(settings) {
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">New tab</div>
+                    <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
-                        ${checkbox("newTabEnabled", "Use Yomu new tab study page", settings.newTabEnabled)}
-                        ${checkbox("newTabAnkiEnabled", "Use Anki cards on new tab", settings.newTabAnkiEnabled)}
+                        ${checkbox("newTabEnabled", "Use Yomu study page", settings.newTabEnabled)}
+                        ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select("newTabSource", "New tab review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
-                        ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, [["auto", "Auto: RTK, then JPDB, then local"], ["rtk", "RTK / Heisig"], ["jpdb", "JPDB"], ["local", "Local card meaning"]])}
-                        ${checkbox("newTabParsingEnabled", "Parse sentences on new tab", settings.newTabParsingEnabled)}
+                        ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
+                        ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
-                        ${checkbox("newTabOfflineEnabled", "Cache new tab for offline use", settings.newTabOfflineEnabled)}
+                        ${checkbox("newTabOfflineEnabled", "Cache Study for offline use", settings.newTabOfflineEnabled)}
                         ${input("newTabOfflineLimit", "Offline review cache limit", String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
-                        <label>New tab address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
+                        <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
+                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Set this as your browser's new-tab page, or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help">Set this as your browser's study page, or add it to your iPad Home Screen.</div>
                 </div>
     `;
+  }
+  function kanjiKeywordSourceOptions(settings, text) {
+    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const auto = text ? text("newTabKanjiKeywordAuto").replace("{service}", apiLabel) : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
+    const apiFacts = text ? text("newTabKanjiKeywordApiFacts").replace("{service}", apiLabel) : `${apiLabel} kanji facts (JPDB / Jiten)`;
+    return [
+      ["auto", auto],
+      ["rtk", text ? text("newTabKanjiKeywordRtk") : "RTK / Heisig"],
+      ["jpdb", apiFacts],
+      ["local", text ? text("newTabKanjiKeywordLocal") : "Local card meaning"]
+    ];
   }
   function renderNewTabAnkiDeckControls(settings) {
     const disabled = canonicalNewTabAnkiDisabledDecks(settings.newTabAnkiDisabledDecks);
@@ -7397,9 +7462,8 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Color channels</div>
                     <div class="grid">
-                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), COLOR_SOURCE_OPTIONS)).join("")}
+                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), colorSourceOptions(settings))).join("")}
                     </div>
-                    <div class="jpdb-reader-help" data-color-channels-help>Choose each color source.</div>
                 </div>
     `;
   }
@@ -7561,20 +7625,25 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderKanjiSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" aria-describedby="settings-help-kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
                 </div>
-                <div class="grid">
-                    ${checkbox("kanjiOriginKanjiMapEnabled", "Show kanji facts and component graph", settings.kanjiOriginKanjiMapEnabled)}
-                    ${checkbox("kanjiOriginGraphEnabled", "Show component graph", settings.kanjiOriginGraphEnabled)}
-                    ${checkbox("kanjiOriginRadicalImagesEnabled", "Show radical images", settings.kanjiOriginRadicalImagesEnabled)}
-                    ${input("similarKanjiWordLimit", "Similar word limit", String(settings.similarKanjiWordLimit), "number", { min: 2, max: 24, step: 1 })}
-                </div>
-                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click popup kanji for details.</div>
+                ${renderHiddenKanjiDetailSettings(settings)}
             </fieldset>
     `;
+  }
+  function renderHiddenKanjiDetailSettings(settings) {
+    return `
+                ${hiddenBooleanSetting("kanjiOriginKanjiMapEnabled", settings.kanjiOriginKanjiMapEnabled)}
+                ${hiddenBooleanSetting("kanjiOriginGraphEnabled", settings.kanjiOriginGraphEnabled)}
+                ${hiddenBooleanSetting("kanjiOriginRadicalImagesEnabled", settings.kanjiOriginRadicalImagesEnabled)}
+                <input type="hidden" name="similarKanjiWordLimit" value="${settings.similarKanjiWordLimit}">
+    `;
+  }
+  function hiddenBooleanSetting(name, enabled) {
+    return enabled ? `<input type="hidden" name="${name}" value="on">` : "";
   }
   function renderImageSettingsPanel(settings) {
     const localOcrHidden = settings.ocrProvider === "local-service" ? "" : "hidden";
@@ -7669,11 +7738,12 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function renderDictionariesSettingsPanel(settings) {
+    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
-                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
+                    ${checkbox("jpdbDefinitionsEnabled", `Show ${apiLabel} definitions`, settings.jpdbDefinitionsEnabled)}
                     ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
                     ${checkbox("dictionarySourcesInitiallyExpanded", "Open popup sources by default", settings.dictionarySourcesInitiallyExpanded)}
                     ${input("localDictionaryMaxResults", "Dictionary result limit", String(settings.localDictionaryMaxResults), "number")}
@@ -7846,16 +7916,14 @@ recommendedJiten	jiten.moe頻度データです。
     [/Word colors|単語の色/, "wordColors"],
     [/Pitch accent colors|ピッチアクセント/, "pitchAccentColors"],
     [/Color channels|色チャンネル/, "colorChannels"],
-    [/New tab|新規タブ/, "newTab"],
-    [/JPDB page enhancements|JPDBページ拡張/, "jpdbPageEnhancements"],
+    [/Study|学習|New tab|新規タブ/, "newTab"],
+    [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, "jpdbPageEnhancements"],
     [/Lookup pills|検索ピル/, "lookupPills"]
   ];
   const SELECTOR_TEXT_KEYS = [
     ["[data-hover-lookup-title]", "hoverLookupSettings"],
     ["[data-diagnostics-title]", "diagnostics"],
     ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
-    ["[data-color-channels-help]", "colorChannelsHelp"],
-    ["[data-jpdb-page-enhancements-help]", "jpdbPageEnhancementsHelp"],
     ["[data-jpdb-api-key-help]", "apiAccessHelp"],
     ["[data-subtitle-preview] .jpdb-subtitle-secondary", "subtitlePreview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
@@ -7945,8 +8013,21 @@ recommendedJiten	jiten.moe頻度データです。
       directFieldsetLegend(fieldset)?.replaceChildren(text(key2));
     });
   }
+  function apiCredentialSettingsFromForm(form) {
+    const combined = getNamedControl(form, "apiCredential")?.value ?? "";
+    if (combined.trim()) return { apiKey: combined, jitenApiKey: "" };
+    return {
+      apiKey: getNamedControl(form, "apiKey")?.value ?? "",
+      jitenApiKey: getNamedControl(form, "jitenApiKey")?.value ?? ""
+    };
+  }
+  function apiCredentialLabelFromForm(form) {
+    return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
+  }
   function localizeSettingsLabels(form, text) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key2]) => setControlLabel(form, name, text(key2)));
+    const apiLabel = apiCredentialLabelFromForm(form);
+    setControlLabel(form, "jpdbDefinitionsEnabled", text("jpdbDefinitionsEnabled").replace("JPDB", apiLabel));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text("jpdbSettings");
     const jitenSettings = form.querySelector('label a[href*="jiten.moe/settings"]');
@@ -8011,12 +8092,7 @@ recommendedJiten	jiten.moe頻度データです。
       ["live-review", text("newTabLiveReview")],
       ["api-vocabulary", text("newTabApiVocabulary")]
     ]);
-    setSelectOptionLabels(form, "newTabKanjiKeywordSource", [
-      ["auto", text("newTabKanjiKeywordAuto")],
-      ["rtk", text("newTabKanjiKeywordRtk")],
-      ["jpdb", "JPDB"],
-      ["local", text("newTabKanjiKeywordLocal")]
-    ]);
+    setSelectOptionLabels(form, "newTabKanjiKeywordSource", kanjiKeywordSourceOptions(apiCredentialSettingsFromForm(form), text));
     setSelectOptionLabels(form, "twoButtonReviews", [
       ["false", text("fivePoint")],
       ["true", text("twoPoint")]
@@ -8033,6 +8109,7 @@ recommendedJiten	jiten.moe頻度データです。
     ]);
   }
   function localizeColorSourceSelects(form, text) {
+    const apiLabel = apiCredentialLabelFromForm(form);
     [
       "wordHighlightColorSource",
       "wordUnderlineColorSource",
@@ -8041,8 +8118,8 @@ recommendedJiten	jiten.moe頻度データです。
       "subtitleUnderlineColorSource",
       "subtitleTextColorSource"
     ].forEach((name) => setSelectOptionLabels(form, name, [
-      ["status", text("colorSourceStatus")],
-      ["jpdb", text("colorSourceJpdb")],
+      ["status", text("colorSourceStatus").replace("JPDB", apiLabel)],
+      ["jpdb", text("colorSourceJpdb").replace("JPDB", apiLabel)],
       ["anki", text("colorSourceAnki")],
       ["pitch", text("colorSourcePitch")],
       ["off", text("off")]
@@ -8292,7 +8369,6 @@ recommendedJiten	jiten.moe頻度データです。
       ["Stroke practice", "sourceNameStrokePractice", "sourceHelpStrokePractice"],
       ["Readings and components", "readingsComponents", "sourceHelpReadingsComponents"],
       ["Imported kanji dictionaries", "sourceNameImportedKanjiDictionaries", "sourceHelpImportedKanjiDictionaries"],
-      ["Words using this kanji", "sourceNameWordsUsingKanji", "sourceHelpWordsUsingKanji"],
       ["Component graph", "originStructure", "sourceHelpComponentGraph"]
     ];
     rows.forEach(([sourceName, nameKey, helpKey]) => {
@@ -8300,7 +8376,7 @@ recommendedJiten	jiten.moe頻度データです。
         const display = row.querySelector(".jpdb-reader-field-display");
         if (display?.textContent === sourceName) display.replaceChildren(text(nameKey));
         const help = row.querySelector(".jpdb-reader-dictionary-row-help");
-        if (help && sourceRowHelpMatches(help.textContent ?? "", sourceName)) help.replaceChildren(text(helpKey));
+        if (help && !help.dataset.sourceHelpKey && sourceRowHelpMatches(help.textContent ?? "", sourceName)) help.replaceChildren(text(helpKey));
       });
     });
     replaceSourceHelp(form, /JPDB meanings shown/, text("sourceHelpJpdb"));
@@ -8333,7 +8409,7 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function sourceRowHelpMatches(value, sourceName) {
-    return value.includes(sourceName) || value.includes("Automatic") || value.includes("Stroke") || value.includes("Kanji entries") || value.includes("Related");
+    return value.includes(sourceName);
   }
   function localizeRecommendedDictionaryGroups(form, text) {
     const labels = [text("termDictionaries"), text("kanjiDictionaries"), text("frequencyDictionaries")];
@@ -8468,10 +8544,6 @@ recommendedJiten	jiten.moe頻度データです。
     "showFloatingButton",
     "furiganaMode",
     "showPitchAccent",
-    "kanjiOriginKanjiMapEnabled",
-    "kanjiOriginGraphEnabled",
-    "kanjiOriginRadicalImagesEnabled",
-    "similarKanjiWordLimit",
     "audioEnabled",
     "autoPlayAudio",
     "suppressAutoAudioOnVideo",
@@ -9763,7 +9835,7 @@ recommendedJiten	jiten.moe頻度データです。
       if (!container) return;
       this.syncJpdbStatus(form);
       const formSettings = readFormSettings(new FormData(form), this.settings);
-      const apiKey = formSettings.apiKey.trim();
+      const apiKey = effectiveJpdbApiKey(formSettings);
       if (!apiKey) {
         setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -9838,6 +9910,10 @@ recommendedJiten	jiten.moe頻度データです。
       if (typeof scanLibrary !== "function") return;
       const previous = this.settings;
       this.settings = readFormSettings(new FormData(form), this.settings);
+      if (!this.settings.ankiEnabled) {
+        this.settings = previous;
+        return;
+      }
       this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending");
       try {
         const scan = await scanLibrary.call(this.dependencies.anki);
@@ -9862,6 +9938,10 @@ recommendedJiten	jiten.moe頻度データです。
       if (typeof warmStatusIndex !== "function") return;
       const previous = this.settings;
       this.settings = readFormSettings(new FormData(form), this.settings);
+      if (!this.settings.ankiEnabled) {
+        this.settings = previous;
+        return;
+      }
       try {
         await warmStatusIndex.call(this.dependencies.anki);
         log.info("Auto Anki status index warmup ok");

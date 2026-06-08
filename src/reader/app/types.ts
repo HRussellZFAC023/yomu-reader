@@ -1,7 +1,10 @@
 export type CardState =
     | 'new'
     | 'learning'
+    | 'young'
+    | 'mature'
     | 'known'
+    | 'mastered'
     | 'due'
     | 'failed'
     | 'locked'
@@ -10,7 +13,9 @@ export type CardState =
     | 'suspended'
     | 'in-deck'
     | 'not-in-deck'
-    | 'redundant';
+    | 'redundant'
+    | 'frequent'
+    | 'unparsed';
 
 export type JPDBGrade = 'nothing' | 'something' | 'hard' | 'okay' | 'easy' | 'fail' | 'pass';
 

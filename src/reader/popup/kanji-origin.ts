@@ -36,8 +36,8 @@ function hasKanjiOriginContent(facts: KanjiFact[], graph: KanjiOriginGraph | nul
 
 function renderKanjiFactPills(facts: KanjiFact[], language: InterfaceLanguage, excludeFactLabels?: Iterable<string>): string {
     if (!facts.length) return '';
-    const excludedFacts = excludeFactLabels ? new Set(excludeFactLabels) : null;
-    const visibleFacts = excludedFacts ? facts.filter(fact => !excludedFacts.has(fact.label)) : facts;
+    const excludedFacts = excludeFactLabels ? normalizedFactLabelSet(excludeFactLabels, language) : null;
+    const visibleFacts = excludedFacts ? facts.filter(fact => !excludedFacts.has(normalizedFactLabel(fact.label, language))) : facts;
     if (!visibleFacts.length) return '';
     return `<div class="jpdb-reader-kanji-facts">
         ${visibleFacts.map(fact => {
@@ -46,6 +46,33 @@ function renderKanjiFactPills(facts: KanjiFact[], language: InterfaceLanguage, e
             return `<span title="${escapeHtml(title)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(fact.value)}</span></span>`;
         }).join('')}
     </div>`;
+}
+
+function normalizedFactLabelSet(labels: Iterable<string>, language: InterfaceLanguage): Set<string> {
+    return new Set(Array.from(labels, label => normalizedFactLabel(label, language)));
+}
+
+function normalizedFactLabel(label: string, language: InterfaceLanguage): string {
+    const normalized = label.trim().toLocaleLowerCase();
+    const knownLabels = new Map([
+        ['meaning', 'meaning'],
+        [uiText(language, 'factMeaning').toLocaleLowerCase(), 'meaning'],
+        ['type', 'type'],
+        [uiText(language, 'factType').toLocaleLowerCase(), 'type'],
+        ['frequency', 'frequency'],
+        [uiText(language, 'factFrequency').toLocaleLowerCase(), 'frequency'],
+        ['grade', 'grade'],
+        [uiText(language, 'factGrade').toLocaleLowerCase(), 'grade'],
+        ['strokes', 'strokes'],
+        [uiText(language, 'strokes').toLocaleLowerCase(), 'strokes'],
+        ['jlpt', 'jlpt'],
+        ['kanken', 'kanken'],
+        ['wk', 'wk'],
+        ['rtk', 'rtk'],
+        ['klc', 'klc'],
+        ['tmw', 'tmw'],
+    ]);
+    return knownLabels.get(normalized) ?? normalized;
 }
 
 function kanjiFactLabel(label: string, language: InterfaceLanguage): string {

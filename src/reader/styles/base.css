@@ -28,6 +28,8 @@
   --jpdb-reader-state-due: #5fb3b3;
   --jpdb-reader-state-failed: #ff6b6b;
   --jpdb-reader-state-ignored: #b8a7ff;
+  --jpdb-reader-state-frequent: #4b8d7f;
+  --jpdb-reader-state-unparsed: var(--jpdb-reader-faint);
   --jpdb-reader-state-new-bright: #5aa9ff;
   --jpdb-reader-state-hard: #ffb454;
   --jpdb-reader-state-new-readable: var(--jpdb-reader-state-new);
@@ -36,12 +38,16 @@
   --jpdb-reader-state-due-readable: var(--jpdb-reader-state-due);
   --jpdb-reader-state-failed-readable: var(--jpdb-reader-state-failed);
   --jpdb-reader-state-ignored-readable: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-state-frequent-readable: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-state-unparsed-readable: var(--jpdb-reader-state-unparsed);
   --jpdb-reader-state-new-soft: color-mix(in srgb, var(--jpdb-reader-state-new) 16%, transparent);
   --jpdb-reader-state-learning-soft: color-mix(in srgb, var(--jpdb-reader-state-learning) 16%, transparent);
   --jpdb-reader-state-known-soft: color-mix(in srgb, var(--jpdb-reader-state-known) 16%, transparent);
   --jpdb-reader-state-due-soft: color-mix(in srgb, var(--jpdb-reader-state-due) 16%, transparent);
   --jpdb-reader-state-failed-soft: color-mix(in srgb, var(--jpdb-reader-state-failed) 16%, transparent);
   --jpdb-reader-state-ignored-soft: color-mix(in srgb, var(--jpdb-reader-state-ignored) 16%, transparent);
+  --jpdb-reader-state-frequent-soft: color-mix(in srgb, var(--jpdb-reader-state-frequent) 16%, transparent);
+  --jpdb-reader-state-unparsed-soft: color-mix(in srgb, var(--jpdb-reader-state-unparsed) 16%, transparent);
   --jpdb-reader-pitch-heiban: #359eff;
   --jpdb-reader-pitch-atamadaka: #fe4b74;
   --jpdb-reader-pitch-nakadaka: #fba840;
@@ -113,7 +119,7 @@
   --jpdb-reader-accent: var(--jpdb-reader-theme-accent);
   --jpdb-reader-accent-readable: var(--jpdb-reader-theme-dark-accent-readable);
   --jpdb-reader-accent-text: var(--jpdb-reader-theme-accent-text);
-  --jpdb-reader-accent-soft: rgba(94,167,128,.18);
+  --jpdb-reader-accent-soft: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
   --jpdb-reader-danger: var(--jpdb-reader-theme-danger);
   --jpdb-reader-danger-readable: var(--jpdb-reader-theme-dark-danger-readable);
   --jpdb-reader-hover: rgba(255,255,255,.08);

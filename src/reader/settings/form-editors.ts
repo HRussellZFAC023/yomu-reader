@@ -17,6 +17,7 @@ const AUDIO_URL_PLACEHOLDER_KEYS: Record<string, SettingsTextKey> = {
 const JITEN_TTS_VOICE_OPTIONS: Array<[string, string]> = [
     ['', 'Random Jiten voice'],
     ['female', 'Female'],
+    ['female2', 'Female 2'],
     ['male', 'Male'],
     ['male2', 'Male 2'],
     ['asmr', 'ASMR'],

@@ -4,6 +4,7 @@ import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { getAudioCandidates } from '../../src/reader/audio/player';
 import { audioCandidateSelectionMode, getOrderedAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
+import { builtInProxyUrls, DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../../src/reader/network/proxy-fetch-rules';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
@@ -170,6 +171,15 @@ describe('audio module boundaries', () => {
         } finally {
             vi.unstubAllGlobals();
         }
+    });
+
+    it('routes Jiten sentence TTS through the public proxy when needed', () => {
+        const targetUrl = 'https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr';
+        const [proxyUrl] = builtInProxyUrls(targetUrl, { method: 'GET' });
+        const parsed = new URL(proxyUrl ?? '');
+
+        expect(parsed.origin).toBe(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+        expect(parsed.searchParams.get('url')).toBe(targetUrl);
     });
 
     it('uses a custom proxy for Jisho lookup when the userscript bridge is unavailable', async () => {

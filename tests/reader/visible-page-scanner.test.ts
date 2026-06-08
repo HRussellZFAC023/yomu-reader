@@ -272,6 +272,39 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('renders Jiten status classes and hides known-status furigana during visible page scans', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<main><p>読む</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            return paragraphs.map(text => [jitenRubyStateToken(text, '読む', 0, 2, 'young')]);
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                ankiEnabled: false,
+                furiganaMode: 'known-status',
+            }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(word.textContent).toBe('読む');
+            expect(word.classList.contains('jpdb-young')).toBe(true);
+            expect(word.classList.contains('jiten-young')).toBe(true);
+            expect(word.dataset.cardSource).toBe('jiten');
+            expect(word.dataset.cardState).toBe('young');
+            expect(word.querySelector('rt')).toBeNull();
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('passes changed roots to status enrichment so rendered words can update without a page refresh', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
@@ -287,7 +320,7 @@ describe('VisiblePageScanner', () => {
             });
         });
         const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, apiKey: '', localDictionariesEnabled: false }),
             parseJapanese,
             enrichAnkiWords,
         });
@@ -303,6 +336,36 @@ describe('VisiblePageScanner', () => {
             );
             expect(word.dataset.ankiState).toBe('due');
             expect(word.classList.contains('anki-due')).toBe(true);
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('skips Anki status enrichment for visible page scans when Anki mining is disabled', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            return paragraphs.map(text => [testToken(text, '日本語', 5, 8)]);
+        });
+        const enrichAnkiWords = vi.fn();
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                wordTextColorSource: 'anki',
+            }),
+            parseJapanese,
+            enrichAnkiWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('日本語');
+            expect(enrichAnkiWords).not.toHaveBeenCalled();
         } finally {
             restoreRects();
             document.body.innerHTML = '';
@@ -338,7 +401,7 @@ describe('VisiblePageScanner', () => {
             });
         });
         const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, furiganaMode: 'all' }),
             parseJapanese,
             prepareSubtitleTokensBeforeRender,
             enrichAnkiWords,
@@ -353,6 +416,38 @@ describe('VisiblePageScanner', () => {
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.querySelector('rt')?.textContent).toBe('にほんご');
             expect(word.dataset.ankiState).toBe('known');
+        } finally {
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('prepares asbplayer subtitle tokens without Anki enrichment when Anki mining is disabled', async () => {
+        document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>日本語を読む</span></div>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const prepareSubtitleTokensBeforeRender = vi.fn((tokens: JPDBToken[]) => {
+            tokens[0]!.rubies = [{ text: 'にほんご', start: 0, end: 3, length: 3 }];
+        });
+        const enrichAnkiWords = vi.fn();
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                furiganaMode: 'all',
+                subtitleTextColorSource: 'anki',
+            }),
+            parseJapanese,
+            prepareSubtitleTokensBeforeRender,
+            enrichAnkiWords,
+        });
+
+        try {
+            await scanner.scanAsbPlayerSubtitles();
+
+            const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word')!;
+            expect(prepareSubtitleTokensBeforeRender).toHaveBeenCalledTimes(1);
+            expect(word.dataset.expression).toBe('日本語');
+            expect(word.querySelector('rt')?.textContent).toBe('にほんご');
+            expect(enrichAnkiWords).not.toHaveBeenCalled();
         } finally {
             document.body.innerHTML = '';
         }
@@ -551,6 +646,26 @@ function stateToken(
             ...(options.jitenWordId !== undefined ? { jitenWordId: options.jitenWordId } : {}),
             ...(options.jitenReadingIndex !== undefined ? { jitenReadingIndex: options.jitenReadingIndex } : {}),
         },
+    };
+}
+
+function jitenRubyStateToken(sentence: string, spelling: string, start: number, end: number, state: CardState): JPDBToken {
+    const token = stateToken(sentence, spelling, start, end, state, {
+        vid: 42,
+        sid: 0,
+        source: 'jiten',
+        jitenWordId: 42,
+        jitenReadingIndex: 0,
+    });
+    return {
+        ...token,
+        card: {
+            ...token.card,
+            reading: 'よむ',
+            reviewSource: 'jiten-api',
+        },
+        rubies: [{ text: 'よむ', start, end, length: end - start }],
+        pitchClass: 'heiban',
     };
 }
 

@@ -63,8 +63,7 @@
     "screenshots:real": "node scripts/capture-real-screenshots.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
     "size:modules": "vite build --config config/vite/size.config.ts",
-    "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
-    "publish:greasyfork": "node scripts/open-greasyfork-prefill.cjs"
+    "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.2"

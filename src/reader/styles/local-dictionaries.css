@@ -900,9 +900,13 @@
 .jpdb-reader-review-target-panel {
   width: 100%;
   margin: 0;
+  justify-items: center;
+  overflow: hidden;
 }
 .jpdb-reader-actions .jpdb-reader-newtab-grade-target-select {
   width: min(360px, 100%);
+  max-width: 100%;
+  min-width: 0;
   min-height: 38px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
@@ -912,6 +916,7 @@
   font-size: 12px;
   font-weight: 760;
   line-height: 1;
+  text-overflow: ellipsis;
   padding: 0 28px 0 10px;
 }
 .jpdb-reader-anki-note-action-row {

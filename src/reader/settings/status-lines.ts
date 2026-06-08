@@ -1,7 +1,7 @@
 import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { resolveUiLanguage, uiText } from '../app/i18n';
-import { readApiCredentialsFromFormData } from './api-credential';
+import { hasJitenApiCredential, hasJpdbApiCredential, readApiCredentialsFromFormData } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
@@ -29,7 +29,7 @@ function formatStatusTemplate(template: string, values: Record<string, string>):
 }
 
 export function jpdbStatusLineForSettings(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, language: InterfaceLanguage): SettingsStatusLine {
-    return jpdbStatusLineFromValues(Boolean(settings.apiKey.trim()), Boolean(settings.jitenApiKey.trim()), language);
+    return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
 }
 
 function jpdbStatusLineFromValues(hasJpdbApiKey: boolean, hasJitenApiKey: boolean, language: InterfaceLanguage): SettingsStatusLine {
@@ -127,7 +127,7 @@ export function localizeJpdbStatus(form: HTMLFormElement, language: InterfaceLan
     const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
     if (!status) return;
     const credentials = readApiCredentialsFromFormData(new FormData(form));
-    const line = jpdbStatusLineFromValues(Boolean(credentials.apiKey.trim()), Boolean(credentials.jitenApiKey.trim()), language);
+    const line = jpdbStatusLineFromValues(hasJpdbApiCredential(credentials), hasJitenApiCredential(credentials), language);
     status.dataset.statusTone = line.tone;
     status.replaceChildren(line.message);
 }

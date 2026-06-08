@@ -110,7 +110,7 @@ export function renderSimilarKanjiWordsContent(
     return `
         <div class="jpdb-reader-similar-grid">
             ${words.map(entry => `
-                <button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml(entry.expression)}" title="${escapeHtml(entry.source)}${entry.meaning ? `: ${escapeHtml(entry.meaning)}` : ''}">
+                <button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml(entry.expression)}" data-reading="${escapeHtml(entry.reading)}" title="${escapeHtml(entry.source)}${entry.meaning ? `: ${escapeHtml(entry.meaning)}` : ''}">
                     <span class="jpdb-reader-similar-word-head">
                         <span>${escapeHtml(entry.expression)}</span>
                         ${entry.frequency ? `<em>#${entry.frequency}</em>` : ''}

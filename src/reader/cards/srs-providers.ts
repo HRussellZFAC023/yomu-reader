@@ -1,5 +1,6 @@
 import { normalizeCardStates } from './state';
 import { jpdbDeckLabel } from './deck-choice';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
@@ -63,7 +64,7 @@ export function apiSrsProviderViewForCard(
             id: 'jiten',
             label: 'Jiten',
             deckSource: 'jiten',
-            hasApiKey: Boolean(settings.jitenApiKey.trim()),
+            hasApiKey: hasJitenApiCredential(settings),
         };
     }
     if (!isJpdbBackedCard(card)) return null;
@@ -71,7 +72,7 @@ export function apiSrsProviderViewForCard(
         id: 'jpdb',
         label: 'JPDB',
         deckSource: 'jpdb',
-        hasApiKey: Boolean(settings.apiKey.trim()),
+        hasApiKey: hasJpdbApiCredential(settings),
     };
 }
 
@@ -98,7 +99,7 @@ function createJpdbSrsProviderAdapter(
         id: 'jpdb',
         label: 'JPDB',
         deckSource: 'jpdb',
-        hasApiKey: Boolean(settings.apiKey.trim()),
+        hasApiKey: hasJpdbApiCredential(settings),
         addApiKeyRequiredKey: 'jpdbAddApiKeyRequired',
         reviewApiKeyRequiredKey: 'addJpdbApiKeyReview',
         deckStateApiKeyRequiredKey: 'jpdbDeckStateApiKeyRequired',
@@ -133,7 +134,7 @@ function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSe
         id: 'jiten',
         label: 'Jiten',
         deckSource: 'jiten',
-        hasApiKey: Boolean(settings.jitenApiKey.trim()),
+        hasApiKey: hasJitenApiCredential(settings),
         addApiKeyRequiredKey: 'jitenAddApiKeyRequired',
         reviewApiKeyRequiredKey: 'addJitenApiKeyReview',
         deckStateApiKeyRequiredKey: 'jitenDeckStateApiKeyRequired',

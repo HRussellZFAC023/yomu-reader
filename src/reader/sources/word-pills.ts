@@ -64,6 +64,9 @@ function lookupLinkPillUrl(
     context: WordPillContext,
     link: ReaderSettings['dictionaryLookupLinks'][number],
 ): string {
+    if (link.id === 'jiten' && options.overrideQuery && isSingleKanji(options.overrideQuery)) {
+        return `https://jiten.moe/kanji/${encodeURIComponent(options.overrideQuery)}`;
+    }
     return link.id === 'jpdb' && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card))
         ? options.jpdbUrl
         : formatLookupUrl(link.urlTemplate, context);
@@ -100,4 +103,8 @@ function wordPillContext(card: JPDBCard, overrideQuery?: string): WordPillContex
         vid: String(Math.max(0, card.vid)),
         sid: String(Math.max(0, card.sid)),
     };
+}
+
+function isSingleKanji(value: string): boolean {
+    return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
 }

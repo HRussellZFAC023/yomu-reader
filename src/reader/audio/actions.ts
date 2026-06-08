@@ -57,10 +57,10 @@ export class ReaderAudioActions {
         if (!played && fallbackSentence) await this.playSentenceAudio(fallbackSentence);
     }
 
-    async playMediaUrl(audioUrl: string): Promise<void> {
-        if (!this.ensureAudioEnabled()) return;
+    async playMediaUrl(audioUrl: string): Promise<boolean> {
+        if (!this.ensureAudioEnabled()) return false;
         this.dependencies.stopImmersionAudio();
-        await this.dependencies.audio.playMediaUrl(audioUrl);
+        return await this.dependencies.audio.playMediaUrl(audioUrl);
     }
 
     private ensureAudioEnabled(): boolean {

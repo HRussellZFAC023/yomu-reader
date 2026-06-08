@@ -276,6 +276,31 @@ describe('reader theme', () => {
         expect(withoutKey.subtitleColorSources.underline).toBe('off');
         expect(withoutKey.subtitleColorSources.text).toBe('off');
 
+        const withJitenKey = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'jpdb',
+            wordTextColorSource: 'jpdb',
+            subtitleHighlightColorSource: 'jpdb',
+            subtitleUnderlineColorSource: 'jpdb',
+            subtitleTextColorSource: 'jpdb',
+        });
+
+        expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-underline-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-word-text-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-highlight-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-underline-jpdb')).toBe(true);
+        expect(root.classList.contains('jpdb-reader-subtitle-text-jpdb')).toBe(true);
+        expect(withJitenKey.wordColorSources.highlight).toBe('jpdb');
+        expect(withJitenKey.wordColorSources.underline).toBe('jpdb');
+        expect(withJitenKey.wordColorSources.text).toBe('jpdb');
+        expect(withJitenKey.subtitleColorSources.highlight).toBe('jpdb');
+        expect(withJitenKey.subtitleColorSources.underline).toBe('jpdb');
+        expect(withJitenKey.subtitleColorSources.text).toBe('jpdb');
+
         const withKey = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             apiKey: 'test-api-key',
@@ -354,6 +379,25 @@ describe('reader theme', () => {
         expect(jpdbOnly.subtitleColorSources.highlight).toBe('jpdb');
         expect(jpdbOnly.subtitleColorSources.underline).toBe('jpdb');
         expect(jpdbOnly.subtitleColorSources.text).toBe('jpdb');
+
+        const jitenOnly = applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            wordHighlightColorSource: 'status',
+            wordUnderlineColorSource: 'status',
+            wordTextColorSource: 'status',
+            subtitleHighlightColorSource: 'status',
+            subtitleUnderlineColorSource: 'status',
+            subtitleTextColorSource: 'status',
+        });
+
+        expect(jitenOnly.wordColorSources.highlight).toBe('jpdb');
+        expect(jitenOnly.wordColorSources.underline).toBe('jpdb');
+        expect(jitenOnly.wordColorSources.text).toBe('jpdb');
+        expect(jitenOnly.subtitleColorSources.highlight).toBe('jpdb');
+        expect(jitenOnly.subtitleColorSources.underline).toBe('jpdb');
+        expect(jitenOnly.subtitleColorSources.text).toBe('jpdb');
 
         const both = applyReaderTheme({
             ...DEFAULT_SETTINGS,

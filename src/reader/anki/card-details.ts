@@ -9,7 +9,7 @@ import {
 } from './types';
 import { flattenNoteFields } from './field-mapping';
 
-const ANKI_CARD_STATE_PRIORITY: CardState[] = ['failed', 'due', 'learning', 'new', 'known', 'suspended', 'in-deck', 'not-in-deck'];
+const ANKI_CARD_STATE_PRIORITY: CardState[] = ['failed', 'due', 'learning', 'known', 'new', 'suspended', 'in-deck', 'not-in-deck'];
 
 type AnkiCardStateInfo = Pick<AnkiCardInfo, 'queue' | 'type' | 'due' | 'isDue'>;
 type AnkiPrimaryCardInfo = AnkiCardStateInfo & Pick<AnkiCardInfo, 'cardId'>;

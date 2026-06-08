@@ -332,6 +332,7 @@
 }
 .jpdb-reader-subtitle-preview {
   min-height: 94px;
+  margin-top: 8px;
   padding: 18px 10px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 10px;
@@ -348,6 +349,19 @@
     0 1px 2px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),
     0 0 8px var(--jpdb-reader-video-shadow-heavy);
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-subtitle-preview {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent) 25%,
+      transparent 25% 50%,
+      color-mix(in srgb, var(--jpdb-reader-accent) 10%, transparent) 50% 75%,
+      transparent 75%
+    ) 0 0 / 28px 28px,
+    color-mix(in srgb, var(--jpdb-reader-surface-2) 62%, var(--jpdb-reader-bg));
+  color: color-mix(in srgb, var(--jpdb-reader-text) 84%, var(--subtitle-color));
 }
 .jpdb-reader-subtitle-preview .jpdb-subtitle-primary {
   display: inline;
@@ -366,19 +380,19 @@
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
 }
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-suspended {
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
 }
-.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-learning {
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-learning, .jpdb-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-learning-readable);
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
 }
-.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
+.jpdb-reader-subtitle-preview .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-known-readable);
   --jpdb-reader-status-color: var(--jpdb-reader-state-known);
@@ -389,6 +403,18 @@
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-due-readable);
   --jpdb-reader-status-color: var(--jpdb-reader-state-due);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-frequent {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-frequent-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-frequent-readable);
+}
+.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-unparsed {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-unparsed-readable);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-unparsed-readable);
 }
 .jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);

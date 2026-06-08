@@ -403,6 +403,12 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).not.toContain('color: var(--jpdb-reader-state-known, #7bd88f) !important;');
     });
 
+    it('keeps active OCR text readable on light themed image surfaces', () => {
+        const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-text); text-shadow: none;');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+    });
+
     it('normalizes late-added OCR furigana so it stays hidden until OCR hover or focus', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-reader-has-furi';
