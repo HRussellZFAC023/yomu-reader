@@ -5575,7 +5575,7 @@ recommendedJiten	jiten.moe頻度データです。
     return readYouTubeConfigStringFromScripts(key2);
   }
   function readYouTubeConfigStringFromScripts(key2) {
-    const escapedKey = escapeRegExp(key2);
+    const escapedKey = escapeRegExp$1(key2);
     const patterns = [
       new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
       new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
@@ -5583,11 +5583,11 @@ recommendedJiten	jiten.moe頻度データです。
     for (const script of Array.from(document.scripts)) {
       const text = script.textContent ?? "";
       const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
-      if (raw) return unescapeYouTubeConfigString(raw);
+      if (raw) return unescapeYouTubeConfigString$1(raw);
     }
     return "";
   }
-  function unescapeYouTubeConfigString(value) {
+  function unescapeYouTubeConfigString$1(value) {
     try {
       return JSON.parse(`"${value}"`);
     } catch {
@@ -5611,7 +5611,7 @@ recommendedJiten	jiten.moe頻度データです。
       params.has("kind") ? 1 : 0
     ].reduce((sum, item) => sum + item, 0);
   }
-  function escapeRegExp(value) {
+  function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   async function loadSubtitleTrackCues(track, options) {
@@ -9585,7 +9585,7 @@ recommendedJiten	jiten.moe頻度データです。
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
-  const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 5;
+  const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 6;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
   const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
   const YOUTUBE_NAVIGATION_EVENTS = [
@@ -9648,6 +9648,7 @@ recommendedJiten	jiten.moe頻度データです。
     channelIdCache = /* @__PURE__ */ new Map();
     pendingChannelPreviews = /* @__PURE__ */ new Set();
     cardTimers = /* @__PURE__ */ new WeakMap();
+    compactChannelRecommendations = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
     // fallow-ignore-next-line unused-class-member
     init() {
       this.destroy();
@@ -9731,6 +9732,7 @@ recommendedJiten	jiten.moe頻度データです。
         return;
       }
       unwrapYouTubeWatchTitleReaderWords();
+      this.restoreShortsWatchFeed();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
@@ -9776,6 +9778,10 @@ recommendedJiten	jiten.moe頻度データです。
           this.showCard(shelf);
         }
       }
+    }
+    restoreShortsWatchFeed() {
+      if (!isYouTubeShortsWatchPage()) return;
+      document.querySelectorAll(SHORTS_WATCH_ITEM_SELECTOR).forEach((item) => this.showCard(item));
     }
     hideCard(card) {
       const alreadyFiltered = card.classList.contains(YOUTUBE_FILTERED_CLASS);
@@ -10028,7 +10034,7 @@ recommendedJiten	jiten.moe頻度データです。
     }
     renderChannelShelf(elements) {
       const recommendations = this.currentChannelRecommendations();
-      const visibleRecommendations = this.channelShelfExpanded ? recommendations : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+      const visibleRecommendations = this.channelShelfExpanded ? recommendations : this.compactChannelRecommendations;
       const renderedRecommendations = visibleRecommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
       this.channelShelf?.classList.toggle("is-expanded", this.channelShelfExpanded);
       elements.title.textContent = "Start your Japanese YouTube feed";
@@ -10046,7 +10052,7 @@ recommendedJiten	jiten.moe頻度データです。
       void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
     }
     currentChannelRecommendations() {
-      return this.channelShelfExpanded ? filterYouTubeChannelRecommendations(this.channelShelfFilter) : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+      return this.channelShelfExpanded ? filterYouTubeChannelRecommendations(this.channelShelfFilter) : this.compactChannelRecommendations;
     }
     renderChannelFilters(filters) {
       filters.hidden = !this.channelShelfExpanded;
@@ -10183,7 +10189,7 @@ recommendedJiten	jiten.moe頻度データです。
       if (channel) void this.subscribeToChannels([channel]);
     }
     currentRenderedChannels() {
-      if (!this.channelShelfExpanded) return starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+      if (!this.channelShelfExpanded) return this.compactChannelRecommendations;
       return filterYouTubeChannelRecommendations(this.channelShelfFilter);
     }
     async hydrateChannelPreviews(channels) {
@@ -10417,7 +10423,7 @@ recommendedJiten	jiten.moe頻度データです。
     };
   }
   function readYouTubeConfigSource() {
-    return window.ytcfg;
+    return window.ytcfg ?? readYouTubeConfigSourceFromScripts();
   }
   function readYouTubeConfigString(ytcfg, key2) {
     return stringValue(readYouTubeConfigValue(ytcfg, key2));
@@ -10428,6 +10434,51 @@ recommendedJiten	jiten.moe頻度データです。
     } catch {
     }
     return ytcfg?.data_?.[key2];
+  }
+  function readYouTubeConfigSourceFromScripts() {
+    const data = {};
+    for (const key2 of ["INNERTUBE_API_KEY", "INNERTUBE_CLIENT_NAME", "INNERTUBE_CLIENT_VERSION", "VISITOR_DATA"]) {
+      const value = readYouTubeConfigScriptValue(key2);
+      if (value) data[key2] = value;
+    }
+    const context = readYouTubeConfigScriptObject("INNERTUBE_CONTEXT");
+    if (context) data.INNERTUBE_CONTEXT = context;
+    return Object.keys(data).length ? { data_: data } : void 0;
+  }
+  function readYouTubeConfigScriptValue(key2) {
+    const escapedKey = escapeRegExp(key2);
+    const patterns = [
+      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
+      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+    ];
+    for (const script of Array.from(document.scripts)) {
+      const text = script.textContent ?? "";
+      const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
+      if (raw) return unescapeYouTubeConfigString(raw);
+    }
+    return "";
+  }
+  function readYouTubeConfigScriptObject(key2) {
+    const escapedKey = escapeRegExp(key2);
+    const pattern = new RegExp(`"${escapedKey}"\\s*:\\s*(\\{.+?\\})\\s*,\\s*"`, "su");
+    for (const script of Array.from(document.scripts)) {
+      const text = script.textContent ?? "";
+      const raw = text.match(pattern)?.[1];
+      if (!raw) continue;
+      try {
+        return recordValue(JSON.parse(raw));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  function unescapeYouTubeConfigString(value) {
+    try {
+      return JSON.parse(`"${value}"`);
+    } catch {
+      return value;
+    }
   }
   function readYouTubeInnerTubeContext(ytcfg) {
     return recordValue(readYouTubeConfigValue(ytcfg, "INNERTUBE_CONTEXT")) ?? defaultYouTubeInnerTubeContext(ytcfg);
@@ -10570,6 +10621,21 @@ recommendedJiten	jiten.moe頻度データです。
   function recordValue(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function randomStarterYouTubeChannelRecommendations(limit) {
+    const channels = starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+    return shuffleYouTubeChannels(channels).slice(0, limit);
+  }
+  function shuffleYouTubeChannels(channels) {
+    const shuffled = [...channels];
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    return shuffled;
+  }
   function hiddenYouTubeFilterCandidate(card) {
     return {
       card,
@@ -10642,6 +10708,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function shouldIgnoreYouTubeCardElement(element) {
     if (!element.isConnected) return true;
+    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return true;
     return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
   }
   function hasYouTubeVideoLink(element) {

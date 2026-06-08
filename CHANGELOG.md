@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.37] - 2026-06-08
+
+### Fixed
+
+- Collapsed a word lookup stacked over the settings dialog back to settings when the settings panel is tapped, instead of trapping the lookup open (notably on iPad/touch).
+- Kept the settings dialog footer pinned to the bottom of the drawer after an iPad rotation that grows the viewport; the scroll area now fills the drawer so the Save/Factory-reset row no longer detaches in Safari/WebKit.
+- Stopped the YouTube immersion filter from hiding YouTube's virtualized active Shorts player, and added a script-tag fallback for reading the InnerTube client config when `ytcfg` is unavailable (Firefox userscript isolation).
+
+### Changed
+
+- Showed six stable-randomized starter channels in the compact YouTube channel shelf instead of the same first five.
+- Added a Google Search site-parser profile and excluded furigana ruby from hosted-reader surface text extraction.
+
 ## [0.6.36] - 2026-06-07
 
 ### Changed

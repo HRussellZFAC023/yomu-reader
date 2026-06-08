@@ -517,7 +517,7 @@
 .jpdb-reader-word rp {
   display: none;
 }
-.jpdb-reader-word rt.jpdb-reader-furi {
+.jpdb-reader-word rt {
   position: static;
   left: auto;
   bottom: auto;
@@ -529,6 +529,10 @@
   ruby-align: center;
   line-height: 1;
   text-align: center;
+}
+.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .jpdb-reader-hide-known
   .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target)

@@ -703,7 +703,7 @@
     color-mix(in srgb, var(--vp-c-brand-2) 42%, var(--vp-c-divider));
   border-radius: 8px;
   background: color-mix(in srgb, var(--vp-c-brand-2) 9%, var(--vp-c-bg-soft));
-  overflow: hidden;
+  overflow: visible;
 }
 
 .yomu-try-me strong {

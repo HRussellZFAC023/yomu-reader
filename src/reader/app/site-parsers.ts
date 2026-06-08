@@ -21,6 +21,7 @@ export interface SiteParserProfile {
     fallbackToWholePage?: boolean;
     visibleOnly?: boolean;
     mergeBlockFragments?: boolean;
+    plainScan?: boolean;
     scanLimit?: number;
     heading?: boolean;
     matches(url: URL): boolean;
@@ -254,6 +255,31 @@ const YOMU_VIDEO_PLAYER_PASSIVE_INTERACTION = [
     'summary',
     '[role="button"]',
 ].join(',');
+const GOOGLE_SEARCH_ROOTS = [
+    '#search',
+    '#rso',
+    '.MjjYud',
+    '.g',
+    '.VwiC3b',
+    '.LC20lb',
+    '[data-sokoban-container]',
+].join(',');
+const GOOGLE_SEARCH_EXCLUDE = [
+    COMMON_EXCLUDE,
+    'script',
+    'style',
+    'svg',
+    'canvas',
+    'g-img',
+    'img',
+    'form',
+    'input',
+    'textarea',
+    'select',
+    'button',
+    '[role="button"]',
+    '[aria-hidden="true"]',
+].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -283,6 +309,18 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         includeFormChrome: true,
         matches: url => isYomuHostedVideoPlayerPage(url.href),
+    },
+    {
+        id: 'google-search-parser',
+        name: 'Google Search',
+        description: 'Google result titles and snippets without inline ruby.',
+        roots: [GOOGLE_SEARCH_ROOTS],
+        exclude: GOOGLE_SEARCH_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        includeUiChrome: true,
+        plainScan: true,
+        matches: url => /(^|\.)google\./i.test(url.hostname) && url.pathname === '/search',
     },
     {
         id: JPDB_PARSER_ID,
@@ -772,9 +810,10 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         parserId: profile.id,
         passiveInteraction: true,
     };
+    const normalizedTarget = profile.plainScan ? plainScanTarget(profiledTarget) : profiledTarget;
     return shouldActivateJpdbPageTarget(profile, options)
         ? activeJpdbPageTarget(profiledTarget)
-        : profiledTarget;
+        : normalizedTarget;
 }
 
 function shouldActivateJpdbPageTarget(profile: SiteParserProfile, options: { passiveInteraction?: boolean }): boolean {
@@ -788,6 +827,17 @@ function activeJpdbPageTarget(target: FragmentTextTarget): FragmentTextTarget {
         fragments: target.fragments.map(fragment => ({
             ...fragment,
             passiveInteraction: false,
+        })),
+    };
+}
+
+function plainScanTarget(target: FragmentTextTarget): FragmentTextTarget {
+    return {
+        ...target,
+        layoutSensitive: true,
+        fragments: target.fragments.map(fragment => ({
+            ...fragment,
+            layoutSensitive: true,
         })),
     };
 }

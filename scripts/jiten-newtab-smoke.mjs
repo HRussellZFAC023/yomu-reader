@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, firefox } from 'playwright';
 import { createJitenStudyBatchCard } from './fixtures/jiten-fixtures.mjs';
 import {
     addGmStorageBridgeInitScript,
@@ -442,7 +442,8 @@ async function screenshot(page, filename) {
 async function main() {
     assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
     const fixture = await createNewTabFixtureServer();
-    const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+    const browserName = process.env.YOMU_SMOKE_BROWSER === 'firefox' ? 'firefox' : 'chromium';
+    const browser = await launchSmokeBrowser(browserName === 'firefox' ? firefox : chromium, browserName, { headless: true });
     try {
         const [jitenOnly, combined, liveJiten] = [
             await runJitenOnlySmoke(browser, fixture),

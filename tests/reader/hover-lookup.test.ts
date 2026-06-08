@@ -16,6 +16,7 @@ interface HoverLookupInternals {
     activePopover?: HTMLElement;
     activePopoverMode?: 'modal' | 'hover';
     activeHoverWord?: HTMLElement;
+    stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
         pointerId: number;
         startX: number;
@@ -343,6 +344,37 @@ describe('hover lookup', () => {
 
             expect(popover.isConnected).toBe(true);
             expect(internals.activePopover).toBe(popover);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('collapses a stacked lookup back to settings when the settings panel is tapped', () => {
+        const app = new ReaderApp();
+        const settingsForm = document.createElement('form');
+        settingsForm.className = 'jpdb-reader-settings';
+        settingsForm.dataset.jpdbReaderRoot = 'true';
+        const settingsBackdrop = document.createElement('div');
+        settingsBackdrop.className = 'jpdb-reader-backdrop';
+        settingsBackdrop.dataset.jpdbReaderRoot = 'true';
+        const lookup = document.createElement('div');
+        lookup.className = 'jpdb-reader-popover';
+        lookup.dataset.jpdbReaderRoot = 'true';
+        lookup.textContent = '辞書';
+        document.body.append(settingsBackdrop, settingsForm, lookup);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = lookup;
+        internals.activePopoverMode = 'modal';
+        internals.stackedSettingsDialog = { form: settingsForm, backdrop: settingsBackdrop };
+
+        try {
+            // Touch tap on the settings panel behind the stacked lookup.
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(settingsForm, 'touch', 'pointerdown'));
+
+            expect(lookup.isConnected).toBe(false);
+            expect(settingsForm.isConnected).toBe(true);
+            expect(internals.activePopover).toBe(settingsForm);
+            expect(internals.stackedSettingsDialog).toBeUndefined();
         } finally {
             cleanupReaderApp(app);
         }

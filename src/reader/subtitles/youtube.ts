@@ -84,7 +84,7 @@ const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
 const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
-const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 5;
+const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 6;
 const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
 const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
 const YOUTUBE_NAVIGATION_EVENTS = [
@@ -203,6 +203,7 @@ export class YoutubeImmersionFilter {
     private readonly channelIdCache = new Map<string, string | null>();
     private readonly pendingChannelPreviews = new Set<string>();
     private readonly cardTimers = new WeakMap<HTMLElement, number[]>();
+    private readonly compactChannelRecommendations = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
 
     constructor(private readonly options: {
         getSettings: () => ReaderSettings;
@@ -303,6 +304,7 @@ export class YoutubeImmersionFilter {
         }
 
         unwrapYouTubeWatchTitleReaderWords();
+        this.restoreShortsWatchFeed();
 
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
@@ -354,6 +356,11 @@ export class YoutubeImmersionFilter {
                 this.showCard(shelf);
             }
         }
+    }
+
+    private restoreShortsWatchFeed(): void {
+        if (!isYouTubeShortsWatchPage()) return;
+        document.querySelectorAll<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR).forEach(item => this.showCard(item));
     }
 
     private hideCard(card: HTMLElement): void {
@@ -658,7 +665,7 @@ export class YoutubeImmersionFilter {
         const recommendations = this.currentChannelRecommendations();
         const visibleRecommendations = this.channelShelfExpanded
             ? recommendations
-            : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+            : this.compactChannelRecommendations;
         const renderedRecommendations = visibleRecommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
 
         this.channelShelf?.classList.toggle('is-expanded', this.channelShelfExpanded);
@@ -683,7 +690,7 @@ export class YoutubeImmersionFilter {
     private currentChannelRecommendations(): YouTubeChannelRecommendation[] {
         return this.channelShelfExpanded
             ? filterYouTubeChannelRecommendations(this.channelShelfFilter)
-            : starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+            : this.compactChannelRecommendations;
     }
 
     private renderChannelFilters(filters: HTMLElement): void {
@@ -838,7 +845,7 @@ export class YoutubeImmersionFilter {
     }
 
     private currentRenderedChannels(): YouTubeChannelRecommendation[] {
-        if (!this.channelShelfExpanded) return starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+        if (!this.channelShelfExpanded) return this.compactChannelRecommendations;
         return filterYouTubeChannelRecommendations(this.channelShelfFilter);
     }
 
@@ -1116,7 +1123,7 @@ function readYouTubeClientConfig(): YouTubeClientConfig | null {
 }
 
 function readYouTubeConfigSource(): YouTubeConfigSource | undefined {
-    return (window as Window & { ytcfg?: YouTubeConfigSource }).ytcfg;
+    return (window as Window & { ytcfg?: YouTubeConfigSource }).ytcfg ?? readYouTubeConfigSourceFromScripts();
 }
 
 function readYouTubeConfigString(ytcfg: YouTubeConfigSource | undefined, key: string): string {
@@ -1130,6 +1137,55 @@ function readYouTubeConfigValue(ytcfg: YouTubeConfigSource | undefined, key: str
         // Fall through to ytcfg.data_.
     }
     return ytcfg?.data_?.[key];
+}
+
+function readYouTubeConfigSourceFromScripts(): YouTubeConfigSource | undefined {
+    const data: Record<string, unknown> = {};
+    for (const key of ['INNERTUBE_API_KEY', 'INNERTUBE_CLIENT_NAME', 'INNERTUBE_CLIENT_VERSION', 'VISITOR_DATA']) {
+        const value = readYouTubeConfigScriptValue(key);
+        if (value) data[key] = value;
+    }
+    const context = readYouTubeConfigScriptObject('INNERTUBE_CONTEXT');
+    if (context) data.INNERTUBE_CONTEXT = context;
+    return Object.keys(data).length ? { data_: data } : undefined;
+}
+
+function readYouTubeConfigScriptValue(key: string): string {
+    const escapedKey = escapeRegExp(key);
+    const patterns = [
+        new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
+        new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
+    ];
+    for (const script of Array.from(document.scripts)) {
+        const text = script.textContent ?? '';
+        const raw = patterns.map(pattern => text.match(pattern)?.[1]).find(Boolean);
+        if (raw) return unescapeYouTubeConfigString(raw);
+    }
+    return '';
+}
+
+function readYouTubeConfigScriptObject(key: string): Record<string, unknown> | null {
+    const escapedKey = escapeRegExp(key);
+    const pattern = new RegExp(`"${escapedKey}"\\s*:\\s*(\\{.+?\\})\\s*,\\s*"`, 'su');
+    for (const script of Array.from(document.scripts)) {
+        const text = script.textContent ?? '';
+        const raw = text.match(pattern)?.[1];
+        if (!raw) continue;
+        try {
+            return recordValue(JSON.parse(raw));
+        } catch {
+            return null;
+        }
+    }
+    return null;
+}
+
+function unescapeYouTubeConfigString(value: string): string {
+    try {
+        return JSON.parse(`"${value}"`) as string;
+    } catch {
+        return value;
+    }
 }
 
 function readYouTubeInnerTubeContext(ytcfg: YouTubeConfigSource | undefined): Record<string, unknown> {
@@ -1325,6 +1381,24 @@ function recordValue(value: unknown): Record<string, unknown> | null {
         : null;
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function randomStarterYouTubeChannelRecommendations(limit: number): YouTubeChannelRecommendation[] {
+    const channels = starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+    return shuffleYouTubeChannels(channels).slice(0, limit);
+}
+
+function shuffleYouTubeChannels(channels: YouTubeChannelRecommendation[]): YouTubeChannelRecommendation[] {
+    const shuffled = [...channels];
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex]!, shuffled[index]!];
+    }
+    return shuffled;
+}
+
 function hiddenYouTubeFilterCandidate(card: HTMLElement): YouTubeFilterCandidate {
     return {
         card,
@@ -1421,6 +1495,7 @@ function isNormalizableYouTubeVideoCard(element: HTMLElement): boolean {
 
 function shouldIgnoreYouTubeCardElement(element: HTMLElement): boolean {
     if (!element.isConnected) return true;
+    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return true;
     return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
 }
 
