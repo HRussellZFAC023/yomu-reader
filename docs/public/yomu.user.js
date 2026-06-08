@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-dP0gAVlmFuXGYw/zTjLrpRunAYpz1elhvnScBGYilUQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TY8LOdoP3L29hJsTXRFsRz+gomIxdm2tt776ZaDrqss=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nKHcojfTZTADpxkG0dhG/V2XTc2cNI/0u/odxWJ+WEw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -26958,13 +26958,6 @@ ${spelling}`);
       const response = await this.request("reader/parse", { text: paragraphs });
       return jitenParseResultToTokens(paragraphs, response);
     }
-    async lookupVocabularyStates(cards) {
-      if (!cards.length) return [];
-      const response = await this.request("reader/lookup-vocabulary", {
-        words: cards.map((card) => [card.wordId, card.readingIndex])
-      });
-      return normalizeJitenLookupVocabularyStates(response, cards.length);
-    }
     async lookupVocabularyInfo(card) {
       const reference = jitenCardReference(card);
       const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
@@ -27243,13 +27236,6 @@ ${spelling}`);
     5: "mastered",
     6: "redundant"
   };
-  function normalizeJitenLookupVocabularyStates(value, expectedLength) {
-    const result = isJsonRecord$1(value) && Array.isArray(value.result) ? value.result : [];
-    return Array.from({ length: expectedLength }, (_, index) => {
-      const states = jitenStateNumbers(result[index]).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
-      return states.length ? states : ["new"];
-    });
-  }
   function normalizeJitenVocabularyInfo(value) {
     if (!isJsonRecord$1(value)) return null;
     const wordId = finiteJitenInteger(value.wordId);

@@ -254,6 +254,7 @@ type TestJitenRenderedWordInternals = {
 };
 type TestHydratedPopupAnkiInternals = {
     activePopover: HTMLElement;
+    settings: typeof DEFAULT_SETTINGS;
     renderCompletedCardPopover: ReturnType<typeof vi.fn>;
     renderHydratedCardAnkiLookup(
         popover: HTMLElement,
@@ -2168,6 +2169,7 @@ function setupHydratedPopupAnkiLookup(app: ReaderApp, options: {
     };
     const internals = app as unknown as TestHydratedPopupAnkiInternals;
     internals.activePopover = popover;
+    internals.settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiSectionEnabled: true };
     internals.renderCompletedCardPopover = renderCompletedCardPopover;
     return { popover, renderCompletedCardPopover, data, renderData: { hydrateAnkiLookup: options.hydrateAnkiLookup }, internals };
 }
@@ -3215,7 +3217,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('display: ruby;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi {');
         expect(normalizedCss).toContain('display: ruby-text;');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jiten-young, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-due, .jiten-never-forget, .jiten-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
         expect(normalizedCss).toContain('text-decoration-line: inherit !important;');
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
@@ -3227,9 +3230,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word.anki-new { --jpdb-reader-anki-color: var(--jpdb-reader-state-new);');
         expect(normalizedCss).toContain('.jpdb-reader-word.anki-suspended { --jpdb-reader-anki-color: var(--jpdb-reader-state-ignored);');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .anki-new) { --jpdb-reader-status-color: var(--jpdb-reader-state-new);');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);');
         expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known);');
         expect(normalizedCss).toContain('--jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);');
         expect(normalizedCss).toContain('--jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);');
@@ -5505,8 +5508,11 @@ describe('reader helpers', () => {
         expect(lookupTermMeta).toHaveBeenCalledWith('計量', 12, DEFAULT_SETTINGS.dictionaryPreferences);
         expect(tokens[0].card.pitchAccent).toEqual(['LHHHH']);
         expect(tokens[0].pitchClass).toBe('heiban');
-        expect(renderTokensToHtml('計量する', tokens, DEFAULT_SETTINGS))
-            .toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban');
+        document.body.innerHTML = renderTokensToHtml('計量する', tokens, DEFAULT_SETTINGS);
+        const renderedWord = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(renderedWord.classList.contains('jpdb-not-in-deck')).toBe(true);
+        expect(renderedWord.classList.contains('local-not-in-deck')).toBe(true);
+        expect(renderedWord.classList.contains('jpdb-pitch-heiban')).toBe(true);
     });
 
     it('keeps local fallback parse cache entries separate when local pitch options differ', async () => {
@@ -5547,7 +5553,15 @@ describe('reader helpers', () => {
             expect(tokens.map(token => token.card.spelling)).toEqual(['きょう', 'は', 'よむ']);
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 4], [4, 6]]);
             const rendered = renderTokensToHtml('きょうはよむ', tokens, DEFAULT_SETTINGS);
-            expect(rendered).toContain('jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown');
+            document.body.innerHTML = rendered;
+            const renderedWords = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+            expect(renderedWords).toHaveLength(3);
+            expect(renderedWords.map(word => readerWordSurfaceText(word))).toEqual(['きょう', 'は', 'よむ']);
+            const contentWords = renderedWords.filter(word => !word.classList.contains('jpdb-reader-particle'));
+            expect(contentWords).toHaveLength(2);
+            expect(contentWords.every(word => word.classList.contains('jpdb-not-in-deck'))).toBe(true);
+            expect(contentWords.every(word => word.classList.contains('fallback-not-in-deck'))).toBe(true);
+            expect(contentWords.every(word => word.classList.contains('jpdb-pitch-unknown'))).toBe(true);
         });
     });
 
@@ -22891,7 +22905,8 @@ describe('reader helpers', () => {
                 jpdbTimeoutMs: 1_200,
                 requireJpdb: true,
             }));
-            expect(popover.querySelector<HTMLElement>('.jpdb-reader-word')?.textContent).toBe('日本語');
+            const word = popover.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(word ? readerWordSurfaceText(word) : '').toBe('日本語');
         } finally {
             popover.remove();
             app.destroy();
@@ -23894,7 +23909,7 @@ describe('reader helpers', () => {
         internals.activeLookupPopover = popover;
         internals.settings = {
             ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
+            ankiEnabled: true,
             ankiSectionEnabled: true,
             wordUnderlineColorSource: 'anki',
         };
@@ -24301,7 +24316,7 @@ describe('reader helpers', () => {
             ): void;
         };
         internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+        internals.settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, wordTextColorSource: 'anki' };
         internals.parsePopoverJapanese = parsePopoverJapanese;
 
         try {
@@ -24361,7 +24376,7 @@ describe('reader helpers', () => {
             ): void;
         };
         internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+        internals.settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, wordTextColorSource: 'anki' };
         internals.parsePopoverJapanese = parsePopoverJapanese;
 
         try {
@@ -24420,7 +24435,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             applyAnkiLookupToRenderedWords(card: JPDBCard, ankiLookup: AnkiLookupResult): void;
         };
-        internals.settings = { ...DEFAULT_SETTINGS, wordTextColorSource: 'anki' };
+        internals.settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, wordTextColorSource: 'anki' };
 
         try {
             internals.applyAnkiLookupToRenderedWords(lookupCard, {

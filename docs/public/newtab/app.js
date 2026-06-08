@@ -27920,13 +27920,6 @@ ${spelling}`);
       const response = await this.request("reader/parse", { text: paragraphs });
       return jitenParseResultToTokens(paragraphs, response);
     }
-    async lookupVocabularyStates(cards) {
-      if (!cards.length) return [];
-      const response = await this.request("reader/lookup-vocabulary", {
-        words: cards.map((card) => [card.wordId, card.readingIndex])
-      });
-      return normalizeJitenLookupVocabularyStates(response, cards.length);
-    }
     async lookupVocabularyInfo(card) {
       const reference = jitenCardReference(card);
       const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
@@ -28205,13 +28198,6 @@ ${spelling}`);
     5: "mastered",
     6: "redundant"
   };
-  function normalizeJitenLookupVocabularyStates(value, expectedLength) {
-    const result = isJsonRecord(value) && Array.isArray(value.result) ? value.result : [];
-    return Array.from({ length: expectedLength }, (_, index) => {
-      const states = jitenStateNumbers(result[index]).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
-      return states.length ? states : ["new"];
-    });
-  }
   function normalizeJitenVocabularyInfo(value) {
     if (!isJsonRecord(value)) return null;
     const wordId = finiteJitenInteger(value.wordId);
@@ -35724,9 +35710,6 @@ ${newTabCardReading(card)}`;
       if (!this.isCurrentLookupGradeCard(card)) return [];
       const current = this.visibleWords[this.index] ?? card;
       return this.lookupReviewTargetsForCard(current, data);
-    }
-    lookupGradeTargetLabel(card) {
-      return this.isCurrentLookupGradeCard(card) ? this.gradeTargetLabel(card) : "";
     }
     async gradeFromLookup(grade, target) {
       const submitted = await this.gradeCurrentCard(grade, target);
@@ -46223,7 +46206,6 @@ ${newTabCardReading(card)}`;
      * stranded `inert` (which silently swallows every click until reload).
      * Idempotent: a no-op once the background has been released.
      */
-    // fallow-ignore-next-line unused-class-member
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
       if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();

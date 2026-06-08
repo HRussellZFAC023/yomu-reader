@@ -20,7 +20,6 @@ export {
 
 export {
     appendToDocumentHead,
-    appendTrustedHtml,
     escapeHtml,
     htmlToFirstElement,
     parseHtmlDocument,

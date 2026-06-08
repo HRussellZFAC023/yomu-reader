@@ -88,10 +88,6 @@ export function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean
     return source.type === 'text-to-speech' || source.type === 'text-to-speech-reading';
 }
 
-export function isJpdbWordAudioSource(source: AudioSourceSetting): boolean {
-    return source.type === 'jpdb-tts';
-}
-
 export function isApiTextToSpeechSource(source: AudioSourceSetting): boolean {
     return source.type === 'jiten-tts' || source.type === 'jpdb-tts';
 }

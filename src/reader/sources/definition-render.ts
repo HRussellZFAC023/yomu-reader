@@ -3,10 +3,9 @@ import { uiText } from '../app/i18n';
 import { cardHighlightScopeAttributes, type CardHighlightTarget } from '../cards/highlight';
 import { KANJI_DICTIONARIES_SOURCE_ID } from './sections';
 import { bestFrequencyEntries, dictionaryPreferencePriority, hasRichStructuredGlossary, localTermTags, normalizeFrequencyChipValue, pillStyle } from '../dictionaries/display';
-import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
-import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import { formatMetaFrequency, groupTermEntriesByHeadword, summarizeLearnerGlossary, type LearnerTermGroup } from '../dictionaries/groups';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { glossaryToHtml, glossaryToText, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
-import type { JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
 
 export { renderJpdbDefinitionSource } from '../jpdb/jpdb-definition-source-render';
 
@@ -76,50 +75,6 @@ export function renderKanjiDefinitions(
                 </div>
             `).join('')}
         </details>
-    `;
-}
-
-export function renderSimilarKanjiWordsShell(
-    kanji: string,
-    language: InterfaceLanguage,
-    sourceStateKey: string,
-    sourceOpen: boolean,
-    sourceAttributes: SourceAttributes,
-    title = uiText(language, 'wordsUsingKanji').replace('{kanji}', kanji),
-): string {
-    const help = uiText(language, sourceOpen ? 'loadingSimilarWords' : 'openToLoadSimilarWords');
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words ${sourceAttributes(sourceStateKey)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            <div data-kanji-similar-mount>
-                <div class="jpdb-reader-help">${help}</div>
-            </div>
-        </details>
-    `;
-}
-
-export function renderSimilarKanjiWordsContent(
-    entries: YomitanTermEntry[],
-    jpdbVocabulary: JpdbKanjiVocabulary[],
-    currentCard: JPDBCard,
-    settings: ReaderSettings,
-    dictionaryLabel: DictionaryLabel,
-): string {
-    const words = mergeSimilarKanjiWords(entries, jpdbVocabulary, currentCard, dictionaryLabel).slice(0, settings.similarKanjiWordLimit);
-    if (!words.length) return '';
-    return `
-        <div class="jpdb-reader-similar-grid">
-            ${words.map(entry => `
-                <button class="jpdb-reader-similar-word" type="button" data-action="similar-word" data-expression="${escapeHtml(entry.expression)}" data-reading="${escapeHtml(entry.reading)}" title="${escapeHtml(entry.source)}${entry.meaning ? `: ${escapeHtml(entry.meaning)}` : ''}">
-                    <span class="jpdb-reader-similar-word-head">
-                        <span>${escapeHtml(entry.expression)}</span>
-                        ${entry.frequency ? `<em>#${entry.frequency}</em>` : ''}
-                    </span>
-                    ${entry.reading && entry.reading !== entry.expression ? `<small class="jpdb-reader-similar-reading">${escapeHtml(entry.reading)}</small>` : ''}
-                    ${entry.meaning ? `<small class="jpdb-reader-similar-meaning">${escapeHtml(entry.meaning)}</small>` : ''}
-                </button>
-            `).join('')}
-        </div>
     `;
 }
 

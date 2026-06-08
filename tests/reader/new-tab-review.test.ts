@@ -9685,7 +9685,6 @@ describe('new tab review helpers', () => {
             newTab: {
                 lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
                 lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
-                lookupGradeTargetLabel(card: JPDBCard): string;
                 destroy(): void;
             };
         };
@@ -9694,7 +9693,6 @@ describe('new tab review helpers', () => {
             internals.newTab = {
                 lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
                 lookupReviewTargets: () => [{ id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 }],
-                lookupGradeTargetLabel: () => 'Grades Anki card: Core #404',
                 destroy: vi.fn(),
             };
 
@@ -9739,7 +9737,6 @@ describe('new tab review helpers', () => {
             newTab: {
                 lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
                 lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
-                lookupGradeTargetLabel(card: JPDBCard): string;
                 gradeFromLookup: typeof gradeFromLookup;
                 destroy(): void;
             };
@@ -9749,7 +9746,6 @@ describe('new tab review helpers', () => {
             internals.newTab = {
                 lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
                 lookupReviewTargets: () => [{ id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 }],
-                lookupGradeTargetLabel: () => 'Grades Anki card: Core #404',
                 gradeFromLookup,
                 destroy: vi.fn(),
             };
@@ -9795,7 +9791,6 @@ describe('new tab review helpers', () => {
             newTab: {
                 lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
                 lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
-                lookupGradeTargetLabel(card: JPDBCard): string;
                 destroy(): void;
             };
         };
@@ -9808,7 +9803,6 @@ describe('new tab review helpers', () => {
                     { id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 },
                     { id: 'anki:405', kind: 'anki', label: 'Grades Anki card: Core #405', shortLabel: 'Core #405', ankiCardId: 405 },
                 ],
-                lookupGradeTargetLabel: () => 'Grades JPDB + Anki card: Core #404',
                 destroy: vi.fn(),
             };
 

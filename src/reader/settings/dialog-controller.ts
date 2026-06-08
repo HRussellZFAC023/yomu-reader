@@ -599,7 +599,6 @@ export class SettingsDialogController {
      * stranded `inert` (which silently swallows every click until reload).
      * Idempotent: a no-op once the background has been released.
      */
-    // fallow-ignore-next-line unused-class-member
     releaseModalBackground(): void {
         if (!this.currentForm?.isConnected) this.currentForm = undefined;
         if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
