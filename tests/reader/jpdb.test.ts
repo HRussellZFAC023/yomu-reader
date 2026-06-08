@@ -26365,7 +26365,7 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
     });
 
-    it('opens scanned JPDB words inside native links and leaves native controls alone', () => {
+    it('follows native links on click for scanned JPDB words and leaves native controls alone', () => {
         const visibleRect = {
             left: 0,
             right: 800,
@@ -26422,7 +26422,7 @@ describe('reader helpers', () => {
             showWord: typeof showWord;
             bindEvents(): void;
         };
-        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true, lookupOnHover: true, shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'shift' } };
         internals.showWord = showWord;
         internals.bindEvents();
 
@@ -26431,8 +26431,13 @@ describe('reader helpers', () => {
             expect(word.tabIndex).toBe(-1);
 
             const wordClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 24 });
-            expect(word.dispatchEvent(wordClick)).toBe(false);
-            expect(wordClick.defaultPrevented).toBe(true);
+            expect(word.dispatchEvent(wordClick)).toBe(true);
+            expect(wordClick.defaultPrevented).toBe(false);
+            expect(showWord).not.toHaveBeenCalled();
+
+            const modifierClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 24, shiftKey: true });
+            expect(word.dispatchEvent(modifierClick)).toBe(false);
+            expect(modifierClick.defaultPrevented).toBe(true);
             expect(showWord).toHaveBeenCalledWith(word, { trigger: 'click', userGesture: true });
 
             showWord.mockClear();
