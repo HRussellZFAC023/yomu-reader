@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SettingsDialogController } from '../../src/reader/settings/dialog-controller';
-import { SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
+import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -929,87 +929,6 @@ describe('settings dialog keyboard dismissal', () => {
         expect(status?.textContent).toContain('Connected');
         expect(status?.textContent).not.toContain('request bridge');
         expect(toast).not.toHaveBeenCalled();
-    });
-
-    it('shows hosted userscript setup guidance when the hosted page cannot see the bridge', async () => {
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-        });
-        const isConnected = vi.fn().mockRejectedValue(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
-        const toast = vi.fn();
-        const { form } = createSettingsDialog({
-            anki: { isConnected },
-            toast,
-        });
-
-        form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusAction === 'anki-hosted-bridge');
-
-        const status = form.querySelector<HTMLElement>('[data-anki-status]');
-        expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Enable the よむ userscript, refresh the page, then check again.');
-        expect(status?.textContent).toContain('Enable the installed');
-        expect(status?.textContent).toContain('userscript');
-        expect(status?.textContent).toContain('Refresh, then check again');
-        expect(status?.textContent).not.toContain('request bridge');
-        expect(status?.textContent).not.toContain('webCorsOriginList');
-        expect(toast).not.toHaveBeenCalled();
-        vi.unstubAllGlobals();
-    });
-
-    it('shows hosted userscript setup guidance when the hosted Anki probe returns disconnected', async () => {
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-        });
-        const isConnected = vi.fn().mockResolvedValue(false);
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: { isConnected },
-        });
-
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusAction === 'anki-hosted-bridge');
-
-        const status = form.querySelector<HTMLElement>('[data-anki-status]');
-        expect(status?.dataset.statusTone).toBe('pending');
-        expect(status?.querySelector<HTMLElement>('.jpdb-reader-status-main')?.textContent).toContain('Needs setup: Enable the よむ userscript, refresh the page, then check again.');
-        expect(status?.textContent).toContain('Enable the installed');
-        expect(status?.textContent).toContain('userscript');
-        expect(status?.textContent).toContain('Refresh, then check again');
-        expect(status?.textContent).not.toContain('Mobile');
-        expect(status?.textContent).not.toContain('webCorsOriginList');
-        vi.unstubAllGlobals();
-    });
-
-    it('rechecks hosted Anki status when the userscript bridge becomes ready after settings opens', async () => {
-        vi.stubGlobal('location', {
-            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-            origin: 'https://hrussellzfac023.github.io',
-            hostname: 'hrussellzfac023.github.io',
-        });
-        const isConnected = vi.fn()
-            .mockResolvedValueOnce(false)
-            .mockResolvedValue(true);
-        const warmStatusIndex = vi.fn().mockResolvedValue(null);
-        const { form } = createSettingsDialog({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
-            anki: { isConnected, warmStatusIndex },
-        });
-
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusAction === 'anki-hosted-bridge');
-        window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
-
-        await waitForCondition(() => isConnected.mock.calls.length === 2);
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
-
-        const status = form.querySelector<HTMLElement>('[data-anki-status]');
-        expect(status?.textContent).toContain('Connected. AnkiConnect is reachable.');
-        expect(status?.dataset.statusAction).toBeUndefined();
-        expect(warmStatusIndex).toHaveBeenCalledOnce();
-        vi.unstubAllGlobals();
     });
 
     it('preserves disabled Anki deck preferences while scanning Anki library metadata', async () => {

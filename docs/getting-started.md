@@ -115,10 +115,10 @@ Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when 
 
 - **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
 - **Images (OCR)** — tap Japanese text inside manga panels and screenshots. Settings → Images.
-- **Video subtitles** — make Japanese subtitle lines tappable, with a transcript panel. For local files, use the [video player](./video-player/index.html).
+- **Video subtitles** — make Japanese subtitle lines tappable, with a transcript panel. For local files, use the [video player](/video-player/index.html).
 - **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
-- **Study page** — open the [new-tab study app](./newtab/index.html) for daily review.
+- **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.
 
 ## What to read
 
@@ -169,7 +169,7 @@ For more, skim these community threads: [Tadoku graded readers](https://www.redd
 
 ## Using よむ on a phone or tablet
 
-Most of よむ works the same on mobile: lookup, local dictionaries, JPDB, OCR, subtitle taps, the [video player](./video-player/index.html), and the [study page](./newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
+Most of よむ works the same on mobile: lookup, local dictionaries, JPDB, OCR, subtitle taps, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
 
 The one thing that's different is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public JPDB lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
 

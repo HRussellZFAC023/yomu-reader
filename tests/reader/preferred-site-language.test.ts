@@ -82,6 +82,29 @@ describe('preferred Japanese site language', () => {
         expect(document.cookie).not.toContain('gl=JP');
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
     });
+
+    it('injects page-realm shims instead of patching a separate unsafeWindow directly', () => {
+        const unsafeFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('ok'));
+        const unsafeWindow = {
+            fetch: unsafeFetch,
+            navigator: {},
+            Headers,
+            Request,
+        };
+        const appendedScripts: string[] = [];
+        const appendSpy = vi.spyOn(document.head, 'append').mockImplementation((...nodes: Array<Node | string>) => {
+            for (const node of nodes) {
+                if (node instanceof HTMLScriptElement) appendedScripts.push(node.textContent ?? '');
+            }
+        });
+        vi.stubGlobal('unsafeWindow', unsafeWindow);
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(unsafeWindow.fetch).toBe(unsafeFetch);
+        expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
+        appendSpy.mockRestore();
+    });
 });
 
 function settleAsyncHandlers(): Promise<void> {

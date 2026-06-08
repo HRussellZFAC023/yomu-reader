@@ -951,7 +951,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   align-items: baseline;
   min-width: 0;
   color: inherit !important;
-  text-decoration: none;
+  text-decoration: none !important;
 }
 .jpdb-reader-jpdb-compound:hover,
 .jpdb-reader-jpdb-compound:focus-visible,

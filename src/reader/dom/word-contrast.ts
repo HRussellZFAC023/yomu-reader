@@ -44,45 +44,111 @@ interface WordBackground extends PageBackground {
 }
 
 export function refreshReaderWordContrast(root: ParentNode = document): void {
-    readerWords(root).forEach(refreshReaderWordContrastForWord);
+    const words = readerWords(root);
+    const activeWords: HTMLElement[] = [];
+    const activeBackgrounds: PageBackground[] = [];
+    const unknownBackgroundWords: HTMLElement[] = [];
+    const neutralWords: HTMLElement[] = [];
+
+    for (const word of words) {
+        if (word.closest(YOMU_SURFACE_SELECTOR)) {
+            neutralWords.push(word);
+            continue;
+        }
+        if (isNeutralReaderWord(word)) {
+            neutralWords.push(word);
+            continue;
+        }
+        if (word.dataset.ankiState && word.style.getPropertyValue('--jpdb-reader-word-accessible-color')) continue;
+        if (word.matches(':hover, :focus')) {
+            scheduleHoverSettledContrastRefresh(word);
+        }
+        const background = pageBackgroundFor(word);
+        if (!background) {
+            unknownBackgroundWords.push(word);
+            continue;
+        }
+        activeWords.push(word);
+        activeBackgrounds.push(background);
+    }
+
+    const savedVars = activeWords.map(word => {
+        const saved = RENDERED_WORD_CONTRAST_VARS.map(name => ({
+            name,
+            value: word.style.getPropertyValue(name),
+            priority: word.style.getPropertyPriority(name),
+        }));
+        RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+        return saved;
+    });
+
+    const measurements = activeWords.map((word) => {
+        const style = getComputedStyle(word);
+        const parentStyle = getComputedStyle(word.parentElement ?? word);
+        const furi = word.querySelector<HTMLElement>('rt.jpdb-reader-furi');
+        const furiStyle = furi ? getComputedStyle(furi) : null;
+
+        return {
+            bgColor: style.backgroundColor,
+            color: style.color,
+            decoration: style.textDecorationColor,
+            parentColor: parentStyle.color,
+            furiColor: furiStyle?.color,
+        };
+    });
+
+    neutralWords.forEach(word => clearContrastVars(word));
+    unknownBackgroundWords.forEach(word => applyUnknownBackgroundFallback(word));
+
+    activeWords.forEach((word, i) => {
+        savedVars[i].forEach(({ name, value, priority }) => {
+            if (value) word.style.setProperty(name, value, priority);
+        });
+
+        const background = activeBackgrounds[i];
+        const m = measurements[i];
+
+        word.style.setProperty('--jpdb-reader-page-bg', background.css);
+        word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
+        word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
+
+        const colorRgba = cssColorToRgba(m.bgColor);
+        const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
+        const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+        const paintBackgroundHex = rgbaToHex(rgba);
+
+        let accessibleHighlightColor: string | null = null;
+        if (hasPaint) {
+            accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
+            word.style.setProperty('--jpdb-reader-word-accessible-highlight', accessibleHighlightColor);
+        } else {
+            word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
+        }
+
+        const accessibleRgba = accessibleHighlightColor ? (cssColorToRgba(accessibleHighlightColor) ?? rgba) : rgba;
+        const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
+
+        const sourceText = cssColorToHex(m.color, accessibleRgba);
+        const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+        
+        const decorationColorRgba = cssColorToRgba(m.decoration);
+        const decoration = (decorationColorRgba && decorationColorRgba.alpha > 0)
+            ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba)
+            : null;
+
+        const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+
+        word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
+        word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
+        if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+        else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
+        if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+        else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+    });
 }
 
 export function refreshReaderWordContrastForWord(word: HTMLElement): void {
-    if (word.closest(YOMU_SURFACE_SELECTOR)) {
-        clearContrastVars(word);
-        return;
-    }
-    if (isNeutralReaderWord(word)) {
-        clearContrastVars(word);
-        return;
-    }
-    if (word.matches(':hover, :focus')) {
-        scheduleHoverSettledContrastRefresh(word);
-        if (word.dataset.ankiState && hoverAnkiContrastIsStillReadable(word)) return;
-    }
-    const background = pageBackgroundFor(word);
-    if (!background) {
-        applyUnknownBackgroundFallback(word);
-        return;
-    }
-
-    word.style.setProperty('--jpdb-reader-page-bg', background.css);
-    word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
-    word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
-
-    const sourcePaintBackground = renderedWordBackground(word, background);
-    const paintBackground = accessibleWordBackground(word, sourcePaintBackground, background);
-    const sourceText = measuredWordTextColor(word, paintBackground.rgba);
-    const nativeText = cssColorToHex(parentTextColor(word), paintBackground.rgba) ?? bestTextColor(paintBackground.hex);
-    const decoration = measuredDecorationColor(word, paintBackground.rgba);
-    const furiText = measuredFuriTextColor(word, paintBackground.rgba);
-
-    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, paintBackground.hex, TEXT_CONTRAST));
-    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, paintBackground.hex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, paintBackground.hex, TEXT_CONTRAST));
-    else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
-    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, paintBackground.hex, DECORATION_CONTRAST));
-    else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+    refreshReaderWordContrast(word.parentElement ?? word);
 }
 
 function isNeutralReaderWord(word: HTMLElement): boolean {
@@ -145,40 +211,6 @@ function renderedWordBackground(word: HTMLElement, pageBackground: PageBackgroun
         const hex = rgbaToHex(rgba);
         return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba, hasPaint };
     });
-}
-
-function accessibleWordBackground(word: HTMLElement, paintBackground: WordBackground, pageBackground: PageBackground): PageBackground {
-    if (!paintBackground.hasPaint) {
-        word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
-        return paintBackground;
-    }
-
-    const color = readableHighlightBackground(paintBackground.hex, pageBackground.hex);
-    word.style.setProperty('--jpdb-reader-word-accessible-highlight', color);
-    const rgba = cssColorToRgba(color) ?? paintBackground.rgba;
-    return { css: color, hex: rgbaToHex(rgba), rgba };
-}
-
-function measuredWordTextColor(word: HTMLElement, backdrop: RgbaColor): string | null {
-    return withContrastVarsDisabled(word, () => cssColorToHex(getComputedStyle(word).color, backdrop));
-}
-
-function measuredDecorationColor(word: HTMLElement, backdrop: RgbaColor): string | null {
-    return withContrastVarsDisabled(word, () => {
-        const color = cssColorToRgba(getComputedStyle(word).textDecorationColor);
-        if (!color || color.alpha <= 0) return null;
-        return rgbaToHex(color.alpha < 1 ? blendRgba(color, backdrop) : color);
-    });
-}
-
-function measuredFuriTextColor(word: HTMLElement, backdrop: RgbaColor): string | null {
-    const furi = word.querySelector<HTMLElement>('rt.jpdb-reader-furi');
-    if (!furi) return null;
-    return withContrastVarsDisabled(word, () => cssColorToHex(getComputedStyle(furi).color, backdrop));
-}
-
-function parentTextColor(word: HTMLElement): string {
-    return getComputedStyle(word.parentElement ?? word).color;
 }
 
 function bestTextColor(background: string): string {

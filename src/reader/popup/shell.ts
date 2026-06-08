@@ -102,6 +102,7 @@ function createHandleDragController<THandle extends HTMLElement>(options: Handle
     let moved = false;
     let activeInput: DragInput | null = null;
     let activeHandle: THandle | null = null;
+    let activeCaptureTarget: Element | null = null;
 
     const movementDistance = options.movementDistance ?? (dragState => Math.hypot(dragState.deltaX, dragState.deltaY));
     const setLastPoint = (point: { x: number; y: number }): void => {
@@ -140,12 +141,14 @@ function createHandleDragController<THandle extends HTMLElement>(options: Handle
         if (!dragging) return;
         const wasMoved = moved;
         const handle = activeHandle;
+        const captureTarget = activeCaptureTarget;
         dragging = false;
         moved = false;
         activeInput = null;
         activeHandle = null;
+        activeCaptureTarget = null;
         cleanupListeners();
-        releasePointerCapture(handle, pointerId);
+        releasePointerCapture(captureTarget, pointerId);
         options.onFinish(state, wasMoved, handle);
     };
 
@@ -161,12 +164,14 @@ function createHandleDragController<THandle extends HTMLElement>(options: Handle
     function cancel(): void {
         if (!dragging) return;
         const handle = activeHandle;
+        const captureTarget = activeCaptureTarget;
         dragging = false;
         moved = false;
         activeInput = null;
         activeHandle = null;
+        activeCaptureTarget = null;
         cleanupListeners();
-        releasePointerCapture(handle, pointerId);
+        releasePointerCapture(captureTarget, pointerId);
         options.onCancel?.(state, handle);
     }
     function handlePointerMove(event: PointerEvent): void {
@@ -214,7 +219,8 @@ function createHandleDragController<THandle extends HTMLElement>(options: Handle
             consumeDragEvent(event);
             if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, 'pointer')) return;
             pointerId = event.pointerId;
-            setPointerCapture(handle, event.pointerId);
+            activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+            setPointerCapture(activeCaptureTarget, event.pointerId);
             document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
             document.addEventListener('pointerup', handlePointerUp, true);
             document.addEventListener('pointercancel', handlePointerCancel, true);
@@ -275,7 +281,7 @@ function firstChangedTouch(event: TouchEvent): Touch | null {
     return event.changedTouches.item(0);
 }
 
-function releasePointerCapture(handle: HTMLElement | null, id: number): void {
+function releasePointerCapture(handle: Element | null, id: number): void {
     try {
         handle?.releasePointerCapture?.(id);
     } catch {
@@ -283,7 +289,7 @@ function releasePointerCapture(handle: HTMLElement | null, id: number): void {
     }
 }
 
-function setPointerCapture(handle: HTMLElement, id: number): void {
+function setPointerCapture(handle: Element, id: number): void {
     try {
         handle.setPointerCapture?.(id);
     } catch {

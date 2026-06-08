@@ -75,7 +75,7 @@ Use this for manga panels, screenshots, and image-heavy pages where normal text 
 
 The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
 
-For local files, open the [Yomu video player](./video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
+For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable.
 
@@ -108,7 +108,7 @@ Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/205
 
 On a phone or tablet, the full Anki setup still uses desktop AnkiConnect. Keep Anki open on your computer, connect the phone to that computer over trusted Wi-Fi or [Tailscale](https://tailscale.com/downloads), then put the computer's AnkiConnect URL into よむ. The phone does the reading; the computer does the Anki work.
 
-For a step-by-step phone, iPad, or Android setup, use [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android).
+For a step-by-step phone, iPad, or Android setup, use [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid when AnkiConnect is not available, but that path creates new-note drafts only. Existing-card status, note updates, automatic deck scans, media writes, full field mappings, and review queues still need desktop AnkiConnect.
 
@@ -118,13 +118,13 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 ## New Tab Study Page
 
-よむ includes an optional [new-tab page](./newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+よむ includes an optional [new-tab page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
-On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
+On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` address, mobile devices cannot reach it because `127.0.0.1` means "this device." If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android).
+On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` address, mobile devices cannot reach it because `127.0.0.1` means "this device." If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
-The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](./getting-started.md#if-something-does-not-work) cover the heavier reset path.
+The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real JPDB study card.">

@@ -19482,17 +19482,19 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not fetch AnkiConnect directly from content pages without the userscript bridge', async () => {
+    it('fetches AnkiConnect directly from content pages without requiring the userscript bridge', async () => {
         vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('GM_xmlhttpRequest', undefined);
         vi.stubGlobal('GM', {});
-        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ result: 6, error: null })))));
 
         try {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
 
-            await expect(client.isConnected()).resolves.toBe(false);
-            expect(fetch).not.toHaveBeenCalled();
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:8765', expect.objectContaining({
+                method: 'POST',
+            }));
         } finally {
             vi.unstubAllGlobals();
         }

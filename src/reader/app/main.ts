@@ -244,7 +244,7 @@ import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
-import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../dom/word-contrast';
+import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeStandaloneImagePage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
@@ -3135,7 +3135,14 @@ export class ReaderApp {
         card: JPDBCard,
         context: RenderedWordDisplayContext,
     ): boolean {
-        return Boolean(publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup())?.terms.length);
+        const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
+        if (!lookup?.terms.length) return false;
+        const surface = renderedWordLookupText(word);
+        const spelling = normalizedLookupText(card.spelling);
+        const reading = normalizedLookupText(card.reading);
+        const isRenderedKanaFragment = KANA_ONLY_LOOKUP_RUN_RE.test(surface)
+            && surface.length < Math.max(spelling.length, reading.length, lookup.terms[0]?.length ?? 0);
+        return isRenderedKanaFragment;
     }
 
     private async resolvePublicJpdbRenderedWordCandidate(terms: string[]): Promise<JPDBCard | undefined> {
@@ -3220,7 +3227,7 @@ export class ReaderApp {
             .map(span => span.term);
         if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
         const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
-        if (!resolved) return true;
+        if (!resolved) return false;
         await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
         return true;
     }
@@ -5152,6 +5159,7 @@ export class ReaderApp {
                 this.renderedWordsForLookupKey(key, targetRoots)
                     .forEach(word => applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options));
             });
+            targetRoots.forEach(root => refreshReaderWordContrast(root));
         });
     }
 
@@ -5249,32 +5257,40 @@ export class ReaderApp {
         if (!pitchClass) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
             document.querySelectorAll<HTMLElement>(selector).forEach(word => {
                 setRenderedWordPitchClass(word, pitchClass);
-                refreshReaderWordContrastForWord(word);
+                changedRoots.add(word.parentElement ?? word);
             });
+            changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
     }
 
     private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown'): void {
         const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
         this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
             document.querySelectorAll<HTMLElement>(selector).forEach(word => {
                 this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                changedRoots.add(word.parentElement ?? word);
             });
+            changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
     }
 
     private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
         if (!this.resolvedFallbackVocabularyCache.size) return;
         this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
             root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
                 const key = renderedFallbackVocabularyCacheKey(word);
                 const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
                 if (!card) return;
                 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
                 this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                changedRoots.add(word.parentElement ?? word);
             });
+            changedRoots.forEach(r => refreshReaderWordContrast(r));
         });
     }
 
@@ -5295,7 +5311,6 @@ export class ReaderApp {
         setRenderedWordCardIdentity(word, card);
         this.registerRenderedWord(word);
         applyPublicVocabularyFurigana(word, card, this.settings);
-        refreshReaderWordContrastForWord(word);
     }
 
     private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {

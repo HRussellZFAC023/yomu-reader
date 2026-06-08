@@ -1162,7 +1162,7 @@ describe('settings form localization', () => {
         expect(GETTING_STARTED_DOCS).toContain('replace every `100.x.y.z`');
         expect(GETTING_STARTED_DOCS).toContain('allowed-origins list');
         expect(GETTING_STARTED_DOCS).not.toContain('"webCorsOriginList"');
-        expect(FEATURES_DOCS).toContain('[Getting Started](./getting-started.md#use-desktop-anki-from-a-phone-ipad-or-android)');
+        expect(FEATURES_DOCS).toContain('[Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android)');
         expect(FEATURES_DOCS).not.toContain('webCorsOriginList');
     });
 

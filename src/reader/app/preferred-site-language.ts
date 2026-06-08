@@ -71,7 +71,7 @@ function writeCachedPreferenceEnabled(enabled: boolean): void {
 }
 
 function applyPageContextJapanesePreferences(enabled: boolean): void {
-    const pageWindow = (globalThis as { unsafeWindow?: Window }).unsafeWindow;
+    const pageWindow = sameRealmUnsafeWindow();
     if (pageWindow) {
         try {
             applyJapanesePreferencesInPage(pageWindow as unknown as typeof globalThis, enabled);
@@ -81,6 +81,11 @@ function applyPageContextJapanesePreferences(enabled: boolean): void {
         }
     }
     injectPagePreferenceScript(enabled);
+}
+
+function sameRealmUnsafeWindow(): Window | undefined {
+    const pageWindow = (globalThis as { unsafeWindow?: Window }).unsafeWindow;
+    return pageWindow && pageWindow === window ? pageWindow : undefined;
 }
 
 function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {

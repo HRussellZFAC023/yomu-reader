@@ -237,6 +237,19 @@
   overflow-wrap: normal;
   word-break: keep-all;
 }
+.jpdb-reader-settings .grid:has(.jpdb-reader-select-options-meta) {
+  row-gap: 36px;
+}
+.jpdb-reader-settings label:not(.inline):has(> .jpdb-reader-select-options-meta) {
+  position: relative;
+}
+.jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 4px;
+}
 .jpdb-reader-font-family-control {
   display: grid;
   gap: 8px;
@@ -386,6 +399,10 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+.jpdb-reader-settings input.jpdb-reader-masked-input {
+  -webkit-text-security: asterisk;
+  text-security: asterisk;
 }
 .jpdb-reader-settings input[type="color"] {
   padding: 3px;

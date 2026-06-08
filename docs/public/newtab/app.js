@@ -402,43 +402,6 @@
   function isRepositoryNewTabPath(path) {
     return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
   }
-  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
-  function isYomuHostedAppUrl(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
-  }
-  function readYomuAppUrl(value) {
-    try {
-      const url = new URL(value);
-      return { url, path: normalizedPath(url.pathname) };
-    } catch {
-      return null;
-    }
-  }
-  function isYomuHostedAppRoute(value, appUrl) {
-    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
-  }
-  function isYomuActiveAppRoute(value, appUrl) {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
-  }
-  function isYomuRepositoryAppUrl(appUrl) {
-    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
-  }
-  function isHostedRepositoryAppUrl(appUrl) {
-    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-  }
-  function isLocalRepositoryAppUrl(appUrl) {
-    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
-  }
-  function normalizedPath(pathname) {
-    return pathname.replace(/\/index\.html$/, "/");
-  }
-  function isYomuVideoPlayerPath(path) {
-    return path.endsWith("/video-player/");
-  }
-  function isYomuLocalAppPath(path) {
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
-  }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, "id");
@@ -13286,14 +13249,11 @@ ${entry.reading || ""}`;
     return Array.from(new Set(candidates)).slice(0, 3).join(", ");
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  const ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS = 1500;
   async function postAnkiJson(url, body, timeoutMs) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
     if (!canFetchAnkiConnect(url)) {
-      const delayedUserscriptRequest = needsHostedAnkiConnectSetupHint(url) ? await waitForUserscriptAnkiBridge(hostedAnkiBridgeWaitMs(timeoutMs)) : void 0;
-      if (delayedUserscriptRequest) return await postAnkiJsonWithUserscript(delayedUserscriptRequest, url, body, timeoutMs);
-      return Promise.reject(new Error("AnkiConnect needs the userscript request bridge on content pages."));
+      return Promise.reject(new Error("AnkiConnect URL must be HTTP or HTTPS."));
     }
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -13344,38 +13304,6 @@ ${entry.reading || ""}`;
       }
     });
   }
-  function waitForUserscriptAnkiBridge(timeoutMs) {
-    const immediate = getUserscriptHttpRequest();
-    if (immediate || typeof window === "undefined") return Promise.resolve(immediate);
-    return new Promise((resolve) => {
-      let settled = false;
-      const cleanupReadyListeners = [];
-      const settle = (request) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        cleanupReadyListeners.forEach((cleanup) => cleanup());
-        resolve(request);
-      };
-      const onReady = () => settle(getUserscriptHttpRequest());
-      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady)) {
-        cleanupReadyListeners.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-      }
-      const documentTarget = userscriptBridgeDocumentTarget();
-      if (documentTarget) {
-        documentTarget.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
-        cleanupReadyListeners.push(() => documentTarget.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-      }
-      const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
-    });
-  }
-  function userscriptBridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function hostedAnkiBridgeWaitMs(timeoutMs) {
-    return Math.max(ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS, Math.max(0, timeoutMs));
-  }
   function canFetchAnkiConnect(url) {
     return canFetchAnkiConnectFrom(url, safeLocationHref$1());
   }
@@ -13383,20 +13311,7 @@ ${entry.reading || ""}`;
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    if (target.origin === current.origin) return true;
-    if (canLocalPreviewFetchAnkiConnect(current)) return true;
-    if (!isYomuHostedAppUrl(current.href)) return false;
-    if (current.origin === GITHUB_PAGES_ORIGIN) return !isLoopbackHostname(target.hostname);
-    return !isLoopbackHostname(target.hostname);
-  }
-  function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref$1()) {
-    if (getUserscriptHttpRequest()) return false;
-    const current = readAnkiUrl(currentHref);
-    if (!current || !isYomuHostedAppUrl(current.href)) return false;
-    if (canLocalPreviewFetchAnkiConnect(current)) return false;
-    const target = readAnkiUrl(url, current.href);
-    return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
+    return Boolean(target && isHttpUrl(target));
   }
   function readAnkiUrl(value, base) {
     try {
@@ -13407,20 +13322,6 @@ ${entry.reading || ""}`;
   }
   function isHttpUrl(url) {
     return url.protocol === "http:" || url.protocol === "https:";
-  }
-  function isLoopbackHostname(hostname) {
-    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
-  }
-  function canLocalPreviewFetchAnkiConnect(current) {
-    if (current.protocol !== "file:" && !isLocalPreviewHostname(current.hostname)) return false;
-    return isYomuHostedAppUrl(current.href) || isLocalPreviewYomuAppPath(current.pathname);
-  }
-  function isLocalPreviewHostname(hostname) {
-    return isLoopbackHostname(hostname) || hostname === "0.0.0.0";
-  }
-  function isLocalPreviewYomuAppPath(pathname) {
-    const path = pathname.replace(/\/index\.html$/, "/");
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || path.endsWith("/video-player/");
   }
   function safeLocationHref$1() {
     return typeof location === "undefined" ? "" : location.href;
@@ -17278,6 +17179,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     let moved = false;
     let activeInput = null;
     let activeHandle = null;
+    let activeCaptureTarget = null;
     const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
     const setLastPoint = (point) => {
       state = {
@@ -17315,12 +17217,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!dragging) return;
       const wasMoved = moved;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onFinish(state, wasMoved, handle);
     };
     function cleanupListeners() {
@@ -17335,12 +17239,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     function cancel() {
       if (!dragging) return;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onCancel?.(state, handle);
     }
     function handlePointerMove(event) {
@@ -17387,7 +17293,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         consumeDragEvent(event);
         if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
         pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
+        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+        setPointerCapture(activeCaptureTarget, event.pointerId);
         document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
         document.addEventListener("pointerup", handlePointerUp, true);
         document.addEventListener("pointercancel", handlePointerCancel, true);
@@ -27132,7 +27039,10 @@ ${spelling}`);
     const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
     if (gutter) gutter.hidden = !hasControls;
     const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
-    if (collapseButton && hasControls) setMiningControlsExpanded2(collapseButton, false);
+    if (collapseButton) {
+      if (hasControls) setMiningControlsExpanded2(collapseButton, false);
+      else collapseButton.setAttribute("aria-expanded", "true");
+    }
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
   }
@@ -33494,14 +33404,24 @@ ${newTabCardReading(card)}`;
   function renderNewTabGradeTargetControl(options) {
     const visibleLabel = options.selectedOption?.shortLabel || visibleGradeTargetLabel(options.targetLabel);
     if (options.targetOptions.length > 1) {
-      return el(
+      const handle = el("span", {
+        class: "jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle",
+        dataset: { expanded: "false" },
+        "aria-hidden": "true"
+      });
+      const details = el(
         "details",
-        { class: "jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context", dataset: { newtabGradeTarget: true }, "aria-label": options.targetLabel },
+        {
+          class: "jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context",
+          dataset: { newtabGradeTarget: true, expanded: "false" },
+          "aria-label": options.targetLabel,
+          "aria-expanded": "false"
+        },
         el(
           "summary",
           { class: "jpdb-reader-newtab-grade-target-summary", title: options.targetLabel, "aria-label": options.targetLabel },
           el("span", { class: "jpdb-reader-review-target-current jpdb-reader-newtab-grade-target-current", dataset: { newtabGradeTargetText: true } }, visibleLabel),
-          el("span", { class: "jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle", "aria-hidden": "true" })
+          handle
         ),
         el(
           "label",
@@ -33510,6 +33430,13 @@ ${newTabCardReading(card)}`;
           renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel)
         )
       );
+      details.addEventListener("toggle", () => {
+        const expanded = String(details.open);
+        details.dataset.expanded = expanded;
+        details.setAttribute("aria-expanded", expanded);
+        handle.dataset.expanded = expanded;
+      });
+      return details;
     }
     if (!visibleLabel) return el("span", { class: "jpdb-reader-newtab-sr-only", dataset: { newtabGradeTarget: true, newtabGradeTargetText: true } }, options.targetLabel);
     return el("span", {
@@ -43804,12 +43731,6 @@ ${newTabCardReading(card)}`;
         { label: uiText(language, "ankiStatusMobileDocs"), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language, "ankiStatusUseDesktopUrl") }
       ];
     }
-    if (action === "anki-hosted-bridge") {
-      return [
-        { label: uiText(language, "ankiStatusEnableUserscript") },
-        { label: uiText(language, "ankiStatusRefreshAndCheck") }
-      ];
-    }
     return [];
   }
   function settingsStatusToneLabelKey(tone) {
@@ -44000,7 +43921,7 @@ ${newTabCardReading(card)}`;
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "password", API_KEY_INPUT_ATTRIBUTES)}
+                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
                 </div>
@@ -44279,7 +44200,7 @@ ${newTabCardReading(card)}`;
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? "" : "hidden"}>
-                        ${input("nadeshikoApiKey", `${escapedUiText(language, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, "password")}
+                        ${input("nadeshikoApiKey", `${escapedUiText(language, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, "text", { class: "jpdb-reader-masked-input" })}
                     </div>`;
   }
   function usesNadeshikoExamples(source) {
@@ -44361,7 +44282,7 @@ ${newTabCardReading(card)}`;
                         <summary>Custom local OCR server</summary>
                         <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     </details>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
@@ -46077,7 +45998,6 @@ ${newTabCardReading(card)}`;
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     ankiLibraryScanId = 0;
-    ankiBridgeReadyCleanup;
     open(panel) {
       log$2.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -46087,7 +46007,6 @@ ${newTabCardReading(card)}`;
       this.bindFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
       this.bindSettingsTabs(form);
-      this.bindAnkiBridgeReadyRefresh(form);
       this.bindLivePreview(form);
       this.bindEditorControls(form);
       this.currentForm = form;
@@ -46167,7 +46086,6 @@ ${newTabCardReading(card)}`;
     dismissSettings() {
       const restoreTarget = this.previouslyFocusedElement;
       this.previouslyFocusedElement = void 0;
-      this.clearAnkiBridgeReadyRefresh();
       this.currentForm = void 0;
       this.restoreBackgroundFromModal();
       this.dependencies.dismiss();
@@ -46208,34 +46126,7 @@ ${newTabCardReading(card)}`;
      */
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
-      if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
       this.restoreBackgroundFromModal();
-    }
-    bindAnkiBridgeReadyRefresh(form) {
-      this.clearAnkiBridgeReadyRefresh();
-      const listener = () => {
-        if (!this.shouldRefreshAnkiStatusAfterBridgeReady(form)) return;
-        void this.refreshAnkiConnectionStatus(form);
-      };
-      const cleanups = [];
-      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener)) {
-        cleanups.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
-      }
-      const documentRoot = document.documentElement;
-      documentRoot?.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener);
-      if (documentRoot) cleanups.push(() => documentRoot.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
-      this.ankiBridgeReadyCleanup = () => {
-        cleanups.forEach((cleanup) => cleanup());
-      };
-    }
-    clearAnkiBridgeReadyRefresh() {
-      this.ankiBridgeReadyCleanup?.();
-      this.ankiBridgeReadyCleanup = void 0;
-    }
-    shouldRefreshAnkiStatusAfterBridgeReady(form) {
-      if (this.currentForm !== form || !form.isConnected) return false;
-      const status = form.querySelector("[data-anki-status]");
-      return status?.dataset.statusAction === "anki-hosted-bridge";
     }
     trapFocus(form, event) {
       const focusable = Array.from(form.querySelectorAll(SETTINGS_FOCUSABLE_SELECTOR)).filter((element) => !element.closest("[hidden]") && element.getAttribute("aria-hidden") !== "true");
@@ -47117,9 +47008,6 @@ ${newTabCardReading(card)}`;
       return uiText(language, "ankiSettingsUnreachable");
     }
     ankiSetupUnavailableStatus(settings, language) {
-      if (needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)) {
-        return { message: uiText(language, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-hosted-bridge" };
-      }
       if (canUseMobileAnkiHandoff(settings)) {
         return { message: uiText(language, "mobileAnkiReady"), tone: "pending" };
       }

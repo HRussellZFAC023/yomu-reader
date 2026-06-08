@@ -140,16 +140,33 @@ function newTabMainGradeTargetOptionFromLookupTarget(target: NewTabLookupReviewT
 function renderNewTabGradeTargetControl(options: RenderNewTabGradeControlsOptions): HTMLElement {
     const visibleLabel = options.selectedOption?.shortLabel || visibleGradeTargetLabel(options.targetLabel);
     if (options.targetOptions.length > 1) {
-        return el('details', { class: 'jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context', dataset: { newtabGradeTarget: true }, 'aria-label': options.targetLabel },
+        const handle = el('span', {
+            class: 'jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle',
+            dataset: { expanded: 'false' },
+            'aria-hidden': 'true',
+        });
+        const details = el('details', {
+            class: 'jpdb-reader-newtab-grade-target jpdb-reader-newtab-grade-target-context',
+            dataset: { newtabGradeTarget: true, expanded: 'false' },
+            'aria-label': options.targetLabel,
+            'aria-expanded': 'false',
+        },
             el('summary', { class: 'jpdb-reader-newtab-grade-target-summary', title: options.targetLabel, 'aria-label': options.targetLabel },
                 el('span', { class: 'jpdb-reader-review-target-current jpdb-reader-newtab-grade-target-current', dataset: { newtabGradeTargetText: true } }, visibleLabel),
-                el('span', { class: 'jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle', 'aria-hidden': 'true' }),
+                handle,
             ),
             el('label', { class: 'jpdb-reader-mining-panel jpdb-reader-review-target-panel jpdb-reader-newtab-grade-target-panel' },
                 el('span', { class: 'jpdb-reader-newtab-grade-target-selector-label' }, options.selectorLabel),
                 renderNewTabMainGradeTargetSelector(options.targetOptions, options.selectorLabel),
             ),
         );
+        details.addEventListener('toggle', () => {
+            const expanded = String(details.open);
+            details.dataset.expanded = expanded;
+            details.setAttribute('aria-expanded', expanded);
+            handle.dataset.expanded = expanded;
+        });
+        return details;
     }
     if (!visibleLabel) return el('span', { class: 'jpdb-reader-newtab-sr-only', dataset: { newtabGradeTarget: true, newtabGradeTargetText: true } }, options.targetLabel);
     return el('span', {

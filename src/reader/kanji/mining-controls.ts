@@ -16,7 +16,10 @@ export function updateKanjiMiningControlsMount(
     const gutter = actions.querySelector<HTMLElement>('.jpdb-reader-actions-gutter');
     if (gutter) gutter.hidden = !hasControls;
     const collapseButton = actions.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]');
-    if (collapseButton && hasControls) setMiningControlsExpanded(collapseButton, false);
+    if (collapseButton) {
+        if (hasControls) setMiningControlsExpanded(collapseButton, false);
+        else collapseButton.setAttribute('aria-expanded', 'true');
+    }
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
 }
