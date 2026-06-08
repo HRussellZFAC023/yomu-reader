@@ -227,6 +227,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
+                    <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
                 </div>
             </fieldset>
     `;

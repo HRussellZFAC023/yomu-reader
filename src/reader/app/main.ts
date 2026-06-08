@@ -54,19 +54,22 @@ import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import {
-    currentJpdbTermTarget,
-    currentLocalDictionaryTargets,
     dictionaryPreferencePriority as jpdbPageDictionaryPreferencePriority,
-    extractCurrentKanji,
-    isJpdbHost,
-    isKanjiPage,
-    isKanjiReviewBack,
     jpdbAudioCard,
     localDictionaryLookupVariants,
     uniqueLocalDictionaryEntries,
     type JpdbTermTarget,
     type LocalDictionaryTarget,
 } from '../jpdb/jpdb-page-targets';
+import {
+    currentPageKanji,
+    currentPageLocalDictionaryTargets,
+    currentPageTermTarget,
+    isCurrentKanjiSurface,
+    isJitenHost,
+    isPageEnhancementHost,
+    isPageEnhancementReady,
+} from './page-enhancement-targets';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from '../kanji/origin';
 import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
@@ -533,6 +536,7 @@ export class ReaderApp {
     private visiblePageReparseTimer?: number;
     private jpdbPageEnhanceTimer?: number;
     private jpdbPageEnhancementGeneration = 0;
+    private lastEnhancedHref = '';
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
@@ -894,14 +898,14 @@ export class ReaderApp {
     }
 
     private initJpdbPageEnhancements(): void {
-        if (!isJpdbHost()) return;
+        if (!isPageEnhancementHost()) return;
         this.scheduleJpdbPageEnhancements(0);
         addWindowEventListener('popstate', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
         addWindowEventListener('hashchange', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
     }
 
     private scheduleJpdbPageEnhancements(delay = 0): void {
-        if (this.isDestroyed || !isJpdbHost()) return;
+        if (this.isDestroyed || !isPageEnhancementHost()) return;
         window.clearTimeout(this.jpdbPageEnhanceTimer);
         this.jpdbPageEnhanceTimer = window.setTimeout(() => {
             this.jpdbPageEnhanceTimer = undefined;
@@ -911,9 +915,10 @@ export class ReaderApp {
 
     private async refreshJpdbPageEnhancements(): Promise<void> {
         const generation = ++this.jpdbPageEnhancementGeneration;
+        this.lastEnhancedHref = location.href;
         this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
-        if (!this.settings.jpdbPageEnhancementsEnabled) return;
-        if (this.isCurrentJpdbKanjiSurface()) {
+        if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) return;
+        if (isCurrentKanjiSurface()) {
             if (this.settings.jpdbPageKanjiEnhancementsEnabled) this.installJpdbKanjiPageEnhancement(generation);
             return;
         }
@@ -924,12 +929,13 @@ export class ReaderApp {
         document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => element.remove());
     }
 
-    private isCurrentJpdbKanjiSurface(): boolean {
-        return isKanjiPage() || isKanjiReviewBack();
+    private jitenEnhancementsNeedRefresh(): boolean {
+        if (location.href !== this.lastEnhancedHref) return true;
+        return isPageEnhancementReady() && this.settings.jpdbPageEnhancementsEnabled && !document.querySelector('[data-yomu-jpdb-addon]');
     }
 
     private async installJpdbWordPageEnhancements(generation: number): Promise<void> {
-        const targets = currentLocalDictionaryTargets();
+        const targets = currentPageLocalDictionaryTargets();
         await Promise.all(targets.map(target => this.installJpdbWordPageEnhancement(target, generation)));
     }
 
@@ -975,9 +981,9 @@ export class ReaderApp {
     }
 
     private installJpdbKanjiPageEnhancement(generation: number): void {
-        const kanji = extractCurrentKanji();
+        const kanji = currentPageKanji();
         if (!isKanjiCharacter(kanji) || !this.isCurrentJpdbPageEnhancement(generation)) return;
-        const target = currentJpdbTermTarget();
+        const target = currentPageTermTarget();
         const root = this.createJpdbPageAddonRoot('kanji', target?.anchor ?? document.body);
         if (!root) return;
         const language = this.settings.interfaceLanguage;
@@ -1051,7 +1057,7 @@ export class ReaderApp {
 
     private isCurrentJpdbPageEnhancement(generation: number): boolean {
         return !this.isDestroyed
-            && isJpdbHost()
+            && isPageEnhancementHost()
             && this.settings.jpdbPageEnhancementsEnabled
             && generation === this.jpdbPageEnhancementGeneration;
     }
@@ -1140,7 +1146,11 @@ export class ReaderApp {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
-            if (isJpdbHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) this.scheduleJpdbPageEnhancements(500);
+            if (isJitenHost()) {
+                if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+            } else if (isPageEnhancementHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) {
+                this.scheduleJpdbPageEnhancements(500);
+            }
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => this.scheduleAutoScan(160, { force: true }), { passive: true });
