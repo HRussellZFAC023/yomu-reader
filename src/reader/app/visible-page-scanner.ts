@@ -2,6 +2,7 @@ import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, typ
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
+import { shouldLookupAnkiStatus } from '../settings/index';
 import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
@@ -87,7 +88,7 @@ export class VisiblePageScanner {
             }
             const changedRoots = await this.applyTokens(targets, parsed);
             if (this.dependencies.prepareSubtitleTokensBeforeRender) {
-                await this.dependencies.enrichAnkiWords(tokens, changedRoots);
+                if (this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
             } else {
                 this.preloadParsed(parsed, changedRoots);
             }
@@ -161,7 +162,11 @@ export class VisiblePageScanner {
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
         void this.dependencies.enrichPitchWords(tokens);
-        void this.dependencies.enrichAnkiWords(tokens, changedRoots);
+        if (this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
+    }
+
+    private shouldEnrichAnkiWords(): boolean {
+        return !this.destroyed && shouldLookupAnkiStatus(this.dependencies.getSettings());
     }
 
     private handleEmptyVisiblePageScan(silent: boolean): void {

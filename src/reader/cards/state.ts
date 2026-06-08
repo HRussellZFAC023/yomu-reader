@@ -3,7 +3,10 @@ import type { CardState } from '../app/types';
 const CARD_STATES = new Set<CardState>([
     'new',
     'learning',
+    'young',
+    'mature',
     'known',
+    'mastered',
     'due',
     'failed',
     'locked',
@@ -13,6 +16,8 @@ const CARD_STATES = new Set<CardState>([
     'in-deck',
     'not-in-deck',
     'redundant',
+    'frequent',
+    'unparsed',
 ]);
 
 const CARD_STATE_ALIASES: Record<string, CardState> = {
@@ -28,6 +33,7 @@ const CARD_STATE_ALIASES: Record<string, CardState> = {
     blacklist: 'blacklisted',
     blacklisted: 'blacklisted',
     ignored: 'blacklisted',
+    unknown: 'new',
 };
 
 interface NormalizedCardStateKeys {

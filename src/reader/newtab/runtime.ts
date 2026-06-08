@@ -13,7 +13,6 @@ import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import {
     kanjiSourceStateKey,
     renderKanjiDefinitions,
-    renderSimilarKanjiWordsContent,
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { DictionarySourceStateController } from '../sources/state';
@@ -22,10 +21,8 @@ import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
-import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
-import { installProgressiveSimilarKanjiLoader } from './progressive-similar-kanji';
 import {
     consumeLookupPopoverButtonEvent,
     installLookupOutsideDismiss,
@@ -40,7 +37,8 @@ import {
     updateKanjiLookupMiningControls,
 } from './lookup-dom';
 import { JpdbClient } from '../jpdb/jpdb';
-import { JitenApiClient } from '../dictionaries/jiten';
+import { JitenApiClient, type JitenKanjiInfo, type JitenKanjiWordsPage, type JitenVocabularyInfo } from '../dictionaries/jiten';
+import { jitenKanjiOriginFactLabels, jitenKanjiWordsPageSize, renderJitenKanjiInfo, renderJitenKanjiKeywordLine, renderJitenKanjiWordsMoreButton, renderJitenKanjiWordsPage } from '../jiten/jiten-kanji-info-render';
 import { JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
@@ -88,6 +86,7 @@ import {
     saveSettings,
     shouldLookupAnkiStatus,
 } from '../settings';
+import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { showReaderToast } from '../ui/toast';
@@ -156,6 +155,7 @@ interface NewTabParseContentOptions {
 
 interface KanjiLookupDetailPromises {
     jpdbInfo: Promise<JpdbKanjiInfo | null>;
+    jitenInfo: Promise<JitenKanjiInfo | null>;
     kanjiEntries: Promise<YomitanKanjiEntry[]>;
     rtkInfo: Promise<RtkInfo | null>;
     kanjiVGInfo: Promise<KanjiVGInfo | null>;
@@ -186,8 +186,8 @@ export class NewTabRuntime {
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
 
-    private jpdb = new JpdbClient(() => this.settings.apiKey.trim(), () => this.settings.corsProxyUrl);
-    private jiten = new JitenApiClient(() => this.settings.jitenApiKey.trim(), { proxyUrl: () => this.settings.corsProxyUrl });
+    private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
+    private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
@@ -228,7 +228,7 @@ export class NewTabRuntime {
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
-        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, extraSections),
+        renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections),
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
         renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data),
@@ -492,7 +492,7 @@ export class NewTabRuntime {
                 userGesture: options?.userGesture,
             }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
-            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, { includeStudySources: false }),
+            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, null, { includeStudySources: false }),
             renderSearchWordPills: (card, metaEntries) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
@@ -530,6 +530,15 @@ export class NewTabRuntime {
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
         this.dismiss();
+        const dismissFromBackdrop = (event: Event) => {
+            if (event.target !== backdrop) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.dismiss();
+        };
+        backdrop.addEventListener('pointerdown', dismissFromBackdrop, { capture: true });
+        backdrop.addEventListener('mousedown', dismissFromBackdrop, { capture: true });
+        backdrop.addEventListener('click', dismissFromBackdrop, { capture: true });
         document.body.append(backdrop, form);
         this.activeBackdrop = backdrop;
         this.activeDialog = form;
@@ -564,6 +573,7 @@ export class NewTabRuntime {
     }
 
     private dismiss(): void {
+        const hadSettingsDialog = Boolean(this.activeDialog?.classList.contains('jpdb-reader-settings'));
         this.activeDialog?.remove();
         this.activeBackdrop?.remove();
         this.activeLookupPopover?.remove();
@@ -578,6 +588,7 @@ export class NewTabRuntime {
         this.navigation.clearWord();
         this.navigation.clearKanji();
         this.restoreSettingsPreviewState();
+        if (hadSettingsDialog) this.settingsDialog.releaseModalBackground();
     }
 
     private text(key: NewTabRuntimeTextKey): string {
@@ -883,11 +894,13 @@ export class NewTabRuntime {
 
     private renderKanjiLookupActionBar(card: JPDBCard): string {
         const reviewButtons = this.renderKanjiLookupReviewButtons(card);
+        const hasReviewTargetGutter = reviewButtons.includes('data-review-target-gutter');
+        const actionsClass = hasReviewTargetGutter ? ' jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed' : '';
         return `
-            <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? 'true' : 'false'}"${reviewButtons ? '' : ' hidden'}>
-                <div class="jpdb-reader-actions-gutter" hidden>
+            <div class="jpdb-reader-actions${actionsClass}" data-kanji-actions data-kanji-has-review="${reviewButtons ? 'true' : 'false'}"${reviewButtons ? '' : ' hidden'}>
+                ${hasReviewTargetGutter ? '' : `<div class="jpdb-reader-actions-gutter" hidden>
                     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(this.text('showMiningActions'))}" aria-label="${escapeHtml(this.text('showMiningActions'))}"></button>
-                </div>
+                </div>`}
                 <div data-kanji-mining-mount hidden></div>
                 ${reviewButtons}
             </div>
@@ -901,8 +914,7 @@ export class NewTabRuntime {
     private renderNewTabLookupReviewButtons(card: JPDBCard, data?: CardRenderData | null): string {
         const grades = this.newTab?.lookupGradeOptions(card) ?? [];
         const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-        const fallbackLabel = this.newTab?.lookupGradeTargetLabel(card) ?? '';
-        return renderNewTabLookupReviewButtonsHtml(grades, targets, fallbackLabel);
+        return renderNewTabLookupReviewButtonsHtml(grades, targets);
     }
 
     private resetLookupHandlers(): AbortSignal {
@@ -971,6 +983,12 @@ export class NewTabRuntime {
             'similar-word': () => {
                 this.lookupTextFromPopoverButton(button);
             },
+            'jiten-kanji-more': () => {
+                void this.loadMoreJitenKanjiWords(button);
+            },
+            'jiten-kanji-reading': () => {
+                void this.filterJitenKanjiWords(button);
+            },
             lookup: () => {
                 this.lookupTextFromPopoverButton(button);
             },
@@ -988,6 +1006,90 @@ export class NewTabRuntime {
         if (handler) handler();
     }
 
+    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
+        if (button.disabled || !this.isJitenApiActive()) return;
+        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
+        if (!character) return;
+        const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
+        const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
+        button.disabled = true;
+        try {
+            const wordsPage = await this.jiten.lookupKanjiWords(character, {
+                reading: button.dataset.jitenKanjiReading || undefined,
+                page,
+                pageSize,
+            });
+            if (!button.isConnected) return;
+            this.appendJitenKanjiWords(button, wordsPage, page);
+        } catch (error) {
+            log.warn('Jiten kanji words page lookup failed', { character, page }, error);
+            if (button.isConnected) button.disabled = false;
+        }
+    }
+
+    private appendJitenKanjiWords(button: HTMLButtonElement, page: JitenKanjiWordsPage | null, requestedPage: number): void {
+        const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || '');
+        const grid = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
+        if (!html || !grid) {
+            button.remove();
+            return;
+        }
+        button.insertAdjacentHTML('beforebegin', html);
+        this.removeDuplicateJitenKanjiWords(grid);
+        const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
+        const rendered = grid.querySelectorAll('[data-jiten-kanji-word-key]').length;
+        if (!page?.items.length || (total > 0 && rendered >= total)) {
+            button.remove();
+            return;
+        }
+        button.dataset.jitenKanjiPage = String(requestedPage + 1);
+        button.dataset.jitenKanjiTotal = String(total);
+        const status = button.querySelector<HTMLElement>('.jpdb-reader-source-status');
+        if (status) status.textContent = String(Math.max(0, total - rendered));
+        button.disabled = false;
+        this.repositionLookupPopover();
+    }
+
+    private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
+        if (button.disabled || !this.isJitenApiActive()) return;
+        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
+        const reading = button.dataset.jitenKanjiReading?.trim() ?? '';
+        const source = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji');
+        const grid = source?.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
+        if (!character || !reading || !source || !grid) return;
+        source.querySelectorAll<HTMLButtonElement>('[data-action="jiten-kanji-reading"]').forEach(candidate => {
+            candidate.setAttribute('aria-pressed', candidate === button ? 'true' : 'false');
+        });
+        button.disabled = true;
+        try {
+            const pageSize = jitenKanjiWordsPageSize();
+            const wordsPage = await this.jiten.lookupKanjiWords(character, { reading, page: 1, pageSize });
+            if (!source.isConnected || !grid.isConnected) return;
+            const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
+            const rendered = wordsPage?.items.length ?? 0;
+            const total = wordsPage?.total ?? rendered;
+            const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.settings.interfaceLanguage);
+            setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml(uiText(this.settings.interfaceLanguage, 'noSimilarWords'))}</div>`);
+            this.repositionLookupPopover();
+        } catch (error) {
+            log.warn('Jiten kanji reading filter failed', { character, reading }, error);
+        } finally {
+            if (button.isConnected) button.disabled = false;
+        }
+    }
+
+    private removeDuplicateJitenKanjiWords(grid: HTMLElement): void {
+        const seen = new Set<string>();
+        grid.querySelectorAll<HTMLElement>('[data-jiten-kanji-word-key]').forEach(word => {
+            const key = word.dataset.jitenKanjiWordKey ?? '';
+            if (!key || !seen.has(key)) {
+                if (key) seen.add(key);
+                return;
+            }
+            word.remove();
+        });
+    }
+
     private lookupTextFromPopoverButton(button: HTMLButtonElement): void {
         const { expression, reading } = lookupTextRequestFromPopoverButton(button);
         void this.lookupText(expression, reading, button, { navigation: 'push-current', reuseActivePopover: true, userGesture: true });
@@ -998,16 +1100,14 @@ export class NewTabRuntime {
         if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
     }
 
-    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
+    private async renderKanjiLookupDetails(popover: HTMLElement, _card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
         let jpdbInfo: JpdbKanjiInfo | null = null;
+        let jitenInfo: JitenKanjiInfo | null = null;
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
         let kanjiEntries: YomitanKanjiEntry[] = [];
         const practiceDoodle = installKanjiPracticeDoodle(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo);
         const detailPromises = this.kanjiLookupDetailPromises(kanji);
-        if (this.settings.similarKanjiWords) {
-            this.renderSimilarKanjiWordsProgressively(popover, detailPromises.jpdbInfo, kanji, card, requestId);
-        }
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji, requestId);
         }
@@ -1016,7 +1116,9 @@ export class NewTabRuntime {
         const renderKeyword = () => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
-            if (mount?.isConnected) setInnerHtml(mount, renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+            if (mount?.isConnected) setInnerHtml(mount, jitenInfo
+                ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage)
+                : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
         };
         const renderRtk = () => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -1065,13 +1167,25 @@ export class NewTabRuntime {
                 renderKeyword();
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
-                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
+                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
+                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
+                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
                 updateKanjiLookupMiningControls(
                     popover,
                     renderJpdbKanjiMiningControls(jpdbInfo, this.settings.interfaceLanguage),
                     (button, expanded) => this.setMiningControlsExpanded(button, expanded),
                 );
                 renderRtk();
+            }),
+            detailPromises.jitenInfo.then(info => {
+                jitenInfo = info;
+                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                renderKeyword();
+                const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
+                const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
+                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
+                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
+                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
             }),
             detailPromises.kanjiEntries.then(entries => {
                 kanjiEntries = entries;
@@ -1094,7 +1208,7 @@ export class NewTabRuntime {
             }),
         ]);
         if (!this.isCurrentLookupRender(popover, requestId)) return;
-        this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries);
+        this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries);
         void this.parseNewTabContent(popover);
         this.repositionLookupPopover();
     }
@@ -1103,6 +1217,9 @@ export class NewTabRuntime {
         return {
             jpdbInfo: this.settings.jpdbKanjiEnabled
                 ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, 'JPDB kanji lookup timed out.')
+                : Promise.resolve(null),
+            jitenInfo: this.settings.jpdbKanjiEnabled && this.isJitenApiActive()
+                ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, 'Jiten kanji lookup timed out.')
                 : Promise.resolve(null),
             kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji
                 ? this.lookupDetailWithTimeout(
@@ -1121,6 +1238,10 @@ export class NewTabRuntime {
         };
     }
 
+    private isJitenApiActive(): boolean {
+        return Boolean(hasJitenApiCredential(this.settings) && !hasJpdbApiCredential(this.settings));
+    }
+
     private shouldLoadKanjiVGInfo(): boolean {
         return this.settings.kanjivgEnabled || (this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled);
     }
@@ -1130,6 +1251,7 @@ export class NewTabRuntime {
         requestId: number,
         kanji: string,
         jpdbInfo: JpdbKanjiInfo | null,
+        jitenInfo: JitenKanjiInfo | null,
         rtkInfo: RtkInfo | null,
         kanjiVGInfo: KanjiVGInfo | null,
         kanjiEntries: YomitanKanjiEntry[],
@@ -1145,7 +1267,7 @@ export class NewTabRuntime {
             this.settings.interfaceLanguage,
             this.dictionarySourceState.isOpen(sourceStateKey),
             sourceStateKey,
-            this.hiddenKanjiLookupOriginFactLabels(jpdbInfo),
+            this.hiddenKanjiLookupOriginFactLabels(jpdbInfo, jitenInfo),
             this.kanjiSourceTitle(KANJI_ORIGINS_SOURCE_ID),
         ));
         installOriginGraphInteractions(mount);
@@ -1170,11 +1292,13 @@ export class NewTabRuntime {
             : null;
     }
 
-    private hiddenKanjiLookupOriginFactLabels(jpdbInfo: JpdbKanjiInfo | null): Set<string> {
-        const labels: string[] = [];
-        if (jpdbInfo?.type) labels.push(this.text('factType'));
-        if (jpdbInfo?.frequency) labels.push(this.text('factFrequency'));
-        return new Set(labels);
+    private hiddenKanjiLookupOriginFactLabels(jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null): Set<string> {
+        const labels = new Set(jitenKanjiOriginFactLabels(jitenInfo, this.settings.interfaceLanguage));
+        if (!jitenInfo) {
+            if (jpdbInfo?.type) labels.add(this.text('factType'));
+            if (jpdbInfo?.frequency) labels.add(this.text('factFrequency'));
+        }
+        return labels;
     }
 
     private shouldRenderKanjiImmersionKit(): boolean {
@@ -1184,47 +1308,6 @@ export class NewTabRuntime {
     private installKanjiLookupImmersionExamples(popover: HTMLElement, kanji: string): void {
         if (!this.shouldRenderKanjiImmersionKit()) return;
         this.immersionPopover.installLazyLoad(popover, jpdbAudioCard(kanji, kanji));
-    }
-
-    private renderSimilarKanjiWordsProgressively(
-        popover: HTMLElement,
-        jpdbInfoPromise: Promise<JpdbKanjiInfo | null>,
-        kanji: string,
-        card: JPDBCard,
-        requestId: number,
-    ): void {
-        const section = popover.querySelector<HTMLDetailsElement>('[data-kanji-similar-words]');
-        const mount = section?.querySelector<HTMLElement>('[data-kanji-similar-mount]');
-        if (!section?.isConnected || !mount?.isConnected) return;
-
-        installProgressiveSimilarKanjiLoader({
-            section,
-            canLoad: () => this.isCurrentLookupRender(popover, requestId),
-            jpdbInfoPromise,
-            loadLocalEntries: this.settings.localDictionariesEnabled
-                ? () => this.lookupSimilarKanjiWordsWhenIdle(kanji)
-                : undefined,
-            onProgress: ({ localEntries, jpdbVocabulary, jpdbLoaded, localLoaded }) => {
-                if (!this.isCurrentLookupRender(popover, requestId) || !section.isConnected || !mount.isConnected) return;
-                const content = renderSimilarKanjiWordsContent(localEntries, jpdbVocabulary, card, this.settings, name => this.dictionaryLabel(name));
-                setInnerHtml(mount, content || `<div class="jpdb-reader-help">${uiText(this.settings.interfaceLanguage, jpdbLoaded && localLoaded ? 'noSimilarWords' : 'loadingSimilarWords')}</div>`);
-                this.repositionLookupPopover();
-            },
-        });
-    }
-
-    private async lookupSimilarKanjiWordsWhenIdle(kanji: string): Promise<YomitanTermEntry[]> {
-        await this.waitForIdle();
-        return this.lookupDetailWithTimeout(
-            this.dictionaries.lookupSimilarTermsByKanji(kanji, this.settings.similarKanjiWordLimit, this.settings.dictionaryPreferences),
-            [] as YomitanTermEntry[],
-            'Similar kanji words lookup timed out.',
-            NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS,
-        );
-    }
-
-    private waitForIdle(timeoutMs = 75): Promise<void> {
-        return waitForBrowserIdle(timeoutMs);
     }
 
     private lookupDetailWithTimeout<T>(
@@ -1486,6 +1569,11 @@ export class NewTabRuntime {
         const done = log.time('newTabCardAction', { action, term: card.spelling });
         try {
             const shouldRefresh = await this.cardActions.perform(action, button, card, sentence);
+            if (shouldRefresh && action === 'grade') {
+                this.dismissLookupPopover();
+                log.info('New tab card action completed', { action, term: card.spelling });
+                return;
+            }
             if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
                 navigation: 'preserve',
                 reuseActivePopover: true,
@@ -1727,6 +1815,7 @@ export class NewTabRuntime {
         entries: YomitanTermEntry[],
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
+        jitenVocabularyInfo: JitenVocabularyInfo | null = null,
         extraSectionsOrOptions: Record<string, string> | Pick<DefinitionSourceStackOptions, 'includeStudySources'> = {},
     ): string {
         return renderDefinitionSourcesStack({
@@ -1738,6 +1827,7 @@ export class NewTabRuntime {
             noDefinitionsHtml: () => `<div class="jpdb-reader-help jpdb-reader-no-definitions">${escapeHtml(this.text('noDefinitionsFound'))}</div>`,
             sentence,
             jpdbVocabularyInfo,
+            jitenVocabularyInfo,
             extraSectionsOrOptions,
             optionKeys: ['includeStudySources'],
             renderTranslationSource: renderSentence => this.studySources.renderTranslationSource(renderSentence),

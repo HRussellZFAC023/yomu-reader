@@ -5,8 +5,8 @@ import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
-import { singleApiCredentialValue } from './api-credential';
-import { COLOR_SOURCE_OPTIONS, COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './form-read';
+import { apiCredentialLabelFromValue, hasJpdbApiCredential, singleApiCredentialValue } from './api-credential';
+import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { renderSourceRowsList } from './form-source-rows';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
@@ -59,7 +59,7 @@ const FONT_FAMILY_PRESETS = [
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
     { panel: 'api', label: 'API', active: true },
-    { panel: 'newTab', label: 'New tab' },
+    { panel: 'newTab', label: 'Study' },
     { panel: 'appearance', label: 'Appearance' },
     { panel: 'reading', label: 'Reading' },
     { panel: 'dictionaries', label: 'Dictionaries' },
@@ -196,7 +196,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
-                    ${renderJpdbDeckControls(settings, [], Boolean(settings.apiKey.trim()), settings.interfaceLanguage)}
+                    ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
                 ${checkbox('jpdbMiningEnabled', 'Allow API review/deck changes', settings.jpdbMiningEnabled)}
                 ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
@@ -205,13 +205,12 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                     ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">JPDB page enhancements</div>
+                    <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
                     <div class="grid">
-                        ${checkbox('jpdbPageEnhancementsEnabled', 'Enhance JPDB pages', settings.jpdbPageEnhancementsEnabled)}
-                        ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to JPDB word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
-                        ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to JPDB kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox('jpdbPageEnhancementsEnabled', 'Enhance dictionary pages', settings.jpdbPageEnhancementsEnabled)}
+                        ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-page-enhancements-help>Uses your source order.</div>
                 </div>
             </fieldset>
     `;
@@ -245,14 +244,14 @@ function renderStickyBottomSheetControl(settings: ReaderSettings): string {
     const unavailable = settings.popupMode === 'popover';
     return `
                     <div data-sticky-bottom-sheet-field ${unavailable ? 'hidden' : ''}>
-                        ${checkbox('stickyBottomSheet', 'Keep bottom sheet open until closed', settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
+                        ${checkbox('stickyBottomSheet', 'Keep sheet open after lookup', settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
                     </div>`;
 }
 
 function renderNewTabSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-newtab" role="tabpanel" data-settings-panel="newTab" data-legend-key="newTab" hidden>
-                <legend>New tab</legend>
+                <legend>Study</legend>
                 ${renderNewTabSettingsSubsection(settings)}
             </fieldset>
     `;
@@ -261,29 +260,45 @@ function renderNewTabSettingsPanel(settings: ReaderSettings): string {
 function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">New tab</div>
+                    <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
-                        ${checkbox('newTabEnabled', 'Use Yomu new tab study page', settings.newTabEnabled)}
-                        ${checkbox('newTabAnkiEnabled', 'Use Anki cards on new tab', settings.newTabAnkiEnabled)}
+                        ${checkbox('newTabEnabled', 'Use Yomu study page', settings.newTabEnabled)}
+                        ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'New tab review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
-                        ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, [['auto', 'Auto: RTK, then JPDB, then local'], ['rtk', 'RTK / Heisig'], ['jpdb', 'JPDB'], ['local', 'Local card meaning']])}
-                        ${checkbox('newTabParsingEnabled', 'Parse sentences on new tab', settings.newTabParsingEnabled)}
+                        ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
+                        ${checkbox('newTabParsingEnabled', 'Parse sentences on Study', settings.newTabParsingEnabled)}
                         ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
                         ${checkbox('newTabKanjiAutogradeEnabled', 'Autograde kanji drawing', settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox('newTabKanjiAutoSubmit', 'Submit kanji grade after autograde', settings.newTabKanjiAutoSubmit)}
-                        ${checkbox('newTabOfflineEnabled', 'Cache new tab for offline use', settings.newTabOfflineEnabled)}
+                        ${checkbox('newTabOfflineEnabled', 'Cache Study for offline use', settings.newTabOfflineEnabled)}
                         ${input('newTabOfflineLimit', 'Offline review cache limit', String(settings.newTabOfflineLimit), 'number', { min: 0, max: 500, step: 10 })}
-                        <label>New tab address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
+                        <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open new tab page</a>
+                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Set this as your browser's new-tab page, or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help">Set this as your browser's study page, or add it to your iPad Home Screen.</div>
                 </div>
     `;
+}
+
+function kanjiKeywordSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, text?: SettingsText): [ReaderSettings['newTabKanjiKeywordSource'], string][] {
+    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const auto = text
+        ? text('newTabKanjiKeywordAuto').replace('{service}', apiLabel)
+        : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
+    const apiFacts = text
+        ? text('newTabKanjiKeywordApiFacts').replace('{service}', apiLabel)
+        : `${apiLabel} kanji facts (JPDB / Jiten)`;
+    return [
+        ['auto', auto],
+        ['rtk', text ? text('newTabKanjiKeywordRtk') : 'RTK / Heisig'],
+        ['jpdb', apiFacts],
+        ['local', text ? text('newTabKanjiKeywordLocal') : 'Local card meaning'],
+    ];
 }
 
 function renderNewTabAnkiDeckControls(settings: ReaderSettings): string {
@@ -358,9 +373,8 @@ function renderColorChannelSettingsSubsection(settings: ReaderSettings): string 
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Color channels</div>
                     <div class="grid">
-                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), COLOR_SOURCE_OPTIONS)).join('')}
+                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), colorSourceOptions(settings))).join('')}
                     </div>
-                    <div class="jpdb-reader-help" data-color-channels-help>Choose each color source.</div>
                 </div>
     `;
 }
@@ -533,20 +547,27 @@ function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
 
 function renderKanjiSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" aria-describedby="settings-help-kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
                 </div>
-                <div class="grid">
-                    ${checkbox('kanjiOriginKanjiMapEnabled', 'Show kanji facts and component graph', settings.kanjiOriginKanjiMapEnabled)}
-                    ${checkbox('kanjiOriginGraphEnabled', 'Show component graph', settings.kanjiOriginGraphEnabled)}
-                    ${checkbox('kanjiOriginRadicalImagesEnabled', 'Show radical images', settings.kanjiOriginRadicalImagesEnabled)}
-                    ${input('similarKanjiWordLimit', 'Similar word limit', String(settings.similarKanjiWordLimit), 'number', { min: 2, max: 24, step: 1 })}
-                </div>
-                <div id="settings-help-kanji" class="jpdb-reader-help" data-help-key="kanjiHelp">Click popup kanji for details.</div>
+                ${renderHiddenKanjiDetailSettings(settings)}
             </fieldset>
     `;
+}
+
+function renderHiddenKanjiDetailSettings(settings: ReaderSettings): string {
+    return `
+                ${hiddenBooleanSetting('kanjiOriginKanjiMapEnabled', settings.kanjiOriginKanjiMapEnabled)}
+                ${hiddenBooleanSetting('kanjiOriginGraphEnabled', settings.kanjiOriginGraphEnabled)}
+                ${hiddenBooleanSetting('kanjiOriginRadicalImagesEnabled', settings.kanjiOriginRadicalImagesEnabled)}
+                <input type="hidden" name="similarKanjiWordLimit" value="${settings.similarKanjiWordLimit}">
+    `;
+}
+
+function hiddenBooleanSetting(name: string, enabled: boolean): string {
+    return enabled ? `<input type="hidden" name="${name}" value="on">` : '';
 }
 
 function renderImageSettingsPanel(settings: ReaderSettings): string {
@@ -647,11 +668,12 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
+    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
-                    ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
+                    ${checkbox('jpdbDefinitionsEnabled', `Show ${apiLabel} definitions`, settings.jpdbDefinitionsEnabled)}
                     ${checkbox('localDictionariesEnabled', 'Show imported dictionary definitions', settings.localDictionariesEnabled)}
                     ${checkbox('dictionarySourcesInitiallyExpanded', 'Open popup sources by default', settings.dictionarySourcesInitiallyExpanded)}
                     ${input('localDictionaryMaxResults', 'Dictionary result limit', String(settings.localDictionaryMaxResults), 'number')}
@@ -840,16 +862,14 @@ const LOCAL_TITLE_TEXT_KEYS = [
     [/Word colors|単語の色/, 'wordColors'],
     [/Pitch accent colors|ピッチアクセント/, 'pitchAccentColors'],
     [/Color channels|色チャンネル/, 'colorChannels'],
-    [/New tab|新規タブ/, 'newTab'],
-    [/JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
+    [/Study|学習|New tab|新規タブ/, 'newTab'],
+    [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
     [/Lookup pills|検索ピル/, 'lookupPills'],
 ] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 const SELECTOR_TEXT_KEYS = [
     ['[data-hover-lookup-title]', 'hoverLookupSettings'],
     ['[data-diagnostics-title]', 'diagnostics'],
     ['[data-anki-library-adapter-title]', 'ankiLibraryAdapter'],
-    ['[data-color-channels-help]', 'colorChannelsHelp'],
-    ['[data-jpdb-page-enhancements-help]', 'jpdbPageEnhancementsHelp'],
     ['[data-jpdb-api-key-help]', 'apiAccessHelp'],
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
@@ -945,8 +965,23 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
     });
 }
 
+function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
+    const combined = getNamedControl<HTMLInputElement>(form, 'apiCredential')?.value ?? '';
+    if (combined.trim()) return { apiKey: combined, jitenApiKey: '' };
+    return {
+        apiKey: getNamedControl<HTMLInputElement>(form, 'apiKey')?.value ?? '',
+        jitenApiKey: getNamedControl<HTMLInputElement>(form, 'jitenApiKey')?.value ?? '',
+    };
+}
+
+function apiCredentialLabelFromForm(form: HTMLFormElement): 'JPDB' | 'Jiten' {
+    return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
+}
+
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
+    const apiLabel = apiCredentialLabelFromForm(form);
+    setControlLabel(form, 'jpdbDefinitionsEnabled', text('jpdbDefinitionsEnabled').replace('JPDB', apiLabel));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
@@ -1018,12 +1053,7 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
         ['live-review', text('newTabLiveReview')],
         ['api-vocabulary', text('newTabApiVocabulary')],
     ]);
-    setSelectOptionLabels(form, 'newTabKanjiKeywordSource', [
-        ['auto', text('newTabKanjiKeywordAuto')],
-        ['rtk', text('newTabKanjiKeywordRtk')],
-        ['jpdb', 'JPDB'],
-        ['local', text('newTabKanjiKeywordLocal')],
-    ]);
+    setSelectOptionLabels(form, 'newTabKanjiKeywordSource', kanjiKeywordSourceOptions(apiCredentialSettingsFromForm(form), text));
     setSelectOptionLabels(form, 'twoButtonReviews', [
         ['false', text('fivePoint')],
         ['true', text('twoPoint')],
@@ -1042,6 +1072,7 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
 }
 
 function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): void {
+    const apiLabel = apiCredentialLabelFromForm(form);
     [
         'wordHighlightColorSource',
         'wordUnderlineColorSource',
@@ -1050,8 +1081,8 @@ function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): 
         'subtitleUnderlineColorSource',
         'subtitleTextColorSource',
     ].forEach(name => setSelectOptionLabels(form, name, [
-        ['status', text('colorSourceStatus')],
-        ['jpdb', text('colorSourceJpdb')],
+        ['status', text('colorSourceStatus').replace('JPDB', apiLabel)],
+        ['jpdb', text('colorSourceJpdb').replace('JPDB', apiLabel)],
         ['anki', text('colorSourceAnki')],
         ['pitch', text('colorSourcePitch')],
         ['off', text('off')],
@@ -1326,7 +1357,6 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
         ['Stroke practice', 'sourceNameStrokePractice', 'sourceHelpStrokePractice'],
         ['Readings and components', 'readingsComponents', 'sourceHelpReadingsComponents'],
         ['Imported kanji dictionaries', 'sourceNameImportedKanjiDictionaries', 'sourceHelpImportedKanjiDictionaries'],
-        ['Words using this kanji', 'sourceNameWordsUsingKanji', 'sourceHelpWordsUsingKanji'],
         ['Component graph', 'originStructure', 'sourceHelpComponentGraph'],
     ];
     rows.forEach(([sourceName, nameKey, helpKey]) => {
@@ -1334,7 +1364,7 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
             const display = row.querySelector<HTMLElement>('.jpdb-reader-field-display');
             if (display?.textContent === sourceName) display.replaceChildren(text(nameKey));
             const help = row.querySelector<HTMLElement>('.jpdb-reader-dictionary-row-help');
-            if (help && sourceRowHelpMatches(help.textContent ?? '', sourceName)) help.replaceChildren(text(helpKey));
+            if (help && !help.dataset.sourceHelpKey && sourceRowHelpMatches(help.textContent ?? '', sourceName)) help.replaceChildren(text(helpKey));
         });
     });
     replaceSourceHelp(form, /JPDB meanings shown/, text('sourceHelpJpdb'));
@@ -1372,7 +1402,7 @@ function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string
 }
 
 function sourceRowHelpMatches(value: string, sourceName: string): boolean {
-    return value.includes(sourceName) || value.includes('Automatic') || value.includes('Stroke') || value.includes('Kanji entries') || value.includes('Related');
+    return value.includes(sourceName);
 }
 
 function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: SettingsText): void {
@@ -1477,8 +1507,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
     'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'showPitchAccent',
-    'kanjiOriginKanjiMapEnabled', 'kanjiOriginGraphEnabled', 'kanjiOriginRadicalImagesEnabled', 'similarKanjiWordLimit', 'audioEnabled',
-    'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
+    'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',

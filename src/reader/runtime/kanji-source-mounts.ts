@@ -1,6 +1,6 @@
 import { IMMERSION_KIT_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom/index';
-import { kanjiSourceStateKey, renderSimilarKanjiWordsShell } from '../sources/definition-render';
+import { kanjiSourceStateKey } from '../sources/definition-render';
 import { uiText } from '../app/i18n';
 import { renderKanjiPractice } from '../popup/render';
 import {
@@ -8,7 +8,6 @@ import {
     KANJI_JPDB_SOURCE_ID,
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
-    KANJI_SIMILAR_WORDS_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
@@ -64,17 +63,6 @@ function renderKanjiSourceMount(sourceId: string, options: KanjiSourceMountRende
         return renderKanjiPractice(null, options.kanji, options.language, options.isSourceOpen(sourceStateKey), sourceStateKey, options.sourceTitle(sourceId));
     }
     if (sourceId === IMMERSION_KIT_SOURCE_ID) return options.renderImmersionMount?.() ?? '';
-    if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) {
-        return renderSimilarKanjiWordsShell(
-            options.kanji,
-            options.language,
-            sourceStateKey,
-            options.isSourceOpen(sourceStateKey),
-            options.sourceAttributes,
-            options.sourceTitle(sourceId),
-        );
-    }
-
     const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
     return dictionaryName
         ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`

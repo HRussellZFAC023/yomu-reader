@@ -6,7 +6,10 @@ export { CARD_STATE_LABEL_KEYS as SEARCH_CARD_STATE_LABEL_KEYS } from '../app/i1
 export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
     'new',
     'learning',
+    'young',
+    'mature',
     'known',
+    'mastered',
     'due',
     'failed',
     'locked',
@@ -16,6 +19,8 @@ export const NEW_TAB_WORD_STATE_CLASSES: CardState[] = [
     'in-deck',
     'not-in-deck',
     'redundant',
+    'frequent',
+    'unparsed',
 ];
 
 export const NEW_TAB_SOURCE_LABELS: Record<NewTabConcreteSource, string> = {

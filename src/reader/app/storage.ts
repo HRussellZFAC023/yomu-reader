@@ -453,8 +453,8 @@ function asyncGmDeleteValue(): GmDeleteValue | null {
 }
 
 function asyncGmListValues(): GmListValues | null {
-    const legacy = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
-    if (typeof legacy === 'function') return legacy;
+    const directListValues = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
+    if (typeof directListValues === 'function') return directListValues;
     const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
     return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
 }

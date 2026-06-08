@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-    <link rel="stylesheet" href="./styles.css?v=50b3739e3006">
+    <link rel="stylesheet" href="./styles.css?v=ed38acfb0268">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -74,7 +74,7 @@
         position: fixed;
         inset: 0 0 auto;
         height: 2px;
-        background: var(--accent);
+        background: var(--jpdb-reader-accent, var(--accent));
         opacity: .8;
         pointer-events: none;
       }
@@ -120,6 +120,10 @@
         background: transparent;
         color: var(--muted);
         text-decoration: none;
+      }
+
+      .jpdb-reader-newtab-brand {
+        margin-left: clamp(4px, 1vw, 10px);
       }
 
       .jpdb-reader-newtab-overflow {
@@ -250,7 +254,7 @@
       }
 
       .jpdb-reader-newtab-mode button[data-active="true"] {
-        background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 18%, var(--surface-2));
         color: var(--ink);
       }
 
@@ -364,7 +368,7 @@
       .jpdb-reader-newtab-sentence .jpdb-reader-word {
         padding: 0 .08em;
         border-radius: .12em;
-        background: color-mix(in srgb, var(--accent) 16%, transparent);
+        background: color-mix(in srgb, var(--jpdb-reader-accent, var(--accent)) 16%, transparent);
       }
 
       .jpdb-reader-newtab-install {
@@ -454,8 +458,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = 'dd006e8f16ae';
-        const buildId = '0.6.36-dd006e8f16ae';
+        const appHash = 'f8454e941c82';
+        const buildId = '0.6.36-f8454e941c82';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -480,7 +484,7 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=dd006e8f16ae"></script>
+    <script src="./app.js?v=f8454e941c82"></script>
   </body>
 
 </html>

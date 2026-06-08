@@ -4,6 +4,7 @@ import { copyText } from '../ui/browser';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
+import { jitenSentenceTtsUrl, jitenTtsVoicesForSettings, jitenWordTtsUrl } from '../audio/jiten-tts';
 import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render';
 import { formatUiText, uiList, uiText } from '../app/i18n';
 import type { MiningContext } from '../study/mining-context';
@@ -41,7 +42,7 @@ interface CardActionControllerOptions {
     getActivePopoverMode: () => 'modal' | 'hover' | undefined;
     showSettings: (panel?: string) => void;
     playAudio: (card: JPDBCard, options?: { userGesture?: boolean }) => Promise<void>;
-    playMediaUrl?: (audioUrl: string) => Promise<void>;
+    playMediaUrl?: (audioUrl: string) => Promise<boolean | void>;
     playSentenceAudio: (sentence?: string) => Promise<void>;
     playJpdbExampleAudio?: (audioIds: string | string[], fallbackSentence?: string) => Promise<void>;
     detectGrammarHints: (sentence: string) => Promise<GrammarHint[]>;
@@ -112,6 +113,7 @@ export class CardActionController {
             'study-grammar': () => this.performStudyGrammarTool(button, sentence),
             'study-read-sentence': () => this.performStudyReadSentence(button, sentence),
             'jpdb-example-audio': () => this.performJpdbExampleAudio(button),
+            'jiten-audio': () => this.performJitenAudio(button, sentence),
             'anki-media-audio': () => this.performAnkiMediaAudio(button),
         };
         return handlers[action];
@@ -156,6 +158,23 @@ export class CardActionController {
         const fallbackSentence = button.dataset.jpdbExampleSentence ?? '';
         if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
         else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
+        return false;
+    }
+
+    private async performJitenAudio(button: HTMLButtonElement, sentence?: string): Promise<boolean> {
+        const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
+        const audioUrls = jitenAudioUrlsForButton(button, this.options.getSettings());
+        if (this.options.playMediaUrl) {
+            for (const audioUrl of audioUrls) {
+                try {
+                    const played = await this.options.playMediaUrl(audioUrl);
+                    if (played !== false) return false;
+                } catch {
+                    // Try the next Jiten URL before falling back to sentence TTS.
+                }
+            }
+        }
+        await this.options.playSentenceAudio(fallbackSentence);
         return false;
     }
 
@@ -503,6 +522,64 @@ export class CardActionController {
             : Promise.resolve([]);
     }
 
+}
+
+function jitenAudioUrlsFromButton(button: HTMLButtonElement): string[] {
+    const raw = button.dataset.jitenAudioUrls?.trim();
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) return uniqueTrimmed(parsed.filter((value): value is string => typeof value === 'string'));
+    } catch {
+        // Older rendered markup should still fall back to sentence TTS if the payload is malformed.
+    }
+    return [];
+}
+
+function jitenAudioUrlsForButton(button: HTMLButtonElement, settings: ReaderSettings): string[] {
+    return uniqueTrimmed([
+        ...jitenAudioUrlsFromButton(button),
+        ...generatedJitenAudioUrlsForButton(button, settings),
+    ]);
+}
+
+function generatedJitenAudioUrlsForButton(button: HTMLButtonElement, settings: ReaderSettings): string[] {
+    const sentenceId = finitePositiveDatasetInteger(button.dataset.jitenSentenceId);
+    const voices = jitenTtsVoicesForSettings(settings);
+    if (sentenceId !== undefined) return voices.map(voice => jitenSentenceTtsUrl(sentenceId, voice));
+
+    const wordId = finitePositiveDatasetInteger(button.dataset.jitenWordId);
+    const readingIndex = finiteNonNegativeDatasetInteger(button.dataset.jitenReadingIndex);
+    if (wordId === undefined || readingIndex === undefined) return [];
+    return voices.map(voice => jitenWordTtsUrl(wordId, readingIndex, voice));
+}
+
+function finitePositiveDatasetInteger(value: string | undefined): number | undefined {
+    const parsed = finiteDatasetInteger(value);
+    return parsed !== undefined && parsed > 0 ? parsed : undefined;
+}
+
+function finiteNonNegativeDatasetInteger(value: string | undefined): number | undefined {
+    const parsed = finiteDatasetInteger(value);
+    return parsed !== undefined && parsed >= 0 ? parsed : undefined;
+}
+
+function finiteDatasetInteger(value: string | undefined): number | undefined {
+    if (!value) return undefined;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function uniqueTrimmed(values: string[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const value of values) {
+        const trimmed = value.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        result.push(trimmed);
+    }
+    return result;
 }
 
 function miningSentenceForAnki(contextSentence: string | undefined, fallbackSentence: string | undefined): string | undefined {

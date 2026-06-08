@@ -10,12 +10,12 @@ type RowOrderLabels = { drag: string; up: string; down: string };
 
 const SOURCE_ROW_COPY_KEYS_BY_ID: Record<string, SourceRowCopyKeys> = {
     __jpdb__: { helpKey: 'sourceHelpJpdb' },
+    __jiten__: { helpKey: 'sourceHelpJiten' },
     __anki__: { nameKey: 'sourceNameAnki', helpKey: 'sourceHelpAnki' },
     __study_translation__: { nameKey: 'sourceNameTranslation', helpKey: 'sourceHelpTranslation' },
     __study_grammar__: { nameKey: 'sourceNameGrammar', helpKey: 'sourceHelpGrammar' },
     __immersion_kit__: { nameKey: 'sourceNameImmersionKit', helpKey: 'sourceHelpImmersionKit' },
     __kanji_stroke__: { nameKey: 'sourceNameStrokePractice', helpKey: 'sourceHelpStrokePractice' },
-    __kanji_jpdb__: { nameKey: 'readingsComponents', helpKey: 'sourceHelpReadingsComponents' },
     __kanji_rtk__: { helpKey: 'sourceHelpRtk' },
     __kanji_uchisen__: { helpKey: 'sourceHelpUchisen' },
     __kanji_dictionaries__: { nameKey: 'sourceNameImportedKanjiDictionaries', helpKey: 'sourceHelpImportedKanjiDictionaries' },

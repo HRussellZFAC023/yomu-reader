@@ -1,5 +1,27 @@
 import type { JPDBCard } from '../app/types';
+import { primaryCardState } from '../cards/state';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
+
+const RENDERED_WORD_CARD_STATES = [
+    'new',
+    'learning',
+    'young',
+    'mature',
+    'known',
+    'mastered',
+    'due',
+    'failed',
+    'locked',
+    'never-forget',
+    'blacklisted',
+    'suspended',
+    'in-deck',
+    'not-in-deck',
+    'redundant',
+    'frequent',
+    'unparsed',
+];
+const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback'];
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -96,14 +118,45 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
 }
 
 export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): void {
+    const source = renderedWordCardSource(card);
+    const state = primaryCardState(card.cardState);
+    clearRenderedWordCardStateClasses(word);
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
+    word.dataset.cardSource = source;
+    word.dataset.cardId = String(renderedWordCardId(card, source));
+    word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
+    word.dataset.cardState = state;
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
+    word.classList.add(`jpdb-${state}`);
+    if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
 }
 
 function escapeCssAttributeValue(value: string): string {
     return value.replace(/["\\]/g, '\\$&');
+}
+
+function clearRenderedWordCardStateClasses(word: HTMLElement): void {
+    Array.from(word.classList)
+        .filter(isRenderedWordCardStateClass)
+        .forEach(className => word.classList.remove(className));
+}
+
+function isRenderedWordCardStateClass(className: string): boolean {
+    return RENDERED_WORD_CARD_STATE_PREFIXES.some(prefix => RENDERED_WORD_CARD_STATES.some(state => className === `${prefix}-${state}`));
+}
+
+function renderedWordCardSource(card: JPDBCard): string {
+    return card.source ?? (card.reviewSource === 'jiten-api' ? 'jiten' : 'jpdb');
+}
+
+function renderedWordCardId(card: JPDBCard, source = renderedWordCardSource(card)): number {
+    return source === 'jiten' ? card.jitenWordId ?? card.vid : card.vid;
+}
+
+function renderedWordReadingIndex(card: JPDBCard, source = renderedWordCardSource(card)): number {
+    return source === 'jiten' ? card.jitenReadingIndex ?? card.sid : card.sid;
 }
 
 function yieldToNextTask(): Promise<void> {

@@ -10,6 +10,7 @@ import { clearNewTabOfflineCache } from '../newtab/cache';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
+import { effectiveJpdbApiKey } from './api-credential';
 import { exportManagedStoredValues, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
@@ -941,7 +942,7 @@ export class SettingsDialogController {
         if (!container) return;
         this.syncJpdbStatus(form);
         const formSettings = readFormSettings(new FormData(form), this.settings);
-        const apiKey = formSettings.apiKey.trim();
+        const apiKey = effectiveJpdbApiKey(formSettings);
         if (!apiKey) {
             setInnerHtml(container, renderDeckControls(formSettings, [], false, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
             localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -1024,6 +1025,10 @@ export class SettingsDialogController {
         if (typeof scanLibrary !== 'function') return;
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
+        if (!this.settings.ankiEnabled) {
+            this.settings = previous;
+            return;
+        }
         this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending');
         try {
             const scan = await scanLibrary.call(this.dependencies.anki);
@@ -1050,6 +1055,10 @@ export class SettingsDialogController {
         if (typeof warmStatusIndex !== 'function') return;
         const previous = this.settings;
         this.settings = readFormSettings(new FormData(form), this.settings);
+        if (!this.settings.ankiEnabled) {
+            this.settings = previous;
+            return;
+        }
         try {
             await warmStatusIndex.call(this.dependencies.anki);
             log.info('Auto Anki status index warmup ok');

@@ -16,7 +16,7 @@ describe('normalizeCardState', () => {
     });
 
     it('recognizes all canonical card states', () => {
-        const states = ['new', 'learning', 'known', 'due', 'failed', 'locked', 'never-forget', 'blacklisted', 'suspended', 'in-deck', 'not-in-deck', 'redundant'];
+        const states = ['new', 'learning', 'young', 'mature', 'known', 'mastered', 'due', 'failed', 'locked', 'never-forget', 'blacklisted', 'suspended', 'in-deck', 'not-in-deck', 'redundant', 'frequent', 'unparsed'];
         for (const state of states) {
             expect(normalizeCardState(state)).toBe(state);
         }

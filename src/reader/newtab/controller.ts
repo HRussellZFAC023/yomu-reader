@@ -19,7 +19,16 @@ import {
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { runLimited } from '../core/async-utils';
-import type { JitenApiClient } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo, JitenKanjiWordsPage } from '../dictionaries/jiten';
+import {
+    jitenKanjiFactRows,
+    jitenKanjiReadingRows,
+    jitenKanjiWordsPageSize,
+    renderJitenKanjiInfoWithAttributes,
+    renderJitenKanjiKeywordLine,
+    renderJitenKanjiWordsMoreButton,
+    renderJitenKanjiWordsPage,
+} from '../jiten/jiten-kanji-info-render';
 import type { JpdbClient } from '../jpdb/jpdb';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -45,7 +54,7 @@ import {
     renderPitch,
     renderRtkInfo,
 } from '../popup/render';
-import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection, renderSimilarKanjiWordsContent } from '../sources/definition-render';
+import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection } from '../sources/definition-render';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -246,7 +255,6 @@ import {
     KANJI_JPDB_SOURCE_ID,
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
-    KANJI_SIMILAR_WORDS_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
@@ -255,6 +263,7 @@ import {
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import { JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK } from '../settings';
+import { activeApiCredentialLabel, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -269,6 +278,7 @@ const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
+const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 export type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './review-controls';
 
@@ -318,7 +328,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard'>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -460,10 +470,10 @@ interface SourceToggleContext {
 }
 interface KanjiDetailBundle {
     jpdb: JpdbKanjiInfo | null;
+    jiten: JitenKanjiInfo | null;
     rtk: RtkInfo | null;
     vg: KanjiVGInfo | null;
     local: YomitanKanjiEntry[];
-    similar: YomitanTermEntry[];
 }
 
 interface NewTabKanjiSourceRenderContext {
@@ -473,23 +483,22 @@ interface NewTabKanjiSourceRenderContext {
     readings: string[];
     localMeanings: string[];
     fullInfo: JpdbKanjiInfo | null;
+    jitenInfo: JitenKanjiInfo | null;
     rtk: RtkInfo | null;
     vg: KanjiVGInfo | null;
     localEntries: YomitanKanjiEntry[];
-    similarEntries: YomitanTermEntry[];
     settings: ReaderSettings;
     excludeFactLabels: Set<string>;
-    similarEntriesLoaded: boolean;
 }
 
 interface KanjiDetailCacheEntry {
     details?: Promise<KanjiDetailBundle>;
     detailsSignature?: string;
     jpdb?: Promise<JpdbKanjiInfo | null>;
+    jiten?: Promise<JitenKanjiInfo | null>;
     rtk?: Promise<RtkInfo | null>;
     vg?: Promise<KanjiVGInfo | null>;
     local?: Promise<YomitanKanjiEntry[]>;
-    similar?: Promise<YomitanTermEntry[]>;
 }
 
 interface KanjiPromptKeyword {
@@ -555,7 +564,6 @@ interface NewTabSearchWordDetail {
 interface NewTabSearchWordKanjiDetail {
     kanji: string;
     details: KanjiDetailBundle;
-    similarEntriesLoaded: boolean;
 }
 
 const log = Logger.scope('NewTab');
@@ -598,6 +606,7 @@ export class NewTabController {
     private immersionAudioKey = '';
     private immersionAudioRequestId = 0;
     private reviewCountMode = false;
+    private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionProgress = new NewTabSessionProgressTracker();
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private loadGeneration = 0;
@@ -749,6 +758,7 @@ export class NewTabController {
         if (!root) return;
         this.dependencies.dictionaries.invalidateCaches?.();
         this.clearSourceResultCache();
+        this.clearReviewHistory();
         this.allWords = [];
         this.visibleWords = [];
         this.visiblePoolSignature = '';
@@ -771,8 +781,8 @@ export class NewTabController {
     }
 
     async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<{ preserveLookup: boolean }> {
-        await this.gradeCurrentCard(grade, target);
-        return { preserveLookup: Boolean(target) };
+        const submitted = await this.gradeCurrentCard(grade, target);
+        return { preserveLookup: !submitted };
     }
 
     private isCurrentLookupGradeCard(card: JPDBCard): boolean {
@@ -1223,7 +1233,6 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         return Boolean(
             card
-            && this.state.revealAnswer
             && this.state.mode !== 'search'
             && this.state.mode !== 'stats'
             && this.canReviewCard(card),
@@ -1351,6 +1360,11 @@ export class NewTabController {
             this.selectSearchSuggestion(root, request.expression);
             return;
         }
+        const sourceReviewCard = this.sourceReviewLookupCardForTarget(request.word);
+        if (sourceReviewCard && this.dependencies.showLookupCard) {
+            void this.dependencies.showLookupCard(sourceReviewCard, request.sentence, request.word, this.nestedLookupOptions());
+            return;
+        }
         if (request.card && this.dependencies.showLookupCard) {
             void this.dependencies.showLookupCard(request.card, request.sentence, request.word, this.nestedLookupOptions());
             return;
@@ -1392,8 +1406,8 @@ export class NewTabController {
     }
 
     private performPromptLookup(request: PromptLookupRequest): void {
-        if (this.dependencies.showLookupCard && this.cardReviewSource(request.card) === 'anki') {
-            const lookupCard = this.sourceCardForVisibleCard(request.card) ?? request.card;
+        const lookupCard = this.sourceReviewLookupCard(request.card);
+        if (this.dependencies.showLookupCard && lookupCard) {
             void this.dependencies.showLookupCard(lookupCard, lookupCard.sentence || lookupCard.spelling, request.prompt, this.nestedLookupOptions());
             return;
         }
@@ -1441,8 +1455,17 @@ export class NewTabController {
         if (action === 'similar-word' || action === 'lookup') {
             return this.handleNestedTermLookupAction(root, actionTarget, event);
         }
+        if (action === 'jiten-kanji-more') {
+            return this.handleNestedJitenKanjiMoreAction(actionTarget, event);
+        }
+        if (action === 'jiten-kanji-reading') {
+            return this.handleNestedJitenKanjiReadingAction(actionTarget, event);
+        }
         if (action === 'jpdb-example-audio') {
             return this.handleNestedJpdbExampleAudioAction(actionTarget, event);
+        }
+        if (action === 'jiten-audio') {
+            return this.handleNestedJitenAudioAction(actionTarget, event);
         }
         if (action === 'search-word-audio') {
             return this.handleSearchWordAudioAction(actionTarget, event);
@@ -1480,8 +1503,112 @@ export class NewTabController {
             this.selectSearchSuggestion(root, term);
             return true;
         }
+        const sourceReviewCard = this.sourceReviewLookupCardForTarget(actionTarget);
+        if (sourceReviewCard && this.dependencies.showLookupCard) {
+            void this.dependencies.showLookupCard(sourceReviewCard, actionTarget.dataset.sentence || sentenceForCard(sourceReviewCard), actionTarget, this.nestedLookupOptions());
+            return true;
+        }
         void this.dependencies.lookupText?.(term, reading || term, actionTarget, this.nestedLookupOptions());
         return true;
+    }
+
+    private handleNestedJitenKanjiMoreAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget.closest<HTMLButtonElement>('button[data-action="jiten-kanji-more"]');
+        if (!button) return false;
+        consumeNestedLookupEvent(event);
+        void this.loadMoreJitenKanjiWords(button);
+        return true;
+    }
+
+    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
+        const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
+        if (button.disabled || typeof lookupKanjiWords !== 'function') return;
+        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
+        if (!character) return;
+        const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
+        const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
+        button.disabled = true;
+        try {
+            const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, {
+                reading: button.dataset.jitenKanjiReading || undefined,
+                page,
+                pageSize,
+            });
+            if (!button.isConnected) return;
+            this.appendJitenKanjiWords(button, wordsPage, page);
+        } catch {
+            if (button.isConnected) button.disabled = false;
+        }
+    }
+
+    private appendJitenKanjiWords(button: HTMLButtonElement, page: JitenKanjiWordsPage | null, requestedPage: number): void {
+        const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || '');
+        const grid = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
+        if (!html || !grid) {
+            button.remove();
+            return;
+        }
+        button.insertAdjacentHTML('beforebegin', html);
+        this.removeDuplicateJitenKanjiWords(grid);
+        const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
+        const rendered = grid.querySelectorAll('[data-jiten-kanji-word-key]').length;
+        if (!page?.items.length || (total > 0 && rendered >= total)) {
+            button.remove();
+            return;
+        }
+        button.dataset.jitenKanjiPage = String(requestedPage + 1);
+        button.dataset.jitenKanjiTotal = String(total);
+        const status = button.querySelector<HTMLElement>('.jpdb-reader-source-status');
+        if (status) status.textContent = String(Math.max(0, total - rendered));
+        button.disabled = false;
+    }
+
+    private handleNestedJitenKanjiReadingAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget.closest<HTMLButtonElement>('button[data-action="jiten-kanji-reading"]');
+        if (!button) return false;
+        consumeNestedLookupEvent(event);
+        void this.filterJitenKanjiWords(button);
+        return true;
+    }
+
+    private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
+        const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
+        if (button.disabled || typeof lookupKanjiWords !== 'function') return;
+        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
+        const reading = button.dataset.jitenKanjiReading?.trim() ?? '';
+        const source = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji');
+        const grid = source?.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
+        if (!character || !reading || !source || !grid) return;
+        source.querySelectorAll<HTMLButtonElement>('[data-action="jiten-kanji-reading"]').forEach(candidate => {
+            candidate.setAttribute('aria-pressed', candidate === button ? 'true' : 'false');
+        });
+        button.disabled = true;
+        try {
+            const pageSize = jitenKanjiWordsPageSize();
+            const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, { reading, page: 1, pageSize });
+            if (!source.isConnected || !grid.isConnected) return;
+            const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
+            const rendered = wordsPage?.items.length ?? 0;
+            const total = wordsPage?.total ?? rendered;
+            const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.dependencies.getSettings().interfaceLanguage);
+            setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSimilarWords'))}</div>`);
+        } catch {
+            // Keep the previous list visible if the filtered Jiten page misses.
+        } finally {
+            if (button.isConnected) button.disabled = false;
+        }
+    }
+
+    private removeDuplicateJitenKanjiWords(grid: HTMLElement): void {
+        const seen = new Set<string>();
+        grid.querySelectorAll<HTMLElement>('[data-jiten-kanji-word-key]').forEach(word => {
+            const key = word.dataset.jitenKanjiWordKey ?? '';
+            if (!key || !seen.has(key)) {
+                if (key) seen.add(key);
+                return;
+            }
+            word.remove();
+        });
     }
 
     private handleNestedJpdbExampleAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -1490,6 +1617,25 @@ export class NewTabController {
         consumeNestedLookupEvent(event);
         void this.dependencies.playJpdbExampleAudio?.(button.dataset.jpdbAudio ?? '', button.dataset.jpdbExampleSentence ?? '');
         return true;
+    }
+
+    private handleNestedJitenAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
+        const card = this.nestedCardActionCard(actionTarget);
+        if (!button || !card || !this.dependencies.performCardAction) return false;
+        consumeNestedLookupEvent(event);
+        void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
+        return true;
+    }
+
+    private nestedCardActionCard(target: HTMLElement): JPDBCard | undefined {
+        const key = cleanNestedLookupValue(target.closest<HTMLElement>('[data-newtab-card]')?.dataset.newtabCard);
+        if (key) {
+            return this.searchWordCardCache.get(key)
+                ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key))
+                ?? this.allWords.find(card => this.cardMatchesSelectionKey(card, key));
+        }
+        return this.visibleWords[this.index];
     }
 
     private handleSearchWordAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -1696,6 +1842,34 @@ export class NewTabController {
         return this.allWords.find(item => cardKey(item) === card.sourceCardKey) ?? card;
     }
 
+    private sourceReviewLookupCard(card: JPDBCard | undefined): JPDBCard | undefined {
+        const sourceCard = this.sourceCardForVisibleCard(card);
+        return sourceCard && this.shouldPreserveSourceReviewLookupCard(sourceCard) ? sourceCard : undefined;
+    }
+
+    private sourceReviewLookupCardForTarget(target: HTMLElement): JPDBCard | undefined {
+        const sourceCard = this.sourceReviewLookupCard(this.visibleWords[this.index]);
+        if (!sourceCard || !this.isReviewLookupTarget(target) || !this.lookupTargetMatchesSourceReviewCard(target, sourceCard)) return undefined;
+        return sourceCard;
+    }
+
+    private shouldPreserveSourceReviewLookupCard(card: JPDBCard): boolean {
+        return this.cardReviewSource(card) === 'anki' || isReviewSource(card.reviewSource);
+    }
+
+    private isReviewLookupTarget(target: HTMLElement): boolean {
+        return Boolean(target.closest('[data-newtab-prompt], .jpdb-reader-newtab-immersion'));
+    }
+
+    private lookupTargetMatchesSourceReviewCard(target: HTMLElement, card: JPDBCard): boolean {
+        const vid = Number(target.dataset.vid);
+        const sid = Number(target.dataset.sid);
+        if (Number.isFinite(vid) && Number.isFinite(sid) && vid === card.vid && sid === card.sid) return true;
+        const term = cleanNestedLookupValue(target.dataset.expression ?? target.dataset.term) || cleanNestedLookupValue(readerWordSurfaceText(target));
+        const reading = cleanNestedLookupValue(target.dataset.reading);
+        return term === card.spelling && (!reading || reading === newTabCardReading(card));
+    }
+
     private isDictionaryCard(card: JPDBCard): boolean {
         return card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary';
     }
@@ -1819,19 +1993,19 @@ export class NewTabController {
 
     private async loadJpdbStatsSource(): Promise<StatsSourceSnapshot> {
         const providers = this.jpdbStatsApiProviders(this.dependencies.getSettings());
-        if (!providers.length) return emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup');
+        if (!providers.length) return emptyStatsSource('jpdb', this.apiReviewSourceLabel(), this.text('statsApiKeyMissing'), 'setup');
         const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));
         return this.jpdbStatsSourceFromApiResults(results);
     }
 
     private jpdbStatsApiProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
         const providers: NewTabStatsApiProvider[] = [];
-        if (settings.apiKey.trim()) providers.push({
+        if (hasJpdbApiCredential(settings)) providers.push({
             label: 'JPDB',
             load: () => this.loadJpdbStatsCards(),
         });
         const jiten = this.dependencies.jiten;
-        if (settings.jitenApiKey.trim() && typeof jiten?.listStudyBatchCards === 'function') {
+        if (hasJitenApiCredential(settings) && typeof jiten?.listStudyBatchCards === 'function') {
             const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
             providers.push({
                 label: 'Jiten',
@@ -2108,13 +2282,26 @@ export class NewTabController {
 
     private async loadFallbackStudyWordsIfNeeded(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator, onProgress?: (message: string) => void): Promise<void> {
         if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
-        const fallback = await this.loadFreshStudyWords(onProgress);
+        const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
+        const fallback = jitenOnlyApiFallback
+            ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress)
+            : await this.loadFreshStudyWords(onProgress);
         if (fallback.cards.length && !accumulator.cards.length) {
-            accumulator.labels = [];
+            accumulator.labels = jitenOnlyApiFallback ? ['Jiten'] : [];
             accumulator.reviewCountMode = false;
             delete accumulator.emptyMessageKey;
+            if (jitenOnlyApiFallback) {
+                accumulator.cards.push(...fallback.cards);
+                return;
+            }
         }
         appendNewTabLoadResult(accumulator, fallback);
+    }
+
+    private shouldUseJitenOnlyApiStudyFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
+        if (accumulator.cards.length || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
+        if (plan.kind !== 'auto-review' && !plan.primarySources.includes('jpdb')) return false;
+        return this.hasJitenOnlyApiCredentials();
     }
 
     private shouldLoadFallbackStudyWords(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
@@ -2157,6 +2344,11 @@ export class NewTabController {
         return this.dependencies.getSettings().newTabSource === 'auto'
             && !accumulator.cards.length
             && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+
+    private async loadLocalOrBuiltInFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
+        const dictionaryResult = await this.loadDictionaryWords(onProgress);
+        return dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
     }
 
     private async hasLocalDictionaries(): Promise<boolean> {
@@ -2243,11 +2435,12 @@ export class NewTabController {
         return JSON.stringify({
             source,
             language: this.language(),
-            apiKey: Boolean(settings.apiKey.trim()),
-            jitenApiKey: Boolean(settings.jitenApiKey.trim()),
+            apiKey: hasJpdbApiCredential(settings),
+            jitenApiKey: hasJitenApiCredential(settings),
             jpdbMiningEnabled: settings.jpdbMiningEnabled,
             jpdbReviewMode: settings.newTabJpdbReviewMode,
             jpdbDeck: settings.newTabJpdbDeck,
+            ankiEnabled: settings.ankiEnabled,
             ankiNewTabEnabled: settings.newTabAnkiEnabled,
             ankiDeck: settings.ankiDeck,
             ankiModel: settings.ankiModel,
@@ -2259,7 +2452,7 @@ export class NewTabController {
 
     private async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        if (!settings.newTabAnkiEnabled || typeof this.dependencies.anki.listNewTabCards !== 'function') {
+        if (!settings.ankiEnabled || !settings.newTabAnkiEnabled || typeof this.dependencies.anki.listNewTabCards !== 'function') {
             const explicitAnki = this.state.source === 'anki';
             return {
                 cards: [],
@@ -2270,11 +2463,10 @@ export class NewTabController {
         }
         const cardLimit = Math.max(1, Math.floor(limit));
         let unavailable = false;
-        const cards = await promiseWithTimeout(
-            this.dependencies.anki.listNewTabCards(cardLimit),
-            timeoutMs,
-            'Anki timed out.',
-        ).catch(error => {
+        const loadCards = this.dependencies.anki.listNewTabCards(cardLimit);
+        const cards = await (this.state.source === 'anki'
+            ? loadCards
+            : promiseWithTimeout(loadCards, timeoutMs, 'Anki timed out.')).catch(error => {
             unavailable = true;
             log.warn('New tab Anki source failed', { error });
             return [] as JPDBCard[];
@@ -2400,15 +2592,18 @@ export class NewTabController {
 
     private async loadJpdbWords(options: { allowPublicFallback?: boolean; timeoutMs?: number; limit?: number } = {}): Promise<NewTabLoadResult> {
         const settings = this.dependencies.getSettings();
-        const live = settings.jpdbMiningEnabled ? this.loadLiveJpdbReviewWords(settings) : null;
+        const hasJpdbKey = hasJpdbApiCredential(settings);
+        const jitenOnlyApi = this.hasJitenOnlyApiCredentials(settings);
+        const hasActiveJpdbKey = hasJpdbKey && (!hasJitenApiCredential(settings) || activeApiCredentialLabel(settings) === 'JPDB');
+        const live = hasActiveJpdbKey && settings.jpdbMiningEnabled ? this.loadLiveJpdbReviewWords(settings) : null;
         if (live) return live;
         const apiResults = await this.loadApiReviewSourceResults(settings, options);
         if (apiResults.length) return this.mergeApiReviewSourceResults(apiResults);
-        return this.loadJpdbWordsFallback(Boolean(settings.apiKey.trim()), options.allowPublicFallback);
+        return this.loadJpdbWordsFallback(hasJpdbKey, jitenOnlyApi ? false : options.allowPublicFallback);
     }
 
     private async loadApiReviewSourceResults(settings: ReaderSettings, options: { timeoutMs?: number; limit?: number }): Promise<NewTabLoadResult[]> {
-        const hasJpdbKey = Boolean(settings.apiKey.trim());
+        const hasJpdbKey = hasJpdbApiCredential(settings);
         const apiResults: NewTabLoadResult[] = [];
         if (hasJpdbKey) {
             const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
@@ -2424,7 +2619,7 @@ export class NewTabController {
         if (allowPublicFallback !== false) return this.loadFreshStudyWords();
         return {
             cards: [],
-            sourceLabel: 'JPDB',
+            sourceLabel: this.apiReviewSourceLabel(),
             reviewCountMode: true,
             ...(hasJpdbKey ? { emptyMessageKey: 'couldNotLoadWords' as const } : {}),
         };
@@ -2443,7 +2638,7 @@ export class NewTabController {
     private async loadJitenStudyBatchWords(options: { timeoutMs?: number; limit?: number } = {}): Promise<NewTabLoadResult | null> {
         const settings = this.dependencies.getSettings();
         const jiten = this.dependencies.jiten;
-        if (!settings.jitenApiKey.trim() || typeof jiten?.listStudyBatchCards !== 'function') return null;
+        if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyBatchCards !== 'function') return null;
         const cardLimit = Math.max(1, Math.floor(options.limit ?? NEW_TAB_WORD_LIMIT));
         const loaded = await this.remoteSourceResult(
             'Jiten study batch',
@@ -2605,7 +2800,10 @@ export class NewTabController {
 
     private setState(patch: Partial<NewTabUiState>, root: HTMLElement, options: { preserveWord: boolean }): void {
         const preferredCardKey = options.preserveWord ? this.currentVisibleWordKey() : '';
+        const shouldClearReviewHistory = (patch.mode !== undefined && patch.mode !== this.state.mode)
+            || (patch.source !== undefined && patch.source !== this.state.source);
         this.state = { ...this.state, ...patch };
+        if (shouldClearReviewHistory) this.clearReviewHistory();
         this.persistState();
         this.syncMode(root);
         this.applyWords(root, options.preserveWord, preferredCardKey);
@@ -2625,6 +2823,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         settings.newTabSource = source;
         this.state = { ...this.state, source, revealAnswer: false };
+        this.clearReviewHistory();
         this.persistState();
         this.syncMode(root);
         this.navigationSupplementPromise = null;
@@ -2717,6 +2916,7 @@ export class NewTabController {
         this.index = 0;
         this.sourceLabel = '';
         this.reviewCountMode = false;
+        this.clearReviewHistory();
         this.emptyLoadMessageKey = null;
     }
 
@@ -2858,6 +3058,25 @@ export class NewTabController {
 
     private cardSelectionKey(card: JPDBCard): string {
         return card.sourceCardKey || cardKey(card);
+    }
+
+    private isReviewHistoryCard(card: JPDBCard | undefined): boolean {
+        if (!card) return false;
+        const key = cardKey(card);
+        return this.reviewHistoryCards.some(historyCard => cardKey(historyCard) === key);
+    }
+
+    private rememberReviewHistoryCard(card: JPDBCard): void {
+        if (!this.reviewCountMode || !this.isReviewCard(card)) return;
+        const key = cardKey(card);
+        this.reviewHistoryCards = [
+            normalizeNewTabCard(card),
+            ...this.reviewHistoryCards.filter(historyCard => cardKey(historyCard) !== key),
+        ].slice(0, NEW_TAB_REVIEW_HISTORY_LIMIT);
+    }
+
+    private clearReviewHistory(): void {
+        this.reviewHistoryCards = [];
     }
 
     private preferredStoredWordKey(preferStoredWord: boolean): string {
@@ -3057,25 +3276,31 @@ export class NewTabController {
 
     private newTabCountLabel(card: JPDBCard): string {
         if (!this.visibleWords.length) return '';
+        if (this.reviewCountMode) return '';
         if (!this.reviewCountMode && !this.isReviewCard(card)) return '';
         return `${this.index + 1} / ${this.visibleWords.length}`;
     }
 
     private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard): void {
         const baseLabel = this.newTabCountLabel(card);
-        if (!baseLabel) {
-            this.renderCount(slots.count, '', null);
-            return;
-        }
-        const snapshot = this.sessionProgress.snapshot(this.visibleWords);
-        this.renderCount(slots.count, [
+        const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
+        const labels = [
             baseLabel,
-            formatNewTabSessionProgressLabel(snapshot, {
+            snapshot ? formatNewTabSessionProgressLabel(snapshot, {
                 completed: this.text('sessionDone'),
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
-            }),
-        ].join(' · '), snapshot);
+            }) : '',
+        ].filter(Boolean);
+        if (!labels.length) {
+            this.renderCount(slots.count, '', null);
+            return;
+        }
+        this.renderCount(slots.count, labels.join(' · '), snapshot);
+    }
+
+    private sessionProgressCards(): JPDBCard[] {
+        return this.visibleWords.filter(card => !this.isReviewHistoryCard(card));
     }
 
     private newTabStatusLabel(card: JPDBCard): string {
@@ -3083,6 +3308,7 @@ export class NewTabController {
     }
 
     private newTabStatusSourceLabel(card: JPDBCard): string {
+        if (this.shouldShowJitenOnlyApiFallbackSource(card)) return 'Jiten';
         const labels = this.reviewTargetSourceLabels(card);
         return labels.length
             ? labels.join(' + ')
@@ -3104,8 +3330,30 @@ export class NewTabController {
         };
         if (summary.hasJpdb) add('JPDB');
         if (summary.hasJiten) add('Jiten');
-        if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten ? 'Anki' : ankiReviewSourceLabel(card, this.language()));
+        if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten ? 'Anki' : this.ankiReviewSourceLabel(card));
         return labels;
+    }
+
+    private ankiReviewSourceLabel(card: JPDBCard): string {
+        const kind = ankiCardKindLabel(card, this.language());
+        const deck = this.ankiReviewSourceDeckLabel(card);
+        return ['Anki', deck, kind].filter(Boolean).join(' · ');
+    }
+
+    private ankiReviewSourceDeckLabel(card: JPDBCard): string {
+        const primaryCardId = Number(card.ankiCardId ?? card.rid);
+        const renderedDeck = (card.ankiRenderedCards ?? [])
+            .find(rendered => rendered.cardId === primaryCardId)?.deckName
+            || card.ankiRenderedCards?.[0]?.deckName
+            || '';
+        return renderedDeck || card.ankiDeckNames?.join(', ') || '';
+    }
+
+    private shouldShowJitenOnlyApiFallbackSource(card: JPDBCard): boolean {
+        const source = this.cardReviewSource(card);
+        return (source === 'dictionary' || (source === 'jpdb' && !isJitenSrsCard(card)))
+            && this.sourceLabel.startsWith('Jiten')
+            && this.hasJitenOnlyApiCredentials();
     }
 
     private renderStatus(statusSlot: HTMLElement | null, card: JPDBCard): void {
@@ -3134,14 +3382,24 @@ export class NewTabController {
     private renderNewTabStatusLights(card: JPDBCard): HTMLElement[] {
         const sources = this.reviewTargetSources(card);
         if (!sources.length) {
-            const source = this.cardReviewSource(card);
-            if (source === 'jpdb' || source === 'anki') sources.push(source);
+            const source = this.statusLightSourceForCard(card);
+            if (source) sources.push(source);
         }
         return sources.map(source => el('span', {
             class: 'jpdb-reader-newtab-status-light',
             dataset: { source },
             'aria-hidden': 'true',
         }));
+    }
+
+    private statusLightSourceForCard(card: JPDBCard): 'jpdb' | 'jiten' | 'anki' | null {
+        if ((this.cardReviewSource(card) === 'dictionary' && this.sourceLabel.startsWith('Jiten'))
+            || this.shouldShowJitenOnlyApiFallbackSource(card)
+            || isJitenSrsCard(card)) {
+            return 'jiten';
+        }
+        const source = this.cardReviewSource(card);
+        return source === 'jpdb' || source === 'anki' ? source : null;
     }
 
     private reviewTargetSources(card: JPDBCard): Array<'jpdb' | 'jiten' | 'anki'> {
@@ -3178,14 +3436,17 @@ export class NewTabController {
             return;
         }
         const target = this.emptySourceToggleTarget(source);
+        const lightSource = source === 'jpdb' && this.sourceLabel.startsWith('Jiten')
+            ? 'jiten'
+            : source;
         replaceChildrenWith(statusSlot, ...[
             el('span', {
                 class: 'jpdb-reader-newtab-status-light',
-                dataset: { source },
+                dataset: { source: lightSource },
                 'aria-hidden': 'true',
             }),
             document.createTextNode(target ? `${this.sourceToggleLabel(source)} ⇄` : this.sourceToggleLabel(source)),
-        ]);
+        ].filter((node): node is HTMLElement | Text => Boolean(node)));
         if (target) {
             statusSlot.dataset.newtabAction = 'source-toggle';
             statusSlot.dataset.sourceToggleTarget = target;
@@ -3225,10 +3486,18 @@ export class NewTabController {
         const context = this.sourceToggleContext(card);
         const sources = uniqueConcreteSources([
             this.jpdbToggleSource(context),
-            this.ankiToggleSource(context),
+            this.shouldSuppressJitenOnlyJpdbCardToggle(card) ? null : this.ankiToggleSource(context),
         ]);
         if (this.shouldIncludeDictionaryToggleSource(context, sources)) sources.push('dictionary');
         return sources;
+    }
+
+    private shouldSuppressJitenOnlyJpdbCardToggle(card: JPDBCard): boolean {
+        return this.hasJitenOnlyApiCredentials()
+            && !this.sourceLabel.startsWith('Jiten')
+            && this.cardReviewSource(card) === 'jpdb'
+            && !isJitenSrsCard(card)
+            && !this.reviewTargetsForCard(card).includes('anki');
     }
 
     private sourceToggleContext(card: JPDBCard): SourceToggleContext {
@@ -3283,6 +3552,7 @@ export class NewTabController {
     }
 
     private shouldIncludeDictionaryToggleSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
+        if (this.sourceLabel.startsWith('Jiten') && this.hasJitenOnlyApiCredentials()) return false;
         return context.current === 'dictionary'
             && sources.length === 1;
     }
@@ -3331,24 +3601,30 @@ export class NewTabController {
     }
 
     private hasAvailableJpdbReviewSource(settings: ReaderSettings): boolean {
-        if (settings.apiKey.trim()) return true;
-        if (settings.jitenApiKey.trim()) return true;
+        if (hasJpdbApiCredential(settings)) return true;
+        if (hasJitenApiCredential(settings)) return true;
         if (settings.newTabJpdbReviewMode === 'api-vocabulary') return false;
         const status = this.liveJpdbStatus ?? this.dependencies.jpdbReviewBridge.latestStatus?.();
         return settings.jpdbMiningEnabled && Boolean(status?.card);
     }
 
+    private hasJitenOnlyApiCredentials(settings = this.dependencies.getSettings()): boolean {
+        return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === 'Jiten'));
+    }
+
     private canUseAnkiSource(settings = this.dependencies.getSettings()): boolean {
-        return settings.newTabAnkiEnabled
+        return settings.ankiEnabled
+            && settings.newTabAnkiEnabled
             && typeof this.dependencies.anki.listNewTabCards === 'function';
     }
 
     private canOfferAnkiSource(settings = this.dependencies.getSettings()): boolean {
-        return settings.newTabAnkiEnabled;
+        return settings.ankiEnabled && settings.newTabAnkiEnabled;
     }
 
     private cardReviewSource(card: JPDBCard): 'jpdb' | 'anki' | 'dictionary' {
         if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
+        if (card.source === 'jiten' || card.reviewSource === 'jiten-api') return 'jpdb';
         if (card.source === 'jpdb' || card.reviewSource === 'jpdb-api' || card.reviewSource === 'jpdb-live') return 'jpdb';
         return 'dictionary';
     }
@@ -3360,11 +3636,15 @@ export class NewTabController {
     }
 
     private jpdbSourceToggleLabel(): string {
-        if (this.sourceLabel.startsWith('Jiten')) return 'Jiten';
         if (this.sourceLabel.includes('JPDB + Jiten')) return 'JPDB + Jiten';
-        const settings = this.dependencies.getSettings();
-        if (!settings.apiKey.trim() && settings.jitenApiKey.trim()) return 'Jiten';
-        return 'JPDB';
+        if (this.sourceLabel.startsWith('Jiten')) return 'Jiten';
+        return this.apiReviewSourceLabel();
+    }
+
+    private apiReviewSourceLabel(settings = this.dependencies.getSettings()): 'JPDB' | 'Jiten' {
+        return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings)
+            ? activeApiCredentialLabel(settings)
+            : 'JPDB';
     }
 
     private renderCount(countSlot: HTMLElement | null, label: string, progress: NewTabSessionProgressSnapshot | null = null): void {
@@ -4339,6 +4619,7 @@ export class NewTabController {
         uchisenData: UchisenData | null = null,
     ): KanjiPromptKeyword[] {
         return this.dedupeKanjiPromptKeywords([
+            { source: 'Jiten', text: details.jiten?.meanings[0] ?? '' },
             { source: 'JPDB', text: details.jpdb?.keyword ?? '' },
             { source: 'RTK', text: details.rtk?.keyword ?? '' },
             { source: 'Uchisen', text: uchisenData?.kanjiKeyword?.keyword ?? '' },
@@ -4390,7 +4671,7 @@ export class NewTabController {
     }
 
     private applyEnrichedKanjiKeyword(slots: NewTabStudySlots, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
-        const keyword = this.keywordFromDetails(card, details.jpdb, details.rtk);
+        const keyword = this.keywordFromDetails(card, details.jpdb, details.jiten, details.rtk);
         if (keyword) this.keywordCache.set(kanji, keyword);
         if (slots.prompt && !this.state.revealAnswer) {
             replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(
@@ -4443,9 +4724,7 @@ export class NewTabController {
         details: KanjiDetailBundle,
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
-        const similarLoaded = !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings());
-        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar, similarLoaded));
-        this.renderSimilarKanjiWordsProgressively(slots, card, kanji, details);
+        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
         this.renderNewTabUchisen(slots.meaning, kanji);
         this.renderNewTabKanjiImmersion(slots.meaning, kanji);
         void this.dependencies.parseContent?.(slots.meaning);
@@ -4568,18 +4847,17 @@ export class NewTabController {
         card: JPDBCard,
         kanji: string,
         info: JpdbKanjiInfo | null,
+        jitenInfo: JitenKanjiInfo | null,
         rtk: RtkInfo | null,
         vg: KanjiVGInfo | null,
         localEntries: YomitanKanjiEntry[],
-        similarEntries: YomitanTermEntry[],
-        similarEntriesLoaded = true,
     ): HTMLElement {
         const settings = this.dependencies.getSettings();
         const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
         const localMeanings = uniqueStrings(localEntries.flatMap(entry => entry.meanings)).slice(0, 6);
         const localReadings = uniqueStrings(localEntries.flatMap(entry => [...entry.onyomi, ...entry.kunyomi])).slice(0, 8);
-        const readings = newTabKanjiReadings(fullInfo, localReadings);
-        const facts = this.newTabKanjiFacts(card, fullInfo, rtk, localMeanings);
+        const readings = jitenInfo ? jitenKanjiReadingRows(jitenInfo) : newTabKanjiReadings(fullInfo, localReadings);
+        const facts = jitenInfo ? jitenKanjiFactRows(jitenInfo, settings.interfaceLanguage) : this.newTabKanjiFacts(card, fullInfo, rtk, localMeanings);
         const context: NewTabKanjiSourceRenderContext = {
             card,
             kanji,
@@ -4587,13 +4865,12 @@ export class NewTabController {
             readings,
             localMeanings,
             fullInfo,
+            jitenInfo,
             rtk,
             vg,
             localEntries,
-            similarEntries,
             settings,
             excludeFactLabels: new Set(facts.map(([label]) => label)),
-            similarEntriesLoaded,
         };
         const wrap = el('div', { class: 'jpdb-reader-newtab-kanji-details' },
             el('div', { class: 'jpdb-reader-newtab-kanji-keywords' }),
@@ -4601,7 +4878,9 @@ export class NewTabController {
             this.renderKanjiMiningControls(fullInfo),
         );
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
-        if (keywordMount) setInnerHtml(keywordMount, renderKanjiKeywordLine(fullInfo, rtk, localEntries));
+        if (keywordMount) setInnerHtml(keywordMount, jitenInfo
+            ? renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage)
+            : renderKanjiKeywordLine(fullInfo, rtk, localEntries));
         this.dependencies.installDictionarySourceTracking?.(wrap);
         return wrap;
     }
@@ -4636,7 +4915,17 @@ export class NewTabController {
         sourceId: string,
         context: NewTabKanjiSourceRenderContext,
     ): HTMLElement | null | undefined {
-        if (sourceId === KANJI_JPDB_SOURCE_ID) return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, key => this.sourceAttributes(key), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
+        if (sourceId === KANJI_JPDB_SOURCE_ID) {
+            if (context.jitenInfo) {
+                return htmlToFirstElement(renderJitenKanjiInfoWithAttributes(
+                    context.jitenInfo,
+                    context.settings.interfaceLanguage,
+                    (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
+                    this.kanjiSourceTitle(sourceId),
+                ));
+            }
+            return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, key => this.sourceAttributes(key), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
+        }
         if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
         return undefined;
@@ -4648,7 +4937,6 @@ export class NewTabController {
     ): HTMLElement | null | undefined {
         if (sourceId === KANJI_UCHISEN_SOURCE_ID) return this.renderNewTabUchisenPlaceholder(context.settings);
         if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderNewTabKanjiImmersionPlaceholder(context.settings);
-        if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return htmlToFirstElement(this.renderNewTabSimilarKanjiWords(context.card, context.kanji, context.fullInfo?.vocabulary ?? [], context.similarEntries, context.similarEntriesLoaded));
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return this.renderNewTabKanjiDictionarySection(context.localEntries, sourceId, this.kanjiSourceTitle(sourceId));
         return undefined;
     }
@@ -4748,116 +5036,6 @@ export class NewTabController {
         ]);
     }
 
-    private renderNewTabSimilarKanjiWords(
-        card: JPDBCard,
-        kanji: string,
-        jpdbVocabulary: JpdbKanjiInfo['vocabulary'],
-        localEntries: YomitanTermEntry[],
-        localEntriesLoaded = true,
-    ): string {
-        if (!this.dependencies.getSettings().similarKanjiWords) return '';
-        const settings = this.dependencies.getSettings();
-        const content = renderSimilarKanjiWordsContent(
-            localEntries,
-            jpdbVocabulary,
-            card,
-            settings,
-            name => this.dictionaryLabel(name),
-        );
-        if (!content && localEntriesLoaded) return '';
-        const sourceStateKey = kanjiSourceStateKey(KANJI_SIMILAR_WORDS_SOURCE_ID);
-        const helpKey = this.isSourceOpen(sourceStateKey) ? 'loadingSimilarWords' : 'openToLoadSimilarWords';
-        return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-similar" data-kanji-similar-words data-kanji="${escapeHtml(kanji)}" ${this.sourceAttributes(sourceStateKey)}>
-                <summary class="jpdb-reader-local-title">${escapeHtml(this.kanjiSourceTitle(KANJI_SIMILAR_WORDS_SOURCE_ID))}</summary>
-                <div data-kanji-similar-mount>
-                    ${content || `<div class="jpdb-reader-help">${escapeHtml(uiText(settings.interfaceLanguage, helpKey))}</div>`}
-                </div>
-            </details>
-        `;
-    }
-
-    private renderSimilarKanjiWordsProgressively(
-        slots: NewTabStudySlots,
-        card: JPDBCard,
-        kanji: string,
-        details: KanjiDetailBundle,
-    ): void {
-        const meaning = slots.meaning;
-        const section = meaning?.querySelector<HTMLDetailsElement>('[data-kanji-similar-words]');
-        const mount = section?.querySelector<HTMLElement>('[data-kanji-similar-mount]');
-        if (!meaning || !section?.isConnected || !mount?.isConnected) return;
-        this.renderSimilarKanjiWordsSectionProgressively(section, mount, card, kanji, details, {
-            canRender: () => this.canApplyKanjiEnrichment(slots, card),
-        });
-    }
-
-    private renderInlineSimilarKanjiWordsProgressively(root: HTMLElement, card: JPDBCard, kanji: string, details: KanjiDetailBundle): void {
-        const section = Array.from(root.querySelectorAll<HTMLDetailsElement>('[data-kanji-similar-words]'))
-            .find(candidate => candidate.dataset.kanji === kanji);
-        const mount = section?.querySelector<HTMLElement>('[data-kanji-similar-mount]');
-        if (!section?.isConnected || !mount?.isConnected) return;
-        this.renderSimilarKanjiWordsSectionProgressively(section, mount, card, kanji, details, {
-            afterRender: () => { void this.dependencies.parseContent?.(mount); },
-        });
-    }
-
-    private renderSimilarKanjiWordsSectionProgressively(
-        section: HTMLDetailsElement,
-        mount: HTMLElement,
-        card: JPDBCard,
-        kanji: string,
-        details: KanjiDetailBundle,
-        options: {
-            canRender?: () => boolean;
-            afterRender?: () => void;
-        } = {},
-    ): void {
-        let started = false;
-        let localLoaded = !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings());
-        let localEntries = details.similar;
-        const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
-        const render = () => {
-            this.renderSimilarKanjiWordsSectionContent(section, mount, card, localEntries, fullInfo, localLoaded, options);
-        };
-        const load = () => {
-            if (!section.open || started || options.canRender?.() === false) return;
-            if (!this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings())) return;
-            started = true;
-            render();
-            void this.loadSimilarKanjiWords(kanji).then(entries => {
-                localEntries = entries;
-                localLoaded = true;
-                render();
-            }).catch(() => {
-                localLoaded = true;
-                render();
-            });
-        };
-
-        section.addEventListener('toggle', load);
-        load();
-    }
-
-    private renderSimilarKanjiWordsSectionContent(
-        section: HTMLDetailsElement,
-        mount: HTMLElement,
-        card: JPDBCard,
-        localEntries: YomitanTermEntry[],
-        fullInfo: JpdbKanjiInfo | null,
-        localLoaded: boolean,
-        options: {
-            canRender?: () => boolean;
-            afterRender?: () => void;
-        },
-    ): void {
-        if (!canRenderSimilarKanjiWordsSection(section, mount, options.canRender)) return;
-        const settings = this.dependencies.getSettings();
-        const content = renderSimilarKanjiWordsContent(localEntries, fullInfo?.vocabulary ?? [], card, settings, name => this.dictionaryLabel(name));
-        setInnerHtml(mount, content || similarKanjiWordsHelpHtml(settings, localLoaded));
-        options.afterRender?.();
-    }
-
     private sourceAttributes(sourceStateKey: string, initiallyExpanded = true): string {
         return this.dependencies.dictionarySourceAttributes?.(sourceStateKey, initiallyExpanded)
             ?? newTabKanjiSourceAttrs(sourceStateKey, initiallyExpanded);
@@ -4902,6 +5080,7 @@ export class NewTabController {
 
     private primeKanjiDetailSources(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         this.primeJpdbKanjiDetail(cache, kanji, settings);
+        this.primeJitenKanjiDetail(cache, kanji, settings);
         this.primeRtkKanjiDetail(cache, kanji, settings);
         this.primeKanjiVGDetail(cache, kanji, settings);
         this.primeLocalKanjiDetail(cache, kanji, settings);
@@ -4911,6 +5090,13 @@ export class NewTabController {
         const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
         if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== 'function' || cache.jpdb) return;
         cache.jpdb = promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.')
+            .catch(() => null);
+    }
+
+    private primeJitenKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        const lookupJitenKanji = this.dependencies.jiten?.lookupKanji;
+        if (!settings.jpdbKanjiEnabled || !this.isJitenApiActive(settings) || typeof lookupJitenKanji !== 'function' || cache.jiten) return;
+        cache.jiten = promiseWithTimeout(lookupJitenKanji.call(this.dependencies.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'Jiten kanji lookup timed out.')
             .catch(() => null);
     }
 
@@ -4939,10 +5125,11 @@ export class NewTabController {
     private resolveKanjiDetailBundle(cache: KanjiDetailCacheEntry, settings: ReaderSettings): Promise<KanjiDetailBundle> {
         return Promise.all([
             settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(null) : Promise.resolve(null),
+            settings.jpdbKanjiEnabled && this.isJitenApiActive(settings) ? cache.jiten ?? Promise.resolve(null) : Promise.resolve(null),
             settings.rtkEnabled ? cache.rtk ?? Promise.resolve(null) : Promise.resolve(null),
             this.shouldLoadKanjiVG(settings) ? cache.vg ?? Promise.resolve(null) : Promise.resolve(null),
             this.shouldLoadLocalKanjiDetails(settings) ? cache.local ?? Promise.resolve([]) : Promise.resolve([]),
-        ]).then(([jpdb, rtk, vg, local]) => ({ jpdb, rtk, vg, local, similar: [] }));
+        ]).then(([jpdb, jiten, rtk, vg, local]) => ({ jpdb, jiten, rtk, vg, local }));
     }
 
     private kanjiDetailCacheEntry(kanji: string): KanjiDetailCacheEntry {
@@ -4960,42 +5147,27 @@ export class NewTabController {
     private kanjiDetailSettingsSignature(settings: ReaderSettings): string {
         return [
             settings.jpdbKanjiEnabled,
+            this.isJitenApiActive(settings),
             settings.rtkEnabled,
             this.shouldLoadKanjiVG(settings),
             this.shouldLoadLocalKanjiDetails(settings),
         ].map(Boolean).join(':');
     }
 
+    private isJitenApiActive(settings: ReaderSettings): boolean {
+        return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === 'Jiten'));
+    }
+
     private shouldLoadLocalKanjiDetails(settings: ReaderSettings): boolean {
         return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
-    }
-
-    private shouldLoadSimilarKanjiWords(settings: ReaderSettings): boolean {
-        return settings.localDictionariesEnabled && settings.similarKanjiWords;
-    }
-
-    private async loadSimilarKanjiWords(kanji: string): Promise<YomitanTermEntry[]> {
-        const cache = this.kanjiDetailCacheEntry(kanji);
-        if (cache.similar) return cache.similar;
-        cache.similar = this.lookupSimilarKanjiWordsWhenIdle(kanji).catch(() => []);
-        return cache.similar;
-    }
-
-    private async lookupSimilarKanjiWordsWhenIdle(kanji: string): Promise<YomitanTermEntry[]> {
-        await this.waitForIdle();
-        const settings = this.dependencies.getSettings();
-        if (!this.shouldLoadSimilarKanjiWords(settings)) return [];
-        return this.localSearchWithTimeout(
-            this.dependencies.dictionaries.lookupSimilarTermsByKanji?.(kanji, settings.similarKanjiWordLimit, settings.dictionaryPreferences) ?? Promise.resolve([]),
-            [] as YomitanTermEntry[],
-        );
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
         return waitForBrowserIdle(timeoutMs);
     }
 
-    private keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, rtk: RtkInfo | null): string {
+    private keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, jiten: JitenKanjiInfo | null, rtk: RtkInfo | null): string {
+        if (this.isJitenApiActive(this.dependencies.getSettings()) && jiten?.meanings[0]) return jiten.meanings[0];
         const source = this.dependencies.getSettings().newTabKanjiKeywordSource;
         return firstTruthy(keywordCandidates(card, jpdb, rtk, source));
     }
@@ -5829,20 +6001,18 @@ export class NewTabController {
     }
 
     private async loadSearchWordKanjiDetails(card: JPDBCard): Promise<NewTabSearchWordKanjiDetail[]> {
-        const settings = this.dependencies.getSettings();
-        const loadSimilar = this.shouldLoadSimilarKanjiWords(settings);
         return await Promise.all(this.searchWordKanjiCharacters(card).map(async kanji => {
             const details = await this.loadKanjiDetails(kanji);
             return {
                 kanji,
                 details,
-                similarEntriesLoaded: !loadSimilar,
             };
         }));
     }
 
     private renderSearchWordDetail(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
         this.searchWordCardCache.set(cardKey(card), card);
+        mount.dataset.newtabCard = cardKey(card);
         setInnerHtml(mount, this.searchWordDetailHtml(card, detail));
         this.insertSearchWordKanjiSectionIfPresent(mount, card, detail);
         this.installSearchWordDetailEnhancements(mount, card, detail);
@@ -5906,24 +6076,22 @@ export class NewTabController {
         details.forEach(item => {
             const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
             const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
-            kanjiCard.kanjiKeyword = newTabKanjiKeyword(
-                kanjiCard,
-                fullInfo,
-                item.details.rtk,
-                uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6),
-            );
+            kanjiCard.kanjiKeyword = item.details.jiten?.meanings[0] ?? newTabKanjiKeyword(
+                    kanjiCard,
+                    fullInfo,
+                    item.details.rtk,
+                    uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6),
+                );
             const kanjiDetail = this.renderKanjiDetails(
                 kanjiCard,
                 item.kanji,
                 item.details.jpdb,
+                item.details.jiten,
                 item.details.rtk,
                 item.details.vg,
                 item.details.local,
-                item.details.similar,
-                item.similarEntriesLoaded,
             );
             section.append(kanjiDetail);
-            this.renderInlineSimilarKanjiWordsProgressively(section, kanjiCard, item.kanji, item.details);
             this.renderNewTabUchisen(kanjiDetail, item.kanji);
         });
         return section;
@@ -5978,12 +6146,11 @@ export class NewTabController {
 
     private searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetail): string[] {
         const settings = this.dependencies.getSettings();
-        const language = settings.interfaceLanguage;
         return [
             this.searchWordReadingMeta(card),
             this.searchWordFrequencyMeta(card),
             this.searchWordCardStateMeta(card, state, settings),
-            this.searchWordLookupAnkiStateMeta(card, detail, language),
+            this.searchWordLookupAnkiStateMeta(card, detail, settings),
         ].filter(Boolean);
     }
 
@@ -5998,13 +6165,14 @@ export class NewTabController {
 
     private searchWordCardStateMeta(card: JPDBCard, state: CardState, settings: ReaderSettings): string {
         if (card.source === 'anki' || card.reviewSource === 'anki') return searchWordStateMeta('anki', state, settings.interfaceLanguage);
-        if (isJitenSrsCard(card) && settings.jitenApiKey.trim()) return searchWordStateMeta('jiten', state, settings.interfaceLanguage);
-        return settings.apiKey.trim() ? searchWordStateMeta('jpdb', state, settings.interfaceLanguage) : '';
+        if (isJitenSrsCard(card) && hasJitenApiCredential(settings)) return searchWordStateMeta('jiten', state, settings.interfaceLanguage);
+        return hasJpdbApiCredential(settings) ? searchWordStateMeta('jpdb', state, settings.interfaceLanguage) : '';
     }
 
-    private searchWordLookupAnkiStateMeta(card: JPDBCard, detail: NewTabSearchWordDetail, language: ReaderSettings['interfaceLanguage']): string {
+    private searchWordLookupAnkiStateMeta(card: JPDBCard, detail: NewTabSearchWordDetail, settings: ReaderSettings): string {
+        if (!settings.ankiEnabled) return '';
         if (card.source === 'anki' || card.reviewSource === 'anki') return '';
-        return detail.ankiLookup?.primary ? searchWordStateMeta('anki', detail.ankiLookup.state, language) : '';
+        return detail.ankiLookup?.primary ? searchWordStateMeta('anki', detail.ankiLookup.state, settings.interfaceLanguage) : '';
     }
 
     private renderSearchFallbackDefinitionSources(card: JPDBCard, detail: NewTabSearchWordDetail): string {
@@ -6045,9 +6213,8 @@ export class NewTabController {
             if (!existing.isConnected || button.getAttribute('aria-expanded') !== 'true') return;
             const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
             const card = this.dependencies.parser.fallbackCardFromText(kanji);
-            card.kanjiKeyword = newTabKanjiKeyword(card, fullInfo, details.rtk, uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6));
-            replaceChildrenWith(existing, this.renderKanjiDetails(card, kanji, details.jpdb, details.rtk, details.vg, details.local, details.similar, !this.shouldLoadSimilarKanjiWords(this.dependencies.getSettings())));
-            this.renderInlineSimilarKanjiWordsProgressively(existing, card, kanji, details);
+            card.kanjiKeyword = details.jiten?.meanings[0] ?? newTabKanjiKeyword(card, fullInfo, details.rtk, uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6));
+            replaceChildrenWith(existing, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
             this.renderNewTabUchisen(existing, kanji);
             void this.dependencies.parseContent?.(existing);
         }).catch(error => {
@@ -6370,7 +6537,8 @@ export class NewTabController {
         if (targets.includes('jiten-api')) {
             result.push({ id: 'jiten', kind: 'jiten', label: this.text('gradeTargetJiten'), shortLabel: 'Jiten' });
         }
-        const ankiTargets = this.dependencies.getSettings().newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
+        const settings = this.dependencies.getSettings();
+        const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
         if (targets.includes('anki') || ankiTargets.length) result.push(...ankiTargets);
         return result;
     }
@@ -6431,38 +6599,41 @@ export class NewTabController {
         this.setStatus(root, this.text('jpdbKanjiUpdated'));
     }
 
-    private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<void> {
+    private async gradeCurrentCard(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<boolean> {
         const target = this.currentGradeTarget();
-        if (!target) return;
-        if (!this.canReviewCard(target.card)) return;
+        if (!target) return false;
+        if (!this.canReviewCard(target.card)) return false;
+        const isCorrection = this.isReviewHistoryCard(target.card);
         if (this.isOfflineSourceLabel(this.sourceLabel)) {
             if (await this.queueOfflineGrade(target.card, grade)) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
-                this.sessionProgress.recordReviewCompleted();
+                if (!isCorrection) this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card);
+                return true;
             } else {
                 this.setStatus(target.root, this.text('couldNotSubmitGrade'));
             }
-            return;
+            return false;
         }
         try {
             this.setStatus(target.root, this.text('grading'));
             const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-            this.sessionProgress.recordReviewCompleted();
-            if (selectedTarget) this.renderSessionProgress(this.studySlots(target.root), target.card);
-            else this.advanceAfterGrade(target.root, target.card);
+            if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+            this.advanceAfterGrade(target.root, target.card);
+            return true;
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
             if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
-                this.sessionProgress.recordReviewCompleted();
+                if (!isCorrection) this.sessionProgress.recordReviewCompleted();
                 this.advanceAfterGrade(target.root, target.card);
-                return;
+                return true;
             }
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
         }
+        return false;
     }
 
     private gradeSuccessStatus(grade: JPDBGrade, selectedTarget: NewTabLookupReviewTarget | null): string {
@@ -6555,7 +6726,7 @@ export class NewTabController {
         if (card.source !== 'jpdb' && card.reviewSource !== 'jpdb-api') throw new Error(this.text('couldNotSubmitGrade'));
         const settings = this.dependencies.getSettings();
         if (!settings.jpdbMiningEnabled) throw new Error(this.text('apiSrsActionsDisabled'));
-        if (!settings.apiKey.trim()) throw new Error(this.text('addJpdbApiKeyReview'));
+        if (!hasJpdbApiCredential(settings)) throw new Error(this.text('addJpdbApiKeyReview'));
         await this.dependencies.jpdb.reviewCard(card, grade);
     }
 
@@ -6563,7 +6734,7 @@ export class NewTabController {
         if (!isJitenSrsCard(card)) throw new Error(this.text('couldNotSubmitGrade'));
         const settings = this.dependencies.getSettings();
         if (!settings.jpdbMiningEnabled) throw new Error(this.text('apiSrsActionsDisabled'));
-        if (!settings.jitenApiKey.trim()) throw new Error(this.text('addJitenApiKeyReview'));
+        if (!hasJitenApiCredential(settings)) throw new Error(this.text('addJitenApiKeyReview'));
         if (typeof this.dependencies.jiten?.reviewCard !== 'function') throw new Error(this.text('couldNotSubmitGrade'));
         await this.dependencies.jiten.reviewCard(card, grade);
     }
@@ -6730,15 +6901,23 @@ export class NewTabController {
 
     private advanceAfterGrade(root: HTMLElement, card: JPDBCard): void {
         const key = cardKey(card);
+        const previousIndex = this.index;
+        const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
+        this.rememberReviewHistoryCard(card);
         this.allWords = this.allWords.filter(item => cardKey(item) !== key);
-        this.visibleWords = this.visibleWords.filter(item => cardKey(item) !== key);
+        this.visibleWords = this.studyPoolForCurrentMode();
+        this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
         this.state.revealAnswer = false;
         this.persistState();
-        if (!this.visibleWords.length) {
+        const nextIndex = this.resolvePostGradeIndex(nextKey, previousIndex);
+        if (nextIndex < 0) {
+            this.clearReviewHistory();
+            this.visibleWords = [];
+            this.visiblePoolSignature = '';
             void this.loadWordsInto(root, false, { useOfflineCache: false });
             return;
         }
-        this.index %= this.visibleWords.length;
+        this.index = nextIndex;
         this.renderWord(root, this.visibleWords[this.index]);
         if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
             useOfflineCache: false,
@@ -6746,6 +6925,32 @@ export class NewTabController {
             excludeCardKeys: [key],
             preserveVisibleOrder: true,
         });
+    }
+
+    private nextVisibleReviewCardKeyAfterGrade(gradedKey: string, startIndex: number): string {
+        for (let offset = 1; offset < this.visibleWords.length; offset += 1) {
+            const index = (startIndex + offset + this.visibleWords.length) % this.visibleWords.length;
+            const candidate = this.visibleWords[index];
+            if (candidate && cardKey(candidate) !== gradedKey && !this.isReviewHistoryCard(candidate)) return cardKey(candidate);
+        }
+        return '';
+    }
+
+    private resolvePostGradeIndex(nextKey: string, previousIndex: number): number {
+        if (nextKey) {
+            const index = this.visibleWords.findIndex(card => cardKey(card) === nextKey && !this.isReviewHistoryCard(card));
+            if (index >= 0) return index;
+        }
+        return this.nextActiveReviewIndex(Math.min(previousIndex, Math.max(0, this.visibleWords.length - 1)));
+    }
+
+    private nextActiveReviewIndex(startIndex: number): number {
+        if (!this.visibleWords.length) return -1;
+        for (let offset = 0; offset < this.visibleWords.length; offset += 1) {
+            const index = (startIndex + offset + this.visibleWords.length) % this.visibleWords.length;
+            if (!this.isReviewHistoryCard(this.visibleWords[index])) return index;
+        }
+        return -1;
     }
 
     private shouldRefreshQueueAfterGrade(card: JPDBCard): boolean {
@@ -7304,20 +7509,6 @@ function withBuiltInSearchLookupLinks(links: ReaderSettings['dictionaryLookupLin
         lookupLinks.push(link);
     }
     return lookupLinks;
-}
-
-function canRenderSimilarKanjiWordsSection(
-    section: HTMLDetailsElement,
-    mount: HTMLElement,
-    canRender: (() => boolean) | undefined,
-): boolean {
-    if (!section.isConnected || !mount.isConnected) return false;
-    return canRender?.() !== false;
-}
-
-function similarKanjiWordsHelpHtml(settings: ReaderSettings, localLoaded: boolean): string {
-    const helpKey = localLoaded ? 'noSimilarWords' : 'loadingSimilarWords';
-    return `<div class="jpdb-reader-help">${escapeHtml(uiText(settings.interfaceLanguage, helpKey))}</div>`;
 }
 
 function sentencePromptTarget(card: JPDBCard, sentence: string): string {

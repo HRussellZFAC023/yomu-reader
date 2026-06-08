@@ -49,46 +49,16 @@
 https://hrussellzfac023.github.io/yomu-reader/yomu.user.js
 ```
 
-It also syncs from the raw repository file, which GreasyFork can track once the listing is live:
-
-```text
-https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
-```
-
 Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript is the install path.
 
 ## Features
 
-- JPDB popup dictionary on selected text, scanned page text, OCR text, and subtitles.
-- JPDB popup lookup can be used with or without JPDB mining actions; add, Never Forget, blacklist, and review grades are configurable.
-- Popup Japanese text defaults to the same font stack as jpdb.io, with separate font family and weight settings for kanji, readings, example sentences, grammar snippets, and dictionary terms.
-- Keyboard lookup navigation can move to the previous or next parsed word, staying inside selected text when a selection is active.
-- JPDB kanji drilldown from popup headwords, with study facts, a compact 2D origin/component map, radical images, stroke-order tracing, a drawing pad, Uchisen mnemonic images, RTK keywords, stories, components, local kanji dictionaries, and related words.
-- Optional Anki mining through desktop AnkiConnect, plus one-way mobile handoff on iPhone, iPad, and supported Android browsers. Reachable desktop AnkiConnect can create/update cards, read existing-card status, and feed review queues; mobile handoff only starts new-note creation in AnkiMobile/AnkiDroid.
-- Yomitan dictionary imports: JMdict download from Settings, settings JSON, dictionary ZIPs, and Dexie exports.
-- Local dictionary cards for terms, kanji, frequency, pitch, and structured glossary content.
-- Drag/drop dictionary source order, so JPDB definitions can be first, lower priority, or disabled while imported native-language dictionaries stay visible.
-- Furigana and word-color modes for all parsed text: difficult-kanji furigana, all parsed words, hide known-word furigana, status colors, pitch colors, or no highlight colors.
-- Bounded JPDB public-page extras in the JPDB source, including related "used in vocabulary" rows and example sentences with JPDB-provided audio buttons when available.
-- Immersion Kit or Nadeshiko example sentences inside word popups, with optional thumbnails, translations, length filters, source filters, one-time hover audio on desktop, manual replay, and tappable Japanese inside each example. Immersion Kit works without a key; Nadeshiko and combined mode use your Nadeshiko API key, and combined mode blends both sources with a deterministic shuffle.
-- Yomitan-compatible audio sources, including JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, browser text-to-speech, and custom URLs.
-- iOS-friendly Blob audio playback and optional audio autoplay.
-- Manga/image OCR from embedded page metadata or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style results.
-- ASB-style video subtitle overlay with Japanese and native subtitle tracks, plus a transcript panel that can sit left, right, below, or open only while paused and keeps visible lines lookup-ready.
-- Hosted local video player at `https://hrussellzfac023.github.io/yomu-reader/video-player/index.html` for opening browser-supported local video and subtitle files without a desktop bridge, with a visible Subtitles button for adding tracks.
-- Tap subtitle words or OCR text directly to mine; no keyboard required.
-- Optional new-tab study page at `https://hrussellzfac023.github.io/yomu-reader/newtab/`, with accessible accent-color theming and Anki, JPDB, or local dictionary words.
-- YouTube immersion mode hides non-Japanese-looking video cards on YouTube by default. It checks original YouTube titles when available, has an `Alt+Y` toggle shortcut, and includes temporary reveal and notice-hiding controls.
-- First-run welcome screen explains the core workflow once, then stays out of the way.
-- Configurable accent color and word highlight mode, including pitch-accent colors when JPDB/Anki mining status is not being used.
-
-## GreasyFork Summary
-
-**Name:** よむ
-
-**Description:** JPDB and Yomitan popup reader for Japanese text, with iOS-friendly audio playback, local dictionary import, manga/image OCR, and subtitle mining on videos.
-
-**Short pitch:** A small Japanese reader for the whole web: tap words, mine to JPDB, import Yomitan dictionaries, read manga OCR text, and mine video subtitles.
+- **Lookup anywhere:** popup dictionary on selected text, scanned page text, OCR text, subtitles, and Japanese pages.
+- **Study where you already are:** JPDB or Jiten SRS, AnkiConnect, mobile Anki handoff, configurable review buttons, and the hosted study page.
+- **Bring your dictionaries:** import Yomitan ZIPs, settings exports, Dexie exports, and JMdict; reorder JPDB/Jiten, Anki, local, grammar, example, and kanji sources.
+- **Japanese that stays readable:** furigana modes, status/pitch/accent coloring, JPDB/Jiten kanji details, stroke tracing, Uchisen, RTK, origin graphs, and local kanji dictionaries.
+- **Examples and audio:** Immersion Kit, Nadeshiko, Jisho.org, JPDB/Jiten audio, browser voices, custom audio URLs, thumbnails, translations, and replay buttons.
+- **Immersion tools:** manga/image OCR, ASB-style subtitle overlay, transcript mining, local video player, YouTube Japanese-mode filtering, and touch-first mobile controls.
 
 ## Privacy
 
@@ -203,7 +173,7 @@ Check current bundle size evidence:
 npm run size:bundle
 ```
 
-Greasy Fork's upload budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The hosted release build remains readable and non-minified; when it is over that upload budget, `npm run verify` warns and the Greasy Fork prefill script blocks upload until source-level trimming brings it back under the limit.
+Greasy Fork's upload budget is 2,000,000 raw bytes for `dist/yomu.user.js`. The hosted release build remains readable and non-minified; `npm run verify` enforces the hard limit and warns when the bundle is getting tight.
 
 Copy `../../resources/yomu-reader/.env.example` to `../../resources/yomu-reader/.env` for local secrets. `.env` is ignored by Git. Set `YOMU_TEST_API_KEY=YOUR_JPDB_API_KEY` when you want the secret-leak guard and live JPDB smoke path. Real screenshot capture also reads that file; set `YOMU_CAPTURE_API_KEY` when subtitle/store screenshots need JPDB mining status colors:
 
@@ -281,7 +251,7 @@ GitHub Actions cover CI, userscript bundling, docs deployment, and release publi
 - `Deploy Docs` builds the VitePress docs and publishes GitHub Pages when docs-related files change.
 - `Release` publishes the compiled userscript, Chrome ZIP, Firefox XPI, Safari Web Extension ZIP, compiler project ZIP, and consolidated submission guide when a `v*` tag is pushed or the workflow is run manually.
 
-GreasyFork does not provide a general write API for unattended publishing. Its supported update paths are the logged-in prefill form and GitHub/GitLab/Bitbucket webhook/update checks. For the initial GreasyFork publish, use the built code from `dist/yomu.user.js`, then configure GreasyFork to sync from:
+GreasyFork does not provide a general write API for unattended publishing. After the first logged-in publish, configure GreasyFork to sync updates from:
 
 ```text
 https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
@@ -291,26 +261,13 @@ After that, pushes to `main` rebuild the userscript and GreasyFork can pick up t
 
 GreasyFork requires posted code to stay readable and non-minified. The release build disables JavaScript/CSS minification, keeps identifiers intact, and only compacts generated whitespace so the verifier can enforce the 2 MB upload budget. Do not move executed code to a CDN to fit the limit; remove duplication, split responsibilities, or move non-code data out of the userscript instead. The ZIP helper library is bundled locally, and reader CSS is declared as a userscript `@resource` so managers cache styling separately from executable code. Official rule: https://greasyfork.org/en/help/code-rules
 
-For the first manual publish, this helper opens a local page that posts the current built script to GreasyFork's official prefill form:
-
-```bash
-npm run publish:greasyfork
-```
-
 ## Notes
 
-- Yomitan dictionary ZIPs and Dexie exports are supported for term, kanji, frequency, pitch, and dictionary-priority lookup. Once imported, they remain in IndexedDB and do not need to be imported again.
-- JMdict is available as a recommended dictionary download in settings for dictionary-backed new-tab cards. If a browser blocks the remote release ZIP, enable the userscript on the hosted page or import any Yomitan ZIP, Dexie export, or settings export manually.
-- Definition sources can be reordered in settings. When a JPDB API key is missing or parsing fails, imported Yomitan dictionaries are used for local parsing with common deinflection rules; JPDB-only mining and kanji pages still require JPDB access.
-- RTK information is enabled by default and can be turned off in settings.
-- Stroke-order tracing and the drawing pad are enabled by default and can be turned off in settings.
-- Kanji origin sources are modular: The Kanji Map / Kanji Alive facts, component graph, and radical images can be toggled separately.
-- The userscript runs on `jpdb.io` too. よむ UI is scoped to its own root so popup controls do not stretch or inherit JPDB's page styles, and the JPDB review bridge feeds live review cards to the new-tab study page.
-- OCR reads likely images near the viewport in the background, caches results, and makes recognized text tappable without covering the image.
-- OCR engine coverage mirrors YomiNinja response shapes where it can in a userscript: native engines such as MangaOCR, PaddleOCR, and Apple Vision are supported through local OCR app/server responses.
-- YouTube subtitle detection uses page caption metadata when available and falls back to visible DOM captions when needed. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
-- iPhone/iPad limits: Safari userscript apps can run the reader, local dictionaries, JPDB lookup, OCR, subtitle taps, the hosted video player, the new-tab study page, and mobile Anki handoff. Desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network, for example by using the desktop's LAN or Tailscale address. Hover does not exist on touch screens, and autoplay plus protected/cross-origin media capture are browser-limited on iOS, so よむ keeps manual speaker buttons, copy, JPDB, and dictionary fallbacks visible.
-- Support links live in settings: open GitHub issues for bugs/feature requests, join the Discord server for chat, donate via PayPal, or use Factory Reset to clear よむ settings, API keys, cached data, and imported dictionaries back to defaults. よむ aims to offer the same broad reading/mining workflow as paid study suites for free; donations are optional and help keep it sustainable. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but support still helps soften that cost and keep the project moving. If you donate and leave a よむ feature request in the PayPal message, I will personally read it and implement it when it is feasible, legal, and within project scope.
+- Imported dictionaries stay in IndexedDB and do not need to be imported again.
+- OCR reads likely images near the viewport, caches results, and makes recognized text tappable without covering the image.
+- YouTube subtitle detection uses caption metadata when available and visible DOM captions as a fallback. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
+- On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. よむ keeps manual speaker buttons, copy, JPDB/Jiten links, and dictionary fallbacks visible for mobile browser limits.
+- Support links, Factory Reset, API keys, imports, and appearance settings live in the settings panel.
 
 ## Star History
 

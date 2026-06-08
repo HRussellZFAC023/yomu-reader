@@ -1,5 +1,6 @@
 import { stableHashBase36 } from '../core/stable-hash';
 import { isApiMiningEnabled } from '../cards/srs-providers';
+import { effectiveJitenApiKey, effectiveJpdbApiKey } from '../settings/api-credential';
 import type { ReaderSettings } from '../app/types';
 
 const SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS = 1_200;
@@ -35,9 +36,11 @@ export function parsedSubtitleHtmlHasReaderWords(html: string): boolean {
 }
 
 export function subtitleParseSourceSignature(settings: ReaderSettings): string {
+    const jpdbApiKey = effectiveJpdbApiKey(settings);
+    const jitenApiKey = effectiveJitenApiKey(settings);
     return [
-        settings.apiKey.trim() ? `jpdb-api:${stableSubtitleHash(settings.apiKey.trim())}` : 'jpdb-api:off',
-        settings.jitenApiKey.trim() ? `jiten-api:${stableSubtitleHash(settings.jitenApiKey.trim())}` : 'jiten-api:off',
+        jpdbApiKey ? `jpdb-api:${stableSubtitleHash(jpdbApiKey)}` : 'jpdb-api:off',
+        jitenApiKey ? `jiten-api:${stableSubtitleHash(jitenApiKey)}` : 'jiten-api:off',
         settings.localDictionariesEnabled ? 'local:on' : 'local:off',
         settings.localDictionariesEnabled ? dictionaryPreferencesSignature(settings) : '',
         settings.ankiEnabled ? `anki:${stableSubtitleHash(settings.ankiConnectUrl.trim())}` : 'anki:off',

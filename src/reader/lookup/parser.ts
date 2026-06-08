@@ -4,6 +4,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
@@ -69,8 +70,8 @@ export class ReaderParser {
         const settings = getSettings();
         const done = log.time('parse', {
             paragraphs: paragraphs.length,
-            hasApiKey: Boolean(settings.apiKey.trim()),
-            hasJitenApiKey: Boolean(settings.jitenApiKey.trim()),
+            hasApiKey: hasJpdbApiCredential(settings),
+            hasJitenApiKey: hasJitenApiCredential(settings),
             localFallback: settings.localDictionariesEnabled,
         });
         try {
@@ -89,7 +90,7 @@ export class ReaderParser {
     }
 
     private async tryParseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
-        if (!settings.apiKey.trim() || shouldSkipApiParser(options)) return null;
+        if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
         try {
             const result = await this.parseWithJpdb(paragraphs, options);
             return this.withSegmentedFallbackGaps(paragraphs, result, options);
@@ -343,7 +344,7 @@ function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number
 }
 
 function shouldUseJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {
-    return Boolean(settings.jitenApiKey.trim() && jiten && !shouldSkipApiParser(options));
+    return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
 }
 
 function shouldSkipApiParser(options: ReaderParserParseOptions): boolean {

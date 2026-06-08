@@ -76,6 +76,7 @@ const SPECIALIZED_PROXY_ROUTE_RULES: SpecializedProxyRouteRule[] = [
         route: 'yomu-public-only',
         matches: target => target.hostname === 'api.jiten.moe'
             && (target.pathname.startsWith('/api/tts/word/')
+                || target.pathname.startsWith('/api/tts/sentence/')
                 || target.pathname === '/api/vocabulary/search'
                 || target.pathname === '/api/vocabulary/parse'),
     },

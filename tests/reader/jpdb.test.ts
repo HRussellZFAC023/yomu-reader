@@ -3306,9 +3306,9 @@ describe('reader helpers', () => {
     it('keeps compact popover lookup pills in one horizontal touch row', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin-top: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin: 3px -4px -6px; padding: 3px 4px 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
         expect(normalizedCss).toContain('@container (max-width: 340px) { .jpdb-reader-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-word-pills { grid-column: 1 / -1; grid-row: 3; width: 100%; gap: 4px; margin-top: 5px; overscroll-behavior-inline: contain; padding-bottom: 4px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-pills { grid-column: 1 / -1; grid-row: 3; width: 100%; gap: 4px; margin-top: 2px; overscroll-behavior-inline: contain; padding-bottom: 4px; }');
         expect(normalizedCss).toContain('.jpdb-reader-action-pill { min-height: 34px !important; }');
     });
 
@@ -4009,7 +4009,8 @@ describe('reader helpers', () => {
         const ankiButton = document.querySelector<HTMLButtonElement>('[data-action="anki"]')!;
 
         expect(panel.contains(ankiButton)).toBe(true);
-        expect(document.querySelector<HTMLElement>('.jpdb-reader-actions')?.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-actions')?.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+        expect(document.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(KANJI_CSS).toContain('.jpdb-reader-actions-mining-collapsed .jpdb-reader-mining-panel');
     });
 
@@ -4247,9 +4248,9 @@ describe('reader helpers', () => {
         const jpdbOnly = renderer.render({ ...card, cardState: ['locked'] }, '食べる。', 'modal', emptyCardRenderData());
         expect(jpdbOnly).toContain('data-action="grade"');
         expect(jpdbOnly).toContain('jpdb-reader-actions-has-mining');
-        expect(jpdbOnly).not.toContain('jpdb-reader-actions-mining-collapsed');
-        expect(jpdbOnly).toContain('aria-expanded="true"');
-        expect(jpdbOnly).toContain('Hide mining actions');
+        expect(jpdbOnly).toContain('jpdb-reader-actions-mining-collapsed');
+        expect(jpdbOnly).toContain('aria-expanded="false"');
+        expect(jpdbOnly).toContain('Show mining actions');
         expect(jpdbOnly).toContain('data-action="deck-picker"');
         expect(jpdbOnly).not.toContain('This JPDB card is locked');
         const container = document.createElement('div');
@@ -4262,6 +4263,7 @@ describe('reader helpers', () => {
         expect(popoverGradeTargetOptions()).toEqual([]);
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
         expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
+        expect(document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(container.querySelector<HTMLSelectElement>('[data-add-deck-select]')?.hidden).toBe(true);
 
         const ankiBacked = renderModalCard(renderer, { ...card, cardState: ['locked'] }, '食べる。', {
@@ -4310,6 +4312,8 @@ describe('reader helpers', () => {
         expect(gradeButtons.every(button => button.dataset.ankiCardId === '777')).toBe(true);
         expect(popoverGradeTargetCurrentText()).toBe('Both');
         expect(popoverGradeTargetText()).toBe('Grades JPDB + Anki card: Anime::Mining #777');
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-actions')?.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+        expect(document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
         expect(document.querySelector('[data-review-target-selector]')?.classList.contains('jpdb-reader-review-target-panel')).toBe(true);
         expect(popoverGradeTargetOptions()).toEqual([
@@ -4531,6 +4535,24 @@ describe('reader helpers', () => {
         expect(html).toContain('--chip-bg:#13845f');
         expect(html).not.toContain('>Immersion Kit ');
         expect(html).not.toContain('>Uchisen ');
+    });
+
+    it('links single-kanji Jiten lookup pills to Jiten kanji pages', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/kanji/%E8%AA%AD',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            overrideQuery: '読',
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('href="https://jiten.moe/kanji/%E8%AA%AD"');
+        expect(html).not.toContain('href="https://jiten.moe/parse?text=%E8%AA%AD"');
     });
 
     it('renders optional Immersion Kit and Uchisen lookup pills with provider colors', () => {
@@ -4896,6 +4918,132 @@ describe('reader helpers', () => {
         expect(playMediaUrl).toHaveBeenCalledTimes(1);
     });
 
+    it('plays Jiten-provided audio URLs before falling back to sentence TTS', async () => {
+        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true)
+            .mockRejectedValueOnce(new Error('first audio failed'))
+            .mockResolvedValueOnce(true);
+        const playSentenceAudio = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            playMediaUrl,
+            playSentenceAudio,
+        });
+        const button = document.createElement('button');
+        button.dataset.jitenAudioUrls = JSON.stringify([
+            'https://audio.example.test/primary.mp3',
+            'https://audio.example.test/backup.mp3',
+        ]);
+        button.dataset.studySentence = '訓むこともある。';
+
+        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+
+        expect(playMediaUrl).toHaveBeenCalledTimes(2);
+        expect(playMediaUrl).toHaveBeenNthCalledWith(1, 'https://audio.example.test/primary.mp3');
+        expect(playMediaUrl).toHaveBeenNthCalledWith(2, 'https://audio.example.test/backup.mp3');
+        expect(playSentenceAudio).not.toHaveBeenCalled();
+    });
+
+    it('plays Jiten sentence TTS by sentence id using the selected Jiten voice', async () => {
+        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true);
+        const playSentenceAudio = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                audioSources: [
+                    { type: 'jiten-tts', url: '', voice: 'asmr', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }),
+            playMediaUrl,
+            playSentenceAudio,
+        });
+        const button = document.createElement('button');
+        button.dataset.jitenSentenceId = '803776181';
+        button.dataset.studySentence = 'やがて、塗布も終えたのか。';
+
+        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+
+        expect(playMediaUrl).toHaveBeenCalledTimes(1);
+        expect(playMediaUrl).toHaveBeenCalledWith('https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr');
+        expect(playSentenceAudio).not.toHaveBeenCalled();
+    });
+
+    it('plays Jiten word TTS by word id and reading index for related word speakers', async () => {
+        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true);
+        const playSentenceAudio = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                audioSources: [
+                    { type: 'jiten-tts', url: '', voice: 'female2', enabled: true },
+                ],
+            }),
+            playMediaUrl,
+            playSentenceAudio,
+        });
+        const button = document.createElement('button');
+        button.dataset.jitenWordId = '1332760';
+        button.dataset.jitenReadingIndex = '0';
+        button.dataset.studySentence = '終える';
+
+        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+
+        expect(playMediaUrl).toHaveBeenCalledTimes(1);
+        expect(playMediaUrl).toHaveBeenCalledWith('https://api.jiten.moe/api/tts/word/1332760/0?voice=female2');
+        expect(playSentenceAudio).not.toHaveBeenCalled();
+    });
+
+    it('tries random Jiten sentence voices before generic sentence TTS', async () => {
+        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => false);
+        const playSentenceAudio = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                audioSources: [
+                    { type: 'jiten-tts', url: '', voice: '', enabled: true },
+                ],
+            }),
+            playMediaUrl,
+            playSentenceAudio,
+        });
+        const button = document.createElement('button');
+        button.dataset.jitenSentenceId = '803776181';
+        button.dataset.studySentence = 'やがて、塗布も終えたのか。';
+
+        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+
+        expect(playMediaUrl).toHaveBeenCalledTimes(5);
+        expect(playMediaUrl.mock.calls.map(([url]) => url)).toEqual([
+            'https://api.jiten.moe/api/tts/sentence/803776181?voice=female',
+            'https://api.jiten.moe/api/tts/sentence/803776181?voice=female2',
+            'https://api.jiten.moe/api/tts/sentence/803776181?voice=male',
+            'https://api.jiten.moe/api/tts/sentence/803776181?voice=male2',
+            'https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr',
+        ]);
+        expect(playSentenceAudio).toHaveBeenCalledWith('やがて、塗布も終えたのか。');
+    });
+
+    it('falls back to sentence TTS when no Jiten audio URL plays', async () => {
+        const playMediaUrl = vi.fn(async (_audioUrl: string): Promise<boolean | void> => true)
+            .mockRejectedValueOnce(new Error('primary failed'))
+            .mockRejectedValueOnce(new Error('backup failed'));
+        const playSentenceAudio = vi.fn(async () => undefined);
+        const controller = testCardActionController({
+            playMediaUrl,
+            playSentenceAudio,
+        });
+        const button = document.createElement('button');
+        button.dataset.jitenAudioUrls = JSON.stringify([
+            'https://audio.example.test/primary.mp3',
+            'https://audio.example.test/backup.mp3',
+        ]);
+        button.dataset.studySentence = '訓むこともある。';
+
+        await expect(controller.perform('jiten-audio', button, card)).resolves.toBe(false);
+
+        expect(playMediaUrl).toHaveBeenCalledTimes(2);
+        expect(playSentenceAudio).toHaveBeenCalledWith('訓むこともある。');
+    });
+
     it('does not submit JPDB review grades when JPDB writes are disabled', async () => {
         const { controller, reviewCard, answerCard, invalidateCardData, onAnkiStatusChanged } = testReviewGradeController({
             settings: {
@@ -5004,7 +5152,11 @@ describe('reader helpers', () => {
         expect(html).toContain('data-deck-source="jiten"');
         expect(html).toContain('data-deck-id="12"');
         expect(html).toContain('Jiten: Mining');
+        expect(html).toContain('jpdb-reader-actions-mining-collapsed');
         expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
+        expect(mount.querySelector('[data-review-target-gutter]')).not.toBeNull();
+        expect(mount.querySelector('[data-review-target-current]')?.textContent).toBe('Jiten');
+        expect(mount.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(mount.querySelector('[data-review-target-label]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
         expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
         expect(mount.querySelector<HTMLButtonElement>('[data-action="grade"][data-grade="okay"]')?.dataset.reviewTarget).toBe('jiten');
@@ -5132,6 +5284,14 @@ describe('reader helpers', () => {
             setExpanded(handle, actions.classList.contains('jpdb-reader-actions-mining-collapsed'));
         });
 
+        popover.querySelector<HTMLElement>('.jpdb-reader-actions-gutter')?.click();
+        expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
+        expect(handle.getAttribute('aria-expanded')).toBe('true');
+
+        handle.click();
+        expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+        expect(handle.getAttribute('aria-expanded')).toBe('false');
+
         handle.click();
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
         expect(handle.getAttribute('aria-expanded')).toBe('true');
@@ -5219,9 +5379,12 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    it('defaults furigana to difficult kanji without personalization and known-status with JPDB or Anki data', () => {
+    it('defaults furigana to all parsed words while automatic still personalizes from JPDB, Jiten, or Anki data', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' })).toBe('difficult-kanji');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, furiganaMode: 'auto' })).toBe('known-status');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'off' })).toBe('off');
     });
@@ -5248,6 +5411,8 @@ describe('reader helpers', () => {
 
         expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
             .not.toContain('<rt');
+        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }))
+            .toContain('<rt class="jpdb-reader-furi">にほん</rt>');
         expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
             .toContain('<rt class="jpdb-reader-furi">うつ</rt>');
         expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
@@ -6702,6 +6867,7 @@ describe('reader helpers', () => {
                 '',
             )).resolves.toEqual([
                 'female',
+                'female2',
                 'male',
                 'male2',
                 'asmr',
@@ -10496,7 +10662,7 @@ describe('reader helpers', () => {
         expect(isInUserDeckPool).toHaveBeenCalledWith(pooledCard);
     });
 
-    it('loads read-only Anki status from the enabled Anki section without enabling Anki mining', async () => {
+    it('does not load Anki status when only the dictionary Anki section is enabled', async () => {
         const cachedLookup: AnkiLookupResult = {
             state: 'known',
             notes: [],
@@ -10532,16 +10698,61 @@ describe('reader helpers', () => {
 
         await expect(loader.load({ ...card, spelling: '動画', reading: 'どうが' }).all).resolves.toMatchObject({
             ankiLookup: {
-                state: 'known',
-                primary: {
-                    primaryCardId: 77,
-                    deckNames: ['Other Deck'],
-                },
+                state: 'not-in-deck',
+                primary: null,
             },
             ankiDecks: [],
         });
-        expect(findCachedStatusBatch).toHaveBeenCalledWith([{ ...card, spelling: '動画', reading: 'どうが' }]);
+        expect(findCachedStatusBatch).not.toHaveBeenCalled();
         expect(deckNames).not.toHaveBeenCalled();
+    });
+
+    it('does not surface source Anki lookup data when Anki mining is disabled', async () => {
+        const findCachedStatusBatch = vi.fn(async (): Promise<AnkiLookupResult[]> => [{
+            state: 'due',
+            notes: [],
+            primary: null,
+        }]);
+        const settings = cardDetailLoaderSettings({
+            ankiEnabled: false,
+            ankiSectionEnabled: true,
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            jpdbDefinitionsEnabled: false,
+            jpdbMiningEnabled: false,
+        });
+        const loader = testCardRenderDataLoader({
+            settings,
+            anki: { findCachedStatusBatch },
+        });
+        const sourceAnkiCard: JPDBCard = {
+            ...card,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'anki',
+            reviewSource: 'anki',
+            rid: 7701,
+            ankiCardId: 7701,
+            ankiNoteId: 55,
+            ankiDeckNames: ['Anime::Mining'],
+            ankiModelName: 'Imported Core',
+            cardState: ['due'],
+        };
+
+        const load = loader.load(sourceAnkiCard);
+
+        await expect(load.ankiLookup).resolves.toMatchObject({
+            state: 'not-in-deck',
+            primary: null,
+        });
+        await expect(load.all).resolves.toMatchObject({
+            ankiLookup: {
+                state: 'not-in-deck',
+                primary: null,
+            },
+            ankiDecks: [],
+        });
+        expect(findCachedStatusBatch).not.toHaveBeenCalled();
     });
 
     it('exposes JPDB vocabulary details without waiting for Anki hydration', async () => {
@@ -10683,7 +10894,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('hydrates full Anki card details when only the dictionary Anki source is enabled', async () => {
+    it('does not hydrate full Anki card details when only the dictionary Anki source is enabled', async () => {
         const cachedStatus: AnkiLookupResult = {
             state: 'due',
             notes: [{
@@ -10742,29 +10953,25 @@ describe('reader helpers', () => {
         const load = loader.load(lookupCard);
 
         await expect(load.ankiLookup).resolves.toMatchObject({
-            state: 'due',
-            primary: { noteId: 55, fields: {} },
+            state: 'not-in-deck',
+            primary: null,
         });
         await expect(load.all).resolves.toMatchObject({
             ankiLookup: {
-                state: 'due',
-                primary: { noteId: 55, fields: {} },
+                state: 'not-in-deck',
+                primary: null,
             },
             ankiDecks: [],
         });
-        expect(findCachedStatusBatch).toHaveBeenCalledWith([lookupCard]);
+        expect(findCachedStatusBatch).not.toHaveBeenCalled();
         expect(findExistingCards).not.toHaveBeenCalled();
         expect(deckNames).not.toHaveBeenCalled();
 
         await expect(load.hydrateAnkiLookup?.()).resolves.toMatchObject({
-            state: 'due',
-            primary: {
-                noteId: 55,
-                fields: { Word: '動画', Meaning: 'video' },
-                renderedCards: [{ cardId: 7701, answer: '<div>video</div>' }],
-            },
+            state: 'not-in-deck',
+            primary: null,
         });
-        expect(findExistingCards).toHaveBeenCalledWith(lookupCard);
+        expect(findExistingCards).not.toHaveBeenCalled();
     });
 
     it('keeps untrusted cached Anki misses in fast popover data', async () => {
@@ -10859,6 +11066,58 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Due · Anime::Mining · 9 reviews, 1 lapse');
         expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent).toContain('Loading card details from AnkiConnect');
         expect(document.querySelector('[data-action="anki"]')).toBeNull();
+    });
+
+    it('hides cached Anki popover status, details, and grade targets when Anki mining is disabled', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: false,
+                ankiSectionEnabled: true,
+                enableReviews: true,
+                jpdbMiningEnabled: true,
+                apiKey: 'test-key',
+            }),
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const cachedStatus: AnkiLookupResult = {
+            state: 'due',
+            notes: [{
+                noteId: 55,
+                modelName: 'Imported Core',
+                deckNames: ['Anime::Mining'],
+                cardIds: [7701],
+                primaryCardId: 7701,
+                state: 'due',
+                fields: {},
+                tags: [],
+                reps: 9,
+                lapses: 1,
+            }],
+            primary: null,
+        };
+        cachedStatus.primary = cachedStatus.notes[0] ?? null;
+
+        document.body.innerHTML = renderer.render({ ...card, cardState: ['due'] }, '動画を見る。', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: cachedStatus,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent ?? '').not.toContain('Anki');
+        expect(document.querySelector('.jpdb-reader-anki-existing')).toBeNull();
+        expect(document.querySelector('[data-review-target="anki"]')).toBeNull();
+        expect(document.querySelector('[data-anki-card-id]')).toBeNull();
     });
 
     it('renders trusted status-only Anki cache hits without offering Add to Anki', () => {
@@ -23871,7 +24130,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('warms rendered Anki status from the enabled Anki section without enabling Anki mining', async () => {
+    it('does not warm rendered Anki status when only the Anki section is enabled', async () => {
         const app = new ReaderApp();
         const token: JPDBToken = {
             card: {
@@ -23930,15 +24189,75 @@ describe('reader helpers', () => {
         try {
             await internals.enrichAnkiWords([token], [container]);
 
-            expect(findCachedStatusBatch).toHaveBeenCalledWith([token.card]);
-            expect(word.classList.contains('anki-known')).toBe(true);
-            expect(word.dataset.ankiState).toBe('known');
-            expect(word.dataset.ankiDecks).toBe('Anime::Mining');
-            expect(word.title).toBe('Anki: Known (Anime::Mining)');
+            expect(findCachedStatusBatch).not.toHaveBeenCalled();
+            expect(word.classList.contains('anki-known')).toBe(false);
+            expect(word.dataset.ankiState).toBeUndefined();
+            expect(word.dataset.ankiDecks).toBeUndefined();
+            expect(word.title).toBe('');
             expect(outside.classList.contains('anki-known')).toBe(false);
         } finally {
             container.remove();
             outside.remove();
+            app.destroy();
+        }
+    });
+
+    it('clears stale rendered Anki state when applying lookup data while Anki mining is disabled', () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 778,
+            sid: 1,
+            rid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-not-in-deck anki-known';
+        word.dataset.vid = String(lookupCard.vid);
+        word.dataset.sid = String(lookupCard.sid);
+        word.dataset.ankiState = 'known';
+        word.dataset.ankiDecks = 'Anime::Mining';
+        word.title = 'Anki: Known (Anime::Mining)';
+        word.textContent = lookupCard.spelling;
+        document.body.append(word);
+        const lookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: { Word: '動画' },
+                tags: [],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            applyAnkiLookupToRenderedWords(card: JPDBCard, lookup: AnkiLookupResult): void;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            ankiSectionEnabled: true,
+            wordUnderlineColorSource: 'anki',
+        };
+
+        try {
+            internals.applyAnkiLookupToRenderedWords(lookupCard, lookup);
+
+            expect(word.classList.contains('anki-known')).toBe(false);
+            expect(word.dataset.ankiState).toBeUndefined();
+            expect(word.dataset.ankiDecks).toBeUndefined();
+            expect(word.title).toBe('');
+        } finally {
+            word.remove();
             app.destroy();
         }
     });
@@ -24693,6 +25012,59 @@ describe('reader helpers', () => {
             await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(publicCard);
             expect(search).toHaveBeenCalledWith('青空', 1);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('resolves segmented fallback lookup cards through Jiten parse when Jiten is the active API', async () => {
+        const app = new ReaderApp();
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -1,
+            sid: -1,
+            rid: 0,
+            spelling: 'よむ',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const jitenCard: JPDBCard = {
+            ...card,
+            vid: 1456360,
+            sid: 3,
+            rid: 0,
+            spelling: 'よむ',
+            reading: 'よむ',
+            frequencyRank: 20215,
+            source: 'jiten',
+            cardState: ['mature'],
+            pitchAccent: ['HL'],
+        };
+        const parse = vi.fn(async (paragraphs: string[]): Promise<JPDBToken[][]> => paragraphs.map(text => [{
+            card: jitenCard,
+            start: 0,
+            end: text.length,
+            length: text.length,
+            rubies: [],
+            pitchClass: 'atamadaka',
+            sentence: text,
+        }]));
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jiten: { parse: typeof parse };
+            parser: { cacheCards: typeof cacheCards };
+            resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.jiten = { parse };
+        internals.parser = { cacheCards };
+
+        try {
+            await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(jitenCard);
+            expect(parse).toHaveBeenCalledWith(['よむ']);
+            expect(cacheCards).toHaveBeenCalledWith([jitenCard]);
         } finally {
             app.destroy();
         }

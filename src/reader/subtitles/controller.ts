@@ -142,6 +142,7 @@ import { OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, matchesShortcut } from '../settings/index';
+import { hasJpdbApiCredential } from '../settings/api-credential';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
@@ -1497,7 +1498,7 @@ export class SubtitlePlayerController {
     }
 
     private shouldUseProvisionalSubtitleParse(settings: ReaderSettings): boolean {
-        return Boolean(settings.apiKey.trim() && isYouTubePage());
+        return Boolean(hasJpdbApiCredential(settings) && isYouTubePage());
     }
 
     private hasFreshEmptyParsedHtml(key: string): boolean {

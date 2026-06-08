@@ -1,9 +1,11 @@
-import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from './definition-render';
 import { uiText } from '../app/i18n';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
+import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-render';
 import { orderedDefinitionSourceIds } from './sections';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 
@@ -30,6 +32,7 @@ interface DefinitionSourceStackContext {
     includeStudySources: boolean;
     includeImmersionSource: boolean;
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
+    jitenVocabularyInfo: JitenVocabularyInfo | null;
 }
 
 export interface RenderDefinitionSourcesStackParams {
@@ -41,6 +44,7 @@ export interface RenderDefinitionSourcesStackParams {
     noDefinitionsHtml: () => string;
     sentence?: string;
     jpdbVocabularyInfo?: JpdbVocabularyInfo | null;
+    jitenVocabularyInfo?: JitenVocabularyInfo | null;
     extraSectionsOrOptions?: Record<string, string> | DefinitionSourceStackOptions;
     optionKeys?: DefinitionSourceStackOptionKey[];
     jpdbLanguage?: InterfaceLanguage;
@@ -58,6 +62,7 @@ interface DefinitionSourceSectionRender {
 const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeStudySources', 'includeImmersionSource'];
 const CORE_DEFINITION_SOURCE_RENDERERS: Record<string, CoreDefinitionSourceRenderer> = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
+    [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
     [ANKI_SOURCE_ID]: renderAnkiDefinitionSourceSection,
     [STUDY_TRANSLATION_SOURCE_ID]: renderTranslationDefinitionSourceSection,
     [STUDY_GRAMMAR_SOURCE_ID]: renderGrammarDefinitionSourceSection,
@@ -99,6 +104,7 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
         includeStudySources: options.includeStudySources ?? true,
         includeImmersionSource: options.includeImmersionSource ?? true,
         jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
+        jitenVocabularyInfo: params.jitenVocabularyInfo ?? null,
     };
 }
 
@@ -163,6 +169,16 @@ function renderJpdbDefinitionSourceSection(context: DefinitionSourceStackContext
         params.sourceAttributes,
         context.jpdbVocabularyInfo,
         params.jpdbLanguage,
+    );
+}
+
+function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
+    if (!context.includeJpdbSource) return '';
+    return renderJitenDefinitionSource(
+        context.card,
+        params.sourceAttributes,
+        context.jitenVocabularyInfo,
+        params.jpdbLanguage ?? params.settings.interfaceLanguage,
     );
 }
 

@@ -25,6 +25,15 @@ const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
 const NEW_TAB_UI_KEY = 'jpdb-reader-newtab-ui';
 const NEW_TAB_CURRENT_WORD_KEY = 'jpdb-reader-newtab-current-word';
 const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
+const NORMALIZED_NEW_TAB_CSS = NEW_TAB_CSS.replace(/\s+/g, ' ');
+
+function newTabCssRule(selector: string): string {
+    const start = NORMALIZED_NEW_TAB_CSS.indexOf(`${selector} {`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = NORMALIZED_NEW_TAB_CSS.indexOf(' }', start);
+    expect(end).toBeGreaterThan(start);
+    return NORMALIZED_NEW_TAB_CSS.slice(start, end + 2);
+}
 
 beforeEach(() => {
     vi.stubGlobal('BroadcastChannel', undefined);
@@ -679,6 +688,7 @@ function stubAnkiDeckSearch(deckNames: string[], findCards: (query: string) => u
 function newTabAnkiClient(overrides: Partial<NewTabSettings> = {}): { settings: NewTabSettings; client: AnkiConnectClient } {
     const settings: NewTabSettings = {
         ...DEFAULT_SETTINGS,
+        ankiEnabled: true,
         newTabAnkiEnabled: true,
         ankiDeck: 'Yomu',
         ankiModel: 'Yomu Japanese',
@@ -824,6 +834,7 @@ function renderJpdbAnkiReviewWordFixture(options: { bindRootEvents?: boolean } =
         ...DEFAULT_SETTINGS,
         apiKey: 'jpdb-key',
         jpdbMiningEnabled: true,
+        ankiEnabled: true,
         newTabAnkiEnabled: true,
         enableReviews: true,
         immersionKitEnabled: false,
@@ -1038,6 +1049,7 @@ function newTabAutoReviewWordFixture(options: {
         ...DEFAULT_SETTINGS,
         apiKey: 'jpdb-key',
         jpdbMiningEnabled: true,
+        ankiEnabled: true,
         newTabAnkiEnabled: true,
         enableReviews: true,
         immersionKitEnabled: false,
@@ -1151,6 +1163,7 @@ function newTabLiveReviewController(options: {
 }): NewTabController {
     return newTabPromptController(() => ({
         ...DEFAULT_SETTINGS,
+        apiKey: 'jpdb-key',
         jpdbMiningEnabled: true,
         enableReviews: true,
         newTabSource: 'jpdb',
@@ -1235,6 +1248,7 @@ function renderTestKanjiDetails(options: {
     card: JPDBCard;
     kanji: string;
     info: unknown;
+    jiten?: unknown;
     rtk?: unknown;
 }): HTMLElement {
     const controller = newTabPromptController({
@@ -1242,8 +1256,8 @@ function renderTestKanjiDetails(options: {
         ...options.settings,
     });
     return (controller as unknown as {
-        renderKanjiDetails(card: JPDBCard, kanji: string, info: unknown, rtk: unknown, vg: null, local: [], similar: []): HTMLElement;
-    }).renderKanjiDetails(options.card, options.kanji, options.info, options.rtk ?? null, null, [], []);
+        renderKanjiDetails(card: JPDBCard, kanji: string, info: unknown, jiten: unknown, rtk: unknown, vg: null, local: [], similar: []): HTMLElement;
+    }).renderKanjiDetails(options.card, options.kanji, options.info, options.jiten ?? null, options.rtk ?? null, null, [], []);
 }
 
 type NewTabSearchModeApi = {
@@ -1383,11 +1397,64 @@ describe('new tab review helpers', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss)
-            .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
+            .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; max-width: min(360px, calc(100vw - 56px)); min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
+            .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls, .yomu-page-theme-light .jpdb-reader-newtab-controls { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-border));');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
+        expect(normalizedCss)
+            .toContain('button[data-newtab-action="reveal"] { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)); background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%), var(--jpdb-reader-accent) ); color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));');
+        expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-controls button[data-grade]:disabled { opacity: 1; color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); }');
+    });
+
+    it('keeps light-mode Immersion Kit media text on dictionary theme surfaces', () => {
+        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss)
+            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: var(--jpdb-reader-text); background: color-mix( in srgb, var(--jpdb-reader-surface) 94%, var(--jpdb-reader-white) 6% );');
+        expect(normalizedCss)
+            .toContain('box-shadow: 0 8px 24px var(--jpdb-reader-shadow), inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent); text-shadow: none; -webkit-text-stroke: 0 transparent; paint-order: normal; }');
+        expect(normalizedCss)
+            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-text)) ) !important; background: transparent !important; box-shadow: none !important; text-shadow: none; -webkit-text-stroke: 0 transparent; paint-order: normal; }');
+        expect(normalizedCss)
+            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target, :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
+        expect(normalizedCss)
+            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-translation { color: var(--jpdb-reader-muted); text-shadow: none; }');
+    });
+
+    it('keeps generic new-tab accent surfaces on accent tokens', () => {
+        const genericAccentRules = [
+            newTabCssRule('.jpdb-reader-newtab::before'),
+            newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'),
+            newTabCssRule('.jpdb-reader-newtab-searchbox button[type="submit"]'),
+            newTabCssRule('.jpdb-reader-newtab-count::before'),
+            newTabCssRule('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before'),
+            newTabCssRule('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::after'),
+        ];
+
+        expect(genericAccentRules.join(' ')).toContain('--jpdb-reader-accent');
+        expect(newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'))
+            .toContain('var(--jpdb-reader-accent-soft)');
+        expect(newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'))
+            .toContain('var(--jpdb-reader-accent-readable, var(--jpdb-reader-text))');
+        expect(newTabCssRule('.jpdb-reader-newtab-searchbox button[type="submit"]'))
+            .toContain('var(--jpdb-reader-accent-readable, var(--jpdb-reader-text))');
+
+        for (const rule of genericAccentRules) {
+            expect(rule).not.toContain('--jpdb-reader-state-known');
+            expect(rule).not.toContain('--jpdb-reader-state-new-bright');
+            expect(rule).not.toContain('--jpdb-reader-state-learning');
+        }
+
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-controls button[data-grade="pass"], .jpdb-reader-newtab-controls button[data-grade="okay"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known); }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-status-light[data-source="anki"] { background: var(--jpdb-reader-state-new-bright);');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-status-light[data-source="jiten"] { background: var(--jpdb-reader-state-learning);');
     });
 
     it('keeps the mobile new-tab mode switch on its own compact header row', () => {
@@ -1395,6 +1462,8 @@ describe('new tab review helpers', () => {
 
         expect(normalizedCss)
             .toContain('@media (max-width: 640px) { .jpdb-reader-newtab-shell { width: min(100vw - 16px, 560px); gap: 12px; } .jpdb-reader-newtab-topbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand controls" "mode mode"; align-items: center; gap: 8px 10px; }');
+        expect(normalizedCss)
+            .toContain('.jpdb-reader-newtab-brand { min-width: 112px; display: flex; align-items: center; padding-left: clamp(6px, 1.2vw, 14px); }');
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-brand { grid-area: brand; justify-self: start; min-width: 0; }');
         expect(normalizedCss)
@@ -1776,7 +1845,7 @@ describe('new tab review helpers', () => {
         });
 
         const { settings, client } = newTabAnkiClient({
-            ankiEnabled: false,
+            ankiEnabled: true,
             ankiModel: '',
         });
         const cards = await listNewTabAnkiCards(client, settings, 10);
@@ -2662,6 +2731,7 @@ describe('new tab review helpers', () => {
             status: liveStatus,
             settings: {
                 newTabSource: 'auto',
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
             },
             anki: {
@@ -2966,7 +3036,13 @@ describe('new tab review helpers', () => {
     });
 
     it('labels the current card origin in the mixed new-tab footer', () => {
-        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', immersionKitEnabled: false }));
+        const controller = newTabBareController(() => ({
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+            jitenApiKey: 'jiten-key',
+            immersionKitEnabled: false,
+        }));
         const root = renderEnabledNewTabRoot(controller);
         try {
             const cards = [
@@ -3043,7 +3119,45 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('renders SRS queue progress and timer labels while navigating left and right', () => {
+    it('keeps the Anki switch indicator on Jiten-labeled API cards', () => {
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+            newTabSource: 'jpdb',
+            immersionKitEnabled: false,
+        });
+        const card = newTabTestCard({
+            spelling: '百科事典',
+            reading: 'ひゃっかじてん',
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+        });
+        const root = renderSeededNewTabWord(controller, card, {
+            allWords: [card],
+            visibleWords: [card],
+            reviewCountMode: true,
+            sourceLabel: 'Jiten',
+            state: { source: 'jpdb' },
+        });
+
+        try {
+            const status = newTabStatusButton(root);
+
+            expect(status.textContent).toContain('Jiten ⇄');
+            expect(status.disabled).toBe(false);
+            expect(status.dataset.sourceToggleTarget).toBe('anki');
+            expect(status.title).toBe('Switch review source: Anki');
+            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('renders SRS session progress and timer labels while navigating left and right', () => {
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
@@ -3091,9 +3205,9 @@ describe('new tab review helpers', () => {
             internals.bindRootEvents(root);
             internals.renderWord(root, first);
 
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 2 · JPDB');
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
             const progress = root.querySelector<HTMLElement>('[data-newtab-count]')!;
-            expect(progress.textContent).toMatch(/^1 \/ 2 · Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(progress.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
             expect(progress.dataset.sessionCompletedReviews).toBe('0');
             expect(progress.dataset.sessionRemainingCards).toBe('2');
             expect(progress.dataset.sessionRemainingDueCards).toBe('2');
@@ -3104,16 +3218,82 @@ describe('new tab review helpers', () => {
             internals.showNextWord();
 
             expect(internals.index).toBe(1);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('2 / 2 · JPDB');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^2 \/ 2 · Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('日本語');
 
             internals.showPreviousWord();
 
             expect(internals.index).toBe(0);
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('1 / 2 · JPDB');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^1 \/ 2 · Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('復習');
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('does not show raw queue ordinals for deep SRS review queues', async () => {
+        document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
+        const cards = Array.from({ length: 539 }, (_, index) => newTabTestCard({
+            vid: index + 1,
+            sid: 1,
+            spelling: `語${index + 1}`,
+            reading: `ご${index + 1}`,
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            cardState: ['due'],
+        }));
+        const reviewCard = vi.fn(async () => {});
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }, {
+            jpdb: { reviewCard } as never,
+        });
+        const current = cards[359]!;
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const loadWordsInto = vi.fn(async () => {});
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            bindRootEvents(root: HTMLElement): void;
+            renderWord(root: HTMLElement, card: JPDBCard): void;
+            loadWordsInto: typeof loadWordsInto;
+        };
+        try {
+            Object.assign(internals, {
+                allWords: cards,
+                visibleWords: cards,
+                index: 359,
+                reviewCountMode: true,
+                sourceLabel: 'JPDB',
+                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                loadWordsInto,
+            });
+            internals.bindRootEvents(root);
+            internals.renderWord(root, current);
+
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d$/);
+            expect(root.textContent).not.toContain('360 / 539');
+
+            root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
+
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledWith(current, 'okay');
+                expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 1 · Left 538 · Due 538 · \d\d:\d\d$/);
+                expect(root.textContent).not.toContain('360 / 539');
+                expect(root.textContent).not.toContain('360 / 538');
+            });
         } finally {
             controller.destroy();
             root.remove();
@@ -3171,7 +3351,11 @@ describe('new tab review helpers', () => {
         const targetRows = mount.querySelectorAll('[data-newtab-grade-target]');
         const select = mount.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
         expect(targetRows).toHaveLength(1);
+        expect(targetRows[0]).toBeInstanceOf(HTMLDetailsElement);
+        expect((targetRows[0] as HTMLDetailsElement).open).toBe(false);
         expect(mount.querySelectorAll('[data-newtab-grade-target-selector]')).toHaveLength(1);
+        expect(mount.querySelector('.jpdb-reader-newtab-grade-target-summary')).not.toBeNull();
+        expect(select?.closest('.jpdb-reader-newtab-grade-target-panel')).not.toBeNull();
         expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Both');
         expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
         expect(mount.querySelector('[data-newtab-grade-target]')?.classList.contains('jpdb-reader-newtab-grade-target-context')).toBe(true);
@@ -3182,7 +3366,7 @@ describe('new tab review helpers', () => {
 
     it.todo('wires card.reviewGradeIntervals into the main new-tab grade bar');
 
-    it('submits swipe-left and swipe-right grades on revealed new-tab SRS cards', async () => {
+    it('submits swipe-left and swipe-right grades on unrevealed new-tab SRS cards', async () => {
         vi.stubGlobal('PointerEvent', class {});
         const runSwipe = async (deltaX: number, expectedGrade: JPDBGrade): Promise<void> => {
             const current = newTabTestCard({
@@ -3227,7 +3411,7 @@ describe('new tab review helpers', () => {
                     index: 0,
                     reviewCountMode: true,
                     sourceLabel: 'JPDB',
-                    state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                    state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: false },
                 });
                 internals.bindRootEvents(root);
                 internals.renderWord(root, current);
@@ -3500,6 +3684,51 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('does not reuse cached Anki cards after Anki mining is disabled', async () => {
+        resetNewTabReviewStorage();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+            newTabSource: 'anki' as const,
+            immersionKitEnabled: false,
+        };
+        const staleAnkiCard = newTabTestCard({ spelling: '暗記', reading: 'あんき', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
+        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local', reviewSource: 'dictionary' });
+        const listNewTabCards = vi.fn(async () => [staleAnkiCard]);
+        const listRandomTopTerms = vi.fn(async () => [newTabLocalDictionaryEntry('書く', 'かく', 'to write')]);
+        const controller = newTabLocalFallbackController(() => settings, localCard, listRandomTopTerms, {
+            anki: { listNewTabCards } as never,
+        });
+        const internals = controller as unknown as {
+            sourceResultCache: Map<string, { signature: string; result: { cards: JPDBCard[]; sourceLabel: string; reviewCountMode: boolean } }>;
+            sourceCacheSignature(source: 'anki'): string;
+            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
+        };
+
+        try {
+            internals.sourceResultCache.set('anki', {
+                signature: internals.sourceCacheSignature('anki'),
+                result: {
+                    cards: [staleAnkiCard],
+                    sourceLabel: 'Anki',
+                    reviewCountMode: true,
+                },
+            });
+            settings.ankiEnabled = false;
+
+            const result = await internals.loadWords();
+
+            expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
+            expect(result.sourceLabel).toBe('Dictionary');
+            expect(result.reviewCountMode).toBe(false);
+            expect(listNewTabCards).not.toHaveBeenCalled();
+            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('switches from Anki to JPDB when saved source state is already stale JPDB', async () => {
         resetNewTabReviewStorage();
         const { settings, listDeckCards, listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('anki');
@@ -3528,6 +3757,7 @@ describe('new tab review helpers', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
+            ankiEnabled: true,
             jpdbMiningEnabled: true,
             newTabAnkiEnabled: true,
             newTabSource: 'jpdb',
@@ -3565,6 +3795,7 @@ describe('new tab review helpers', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
+            ankiEnabled: true,
             jpdbMiningEnabled: true,
             newTabAnkiEnabled: true,
             newTabSource: 'jpdb',
@@ -3617,6 +3848,7 @@ describe('new tab review helpers', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
+            ankiEnabled: true,
             newTabAnkiEnabled: true,
             newTabSource: 'anki',
             immersionKitEnabled: false,
@@ -3647,6 +3879,7 @@ describe('new tab review helpers', () => {
         const controller = newTabPromptController({
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
+            ankiEnabled: true,
             newTabAnkiEnabled: true,
             newTabSource: 'anki',
             immersionKitEnabled: false,
@@ -3756,7 +3989,7 @@ describe('new tab review helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
-            ankiEnabled: false,
+            ankiEnabled: true,
             newTabAnkiEnabled: true,
             newTabSource: 'auto' as const,
             newTabJpdbDeck: 'deck',
@@ -3999,6 +4232,7 @@ describe('new tab review helpers', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: 'jpdb-key',
+            ankiEnabled: true,
             newTabSource: 'jpdb' as const,
             newTabAnkiEnabled: true,
             immersionKitEnabled: false,
@@ -4400,7 +4634,7 @@ describe('new tab review helpers', () => {
         expect(result.sourceLabel).toBe('JPDB + Anki');
     });
 
-    it('loads Anki new-tab reviews even when Anki mining is disabled', async () => {
+    it('loads Anki new-tab reviews when Anki is enabled', async () => {
         document.body.replaceChildren();
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({
             mode: 'word',
@@ -4414,7 +4648,7 @@ describe('new tab review helpers', () => {
         ];
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
-                ankiEnabled: false,
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 newTabSource: 'anki',
                 immersionKitEnabled: false,
@@ -4542,7 +4776,7 @@ describe('new tab review helpers', () => {
         expect(result.cards[0]?.reviewSource).toBe('jpdb-api');
     });
 
-    it('loads Jiten SRS cards through the new-tab API source when only Jiten is configured', async () => {
+    it('loads Jiten SRS cards through the new-tab API source with a legacy Jiten key', async () => {
         const jitenCard = newTabTestCard({
             vid: 42,
             sid: 2,
@@ -4558,8 +4792,8 @@ describe('new tab review helpers', () => {
         const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
         const controller = newTabBareController({
             ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jitenApiKey: 'jiten-key',
+            apiKey: 'ak_legacy-jiten-key',
+            jitenApiKey: '',
             jpdbMiningEnabled: true,
             newTabSource: 'jpdb',
             newTabJpdbReviewMode: 'api-vocabulary',
@@ -4584,20 +4818,112 @@ describe('new tab review helpers', () => {
         expect(listDeckCards).not.toHaveBeenCalled();
     });
 
+    it('keeps Jiten-only API source from being preempted by live JPDB review', async () => {
+        const jitenCard = newTabTestCard({
+            vid: 42,
+            sid: 2,
+            rid: 9001,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 42,
+            jitenReadingIndex: 2,
+        });
+        const requestCurrent = vi.fn();
+        const listStudyBatchCards = vi.fn(async () => [jitenCard]);
+        const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            jpdbMiningEnabled: true,
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'auto',
+            immersionKitEnabled: false,
+        }, {
+            jpdb: { listDeckCards } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => newTabLiveVocabularyStatus(),
+                requestCurrent,
+            } as never,
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+        expect(result.sourceLabel).toBe('Jiten');
+        expect(result.reviewCountMode).toBe(true);
+        expect(result.cards.map(card => [card.spelling, card.reviewSource])).toEqual([['日本語', 'jiten-api']]);
+        expect(listStudyBatchCards).toHaveBeenCalledWith(180);
+        expect(listDeckCards).not.toHaveBeenCalled();
+        expect(requestCurrent).not.toHaveBeenCalled();
+    });
+
+    it('keeps the active Jiten API source from being preempted by a stale JPDB key', async () => {
+        const jitenCard = newTabTestCard({
+            vid: 42,
+            sid: 2,
+            rid: 9001,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 42,
+            jitenReadingIndex: 2,
+        });
+        const requestCurrent = vi.fn();
+        const listStudyBatchCards = vi.fn(async () => [jitenCard]);
+        const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key-left-from-old-settings',
+            jitenApiKey: 'ak_active-jiten-key',
+            jpdbMiningEnabled: true,
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'auto',
+            immersionKitEnabled: false,
+        }, {
+            jpdb: { listDeckCards } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => newTabLiveVocabularyStatus(),
+                requestCurrent,
+            } as never,
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+        expect(result.sourceLabel).toBe('Jiten');
+        expect(result.reviewCountMode).toBe(true);
+        expect(result.cards.map(card => [card.spelling, card.reviewSource])).toEqual([['日本語', 'jiten-api']]);
+        expect(listStudyBatchCards).toHaveBeenCalledWith(180);
+        expect(requestCurrent).not.toHaveBeenCalled();
+    });
+
     it('falls back to study words when the configured Jiten SRS queue is empty', async () => {
         resetNewTabReviewStorage();
         const localCard = newTabTestCard({ spelling: '余白', reading: 'よはく', source: 'local', reviewSource: 'dictionary' });
         const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['余白', 'よはく', 'blank space']));
         const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
+        const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
+        const listNewTabCards = vi.fn(async () => [] as JPDBCard[]);
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
         const controller = newTabLocalFallbackController(() => ({
             ...DEFAULT_SETTINGS,
             apiKey: '',
             jitenApiKey: 'jiten-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
             newTabSource: 'jpdb',
             newTabJpdbReviewMode: 'api-vocabulary',
             immersionKitEnabled: false,
         }), localCard, listRandomTopTerms, {
-            jpdb: { listDeckCards: vi.fn(async () => []) } as never,
+            anki: { listNewTabCards } as never,
+            jpdb: { listDeckCards } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch } as never,
             jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
         });
 
@@ -4606,9 +4932,67 @@ describe('new tab review helpers', () => {
 
             expect(listStudyBatchCards).toHaveBeenCalledWith(180);
             expect(result.cards.map(card => card.spelling)).toEqual(['余白']);
-            expect(result.sourceLabel).toBe('Dictionary');
+            expect(result.sourceLabel).toBe('Jiten');
             expect(result.reviewCountMode).toBe(false);
             expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+            expect(listDeckCards).not.toHaveBeenCalled();
+            expect(listNewTabCards).not.toHaveBeenCalled();
+            expect(publicSearch).not.toHaveBeenCalled();
+
+            await controller.renderPage();
+
+            const status = newTabStatusButton();
+            expect(status.textContent).toContain('Jiten ⇄');
+            expect(status.textContent).not.toContain('JPDB');
+            expect(status.dataset.sourceToggleTarget).toBe('anki');
+            expect(status.title).toBe('Switch review source: Anki');
+            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('keeps auto Jiten-only fallback from fetching or labeling JPDB', async () => {
+        resetNewTabReviewStorage();
+        const localCard = newTabTestCard({ spelling: '文脈', reading: 'ぶんみゃく', source: 'local', reviewSource: 'dictionary' });
+        const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['文脈', 'ぶんみゃく', 'context']));
+        const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
+        const listDeckCards = vi.fn(async () => [] as JPDBCard[]);
+        const listNewTabCards = vi.fn(async () => [] as JPDBCard[]);
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
+        const controller = newTabLocalFallbackController(() => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            ankiEnabled: false,
+            newTabAnkiEnabled: false,
+            newTabSource: 'auto',
+            immersionKitEnabled: false,
+        }), localCard, listRandomTopTerms, {
+            anki: { listNewTabCards } as never,
+            jpdb: { listDeckCards } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+        });
+
+        try {
+            const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+            expect(result.cards.map(card => card.spelling)).toEqual(['文脈']);
+            expect(result.sourceLabel).toBe('Jiten');
+            expect(result.reviewCountMode).toBe(false);
+            expect(listStudyBatchCards).toHaveBeenCalledWith(180);
+            expect(listDeckCards).not.toHaveBeenCalled();
+            expect(listNewTabCards).not.toHaveBeenCalled();
+            expect(publicSearch).not.toHaveBeenCalled();
+
+            await controller.renderPage();
+
+            const status = newTabStatusButton();
+            expect(status.textContent).toBe('Jiten');
+            expect(status.textContent).not.toContain('JPDB');
+            expect(status.dataset.sourceToggleTarget).toBeUndefined();
+            expect(status.querySelector<HTMLElement>('.jpdb-reader-newtab-status-light')?.dataset.source).toBe('jiten');
         } finally {
             resetNewTabReviewStorage();
         }
@@ -5134,7 +5518,7 @@ describe('new tab review helpers', () => {
         expect(controller.lookupGradeOptions(card)).toEqual([]);
     });
 
-    it('queues offline JPDB grades and advances the cached review card', async () => {
+    it('queues offline JPDB grades without returning navigation to the graded card', async () => {
         const first = newTabTestCard({ vid: 1, sid: 1, spelling: '安定', reading: 'あんてい', source: 'jpdb', reviewSource: 'jpdb-api' });
         const second = newTabTestCard({ vid: 2, sid: 2, spelling: '読む', reading: 'よむ', source: 'jpdb', reviewSource: 'jpdb-api' });
         const reviewCard = vi.fn(async () => {});
@@ -5157,6 +5541,7 @@ describe('new tab review helpers', () => {
             sourceLabel: 'JPDB (offline)',
             state: { source: 'jpdb', revealAnswer: true },
             appendToDocument: true,
+            bindRootEvents: true,
         });
 
         await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
@@ -5167,6 +5552,8 @@ describe('new tab review helpers', () => {
         expect(queue[0]?.card.spelling).toBe('安定');
         expect(reviewCard).not.toHaveBeenCalled();
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読む']);
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
+        root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
         expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('読む');
         root.remove();
     });
@@ -5459,12 +5846,12 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('reviews Anki new-tab cards even when Anki mining is disabled', async () => {
+    it('reviews Anki new-tab cards when Anki is enabled', async () => {
         const card = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'anki', reviewSource: 'anki', ankiCardId: 404 });
         const answerCard = vi.fn(async () => {});
         const { controller, root } = newTabVisibleWordFixture(() => ({
             ...DEFAULT_SETTINGS,
-            ankiEnabled: false,
+            ankiEnabled: true,
             newTabAnkiEnabled: true,
             enableReviews: true,
             immersionKitEnabled: false,
@@ -5485,7 +5872,8 @@ describe('new tab review helpers', () => {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
 
             expect(root.querySelectorAll('[data-grade]').length).toBeGreaterThan(0);
-            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Anki #404');
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Anki #404');
+            expect(root.querySelector('[data-newtab-grade-target]')?.getAttribute('aria-label')).toBe('Grades Anki card: Anki #404');
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
 
             await (controller as unknown as { gradeCurrentCard(grade: 'pass'): Promise<void> }).gradeCurrentCard('pass');
@@ -5523,6 +5911,7 @@ describe('new tab review helpers', () => {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'jpdb-key',
                 jpdbMiningEnabled: true,
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 newTabSource: 'auto',
                 enableReviews: true,
@@ -5603,6 +5992,7 @@ describe('new tab review helpers', () => {
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 jpdbMiningEnabled: true,
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 newTabSource: 'auto',
                 enableReviews: true,
@@ -5673,7 +6063,7 @@ describe('new tab review helpers', () => {
             const targetSelect = root.querySelector<HTMLSelectElement>('[data-newtab-grade-target-select]');
             expect(targetSelect?.selectedOptions[0]?.textContent).toBe('Both');
             expect(targetSelect?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
-            expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Both');
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
 
             await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
@@ -5698,7 +6088,7 @@ describe('new tab review helpers', () => {
             ]);
             expect(targetSelect.value).toBe('both');
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
-            expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Both');
 
             targetSelect.value = 'jpdb';
             targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -5748,6 +6138,7 @@ describe('new tab review helpers', () => {
         const answerCard = vi.fn(async () => {});
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 enableReviews: true,
                 immersionKitEnabled: false,
@@ -5783,7 +6174,7 @@ describe('new tab review helpers', () => {
             ]);
             expect(targetSelect.value).toBe('anki:404');
             expect(root.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
-            expect(root.querySelector('[data-newtab-grade-target-text]')).toBeNull();
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('RRTK · Recognition #404');
             expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Anki');
             expect(root.querySelector('[data-newtab-status]')?.textContent).not.toContain('JPDB');
 
@@ -5825,6 +6216,7 @@ describe('new tab review helpers', () => {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'jpdb-key',
                 jpdbMiningEnabled: true,
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 enableReviews: true,
                 newTabOfflineEnabled: true,
@@ -5888,6 +6280,7 @@ describe('new tab review helpers', () => {
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 newTabSource: 'anki',
+                ankiEnabled: true,
                 newTabAnkiEnabled: true,
                 enableReviews: true,
                 immersionKitEnabled: false,
@@ -6022,6 +6415,95 @@ describe('new tab review helpers', () => {
             excludeCardKeys: [cardKey(graded)],
             preserveVisibleOrder: true,
         });
+    });
+
+    it('keeps next and previous navigation away from the just-graded card', async () => {
+        document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
+        const graded = newTabTestCard({ vid: 1, sid: 1, spelling: '採点', reading: 'さいてん', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const next = newTabTestCard({ vid: 2, sid: 1, spelling: '次', reading: 'つぎ', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const reviewCard = vi.fn(async () => {});
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        }, {
+            jpdb: { reviewCard } as never,
+        });
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+        const loadWordsInto = vi.fn(async () => {});
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            bindRootEvents(root: HTMLElement): void;
+            renderWord(root: HTMLElement, card: JPDBCard): void;
+            loadWordsInto: typeof loadWordsInto;
+        };
+        try {
+            Object.assign(internals, {
+                allWords: [graded, next],
+                visibleWords: [graded, next],
+                index: 0,
+                reviewCountMode: true,
+                sourceLabel: 'JPDB',
+                state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+                loadWordsInto,
+            });
+            internals.bindRootEvents(root);
+            internals.renderWord(root, graded);
+
+            root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
+            await waitForExpect(() => {
+                expect(reviewCard).toHaveBeenCalledWith(graded, 'okay');
+                expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+            });
+
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+            expect(reviewCard).toHaveBeenCalledTimes(1);
+            expect(root.querySelector<HTMLElement>('[data-newtab-count]')?.dataset.sessionCompletedReviews).toBe('1');
+        } finally {
+            controller.destroy();
+            root.remove();
+        }
+    });
+
+    it('continues to the following review card after grading the middle of the queue', () => {
+        const previous = newTabTestCard({ vid: 1, sid: 1, spelling: '前', reading: 'まえ', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const graded = newTabTestCard({ vid: 2, sid: 1, spelling: '採点', reading: 'さいてん', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const next = newTabTestCard({ vid: 3, sid: 1, spelling: '次', reading: 'つぎ', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true, immersionKitEnabled: false }));
+        const root = renderEnabledNewTabRoot(controller);
+        const reload = vi.fn();
+        Object.assign(controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            index: number;
+            reviewCountMode: boolean;
+            sourceLabel: string;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+            loadWordsInto: typeof reload;
+        }, {
+            allWords: [previous, graded, next],
+            visibleWords: [previous, graded, next],
+            index: 1,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB',
+            state: { mode: 'word', sort: 'random', filter: 'study', source: 'jpdb', revealAnswer: true },
+            loadWordsInto: reload,
+        });
+
+        (controller as unknown as { advanceAfterGrade(root: HTMLElement, card: JPDBCard): void }).advanceAfterGrade(root, graded);
+
+        expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+        expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['前', '次']);
     });
 
     it('uses the JPDB-style new-tab kanji front canvas and reveal preview flow', async () => {
@@ -6951,6 +7433,73 @@ describe('new tab review helpers', () => {
         expect(lookupText).not.toHaveBeenCalled();
     });
 
+    it('opens JPDB review prompt word lookups with the source card identity intact', () => {
+        const lookupText = vi.fn();
+        const showLookupCard = vi.fn();
+        const card = newTabTestCard({
+            vid: 12000,
+            sid: 1,
+            rid: 8800,
+            spelling: '読む',
+            reading: 'よむ',
+            sentence: '本を読む。',
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            jpdbReviewId: 'jpdb-review-8800',
+            cardState: ['due'],
+        });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false }, {
+            lookupText,
+            showLookupCard,
+        });
+        const root = renderNewTabCardFront(controller, card, { source: 'jpdb', sourceLabel: 'JPDB' });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')!;
+
+        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(showLookupCard).toHaveBeenCalledWith(card, '本を読む。', word, expect.objectContaining({
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        }));
+        expect(lookupText).not.toHaveBeenCalled();
+    });
+
+    it('opens Jiten review prompt word lookups with the source card identity intact', () => {
+        const lookupText = vi.fn();
+        const showLookupCard = vi.fn();
+        const card = newTabTestCard({
+            vid: 4300,
+            sid: 2,
+            rid: 9900,
+            spelling: '試験',
+            reading: 'しけん',
+            sentence: '試験を受ける。',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 4300,
+            jitenReadingIndex: 2,
+            cardState: ['due'],
+        });
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', immersionKitEnabled: false }, {
+            lookupText,
+            showLookupCard,
+        });
+        const root = renderNewTabCardFront(controller, card, { source: 'jpdb', sourceLabel: 'Jiten' });
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')!;
+
+        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(showLookupCard).toHaveBeenCalledWith(card, '試験を受ける。', word, expect.objectContaining({
+            navigation: 'push-current',
+            reuseActivePopover: true,
+            userGesture: true,
+        }));
+        expect(lookupText).not.toHaveBeenCalled();
+    });
+
     it('searches words and kanji from the new-tab search mode', async () => {
         const lookupText = vi.fn();
         const showKanjiCard = vi.fn();
@@ -7455,12 +8004,14 @@ describe('new tab review helpers', () => {
                     <summary>Popup sources</summary>
                     <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="黒猫" data-dictionary-reading="くろねこ" data-dictionary="Local">黒猫</a>
                     <button type="button" data-action="jpdb-example-audio" data-jpdb-audio="example-audio" data-jpdb-example-sentence="猫が寝る。">audio</button>
+                    <button type="button" data-action="jiten-audio" data-study-sentence="猫が鳴く。" data-jiten-audio-urls='["https://audio.example.test/cat.mp3"]'>jiten audio</button>
                 </details>
             </div>
         `);
         const installSearchDetailSources = vi.fn();
         const playJpdbExampleAudio = vi.fn();
         const playWordAudio = vi.fn();
+        const performCardAction = vi.fn();
         const renderSearchWordPills = vi.fn(() => '<div class="jpdb-reader-word-pills">Freq Local 1600</div>');
         const lookupDictionaryReference = vi.fn();
         const jpdbKanjiLookup = vi.fn(async () => ({
@@ -7515,6 +8066,7 @@ describe('new tab review helpers', () => {
             installSearchDetailSources,
             playWordAudio,
             playJpdbExampleAudio,
+            performCardAction,
             lookupDictionaryReference,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
@@ -7576,6 +8128,10 @@ describe('new tab review helpers', () => {
 
             root.querySelector<HTMLButtonElement>('[data-action="jpdb-example-audio"]')?.click();
             expect(playJpdbExampleAudio).toHaveBeenCalledWith('example-audio', '猫が寝る。');
+
+            const jitenAudio = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
+            jitenAudio.click();
+            expect(performCardAction).toHaveBeenCalledWith(jitenAudio, catCard, '猫が鳴く。', jitenAudio);
 
             root.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
             await waitForExpect(() => {
@@ -8098,6 +8654,61 @@ describe('new tab review helpers', () => {
         } finally {
             runtime.destroy();
             restoreCanvas();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('releases the settings modal background when the new-tab backdrop dismisses settings', () => {
+        const runtime = new NewTabRuntime();
+        const form = document.createElement('form');
+        const backdrop = document.createElement('div');
+        const releaseModalBackground = vi.fn();
+        form.className = 'jpdb-reader-settings';
+        document.body.append(backdrop, form);
+        const internals = runtime as unknown as {
+            activeDialog?: HTMLElement;
+            activeBackdrop?: HTMLElement;
+            settingsDialog: { releaseModalBackground(): void };
+            dismiss(): void;
+        };
+        internals.activeDialog = form;
+        internals.activeBackdrop = backdrop;
+        internals.settingsDialog = { releaseModalBackground };
+
+        try {
+            internals.dismiss();
+
+            expect(form.isConnected).toBe(false);
+            expect(backdrop.isConnected).toBe(false);
+            expect(releaseModalBackground).toHaveBeenCalledOnce();
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('dismisses mounted settings when the new-tab backdrop receives pointer input', () => {
+        const runtime = new NewTabRuntime();
+        const form = document.createElement('form');
+        const backdrop = document.createElement('div');
+        const releaseModalBackground = vi.fn();
+        form.className = 'jpdb-reader-settings';
+        backdrop.className = 'jpdb-reader-backdrop';
+        const internals = runtime as unknown as {
+            settingsDialog: { releaseModalBackground(): void };
+            mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void;
+        };
+        internals.settingsDialog = { releaseModalBackground };
+
+        try {
+            internals.mountSettingsDialog(backdrop, form);
+            backdrop.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+
+            expect(form.isConnected).toBe(false);
+            expect(backdrop.isConnected).toBe(false);
+            expect(releaseModalBackground).toHaveBeenCalledOnce();
+        } finally {
+            runtime.destroy();
             document.body.replaceChildren();
         }
     });
@@ -8958,6 +9569,100 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('hides new-tab lookup Anki status when Anki mining is disabled', async () => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({
+            spelling: 'よむ',
+            reading: 'よむ',
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            cardState: ['redundant'],
+            frequencyRank: 20200,
+        });
+        const ankiLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 88,
+                primaryCardId: 8801,
+                cardIds: [8801],
+                state: 'known',
+                deckNames: ['Mining'],
+                modelName: 'Yomu',
+                fields: {},
+                tags: [],
+                reps: 12,
+                lapses: 0,
+            },
+        };
+        const renderData = newTabLookupRenderData({ ankiLookup });
+        const internals = setupNewTabLookupRuntime(runtime, renderData, {
+            settings: {
+                apiKey: 'jpdb-key',
+                ankiEnabled: false,
+                ankiSectionEnabled: true,
+                jpdbMiningEnabled: true,
+            },
+        });
+
+        try {
+            await internals.showLookupCard(card, 'よむ。');
+
+            await vi.waitFor(() => {
+                const labels = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-meta > span')).map(item => item.textContent);
+                expect(labels).toEqual(['#20200', 'JPDB Redundant']);
+            });
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('hides new-tab lookup grade controls when there is no real review target', async () => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({
+            spelling: '辞書',
+            reading: 'じしょ',
+            source: 'local',
+            reviewSource: 'dictionary',
+        });
+        const renderData = newTabLookupRenderData({
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null } satisfies AnkiLookupResult,
+        });
+        const internals = setupNewTabLookupRuntime(runtime, renderData, {
+            settings: {
+                enableReviews: true,
+                twoButtonReviews: true,
+                jpdbMiningEnabled: true,
+                ankiEnabled: false,
+            },
+            isJpdbBackedCard: () => false,
+        }) as NewTabLookupRuntimeInternals<typeof renderData> & {
+            newTab: {
+                lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
+                lookupReviewTargets(card: JPDBCard): [];
+                destroy(): void;
+            };
+        };
+
+        try {
+            internals.newTab = {
+                lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
+                lookupReviewTargets: () => [],
+                destroy: vi.fn(),
+            };
+
+            await internals.showLookupCard(card, '辞書を引く。');
+
+            expect(document.querySelector('[data-grade]')).toBeNull();
+            expect(document.querySelector('[data-newtab-grade-target-text]')).toBeNull();
+            expect(document.querySelector('[data-review-target-gutter]')).toBeNull();
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('labels new-tab lookup grade buttons with the active review target', async () => {
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({
@@ -9003,6 +9708,60 @@ describe('new tab review helpers', () => {
                 expect(pass?.dataset.ankiCardId).toBe('404');
                 expect(pass?.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #404');
                 expect(pass?.title).toBe('Grades Anki card: Core #404');
+            });
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('closes hosted lookup popovers after a successful new-tab grade', async () => {
+        const runtime = new NewTabRuntime();
+        const card = newTabTestCard({
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            source: 'anki',
+            reviewSource: 'anki',
+            ankiCardId: 404,
+        });
+        const gradeFromLookup = vi.fn(async () => ({ preserveLookup: false }));
+        const renderData = newTabLookupRenderData({
+            ankiLookup: { state: 'due', notes: [], primary: null } satisfies AnkiLookupResult,
+        });
+        const internals = setupNewTabLookupRuntime(runtime, renderData, {
+            settings: {
+                enableReviews: true,
+                twoButtonReviews: true,
+            },
+            isJpdbBackedCard: () => false,
+        }) as NewTabLookupRuntimeInternals<typeof renderData> & {
+            activeLookupPopover?: HTMLElement;
+            newTab: {
+                lookupGradeOptions(card: JPDBCard): Array<['fail' | 'pass', string]>;
+                lookupReviewTargets(card: JPDBCard): Array<{ id: string; kind: 'jpdb' | 'anki'; label: string; shortLabel: string; ankiCardId?: number }>;
+                lookupGradeTargetLabel(card: JPDBCard): string;
+                gradeFromLookup: typeof gradeFromLookup;
+                destroy(): void;
+            };
+        };
+
+        try {
+            internals.newTab = {
+                lookupGradeOptions: () => [['fail', 'Fail'], ['pass', 'Pass']],
+                lookupReviewTargets: () => [{ id: 'anki:404', kind: 'anki', label: 'Grades Anki card: Core #404', shortLabel: 'Anki #404', ankiCardId: 404 }],
+                lookupGradeTargetLabel: () => 'Grades Anki card: Core #404',
+                gradeFromLookup,
+                destroy: vi.fn(),
+            };
+
+            await internals.showLookupCard(card, '復習します。');
+            const pass = document.querySelector<HTMLButtonElement>('[data-grade="pass"]')!;
+            pass.click();
+
+            await waitForExpect(() => {
+                expect(gradeFromLookup).toHaveBeenCalledWith('pass', { kind: 'anki', ankiCardId: 404 });
+                expect(document.querySelector('.jpdb-reader-popover')).toBeNull();
+                expect(internals.activeLookupPopover).toBeUndefined();
             });
         } finally {
             runtime.destroy();
@@ -9056,16 +9815,29 @@ describe('new tab review helpers', () => {
             await internals.showLookupCard(card, '日本語を読みます。');
 
             await vi.waitFor(() => {
-                expect(Array.from(document.querySelectorAll('[data-newtab-grade-target-text]'), element => element.textContent)).toEqual([
-                    'Grades JPDB',
-                    'Grades Anki card: Core #404',
-                    'Grades Anki card: Core #405',
-                ]);
+                const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+                expect(document.querySelector('[data-review-target-gutter]')).not.toBeNull();
+                expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('JPDB');
+                expect(document.querySelector<HTMLSelectElement>('[data-review-target-select]')?.selectedOptions[0]?.textContent).toBe('JPDB');
+                expect(Array.from(popover.querySelectorAll('[data-newtab-grade-target-text]'), element => element.textContent)).toEqual(['Grades JPDB']);
                 expect(document.querySelectorAll('[data-newtab-grade-target-chip]')).toHaveLength(0);
             });
 
-            const ankiPassButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-newtab-review-target="anki"][data-grade="pass"]'));
-            expect(ankiPassButtons.map(button => button.dataset.ankiCardId)).toEqual(['404', '405']);
+            const select = document.querySelector<HTMLSelectElement>('[data-review-target-select]')!;
+            expect(Array.from(select.options, option => option.textContent)).toEqual(['JPDB', 'Anki #404', 'Core #405']);
+            expect(document.querySelectorAll<HTMLButtonElement>('[data-action="grade"][data-grade]')).toHaveLength(2);
+            expect(Array.from(document.querySelectorAll<HTMLButtonElement>('[data-newtab-review-target="jpdb"][data-grade]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
+
+            select.value = 'anki:405';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+
+            const pass = document.querySelector<HTMLButtonElement>('[data-grade="pass"]')!;
+            expect(document.querySelector('[data-review-target-current]')?.textContent).toBe('Core #405');
+            expect(document.querySelector('.jpdb-reader-popover [data-newtab-grade-target-text]')?.textContent).toBe('Grades Anki card: Core #405');
+            expect(pass.dataset.newtabReviewTarget).toBe('anki');
+            expect(pass.dataset.ankiCardId).toBe('405');
+            expect(pass.getAttribute('aria-label')).toBe('Pass: Grades Anki card: Core #405');
+            expect(pass.title).toBe('Grades Anki card: Core #405');
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -9097,12 +9869,11 @@ describe('new tab review helpers', () => {
         try {
             const result = await controller.gradeFromLookup('okay', { kind: 'anki', ankiCardId: 405 });
 
-            expect(result).toEqual({ preserveLookup: true });
+            expect(result).toEqual({ preserveLookup: false });
             expect(answerCard).toHaveBeenCalledWith(405, 'okay');
             expect(findExistingCards).toHaveBeenCalledWith(card);
             expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
             expect(reviewCard).not.toHaveBeenCalled();
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('✓ Core #405 · Known');
             expect(card.cardState).toEqual(['known']);
             expect(card.ankiCardId).toBe(405);
             expect(card.ankiNoteId).toBe(777);
@@ -9110,6 +9881,42 @@ describe('new tab review helpers', () => {
             expect(card.ankiRenderedCards).toEqual([{ cardId: 405, deckName: 'Core', question: 'Japanese', answer: '日本語' }]);
         } finally {
             root.remove();
+        }
+    });
+
+    it('closes new-tab lookup popovers after shared card-action review buttons grade successfully', async () => {
+        const runtime = new NewTabRuntime();
+        const card = jpdbAnkiDuplicateReviewCard();
+        const popover = document.createElement('div');
+        const backdrop = document.createElement('div');
+        const button = document.createElement('button');
+        const perform = vi.fn(async () => true);
+        const showLookupCard = vi.fn();
+        const internals = runtime as unknown as {
+            activeLookupPopover?: HTMLElement;
+            activeLookupBackdrop?: HTMLElement;
+            cardActions: { perform: typeof perform };
+            showLookupCard: typeof showLookupCard;
+            handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement): Promise<void>;
+        };
+        button.dataset.action = 'grade';
+        button.dataset.grade = 'easy';
+        document.body.append(backdrop, popover);
+        internals.activeLookupPopover = popover;
+        internals.activeLookupBackdrop = backdrop;
+        internals.cardActions = { perform };
+        internals.showLookupCard = showLookupCard;
+
+        try {
+            await internals.handleCardAction(button, card, '日本語を読む。');
+
+            expect(perform).toHaveBeenCalledWith('grade', button, card, '日本語を読む。');
+            expect(showLookupCard).not.toHaveBeenCalled();
+            expect(popover.isConnected).toBe(false);
+            expect(backdrop.isConnected).toBe(false);
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
         }
     });
 
@@ -9158,10 +9965,9 @@ describe('new tab review helpers', () => {
         try {
             const result = await controller.gradeFromLookup('okay', { kind: 'anki', ankiCardId: 405 });
 
-            expect(result).toEqual({ preserveLookup: true });
+            expect(result).toEqual({ preserveLookup: false });
             expect(answerCard).toHaveBeenCalledWith(405, 'okay');
             expect(reviewCard).not.toHaveBeenCalled();
-            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('✓ Reverse #405 · Known');
             expect(card.cardState).toEqual(['known']);
             expect(card.ankiCardId).toBe(405);
             expect(card.ankiNoteId).toBe(888);
@@ -9953,7 +10759,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-immersion .jpdb-reader-word');
-                expect(word?.textContent).toBe('中学生');
+                expect(word?.dataset.expression).toBe('中学生');
                 expect(word?.classList.contains('jpdb-reader-example-target')).toBe(true);
             });
             expect(parse).toHaveBeenCalledTimes(1);
@@ -10025,7 +10831,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence .jpdb-reader-word');
-                expect(word?.textContent).toBe('書く');
+                expect(word?.dataset.expression).toBe('書く');
                 expect(word?.classList.contains('jpdb-reader-example-target')).toBe(true);
             });
             expect(parseContent).not.toHaveBeenCalled();
@@ -10507,6 +11313,45 @@ describe('new tab review helpers', () => {
         expect(result.sourceLabel).toBe('Dictionary');
         expect(result.reviewCountMode).toBe(false);
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+    });
+
+    it('falls back to dictionary cards when auto live JPDB has no API key and Anki is off', async () => {
+        resetNewTabReviewStorage();
+        const localCard = newTabTestCard({ spelling: '稽古', reading: 'けいこ', source: 'local' });
+        const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['稽古', 'けいこ', 'practice']));
+        const listNewTabCards = vi.fn(async () => {
+            throw new Error('Anki should not be queried when new-tab Anki is off.');
+        });
+        const requestCurrent = vi.fn();
+        const controller = newTabLocalFallbackController(() => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: false,
+            newTabAnkiEnabled: false,
+            newTabSource: 'auto',
+            newTabJpdbReviewMode: 'live-review',
+            immersionKitEnabled: false,
+        }), localCard, listRandomTopTerms, {
+            anki: { listNewTabCards } as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: true, card: null }),
+                requestCurrent,
+            } as never,
+        });
+
+        try {
+            await controller.renderPage();
+
+            await expectNewTabDictionaryCard('稽古');
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
+            expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
+            expect(listNewTabCards).not.toHaveBeenCalled();
+            expect(requestCurrent).not.toHaveBeenCalled();
+        } finally {
+            resetNewTabReviewStorage();
+        }
     });
 
     it('falls back to dictionary cards when auto Anki is unreachable and JPDB is unconfigured', async () => {
@@ -11427,5 +12272,82 @@ describe('new tab review helpers', () => {
         expect(jpdbFacts).not.toContain('Frame number');
         expect(rtkSection?.textContent).toContain('Attach the person to the inch.');
         expect(details.querySelector('[data-newtab-uchisen-mount]')).not.toBeNull();
+    });
+
+    it('loads additional Jiten kanji words through real show-more pagination', async () => {
+        const initialWords = Array.from({ length: 9 }, (_, index) => ({
+            wordId: 100 + index,
+            readingIndex: index,
+            reading: `青${index}`,
+            readingFurigana: `青[あお]${index}`,
+            mainDefinition: `blue ${index}`,
+            frequencyRank: 600 + index,
+            matchSurface: `青${index}`,
+        }));
+        const lookupKanjiWords = vi.fn(async () => ({
+            items: [
+                { wordId: 200, readingIndex: 0, reading: '青空', readingFurigana: '青空[あおぞら]', mainDefinition: 'blue sky', frequencyRank: 1200, matchSurface: '青空' },
+            ],
+            total: 10,
+            pageSize: 9,
+            offset: 9,
+        }));
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'ak_jiten-key',
+        }, {
+            jiten: {
+                lookupKanji: vi.fn(async () => null),
+                lookupKanjiWords,
+                listStudyBatchCards: vi.fn(),
+                reviewCard: vi.fn(),
+            } as never,
+        });
+        const root = document.createElement('main');
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append((controller as unknown as {
+            renderKanjiDetails(card: JPDBCard, kanji: string, info: null, jiten: unknown, rtk: null, vg: null, local: [], similar: []): HTMLElement;
+        }).renderKanjiDetails(
+            newTabTestCard({ spelling: '青', source: 'jiten' }),
+            '青',
+            null,
+            {
+                character: '青',
+                onReadings: ['セイ'],
+                kunReadings: ['あお'],
+                meanings: ['blue'],
+                strokeCount: 8,
+                jlptLevel: 4,
+                grade: 1,
+                frequencyRank: 549,
+                groupingTags: { kanken: null, wanikani: null, rtk: null, klc: null, tmw: null },
+                topWords: [],
+                wordsByReading: [{ reading: 'あお', totalWords: 17, words: initialWords }],
+            },
+            null,
+            null,
+            [],
+            [],
+        ));
+        document.body.append(root);
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        try {
+            const more = root.querySelector<HTMLButtonElement>('[data-action="jiten-kanji-more"]')!;
+            more.click();
+
+            await waitForExpect(() => {
+                expect(lookupKanjiWords).toHaveBeenCalledWith('青', {
+                    reading: 'あお',
+                    page: 2,
+                    pageSize: Number(more.dataset.jitenKanjiPageSize),
+                });
+                expect(root.textContent).toContain('青空');
+            });
+            expect(root.querySelector<HTMLButtonElement>('[data-action="jiten-kanji-more"]')).toBeNull();
+        } finally {
+            document.body.replaceChildren();
+        }
     });
 });

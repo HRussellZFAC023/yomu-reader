@@ -552,7 +552,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(playJpdbAudio).not.toHaveBeenCalled();
     });
 
-    it('tests Anki with a read-only connection check', async () => {
+    it('tests Anki with a read-only connection check without warming disabled status', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);
         const ensureDeckAndModel = vi.fn().mockResolvedValue(undefined);
@@ -570,13 +570,11 @@ describe('settings dialog keyboard dismissal', () => {
         form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.click();
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. AnkiConnect is reachable.') ?? false);
         await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone === 'success');
-        await waitForCondition(() => warmStatusIndex.mock.calls.length === 1);
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).not.toHaveBeenCalled();
-        expect(warmStatusIndex).toHaveBeenCalledOnce();
+        expect(warmStatusIndex).not.toHaveBeenCalled();
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.dataset.statusTone).toBe('success');
-        expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Ready:');
         expect(form.querySelector<HTMLElement>('[data-anki-status]')?.textContent).toContain('Connected. AnkiConnect is reachable.');
     });
 
@@ -1052,6 +1050,42 @@ describe('settings dialog keyboard dismissal', () => {
         newTabAnkiDeckToggle(form, 'Archive').checked = true;
         newTabAnkiDeckToggle(form, 'Archive').dispatchEvent(new Event('change', { bubbles: true }));
         expect(form.querySelector<HTMLInputElement>('input[name="newTabAnkiDisabledDecks"]')?.value).toBe('Missing Deck, Mining');
+    });
+
+    it('skips queued automatic Anki scan and status warmup if Anki is disabled before the queue runs', async () => {
+        vi.useFakeTimers();
+        try {
+            let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true };
+            const isConnected = vi.fn().mockResolvedValue(true);
+            const scanLibrary = vi.fn().mockResolvedValue({
+                deckNames: ['Mining'],
+                models: [],
+                suggestedModel: null,
+            });
+            const warmStatusIndex = vi.fn().mockResolvedValue(null);
+            const { form } = createSettingsDialog({
+                getSettings: () => settings,
+                setSettings: (next: ReaderSettings) => { settings = next; },
+                anki: {
+                    isConnected,
+                    scanLibrary,
+                    warmStatusIndex,
+                },
+            });
+
+            await flushPromises();
+            await flushPromises();
+            expect(isConnected).toHaveBeenCalledOnce();
+
+            form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')!.checked = false;
+            await vi.runOnlyPendingTimersAsync();
+            await flushPromises();
+
+            expect(scanLibrary).not.toHaveBeenCalled();
+            expect(warmStatusIndex).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('scans Anki through AnkiConnect on mobile handoff devices when a bridge is reachable', async () => {

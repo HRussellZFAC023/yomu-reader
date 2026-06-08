@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/app/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
-import { DEFAULT_SETTINGS, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
-import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
+import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
@@ -202,15 +202,17 @@ describe('settings form localization', () => {
         expect(buttons.slice(1).every(button => button.getAttribute('aria-selected') === 'false' && button.tabIndex === -1)).toBe(true);
     });
 
-    it('gives New tab settings their own top-level section', () => {
+    it('gives Study settings their own top-level section', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        expect(topLevelLegendForControl(form, 'newTabEnabled')).toBe('New tab');
-        expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('New tab');
+        expect(topLevelLegendForControl(form, 'newTabEnabled')).toBe('Study');
+        expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: API/Anki, then study words');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (JPDB / Jiten)');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (JPDB / Jiten)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
     });
@@ -264,6 +266,10 @@ describe('settings form localization', () => {
         expect(saved.apiKey).toBe('');
         expect(saved.jitenApiKey).toBe('ak_next-jiten');
         expect(normalizeReaderSettings({ jitenApiKey: '  stored-jiten  ' }).jitenApiKey).toBe('stored-jiten');
+        expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({
+            apiKey: '',
+            jitenApiKey: 'ak_legacy-jiten',
+        });
     });
 
     it('renders first-run Anki as opt-in with popover controls and no legacy scan affordances', () => {
@@ -275,6 +281,9 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(true);
@@ -283,7 +292,10 @@ describe('settings form localization', () => {
         expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
         expect(normalizeReaderSettings({}).popupMode).toBe('auto');
         expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
+        expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true })).toBe(false);
+        expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);
         expect(effectiveReaderTextColorSource(DEFAULT_SETTINGS, DEFAULT_SETTINGS.wordTextColorSource)).toBe('off');
+        expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
         expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
@@ -543,12 +555,13 @@ describe('settings form localization', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        for (const key of ['audio', 'immersionKit', 'reader', 'kanji', 'images', 'youTube', 'anki']) {
+        for (const key of ['audio', 'immersionKit', 'reader', 'images', 'youTube', 'anki']) {
             const fieldset = form.querySelector<HTMLFieldSetElement>(`fieldset[data-legend-key="${key}"]`)!;
             const describedby = fieldset.getAttribute('aria-describedby');
             expect(describedby).toBeTruthy();
             expect(form.querySelector(`#${describedby}`)).not.toBeNull();
         }
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="kanji"]')?.getAttribute('aria-describedby')).toBeNull();
     });
 
     it('keeps checked checkbox and radio marks visible on hover', () => {
@@ -565,7 +578,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
         expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) { display: flex; flex-direction: column;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-content: end; grid-auto-rows: minmax(38px, auto);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent);');
@@ -599,15 +612,18 @@ describe('settings form localization', () => {
     it('keeps mobile source editor row controls in a side rail', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 48px minmax(0, 1fr) 81px; align-items: start; }');
-        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; flex-wrap: wrap; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 48px minmax(0, 1fr) 81px; align-items: start; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; flex-wrap: wrap; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 3; align-self: start; justify-content: flex-end; width: 81px; min-width: 81px; max-width: 81px; }');
-        expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px;');
+        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
+        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools { display: grid; grid-template-columns: 34px 34px; grid-template-rows: 34px 34px; gap: 5px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] { grid-column: 1; grid-row: 1; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] { grid-column: 1; grid-row: 2; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] { grid-column: 2; grid-row: 2; }');
+        expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px; gap: 5px;');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-tools { gap: 5px; width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools, .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools, .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools, .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools, .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools, .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools { width: 73px; min-width: 73px; max-width: 73px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; flex-wrap: wrap;');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; }');
     });
 
     it('keeps hosted settings companions available when the reader runtime already exists', () => {
@@ -696,6 +712,43 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
     });
 
+    it('keeps Jiten kanji source help distinct after localization', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key' });
+
+        localizeSettingsForm(form, 'en');
+
+        expect(settingsText(form, '[data-source-id="__kanji_stroke__"] .jpdb-reader-dictionary-row-help')).toBe('Stroke order preview and drawing pad.');
+        expect(settingsText(form, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, exact frequency, readings, and vocabulary.');
+        expect(form.querySelector('[data-source-id="__kanji_similar_words__"]')).toBeNull();
+        expect(form.textContent).not.toContain('Related vocabulary');
+        expect(form.textContent).not.toContain('Words using this kanji');
+        expect(orderedKanjiSourceIds({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', similarKanjiWords: true })).not.toContain(KANJI_SIMILAR_WORDS_SOURCE_ID);
+    });
+
+    it('removes redundant Kanji detail controls while preserving saved detail settings', () => {
+        const current = {
+            ...DEFAULT_SETTINGS,
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+            similarKanjiWordLimit: 11,
+        };
+        const form = renderSettingsTestForm(current);
+        const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
+
+        expect(kanjiPanel.textContent).not.toContain('Show kanji facts and component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show component graph');
+        expect(kanjiPanel.textContent).not.toContain('Show radical images');
+        expect(kanjiPanel.textContent).not.toContain('Similar word limit');
+        expect(kanjiPanel.querySelector('input[name="similarKanjiWordLimit"]')?.getAttribute('type')).toBe('hidden');
+        expect(readFormSettings(new FormData(form), current)).toMatchObject({
+            kanjiOriginKanjiMapEnabled: false,
+            kanjiOriginGraphEnabled: false,
+            kanjiOriginRadicalImagesEnabled: false,
+            similarKanjiWordLimit: 11,
+        });
+    });
+
     it('renders pending JPDB status when the API key is missing', () => {
         const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '' });
         const jpdbStatus = settingsText(form, '[data-jpdb-status]');
@@ -765,6 +818,21 @@ describe('settings form localization', () => {
 
         localizeSettingsForm(form, 'ja');
         expect(optionText(form, 'wordTextColorSource', 'status')).toContain('Anki');
+
+        const jitenForm = document.createElement('form');
+        jitenForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'ak_jiten-key',
+            wordHighlightColorSource: 'jpdb',
+            wordTextColorSource: 'status',
+        }, 'https://jpdb.io/settings');
+
+        expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('Jiten + Anki status');
+        expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Jiten status');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (JPDB / Jiten)');
+        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('Show Jiten definitions');
     });
 
     it('keeps subtitle preview color classes and status regions accessible', () => {
@@ -1158,7 +1226,9 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（JPDB / Jiten）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
-        expect(labelForControl(form, 'newTabParsingEnabled')).toContain('新規タブの文解析を有効にする');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB漢字情報、ローカルの順');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（JPDB / Jiten）');
+        expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効にする');
         expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('サイトの言語と地域を日本優先にする');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
@@ -1306,6 +1376,7 @@ describe('settings form localization', () => {
         expect(Array.from(jitenVoice?.options ?? []).map(option => [option.value, option.text])).toEqual([
             ['', 'Random Jiten voice'],
             ['female', 'Female'],
+            ['female2', 'Female 2'],
             ['male', 'Male'],
             ['male2', 'Male 2'],
             ['asmr', 'ASMR'],
@@ -1339,7 +1410,7 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'ja');
 
         expect(label.querySelector('.jpdb-reader-word')).toBeNull();
-        expect(label.textContent).toBe('閉じるまで下部シートを開いたままにする');
+        expect(label.textContent).toBe('検索後もシートを開いたままにする');
     });
 
     it('keeps parsed Japanese inline labels inside one grid item', () => {

@@ -119,6 +119,35 @@ describe('reader runtime helpers', () => {
         expect(recolorRenderedAnkiWordsFromCache).toHaveBeenCalled();
     });
 
+    it('does not schedule Anki status warmup when Anki mining is disabled', async () => {
+        vi.useFakeTimers();
+        const requestIdleCallback = vi.fn((callback: () => void) => {
+            callback();
+            return 1;
+        });
+        Object.defineProperty(window, 'requestIdleCallback', {
+            configurable: true,
+            value: requestIdleCallback,
+        });
+        const warmStatusIndex = vi.fn().mockResolvedValue({ entries: new Map() });
+        const recolorRenderedAnkiWordsFromCache = vi.fn().mockResolvedValue(undefined);
+
+        scheduleReaderAnkiStatusWarmup({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: false, apiKey: 'jpdb-key' }),
+            isDestroyed: () => false,
+            onRecolorError: vi.fn(),
+            recolorRenderedAnkiWordsFromCache,
+            warmStatusIndex,
+        });
+
+        await vi.advanceTimersByTimeAsync(1000);
+        await Promise.resolve();
+
+        expect(requestIdleCallback).not.toHaveBeenCalled();
+        expect(warmStatusIndex).not.toHaveBeenCalled();
+        expect(recolorRenderedAnkiWordsFromCache).not.toHaveBeenCalled();
+    });
+
     it('keeps autoplay activation gated by settings and gestures', () => {
         expect(canAttemptReaderAutoAudio({
             settings: { ...DEFAULT_SETTINGS, audioEnabled: false },

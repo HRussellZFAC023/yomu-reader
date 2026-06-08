@@ -85,12 +85,12 @@
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
 }
-.jpdb-reader-word.jpdb-learning {
+.jpdb-reader-word:is(.jpdb-learning, .jpdb-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-learning-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft);
 }
-.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant) {
+.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-known-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);
@@ -118,6 +118,24 @@
   --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
   opacity: 0.82 !important;
+}
+.jpdb-reader-word.jpdb-frequent {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-frequent-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-frequent-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-frequent-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-frequent-soft);
+  text-decoration-style: dotted !important;
+}
+.jpdb-reader-word.jpdb-unparsed {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-unparsed-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-unparsed-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-unparsed-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-unparsed-soft);
+  text-decoration-style: dashed !important;
 }
 .jpdb-reader-word.anki-new {
   --jpdb-reader-anki-color: var(--jpdb-reader-state-new);
@@ -154,12 +172,12 @@
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
 }
-.jpdb-reader-word:is(.jpdb-learning, .anki-learning) {
+.jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft);
 }
-.jpdb-reader-word:is(.jpdb-known, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
+.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-known);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);
@@ -185,13 +203,18 @@
   .jpdb-suspended,
   .jpdb-in-deck,
   .jpdb-learning,
+  .jpdb-young,
   .jpdb-known,
+  .jpdb-mature,
+  .jpdb-mastered,
   .jpdb-never-forget,
   .jpdb-redundant,
   .jpdb-due,
   .jpdb-failed,
   .jpdb-blacklisted,
-  .jpdb-locked
+  .jpdb-locked,
+  .jpdb-frequent,
+  .jpdb-unparsed
 ) {
   --jpdb-reader-jpdb-highlight: color-mix(
     in srgb,
@@ -219,13 +242,18 @@
   .jpdb-suspended,
   .jpdb-in-deck,
   .jpdb-learning,
+  .jpdb-young,
   .jpdb-known,
+  .jpdb-mature,
+  .jpdb-mastered,
   .jpdb-never-forget,
   .jpdb-redundant,
   .jpdb-due,
   .jpdb-failed,
   .jpdb-blacklisted,
   .jpdb-locked,
+  .jpdb-frequent,
+  .jpdb-unparsed,
   .anki-new,
   .anki-suspended,
   .anki-learning,
@@ -233,6 +261,100 @@
   .anki-due,
   .anki-failed
 ) {
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word:is(.jiten-new, .jiten-not-in-deck, .jiten-in-deck) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-new);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word:is(.jiten-learning, .jiten-young) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-learning-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-learning-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-learning-soft);
+}
+.jpdb-reader-word:is(.jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-known);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-known-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-known-soft);
+}
+.jpdb-reader-word.jiten-due {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-due-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-due);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-due-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-due-soft);
+}
+.jpdb-reader-word.jiten-failed {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-failed-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-failed);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-failed-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-failed-soft);
+}
+.jpdb-reader-word:is(.jiten-suspended, .jiten-blacklisted, .jiten-locked) {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-ignored-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-ignored);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-ignored-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-ignored-soft);
+}
+.jpdb-reader-word.jiten-frequent {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-frequent-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-frequent-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-frequent);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-frequent-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-frequent-soft);
+}
+.jpdb-reader-word.jiten-unparsed {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-unparsed-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-unparsed-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-unparsed);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-unparsed-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-unparsed-soft);
+}
+.jpdb-reader-word:is(
+  .jiten-new,
+  .jiten-not-in-deck,
+  .jiten-suspended,
+  .jiten-in-deck,
+  .jiten-learning,
+  .jiten-young,
+  .jiten-known,
+  .jiten-mature,
+  .jiten-mastered,
+  .jiten-never-forget,
+  .jiten-redundant,
+  .jiten-due,
+  .jiten-failed,
+  .jiten-blacklisted,
+  .jiten-locked,
+  .jiten-frequent,
+  .jiten-unparsed
+) {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
   --jpdb-reader-status-highlight: color-mix(
     in srgb,
     var(--jpdb-reader-status-color) 36%,
@@ -409,7 +531,12 @@
   text-align: center;
 }
 .jpdb-reader-hide-known
-  .jpdb-reader-word:is(.jpdb-known, .jpdb-due, .jpdb-never-forget):not(.jpdb-reader-example-target)
+  .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi {
+  display: none;
+}
+.jpdb-reader-hide-known
+  .jpdb-reader-word:is(.jiten-young, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-due, .jiten-never-forget, .jiten-redundant):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
 }
@@ -492,6 +619,36 @@
     inset 0 0 0 1px var(--jpdb-reader-ocr-active-inset);
   outline: none;
   z-index: 2;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) {
+  color: var(--jpdb-reader-text);
+  text-shadow: none;
+  background: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface) 92%,
+    var(--jpdb-reader-accent) 8%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-accent) 24%,
+    var(--jpdb-reader-border)
+  );
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-white) 68%, transparent);
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-reader-word {
+  --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-text))
+  ) !important;
+  text-shadow: none;
 }
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;

@@ -2,7 +2,7 @@ import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileA
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
-import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import { cardStateLabel, formatUiText, uiText, type UiCopyKey } from '../app/i18n';
 
 interface AnkiCardSanitizeOptions {
@@ -57,16 +57,17 @@ export function renderAnkiExistingSection(
     settings: ReaderSettings,
     options: RenderAnkiExistingSectionOptions = {},
 ): string {
-    if (!settings.ankiSectionEnabled) return '';
+    if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return '';
     const notes = orderedExistingAnkiNotes(ankiLookup);
     const primary = notes[0];
     if (!primary) return '';
     const language = settings.interfaceLanguage;
-    const summary = ankiExistingSectionSummary(primary, notes.length, language);
+    const aggregateState = ankiLookup.state;
+    const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" open>
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${primary.state}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ''}</span>
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ''}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(summary)}</small>
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ''}
@@ -116,8 +117,8 @@ function ankiNoteKey(note: AnkiExistingNote): string {
     return `${note.modelName}:${note.primaryCardId || note.cardIds.join(',')}:${note.deckNames.join(',')}`;
 }
 
-function ankiExistingSectionSummary(primary: AnkiExistingNote, count: number, language: InterfaceLanguage): string {
-    const summary = ankiExistingSummary(primary, language);
+function ankiExistingSectionSummary(primary: AnkiExistingNote, count: number, language: InterfaceLanguage, aggregateState: CardState): string {
+    const summary = ankiExistingAggregateSummary(primary, aggregateState, language);
     return count > 1 ? `${summary} · ${count} matches` : summary;
 }
 
@@ -201,6 +202,14 @@ function ankiExistingSummary(note: AnkiExistingNote, language: InterfaceLanguage
         ankiStateLabel(note.state, language),
         note.deckNames.length ? note.deckNames.join(', ') : '',
         ankiReviewMetricsLabel(note, language),
+    ].filter(Boolean).join(' · ') || 'Anki';
+}
+
+function ankiExistingAggregateSummary(primary: AnkiExistingNote, aggregateState: CardState, language: InterfaceLanguage): string {
+    return [
+        ankiStateLabel(aggregateState, language),
+        primary.deckNames.length ? primary.deckNames.join(', ') : '',
+        ankiReviewMetricsLabel(primary, language),
     ].filter(Boolean).join(' · ') || 'Anki';
 }
 

@@ -2,6 +2,7 @@ import { Logger } from '../app/logger';
 import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
+import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../app/storage';
@@ -281,7 +282,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     puckPositionX: undefined,
     puckPositionY: undefined,
     showFurigana: true,
-    furiganaMode: 'auto',
+    furiganaMode: 'all',
     showPitchAccent: true,
     hideKnownFurigana: true,
     ocrEnabled: true,
@@ -415,10 +416,11 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
     const settingsValue = migrateLegacyDefaultMobileSettings(value);
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
+    const apiCredentials = normalizeApiCredentialSettings(settingsValue);
     return {
         ...DEFAULT_SETTINGS,
         ...(supportedSettings ?? {}),
-        jitenApiKey: trimmedStringSetting(settingsValue, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey),
+        ...apiCredentials,
         ...normalizeLookupSettings(settingsValue),
         ...normalizeNewTabSettings(settingsValue),
         ...normalizeReaderDisplaySettings(settingsValue),
@@ -437,6 +439,14 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
     return mergeSettings(value as LegacyReaderSettings | null);
+}
+
+function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
+    const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
+    const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
+    if (jitenApiKey) return { apiKey: '', jitenApiKey };
+    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: apiKey };
+    return { apiKey, jitenApiKey: '' };
 }
 
 function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
@@ -998,18 +1008,11 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
 }
 
 function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
-    return Boolean(settings.apiKey.trim() || settings.ankiEnabled);
+    return Boolean(hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled);
 }
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
-    return Boolean(
-        settings.ankiEnabled
-        || settings.ankiSectionEnabled
-        || (settings.ankiEnabled && (
-            settings.furiganaMode === 'known-status'
-            || hasRequestedAnkiColorSource(settings)
-        ))
-    );
+    return settings.ankiEnabled === true;
 }
 
 export function effectiveReaderColorSource(
@@ -1077,11 +1080,15 @@ function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeR
 }
 
 function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
-    return Boolean(settings.apiKey?.trim());
+    const credentials = {
+        apiKey: settings.apiKey ?? '',
+        jitenApiKey: settings.jitenApiKey ?? '',
+    };
+    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials));
 }
 
 function hasAnkiStatusSource(settings: LegacyReaderSettings): boolean {
-    return Boolean(settings.ankiEnabled || settings.ankiSectionEnabled);
+    return Boolean(settings.ankiEnabled);
 }
 
 function hasRequestedAnkiColorSource(settings: Partial<ReaderSettings>): boolean {

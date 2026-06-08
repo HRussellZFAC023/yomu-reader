@@ -142,7 +142,7 @@ export const newTabKanjiSourceAttrs = (sourceStateKey: string, initiallyExpanded
 export function newTabKanjiSourceTitle(settings: ReaderSettings, sourceId: string): string {
     const language = settings.interfaceLanguage;
     if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(language, 'strokePractice');
-    if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(language, 'readingsComponents');
+    if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(settings, sourceId) || uiText(language, 'readingsComponents');
     if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(language, 'kanjiDictionaries');
     if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return uiText(language, 'sourceNameWordsUsingKanji');
     if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(language, 'originStructure');

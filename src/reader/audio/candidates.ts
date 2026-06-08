@@ -11,6 +11,7 @@ import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from 
 import { isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
 import { uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript/index';
+import { jitenTtsVoicesForValue, jitenWordTtsUrl } from './jiten-tts';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
@@ -19,9 +20,7 @@ const LOOPBACK_AUDIO_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
 const JPDB_VOCABULARY_BASE_URL = 'https://jpdb.io/vocabulary';
 const JPDB_SEARCH_URL = 'https://jpdb.io/search';
-const JITEN_TTS_BASE_URL = 'https://api.jiten.moe/api/tts/word';
 const JITEN_VOCABULARY_SEARCH_URL = 'https://api.jiten.moe/api/vocabulary/search';
-const JITEN_TTS_RANDOM_VOICES = ['female', 'male', 'male2', 'asmr'] as const;
 const JPDB_TTS_VOICE_PREFIXES: Record<string, string[]> = {
     female: ['f'],
     male: ['m'],
@@ -263,14 +262,13 @@ async function jitenTtsAudioCandidates(source: AudioSourceSetting, card: JPDBCar
     if (!reference) return [];
     const voices = jitenTtsVoicesForSource(source);
     return voices.map(voice => {
-        const url = `${JITEN_TTS_BASE_URL}/${reference.wordId}/${reference.readingIndex}?voice=${encodeURIComponent(voice)}`;
+        const url = jitenWordTtsUrl(reference.wordId, reference.readingIndex, voice);
         return { url, sourceUrl: url };
     });
 }
 
 function jitenTtsVoicesForSource(source: AudioSourceSetting): string[] {
-    const voice = source.voice.trim();
-    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+    return jitenTtsVoicesForValue(source.voice);
 }
 
 function jitenAudioReferenceFromCard(card: JPDBCard): JitenAudioReference | null {

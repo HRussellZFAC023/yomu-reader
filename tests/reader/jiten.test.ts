@@ -1,7 +1,15 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createJitenStudyBatchCard } from '../../scripts/fixtures/jiten-fixtures.mjs';
 import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/dictionaries/jiten';
+import { renderJitenDefinitionSource } from '../../src/reader/jiten/jiten-definition-source-render';
+import { jitenKanjiFactRows, jitenKanjiOriginFactLabels, jitenKanjiVocabulary, renderJitenKanjiInfo } from '../../src/reader/jiten/jiten-kanji-info-render';
+import { renderKanjiOrigins } from '../../src/reader/popup/kanji-origin';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard } from '../../src/reader/app/types';
+import type { JitenKanjiInfo, JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
+
+const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
 
 function jsonResponse(payload: unknown, status = 200): Response {
     return {
@@ -216,15 +224,15 @@ describe('JitenApiClient', () => {
         const states = (await client.parse(['読む 書く 見る 待つ 消す 学ぶ 知る 外す 返す']))[0]?.map(token => token.card.cardState);
 
         expect(states).toEqual([
-            ['known'],
+            ['mature'],
             ['new'],
-            ['learning'],
-            ['known'],
+            ['young'],
+            ['mature'],
             ['blacklisted'],
             ['due'],
-            ['never-forget'],
+            ['mastered'],
             ['redundant'],
-            ['due', 'known'],
+            ['due', 'mature'],
         ]);
     });
 
@@ -252,6 +260,422 @@ describe('JitenApiClient', () => {
         expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/reader/ping`, expect.objectContaining({
             headers: expect.objectContaining({ Authorization: 'ApiKey explicit-token' }) as Record<string, string>,
         }));
+    });
+
+    it('normalizes Jiten vocabulary info notes and audio urls without dropping examples', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.endsWith('/vocabulary/42/0/info')) {
+                return jsonResponse({
+                    wordId: 42,
+                    mainReading: { text: '読む', readingIndex: 0 },
+                    alternativeReadings: [{ text: '訓む', readingIndex: 1 }],
+                    definitions: [{
+                        index: 0,
+                        meanings: ['to read (a kanji) with its native Japanese reading'],
+                        partsOfSpeech: ['v5m'],
+                        misc: ['also written as 訓む'],
+                    }],
+                    composedOf: [{
+                        wordId: 7,
+                        readingIndex: 0,
+                        reading: '訓む',
+                        readingFurigana: '訓[よ]む',
+                        mainDefinition: 'to read',
+                        audioUrl: 'https://audio.example.test/yomu.mp3',
+                    }],
+                });
+            }
+            return jsonResponse([{
+                sentenceId: 99,
+                text: '訓むこともある。',
+                wordPosition: 0,
+                wordLength: 2,
+                audioUrls: ['https://audio.example.test/sentence.mp3'],
+            }]);
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const info = await client.lookupVocabularyInfo(jitenCard({ jitenWordId: 42, jitenReadingIndex: 0 }));
+
+        expect(info?.definitions[0]).toMatchObject({
+            meanings: ['to read (a kanji) with its native Japanese reading'],
+            misc: ['also written as 訓む'],
+        });
+        expect(info?.alternativeReadings[0]).toMatchObject({ text: '訓む', readingIndex: 1 });
+        expect(info?.composedOf[0]?.audioUrls).toEqual(['https://audio.example.test/yomu.mp3']);
+        expect(info?.examples[0]?.audioUrls).toEqual(['https://audio.example.test/sentence.mp3']);
+        expect(fetchMock).toHaveBeenNthCalledWith(1, `${JITEN_API_BASE_URL}/vocabulary/42/0/info`, expect.objectContaining({ method: 'GET' }));
+        expect(fetchMock).toHaveBeenNthCalledWith(2, `${JITEN_API_BASE_URL}/vocabulary/42/0/random-example-sentences`, expect.objectContaining({ method: 'POST' }));
+    });
+
+    it('loads Jiten kanji facts with exact frequency and reading word groups', async () => {
+        const fetchMock = createFetchMock({
+            character: '青',
+            onReadings: ['セイ'],
+            kunReadings: ['あお'],
+            meanings: ['blue', 'green'],
+            strokeCount: 8,
+            jlptLevel: 4,
+            grade: 1,
+            frequencyRank: 549,
+            kanken: '8級',
+            waniKaniLevel: 2,
+            rtkFrame: 153,
+            klc: 'KLC 21',
+            tmwLevel: 'Lesson 3',
+            topWords: [
+                { wordId: 10, readingIndex: 0, reading: '青い', readingFurigana: '青[あお]い', mainDefinition: 'blue', frequencyRank: 700, matchSurface: '青い' },
+            ],
+            wordsByReading: [
+                {
+                    reading: 'あお',
+                    totalWords: 12,
+                    words: [
+                        { wordId: 11, readingIndex: 0, reading: '青', readingFurigana: '青[あお]', mainDefinition: 'blue', frequencyRank: 549, matchSurface: '青' },
+                    ],
+                },
+            ],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const info = await client.lookupKanji('青');
+
+        expect(info).toEqual(expect.objectContaining({
+            character: '青',
+            meanings: ['blue', 'green'],
+            frequencyRank: 549,
+            jlptLevel: 4,
+            strokeCount: 8,
+            groupingTags: {
+                kanken: '8級',
+                wanikani: '2',
+                rtk: '153',
+                klc: 'KLC 21',
+                tmw: 'Lesson 3',
+            },
+            topWords: [expect.objectContaining({ wordId: 10, mainDefinition: 'blue' })],
+            wordsByReading: [expect.objectContaining({ reading: 'あお', totalWords: 12 })],
+        }));
+        expect(jitenKanjiFactRows(info, 'en')).toEqual(expect.arrayContaining([
+            ['Kanken', '8級'],
+            ['WK', '2'],
+            ['RTK', '153'],
+            ['KLC', 'KLC 21'],
+            ['TMW', 'Lesson 3'],
+        ]));
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/kanji/%E9%9D%92`, expect.objectContaining({ method: 'GET' }));
+    });
+
+    it('loads paginated Jiten kanji word pages with optional reading filters', async () => {
+        const fetchMock = createFetchMock({
+            data: [
+                { wordId: 21, readingIndex: 0, reading: '青空', readingFurigana: '青空[あおぞら]', mainDefinition: 'blue sky', frequencyRank: 1300, matchSurface: '青空' },
+            ],
+            totalItems: 17,
+            pageSize: 9,
+            currentOffset: 9,
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        await expect(client.lookupKanjiWords('青', { reading: 'あお', page: 2, pageSize: 9 })).resolves.toEqual({
+            items: [expect.objectContaining({ wordId: 21, mainDefinition: 'blue sky' })],
+            total: 17,
+            pageSize: 9,
+            offset: 9,
+        });
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/kanji/%E9%9D%92/words?reading=%E3%81%82%E3%81%8A&page=2&pageSize=9`, expect.objectContaining({ method: 'GET' }));
+    });
+
+    it('renders Jiten kanji fact tags, reading chips, and real vocabulary pagination', () => {
+        const words = Array.from({ length: 18 }, (_, index) => ({
+            wordId: 100 + index,
+            readingIndex: index,
+            reading: `語${index}`,
+            readingFurigana: `語[ご]${index}`,
+            mainDefinition: `word ${index}`,
+            frequencyRank: 600 + index,
+            matchSurface: `語${index}`,
+            knownStates: index === 0 ? ['due'] : [],
+            pitchAccents: index === 0 ? [1] : [],
+        }));
+        const info: JitenKanjiInfo = {
+            character: '語',
+            onReadings: ['ゴ'],
+            kunReadings: ['かた.る'],
+            meanings: ['language', 'word'],
+            strokeCount: 14,
+            jlptLevel: 5,
+            grade: 2,
+            frequencyRank: 301,
+            groupingTags: {
+                kanken: '8級',
+                wanikani: '3',
+                rtk: '112',
+                klc: 'KLC 44',
+                tmw: 'Lesson 9',
+            },
+            topWords: words,
+            wordsByReading: [
+                { reading: 'ご', totalWords: 30, words: [] },
+                { reading: 'かた', totalWords: 10, words: [] },
+            ],
+        };
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenKanjiInfo(info, 'en', true, 'kanji-source:jiten', 'Jiten kanji facts');
+
+        expect(mount.querySelector<HTMLDetailsElement>('[data-source="jiten-kanji"]')?.open).toBe(true);
+        expect(mount.querySelector('.jpdb-reader-jiten-kanji')?.textContent).toContain('Jiten kanji facts');
+        const facts = Array.from(mount.querySelectorAll<HTMLElement>('.jpdb-reader-kanji-facts > span'))
+            .map(item => item.textContent?.trim() ?? '');
+        expect(facts).toEqual(expect.arrayContaining([
+            'Meaninglanguage, word',
+            'FrequencyJiten #301',
+            'JLPTJiten N5',
+            'GradeJiten Grade 2',
+            'strokesJiten 14',
+            'Kanken8級',
+            'WK3',
+            'RTK112',
+            'KLCKLC 44',
+            'TMWLesson 9',
+        ]));
+        expect(facts).not.toEqual(expect.arrayContaining(['TypeJōyō kanji']));
+        expect(mount.querySelector<HTMLElement>('.jpdb-reader-kanji-facts > span')?.title).toBe('Jiten · Meaning: language, word');
+        expect(jitenKanjiVocabulary(info)).toEqual([]);
+
+        const originHtml = renderKanjiOrigins([
+            { label: 'JLPT', value: 'N4', source: 'KANJIDIC' },
+            { label: 'Grade', value: 'Grade 2', source: 'KANJIDIC' },
+            { label: 'Strokes', value: '14', source: 'KanjiVG' },
+            { label: 'Frequency', value: 'Top 300', source: 'JPDB' },
+            { label: 'Kanken', value: 'Level 9', source: 'JPDB' },
+            { label: 'Type', value: 'Jōyō kanji', source: 'JPDB' },
+        ], null, null, DEFAULT_SETTINGS, 'en', true, 'kanji-source:origin', jitenKanjiOriginFactLabels(info, 'en'));
+        expect(originHtml).toContain('Type');
+        expect(originHtml).toContain('Jōyō kanji');
+        expect(originHtml).not.toContain('N4');
+        expect(originHtml).not.toContain('Grade 2');
+        expect(originHtml).not.toContain('Top 300');
+        expect(originHtml).not.toContain('Level 9');
+
+        const readingButtons = Array.from(mount.querySelectorAll<HTMLButtonElement>('.jpdb-reader-kanji-readings > button'));
+        expect(readingButtons.map(button => button.dataset)).toEqual(expect.arrayContaining([
+            expect.objectContaining({ action: 'jiten-kanji-reading', jitenKanjiCharacter: '語', jitenKanjiReading: 'ご' }),
+            expect.objectContaining({ action: 'jiten-kanji-reading', jitenKanjiCharacter: '語', jitenKanjiReading: 'かた' }),
+        ]));
+        expect(readingButtons.map(button => button.textContent?.replace(/\s+/g, ' ').trim())).toEqual(expect.arrayContaining(['ご75%', 'かた25%']));
+        expect(mount.textContent).not.toContain('On ゴ');
+        expect(mount.textContent).not.toContain('Kun かた.る');
+        expect(mount.querySelectorAll('.jpdb-reader-similar-word')).toHaveLength(9);
+        expect(mount.querySelector<HTMLButtonElement>('.jpdb-reader-similar-word')?.dataset).toMatchObject({
+            action: 'similar-word',
+            expression: '語0',
+            reading: 'ご0',
+            jitenKanjiWordKey: '語0:ご0',
+        });
+        expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-term')?.innerHTML).toContain('<ruby>');
+        expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-status')?.textContent).toContain('Due');
+        expect(mount.querySelector('.jpdb-reader-jiten-kanji-word-pitch')?.textContent).toBe('P1');
+        const more = mount.querySelector<HTMLButtonElement>('.jpdb-reader-jiten-kanji-more');
+        expect(more).not.toBeNull();
+        expect(more?.dataset).toMatchObject({
+            action: 'jiten-kanji-more',
+            jitenKanjiCharacter: '語',
+            jitenKanjiPage: '2',
+            jitenKanjiPageSize: '9',
+            jitenKanjiTotal: '40',
+        });
+        expect(more?.textContent?.replace(/\s+/g, ' ').trim()).toBe('More 31');
+    });
+
+    it('deduplicates Jiten meanings and hides repeated card-level parts of speech', () => {
+        const card = jitenCard({
+            partOfSpeech: ["Godan verb with 'mu' ending", 'transitive verb'],
+            meanings: [{ glosses: ['to read'], partOfSpeech: ["Godan verb with 'mu' ending", 'transitive verb'] }],
+        });
+        const info = jitenVocabularyInfo({
+            definitions: [
+                jitenDefinition({ meanings: ['to read', 'to recite'] }),
+                jitenDefinition({ index: 1, meanings: ['to read'] }),
+            ],
+        });
+
+        const html = renderJitenDefinitionSource(card, () => '', info, 'en');
+        const mount = document.createElement('div');
+        mount.innerHTML = html;
+
+        expect(mount.textContent).not.toContain("Godan verb with 'mu' ending");
+        expect(mount.textContent).not.toContain('transitive verb');
+        expect(Array.from(mount.querySelectorAll('.jpdb-reader-jiten-meaning')).map(item => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['1 to read', '2 to recite']);
+    });
+
+    it('omits duplicate Jiten definition part-of-speech tag rows', () => {
+        const card = jitenCard({
+            partOfSpeech: ['noun'],
+            meanings: [{ glosses: ['reading'], partOfSpeech: ['noun'] }],
+        });
+        const info = jitenVocabularyInfo({
+            definitions: [
+                jitenDefinition({ partsOfSpeech: ['Godan verb with mu ending'], meanings: ['to read'] }),
+                jitenDefinition({ index: 1, partsOfSpeech: ['transitive verb'], meanings: ['to recite'] }),
+            ],
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(card, () => '', info, 'en');
+
+        expect(mount.querySelector('.jpdb-reader-jiten-pos-tags')).toBeNull();
+        expect(mount.querySelector('.jpdb-reader-jiten-meaning .jpdb-reader-dict-tag')).toBeNull();
+        expect(mount.textContent).not.toContain('Godan verb with mu ending');
+        expect(mount.textContent).not.toContain('transitive verb');
+        expect(Array.from(mount.querySelectorAll('.jpdb-reader-jiten-meaning')).map(item => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['1 to read', '2 to recite']);
+
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).not.toContain('jpdb-reader-jiten-pos-tags');
+    });
+
+    it('formats Jiten definition notes with spacing and renders textual word references', () => {
+        const card = jitenCard({ spelling: '読む', reading: 'よむ', jitenWordId: 42, jitenReadingIndex: 0 });
+        const info = jitenVocabularyInfo({
+            wordId: 42,
+            mainReading: { text: '読む', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },
+            alternativeReadings: [{ text: '訓む', readingIndex: 1, frequencyRank: null, usedInMediaAmount: null }],
+            definitions: [
+                jitenDefinition({
+                    meanings: [
+                        'to count; to estimate',
+                        'to read (a kanji) with its native Japanese reading',
+                    ],
+                    misc: [
+                        'now mostly used in idioms',
+                        'also written as 訓む',
+                    ],
+                }),
+            ],
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(card, () => '', info, 'en');
+
+        const meaningText = mount.textContent?.replace(/\s+/g, ' ') ?? '';
+        expect(meaningText).toContain('to count; to estimate; now mostly used in idioms; also written as 訓む');
+        expect(meaningText).toContain('to read (a kanji) with its native Japanese reading; now mostly used in idioms; also written as 訓む');
+        expect(meaningText).not.toContain('estimatenow');
+        expect(meaningText).not.toContain('readingalso');
+        const reference = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-meaning .jpdb-reader-word[data-expression="訓む"]');
+        expect(reference).not.toBeNull();
+        expect(reference?.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(reference?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(reference?.dataset.dictionary).toBe('Jiten');
+        expect(reference?.dataset.reading).toBe('よむ');
+        expect(reference?.innerHTML).toContain('<ruby>');
+    });
+
+    it('renders Jiten example, composite, and used-in audio affordances', () => {
+        const info = jitenVocabularyInfo({
+            composedOf: [{
+                wordId: 7,
+                readingIndex: 0,
+                reading: '訓む',
+                readingFurigana: '訓[よ]む',
+                mainDefinition: 'to read',
+                frequencyRank: 5000,
+                matchSurface: '訓む',
+                audioUrls: ['https://audio.example.test/word.mp3'],
+            }],
+            usedIn: [{
+                wordId: 8,
+                readingIndex: 1,
+                reading: '訓読み',
+                readingFurigana: '訓読[くんよ]み',
+                mainDefinition: 'kun reading',
+                frequencyRank: null,
+                matchSurface: '訓読み',
+            }],
+            usedInTotal: 1,
+            examples: [{
+                sentenceId: 99,
+                text: '訓むこともある。',
+                wordPosition: 0,
+                wordLength: 2,
+                difficulty: null,
+                sourceTitle: 'Jiten examples',
+                audioUrls: ['https://audio.example.test/sentence.mp3'],
+            }],
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(jitenCard(), () => '', info, 'en');
+
+        const buttons = Array.from(mount.querySelectorAll<HTMLButtonElement>('.jpdb-reader-jiten-audio'));
+        expect(buttons).toHaveLength(3);
+        expect(buttons.map(button => button.dataset.action)).toEqual(['jiten-audio', 'jiten-audio', 'jiten-audio']);
+        expect(buttons.map(button => button.dataset.studySentence)).toEqual(['訓む', '訓読み', '訓むこともある。']);
+        expect(buttons[0]?.dataset.jitenWordId).toBe('7');
+        expect(buttons[0]?.dataset.jitenReadingIndex).toBe('0');
+        expect(buttons[0]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/word.mp3']));
+        expect(buttons[2]?.dataset.jitenSentenceId).toBe('99');
+        expect(buttons[2]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/sentence.mp3']));
+        expect(buttons[2]?.classList.contains('jpdb-reader-jpdb-example-audio')).toBe(true);
+        expect(buttons[2]?.getAttribute('aria-label')).toBe('Play audio');
+
+        const relatedRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-related-row');
+        expect(relatedRow?.classList.contains('jpdb-reader-jpdb-used-in-row')).toBe(true);
+        expect(relatedRow?.classList.contains('has-audio')).toBe(true);
+        const relatedLink = relatedRow?.querySelector<HTMLAnchorElement>('.jpdb-reader-jiten-related-link');
+        expect(relatedLink?.dataset.dictionaryLookup).toBe('訓む');
+        expect(relatedLink?.dataset.dictionaryReading).toBe('よむ');
+        expect(relatedLink?.dataset.dictionary).toBe('Jiten');
+        const relatedHead = relatedLink?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-head');
+        expect(relatedHead?.innerHTML).toContain('<ruby>');
+
+        const exampleRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-example-row.has-audio');
+        expect(exampleRow).not.toBeNull();
+        const target = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-target');
+        expect(target?.tagName).toBe('MARK');
+        expect(target?.textContent).toBe('訓む');
+    });
+
+    it('marks long Jiten related words with horizontal wrapping and neutral decoration hooks', () => {
+        const longWord = '超長複合語彙連接表現';
+        const info = jitenVocabularyInfo({
+            usedIn: [{
+                wordId: 108,
+                readingIndex: 0,
+                reading: longWord,
+                readingFurigana: `${longWord}[ちょうちょうふくごうごいれんせつひょうげん]`,
+                mainDefinition: 'very long compound vocabulary expression used as a layout stress case',
+                frequencyRank: 12345,
+                matchSurface: longWord,
+            }],
+            usedInTotal: 1,
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(jitenCard(), () => '', info, 'en');
+
+        const row = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-related-row');
+        expect(row).not.toBeNull();
+        expect(row?.classList.contains('jpdb-reader-jpdb-used-in-row')).toBe(true);
+        expect(row?.classList.contains('has-audio')).toBe(true);
+        expect(row?.querySelector('.jpdb-reader-jiten-audio')).not.toBeNull();
+        const main = row?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-main');
+        expect(main?.classList.contains('jpdb-reader-jpdb-used-in-main')).toBe(true);
+        const link = row?.querySelector<HTMLAnchorElement>('.jpdb-reader-jiten-related-link');
+        expect(link?.classList.contains('gloss-link')).toBe(true);
+        expect(link?.dataset.dictionaryLookup).toBe(longWord);
+        const head = row?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-head');
+        expect(head?.classList.contains('jpdb-reader-jpdb-compound-head')).toBe(true);
+        expect(head?.textContent).toContain(longWord);
+        expect(head?.innerHTML).toContain('<ruby>');
+
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-reader-jiten-example-row.has-audio { grid-template-columns: 28px minmax(0, 1fr); gap: 7px; }');
+        expect(normalizedCss).toContain('button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini {');
+        expect(normalizedCss).toContain('.jpdb-reader-local-glossary .jpdb-reader-jiten-related-link.gloss-link { display: inline; max-width: 100%; color: inherit !important; text-decoration: none !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-jiten-related-head { display: inline; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: normal; line-break: auto; }');
+        expect(normalizedCss).toContain('.jpdb-reader-jiten-related-head .jpdb-reader-word { --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-underline: transparent; text-decoration-color: transparent !important; }');
     });
 
     it('mines Jiten-backed cards to native study decks', async () => {
@@ -317,6 +741,36 @@ function jitenVocabulary(overrides: Record<string, unknown> = {}) {
         meaningsPartOfSpeech: [['v5m']],
         knownState: [0],
         pitchAccents: [1],
+        ...overrides,
+    };
+}
+
+function jitenVocabularyInfo(overrides: Partial<JitenVocabularyInfo> = {}): JitenVocabularyInfo {
+    return {
+        wordId: 1,
+        mainReading: { text: '読む', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },
+        alternativeReadings: [],
+        partsOfSpeech: ["Godan verb with 'mu' ending", 'transitive verb'],
+        definitions: [jitenDefinition()],
+        pitchAccents: [],
+        knownStates: ['new'],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+        examples: [],
+        ...overrides,
+    };
+}
+
+function jitenDefinition(overrides: Partial<JitenVocabularyInfo['definitions'][number]> = {}): JitenVocabularyInfo['definitions'][number] {
+    return {
+        index: 0,
+        meanings: ['to read'],
+        partsOfSpeech: ["Godan verb with 'mu' ending", 'transitive verb'],
+        field: [],
+        dial: [],
+        misc: [],
+        restrictedToReadingIndices: [],
         ...overrides,
     };
 }

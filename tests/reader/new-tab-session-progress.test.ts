@@ -143,7 +143,7 @@ describe('new-tab session progress', () => {
         vi.setSystemTime(new Date('2026-06-06T12:01:05Z'));
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, jpdb);
         const count = root.querySelector<HTMLElement>('[data-newtab-count]')!;
-        expect(count.textContent).toBe('1 / 2 · Done 0 · Left 2 · Due 2 · 01:05');
+        expect(count.textContent).toBe('Done 0 · Left 2 · Due 2 · 01:05');
         expect(count.dataset.sessionRemainingCards).toBe('2');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('1');
         expect(count.dataset.sessionAnkiRemainingCards).toBe('1');
@@ -151,7 +151,7 @@ describe('new-tab session progress', () => {
         await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
         expect(reviewCard).toHaveBeenCalledWith(jpdb, 'okay');
-        expect(count.textContent).toBe('1 / 1 · Done 1 · Left 1 · Due 1 · 01:05');
+        expect(count.textContent).toBe('Done 1 · Left 1 · Due 1 · 01:05');
         expect(count.dataset.sessionCompletedReviews).toBe('1');
         expect(count.dataset.sessionRemainingCards).toBe('1');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('0');

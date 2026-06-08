@@ -1,5 +1,6 @@
 import { BRAND_COLOR_TOKENS, CORE_COLOR_TOKENS, LOGGER_COLOR_TOKENS } from '../theme/color-tokens';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { ReaderSettings } from './types';
 
 type ConsoleWriter = (...args: unknown[]) => void;
@@ -120,7 +121,8 @@ export function configureLogger(options: LoggerOptions): void {
 export function loggingSettingsSummary(settings: ReaderSettings): Record<string, unknown> {
     return {
         enableLogging: settings.enableLogging,
-        hasApiKey: Boolean(settings.apiKey.trim()),
+        hasApiKey: hasJpdbApiCredential(settings),
+        hasJitenApiKey: hasJitenApiCredential(settings),
         localDictionariesEnabled: settings.localDictionariesEnabled,
         localDictionarySources: settings.dictionaryPreferences.length,
         ankiEnabled: settings.ankiEnabled,

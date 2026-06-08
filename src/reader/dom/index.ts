@@ -75,6 +75,15 @@ const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifu
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
 const MINING_INSIGHT_MIN_CARD_COUNT = 3;
+const KNOWN_STATUS_FURIGANA_HIDDEN_STATES = new Set<CardState>([
+    'young',
+    'mature',
+    'known',
+    'mastered',
+    'due',
+    'never-forget',
+    'redundant',
+]);
 
 const FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
@@ -1438,6 +1447,7 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     span.dataset.cardSource = readerCardSource(token.card);
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
+    span.dataset.cardState = state;
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
@@ -1473,22 +1483,28 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
+    const cardState = ` data-card-state="${escapeHtml(state)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
 }
 
 export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
     if (!allowRuby) return false;
     if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface);
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token);
 }
 
-function furiganaModeAllowsRuby(mode: string, surface: string): boolean {
+function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken): boolean {
     if (mode === 'off') return false;
+    if (mode === 'known-status') return !knownStatusHidesTokenFurigana(token);
     return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
+}
+
+function knownStatusHidesTokenFurigana(token: JPDBToken): boolean {
+    return KNOWN_STATUS_FURIGANA_HIDDEN_STATES.has(primaryCardState(token.card.cardState));
 }
 
 function hasDifficultKanji(surface: string): boolean {
@@ -1504,7 +1520,11 @@ function readerWordClassName(state: string, token: JPDBToken): string {
         classes.push('jpdb-reader-particle');
         return classes.join(' ');
     }
-    if (hasKnownCardState(token.card)) classes.push(`jpdb-${state}`);
+    if (hasKnownCardState(token.card)) {
+        classes.push(`jpdb-${state}`);
+        const source = readerCardSource(token.card);
+        if (source !== 'jpdb') classes.push(`${source}-${state}`);
+    }
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(' ');
 }

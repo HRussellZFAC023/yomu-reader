@@ -39,6 +39,7 @@ import {
 import { speakerIcon } from '../ui/icons';
 import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from '../popup/shell';
 import { jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { hasJpdbApiCredential } from '../settings/api-credential';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -869,7 +870,7 @@ export class ImmersionPopoverController {
 
     private exampleSentenceParseOptions(): ReaderParserParseOptions {
         const settings = this.options.getSettings();
-        return jpdbFirstParseOptions(settings.apiKey.trim()
+        return jpdbFirstParseOptions(hasJpdbApiCredential(settings)
             ? {}
             : { allowSegmentedFallback: true, includeLocalPitch: true });
     }

@@ -78,11 +78,11 @@ const COPY = {
         addToForq: 'Also copy JPDB adds to forq',
         enableReviews: 'Show review buttons',
         reviewRatingScale: 'Review rating scale',
-        jpdbPageEnhancements: 'JPDB page enhancements',
-        jpdbPageEnhancementsEnabled: 'Enhance JPDB pages',
-        jpdbPageWordEnhancementsEnabled: 'Add sources to JPDB word/search pages',
-        jpdbPageKanjiEnhancementsEnabled: 'Add sources to JPDB kanji pages',
-        jpdbPageEnhancementsHelp: 'Uses your source order.',
+        jpdbPageEnhancements: 'Dictionary site enhancements',
+        jpdbPageEnhancementsEnabled: 'Enhance dictionary pages',
+        jpdbPageWordEnhancementsEnabled: 'Add sources to word/search pages',
+        jpdbPageKanjiEnhancementsEnabled: 'Add sources to kanji pages',
+        jpdbPageEnhancementsHelp: '',
         fivePoint: 'Five point: NOTHING to EASY',
         twoPoint: 'Two point: FAIL / PASS',
         settingsLanguage: 'Settings language',
@@ -98,7 +98,7 @@ const COPY = {
         popupMode: 'Popup mode',
         bottomSheet: 'Bottom sheet',
         popover: 'Popover',
-        stickyBottomSheet: 'Keep bottom sheet open until closed',
+        stickyBottomSheet: 'Keep sheet open after lookup',
         popoverBackdropEnabled: 'Dim page behind popover',
         popoverWidth: 'Popover width (px)',
         popoverHeight: 'Popover height (px)',
@@ -119,12 +119,12 @@ const COPY = {
         diagnostics: 'Diagnostics',
         diagnosticsHelp: 'Print diagnostics to the console.',
         accentColor: 'Accent color',
-        newTab: 'New tab',
-        newTabEnabled: 'Enable Yomu new tab study page',
-        newTabAnkiEnabled: 'Enable Anki cards on new tab',
+        newTab: 'Study',
+        newTabEnabled: 'Enable Yomu study page',
+        newTabAnkiEnabled: 'Use Anki cards in Study',
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
-        newTabSource: 'New tab review source',
+        newTabSource: 'Study review source',
         newTabAuto: 'Auto: API/Anki, then study words',
         newTabApiSrs: 'API SRS (JPDB / Jiten)',
         dictionaryFallback: 'Dictionary fallback',
@@ -134,19 +134,20 @@ const COPY = {
         newTabApiVocabulary: 'API vocabulary only',
         corsProxyUrl: 'Cross-origin proxy URL',
         newTabKanjiKeywordSource: 'Kanji keyword source',
-        newTabKanjiKeywordAuto: 'Auto: RTK, then JPDB, then local',
+        newTabKanjiKeywordAuto: 'Auto: RTK, then {service} kanji facts, then local',
         newTabKanjiKeywordRtk: 'RTK / Heisig',
+        newTabKanjiKeywordApiFacts: '{service} kanji facts (JPDB / Jiten)',
         newTabKanjiKeywordLocal: 'Local card meaning',
-        newTabParsingEnabled: 'Enable sentence parsing on new tab',
+        newTabParsingEnabled: 'Enable sentence parsing on Study',
         newTabFrontSentenceEnabled: 'Show sentence on word fronts',
         newTabKanjiAutogradeEnabled: 'Auto-grade kanji drawing',
         newTabKanjiAutoSubmit: 'Auto-submit kanji grade',
-        newTabOfflineEnabled: 'Cache new tab for offline use',
+        newTabOfflineEnabled: 'Cache Study for offline use',
         newTabOfflineLimit: 'Offline review cache limit',
-        newTabUrl: 'New tab address',
+        newTabUrl: 'Study address',
         newTabOfflineHelp: 'Saves recent reviews for offline study.',
-        newTabJpdbDeck: 'New tab JPDB deck',
-        openNewTabPage: 'Open new tab page',
+        newTabJpdbDeck: 'Study JPDB deck',
+        openNewTabPage: 'Open Study',
         copyAddress: 'Copy address',
         wordColors: 'Word colors',
         wordColorNew: 'New and in deck',
@@ -173,7 +174,7 @@ const COPY = {
         colorSourceJpdb: 'JPDB status',
         colorSourceAnki: 'Anki status',
         colorSourcePitch: 'Pitch accent',
-        colorChannelsHelp: 'Choose each color source.',
+        colorChannelsHelp: '',
         interfaceHelp: '',
         parseSelection: 'Look up selected text',
         lookupOnClick: 'Look up on tap or click',
@@ -197,7 +198,7 @@ const COPY = {
         loadingSimilarWords: 'Loading words...',
         openToLoadSimilarWords: 'Open to load words.',
         noSimilarWords: 'No additional words found.',
-        kanjiHelp: 'Click popup kanji for details.',
+        kanjiHelp: '',
         audioEnabled: 'Enable term audio',
         autoPlayAudio: 'Auto-play term audio',
         suppressAutoAudioOnVideo: 'Disable lookup audio auto-play on video pages',
@@ -409,7 +410,7 @@ const COPY = {
         exampleMeaning: 'to read',
         scanAnkiFirst: 'Connect Anki first',
         notMapped: 'Not mapped',
-        noScannedFields: 'Fields fill after AnkiConnect is reachable.',
+        noScannedFields: '',
         mappingForNoteType: 'Mapping for {model}',
         currentNoteType: 'current note type',
         ankiFieldMappingSelect: '{role} field',
@@ -658,7 +659,7 @@ const COPY = {
         search: 'Search',
         statsImportJpdbHistory: 'Import JPDB review history',
         openYomuSettings: `Open ${APP_NAME} settings`,
-        newTabAddressCopied: 'New tab address copied.',
+        newTabAddressCopied: 'Study address copied.',
         loading: 'Loading...',
         refreshing: 'Refreshing...',
         reveal: 'Reveal',
@@ -688,14 +689,19 @@ const COPY = {
         sortState: 'State',
         stateNew: 'New',
         stateLearning: 'Learning',
+        stateYoung: 'Young',
+        stateMature: 'Mature',
         stateDue: 'Due',
         stateFailed: 'Failed',
         stateKnown: 'Known',
+        stateMastered: 'Mastered',
         stateNeverForget: 'Never forget',
         stateSuspended: 'Suspended',
         stateLocked: 'Locked',
         stateBlacklisted: 'Blacklisted',
         stateRedundant: 'Redundant',
+        stateFrequent: 'Frequent',
+        stateUnparsed: 'Unparsed',
         stateInDeck: 'In deck',
         stateNotInDeck: 'Not in deck',
         ankiReviewSingular: 'review',
@@ -855,6 +861,7 @@ const COPY = {
         loadingDictionaryDetails: 'Loading dictionary details...',
         sourceSingular: 'source',
         sourcePlural: 'sources',
+        jitenCompositeWords: 'Composite words',
         usedInVocabulary: 'Used in vocabulary',
         exampleSentences: 'Example sentences',
         playJpdbExampleAudio: 'Play JPDB example audio',
@@ -887,6 +894,7 @@ const COPY = {
         importLocalDefinitionsHelp: 'Import Yomitan dictionaries for local definitions.',
         frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata appear in badges and kanji data.',
         sourceHelpJpdb: 'JPDB meanings from the current card.',
+        sourceHelpJiten: 'Jiten meanings, examples, and related vocabulary from the current card.',
         sourceHelpAnki: 'Matching Anki card content and status.',
         sourceHelpTranslation: 'Sentence translation.',
         sourceHelpGrammar: 'Local grammar hints.',
@@ -897,10 +905,12 @@ const COPY = {
         sourceNameGrammar: 'Grammar',
         sourceNameStrokePractice: 'Stroke practice',
         sourceNameImportedKanjiDictionaries: 'Imported kanji dictionaries',
-        sourceNameWordsUsingKanji: 'Words using this kanji',
+        sourceNameWordsUsingKanji: 'Related vocabulary',
+        sourceNameJitenKanjiFacts: 'Jiten kanji facts',
         sourceHelpImportedKanjiDictionary: 'Imported Yomitan kanji dictionary.',
         sourceHelpStrokePractice: 'Stroke order preview and drawing pad.',
         sourceHelpReadingsComponents: 'JPDB readings, components, and mnemonic.',
+        sourceHelpJitenKanjiFacts: 'Jiten kanji facts, exact frequency, readings, and vocabulary.',
         sourceHelpRtk: 'RTK keywords, elements, and stories.',
         sourceHelpUchisen: 'Uchisen mnemonic image carousel.',
         uchisenMnemonicImages: 'Uchisen mnemonic images',
@@ -981,7 +991,10 @@ export type UiCopyKey = keyof typeof COPY.en;
 export const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     new: 'stateNew',
     learning: 'stateLearning',
+    young: 'stateYoung',
+    mature: 'stateMature',
     known: 'stateKnown',
+    mastered: 'stateMastered',
     due: 'stateDue',
     failed: 'stateFailed',
     locked: 'stateLocked',
@@ -991,6 +1004,8 @@ export const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
     'in-deck': 'stateInDeck',
     'not-in-deck': 'stateNotInDeck',
     redundant: 'stateRedundant',
+    frequent: 'stateFrequent',
+    unparsed: 'stateUnparsed',
 };
 
 function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
@@ -1042,7 +1057,7 @@ statsImportJpdbHistory	JPDB復習履歴を読み込む
 switchToLightTheme	ライトテーマに切り替え
 switchToDarkTheme	ダークテーマに切り替え
 openYomuSettings	{APP_NAME}の設定を開く
-newTabAddressCopied	新規タブのアドレスをコピーしました。
+newTabAddressCopied	学習ページのアドレスをコピーしました。
 getApp	{APP_NAME}を入手
 loading	読み込み中...
 refreshing	更新中...
@@ -1151,14 +1166,19 @@ sortFrequency	頻度
 sortState	状態
 stateNew	新規
 stateLearning	学習中
+stateYoung	若い
+stateMature	成熟
 stateDue	復習予定
 stateFailed	失敗
 stateKnown	既知
+stateMastered	習得済み
 stateNeverForget	忘れない
 stateSuspended	停止中
 stateLocked	ロック中
 stateBlacklisted	ブラックリスト
 stateRedundant	重複
+stateFrequent	頻出
+stateUnparsed	未解析
 stateInDeck	デッキ内
 stateNotInDeck	デッキ外
 gradeAnkiCardTarget	Ankiカードを採点: {target}
@@ -1417,12 +1437,13 @@ kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
 sourceSingular	ソース
 sourcePlural	ソース
+jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
 playJpdbExampleAudio	JPDB例文音声を再生
 wordsUsingKanji	{kanji}を使う単語
 kanjiDictionaries	漢字辞書
-sourceNameWordsUsingKanji	この漢字を使う単語
+sourceNameWordsUsingKanji	関連語彙
 contextVideo	動画
 contextImage	画像
 contextCurrentPage	現在のページ
@@ -1506,11 +1527,11 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
-jpdbPageEnhancements	JPDBページ拡張
-jpdbPageEnhancementsEnabled	JPDBページを拡張
-jpdbPageWordEnhancementsEnabled	JPDBの単語・検索ページにソースを追加
-jpdbPageKanjiEnhancementsEnabled	JPDBの漢字ページにソースを追加
-jpdbPageEnhancementsHelp	ソース順を使います。
+jpdbPageEnhancements	辞書サイト拡張
+jpdbPageEnhancementsEnabled	辞書ページを拡張
+jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
+jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
+jpdbPageEnhancementsHelp	
 fivePoint	5段階: 全く覚えていないから簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -1521,7 +1542,7 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	閉じるまで下部シートを開いたままにする
+stickyBottomSheet	検索後もシートを開いたままにする
 popoverBackdropEnabled	ポップオーバーの背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
@@ -1542,12 +1563,12 @@ enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
-newTab	新規タブ
-newTabEnabled	よむの新規タブ学習ページを有効にする
-newTabAnkiEnabled	新規タブのAnkiカードを有効にする
+newTab	学習
+newTabEnabled	よむの学習ページを有効にする
+newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
-newTabSource	新規タブの復習ソース
+newTabSource	学習の復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
 newTabApiSrs	API SRS（JPDB / Jiten）
 dictionaryFallback	辞書フォールバック
@@ -1557,19 +1578,20 @@ newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、JPDB、ローカルの順
+newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
 newTabKanjiKeywordRtk	RTK / Heisig
+newTabKanjiKeywordApiFacts	{service}漢字情報（JPDB / Jiten）
 newTabKanjiKeywordLocal	ローカルカードの意味
-newTabParsingEnabled	新規タブの文解析を有効にする
+newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
-newTabOfflineEnabled	新規タブをオフライン用にキャッシュ
+newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
-newTabUrl	新規タブのアドレス
+newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
-newTabJpdbDeck	新規タブのJPDBデッキ
-openNewTabPage	新規タブページを開く
+newTabJpdbDeck	学習のJPDBデッキ
+openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
 wordColors	単語の色
 wordColorNew	新規・デッキ内
@@ -1596,7 +1618,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
-colorChannelsHelp	各色のソースを選びます。
+colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
@@ -1617,7 +1639,7 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	ポップアップ内の漢字で詳細表示。
+kanjiHelp	
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生する
 suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
@@ -1804,7 +1826,7 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
-noScannedFields	AnkiConnect接続後にフィールド候補が入ります。
+noScannedFields	
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -1941,6 +1963,7 @@ customAdvanced	{label} (詳細)
 importLocalDefinitionsHelp	ローカル定義にはYomitan辞書をインポートします。
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
+sourceHelpJiten	現在のカードのJiten定義、例文、関連語です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -1951,10 +1974,12 @@ sourceNameTranslation	翻訳
 sourceNameGrammar	文法
 sourceNameStrokePractice	筆順練習
 sourceNameImportedKanjiDictionaries	インポート済み漢字辞書
-sourceNameWordsUsingKanji	この漢字を使う単語
+sourceNameWordsUsingKanji	相关词汇
+sourceNameJitenKanjiFacts	Jiten漢字情報
 sourceHelpImportedKanjiDictionary	インポート済みYomitan漢字辞書です。
 sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
+sourceHelpJitenKanjiFacts	Jitenの漢字情報、正確な頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
