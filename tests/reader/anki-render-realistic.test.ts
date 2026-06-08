@@ -162,6 +162,7 @@ function ankiRenderSettings(): ReaderSettings {
     return {
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
+        ankiEnabled: true,
         ankiSectionEnabled: true,
         enableReviews: false,
     };

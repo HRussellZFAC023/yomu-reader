@@ -10,9 +10,6 @@ const NEW_TAB_CONFIG = readFileSync('src/reader/newtab/controller-config.ts', 'u
 const NEW_TAB_CSS_ENTRY = readFileSync('src/reader/styles.css', 'utf8');
 const SHIPPED_TEXT_ARTIFACTS = [
     'dist/yomu.user.js',
-    'dist/newtab/app.js',
-    'dist/greasyfork/yomu-settings-surface.user.js',
-    'dist/greasyfork/yomu-video.user.js',
     'docs/public/yomu.user.js',
     'docs/public/newtab/app.js',
     'docs/public/greasyfork/yomu-settings-surface.user.js',

@@ -58,12 +58,6 @@ function parseHtmlWithDomParser(html: string): Document | null {
     }
 }
 
-export function appendTrustedHtml(element: Element, html: string): void {
-    const template = document.createElement('template');
-    setInnerHtml(template, html);
-    element.append(template.content);
-}
-
 export function htmlToFirstElement(html: string): HTMLElement | null {
     const trimmed = html.trim();
     if (!trimmed) return null;

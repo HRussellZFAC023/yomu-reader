@@ -154,7 +154,7 @@ function jitenVocabularyFromWordSummaries(sources: JitenKanjiWordSource[]): Jite
         }));
 }
 
-export function jitenKanjiKeyword(info: JitenKanjiInfo | null): string {
+function jitenKanjiKeyword(info: JitenKanjiInfo | null): string {
     return info?.meanings?.[0] ?? '';
 }
 

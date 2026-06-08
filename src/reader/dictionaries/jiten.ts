@@ -276,14 +276,6 @@ export class JitenApiClient {
         return jitenParseResultToTokens(paragraphs, response);
     }
 
-    async lookupVocabularyStates(cards: JitenCardReference[]): Promise<CardState[][]> {
-        if (!cards.length) return [];
-        const response = await this.request('reader/lookup-vocabulary', {
-            words: cards.map(card => [card.wordId, card.readingIndex]),
-        });
-        return normalizeJitenLookupVocabularyStates(response, cards.length);
-    }
-
     async lookupVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const reference = jitenCardReference(card);
         const endpoint = `vocabulary/${reference.wordId}/${reference.readingIndex}/info`;
@@ -609,16 +601,6 @@ const JITEN_CARD_STATE_MAP: Record<number, CardState> = {
     5: 'mastered',
     6: 'redundant',
 };
-
-function normalizeJitenLookupVocabularyStates(value: unknown, expectedLength: number): CardState[][] {
-    const result = isJsonRecord(value) && Array.isArray(value.result) ? value.result : [];
-    return Array.from({ length: expectedLength }, (_, index) => {
-        const states = jitenStateNumbers(result[index])
-            .map(state => JITEN_CARD_STATE_MAP[state])
-            .filter((state): state is CardState => Boolean(state));
-        return states.length ? states : ['new'];
-    });
-}
 
 function normalizeJitenVocabularyInfo(value: unknown): JitenVocabularyInfo | null {
     if (!isJsonRecord(value)) return null;

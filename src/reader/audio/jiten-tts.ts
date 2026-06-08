@@ -1,14 +1,14 @@
 import type { ReaderSettings } from '../app/types';
 
-export const JITEN_TTS_API_BASE_URL = 'https://api.jiten.moe/api/tts';
-export const JITEN_TTS_RANDOM_VOICES = ['female', 'female2', 'male', 'male2', 'asmr'] as const;
+const JITEN_TTS_API_BASE_URL = 'https://api.jiten.moe/api/tts';
+const JITEN_TTS_RANDOM_VOICES = ['female', 'female2', 'male', 'male2', 'asmr'] as const;
 
 export function jitenTtsVoicesForValue(value: string | undefined): string[] {
     const voice = value?.trim();
     return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
 }
 
-export function preferredJitenTtsVoice(settings: ReaderSettings): string {
+function preferredJitenTtsVoice(settings: ReaderSettings): string {
     return settings.audioSources.find(source =>
         source.enabled
         && source.type === 'jiten-tts'

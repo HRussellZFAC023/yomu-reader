@@ -776,10 +776,6 @@ export class NewTabController {
         return this.lookupReviewTargetsForCard(current, data);
     }
 
-    lookupGradeTargetLabel(card: JPDBCard): string {
-        return this.isCurrentLookupGradeCard(card) ? this.gradeTargetLabel(card) : '';
-    }
-
     async gradeFromLookup(grade: JPDBGrade, target?: NewTabLookupReviewTargetSelection): Promise<{ preserveLookup: boolean }> {
         const submitted = await this.gradeCurrentCard(grade, target);
         return { preserveLookup: !submitted };

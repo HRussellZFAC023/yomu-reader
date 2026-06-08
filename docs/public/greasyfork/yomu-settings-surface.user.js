@@ -9511,7 +9511,6 @@ recommendedJiten	jiten.moe頻度データです。
      * stranded `inert` (which silently swallows every click until reload).
      * Idempotent: a no-op once the background has been released.
      */
-    // fallow-ignore-next-line unused-class-member
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
       if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();

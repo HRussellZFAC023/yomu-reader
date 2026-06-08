@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -67,7 +68,7 @@ describe('nested text parse plans', () => {
         ]], { ...DEFAULT_SETTINGS, ankiEnabled: false });
 
         const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-sentence mark .jpdb-reader-word');
-        expect(word?.textContent).toBe('日本語');
+        expect(word ? readerWordSurfaceText(word) : '').toBe('日本語');
         expect(word?.dataset.sentence).toBe('お連れ様との会話が 日本語でしたので');
         expect(word?.classList.contains('jpdb-reader-example-target')).toBe(false);
         expect(word?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
@@ -107,8 +108,8 @@ describe('nested text parse plans', () => {
 
         const sentence = root.querySelector<HTMLElement>('.jpdb-reader-example-sentence')!;
         const words = Array.from(sentence.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        expect(sentence.textContent?.replace(/\s+/g, '')).toBe('日本語は分かりません。');
-        expect(words.map(word => word.textContent)).toEqual(['日本語', '分かりません']);
+        expect(readerWordSurfaceText(sentence).replace(/\s+/g, '')).toBe('日本語は分かりません。');
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['日本語', '分かりません']);
         expect(words[0]?.closest('mark')?.classList.contains('jpdb-reader-example-target')).toBe(true);
 
         root.dataset.jpdbReaderParseKey = plan.parseKey;

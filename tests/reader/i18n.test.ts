@@ -27,7 +27,7 @@ describe('interface language resolution', () => {
     });
 
     it('keeps Japanese copy keys in sync with English copy keys', () => {
-        const source = readFileSync('src/reader/i18n.ts', 'utf8');
+        const source = readFileSync('src/reader/app/i18n.ts', 'utf8');
         const englishKeys = copyKeys(between(source, '    en: {', '    },\n} as const'));
         const japaneseCopySource = [
             between(source, 'const JA_COPY', 'const JA_SETTINGS_COPY'),
