@@ -45,8 +45,14 @@ const API_KEY_INPUT_ATTRIBUTES = {
     autocorrect: 'off',
     spellcheck: 'false',
     enterkeyhint: 'done',
+    'data-1p-ignore': 'true',
+    'data-lpignore': 'true',
+    'data-bwignore': 'true',
+    'data-protonpass-ignore': 'true',
+    'data-form-type': 'other',
 } as const;
-const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"';
+const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
@@ -136,6 +142,7 @@ export function renderHelpLinksPanel(): string {
 
 export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL): string {
     return `
+            ${renderAutofillTrap()}
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
                 <h2>${SETTINGS_TITLE}</h2>
@@ -170,12 +177,21 @@ function renderSettingsTabs(): string {
     `;
 }
 
+function renderAutofillTrap(): string {
+    return `
+            <div class="jpdb-reader-autofill-trap" aria-hidden="true">
+                <input type="text" name="yomu-autofill-trap-user" tabindex="-1" autocomplete="username" aria-hidden="true">
+                <input type="password" name="yomu-autofill-trap-pass" tabindex="-1" autocomplete="current-password" aria-hidden="true">
+            </div>
+    `;
+}
+
 function renderSettingsSearch(language: InterfaceLanguage): string {
     return `
             <div class="jpdb-reader-settings-search">
                 <label>
                     <span class="jpdb-reader-settings-label-text">${escapedUiText(language, 'settingsSearch')}</span>
-                    <input type="search" data-settings-search placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off">
+                    <input type="search" name="yomu-settings-search" data-settings-search placeholder="${escapedUiText(language, 'settingsSearchPlaceholder')}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
                 </label>
             </div>
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language, 'settingsSearchNoResults')}</div>

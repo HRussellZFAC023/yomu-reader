@@ -1,0 +1,64 @@
+export type HostTheme = 'light' | 'dark';
+export type ThemeHostKind = 'jpdb' | 'jiten';
+
+const HOST_DARK_CLASS = 'dark-mode';
+const JITEN_THEME_COOKIE = 'jiten-theme-mode';
+
+export function currentThemeHost(): ThemeHostKind | null {
+    const host = location.hostname;
+    if (host === 'jpdb.io' || host.endsWith('.jpdb.io')) return 'jpdb';
+    if (host === 'jiten.moe' || host.endsWith('.jiten.moe')) return 'jiten';
+    return null;
+}
+
+export function isThemeSyncHost(): boolean {
+    return currentThemeHost() !== null;
+}
+
+function prefersDark(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+export function detectHostTheme(): HostTheme {
+    if (document.documentElement.classList.contains(HOST_DARK_CLASS)) return 'dark';
+    if (currentThemeHost() === 'jiten') {
+        const mode = readJitenThemeCookie();
+        if (mode === 'dark' || mode === 'light') return mode;
+        return prefersDark() ? 'dark' : 'light';
+    }
+    return 'light';
+}
+
+export function applyHostTheme(theme: HostTheme): void {
+    const root = document.documentElement;
+    root.classList.toggle(HOST_DARK_CLASS, theme === 'dark');
+    root.style.colorScheme = theme;
+    if (currentThemeHost() === 'jiten') writeJitenThemeCookie(theme);
+}
+
+export function jitenThemeCookieMatches(theme: HostTheme): boolean {
+    return currentThemeHost() === 'jiten' && readJitenThemeCookie() === theme;
+}
+
+function readJitenThemeCookie(): string {
+    const match = document.cookie.match(/(?:^|;\s*)jiten-theme-mode=([^;]+)/);
+    return match ? decodeURIComponent(match[1]).trim() : '';
+}
+
+function writeJitenThemeCookie(theme: HostTheme): void {
+    document.cookie = `${JITEN_THEME_COOKIE}=${theme}; path=/; max-age=31536000; samesite=lax`;
+}
+
+export function observeHostTheme(onChange: (theme: HostTheme) => void): () => void {
+    if (typeof MutationObserver !== 'function') return () => undefined;
+    const root = document.documentElement;
+    let last = detectHostTheme();
+    const observer = new MutationObserver(() => {
+        const next = detectHostTheme();
+        if (next === last) return;
+        last = next;
+        onChange(next);
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ['class', 'style'] });
+    return () => observer.disconnect();
+}
