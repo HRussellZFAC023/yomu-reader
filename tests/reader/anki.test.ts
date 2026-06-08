@@ -1,11 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, needsHostedAnkiConnectSetupHint, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
+import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
-import { USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
-import { uiText } from '../../src/reader/app/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import {
@@ -176,11 +174,6 @@ async function expectHostedLoopbackBridgeSuccess(
         url: 'http://127.0.0.1:8765',
     }));
     expect(fetchMock).not.toHaveBeenCalled();
-}
-
-function startHostedLoopbackConnectionCheck(): Promise<boolean> {
-    const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
-    return client.isConnected();
 }
 
 function recordedMockAnkiAction(init: RequestInit | undefined, actions: string[]): RecordedMockAnkiAction {
@@ -449,15 +442,15 @@ describe('AnkiConnect browser fetch eligibility', () => {
         }
     });
 
-    it('keeps hosted loopback AnkiConnect requests on the userscript bridge path', () => {
+    it('allows hosted pages to fetch loopback AnkiConnect directly', () => {
         expect(canFetchAnkiConnectFrom(
             'http://127.0.0.1:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-        )).toBe(false);
+        )).toBe(true);
         expect(canFetchAnkiConnectFrom(
             'http://localhost:8765',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
-        )).toBe(false);
+        )).toBe(true);
     });
 
     it('lets the hosted new-tab app contact a non-local configured AnkiConnect endpoint', () => {
@@ -467,11 +460,11 @@ describe('AnkiConnect browser fetch eligibility', () => {
         )).toBe(true);
     });
 
-    it('keeps arbitrary content pages on the userscript request bridge path', () => {
+    it('allows arbitrary content pages to fetch configured AnkiConnect endpoints directly', () => {
         expect(canFetchAnkiConnectFrom(
             'http://127.0.0.1:8765',
             'https://example.com/article',
-        )).toBe(false);
+        )).toBe(true);
     });
 
     it('keeps local development pages able to fetch AnkiConnect directly', () => {
@@ -494,28 +487,7 @@ describe('AnkiConnect browser fetch eligibility', () => {
         expect(canFetchAnkiConnectFrom(
             'http://127.0.0.1:8765',
             'http://0.0.0.0:5174/article',
-        )).toBe(false);
-    });
-
-    it('shows the hosted setup hint only for standalone hosted AnkiConnect requests', () => {
-        expect(needsHostedAnkiConnectSetupHint(
-            'http://127.0.0.1:8765',
-            'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
-        expect(needsHostedAnkiConnectSetupHint(
-            'http://127.0.0.1:8765',
-            'https://reader.example/app?yomu-newtab=1',
-        )).toBe(true);
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('Advanced');
-        expect(uiText('en', 'ankiHostedCorsHint')).toContain('webCorsOriginList');
-        expect(needsHostedAnkiConnectSetupHint(
-            'http://127.0.0.1:8765',
-            'http://127.0.0.1:5174/newtab/',
-        )).toBe(false);
-        expect(needsHostedAnkiConnectSetupHint(
-            'http://tailscale-host.ts.net:8765',
-            'https://hrussellzfac023.github.io/yomu-reader/newtab/',
-        )).toBe(false);
     });
 
     it('uses direct fetch for local file-preview AnkiConnect checks when no bridge exists', async () => {
@@ -526,57 +498,16 @@ describe('AnkiConnect browser fetch eligibility', () => {
         await expectDirectAnkiConnectFetch('http://0.0.0.0:5174/yomu-reader/');
     });
 
-    it('does not direct-fetch hosted loopback AnkiConnect checks when no bridge exists', async () => {
-        vi.useFakeTimers();
+    it('uses direct fetch for hosted loopback AnkiConnect checks when no bridge exists', async () => {
         const { client, fetchMock } = stubBrowserAnkiConnectCheck('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html');
 
         try {
-            const connected = client.isConnected();
-            await vi.advanceTimersByTimeAsync(5100);
-
-            await expect(connected).resolves.toBe(false);
-            expect(fetchMock).not.toHaveBeenCalled();
+            await expect(client.isConnected()).resolves.toBe(true);
+            expect(fetchMock).toHaveBeenCalledWith(
+                'http://127.0.0.1:8765',
+                expect.objectContaining({ method: 'POST' }),
+            );
         } finally {
-            vi.useRealTimers();
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it('waits for a delayed hosted userscript bridge before marking loopback Anki unavailable', async () => {
-        vi.useFakeTimers();
-        const { fetchMock, bridgeRequest } = stubHostedLoopbackBridgeMocks();
-
-        try {
-            const connected = startHostedLoopbackConnectionCheck();
-            await vi.advanceTimersByTimeAsync(2000);
-            vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
-            window.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
-
-            await expectHostedLoopbackBridgeSuccess(connected, bridgeRequest, fetchMock);
-        } finally {
-            vi.useRealTimers();
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it('accepts hosted bridge readiness announced from the document target', async () => {
-        vi.useFakeTimers();
-        const { fetchMock, bridgeRequest } = stubHostedLoopbackBridgeMocks();
-
-        try {
-            const connected = startHostedLoopbackConnectionCheck();
-            let resolved: boolean | undefined;
-            void connected.then(value => { resolved = value; });
-
-            await vi.advanceTimersByTimeAsync(250);
-            vi.stubGlobal('GM', { xmlHttpRequest: bridgeRequest });
-            document.documentElement.dispatchEvent(new CustomEvent(USERSCRIPT_HTTP_BRIDGE_READY_EVENT));
-            await vi.advanceTimersByTimeAsync(0);
-
-            expect(resolved).toBe(true);
-            await expectHostedLoopbackBridgeSuccess(connected, bridgeRequest, fetchMock);
-        } finally {
-            vi.useRealTimers();
             vi.unstubAllGlobals();
         }
     });

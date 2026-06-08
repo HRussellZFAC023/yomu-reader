@@ -5,9 +5,9 @@ const repositoryName = 'yomu-reader';
 const base = `/${repositoryName}/`;
 const siteUrl = `https://hrussellzfac023.github.io${base}`;
 const socialImage = `${siteUrl}og-image.png`;
-const newTabLink = 'newtab/index.html';
-const statsLink = 'newtab/index.html?mode=stats';
-const videoPlayerLink = 'video-player/index.html';
+const newTabLink = '/newtab/index.html';
+const statsLink = '/newtab/index.html?mode=stats';
+const videoPlayerLink = '/video-player/index.html';
 
 export default defineConfig({
     title: 'よむ',

@@ -1,6 +1,5 @@
 (function() {
   "use strict";
-  var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
   const CORE_COLOR_TOKENS = {
     black: "#000000",
     white: "#ffffff"
@@ -148,95 +147,95 @@
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
     FACTORY_RESET_SIGNAL_KEY
   ]);
-  async function gmStorageGet(key2, fallback) {
+  async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
-        const value = await getValue(key2, MISSING);
+        const value = await getValue(key, MISSING);
         if (value !== MISSING) return value;
-        const migrated = localStorageGet(key2, MISSING);
+        const migrated = localStorageGet(key, MISSING);
         if (migrated !== MISSING) {
-          await gmStorageSet(key2, migrated);
+          await gmStorageSet(key, migrated);
           return migrated;
         }
         return fallback;
       } catch (error) {
-        debugStorageError("GM storage read failed", key2, error);
+        debugStorageError("GM storage read failed", key, error);
       }
     }
-    return localStorageGet(key2, fallback);
+    return localStorageGet(key, fallback);
   }
-  function gmStorageGetSync(key2, fallback) {
+  function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
-      const read = gmStorageSyncRead(key2, getValue);
+      const read = gmStorageSyncRead(key, getValue);
       if (read.kind === "found") return read.value;
     }
-    return localStorageGet(key2, fallback);
+    return localStorageGet(key, fallback);
   }
-  function gmStorageSyncRead(key2, getValue) {
+  function gmStorageSyncRead(key, getValue) {
     try {
-      const value = getValue(key2, MISSING);
+      const value = getValue(key, MISSING);
       if (isPromiseLike(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key2);
+      return migratedLocalStorageSyncValue(key);
     } catch (error) {
-      debugStorageError("GM storage sync read failed", key2, error);
+      debugStorageError("GM storage sync read failed", key, error);
       return { kind: "fallback" };
     }
   }
-  function migratedLocalStorageSyncValue(key2) {
-    const migrated = localStorageGet(key2, MISSING);
+  function migratedLocalStorageSyncValue(key) {
+    const migrated = localStorageGet(key, MISSING);
     if (migrated === MISSING) return { kind: "fallback" };
-    void gmStorageSet(key2, migrated);
+    void gmStorageSet(key, migrated);
     return { kind: "found", value: migrated };
   }
-  async function gmStorageSet(key2, value) {
+  async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
     if (setValue) {
-      await setValue(key2, value);
+      await setValue(key, value);
       return;
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  function gmStorageSetSync(key2, value) {
+  function gmStorageSetSync(key, value) {
     if (typeof GM_setValue === "function") {
       try {
-        const result = GM_setValue(key2, value);
+        const result = GM_setValue(key, value);
         if (!isPromiseLike(result)) return;
       } catch (error) {
-        debugStorageError("GM storage sync write failed", key2, error);
+        debugStorageError("GM storage sync write failed", key, error);
       }
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  async function gmStorageDelete(key2) {
+  async function gmStorageDelete(key) {
     const deleteValue = asyncGmDeleteValue();
     if (deleteValue) {
       try {
-        await deleteValue(key2);
+        await deleteValue(key);
       } catch (error) {
-        debugStorageError("GM storage delete failed", key2, error);
+        debugStorageError("GM storage delete failed", key, error);
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
-  function gmStorageDeleteSync(key2) {
+  function gmStorageDeleteSync(key) {
     if (typeof GM_deleteValue === "function") {
       try {
-        const result = GM_deleteValue(key2);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        const result = GM_deleteValue(key);
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
-        debugStorageError("GM storage sync delete failed", key2, error);
+        debugStorageError("GM storage sync delete failed", key, error);
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
   async function exportStoredValues(prefixes) {
     const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
-    const entries = await Promise.all(keys.map(async (key2) => [key2, await gmStorageGet(key2, void 0)]));
+    const entries = await Promise.all(keys.map(async (key) => [key, await gmStorageGet(key, void 0)]));
     return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
   }
   async function exportManagedStoredValues() {
@@ -244,15 +243,15 @@
   }
   async function importStoredValues(values) {
     let count = 0;
-    for (const [key2, value] of managedStoredValueEntries(values)) {
-      await gmStorageSet(key2, value);
-      localStorageSet(key2, value);
+    for (const [key, value] of managedStoredValueEntries(values)) {
+      await gmStorageSet(key, value);
+      localStorageSet(key, value);
       count++;
     }
     return count;
   }
   function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isBackupStorageKey(key)) : [];
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
@@ -276,65 +275,65 @@
   function addLocalStorageKeys(keys, prefixes) {
     try {
       for (let index = 0; index < localStorage.length; index++) {
-        const key2 = localStorage.key(index);
-        if (key2 && storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+        const key = localStorage.key(index);
+        if (key && storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
       }
     } catch {
     }
   }
   async function addKnownManagedStorageKeys(keys, prefixes) {
-    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
-      if (storageKeyMatchesPrefix(key2, prefixes) && await storedValueExists(key2)) keys.add(key2);
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
   }
   function addMatchingStorageKeys(keys, candidates, prefixes) {
-    for (const key2 of candidates) {
-      if (storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+    for (const key of candidates) {
+      if (storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
     }
   }
-  function storageKeyMatchesPrefix(key2, prefixes) {
-    return prefixes.some((prefix) => key2.startsWith(prefix));
+  function storageKeyMatchesPrefix(key, prefixes) {
+    return prefixes.some((prefix) => key.startsWith(prefix));
   }
-  function localStorageGet(key2, fallback) {
+  function localStorageGet(key, fallback) {
     try {
-      const value = localStorage.getItem(key2);
+      const value = localStorage.getItem(key);
       return value == null ? fallback : JSON.parse(value);
     } catch {
       return fallback;
     }
   }
-  function localStorageSet(key2, value) {
+  function localStorageSet(key, value) {
     try {
-      localStorage.setItem(key2, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
     } catch {
     }
   }
-  function removeLocalStorageKey(key2) {
+  function removeLocalStorageKey(key) {
     try {
-      localStorage.removeItem(key2);
+      localStorage.removeItem(key);
     } catch {
     }
   }
-  function removeSessionStorageKey(key2) {
+  function removeSessionStorageKey(key) {
     try {
-      sessionStorage.removeItem(key2);
+      sessionStorage.removeItem(key);
     } catch {
     }
   }
-  async function storedValueExists(key2) {
+  async function storedValueExists(key) {
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
-        if (await getValue(key2, MISSING) !== MISSING) return true;
+        if (await getValue(key, MISSING) !== MISSING) return true;
       } catch (error) {
-        debugStorageError("GM storage existence check failed", key2, error);
+        debugStorageError("GM storage existence check failed", key, error);
       }
     }
-    return webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2);
+    return webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key);
   }
-  function webStorageHasKey(storage, key2) {
+  function webStorageHasKey(storage, key) {
     try {
-      return storage.getItem(key2) !== null;
+      return storage.getItem(key) !== null;
     } catch {
       return false;
     }
@@ -363,14 +362,14 @@
     const modern = globalThis.GM?.listValues;
     return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
   }
-  function isManagedStorageKey(key2) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
-  function isBackupStorageKey(key2) {
-    return isManagedStorageKey(key2) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+  function isBackupStorageKey(key) {
+    return isManagedStorageKey(key) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
   }
-  function debugStorageError(message, key2, error) {
-    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  function debugStorageError(message, key, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
   const JITEN_API_KEY_PREFIX = "ak_";
   function singleApiCredentialValue(settings) {
@@ -443,8 +442,8 @@
     error(message, ...args) {
       this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
     }
-    warnOnce(key2, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key2}`, this.scopeName, message, args);
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
     }
     time(label, ...args) {
       if (!this.parent.isEnabled()) return () => void 0;
@@ -489,9 +488,9 @@
     reset() {
       this.onceKeys.clear();
     }
-    warnOnce(key2, scope, message, args) {
-      if (this.onceKeys.has(key2)) return;
-      this.onceKeys.add(key2);
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
       this.write(scope, message, args, console.warn, WARN_STYLE);
     }
     write(scope, message, args, writer, levelStyle) {
@@ -564,9 +563,9 @@
     (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
   ];
   function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key2, value]) => [
-      key2,
-      shouldRedactEntry(key2, value) ? REDACTED : sanitizeFlatValue(value)
+    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
     ]));
   }
   function sanitizeFlatValue(value) {
@@ -574,9 +573,9 @@
     if (value instanceof Error) return { name: value.name, message: value.message };
     return value;
   }
-  function shouldRedactEntry(key2, value) {
-    if (!SECRET_KEY_PATTERN.test(key2)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key2)) return false;
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
     return true;
   }
   function redactString(value) {
@@ -603,7 +602,6 @@
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
-  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
@@ -629,8 +627,8 @@
     });
     return out;
   }
-  function hasOwn(value, key2) {
-    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
+  function hasOwn(value, key) {
+    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
   }
   function objectRecord(value) {
     return value && typeof value === "object" ? value : null;
@@ -909,8 +907,8 @@
     if (event.shiftKey) parts.push("Shift");
     if (event.metaKey) parts.push("Meta");
   }
-  function addShortcutKeyPart(parts, key2) {
-    if (!isModifierKey(key2)) parts.push(key2);
+  function addShortcutKeyPart(parts, key) {
+    if (!isModifierKey(key)) parts.push(key);
   }
   function normalizeShortcutPart(part) {
     const value = part.trim();
@@ -935,12 +933,12 @@
     ["spacebar", "Space"],
     [" ", "Space"]
   ]);
-  function normalizeEventKey(key2) {
-    if (key2 === " ") return "Space";
-    return normalizeShortcutPart(key2);
+  function normalizeEventKey(key) {
+    if (key === " ") return "Space";
+    return normalizeShortcutPart(key);
   }
-  function isModifierKey(key2) {
-    return key2 === "Alt" || key2 === "Ctrl" || key2 === "Meta" || key2 === "Shift";
+  function isModifierKey(key) {
+    return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
   }
   function dedupeShortcutParts(parts) {
     return parts.filter((part, index) => parts.indexOf(part) === index);
@@ -1344,7 +1342,7 @@
     if (!value) return null;
     const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
     return Object.fromEntries(
-      Object.entries(value).filter(([key2]) => supportedKeys.has(key2))
+      Object.entries(value).filter(([key]) => supportedKeys.has(key))
     );
   }
   function migrateLegacyDefaultMobileSettings(value) {
@@ -1367,10 +1365,10 @@
     return legacyAnkiBooleanSettingsAreDefault(value) && legacyAnkiStringSettingsAreDefault(value) && legacyStringSettingIn(value, "ankiDeck", LEGACY_DEFAULT_ANKI_DECK_NAMES) && legacyStringSettingIn(value, "ankiModel", LEGACY_DEFAULT_ANKI_MODEL_NAMES) && legacyAnkiFieldMappingsAreDefault(value);
   }
   function legacyAnkiBooleanSettingsAreDefault(value) {
-    return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key2) => legacyBooleanSettingMatches(value, key2, true));
+    return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key) => legacyBooleanSettingMatches(value, key, true));
   }
   function legacyAnkiStringSettingsAreDefault(value) {
-    return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key2, expected]) => legacyStringSettingMatches(value, key2, expected));
+    return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
   }
   function isLegacyDefaultNewTabAnkiSettings(value) {
     if (!isPreCurrentSavedSettingsPayload(value)) return false;
@@ -1379,20 +1377,20 @@
   function isPreCurrentSavedSettingsPayload(value) {
     return !hasOwn(value, "jitenApiKey");
   }
-  function legacyBooleanSettingMatches(value, key2, expected) {
-    return hasOwn(value, key2) && value[key2] === expected;
+  function legacyBooleanSettingMatches(value, key, expected) {
+    return hasOwn(value, key) && value[key] === expected;
   }
-  function legacyStringSettingMatches(value, key2, expected) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && typeof raw === "string" && raw.trim() === expected;
+  function legacyStringSettingMatches(value, key, expected) {
+    const raw = value[key];
+    return hasOwn(value, key) && typeof raw === "string" && raw.trim() === expected;
   }
-  function legacyStringSettingIn(value, key2, expected) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && typeof raw === "string" && expected.has(raw.trim());
+  function legacyStringSettingIn(value, key, expected) {
+    const raw = value[key];
+    return hasOwn(value, key) && typeof raw === "string" && expected.has(raw.trim());
   }
-  function legacyStringListSettingIsEmpty(value, key2) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && Array.isArray(raw) && raw.length === 0;
+  function legacyStringListSettingIsEmpty(value, key) {
+    const raw = value[key];
+    return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
   }
   function legacyAnkiFieldMappingsAreDefault(value) {
     const raw = value.ankiFieldMappings;
@@ -1470,8 +1468,8 @@
   }
   function normalizeAccentColorSettings(settings, keys) {
     const normalized = {};
-    for (const key2 of keys) {
-      normalized[key2] = sanitizeAccentColor(settings[key2], String(DEFAULT_SETTINGS[key2]));
+    for (const key of keys) {
+      normalized[key] = sanitizeAccentColor(settings[key], String(DEFAULT_SETTINGS[key]));
     }
     return normalized;
   }
@@ -1632,32 +1630,32 @@
   }
   function normalizeBooleanSettingGroup(value, keys) {
     const normalized = {};
-    for (const key2 of keys) {
-      normalized[key2] = booleanSetting(value, key2);
+    for (const key of keys) {
+      normalized[key] = booleanSetting(value, key);
     }
     return normalized;
   }
   function normalizeNumberSettingGroup(value, ranges) {
     const normalized = {};
-    for (const key2 of Object.keys(ranges)) {
-      const { min, max } = ranges[key2];
-      const fallback = DEFAULT_SETTINGS[key2];
-      normalized[key2] = clampNumber$1(value?.[key2], min, max, typeof fallback === "number" ? fallback : 0);
+    for (const key of Object.keys(ranges)) {
+      const { min, max } = ranges[key];
+      const fallback = DEFAULT_SETTINGS[key];
+      normalized[key] = clampNumber$1(value?.[key], min, max, typeof fallback === "number" ? fallback : 0);
     }
     return normalized;
   }
-  function booleanSetting(value, key2) {
-    const rawValue = value?.[key2];
-    const fallback = DEFAULT_SETTINGS[key2];
+  function booleanSetting(value, key) {
+    const rawValue = value?.[key];
+    const fallback = DEFAULT_SETTINGS[key];
     if (typeof rawValue === "boolean") return rawValue;
     return typeof fallback === "boolean" ? fallback : false;
   }
-  function booleanSettingWithFallback(value, key2, fallback) {
-    const rawValue = value?.[key2];
+  function booleanSettingWithFallback(value, key, fallback) {
+    const rawValue = value?.[key];
     return typeof rawValue === "boolean" ? rawValue : fallback;
   }
-  function trimmedStringSetting(value, key2, fallback) {
-    const rawValue = value?.[key2];
+  function trimmedStringSetting(value, key, fallback) {
+    const rawValue = value?.[key];
     return typeof rawValue === "string" ? rawValue.trim() : fallback;
   }
   function normalizeSubtitleControlsMode(value) {
@@ -1700,7 +1698,7 @@
   }
   function isLegacyDefaultColorChannelSettings(value) {
     if (!value) return false;
-    return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key2) => hasOwn(value, key2) && value[key2] === LEGACY_COLOR_CHANNEL_DEFAULTS[key2]);
+    return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
   }
   function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
     const source = value === "auto" ? autoFallback : value;
@@ -1768,8 +1766,8 @@
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "off";
   }
-  function legacyBooleanSettingIs(settings, key2, expected) {
-    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key2) && settings[key2] === expected);
+  function legacyBooleanSettingIs(settings, key, expected) {
+    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
   }
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -1895,550 +1893,24 @@
     const platform = navigator.platform ?? "";
     return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
   }
-  function isYomuNewTabUrl(value) {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
-  }
-  function parseNewTabUrl(value) {
-    try {
-      return new URL(value);
-    } catch {
-      return null;
-    }
-  }
-  function isYomuNewTabUrlObject(url) {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
-  }
-  function normalizedNewTabPath(url) {
-    return url.pathname.replace(/\/index\.html$/, "/");
-  }
-  function isHostedNewTabPath(url, path) {
-    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
-  }
-  function isLocalNewTabPath(url, path) {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
-  }
-  function isRepositoryNewTabPath(path) {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
-  }
-  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
-  function isYomuHostedAppUrl(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
-  }
-  function readYomuAppUrl(value) {
-    try {
-      const url = new URL(value);
-      return { url, path: normalizedPath(url.pathname) };
-    } catch {
-      return null;
-    }
-  }
-  function isYomuHostedAppRoute(value, appUrl) {
-    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
-  }
-  function isYomuActiveAppRoute(value, appUrl) {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
-  }
-  function isYomuRepositoryAppUrl(appUrl) {
-    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
-  }
-  function isHostedRepositoryAppUrl(appUrl) {
-    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-  }
-  function isLocalRepositoryAppUrl(appUrl) {
-    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
-  }
-  function normalizedPath(pathname) {
-    return pathname.replace(/\/index\.html$/, "/");
-  }
-  function isYomuVideoPlayerPath(path) {
-    return path.endsWith("/video-player/");
-  }
-  function isYomuLocalAppPath(path) {
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
-  }
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
-    }
-  }
-  function normalizedBridgeEventDetail(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key2) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key2];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key2) {
-    const value = safeReadProperty(source, key2);
-    return typeof value === "string" ? value : void 0;
-  }
-  var key = `__monkeyWindow-` + new URL(_documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("yomu-settings-surface.user.js", document.baseURI).href || location.href).origin;
-  var monkeyWindow = document[key] ?? window;
-  function userscriptRequestCandidates() {
-    const candidates = [];
-    const add = (request, thisArg) => {
-      candidates.push({ request, thisArg });
-    };
-    const direct = directUserscriptGlobals();
-    add(direct.GM_xmlhttpRequest, globalThis);
-    add(direct.GM?.xmlHttpRequest, direct.GM);
-    add(direct.GM?.xmlhttpRequest, direct.GM);
-    for (const source of userscriptRequestSources()) {
-      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
-      const gm = readSourceProperty(source, "GM");
-      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
-      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
-    }
-    return candidates;
-  }
-  function asUserscriptRequest(value) {
-    return typeof value === "function" ? value : void 0;
-  }
-  function directUserscriptGlobals() {
-    return {
-      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
-      GM: typeof GM === "object" && GM ? GM : void 0
-    };
-  }
-  function userscriptRequestSources() {
-    const sources = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (value) => {
-      if (!isRequestSource(value) || seen.has(value)) return;
-      seen.add(value);
-      sources.push(value);
-    };
-    for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(monkeyWindow);
-    add(globalThis);
-    if (typeof window !== "undefined") add(window);
-    return sources;
-  }
-  function mountedMonkeyWindows() {
-    if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key2) => key2.startsWith("__monkeyWindow-")).map((key2) => readSourceProperty(document, key2)).filter(isRequestSource);
-  }
-  function isRequestSource(value) {
-    return Boolean(value) && (typeof value === "object" || typeof value === "function");
-  }
-  function readSourceProperty(source, key2) {
-    if (!isRequestSource(source)) return void 0;
-    try {
-      return source[key2];
-    } catch {
-      return void 0;
-    }
-  }
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
-  }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      return detail;
-    }
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key2) {
+  initialWindowMethod("dispatchEvent");
+  initialWindowMethod("addEventListener");
+  initialWindowMethod("removeEventListener");
+  function initialWindowMethod(key) {
     if (typeof window === "undefined") return void 0;
-    return readMethod(window, key2);
+    return readMethod(window, key);
   }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key2) {
-    const value = readProperty(source, key2);
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
   }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key2) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key2));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key2));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key2));
-    return methods;
-  }
-  function readMethod(source, key2) {
-    const value = readProperty(source, key2);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key2) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key2)) return void 0;
-    return readMethod(source, key2);
-  }
-  function readProperty(source, key2) {
+  function readProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key2, descriptor) {
-    try {
-      Object.defineProperty(window, key2, normalizedPropertyDescriptor(descriptor));
-    } catch {
-    }
-  }
-  function safeWindowPropertyDescriptor(key2) {
-    try {
-      return Object.getOwnPropertyDescriptor(window, key2);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
-    }
-  }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
-  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS = 3e4;
-  function getUserscriptHttpRequest() {
-    for (const candidate of userscriptRequestCandidates()) {
-      const request = asUserscriptRequest(candidate.request);
-      if (request) {
-        return request.bind(candidate.thisArg);
-      }
-    }
-    return userscriptHttpEventBridge();
-  }
-  function userscriptHttpEventBridge() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-    return (options) => new Promise((resolve, reject) => {
-      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        options.ontimeout?.();
-        reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-      let cleanupBridgeResponseListener = noop;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupBridgeResponseListener();
-      };
-      const onResponse = (event) => {
-        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-      };
-      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    });
-  }
-  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-    const detail = bridgeResponseEventDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.kind === "load" && detail.response) {
-      options.onload?.(detail.response);
-      resolve(detail.response);
-      return;
-    }
-    rejectBridgeResponse(detail, options, reject);
-  }
-  function rejectBridgeResponse(detail, options, reject) {
-    const message = detail.message || "Request failed.";
-    if (detail.kind === "timeout") options.ontimeout?.();
-    else options.onerror?.(new Error(message));
-    reject(new Error(message));
-  }
-  function addBridgeEventListener(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget) {
-      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function callRemoveEventListener(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop() {
   }
   const COPY = {
     en: {
@@ -4432,8 +3904,8 @@ recommendedJiten	jiten.moe頻度データです。
   function isJapaneseLocale(value) {
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
-  function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY.en[key2];
+  function uiText(language, key) {
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
   function audioSourceLabel(language, type) {
     return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
@@ -4741,8 +4213,8 @@ recommendedJiten	jiten.moe頻度データです。
     const trimmed = value.trim();
     if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
   }
-  function assignImportedSetting(settings, key2, value) {
-    settings[key2] = value;
+  function assignImportedSetting(settings, key, value) {
+    settings[key] = value;
   }
   function applyAudioFallbackChimeSetting(settings, value) {
     if (typeof value === "string") settings.audioFallbackChimeEnabled = value !== "none";
@@ -4841,11 +4313,11 @@ recommendedJiten	jiten.moe頻度データです。
   function applyYomitanShortcut(settings, inputs, action, target) {
     const hotkey = inputs?.hotkeys?.find((item) => item.action === action && item.enabled !== false);
     if (!hotkey) return;
-    const key2 = String(hotkey.key || "").replace(/^Key/, "");
+    const key = String(hotkey.key || "").replace(/^Key/, "");
     const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
     settings.shortcuts = {
       ...settings.shortcuts,
-      [target]: [...modifiers.map(capitalize), key2].filter(Boolean).join("+")
+      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
     };
   }
   function readDictionaryPreferences$1(profileOptions) {
@@ -4866,7 +4338,7 @@ recommendedJiten	jiten.moe頻度データです。
     const scanInput = firstScanInput(scanning);
     if (!scanInput) return;
     const include = String(scanInput.include ?? "").toLowerCase();
-    const modifier = ["shift", "alt", "ctrl", "meta"].find((key2) => include.includes(key2));
+    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
     if (modifier) {
       settings.lookupOnHover = true;
       settings.popupActivationMode = "modifier";
@@ -4934,41 +4406,6 @@ recommendedJiten	jiten.moe頻度データです。
     }
     if (!(error instanceof Error)) return false;
     return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
-  }
-  function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref()) {
-    if (getUserscriptHttpRequest()) return false;
-    const current = readAnkiUrl(currentHref);
-    if (!current || !isYomuHostedAppUrl(current.href)) return false;
-    if (canLocalPreviewFetchAnkiConnect(current)) return false;
-    const target = readAnkiUrl(url, current.href);
-    return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
-  }
-  function readAnkiUrl(value, base) {
-    try {
-      return new URL(value, base);
-    } catch {
-      return null;
-    }
-  }
-  function isHttpUrl(url) {
-    return url.protocol === "http:" || url.protocol === "https:";
-  }
-  function isLoopbackHostname(hostname) {
-    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
-  }
-  function canLocalPreviewFetchAnkiConnect(current) {
-    if (current.protocol !== "file:" && !isLocalPreviewHostname(current.hostname)) return false;
-    return isYomuHostedAppUrl(current.href) || isLocalPreviewYomuAppPath(current.pathname);
-  }
-  function isLocalPreviewHostname(hostname) {
-    return isLoopbackHostname(hostname) || hostname === "0.0.0.0";
-  }
-  function isLocalPreviewYomuAppPath(pathname) {
-    const path = pathname.replace(/\/index\.html$/, "/");
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || path.endsWith("/video-player/");
-  }
-  function safeLocationHref() {
-    return typeof location === "undefined" ? "" : location.href;
   }
   const ankiFieldNames = (names) => names.split("|");
   const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
@@ -5138,6 +4575,7 @@ recommendedJiten	jiten.moe頻度データです。
     let moved = false;
     let activeInput = null;
     let activeHandle = null;
+    let activeCaptureTarget = null;
     const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
     const setLastPoint = (point) => {
       state = {
@@ -5175,12 +4613,14 @@ recommendedJiten	jiten.moe頻度データです。
       if (!dragging) return;
       const wasMoved = moved;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onFinish(state, wasMoved, handle);
     };
     function cleanupListeners() {
@@ -5195,12 +4635,14 @@ recommendedJiten	jiten.moe頻度データです。
     function cancel() {
       if (!dragging) return;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onCancel?.(state, handle);
     }
     function handlePointerMove(event) {
@@ -5247,7 +4689,8 @@ recommendedJiten	jiten.moe頻度データです。
         consumeDragEvent(event);
         if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
         pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
+        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+        setPointerCapture(activeCaptureTarget, event.pointerId);
         document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
         document.addEventListener("pointerup", handlePointerUp, true);
         document.addEventListener("pointercancel", handlePointerCancel, true);
@@ -5539,10 +4982,10 @@ recommendedJiten	jiten.moe頻度データです。
     }[panel] ?? "jpdb-reader-settings-panel-api";
   }
   function attributeHtml(attributes) {
-    return Object.entries(attributes).map(([key2, attributeValue]) => ` ${key2}="${escapeHtml(String(attributeValue))}"`).join("");
+    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml(String(attributeValue))}"`).join("");
   }
   function booleanAttributeHtml(attributes) {
-    return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
+    return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
   }
   function updateSourceRowEditor(action, control) {
     const row = control?.closest("[data-source-row]");
@@ -5675,13 +5118,13 @@ recommendedJiten	jiten.moe頻度データです。
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
   function createSettingsFormReader(data, colorSource) {
-    const get = (key2) => String(data.get(key2) ?? "");
-    const number = (key2, fallback) => readNumber(get(key2), fallback);
+    const get = (key) => String(data.get(key) ?? "");
+    const number = (key, fallback) => readNumber(get(key), fallback);
     return {
       get,
-      has: (key2) => data.has(key2),
+      has: (key) => data.has(key),
       number,
-      clamped: (key2, min, max, fallback) => Math.max(min, Math.min(max, number(key2, fallback))),
+      clamped: (key, min, max, fallback) => Math.max(min, Math.min(max, number(key, fallback))),
       colorSource
     };
   }
@@ -5773,7 +5216,7 @@ recommendedJiten	jiten.moe頻度データです。
     ]);
   }
   function readFormSettings(data, current) {
-    const colorSource = (key2, fallback) => readOption(String(data.get(key2) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key2, fallback));
+    const colorSource = (key, fallback) => readOption(String(data.get(key) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
@@ -5819,9 +5262,9 @@ recommendedJiten	jiten.moe頻度データです。
     });
     return normalized;
   }
-  function colorSourceFallback(key2, fallback) {
+  function colorSourceFallback(key, fallback) {
     if (fallback !== "auto") return fallback;
-    return isColorSourceSettingName(key2) ? DEFAULT_COLOR_SOURCE_VALUES[key2] : "jpdb";
+    return isColorSourceSettingName(key) ? DEFAULT_COLOR_SOURCE_VALUES[key] : "jpdb";
   }
   function isColorSourceSettingName(value) {
     return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
@@ -6129,15 +5572,15 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function readShortcutFormSettings(reader, current) {
     return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
-      const key2 = `shortcuts.${name}`;
-      return [name, reader.has(key2) ? reader.get(key2) : current.shortcuts[name]];
+      const key = `shortcuts.${name}`;
+      return [name, reader.has(key) ? reader.get(key) : current.shortcuts[name]];
     }));
   }
   function readOption(value, allowed, fallback) {
     return allowed.includes(value) ? value : fallback;
   }
   function readDictionaryPreferences(data, current, reader) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
     if (!count) return current;
     return Array.from({ length: count }, (_, index) => ({
@@ -6152,7 +5595,7 @@ recommendedJiten	jiten.moe頻度データです。
     return value === "kanji" || value === "frequency" || value === "metadata" ? value : "terms";
   }
   function readAudioSources(data) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("audioSourceCount")) || 0);
     const sources = [];
     const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
@@ -6175,7 +5618,7 @@ recommendedJiten	jiten.moe頻度データです。
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
   }
   function readDictionaryLookupLinks(data) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get("dictionaryLookupLinkCount")) || 0));
     const links = [];
     for (let index = 0; index < count; index++) {
@@ -6350,8 +5793,8 @@ recommendedJiten	jiten.moe頻度データです。
     ["m1", "Male 1"],
     ["m2", "Male 2"]
   ];
-  function escapedUiText$3(language, key2) {
-    return escapeHtml(uiText(language, key2));
+  function escapedUiText$3(language, key) {
+    return escapeHtml(uiText(language, key));
   }
   function renderAudioSourceEditor(sources, language = "en") {
     return `
@@ -6486,7 +5929,7 @@ recommendedJiten	jiten.moe頻度データです。
   function syncBrowserTtsVoiceOptions(form) {
     const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
     const language = form.lang === "ja" ? "ja" : "en";
-    const text = (key2) => uiText(language, key2);
+    const text = (key) => uiText(language, key);
     const sortedVoices = voices.slice().sort((a, b) => {
       const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
@@ -6694,8 +6137,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
-  function escapedUiText$2(language, key2) {
-    return escapeHtml(uiText(language, key2));
+  function escapedUiText$2(language, key) {
+    return escapeHtml(uiText(language, key));
   }
   function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
     return `
@@ -6800,8 +6243,8 @@ recommendedJiten	jiten.moe頻度データです。
     `;
   }
   function renderAnkiMappingConfidence(confidence, language) {
-    const key2 = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
-    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language, key2)}</span>`;
+    const key = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
+    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language, key)}</span>`;
   }
   function ankiFieldMappingRoleLabel(role, language) {
     return {
@@ -6868,15 +6311,15 @@ recommendedJiten	jiten.moe頻度データです。
     `;
   }
   const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
-  function escapedUiText$1(language, key2) {
-    return escapeHtml(uiText(language, key2));
+  function escapedUiText$1(language, key) {
+    return escapeHtml(uiText(language, key));
   }
   function renderJpdbStatusLine(settings) {
     const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
   }
   function formatStatusTemplate(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_, key2) => values[key2] ?? "");
+    return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
   }
   function jpdbStatusLineForSettings(settings, language) {
     return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
@@ -6927,12 +6370,6 @@ recommendedJiten	jiten.moe頻度データです。
         { label: uiText(language, "ankiStatusOpenDesktop") },
         { label: uiText(language, "ankiStatusInstallAddon"), href: ANKI_CONNECT_ADDON_URL },
         { label: uiText(language, "ankiStatusMobileDocs"), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language, "ankiStatusUseDesktopUrl") }
-      ];
-    }
-    if (action === "anki-hosted-bridge") {
-      return [
-        { label: uiText(language, "ankiStatusEnableUserscript") },
-        { label: uiText(language, "ankiStatusRefreshAndCheck") }
       ];
     }
     return [];
@@ -7223,8 +6660,8 @@ recommendedJiten	jiten.moe頻度データです。
     ["subtitleUnderlineColorSource", "Subtitle underline color"],
     ["subtitleTextColorSource", "Subtitle text color"]
   ];
-  function escapedUiText(language, key2) {
-    return escapeHtml(uiText(language, key2));
+  function escapedUiText(language, key) {
+    return escapeHtml(uiText(language, key));
   }
   function renderHelpLinksPanel() {
     return `
@@ -7305,7 +6742,7 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "password", API_KEY_INPUT_ATTRIBUTES)}
+                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
                 </div>
@@ -7584,7 +7021,7 @@ recommendedJiten	jiten.moe頻度データです。
     const language = settings.interfaceLanguage;
     return `
                     <div data-nadeshiko-api-key-field ${usesNadeshikoExamples(settings.immersionKitExampleSource) ? "" : "hidden"}>
-                        ${input("nadeshikoApiKey", `${escapedUiText(language, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, "password")}
+                        ${input("nadeshikoApiKey", `${escapedUiText(language, "nadeshikoApiKey")} <a href="${NADESHIKO_DEVELOPER_URL}" target="_blank" rel="noopener">${externalButtonLabel(uiText(language, "getNadeshikoKey"))}</a>`, settings.nadeshikoApiKey, "text", { class: "jpdb-reader-masked-input" })}
                     </div>`;
   }
   function usesNadeshikoExamples(source) {
@@ -7666,7 +7103,7 @@ recommendedJiten	jiten.moe頻度データです。
                         <summary>Custom local OCR server</summary>
                         <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     </details>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="password" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
@@ -7868,7 +7305,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeSettingsForm(form, language) {
     unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup]" });
-    const text = (key2) => uiText(language, key2);
+    const text = (key) => uiText(language, key);
     localizeSettingsShell(form, language, text);
     localizeSettingsLabels(form, text);
     localizeSettingsSectionTitles(form, text);
@@ -7992,8 +7429,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeSettingsTabs(form, text) {
     SETTINGS_TABS.forEach(({ panel, labelKey }) => {
-      const key2 = labelKey ?? panel;
-      form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)?.replaceChildren(text(key2));
+      const key = labelKey ?? panel;
+      form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)?.replaceChildren(text(key));
     });
   }
   function localizeSettingsSearch(form, text) {
@@ -8008,9 +7445,9 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeSettingsLegends(form, text) {
     getSettingsPanelFieldsets(form).forEach((fieldset) => {
-      const key2 = fieldset.dataset.legendKey;
-      if (!isSettingsTextKey(key2)) return;
-      directFieldsetLegend(fieldset)?.replaceChildren(text(key2));
+      const key = fieldset.dataset.legendKey;
+      if (!isSettingsTextKey(key)) return;
+      directFieldsetLegend(fieldset)?.replaceChildren(text(key));
     });
   }
   function apiCredentialSettingsFromForm(form) {
@@ -8025,7 +7462,7 @@ recommendedJiten	jiten.moe頻度データです。
     return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
   }
   function localizeSettingsLabels(form, text) {
-    SETTINGS_CONTROL_LABELS.forEach(([name, key2]) => setControlLabel(form, name, text(key2)));
+    SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const apiLabel = apiCredentialLabelFromForm(form);
     setControlLabel(form, "jpdbDefinitionsEnabled", text("jpdbDefinitionsEnabled").replace("JPDB", apiLabel));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
@@ -8048,9 +7485,9 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function localizeSettingsSectionTitles(form, text) {
-    LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key2]) => replaceLocalTitle(form, pattern, text(key2)));
-    SELECTOR_TEXT_KEYS.forEach(([selector, key2]) => {
-      form.querySelector(selector)?.replaceChildren(text(key2));
+    LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text(key)));
+    SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelector(selector)?.replaceChildren(text(key));
     });
   }
   function replaceLocalTitle(form, pattern, value) {
@@ -8245,13 +7682,13 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeKeyedHelpText(form, text) {
     form.querySelectorAll("[data-help-key]").forEach((help) => {
-      const key2 = help.dataset.helpKey;
-      if (!isSettingsTextKey(key2)) return;
-      if (key2 === "audioHelp") {
+      const key = help.dataset.helpKey;
+      if (!isSettingsTextKey(key)) return;
+      if (key === "audioHelp") {
         setInnerHtml(help, audioHelpHtml(resolveUiLanguageFromText(text)));
         return;
       }
-      help.replaceChildren(text(key2));
+      help.replaceChildren(text(key));
     });
   }
   function isSettingsTextKey(value) {
@@ -8266,8 +7703,8 @@ recommendedJiten	jiten.moe頻度データです。
     if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text("dictionaryImportHelp");
   }
   function localizeSettingsActions(form, text) {
-    SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key2]) => {
-      form.querySelectorAll(selector).forEach((button) => button.replaceChildren(text(key2)));
+    SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelectorAll(selector).forEach((button) => button.replaceChildren(text(key)));
     });
     form.querySelector('button[type="submit"]')?.replaceChildren(text("save"));
     localizePreviewAudioButtons(form, text);
@@ -8347,18 +7784,18 @@ recommendedJiten	jiten.moe頻度データです。
     ]);
     const deckHelp = form.querySelector("[data-jpdb-decks] .jpdb-reader-help");
     if (!deckHelp) return;
-    const key2 = textKeyForPattern(deckHelp.textContent ?? "", DECK_HELP_TEXT_KEYS);
-    if (key2) deckHelp.replaceChildren(text(key2));
+    const key = textKeyForPattern(deckHelp.textContent ?? "", DECK_HELP_TEXT_KEYS);
+    if (key) deckHelp.replaceChildren(text(key));
   }
   function localizeSourceRows(form, text) {
     form.querySelectorAll(".jpdb-reader-dictionary-head").forEach((head) => localizeSourceHead(head, text));
     form.querySelectorAll("[data-source-name-key]").forEach((element) => {
-      const key2 = element.dataset.sourceNameKey;
-      if (isSettingsTextKey(key2)) element.replaceChildren(text(key2));
+      const key = element.dataset.sourceNameKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
     form.querySelectorAll("[data-source-help-key]").forEach((element) => {
-      const key2 = element.dataset.sourceHelpKey;
-      if (isSettingsTextKey(key2)) element.replaceChildren(text(key2));
+      const key = element.dataset.sourceHelpKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
     replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text("importLocalDefinitionsHelp"));
     replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text("frequencyMetadataHelp"));
@@ -8433,8 +7870,8 @@ recommendedJiten	jiten.moe頻度データです。
     headings[1]?.replaceChildren(text("back"));
     preview.querySelector(".jpdb-reader-template-meaning")?.replaceChildren(text("exampleMeaning"));
     preview.querySelectorAll("small").forEach((small) => {
-      const key2 = textKeyForPattern(small.textContent ?? "", ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS);
-      if (key2) small.replaceChildren(text(key2));
+      const key = textKeyForPattern(small.textContent ?? "", ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS);
+      if (key) small.replaceChildren(text(key));
     });
   }
   function textKeyForPattern(value, options) {
@@ -8654,7 +8091,7 @@ recommendedJiten	jiten.moe頻度データです。
     ["shortcuts.gradePass", "gradePass"]
   ];
   const SETTINGS_CONTROL_LABELS = [
-    ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key2) => [key2, key2]),
+    ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key) => [key, key]),
     ...SETTINGS_CONTROL_LABEL_ALIASES
   ];
   function getNamedControl(form, name) {
@@ -8790,12 +8227,12 @@ recommendedJiten	jiten.moe頻度データです。
   function localizeHelpLinksPanel(form, language) {
     const panel = form.querySelector(".jpdb-reader-help-links-card");
     if (!panel) return;
-    const text = (key2) => uiText(language, key2);
-    HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key2]) => {
-      panel.querySelector(selector)?.replaceChildren(text(key2));
+    const text = (key) => uiText(language, key);
+    HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
+      panel.querySelector(selector)?.replaceChildren(text(key));
     });
-    HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key2]) => {
-      setExternalButtonLabel(panel.querySelector(`[data-help-link="${link}"]`), text(key2));
+    HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key]) => {
+      setExternalButtonLabel(panel.querySelector(`[data-help-link="${link}"]`), text(key));
     });
   }
   function externalButtonLabel(label) {
@@ -9318,12 +8755,12 @@ recommendedJiten	jiten.moe頻度データです。
   function hasMeasuredRect(rect) {
     return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
   }
-  function nextSettingsTabIndex(key2, currentIndex, tabCount) {
+  function nextSettingsTabIndex(key, currentIndex, tabCount) {
     if (currentIndex < 0 || tabCount <= 0) return -1;
-    if (key2 === "ArrowRight" || key2 === "ArrowDown") return (currentIndex + 1) % tabCount;
-    if (key2 === "ArrowLeft" || key2 === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
-    if (key2 === "Home") return 0;
-    if (key2 === "End") return tabCount - 1;
+    if (key === "ArrowRight" || key === "ArrowDown") return (currentIndex + 1) % tabCount;
+    if (key === "ArrowLeft" || key === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
+    if (key === "Home") return 0;
+    if (key === "End") return tabCount - 1;
     return -1;
   }
   function handleSettingsActionError(action, control, setStatus, error, language) {
@@ -9382,7 +8819,6 @@ recommendedJiten	jiten.moe頻度データです。
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     ankiLibraryScanId = 0;
-    ankiBridgeReadyCleanup;
     open(panel) {
       log.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -9392,7 +8828,6 @@ recommendedJiten	jiten.moe頻度データです。
       this.bindFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
       this.bindSettingsTabs(form);
-      this.bindAnkiBridgeReadyRefresh(form);
       this.bindLivePreview(form);
       this.bindEditorControls(form);
       this.currentForm = form;
@@ -9472,7 +8907,6 @@ recommendedJiten	jiten.moe頻度データです。
     dismissSettings() {
       const restoreTarget = this.previouslyFocusedElement;
       this.previouslyFocusedElement = void 0;
-      this.clearAnkiBridgeReadyRefresh();
       this.currentForm = void 0;
       this.restoreBackgroundFromModal();
       this.dependencies.dismiss();
@@ -9513,34 +8947,7 @@ recommendedJiten	jiten.moe頻度データです。
      */
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
-      if (!this.currentForm) this.clearAnkiBridgeReadyRefresh();
       this.restoreBackgroundFromModal();
-    }
-    bindAnkiBridgeReadyRefresh(form) {
-      this.clearAnkiBridgeReadyRefresh();
-      const listener = () => {
-        if (!this.shouldRefreshAnkiStatusAfterBridgeReady(form)) return;
-        void this.refreshAnkiConnectionStatus(form);
-      };
-      const cleanups = [];
-      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener)) {
-        cleanups.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
-      }
-      const documentRoot = document.documentElement;
-      documentRoot?.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener);
-      if (documentRoot) cleanups.push(() => documentRoot.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, listener));
-      this.ankiBridgeReadyCleanup = () => {
-        cleanups.forEach((cleanup) => cleanup());
-      };
-    }
-    clearAnkiBridgeReadyRefresh() {
-      this.ankiBridgeReadyCleanup?.();
-      this.ankiBridgeReadyCleanup = void 0;
-    }
-    shouldRefreshAnkiStatusAfterBridgeReady(form) {
-      if (this.currentForm !== form || !form.isConnected) return false;
-      const status = form.querySelector("[data-anki-status]");
-      return status?.dataset.statusAction === "anki-hosted-bridge";
     }
     trapFocus(form, event) {
       const focusable = Array.from(form.querySelectorAll(SETTINGS_FOCUSABLE_SELECTOR)).filter((element) => !element.closest("[hidden]") && element.getAttribute("aria-hidden") !== "true");
@@ -10422,9 +9829,6 @@ recommendedJiten	jiten.moe頻度データです。
       return uiText(language, "ankiSettingsUnreachable");
     }
     ankiSetupUnavailableStatus(settings, language) {
-      if (needsHostedAnkiConnectSetupHint(settings.ankiConnectUrl)) {
-        return { message: uiText(language, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-hosted-bridge" };
-      }
       if (canUseMobileAnkiHandoff(settings)) {
         return { message: uiText(language, "mobileAnkiReady"), tone: "pending" };
       }
@@ -10635,7 +10039,7 @@ recommendedJiten	jiten.moe頻度データです。
     return details.length ? formatUiTemplate(uiText(language, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language, "settingsImported");
   }
   function formatUiTemplate(template, values) {
-    return template.replace(/\{([a-z]+)\}/gi, (_, key2) => values[key2] ?? "");
+    return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");
   }
   function importedYomitanSettings(json, current) {
     const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
@@ -10648,11 +10052,11 @@ recommendedJiten	jiten.moe頻度データです。
       }
     });
   }
-  function registerYomuCompanion(key2, value) {
+  function registerYomuCompanion(key, value) {
     const target = globalThis;
     target.__yomuCompanions = {
       ...target.__yomuCompanions ?? {},
-      [key2]: value
+      [key]: value
     };
   }
   registerYomuCompanion("settings", { SettingsDialogController });

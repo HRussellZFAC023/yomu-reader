@@ -110,7 +110,7 @@ export type {
     AnkiMergeYomuResult,
     AnkiRenderedCard,
 } from './types';
-export { canFetchAnkiConnectFrom, isAnkiConnectAvailabilityError, needsHostedAnkiConnectSetupHint } from './transport';
+export { canFetchAnkiConnectFrom, isAnkiConnectAvailabilityError } from './transport';
 export {
     ANKI_EXPRESSION_FIELD_NAMES,
     ANKI_MEANING_FIELD_NAMES,
@@ -1460,6 +1460,11 @@ export class AnkiConnectClient {
             return null;
         }
         const note = this.buildAnkiNote(card, sentence, settings, options);
+
+        if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) {
+            if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text('ankiHandoffCancelled'));
+            return null;
+        }
 
         try {
             return await this.addNoteViaConnect(note, card);

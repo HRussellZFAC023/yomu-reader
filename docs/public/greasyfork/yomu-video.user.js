@@ -9732,7 +9732,7 @@ recommendedJiten	jiten.moe頻度データです。
         return;
       }
       unwrapYouTubeWatchTitleReaderWords();
-      this.restoreShortsWatchFeed();
+      this.restoreCurrentShortsWatchItem();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
@@ -9779,9 +9779,11 @@ recommendedJiten	jiten.moe頻度データです。
         }
       }
     }
-    restoreShortsWatchFeed() {
+    restoreCurrentShortsWatchItem() {
       if (!isYouTubeShortsWatchPage()) return;
-      document.querySelectorAll(SHORTS_WATCH_ITEM_SELECTOR).forEach((item) => this.showCard(item));
+      document.querySelectorAll(SHORTS_WATCH_ITEM_SELECTOR).forEach((item) => {
+        if (isCurrentYouTubeShortsWatchCard(item)) this.showCard(item);
+      });
     }
     hideCard(card) {
       const alreadyFiltered = card.classList.contains(YOUTUBE_FILTERED_CLASS);
@@ -10708,7 +10710,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function shouldIgnoreYouTubeCardElement(element) {
     if (!element.isConnected) return true;
-    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return true;
     return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
   }
   function hasYouTubeVideoLink(element) {
@@ -10749,10 +10750,17 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function isCurrentYouTubeShortsWatchCard(card) {
     if (!isYouTubeShortsWatchPage()) return false;
-    const currentVideoId = currentYouTubeShortsVideoId();
-    if (!currentVideoId) return false;
     const item = card.closest(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
-    return readYouTubeVideoId(item) === currentVideoId;
+    if (isActiveYouTubeShortsReel(item)) return true;
+    const currentVideoId = currentYouTubeShortsVideoId();
+    return Boolean(currentVideoId) && readYouTubeVideoId(item) === currentVideoId;
+  }
+  function isActiveYouTubeShortsReel(item) {
+    if (item.hasAttribute("is-active") || item.getAttribute("aria-hidden") === "false") return true;
+    const rect = item.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const viewportCenter = window.innerHeight / 2;
+    return rect.top <= viewportCenter && rect.bottom >= viewportCenter;
   }
   function currentYouTubeShortsVideoId() {
     return location.pathname.match(/^\/shorts\/([^/?#]+)/)?.[1] ?? "";

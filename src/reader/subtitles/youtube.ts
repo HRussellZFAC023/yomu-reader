@@ -304,7 +304,7 @@ export class YoutubeImmersionFilter {
         }
 
         unwrapYouTubeWatchTitleReaderWords();
-        this.restoreShortsWatchFeed();
+        this.restoreCurrentShortsWatchItem();
 
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
@@ -358,9 +358,14 @@ export class YoutubeImmersionFilter {
         }
     }
 
-    private restoreShortsWatchFeed(): void {
+    private restoreCurrentShortsWatchItem(): void {
+        // Never let the active Shorts player stay hidden, even if its title is
+        // English. Non-current English Shorts are still filtered so scrolling
+        // skips them; only the reel the viewer is on is force-shown here.
         if (!isYouTubeShortsWatchPage()) return;
-        document.querySelectorAll<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR).forEach(item => this.showCard(item));
+        document.querySelectorAll<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR).forEach(item => {
+            if (isCurrentYouTubeShortsWatchCard(item)) this.showCard(item);
+        });
     }
 
     private hideCard(card: HTMLElement): void {
@@ -1495,7 +1500,6 @@ function isNormalizableYouTubeVideoCard(element: HTMLElement): boolean {
 
 function shouldIgnoreYouTubeCardElement(element: HTMLElement): boolean {
     if (!element.isConnected) return true;
-    if (isYouTubeShortsWatchPage() && element.closest(SHORTS_WATCH_ITEM_SELECTOR)) return true;
     return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
 }
 
@@ -1545,10 +1549,22 @@ function isYouTubeShortsWatchPage(): boolean {
 
 function isCurrentYouTubeShortsWatchCard(card: HTMLElement): boolean {
     if (!isYouTubeShortsWatchPage()) return false;
-    const currentVideoId = currentYouTubeShortsVideoId();
-    if (!currentVideoId) return false;
     const item = card.closest<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
-    return readYouTubeVideoId(item) === currentVideoId;
+    // Protect the active reel by several independent signals so the player is
+    // never blanked: YouTube's own active marker, the reel covering the
+    // viewport centre (snap feed always centres the current short), and the
+    // URL video id. Any match keeps the reel visible.
+    if (isActiveYouTubeShortsReel(item)) return true;
+    const currentVideoId = currentYouTubeShortsVideoId();
+    return Boolean(currentVideoId) && readYouTubeVideoId(item) === currentVideoId;
+}
+
+function isActiveYouTubeShortsReel(item: HTMLElement): boolean {
+    if (item.hasAttribute('is-active') || item.getAttribute('aria-hidden') === 'false') return true;
+    const rect = item.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const viewportCenter = window.innerHeight / 2;
+    return rect.top <= viewportCenter && rect.bottom >= viewportCenter;
 }
 
 function currentYouTubeShortsVideoId(): string {

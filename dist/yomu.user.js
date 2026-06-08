@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.37
+// @version      0.6.38
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TY8LOdoP3L29hJsTXRFsRz+gomIxdm2tt776ZaDrqss=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-7VrynwUB2lvFeWRCQiYfvRo7zuKMaxOYEYmt0Od0Pss=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-mvizPPtJCB2pjCm2Rx8oylCkVeJNdfoRuwZ6OuxFB/I=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-YaDnQP43vNVvfkvySt9pnYjmM32mOecZtdH0bB2bu4E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -13457,14 +13457,11 @@ ${entry.reading || ""}`;
     return Array.from(new Set(candidates)).slice(0, 3).join(", ");
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  const ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS = 1500;
   async function postAnkiJson(url, body, timeoutMs) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
     if (!canFetchAnkiConnect(url)) {
-      const delayedUserscriptRequest = needsHostedAnkiConnectSetupHint(url) ? await waitForUserscriptAnkiBridge(hostedAnkiBridgeWaitMs(timeoutMs)) : void 0;
-      if (delayedUserscriptRequest) return await postAnkiJsonWithUserscript(delayedUserscriptRequest, url, body, timeoutMs);
-      return Promise.reject(new Error("AnkiConnect needs the userscript request bridge on content pages."));
+      return Promise.reject(new Error("AnkiConnect URL must be HTTP or HTTPS."));
     }
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -13515,38 +13512,6 @@ ${entry.reading || ""}`;
       }
     });
   }
-  function waitForUserscriptAnkiBridge(timeoutMs) {
-    const immediate = getUserscriptHttpRequest();
-    if (immediate || typeof window === "undefined") return Promise.resolve(immediate);
-    return new Promise((resolve) => {
-      let settled = false;
-      const cleanupReadyListeners = [];
-      const settle = (request) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        cleanupReadyListeners.forEach((cleanup) => cleanup());
-        resolve(request);
-      };
-      const onReady = () => settle(getUserscriptHttpRequest());
-      if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady)) {
-        cleanupReadyListeners.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-      }
-      const documentTarget = userscriptBridgeDocumentTarget();
-      if (documentTarget) {
-        documentTarget.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
-        cleanupReadyListeners.push(() => documentTarget.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-      }
-      const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
-    });
-  }
-  function userscriptBridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function hostedAnkiBridgeWaitMs(timeoutMs) {
-    return Math.max(ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS, Math.max(0, timeoutMs));
-  }
   function canFetchAnkiConnect(url) {
     return canFetchAnkiConnectFrom(url, safeLocationHref$2());
   }
@@ -13554,20 +13519,7 @@ ${entry.reading || ""}`;
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    if (target.origin === current.origin) return true;
-    if (canLocalPreviewFetchAnkiConnect(current)) return true;
-    if (!isYomuHostedAppUrl(current.href)) return false;
-    if (current.origin === GITHUB_PAGES_ORIGIN) return !isLoopbackHostname(target.hostname);
-    return !isLoopbackHostname(target.hostname);
-  }
-  function needsHostedAnkiConnectSetupHint(url, currentHref = safeLocationHref$2()) {
-    if (getUserscriptHttpRequest()) return false;
-    const current = readAnkiUrl(currentHref);
-    if (!current || !isYomuHostedAppUrl(current.href)) return false;
-    if (canLocalPreviewFetchAnkiConnect(current)) return false;
-    const target = readAnkiUrl(url, current.href);
-    return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
+    return Boolean(target && isHttpUrl(target));
   }
   function readAnkiUrl(value, base) {
     try {
@@ -13578,20 +13530,6 @@ ${entry.reading || ""}`;
   }
   function isHttpUrl(url) {
     return url.protocol === "http:" || url.protocol === "https:";
-  }
-  function isLoopbackHostname(hostname) {
-    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
-  }
-  function canLocalPreviewFetchAnkiConnect(current) {
-    if (current.protocol !== "file:" && !isLocalPreviewHostname(current.hostname)) return false;
-    return isYomuHostedAppUrl(current.href) || isLocalPreviewYomuAppPath(current.pathname);
-  }
-  function isLocalPreviewHostname(hostname) {
-    return isLoopbackHostname(hostname) || hostname === "0.0.0.0";
-  }
-  function isLocalPreviewYomuAppPath(pathname) {
-    const path = pathname.replace(/\/index\.html$/, "/");
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || path.endsWith("/video-player/");
   }
   function safeLocationHref$2() {
     return typeof location === "undefined" ? "" : location.href;
@@ -17638,6 +17576,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     let moved = false;
     let activeInput = null;
     let activeHandle = null;
+    let activeCaptureTarget = null;
     const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
     const setLastPoint = (point) => {
       state = {
@@ -17675,12 +17614,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!dragging) return;
       const wasMoved = moved;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onFinish(state, wasMoved, handle);
     };
     function cleanupListeners() {
@@ -17695,12 +17636,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     function cancel() {
       if (!dragging) return;
       const handle = activeHandle;
+      const captureTarget = activeCaptureTarget;
       dragging = false;
       moved = false;
       activeInput = null;
       activeHandle = null;
+      activeCaptureTarget = null;
       cleanupListeners();
-      releasePointerCapture(handle, pointerId);
+      releasePointerCapture(captureTarget, pointerId);
       options.onCancel?.(state, handle);
     }
     function handlePointerMove(event) {
@@ -17747,7 +17690,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         consumeDragEvent(event);
         if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
         pointerId = event.pointerId;
-        setPointerCapture(handle, event.pointerId);
+        activeCaptureTarget = event.target instanceof Element ? event.target : handle;
+        setPointerCapture(activeCaptureTarget, event.pointerId);
         document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
         document.addEventListener("pointerup", handlePointerUp, true);
         document.addEventListener("pointercancel", handlePointerCancel, true);
@@ -31062,7 +31006,10 @@ ${glossaryKey}`;
     const gutter = actions.querySelector(".jpdb-reader-actions-gutter");
     if (gutter) gutter.hidden = !hasControls;
     const collapseButton = actions.querySelector('[data-action="mining-collapse"]');
-    if (collapseButton && hasControls) setMiningControlsExpanded2(collapseButton, false);
+    if (collapseButton) {
+      if (hasControls) setMiningControlsExpanded2(collapseButton, false);
+      else collapseButton.setAttribute("aria-expanded", "true");
+    }
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
   }
@@ -34497,7 +34444,7 @@ ${glossaryKey}`;
     }
   }
   function applyPageContextJapanesePreferences(enabled) {
-    const pageWindow = globalThis.unsafeWindow;
+    const pageWindow = sameRealmUnsafeWindow();
     if (pageWindow) {
       try {
         applyJapanesePreferencesInPage(pageWindow, enabled);
@@ -34506,6 +34453,10 @@ ${glossaryKey}`;
       }
     }
     injectPagePreferenceScript(enabled);
+  }
+  function sameRealmUnsafeWindow() {
+    const pageWindow = globalThis.unsafeWindow;
+    return pageWindow && pageWindow === window ? pageWindow : void 0;
   }
   function injectPagePreferenceScript(enabled, attempt = 0) {
     const parent = document.head || document.documentElement;
@@ -37794,41 +37745,93 @@ ${spelling}`);
   ]);
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   function refreshReaderWordContrast(root = document) {
-    readerWords(root).forEach(refreshReaderWordContrastForWord);
+    const words = readerWords(root);
+    const activeWords = [];
+    const activeBackgrounds = [];
+    const unknownBackgroundWords = [];
+    const neutralWords = [];
+    for (const word of words) {
+      if (word.closest(YOMU_SURFACE_SELECTOR)) {
+        neutralWords.push(word);
+        continue;
+      }
+      if (isNeutralReaderWord(word)) {
+        neutralWords.push(word);
+        continue;
+      }
+      if (word.matches(":hover, :focus")) {
+        scheduleHoverSettledContrastRefresh(word);
+        if (word.dataset.ankiState && hoverAnkiContrastIsStillReadable(word)) continue;
+      }
+      const background = pageBackgroundFor(word);
+      if (!background) {
+        unknownBackgroundWords.push(word);
+        continue;
+      }
+      activeWords.push(word);
+      activeBackgrounds.push(background);
+    }
+    const savedVars = activeWords.map((word) => {
+      const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
+        name,
+        value: word.style.getPropertyValue(name),
+        priority: word.style.getPropertyPriority(name)
+      }));
+      RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+      return saved;
+    });
+    const measurements = activeWords.map((word) => {
+      const style = getComputedStyle(word);
+      const parentStyle = getComputedStyle(word.parentElement ?? word);
+      const furi = word.querySelector("rt.jpdb-reader-furi");
+      const furiStyle = furi ? getComputedStyle(furi) : null;
+      return {
+        bgColor: style.backgroundColor,
+        color: style.color,
+        decoration: style.textDecorationColor,
+        parentColor: parentStyle.color,
+        furiColor: furiStyle?.color
+      };
+    });
+    neutralWords.forEach((word) => clearContrastVars(word));
+    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+    activeWords.forEach((word, i) => {
+      savedVars[i].forEach(({ name, value, priority: priority2 }) => {
+        if (value) word.style.setProperty(name, value, priority2);
+      });
+      const background = activeBackgrounds[i];
+      const m = measurements[i];
+      word.style.setProperty("--jpdb-reader-page-bg", background.css);
+      word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+      word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+      const colorRgba = cssColorToRgba(m.bgColor);
+      const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
+      const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+      const paintBackgroundHex = rgbaToHex(rgba);
+      let accessibleHighlightColor = null;
+      if (hasPaint) {
+        accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
+        word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
+      } else {
+        word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+      }
+      const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
+      const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
+      const sourceText = cssColorToHex(m.color, accessibleRgba);
+      const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+      const decorationColorRgba = cssColorToRgba(m.decoration);
+      const decoration = decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
+      const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+      word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
+      word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
+      if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+      else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
+      if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+      else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+    });
   }
   function refreshReaderWordContrastForWord(word) {
-    if (word.closest(YOMU_SURFACE_SELECTOR)) {
-      clearContrastVars(word);
-      return;
-    }
-    if (isNeutralReaderWord(word)) {
-      clearContrastVars(word);
-      return;
-    }
-    if (word.matches(":hover, :focus")) {
-      scheduleHoverSettledContrastRefresh(word);
-      if (word.dataset.ankiState && hoverAnkiContrastIsStillReadable(word)) return;
-    }
-    const background = pageBackgroundFor(word);
-    if (!background) {
-      applyUnknownBackgroundFallback(word);
-      return;
-    }
-    word.style.setProperty("--jpdb-reader-page-bg", background.css);
-    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
-    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-    const sourcePaintBackground = renderedWordBackground(word, background);
-    const paintBackground = accessibleWordBackground(word, sourcePaintBackground, background);
-    const sourceText = measuredWordTextColor(word, paintBackground.rgba);
-    const nativeText = cssColorToHex(parentTextColor(word), paintBackground.rgba) ?? bestTextColor(paintBackground.hex);
-    const decoration = measuredDecorationColor(word, paintBackground.rgba);
-    const furiText = measuredFuriTextColor(word, paintBackground.rgba);
-    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, paintBackground.hex, TEXT_CONTRAST));
-    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(sourceText ?? nativeText, paintBackground.hex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, paintBackground.hex, TEXT_CONTRAST));
-    else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
-    if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, paintBackground.hex, DECORATION_CONTRAST));
-    else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+    refreshReaderWordContrast(word.parentElement ?? word);
   }
   function isNeutralReaderWord(word) {
     if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
@@ -37884,34 +37887,6 @@ ${spelling}`);
       const hex = rgbaToHex(rgba);
       return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba, hasPaint };
     });
-  }
-  function accessibleWordBackground(word, paintBackground, pageBackground) {
-    if (!paintBackground.hasPaint) {
-      word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-      return paintBackground;
-    }
-    const color = readableHighlightBackground(paintBackground.hex, pageBackground.hex);
-    word.style.setProperty("--jpdb-reader-word-accessible-highlight", color);
-    const rgba = cssColorToRgba(color) ?? paintBackground.rgba;
-    return { css: color, hex: rgbaToHex(rgba), rgba };
-  }
-  function measuredWordTextColor(word, backdrop) {
-    return withContrastVarsDisabled(word, () => cssColorToHex(getComputedStyle(word).color, backdrop));
-  }
-  function measuredDecorationColor(word, backdrop) {
-    return withContrastVarsDisabled(word, () => {
-      const color = cssColorToRgba(getComputedStyle(word).textDecorationColor);
-      if (!color || color.alpha <= 0) return null;
-      return rgbaToHex(color.alpha < 1 ? blendRgba(color, backdrop) : color);
-    });
-  }
-  function measuredFuriTextColor(word, backdrop) {
-    const furi = word.querySelector("rt.jpdb-reader-furi");
-    if (!furi) return null;
-    return withContrastVarsDisabled(word, () => cssColorToHex(getComputedStyle(furi).color, backdrop));
-  }
-  function parentTextColor(word) {
-    return getComputedStyle(word.parentElement ?? word).color;
   }
   function bestTextColor(background) {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
@@ -38168,7 +38143,6 @@ ${spelling}`);
       word.classList.add(`anki-${ankiLookup.state}`);
       word.dataset.ankiState = ankiLookup.state;
       word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
-      refreshReaderWordContrastForWord(word);
       return;
     }
     clearRenderedWordAnkiState(word);
@@ -38176,7 +38150,6 @@ ${spelling}`);
     word.dataset.ankiState = ankiLookup.state;
     word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
     word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
-    refreshReaderWordContrastForWord(word);
   }
   function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
     const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();
@@ -41256,6 +41229,10 @@ ${spelling}`);
       return Boolean(hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings));
     }
     shouldSuppressRenderedKanaFragmentFallback(word, card, context) {
+      if (context.trigger === "modal") return false;
+      const spelling = card.spelling.trim();
+      const isSingleKana = /^[\u3040-\u30ffー]$/u.test(spelling);
+      if (!isSingleKana) return false;
       return Boolean(publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup())?.terms.length);
     }
     async resolvePublicJpdbRenderedWordCandidate(terms) {
@@ -41311,7 +41288,7 @@ ${spelling}`);
       const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset).filter((span) => span.end - span.start > lookup.surfaceLength).map((span) => span.term);
       if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
       const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
-      if (!resolved) return true;
+      if (!resolved) return false;
       await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
       return true;
     }
@@ -42847,6 +42824,7 @@ ${spelling}`);
         lookupByWordKey.forEach((lookup, key) => {
           this.renderedWordsForLookupKey(key, targetRoots).forEach((word) => applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options));
         });
+        targetRoots.forEach((root) => refreshReaderWordContrast(root));
       });
     }
     clearRenderedAnkiLookupStateForKeys(lookupByWordKey, roots) {
@@ -42931,30 +42909,38 @@ ${spelling}`);
       if (!pitchClass) return;
       const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
       this.pauseAutoScanObserver(() => {
+        const changedRoots = /* @__PURE__ */ new Set();
         document.querySelectorAll(selector).forEach((word) => {
           setRenderedWordPitchClass(word, pitchClass);
-          refreshReaderWordContrastForWord(word);
+          changedRoots.add(word.parentElement ?? word);
         });
+        changedRoots.forEach((root) => refreshReaderWordContrast(root));
       });
     }
     applyPublicVocabularyToRenderedWords(fallback, card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown") {
       const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
       this.pauseAutoScanObserver(() => {
+        const changedRoots = /* @__PURE__ */ new Set();
         document.querySelectorAll(selector).forEach((word) => {
           this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+          changedRoots.add(word.parentElement ?? word);
         });
+        changedRoots.forEach((root) => refreshReaderWordContrast(root));
       });
     }
     applyCachedPublicVocabularyToRenderedFallbackWords(root) {
       if (!this.resolvedFallbackVocabularyCache.size) return;
       this.pauseAutoScanObserver(() => {
+        const changedRoots = /* @__PURE__ */ new Set();
         root.querySelectorAll(".jpdb-reader-word[data-vid][data-sid][data-expression]").forEach((word) => {
           const key = renderedFallbackVocabularyCacheKey(word);
           const card = key ? this.resolvedFallbackVocabularyCache.get(key) : void 0;
           if (!card) return;
           const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
           this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+          changedRoots.add(word.parentElement ?? word);
         });
+        changedRoots.forEach((r) => refreshReaderWordContrast(r));
       });
     }
     scheduleCachedPublicVocabularyHydration(root) {
@@ -42973,7 +42959,6 @@ ${spelling}`);
       setRenderedWordCardIdentity(word, card);
       this.registerRenderedWord(word);
       applyPublicVocabularyFurigana(word, card, this.settings);
-      refreshReaderWordContrastForWord(word);
     }
     async handleCardAction(button2, card, sentence) {
       if (button2.disabled) return;

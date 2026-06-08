@@ -111,9 +111,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     );
 
     const setupStroke = (point?: DoodlePoint) => {
-        const style = getComputedStyle(stage);
-        context.strokeStyle = style.getPropertyValue('--jpdb-reader-doodle-ink').trim()
-            || DOODLE_COLOR_TOKENS.ink;
+        context.strokeStyle = resolvedDoodleInk(stage);
         context.lineCap = 'round';
         context.lineJoin = 'round';
         context.lineWidth = strokeWidth(point);
@@ -342,6 +340,11 @@ function releaseDoodlePointerCapture(canvas: HTMLCanvasElement, activePointerId:
 function clearSelection(): void {
     const selection = document.getSelection?.();
     if (selection && !selection.isCollapsed) selection.removeAllRanges();
+}
+
+function resolvedDoodleInk(stage: HTMLElement): string {
+    const ink = getComputedStyle(stage).getPropertyValue('--jpdb-reader-doodle-ink').trim();
+    return ink && !ink.startsWith('var(') ? ink : DOODLE_COLOR_TOKENS.ink;
 }
 
 function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {

@@ -7,7 +7,7 @@ import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
 
 export type SettingsStatusTone = 'pending' | 'success' | 'error';
-export type SettingsStatusAction = 'anki-unreachable' | 'anki-hosted-bridge';
+export type SettingsStatusAction = 'anki-unreachable';
 
 export interface SettingsStatusLine {
     message: string;
@@ -91,12 +91,6 @@ function ankiStatusActions(action: SettingsStatusAction | undefined, language: I
             { label: uiText(language, 'ankiStatusOpenDesktop') },
             { label: uiText(language, 'ankiStatusInstallAddon'), href: ANKI_CONNECT_ADDON_URL },
             { label: uiText(language, 'ankiStatusMobileDocs'), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language, 'ankiStatusUseDesktopUrl') },
-        ];
-    }
-    if (action === 'anki-hosted-bridge') {
-        return [
-            { label: uiText(language, 'ankiStatusEnableUserscript') },
-            { label: uiText(language, 'ankiStatusRefreshAndCheck') },
         ];
     }
     return [];

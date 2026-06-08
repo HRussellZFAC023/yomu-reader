@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.38] - 2026-06-08
+
+### Fixed
+
+- Removed the hosted userscript-bridge requirement for AnkiConnect so hosted study pages can use local AnkiConnect directly when CORS is configured.
+- Kept the optional userscript bridge as a preferred transport when present, without showing bridge-only setup guidance.
+- Added expanded/collapsed state to the new-tab mining target drawer handle so review controls expose the same state as the popover drawer.
+
 ## [0.6.37] - 2026-06-08
 
 ### Fixed

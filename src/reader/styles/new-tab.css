@@ -1640,7 +1640,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-grade-target-summary:hover .jpdb-reader-mining-collapse::before,
-.jpdb-reader-newtab-grade-target-summary:focus-visible .jpdb-reader-mining-collapse::before {
+.jpdb-reader-newtab-grade-target-summary:focus-visible .jpdb-reader-mining-collapse::before,
+.jpdb-reader-newtab-grade-target-context[open]
+  .jpdb-reader-newtab-grade-target-summary
+  .jpdb-reader-mining-collapse::before,
+.jpdb-reader-newtab-grade-target-summary
+  .jpdb-reader-mining-collapse[data-expanded="true"]::before {
   background: var(--jpdb-reader-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
 }

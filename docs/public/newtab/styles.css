@@ -1938,7 +1938,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-grade-target-summary:hover .jpdb-reader-mining-collapse::before,
-.jpdb-reader-newtab-grade-target-summary:focus-visible .jpdb-reader-mining-collapse::before {
+.jpdb-reader-newtab-grade-target-summary:focus-visible .jpdb-reader-mining-collapse::before,
+.jpdb-reader-newtab-grade-target-context[open]
+  .jpdb-reader-newtab-grade-target-summary
+  .jpdb-reader-mining-collapse::before,
+.jpdb-reader-newtab-grade-target-summary
+  .jpdb-reader-mining-collapse[data-expanded="true"]::before {
   background: var(--jpdb-reader-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
 }
@@ -6330,7 +6335,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   align-items: baseline;
   min-width: 0;
   color: inherit !important;
-  text-decoration: none;
+  text-decoration: none !important;
 }
 .jpdb-reader-jpdb-compound:hover,
 .jpdb-reader-jpdb-compound:focus-visible,
@@ -9542,6 +9547,9 @@ html.jpdb-reader-doodle-active * {
   cursor: pointer;
   padding: 0;
   pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   flex: none;
 }
@@ -10387,6 +10395,19 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: normal;
   word-break: keep-all;
 }
+.jpdb-reader-settings .grid:has(.jpdb-reader-select-options-meta) {
+  row-gap: 36px;
+}
+.jpdb-reader-settings label:not(.inline):has(> .jpdb-reader-select-options-meta) {
+  position: relative;
+}
+.jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 4px;
+}
 .jpdb-reader-font-family-control {
   display: grid;
   gap: 8px;
@@ -10536,6 +10557,10 @@ html.jpdb-reader-doodle-active * {
   white-space: nowrap;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+.jpdb-reader-settings input.jpdb-reader-masked-input {
+  -webkit-text-security: asterisk;
+  text-security: asterisk;
 }
 .jpdb-reader-settings input[type="color"] {
   padding: 3px;

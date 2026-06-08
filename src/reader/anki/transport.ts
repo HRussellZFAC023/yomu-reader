@@ -1,25 +1,16 @@
-import { isYomuHostedAppUrl } from '../app/pages';
-import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import { getUserscriptHttpRequest } from '../userscript/index';
-import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 
 interface UserscriptHttpResponse {
     status: number;
     response: unknown;
 }
 
-const ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS = 1_500;
-
 export async function postAnkiJson<T>(url: string, body: string, timeoutMs: number): Promise<T> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript<T>(userscriptRequest, url, body, timeoutMs);
 
     if (!canFetchAnkiConnect(url)) {
-        const delayedUserscriptRequest = needsHostedAnkiConnectSetupHint(url)
-            ? await waitForUserscriptAnkiBridge(hostedAnkiBridgeWaitMs(timeoutMs))
-            : undefined;
-        if (delayedUserscriptRequest) return await postAnkiJsonWithUserscript<T>(delayedUserscriptRequest, url, body, timeoutMs);
-        return Promise.reject(new Error('AnkiConnect needs the userscript request bridge on content pages.'));
+        return Promise.reject(new Error('AnkiConnect URL must be HTTP or HTTPS.'));
     }
 
     const controller = new AbortController();
@@ -80,41 +71,6 @@ function postAnkiJsonWithUserscript<T>(
     });
 }
 
-function waitForUserscriptAnkiBridge(timeoutMs: number): Promise<UserscriptHttpRequest | undefined> {
-    const immediate = getUserscriptHttpRequest();
-    if (immediate || typeof window === 'undefined') return Promise.resolve(immediate);
-    return new Promise(resolve => {
-        let settled = false;
-        const cleanupReadyListeners: Array<() => void> = [];
-        const settle = (request?: UserscriptHttpRequest) => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timeoutId);
-            cleanupReadyListeners.forEach(cleanup => cleanup());
-            resolve(request);
-        };
-        const onReady = () => settle(getUserscriptHttpRequest());
-        if (addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady)) {
-            cleanupReadyListeners.push(() => removeWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-        }
-        const documentTarget = userscriptBridgeDocumentTarget();
-        if (documentTarget) {
-            documentTarget.addEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady);
-            cleanupReadyListeners.push(() => documentTarget.removeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, onReady));
-        }
-        const timeoutId = window.setTimeout(() => settle(getUserscriptHttpRequest()), timeoutMs);
-    });
-}
-
-function userscriptBridgeDocumentTarget(): HTMLElement | undefined {
-    if (typeof document === 'undefined') return undefined;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : undefined;
-}
-
-function hostedAnkiBridgeWaitMs(timeoutMs: number): number {
-    return Math.max(ANKI_USERSCRIPT_BRIDGE_MIN_WAIT_MS, Math.max(0, timeoutMs));
-}
-
 function canFetchAnkiConnect(url: string): boolean {
     return canFetchAnkiConnectFrom(url, safeLocationHref());
 }
@@ -123,21 +79,7 @@ export function canFetchAnkiConnectFrom(url: string, currentHref: string): boole
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    if (target.origin === current.origin) return true;
-    if (canLocalPreviewFetchAnkiConnect(current)) return true;
-    if (!isYomuHostedAppUrl(current.href)) return false;
-    if (current.origin === GITHUB_PAGES_ORIGIN) return !isLoopbackHostname(target.hostname);
-    return !isLoopbackHostname(target.hostname);
-}
-
-export function needsHostedAnkiConnectSetupHint(url: string, currentHref = safeLocationHref()): boolean {
-    if (getUserscriptHttpRequest()) return false;
-    const current = readAnkiUrl(currentHref);
-    if (!current || !isYomuHostedAppUrl(current.href)) return false;
-    if (canLocalPreviewFetchAnkiConnect(current)) return false;
-    const target = readAnkiUrl(url, current.href);
-    return Boolean(target && target.origin !== current.origin && isHttpUrl(target) && isLoopbackHostname(target.hostname));
+    return Boolean(target && isHttpUrl(target));
 }
 
 function readAnkiUrl(value: string, base?: string): URL | null {
@@ -150,27 +92,6 @@ function readAnkiUrl(value: string, base?: string): URL | null {
 
 function isHttpUrl(url: URL): boolean {
     return url.protocol === 'http:' || url.protocol === 'https:';
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname);
-}
-
-function canLocalPreviewFetchAnkiConnect(current: URL): boolean {
-    if (current.protocol !== 'file:' && !isLocalPreviewHostname(current.hostname)) return false;
-    return isYomuHostedAppUrl(current.href) || isLocalPreviewYomuAppPath(current.pathname);
-}
-
-function isLocalPreviewHostname(hostname: string): boolean {
-    return isLoopbackHostname(hostname) || hostname === '0.0.0.0';
-}
-
-function isLocalPreviewYomuAppPath(pathname: string): boolean {
-    const path = pathname.replace(/\/index\.html$/, '/');
-    return path === '/'
-        || path.startsWith(`/${APP_REPOSITORY_NAME}/`)
-        || path.endsWith('/newtab/')
-        || path.endsWith('/video-player/');
 }
 
 function safeLocationHref(): string {

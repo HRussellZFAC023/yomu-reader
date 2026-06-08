@@ -11,7 +11,6 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 import { normalizeOcrRenderedText } from '../ocr/controller';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
-import { refreshReaderWordContrastForWord } from '../dom/word-contrast';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from '../dom/rendered-word-state';
 import type { AnkiLookupResult } from '../anki/index';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
@@ -132,7 +131,6 @@ export function applyAnkiLookupToRenderedWord(
         word.classList.add(`anki-${ankiLookup.state}`);
         word.dataset.ankiState = ankiLookup.state;
         word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
-        refreshReaderWordContrastForWord(word);
         return;
     }
     clearRenderedWordAnkiState(word);
@@ -140,7 +138,6 @@ export function applyAnkiLookupToRenderedWord(
     word.dataset.ankiState = ankiLookup.state;
     word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
     word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
-    refreshReaderWordContrastForWord(word);
 }
 
 function shouldApplyPublicVocabularyFurigana(
