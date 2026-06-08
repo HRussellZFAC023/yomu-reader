@@ -165,6 +165,10 @@
   font: 700 12px/1.4 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings-scroll {
+  /* Grow to fill the dialog/drawer so the footer stays pinned to the bottom.
+     Without flex-grow, WebKit (iPad Safari) leaves the scroll at its pre-resize
+     height after a rotation that grows the viewport, detaching the footer. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;

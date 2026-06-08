@@ -715,7 +715,7 @@ describe('YouTube immersion filter', () => {
         expect(shelf.parentElement?.tagName.toLowerCase()).toBe('main');
         expect(shelf.textContent).toContain('Start your Japanese YouTube feed');
         expect(shelf.textContent).toContain('100 curated channels');
-        expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(5);
+        expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(6);
         expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
         expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toContain('Subscribe here');
 
@@ -953,7 +953,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('filters non-current Shorts watch items while leaving the snap item visible', async () => {
+    it('leaves Shorts watch feed items visible because YouTube virtualizes the active player', async () => {
         const { filter } = await startYoutubeFilter({
             location: {
                 href: 'https://www.youtube.com/shorts/abc123',
@@ -979,19 +979,15 @@ describe('YouTube immersion filter', () => {
         });
 
         expect(card('shorts-feed').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(card('shorts-next-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('shorts-next-en').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('shorts-next-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(collectYouTubeVideoCards(document).map(element => element.dataset.case)).toEqual([
-            'shorts-feed',
-            'shorts-next-en',
-            'shorts-next-jp',
-        ]);
+        expect(collectYouTubeVideoCards(document)).toEqual([]);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();
     });
 
-    it('filters mobile Shorts watch lockups after the current item', async () => {
+    it('leaves mobile Shorts watch lockups visible', async () => {
         const { filter } = await startYoutubeFilter({
             location: {
                 href: 'https://m.youtube.com/shorts/mobileShort',
@@ -1021,13 +1017,9 @@ describe('YouTube immersion filter', () => {
         });
 
         expect(card('mobile-shorts-feed').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(card('mobile-shorts-next-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('mobile-shorts-next-en').classList.contains('jpdb-youtube-filtered')).toBe(false);
         expect(card('mobile-shorts-next-jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
-        expect(collectYouTubeVideoCards(document).map(element => element.dataset.case)).toEqual([
-            'mobile-shorts-feed',
-            'mobile-shorts-next-en',
-            'mobile-shorts-next-jp',
-        ]);
+        expect(collectYouTubeVideoCards(document)).toEqual([]);
         expect(document.querySelector('.jpdb-youtube-filter-bar')).toBeNull();
 
         filter.destroy();

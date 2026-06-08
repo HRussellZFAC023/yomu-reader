@@ -2008,8 +2008,19 @@ export class ReaderApp {
 
     private shouldKeepModalPopoverForOutsidePointer(target: Node | null): boolean {
         const element = target instanceof Element ? target : target?.parentElement;
+        // A lookup stacked over the settings dialog should collapse back to settings
+        // when the user taps the settings panel behind it. The settings form carries
+        // data-jpdb-reader-root, so it would otherwise match the owned-surface
+        // keep-open selector and trap the stacked lookup open (notably on touch).
+        if (this.isPointerOnStackedSettingsDialog(element)) return false;
         return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR)
             || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+    }
+
+    private isPointerOnStackedSettingsDialog(element: Element | null | undefined): boolean {
+        if (!this.shouldDismissStackedLookupOnly()) return false;
+        const form = this.stackedSettingsDialog?.form;
+        return Boolean(form && element && form.contains(element));
     }
 
     private dismissHoverPopoverForOutsidePointer(event: PointerEvent): void {

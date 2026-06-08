@@ -815,7 +815,7 @@
 .jpdb-reader-word rp {
   display: none;
 }
-.jpdb-reader-word rt.jpdb-reader-furi {
+.jpdb-reader-word rt {
   position: static;
   left: auto;
   bottom: auto;
@@ -827,6 +827,10 @@
   ruby-align: center;
   line-height: 1;
   text-align: center;
+}
+.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .jpdb-reader-hide-known
   .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target)
@@ -6031,6 +6035,10 @@ html.jpdb-reader-doodle-active * {
   font: 700 12px/1.4 var(--jpdb-reader-font);
 }
 .jpdb-reader-settings-scroll {
+  /* Grow to fill the dialog/drawer so the footer stays pinned to the bottom.
+     Without flex-grow, WebKit (iPad Safari) leaves the scroll at its pre-resize
+     height after a rotation that grows the viewport, detaching the footer. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;

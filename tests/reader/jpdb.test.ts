@@ -3215,7 +3215,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby;');
-        expect(normalizedCss).toContain('.jpdb-reader-word rt.jpdb-reader-furi {');
+        expect(normalizedCss).toContain('.jpdb-reader-word rt {');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).toContain('display: ruby-text;');
         expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jiten-young, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-due, .jiten-never-forget, .jiten-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');

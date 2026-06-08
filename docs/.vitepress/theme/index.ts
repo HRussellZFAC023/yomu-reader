@@ -863,7 +863,11 @@ function isTextNode(node: ChildNode): node is Text {
 }
 
 function isHostedReaderSurfaceElement(node: ChildNode): node is HTMLElement {
-    return node instanceof HTMLElement && !isHostedReaderAnnotationElement(node);
+    return node instanceof HTMLElement && !isHostedReaderSurfaceIgnoredElement(node);
+}
+
+function isHostedReaderSurfaceIgnoredElement(element: HTMLElement): boolean {
+    return element.matches('rt, rp, .jpdb-reader-furigana, .jpdb-reader-furi, .jpdb-ocr-furi, [data-jpdb-reader-surface-ignore="true"]');
 }
 
 function hostedReaderChildrenSurfaceText(element: HTMLElement): string {

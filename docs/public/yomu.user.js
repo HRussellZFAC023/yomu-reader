@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.36
+// @version      0.6.37
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TY8LOdoP3L29hJsTXRFsRz+gomIxdm2tt776ZaDrqss=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nKHcojfTZTADpxkG0dhG/V2XTc2cNI/0u/odxWJ+WEw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-7VrynwUB2lvFeWRCQiYfvRo7zuKMaxOYEYmt0Od0Pss=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -32224,6 +32224,31 @@ ${glossaryKey}`;
     "summary",
     '[role="button"]'
   ].join(",");
+  const GOOGLE_SEARCH_ROOTS = [
+    "#search",
+    "#rso",
+    ".MjjYud",
+    ".g",
+    ".VwiC3b",
+    ".LC20lb",
+    "[data-sokoban-container]"
+  ].join(",");
+  const GOOGLE_SEARCH_EXCLUDE = [
+    COMMON_EXCLUDE,
+    "script",
+    "style",
+    "svg",
+    "canvas",
+    "g-img",
+    "img",
+    "form",
+    "input",
+    "textarea",
+    "select",
+    "button",
+    '[role="button"]',
+    '[aria-hidden="true"]'
+  ].join(",");
   const SITE_PARSER_PROFILES = [
     {
       id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -32253,6 +32278,18 @@ ${glossaryKey}`;
       includeUiChrome: true,
       includeFormChrome: true,
       matches: (url) => isYomuHostedVideoPlayerPage(url.href)
+    },
+    {
+      id: "google-search-parser",
+      name: "Google Search",
+      description: "Google result titles and snippets without inline ruby.",
+      roots: [GOOGLE_SEARCH_ROOTS],
+      exclude: GOOGLE_SEARCH_EXCLUDE,
+      allowUiText: true,
+      minLength: 1,
+      includeUiChrome: true,
+      plainScan: true,
+      matches: (url) => /(^|\.)google\./i.test(url.hostname) && url.pathname === "/search"
     },
     {
       id: JPDB_PARSER_ID,
@@ -32706,7 +32743,8 @@ ${glossaryKey}`;
       parserId: profile.id,
       passiveInteraction: true
     };
-    return shouldActivateJpdbPageTarget(profile, options) ? activeJpdbPageTarget(profiledTarget) : profiledTarget;
+    const normalizedTarget = profile.plainScan ? plainScanTarget(profiledTarget) : profiledTarget;
+    return shouldActivateJpdbPageTarget(profile, options) ? activeJpdbPageTarget(profiledTarget) : normalizedTarget;
   }
   function shouldActivateJpdbPageTarget(profile, options) {
     return profile.id === JPDB_PARSER_ID && !options.passiveInteraction;
@@ -32718,6 +32756,16 @@ ${glossaryKey}`;
       fragments: target.fragments.map((fragment) => ({
         ...fragment,
         passiveInteraction: false
+      }))
+    };
+  }
+  function plainScanTarget(target) {
+    return {
+      ...target,
+      layoutSensitive: true,
+      fragments: target.fragments.map((fragment) => ({
+        ...fragment,
+        layoutSensitive: true
       }))
     };
   }
@@ -40376,7 +40424,13 @@ ${spelling}`);
     }
     shouldKeepModalPopoverForOutsidePointer(target) {
       const element2 = target instanceof Element ? target : target?.parentElement;
+      if (this.isPointerOnStackedSettingsDialog(element2)) return false;
       return Boolean(element2?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element2?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+    }
+    isPointerOnStackedSettingsDialog(element2) {
+      if (!this.shouldDismissStackedLookupOnly()) return false;
+      const form = this.stackedSettingsDialog?.form;
+      return Boolean(form && element2 && form.contains(element2));
     }
     dismissHoverPopoverForOutsidePointer(event) {
       if (this.isDestroyed || this.activePopoverMode !== "hover") return;
