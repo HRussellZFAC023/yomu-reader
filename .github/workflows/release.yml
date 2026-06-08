@@ -41,6 +41,12 @@ jobs:
       - name: Install Yomu dependencies
         run: npm ci
       - run: npm run check
+      - name: Build split userscript release artifact
+        run: |
+          npm run build:userscript
+          # Preserve the split userscript: build:extension below empties dist/
+          # (vite emptyOutDir), so stash it and restore after the extension build.
+          cp dist/yomu.user.js "${RUNNER_TEMP:-/tmp}/yomu.user.js"
       - name: Build extension release packages
         env:
           USERSCRIPT_COMPILER_CLI: UserScript-Compiler/src/cli.mjs
@@ -50,7 +56,7 @@ jobs:
           cd dist/extension/release/safari
           zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension
       - name: Restore split userscript release artifact
-        run: npm run build:userscript
+        run: cp "${RUNNER_TEMP:-/tmp}/yomu.user.js" dist/yomu.user.js
       - name: Prepare release notes
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
