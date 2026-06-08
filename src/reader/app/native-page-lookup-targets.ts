@@ -37,6 +37,30 @@ const NATIVE_PAGE_LOOKUP_BLOCK_SELECTOR = [
     '[class*="icon-" i]',
 ].join(',');
 
+const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
+const READER_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-reader-popover';
+
+export function nativeClickableAncestor(target: EventTarget | null): HTMLElement | null {
+    const link = navigableLinkAncestor(target);
+    if (link) return link;
+    if (target && isJpdbHost() && isActiveNativePageReaderWord(target)) return null;
+    const clickable = closestTarget<HTMLElement>(target, NATIVE_CLICKABLE_SELECTOR);
+    if (!clickable || clickable.closest(READER_SURFACE_SELECTOR)) return null;
+    if (clickable instanceof HTMLAnchorElement && !hasNavigableHref(clickable)) return null;
+    return clickable;
+}
+
+function navigableLinkAncestor(target: EventTarget | null): HTMLAnchorElement | null {
+    const anchor = closestTarget<HTMLAnchorElement>(target, 'a[href]');
+    if (!anchor || anchor.closest(READER_SURFACE_SELECTOR) || !hasNavigableHref(anchor)) return null;
+    return anchor;
+}
+
+function hasNavigableHref(anchor: HTMLAnchorElement): boolean {
+    const href = anchor.getAttribute('href')?.trim() ?? '';
+    return Boolean(href) && href !== '#' && !href.toLowerCase().startsWith('javascript:');
+}
+
 export function shouldIgnoreDocumentClickTarget(target: EventTarget | null): boolean {
     return Boolean(closestTarget(target, READER_DOCUMENT_CLICK_IGNORE_SELECTOR))
         || isNativePageLookupBlocked(target);

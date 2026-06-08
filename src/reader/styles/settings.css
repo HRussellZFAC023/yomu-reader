@@ -404,6 +404,20 @@
   -webkit-text-security: asterisk;
   text-security: asterisk;
 }
+.jpdb-reader-autofill-trap {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.jpdb-reader-autofill-trap input {
+  width: 1px;
+  height: 1px;
+}
 .jpdb-reader-settings input[type="color"] {
   padding: 3px;
   cursor: pointer;

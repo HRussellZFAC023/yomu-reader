@@ -184,6 +184,21 @@ function namedSettingsControl<T extends HTMLInputElement | HTMLSelectElement | H
         : null;
 }
 
+function suppressCredentialAutofill(form: HTMLFormElement): void {
+    const guarded = form.querySelectorAll<HTMLInputElement>(
+        'input.jpdb-reader-masked-input, input[data-settings-search]',
+    );
+    guarded.forEach(input => {
+        if (input.dataset.autofillGuarded === 'true') return;
+        input.dataset.autofillGuarded = 'true';
+        input.readOnly = true;
+        const enable = () => { input.readOnly = false; };
+        input.addEventListener('focus', enable);
+        input.addEventListener('pointerdown', enable);
+        input.addEventListener('keydown', enable);
+    });
+}
+
 function ankiScanFormControls(form: HTMLFormElement): AnkiScanFormControls {
     return {
         deck: namedSettingsControl<AnkiScanSelectableInput>(form, 'ankiDeck'),
@@ -778,6 +793,7 @@ export class SettingsDialogController {
     }
 
     private bindEditorControls(form: HTMLFormElement): void {
+        suppressCredentialAutofill(form);
         syncBrowserTtsVoiceOptions(form);
         if ('speechSynthesis' in window) {
             window.speechSynthesis.addEventListener('voiceschanged', () => syncBrowserTtsVoiceOptions(form), { once: true });

@@ -39,10 +39,6 @@ interface PageBackground {
     rgba: RgbaColor;
 }
 
-interface WordBackground extends PageBackground {
-    hasPaint: boolean;
-}
-
 export function refreshReaderWordContrast(root: ParentNode = document): void {
     const words = readerWords(root);
     const activeWords: HTMLElement[] = [];
@@ -51,6 +47,12 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
     const neutralWords: HTMLElement[] = [];
 
     for (const word of words) {
+        const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue('--jpdb-reader-word-accessible-color'));
+        const hasInlineTextColor = Boolean(word.style.getPropertyValue('color'));
+        if (word.dataset.ankiPreserveContrast === 'true' && hasAnkiAccessibleColor && !hasInlineTextColor) {
+            delete word.dataset.ankiPreserveContrast;
+            continue;
+        }
         if (word.closest(YOMU_SURFACE_SELECTOR)) {
             neutralWords.push(word);
             continue;
@@ -59,12 +61,19 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             neutralWords.push(word);
             continue;
         }
-        if (word.dataset.ankiState && word.style.getPropertyValue('--jpdb-reader-word-accessible-color')) continue;
-        if (word.matches(':hover, :focus')) {
+        const isHovered = word.matches(':hover, :focus');
+        if (hasAnkiAccessibleColor) {
+            if (isHovered && !hasInlineTextColor) {
+                scheduleHoverSettledContrastRefresh(word);
+                continue;
+            }
+        }
+        if (isHovered) {
             scheduleHoverSettledContrastRefresh(word);
         }
         const background = pageBackgroundFor(word);
         if (!background) {
+            if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
             unknownBackgroundWords.push(word);
             continue;
         }
@@ -156,16 +165,6 @@ function isNeutralReaderWord(word: HTMLElement): boolean {
     return !Array.from(word.classList).some(className => COLORED_READER_WORD_CLASSES.has(className));
 }
 
-function hoverAnkiContrastIsStillReadable(word: HTMLElement): boolean {
-    const current = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-    if (!current) return false;
-    const background = pageBackgroundFor(word);
-    if (!background) return false;
-    const paintBackground = renderedWordBackground(word, background);
-    const color = cssColorToHex(current, paintBackground.rgba);
-    return Boolean(color && contrastRatio(color, paintBackground.hex) >= TEXT_CONTRAST);
-}
-
 function scheduleHoverSettledContrastRefresh(word: HTMLElement): void {
     if (pendingHoverContrastRefresh.has(word)) return;
     pendingHoverContrastRefresh.add(word);
@@ -203,16 +202,6 @@ function pageBackgroundFor(word: HTMLElement): PageBackground | null {
     return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
 }
 
-function renderedWordBackground(word: HTMLElement, pageBackground: PageBackground): WordBackground {
-    return withContrastVarsDisabled(word, () => {
-        const color = cssColorToRgba(getComputedStyle(word).backgroundColor);
-        const hasPaint = Boolean(color && color.alpha > 0);
-        const rgba = color && color.alpha > 0 ? blendRgba(color, pageBackground.rgba) : pageBackground.rgba;
-        const hex = rgbaToHex(rgba);
-        return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba, hasPaint };
-    });
-}
-
 function bestTextColor(background: string): string {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background)
         ? CORE_COLOR_TOKENS.black
@@ -238,20 +227,4 @@ function applyUnknownBackgroundFallback(word: HTMLElement): void {
 
 function clearContrastVars(word: HTMLElement): void {
     RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
-}
-
-function withContrastVarsDisabled<T>(word: HTMLElement, read: () => T): T {
-    const saved = RENDERED_WORD_CONTRAST_VARS.map(name => ({
-        name,
-        value: word.style.getPropertyValue(name),
-        priority: word.style.getPropertyPriority(name),
-    }));
-    RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
-    try {
-        return read();
-    } finally {
-        saved.forEach(({ name, value, priority }) => {
-            if (value) word.style.setProperty(name, value, priority);
-        });
-    }
 }

@@ -206,7 +206,7 @@ import {
 } from '../study/mining-controls';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
-import { isNativePageLookupBlocked, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
+import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -270,6 +270,7 @@ import {
 } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
+import { applyHostTheme, detectHostTheme, isThemeSyncHost, jitenThemeCookieMatches, observeHostTheme, type HostTheme } from '../theme/host-theme';
 import { showReaderToast } from '../ui/toast';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
@@ -301,6 +302,8 @@ type ReaderLifecycleSurface = {
     destroy: () => void;
 };
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
+const HOST_THEME_ENFORCE_STEPS = 12;
+const HOST_THEME_ENFORCE_STEP_MS = 200;
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
     '.jpdb-ocr-layer',
@@ -321,6 +324,8 @@ export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
+    private disposeHostThemeObserver?: () => void;
+    private hostThemeEnforceTimer?: number;
     private setImmersionTranslationBlurred = (blurred: boolean): void => {
         if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
         this.settings = {
@@ -784,7 +789,53 @@ export class ReaderApp {
 
     private applyTheme(settings = this.settings): void {
         applyReaderTheme(settings);
+        this.syncHostTheme(settings);
         refreshReaderWordContrast(document);
+    }
+
+    private initHostThemeSync(): void {
+        if (this.disposeHostThemeObserver || !isThemeSyncHost()) return;
+        this.disposeHostThemeObserver = observeHostTheme(theme => this.handleHostThemeChange(theme));
+    }
+
+    private syncHostTheme(settings = this.settings): void {
+        if (!isThemeSyncHost()) return;
+        this.initHostThemeSync();
+        window.clearTimeout(this.hostThemeEnforceTimer);
+        if (settings.theme === 'auto') this.applyReaderThemeClasses(detectHostTheme());
+        else this.enforceHostTheme(settings.theme, HOST_THEME_ENFORCE_STEPS);
+    }
+
+    private enforceHostTheme(theme: HostTheme, remaining: number): void {
+        applyHostTheme(theme);
+        if (remaining <= 0 || this.isDestroyed) return;
+        this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
+    }
+
+    private applyReaderThemeClasses(theme: HostTheme): void {
+        const root = document.documentElement;
+        root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
+        root.classList.toggle('jpdb-reader-theme-light', theme === 'light');
+    }
+
+    private handleHostThemeChange(hostTheme: HostTheme): void {
+        if (this.isDestroyed) return;
+        const setting = this.settings.theme;
+        if (setting === hostTheme) return;
+        if ((setting === 'light' || setting === 'dark') && jitenThemeCookieMatches(setting)) {
+            applyHostTheme(setting);
+            return;
+        }
+        if (setting === 'auto') {
+            this.applyReaderThemeClasses(hostTheme);
+            refreshReaderWordContrast(document);
+            return;
+        }
+        this.settings = { ...this.settings, theme: hostTheme };
+        void saveSettings(this.settings);
+        applyReaderTheme(this.settings);
+        refreshReaderWordContrast(document);
+        this.publishThemeSettingsChange();
     }
 
     private applyPreferredJapaneseSiteLanguage(settings = this.settings): void {
@@ -1026,6 +1077,8 @@ export class ReaderApp {
         this.pageScanner.destroy?.();
         this.factoryReset.destroy();
         this.abortController.abort();
+        this.disposeHostThemeObserver?.();
+        window.clearTimeout(this.hostThemeEnforceTimer);
         this.autoScanObserver?.disconnect();
         this.ocr.destroy();
         this.subtitles.destroy();
@@ -1295,6 +1348,11 @@ export class ReaderApp {
 
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+        if (!insideReaderPopup && !insideSubtitlePlayer
+            && nativeClickableAncestor(word)
+            && !this.clickForcesReaderWordLookup(event)) {
+            return;
+        }
         if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
 
         event.preventDefault();
@@ -1463,6 +1521,11 @@ export class ReaderApp {
         return !this.hasStickyModalPopover()
             && this.settings.lookupOnHover
             && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
+    }
+
+    private clickForcesReaderWordLookup(event: MouseEvent): boolean {
+        const hasModifier = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+        return hasModifier && this.shouldLookupOnHover(event);
     }
 
     private hasHoverLookupShortcut(): boolean {
@@ -5618,6 +5681,7 @@ export class ReaderApp {
     private repositionableActivePopover(): HTMLElement | null {
         if (!this.activePopover) return null;
         if (this.activePopover.classList.contains('jpdb-reader-sheet')) return null;
+        if (this.activePopover.classList.contains('jpdb-reader-settings')) return null;
         return this.activePopover;
     }
 
