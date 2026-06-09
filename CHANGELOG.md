@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.46] - 2026-06-09
+
+### Fixed
+
+- Fixed the browser-extension / self-contained build throwing `ReferenceError: System is not defined` (a code-split SystemJS chunk with no loader) which broke subtitle track loading; the subtitle translator is now statically bundled.
+- Fixed the transcript panel's left/right placement toggle doing nothing on smaller screens: docking left was measured against the player's pre-shift right edge (so it always fell back to the bottom layout). Left and right now use the same available-width calculation, and the side layout stays available on narrower screens.
+
+### Changed
+
+- The whole YouTube transcript is now parsed in the background ahead of playback (prioritising the lines around the current position) so furigana/ruby is ready in advance instead of appearing line-by-line as each cue becomes active.
+
 ## [0.6.45] - 2026-06-09
 
 ### Fixed
