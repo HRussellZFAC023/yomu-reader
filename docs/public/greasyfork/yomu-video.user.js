@@ -442,6 +442,10 @@
     window.YomuLogger = Logger;
   }
   const APP_NAME = "よむ";
+  const APP_SLUG = "yomu";
+  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+  const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
@@ -983,6 +987,355 @@
       textNode.replaceWith(replacement);
     }
   }
+  function isAppleTouchBrowser() {
+    if (typeof navigator === "undefined") return false;
+    const userAgent = navigator.userAgent ?? "";
+    const platform = navigator.platform ?? "";
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+  }
+  const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
+  const BUILT_IN_PROXY_BUILDERS = [
+    (targetUrl) => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""
+  ];
+  const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
+  const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
+  const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
+    /^(?:0|10|127)\./,
+    /^169\.254\./,
+    /^192\.168\./,
+    /^172\.(?:1[6-9]|2\d|3[0-1])\./
+  ];
+  const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
+  const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
+    "apiv2express.immersionkit.com",
+    "apiv2.immersionkit.com"
+  ]);
+  const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
+    "d1pra95f92lrn3.cloudfront.net",
+    "d1vjc5dkcd3yh2.cloudfront.net"
+  ]);
+  const SPECIALIZED_PROXY_ROUTE_RULES = [
+    {
+      method: "GET",
+      route: "jisho-search",
+      matches: (target) => target.hostname === "jisho.org" && target.pathname.startsWith("/search/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php"
+    },
+    {
+      method: "POST",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post"
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => isKnownCorsBlockedPublicAudioCdnUrl(target)
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
+    }
+  ];
+  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
+    const proxyUrl = configuredProxyUrl.trim();
+    if (!proxyUrl) return null;
+    try {
+      const url = new URL(proxyUrl);
+      url.searchParams.set("url", targetUrl);
+      return url.href;
+    } catch {
+      return null;
+    }
+  }
+  function isProxySafeRequest(targetUrl, options) {
+    return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+  }
+  function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && (isHostedGithubPagesApp() || isAppleTouchBrowser()) && isCrossOriginHttpUrl(targetUrl);
+  }
+  function isKnownCorsBlockedPublicAudioCdnUrl(target) {
+    try {
+      const url = typeof target === "string" ? typeof location === "undefined" ? new URL(target) : new URL(target, location.href) : target;
+      return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname) && url.pathname.startsWith("/audio/");
+    } catch {
+      return false;
+    }
+  }
+  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target) && (specializedProxyRoute(target, requestMethod(options)) || isJpdbPublicLookupTarget(target, requestMethod(options)) || isLocalHostedBrowserCorsTarget(target, requestMethod(options))));
+  }
+  function builtInProxyUrls(targetUrl, options) {
+    const specialized = specializedProxyUrls(targetUrl, options);
+    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl));
+    return candidates.filter(Boolean);
+  }
+  function isJpdbPublicAudioUrl(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/") || isKnownCorsBlockedPublicAudioCdnUrl(target);
+    } catch {
+      return false;
+    }
+  }
+  function isYomuPublicProxyUrl(candidateUrl) {
+    try {
+      return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+      return false;
+    }
+  }
+  function isKnownDirectCorsTarget(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+    } catch {
+      return false;
+    }
+  }
+  function isJpdbPublicLookupTarget(target, method) {
+    return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
+  }
+  function isLocalHostedBrowserCorsTarget(target, method) {
+    return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
+  }
+  function specializedProxyUrls(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
+    if (!target || !route) return null;
+    const proxyTargetUrl = target.href;
+    if (route === "jisho-search") {
+      return [
+        yomuPublicProxyUrl(proxyTargetUrl)
+      ];
+    }
+    return [yomuPublicProxyUrl(proxyTargetUrl)];
+  }
+  function specializedProxyRoute(target, method) {
+    return SPECIALIZED_PROXY_ROUTE_RULES.find((rule) => rule.method === method && rule.matches(target))?.route ?? null;
+  }
+  function yomuPublicProxyUrl(targetUrl) {
+    return configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
+  }
+  function isHostedGithubPagesApp() {
+    if (typeof location === "undefined") return false;
+    try {
+      const current = new URL(location.href);
+      return current.origin === GITHUB_PAGES_ORIGIN && current.pathname.replace(/\/index\.html$/, "/").startsWith(`/${APP_REPOSITORY_NAME}/`);
+    } catch {
+      return false;
+    }
+  }
+  function isLocalHostedApp() {
+    if (typeof location === "undefined") return false;
+    return ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
+  }
+  function isCrossOriginHttpUrl(targetUrl) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target));
+  }
+  function isCrossOriginHttpTarget(target) {
+    return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+  }
+  function fetchTarget(targetUrl) {
+    try {
+      return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
+    } catch {
+      return null;
+    }
+  }
+  function requestMethod(options) {
+    return String(options.method ?? "GET").toUpperCase();
+  }
+  function hasSensitiveRequestHeaders(headers) {
+    if (!headers) return false;
+    if (headers instanceof Headers) {
+      return Array.from(headers.keys()).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    }
+    if (Array.isArray(headers)) return headers.some(([header]) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    return Object.keys(headers).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+  }
+  function hasCredentialedRequest(credentials) {
+    return credentials === "include";
+  }
+  function isPrivateJpdbTarget(targetUrl, options) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      if (url.hostname !== "jpdb.io") return false;
+      if (!isReadMethod(options.method)) return true;
+      return url.pathname.startsWith("/api/") || /^\/(?:prioritize|review|settings|login)(?:\/|$)/.test(url.pathname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateNetworkTarget(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return isPrivateHostname(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateHostname(hostname) {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
+  }
+  function isLocalhostHostname(host) {
+    return host === "localhost" || host.endsWith(".localhost");
+  }
+  function isPrivateIpv4Hostname(host) {
+    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
+  }
+  function isPrivateIpv6Hostname(host) {
+    if (!host.includes(":")) return false;
+    return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
+  }
+  function hasSensitiveUrlParams(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return Array.from(url.searchParams.keys()).some((key2) => SENSITIVE_REQUEST_KEY_RE.test(key2));
+    } catch {
+      return false;
+    }
+  }
+  function isReadMethod(method) {
+    return READ_METHODS.has(String(method ?? "GET").toUpperCase());
+  }
+  async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
+    const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
+    if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+    let lastError;
+    for (const [index, candidate] of candidates.entries()) {
+      try {
+        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+        const response = await fetchWithTimeout(attempt.url, attempt.options);
+        if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
+          lastError = new Error(`Proxy request failed (${response.status}).`);
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+  }
+  function fetchAttemptForCandidate(targetUrl, candidate, options) {
+    if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+      return { url: candidate.url, options };
+    }
+    return {
+      url: proxyControlUrl(candidate.url, options.headers),
+      options: {
+        ...options,
+        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+      }
+    };
+  }
+  function proxyControlUrl(candidateUrl, headers) {
+    const forceCaf = headerValue(headers, "x-forcecaf");
+    if (!forceCaf) return candidateUrl;
+    try {
+      const url = new URL(candidateUrl);
+      url.searchParams.set("x-forcecaf", forceCaf);
+      return url.href;
+    } catch {
+      return candidateUrl;
+    }
+  }
+  function stripProxyOnlyHeaders(headers, names) {
+    if (!headers) return headers;
+    const excluded = new Set(names.map((name) => name.toLowerCase()));
+    const sanitized = {};
+    new Headers(headers).forEach((value, key2) => {
+      if (!excluded.has(key2.toLowerCase())) sanitized[key2] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : void 0;
+  }
+  function headerValue(headers, name) {
+    if (!headers) return "";
+    return new Headers(headers).get(name) ?? "";
+  }
+  function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
+    const direct = directFetchUrl(targetUrl, options);
+    const proxySafe = isProxySafeRequest(targetUrl, options);
+    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl) : null;
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
+    const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
+    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
+    const proxyCandidates = [
+      configured ? { url: configured, kind: "configured-proxy" } : null,
+      ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
+    ].filter((candidate) => Boolean(candidate));
+    const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
+    return uniqueFetchCandidates([
+      ...orderedCandidates
+    ]);
+  }
+  function directFetchUrl(targetUrl, options) {
+    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    return targetUrl;
+  }
+  function uniqueFetchCandidates(candidates) {
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      if (!candidate || seen.has(candidate.url)) return false;
+      seen.add(candidate.url);
+      return true;
+    });
+  }
+  function shouldTryNextFetchCandidate(response, _candidate, index, candidates) {
+    return !response.ok && response.status !== 429 && index < candidates.length - 1;
+  }
+  function browserReadableUrl(url) {
+    if (!isHttpUrl(url)) return url;
+    try {
+      const target = new URL(url, location.href);
+      return target.origin === location.origin ? target.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function isHttpUrl(url) {
+    return /^https?:\/\//i.test(url);
+  }
+  function fetchWithTimeout(url, options) {
+    const {
+      timeoutMs,
+      allowPublicProxies: _allowPublicProxies,
+      allowConfiguredProxy: _allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
+      allowDirectCrossOrigin: _allowDirectCrossOrigin,
+      signal,
+      ...init
+    } = options;
+    if (!timeoutMs) return fetch(url, { ...init, signal });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+      window.clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    });
+  }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail(event);
     const id = safeReadString(detail, "id");
@@ -1485,6 +1838,157 @@
     }
   }
   function noop() {
+  }
+  async function requestHttp(url, options = {}) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
+      try {
+        return await requestViaFetch(url, options);
+      } catch (error) {
+        if (!userscriptRequest) throw error;
+        return await requestViaUserscript$1(url, options, userscriptRequest);
+      }
+    }
+    if (userscriptRequest) {
+      try {
+        return await requestViaUserscript$1(url, options, userscriptRequest);
+      } catch (error) {
+        if (!shouldRetryWithFetch(error)) throw error;
+      }
+    }
+    return requestViaFetch(url, options);
+  }
+  function requestViaUserscript$1(url, options, userscriptRequest) {
+    return new Promise((resolve, reject) => {
+      const signal = options.signal;
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+      let handle;
+      const tryAbort = () => {
+        try {
+          handle?.abort?.();
+        } catch {
+        }
+      };
+      const handleLoad = (response) => {
+        if (response.status < 200 || response.status >= 300) {
+          reject(new Error(formatStatusFailure(options, response.status)));
+          return;
+        }
+        try {
+          resolve(normalizeUserscriptResponse(response, options.responseType ?? "text"));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const onAbort = () => {
+        tryAbort();
+        reject(abortError());
+      };
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      const result = userscriptRequest({
+        method: options.method ?? "GET",
+        url,
+        headers: recordHeaders(options.headers),
+        data: options.data,
+        responseType: options.responseType,
+        timeout: options.timeoutMs,
+        anonymous: options.anonymous,
+        withCredentials: options.withCredentials,
+        cookie: options.cookie,
+        onload: handleLoad,
+        onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
+        ontimeout: () => {
+          tryAbort();
+          reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
+        }
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+      } else if (result && typeof result.abort === "function") {
+        handle = result;
+      }
+    });
+  }
+  function abortError() {
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
+  function normalizeUserscriptResponse(response, responseType) {
+    return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
+  }
+  const USERSCRIPT_RESPONSE_NORMALIZERS = {
+    blob: (response) => response.response,
+    arraybuffer: (response) => response.response,
+    json: userscriptJsonResponse,
+    text: userscriptTextResponse
+  };
+  function userscriptJsonResponse(response) {
+    return response.response !== void 0 && typeof response.response !== "string" ? response.response : JSON.parse(String(response.responseText ?? response.response ?? "null"));
+  }
+  function userscriptTextResponse(response) {
+    return String(response.responseText ?? response.response ?? "");
+  }
+  async function requestViaFetch(url, options) {
+    const response = await fetchWithCorsFallbacks(url, options.proxyUrl ?? "", {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      body: options.data,
+      credentials: options.credentials ?? "omit",
+      redirect: options.redirect ?? "follow",
+      referrerPolicy: options.referrerPolicy ?? "no-referrer",
+      timeoutMs: options.timeoutMs,
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
+      allowPublicProxies: options.allowPublicProxies,
+      allowDirectCrossOrigin: options.allowDirectCrossOrigin,
+      signal: options.signal
+    });
+    if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
+    return readFetchResponseBody(response, options.responseType);
+  }
+  function readFetchResponseBody(response, responseType) {
+    return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
+  }
+  const FETCH_RESPONSE_READERS = {
+    blob: (response) => response.blob(),
+    arraybuffer: (response) => response.arrayBuffer(),
+    json: (response) => response.json(),
+    text: (response) => response.text()
+  };
+  function formatFailure(options) {
+    return options.failureMessage ?? `${options.failureLabel ?? "Request"} failed.`;
+  }
+  function formatStatusFailure(options, status) {
+    return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function isSameOriginUrl(url) {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch {
+      return false;
+    }
+  }
+  function shouldRetryWithFetch(error) {
+    if (!(error instanceof Error)) return true;
+    if (/\(\d{3}\)/.test(error.message)) return false;
+    if (/timed out|timeout/i.test(error.message)) return false;
+    return /network|cors|blocked|request failed/i.test(error.message);
+  }
+  function recordHeaders(headers) {
+    if (!headers) return void 0;
+    if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+    if (Array.isArray(headers)) return Object.fromEntries(headers);
+    return headers;
+  }
+  async function requestJson$1(url, options = {}) {
+    const value = await requestHttp(url, { ...options, responseType: "json" });
+    return value;
   }
   const COPY = {
     en: {
@@ -4800,7 +5304,7 @@ ${candidate.depth}`;
   const LENS_PLATFORM_WEB = 3;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
-  const log$1 = Logger.scope("OCR");
+  const log$2 = Logger.scope("OCR");
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
     "cloud-vision": recognizeViaCloudVision,
@@ -4839,7 +5343,7 @@ ${candidate.depth}`;
     const provider = inlineProviderLabel(settings);
     return {
       provider,
-      done: log$1.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+      done: log$2.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
   function finishOcrScan(state) {
@@ -4853,10 +5357,10 @@ ${candidate.depth}`;
   function logOcrFailure(state, provider, manualRequested, error) {
     state.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
-      log$1.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+      log$2.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
     }
-    log$1.warn("OCR scan failed", { provider, manualRequested }, error);
+    log$2.warn("OCR scan failed", { provider, manualRequested }, error);
   }
   class ImageOcrController {
     constructor(options) {
@@ -4978,7 +5482,7 @@ ${candidate.depth}`;
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$1.info("Manual OCR scan queued images", { images: images.length });
+      log$2.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element) {
       const line = element?.closest?.(".jpdb-ocr-line");
@@ -5113,12 +5617,12 @@ ${candidate.depth}`;
       this.remember(key2, result);
       state.key = key2;
       await this.renderResult(state, result);
-      log$1.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+      log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     async renderOcrFailure(state, image, provider, manualRequested, error) {
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
-        log$1.warn("OCR provider failed", { provider }, error);
+        log$2.warn("OCR provider failed", { provider }, error);
         await this.renderResult(state, fallback);
         return;
       }
@@ -5664,7 +6168,7 @@ ${spelling}`);
       const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
       return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
     } catch (error) {
-      log$1.warn("Google Lens protobuf failed", error);
+      log$2.warn("Google Lens protobuf failed", error);
       return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
     }
   }
@@ -8271,6 +8775,9 @@ ${spelling}`);
   }
   async function loadSubtitleTrackCues(track, options) {
     if (track.cues?.length) return { track, cues: track.cues };
+    if (track.translatedFromTrackId) {
+      return loadTranslatedTrackCues(track, options);
+    }
     if (track.track) return loadNativeTrackCues(track);
     if (isRemoteSubtitleTrack(track)) {
       const cues = await loadRemoteTrackCues(track, options);
@@ -8279,6 +8786,15 @@ ${spelling}`);
     }
     if (isYouTubeSubtitleTrack(track)) return loadYouTubeTrackWithFallback(track, options);
     return { track, cues: track.cues ?? [] };
+  }
+  async function loadTranslatedTrackCues(track, options) {
+    const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
+    if (!sourceTrack) return { track, cues: [] };
+    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    const { translateSubtitleCues: translateSubtitleCues2 } = await Promise.resolve().then(() => subtitleTranslate);
+    const translatedCues = await translateSubtitleCues2(sourceCues, sourceTrack.language || "en", track.targetLanguage || track.language || "ja");
+    track.cues = translatedCues;
+    return { track, cues: translatedCues };
   }
   function isRemoteSubtitleTrack(track) {
     return track.kind === "remote" && Boolean(track.url);
@@ -9316,10 +9832,10 @@ ${spelling}`);
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
-  const log = Logger.scope("Subtitles");
+  const log$1 = Logger.scope("Subtitles");
   const TRACK_LOAD_OPTIONS = {
     requestText: requestSubtitleText,
-    onYouTubeRequestError: (track, url, error) => log.debug("YouTube subtitle request failed", {
+    onYouTubeRequestError: (track, url, error) => log$1.debug("YouTube subtitle request failed", {
       label: track.label,
       ...subtitleRequestFailureDetails(url),
       error
@@ -9501,7 +10017,7 @@ ${spelling}`);
       }, this.eventOptions({ passive: true }));
       this.discoverVideo();
       this.tick();
-      log.info("Subtitle controller initialized");
+      log$1.info("Subtitle controller initialized");
     }
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
@@ -9671,7 +10187,7 @@ ${spelling}`);
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
-      log.info("Subtitle video detected", videoSummary(candidate));
+      log$1.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
       for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
@@ -9783,7 +10299,8 @@ ${spelling}`);
       return changes;
     }
     finishPageSubtitleTrackDiscovery(changes) {
-      if (changes.added || changes.updated || changes.removed) {
+      const generated = this.ensureTranslatedJapaneseTrack();
+      if (changes.added || changes.updated || changes.removed || generated) {
         this.renderTrackPanel();
         this.syncControls();
       }
@@ -10709,14 +11226,14 @@ ${spelling}`);
       await this.writeSubtitleClipboard(text, "Subtitle clipboard copy failed");
     }
     async writeSubtitleClipboard(text, failureMessage) {
-      await navigator.clipboard?.writeText(text).catch((error) => log.warn(failureMessage, error));
+      await navigator.clipboard?.writeText(text).catch((error) => log$1.warn(failureMessage, error));
     }
     async autoCopyCurrentCue() {
       if (!this.options.getSettings().subtitleAutoCopyLine || !this.currentCue?.text.trim()) return;
       const signature = subtitleCueSignature(this.currentCue);
       if (signature === this.lastAutoCopiedCueSignature) return;
       this.lastAutoCopiedCueSignature = signature;
-      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log.warn("Subtitle auto-copy failed", error));
+      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log$1.warn("Subtitle auto-copy failed", error));
     }
     openSubtitleFilePicker(kind) {
       const input = document.createElement("input");
@@ -10746,7 +11263,7 @@ ${spelling}`);
       if (kind === "primary") await this.selectTrack(track.id);
       else await this.selectSecondaryTrack(track.id);
       this.updateFromLoadedCues();
-      log.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
+      log$1.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
     async selectTrack(id) {
       const requestId = this.preparePrimaryTrackSelection(id);
@@ -10879,7 +11396,7 @@ ${spelling}`);
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
-      log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
+      log$1.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();
@@ -10980,6 +11497,7 @@ ${spelling}`);
       });
     }
     finishYouTubeTrackDiscovery(added, updatedSelectedTrack) {
+      const generated = this.ensureTranslatedJapaneseTrack();
       const autoPrimaryTrack = this.findAutoPrimaryYouTubeTrack();
       const autoSecondaryTrack = this.findAutoSecondaryYouTubeTrack(autoPrimaryTrack?.id);
       const primaryTrackId = autoPrimaryTrack?.id || (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) ? this.selectedTrackId : "");
@@ -10992,9 +11510,29 @@ ${spelling}`);
         void this.selectSecondaryTrack(autoSecondaryTrack.id);
         return;
       }
-      if (!added) return;
+      if (!added && !generated) return;
       this.renderTrackPanel();
       this.syncControls();
+    }
+    ensureTranslatedJapaneseTrack() {
+      const hasJapanese = this.tracks.some((track) => isJapaneseSubtitleTrack(track));
+      if (hasJapanese) return false;
+      const englishTracks = this.tracks.filter((track) => isEnglishSubtitleTrack(track)).sort(compareSubtitleTrackOptions);
+      if (!englishTracks.length) return false;
+      const source = englishTracks[0];
+      const existing = this.tracks.find((t) => t.translatedFromTrackId === source.id);
+      if (existing) return false;
+      const settings = this.options.getSettings();
+      const synthetic = {
+        id: `translated-${source.id}`,
+        label: `${uiText(settings.interfaceLanguage, "translation")} (${source.label})`,
+        kind: source.kind,
+        language: "ja",
+        autoGenerated: true,
+        translatedFromTrackId: source.id
+      };
+      this.tracks.push(synthetic);
+      return true;
     }
     shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) {
       return updatedSelectedTrack && Boolean(this.selectedTrackId);
@@ -11168,7 +11706,7 @@ ${spelling}`);
       settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
       this.options.onSettingsChange();
       this.render();
-      log.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
+      log$1.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     togglePausePanelMode() {
       const settings = this.options.getSettings();
@@ -11771,7 +12309,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterPrimaryClear();
       this.syncControls();
-      log.info("Primary subtitle track cleared");
+      log$1.info("Primary subtitle track cleared");
     }
     clearPrimaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -11794,7 +12332,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterSecondaryClear();
       this.syncControls();
-      log.info("Secondary subtitle track cleared");
+      log$1.info("Secondary subtitle track cleared");
     }
     clearSecondaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -13551,4 +14089,63 @@ ${spelling}`);
   registerYomuCompanion("ocr", {
     ImageOcrController
   });
+  const TRANSLATION_BATCH_SIZE = 25;
+  const TRANSLATION_TIMEOUT_MS = 8e3;
+  const TRANSLATION_SEPARATOR = "\n";
+  const log = Logger.scope("SubtitleTranslate");
+  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage) {
+    if (!cues.length) return [];
+    const texts = cues.map((cue) => cue.text.trim());
+    const batches = batchTexts(texts, TRANSLATION_BATCH_SIZE);
+    const translated = [];
+    for (const batch of batches) {
+      const results = await translateBatch(batch, sourceLanguage, targetLanguage);
+      translated.push(...results);
+    }
+    return cues.map((cue, index) => ({
+      ...cue,
+      text: translated[index] || cue.text
+    }));
+  }
+  function batchTexts(texts, size) {
+    const batches = [];
+    for (let start = 0; start < texts.length; start += size) {
+      batches.push(texts.slice(start, start + size));
+    }
+    return batches;
+  }
+  async function translateBatch(texts, sourceLanguage, targetLanguage) {
+    const joined = texts.join(TRANSLATION_SEPARATOR);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
+    const done = log.time("Translate subtitle batch", { count: texts.length });
+    try {
+      const json = await requestJson$1(url, {
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        allowDirectCrossOrigin: true,
+        allowConfiguredProxy: false,
+        allowPublicProxies: false,
+        preferFetch: true,
+        failureLabel: "Subtitle translation request",
+        timeoutLabel: "Subtitle translation timed out."
+      });
+      const result = (json.sentences ?? []).map((item) => item.trans ?? "").join("");
+      const lines = result.split(TRANSLATION_SEPARATOR);
+      log.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
+      return padTranslationResults(lines, texts);
+    } catch (error) {
+      log.warn("Subtitle batch translation failed", { count: texts.length, error });
+      return texts;
+    } finally {
+      done();
+    }
+  }
+  function padTranslationResults(translated, originals) {
+    const result = translated.map((text) => text.trim());
+    while (result.length < originals.length) result.push(originals[result.length]);
+    return result;
+  }
+  const subtitleTranslate = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    translateSubtitleCues
+  }, Symbol.toStringTag, { value: "Module" }));
 })();

@@ -24,6 +24,7 @@ export interface SubtitleTrackOption {
     youtubeIdentity?: string;
     sourceKey?: string;
     loadingState?: SubtitleTrackLoadingState;
+    translatedFromTrackId?: string;
 }
 
 export interface LoadedSubtitleTrackSelection {
