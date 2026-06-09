@@ -1482,7 +1482,7 @@
       ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
       ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
       ankiStatusRefreshAndCheck: "Refresh, then check again",
-      ankiHostedCorsHint: "Advanced: direct browser access needs this origin in AnkiConnect webCorsOriginList.",
+      ankiHostedCorsHint: "Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
@@ -2420,7 +2420,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続にはこのオリジンをAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -19818,6 +19818,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const template = cardName.trim();
     candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
   }
+  function ankiDetailsStateAttributes(options, key2, initiallyOpen) {
+    return options.sourceAttributes ? options.sourceAttributes(key2, initiallyOpen) : initiallyOpen ? "open" : "";
+  }
+  function ankiDeckSourceStateKey(note) {
+    return `${ANKI_SOURCE_ID}:deck:${note.deckNames.join("/") || note.modelName}`;
+  }
   const POPOVER_ANKI_SANITIZE = {
     maxFontPx: 30,
     maxFontPt: 22,
@@ -19857,7 +19863,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" open>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
                 <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ""}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
@@ -19930,7 +19936,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ${content}
     </div>`;
     }
-    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}"${open ? " open" : ""}>
+    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
         <summary class="jpdb-reader-anki-existing-note-title">
             <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
             <small>${escapeHtml$1(preview.summary)}</small>
@@ -23331,7 +23337,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderAnkiExistingSection(data, view) {
       return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
-        suppressReviewButtons: Boolean(view.reviewButtons)
+        suppressReviewButtons: Boolean(view.reviewButtons),
+        sourceAttributes: (key2, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key2, initiallyExpanded)
       });
     }
     renderAnkiSourceSection(card, sentence, data, view) {
@@ -43756,11 +43763,23 @@ ${newTabCardReading(card)}`;
   }
   function ankiStatusActions(action, language) {
     if (action === "anki-unreachable") {
-      return [
+      const actions = [
         { label: uiText(language, "ankiStatusOpenDesktop") },
         { label: uiText(language, "ankiStatusInstallAddon"), href: ANKI_CONNECT_ADDON_URL },
         { label: uiText(language, "ankiStatusMobileDocs"), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language, "ankiStatusUseDesktopUrl") }
       ];
+      if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname)) {
+        if (!hasUserscriptAnkiBridge()) {
+          actions.unshift(
+            { label: uiText(language, "ankiStatusEnableUserscript") },
+            { label: uiText(language, "ankiStatusRefreshAndCheck") }
+          );
+        }
+        actions.push({
+          label: formatUiText(language, "ankiHostedCorsHint", { origin: location.origin })
+        });
+      }
+      return actions;
     }
     return [];
   }
@@ -47074,6 +47093,9 @@ ${newTabCardReading(card)}`;
     ankiSetupUnavailableStatus(settings, language) {
       if (canUseMobileAnkiHandoff(settings)) {
         return { message: uiText(language, "mobileAnkiReady"), tone: "pending" };
+      }
+      if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
+        return { message: uiText(language, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-unreachable" };
       }
       return { message: this.ankiUnreachableMessage(language), tone: "pending", action: "anki-unreachable" };
     }

@@ -26,7 +26,8 @@ export class SubtitleVideoInsetAdapter {
         document.documentElement.style.setProperty('--jpdb-subtitle-video-inset', metrics.inset);
         applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
         applyGenericVideoInsetIfNeeded(options, metrics);
-        requestYouTubePlayerResize(metrics.width, metrics.height);
+        resizeYouTubePlayer(metrics.width, metrics.height);
+        dispatchVideoLayoutResize();
     }
 
     clear(video?: HTMLVideoElement): void {
@@ -41,6 +42,10 @@ export class SubtitleVideoInsetAdapter {
         for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
         if (video) clearGenericVideoInset(video);
         resetYouTubePlayerResizeTracking();
+        // Restoring the player box does not, on its own, make a site's player
+        // recompute the <video> element size, so it keeps the stale inset size
+        // until something forces a relayout. Nudge it like exiting fullscreen does.
+        dispatchVideoLayoutResize();
     }
 }
 
@@ -242,7 +247,7 @@ function rectArea(rect: DOMRect): number {
     return Math.max(0, rect.width) * Math.max(0, rect.height);
 }
 
-function requestYouTubePlayerResize(width: number, height: number): void {
+function resizeYouTubePlayer(width: number, height: number): void {
     if (!isYouTubePage()) return;
     const signature = youtubeResizeSignature(width, height);
     if (signature === lastYouTubePlayerResizeSignature) return;
@@ -253,29 +258,30 @@ function requestYouTubePlayerResize(width: number, height: number): void {
     } catch {
         // YouTube's player API is private and best-effort.
     }
-    dispatchWindowEvent(createWindowEvent('resize'));
-    scheduleYouTubeResizeEvent();
 }
 
 let lastYouTubePlayerResizeSignature = '';
-let pendingYouTubeResizeEvent: number | undefined;
+let pendingVideoLayoutResize: number | undefined;
 
 function youtubeResizeSignature(width: number, height: number): string {
     return `${Math.round(width)}:${Math.round(height)}`;
 }
 
-function scheduleYouTubeResizeEvent(): void {
-    if (pendingYouTubeResizeEvent !== undefined) window.clearTimeout(pendingYouTubeResizeEvent);
-    pendingYouTubeResizeEvent = window.setTimeout(() => {
-        pendingYouTubeResizeEvent = undefined;
+// A site's video player sizes the <video> element from its container in
+// response to viewport resize, not from a style mutation. Dispatch a resize
+// (now and after layout settles) so the player re-fits the video to the box we
+// just changed — the same recompute that entering/exiting fullscreen forces.
+function dispatchVideoLayoutResize(): void {
+    dispatchWindowEvent(createWindowEvent('resize'));
+    if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
+    pendingVideoLayoutResize = window.setTimeout(() => {
+        pendingVideoLayoutResize = undefined;
         dispatchWindowEvent(createWindowEvent('resize'));
     }, 80);
 }
 
 function resetYouTubePlayerResizeTracking(): void {
     lastYouTubePlayerResizeSignature = '';
-    if (pendingYouTubeResizeEvent !== undefined) window.clearTimeout(pendingYouTubeResizeEvent);
-    pendingYouTubeResizeEvent = undefined;
 }
 
 function youtubeMoviePlayer(): { setSize?: (width: number, height: number) => void } | null {

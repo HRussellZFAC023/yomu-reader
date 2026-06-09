@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.40
+// @version      0.6.41
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-w7PBwwWnvhuTTWTr1ugOgh84rcouWg9BT10KTEVLjvw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-xjJJHEPir5ivrobbHLrncM3ud9/TeUPSXbN6/DVqUs8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-T1SKCTKqJ05ooIlD+y6oo+9VCBmlXb6HYD4Cd2rQaVM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-VrHLTara9V/NzI836uONnwCszHfp5xyuCm/kSJXKuk4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5715,7 +5715,7 @@
       ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
       ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
       ankiStatusRefreshAndCheck: "Refresh, then check again",
-      ankiHostedCorsHint: "Advanced: direct browser access needs this origin in AnkiConnect webCorsOriginList.",
+      ankiHostedCorsHint: "Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
@@ -6653,7 +6653,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続にはこのオリジンをAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -16595,6 +16595,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
     </svg>`;
   }
+  function ankiDetailsStateAttributes(options, key, initiallyOpen) {
+    return options.sourceAttributes ? options.sourceAttributes(key, initiallyOpen) : initiallyOpen ? "open" : "";
+  }
+  function ankiDeckSourceStateKey(note) {
+    return `${ANKI_SOURCE_ID}:deck:${note.deckNames.join("/") || note.modelName}`;
+  }
   const POPOVER_ANKI_SANITIZE = {
     maxFontPx: 30,
     maxFontPt: 22,
@@ -16629,7 +16635,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" open>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
                 <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ""}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
@@ -16702,7 +16708,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         ${content}
     </div>`;
     }
-    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}"${open ? " open" : ""}>
+    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
         <summary class="jpdb-reader-anki-existing-note-title">
             <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
             <small>${escapeHtml$1(preview.summary)}</small>
@@ -22922,7 +22928,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderAnkiExistingSection(data, view) {
       return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
-        suppressReviewButtons: Boolean(view.reviewButtons)
+        suppressReviewButtons: Boolean(view.reviewButtons),
+        sourceAttributes: (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded)
       });
     }
     renderAnkiSourceSection(card, sentence, data, view) {

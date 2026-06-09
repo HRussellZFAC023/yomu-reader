@@ -664,6 +664,54 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps an explicitly closed pause panel closed until the video plays again', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitlePausePanel: true,
+            subtitleTranscriptVisible: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: vi.fn(),
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const video = document.createElement('video');
+            let paused = true;
+            Object.defineProperties(video, {
+                paused: { configurable: true, get: () => paused },
+                ended: { configurable: true, value: false },
+            });
+            const cue = { start: 0, end: 2, text: '一時停止した行。', transcriptEligible: true };
+            const internals = controller as unknown as { video: HTMLVideoElement; cues: Array<typeof cue>; currentCue: typeof cue };
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+
+            controller.refresh();
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+
+            // User explicitly closes while still paused.
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
+
+            // A pause-driven sync must not reopen what the user just closed.
+            controller.refresh();
+            expect(panel.hidden).toBe(true);
+            (controller as unknown as { syncPauseTranscriptPanel: () => void }).syncPauseTranscriptPanel();
+            expect(panel.hidden).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('exposes auto-hide in the drawer header and uses it as the close-on-play mode', async () => {
         vi.useFakeTimers();
         const settings = {

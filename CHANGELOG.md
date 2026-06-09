@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.41] - 2026-06-09
+
+### Fixed
+
+- Fixed the YouTube (and other video sites') player not resizing the video to match its frame after the subtitle panel closed or switched sides: the video kept the old inset size until a manual fullscreen toggle. The relayout nudge is now dispatched when the inset is cleared as well as when it is applied.
+- Fixed the subtitle panel toggle being unable to close the panel when "Open side panel when paused" was enabled and the video was paused: an explicit close now sticks until the video plays again.
+- The closed subtitle rail toggle now shows the remembered transcript placement icon instead of always showing the right-dock icon.
+- Anki deck collapse state now persists across word lookups (the Anki section and each deck card remember whether you collapsed them).
+
 ## [0.6.40] - 2026-06-09
 
 ### Fixed
