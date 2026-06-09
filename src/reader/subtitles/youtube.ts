@@ -303,6 +303,13 @@ export class YoutubeImmersionFilter {
             return;
         }
 
+        // Clean up any elements that are already pending or filtered but should be ignored
+        document.querySelectorAll<HTMLElement>(YOUTUBE_FILTERED_SELECTOR).forEach(card => {
+            if (shouldIgnoreYouTubeCardElement(card)) {
+                this.showCard(card);
+            }
+        });
+
         unwrapYouTubeWatchTitleReaderWords();
         this.restoreCurrentShortsWatchItem();
 
@@ -1467,7 +1474,14 @@ function collectFilterableVideoShelves(root: ParentNode = document): HTMLElement
 function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
     if (shouldIgnoreYouTubeCardElement(element)) return null;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return normalizeYouTubeNonVideoContainer(element);
-    if (isYouTubePlaylistLikeCard(element)) return youtubeCardHideTarget(element) ?? element;
+    if (isYouTubePlaylistLikeCard(element)) {
+        const target = youtubeCardHideTarget(element);
+        if (target) return target;
+        if (element.matches('ytd-playlist-renderer,ytd-compact-playlist-renderer,ytm-playlist-renderer,ytm-compact-playlist-renderer,ytd-grid-playlist-renderer,yt-lockup-view-model')) {
+            return element;
+        }
+        return null;
+    }
     return normalizeYouTubeVideoCard(element);
 }
 
@@ -1500,7 +1514,46 @@ function isNormalizableYouTubeVideoCard(element: HTMLElement): boolean {
 
 function shouldIgnoreYouTubeCardElement(element: HTMLElement): boolean {
     if (!element.isConnected) return true;
-    return Boolean(element.closest(YOUTUBE_READER_ROOT_SELECTOR));
+    if (element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return true;
+
+    // Ignore native YouTube shell and main page components to prevent them from
+    // being incorrectly matched as video cards or playlist shelves.
+    const ignoredShellSelector = [
+        'ytd-watch-metadata',
+        'ytm-watch',
+        '#movie_player',
+        '.html5-video-player',
+        'ytd-comments',
+        '#comments',
+        'ytd-masthead',
+        '#masthead',
+        'ytd-guide-renderer',
+        '#guide',
+        'ytd-playlist-header-renderer',
+        'ytm-playlist-header-renderer',
+        'ytd-c4-tabbed-header-renderer',
+        'ytd-channel-sub-menu-renderer',
+    ].join(',');
+    if (closestCrossingShadow(element, ignoredShellSelector)) return true;
+
+    return false;
+}
+
+function closestCrossingShadow(element: HTMLElement, selector: string): HTMLElement | null {
+    let current: Node | null = element;
+    while (current) {
+        if (current instanceof HTMLElement && current.matches(selector)) {
+            return current;
+        }
+        if (current.parentNode) {
+            current = current.parentNode;
+        } else if (current instanceof ShadowRoot) {
+            current = current.host;
+        } else {
+            current = null;
+        }
+    }
+    return null;
 }
 
 function hasYouTubeVideoLink(element: HTMLElement): boolean {

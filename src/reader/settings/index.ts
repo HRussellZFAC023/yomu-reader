@@ -1,5 +1,6 @@
 import { Logger } from '../app/logger';
 import { SETTINGS_CHANGE_EVENT } from '../app/constants';
+import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } from './api-credential';
@@ -1237,9 +1238,8 @@ export async function saveSettings(settings: ReaderSettings): Promise<void> {
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
-    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
     try {
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
     } catch {
         // Some test shims do not expose CustomEvent; saving settings should still succeed.
     }

@@ -20,6 +20,7 @@ import {
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
 import { APP_NAME, SETTINGS_CHANGE_EVENT } from './constants';
+import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
@@ -869,8 +870,7 @@ export class ReaderApp {
     }
 
     private publishThemeSettingsChange(): void {
-        if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: this.settings.theme } } }));
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: { theme: this.settings.theme } }));
     }
 
     private async refreshDictionaryStyles(): Promise<void> {

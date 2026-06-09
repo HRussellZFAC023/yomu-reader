@@ -610,6 +610,252 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function cloneCustomEventDetail(detail) {
+    if (detail === void 0 || typeof window === "undefined") return detail;
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto) return detail;
+    try {
+      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+    } catch {
+      return detail;
+    }
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function removeWindowEventListener(type, listener, options) {
+    const target = window;
+    const directRemove = readMethod(target, "removeEventListener");
+    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function initialWindowMethod(key2) {
+    if (typeof window === "undefined") return void 0;
+    return readMethod(window, key2);
+  }
+  function dispatchWithPrototypeMethod(target, directDispatch, event) {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      const result = callEventTargetMethod(prototypeDispatch, target, event);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+      if (prototypeRemove === directRemove) continue;
+      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function eventConstructor(source, key2) {
+    const value = readProperty(source, key2);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key2) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key2));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget?.prototype, key2));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key2));
+    return methods;
+  }
+  function readMethod(source, key2) {
+    const value = readProperty(source, key2);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key2) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key2)) return void 0;
+    return readMethod(source, key2);
+  }
+  function readProperty(source, key2) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key2];
+    } catch {
+      return void 0;
+    }
+  }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callRemoveEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("removeEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key2, descriptor) {
+    try {
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key2, normalizedPropertyDescriptor(descriptor));
+    } catch {
+    }
+  }
+  function safeWindowPropertyDescriptor(key2) {
+    try {
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key2);
+    } catch {
+      return void 0;
+    }
+  }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
+    }
+  }
   const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -1827,9 +2073,8 @@
     }
   }
   function dispatchSettingsChange(settings) {
-    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
     try {
-      window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
     } catch {
     }
   }
@@ -2025,252 +2270,6 @@
       return source[key2];
     } catch {
       return void 0;
-    }
-  }
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
-  }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      return detail;
-    }
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key2) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key2);
-  }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key2) {
-    const value = readProperty(source, key2);
-    return typeof value === "function" ? value : void 0;
-  }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key2) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key2));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key2));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key2));
-    return methods;
-  }
-  function readMethod(source, key2) {
-    const value = readProperty(source, key2);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key2) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key2)) return void 0;
-    return readMethod(source, key2);
-  }
-  function readProperty(source, key2) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key2];
-    } catch {
-      return void 0;
-    }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key2, descriptor) {
-    try {
-      const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key2, normalizedPropertyDescriptor(descriptor));
-    } catch {
-    }
-  }
-  function safeWindowPropertyDescriptor(key2) {
-    try {
-      const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key2);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
     }
   }
   const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
@@ -10540,8 +10539,7 @@ recommendedJiten	jiten.moe頻度データです。
     return record.formatName === "yomu-reader-settings" || record.formatName === "jpdb-popup-reader-settings" ? record.storage : null;
   }
   function publishThemeSettingsChange(theme, options = {}) {
-    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
-    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: options.preview === true, settings: { theme } } }));
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;

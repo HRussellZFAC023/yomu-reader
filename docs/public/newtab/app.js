@@ -7424,9 +7424,8 @@ recommendedJiten	jiten.moe頻度データです。
     }
   }
   function dispatchSettingsChange(settings) {
-    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
     try {
-      window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
+      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
     } catch {
     }
   }
@@ -47285,8 +47284,7 @@ ${newTabCardReading(card)}`;
     return record.formatName === "yomu-reader-settings" || record.formatName === "jpdb-popup-reader-settings" ? record.storage : null;
   }
   function publishThemeSettingsChange(theme, options = {}) {
-    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
-    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: options.preview === true, settings: { theme } } }));
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;
