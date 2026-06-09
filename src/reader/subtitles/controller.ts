@@ -3213,8 +3213,8 @@ export class SubtitlePlayerController {
         this.syncTranscriptResizeHandle(layout);
         this.syncDrawerButtons(this.hasVisibleSubtitleLines());
         if (!options.skipInset) {
-            this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
-            if (options.realignAfterInset) this.scheduleTranscriptPanelRealignAfterInset();
+            const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
+            if (options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
         }
     }
 
@@ -3322,17 +3322,16 @@ export class SubtitlePlayerController {
         return this.transcriptLayoutReferenceRect;
     }
 
-    private applyVideoInsetForTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): void {
+    private applyVideoInsetForTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
         if (!this.video) {
             this.clearVideoInsetForTranscriptPanel();
-            return;
+            return false;
         }
         if (layout.placement === 'bottom') {
-            this.applyPageVideoInset('bottom', layout.top - videoRect.top - layout.margin, layout.height, videoRect);
-            return;
+            return this.applyPageVideoInset('bottom', layout.top - videoRect.top - layout.margin, layout.height, videoRect);
         }
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-        this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
+        return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
@@ -3383,19 +3382,19 @@ export class SubtitlePlayerController {
         return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
     }
 
-    private clearVideoInsetForTranscriptPanel(): void {
+    private clearVideoInsetForTranscriptPanel(): boolean {
         this.transcriptLayoutReferenceRect = undefined;
         this.transcriptLayoutReferenceViewport = '';
-        this.videoInset.clear(this.video);
+        return this.videoInset.clear(this.video);
     }
 
-    private applyPageVideoInset(side: SubtitleVideoInsetSide, playerSize: number, panelSize?: number, videoRect = this.videoLayoutRect()): void {
+    private applyPageVideoInset(side: SubtitleVideoInsetSide, playerSize: number, panelSize?: number, videoRect = this.videoLayoutRect()): boolean {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
-            return;
+            return false;
         }
         const panelRect = this.transcriptPanel?.getBoundingClientRect();
-        this.videoInset.apply({
+        return this.videoInset.apply({
             video: this.video,
             side,
             playerSize,

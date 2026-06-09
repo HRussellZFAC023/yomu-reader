@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.48] - 2026-06-09
+
+### Fixed
+
+- Fixed subtitle overlays and transcript rows blocking dictionary popover lookups on Japanese words (such as katakana `ハグ`) and particles (`と`/`を`).
+- Fixed transcript panel drawer layout: prevented `jpdb-subtitle-drawer-title` and `jpdb-subtitle-drawer-meta` from being cut off on narrow screens by wrapping them and adding ellipsis truncation.
+- Fixed an infinite requestAnimationFrame loop when aligning layout insets by checking if the inset metrics actually changed.
+
 ## [0.6.47] - 2026-06-09
 
 ### Fixed

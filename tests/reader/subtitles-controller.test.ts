@@ -1065,6 +1065,50 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('does not schedule alignment animation frames repeatedly if layout inset is stable', () => {
+        withViewport(1600, 900, () => {
+            vi.useFakeTimers();
+            const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+            const { controller } = setupInstalledVideoController(
+                new DOMRect(80, 80, 1040, 585),
+                { subtitleTranscriptVisible: true, subtitleTranscriptPlacement: 'right' },
+            );
+            const internals = controllerInternals<{
+                alignToVideo: () => void;
+                openLinesPanel: () => void;
+                cues: unknown[];
+                currentCue: unknown;
+            }>(controller);
+
+            const cue = { start: 0, end: 1, text: 'test', transcriptEligible: true };
+            internals.cues = [cue];
+            internals.currentCue = cue;
+
+            try {
+                internals.openLinesPanel();
+                internals.alignToVideo();
+
+                // Run any initial timers/frames
+                vi.runAllTimers();
+                rafSpy.mockClear();
+
+                // Trigger a layout alignment cycle
+                internals.alignToVideo();
+
+                // Run the animation frame if any was scheduled
+                vi.runAllTimers();
+
+                // The infinite loop is broken, so requestAnimationFrame should not be scheduled repeatedly.
+                // It should have been scheduled at most once (or zero times since layout didn't change).
+                expect(rafSpy.mock.calls.length).toBeLessThanOrEqual(1);
+            } finally {
+                controller.destroy();
+                rafSpy.mockRestore();
+                vi.useRealTimers();
+            }
+        });
+    });
+
     it('hides the whole subtitle rail while compact navigation idles', () => {
         expect(SUBTITLES_YOUTUBE_CSS)
             .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');

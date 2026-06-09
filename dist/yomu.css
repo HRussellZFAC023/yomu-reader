@@ -8647,6 +8647,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   color: var(--jpdb-reader-text);
   font: 800 15px/1.2 var(--jpdb-reader-font);
   letter-spacing: .01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .jpdb-subtitle-drawer-meta {
   min-width: 0;
@@ -8663,7 +8666,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   align-items: center;
   gap: 8px;
 }
-@container (max-width: 400px) {
+@container (max-width: 600px) {
   .jpdb-subtitle-drawer-head {
     grid-template-columns: 1fr;
     gap: 10px;

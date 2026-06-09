@@ -368,27 +368,34 @@ function readablePointerTextContext(root: HTMLElement, target: Text): { text: st
 }
 
 function isPointerTextParentEligible(parent: HTMLElement): boolean {
+    const insideSubtitle = Boolean(parent.closest('.jpdb-subtitle-player, .jpdb-subtitle-list'));
     const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
     let current: HTMLElement | null = parent;
     while (current) {
-        if (!isPointerTextElementEligible(current, allowReaderRoot)) return false;
+        if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle)) return false;
         current = current.parentElement;
     }
     return true;
 }
 
-function isPointerTextElementEligible(element: HTMLElement, allowReaderRoot = false): boolean {
+function isPointerTextElementEligible(element: HTMLElement, allowReaderRoot = false, insideSubtitle = false): boolean {
     const style = getComputedStyle(element);
-    return elementPassesPointerTextAttributes(element, allowReaderRoot)
+    return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle)
         && stylePassesPointerTextLookup(style)
         && !isScreenReaderOnlyElement(element, style);
 }
 
-function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoot: boolean): boolean {
-    return (!element.matches(POINTER_TEXT_SKIP_SELECTOR) || (allowReaderRoot && element.matches(READER_ROOT_SELECTOR)))
-        && !element.hasAttribute('hidden')
-        && !element.hasAttribute('inert')
-        && element.getAttribute('aria-hidden')?.toLowerCase() !== 'true';
+function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoot: boolean, insideSubtitle = false): boolean {
+    if (element.hasAttribute('hidden') || element.hasAttribute('inert') || element.getAttribute('aria-hidden')?.toLowerCase() === 'true') {
+        return false;
+    }
+    if (insideSubtitle) {
+        if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable="true"],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
+            return false;
+        }
+        return true;
+    }
+    return (!element.matches(POINTER_TEXT_SKIP_SELECTOR) || (allowReaderRoot && element.matches(READER_ROOT_SELECTOR)));
 }
 
 function stylePassesPointerTextLookup(style: CSSStyleDeclaration): boolean {
