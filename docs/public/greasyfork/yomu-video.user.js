@@ -1094,9 +1094,14 @@
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const sources = sourceTokenRubies(surface, token);
     if (preserveTokenRubies) {
-      return sources.filter((ruby) => {
+      return sources.flatMap((ruby) => {
         const range = localRubyRange(surface, token, ruby);
-        return range !== null && KANJI_RE.test(surface.slice(range.start, range.end));
+        if (!range) return [];
+        const base = surface.slice(range.start, range.end);
+        if (!KANJI_RE.test(base)) return [];
+        if (!KANA_CHAR_RE.test(base)) return [ruby];
+        const parts = kanjiOnlyRubySegments(surface, token, ruby);
+        return parts.length ? parts : [ruby];
       });
     }
     return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
@@ -7913,7 +7918,8 @@ ${spelling}`);
     return Boolean(lastSignature) || document.documentElement.classList.contains("jpdb-subtitle-video-inset-left") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-right") || document.documentElement.classList.contains("jpdb-subtitle-video-inset-bottom");
   }
   function videoInsetMetrics(options) {
-    const insetPixels = Math.max(0, Math.round(options.panelSize) + options.margin);
+    const gap = options.side === "left" ? options.margin * 2 : options.margin;
+    const insetPixels = Math.max(0, Math.round(options.panelSize) + gap);
     const width = videoInsetWidth(options);
     const height = videoInsetHeight(options);
     const inset = `${insetPixels}px`;
@@ -8356,6 +8362,12 @@ ${spelling}`);
       ...playerTracks,
       ...Array.isArray(rawTracks) ? rawTracks : []
     ], renderer?.translationLanguages);
+  }
+  function youtubeVideoHasNativeCaptions() {
+    if (getYouTubeCaptionTracks().length) return true;
+    const button = document.querySelector("#movie_player .ytp-subtitles-button");
+    if (!button) return false;
+    return button.getAttribute("aria-disabled") !== "true" && button.style.display !== "none";
   }
   async function fallbackYouTubeCaptionCandidates(track) {
     if (track.kind !== "youtube") return [];
@@ -10125,6 +10137,7 @@ ${spelling}`);
     subtitleSourceContextKey = "";
     pausePanelOpen = false;
     pausePanelDismissed = false;
+    pausePanelSyncScheduled = false;
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -10417,10 +10430,10 @@ ${spelling}`);
       this.videoResizeObserver.observe(video);
       video.addEventListener("loadedmetadata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
-      video.addEventListener("pause", () => this.syncPauseTranscriptPanel(), this.eventOptions({ passive: true }));
+      video.addEventListener("pause", () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
       video.addEventListener("play", () => {
         this.pausePanelDismissed = false;
-        this.closePauseTranscriptPanel();
+        if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
         this.scheduleAlignToVideo();
       }, this.eventOptions({ passive: true }));
       this.scheduleAlignToVideo();
@@ -10734,6 +10747,7 @@ ${spelling}`);
     }
     ensureDomCaptionFallbackTrack(selected) {
       if (!isYouTubePage() || selected || this.tracks.some((track2) => track2.kind === "youtube")) return selected;
+      if (!youtubeVideoHasNativeCaptions()) return selected;
       const track = this.createYouTubeDomCaptionFallbackTrack();
       this.tracks.push(track);
       this.selectedTrackId = track.id;
@@ -11110,7 +11124,7 @@ ${spelling}`);
       if (!texts.length) return;
       void (async () => {
         try {
-          await this.parseCueHtmlBatch(texts, settings, { allowProvisional: false });
+          await this.parseCueHtmlBatch(texts, settings);
         } catch {
         }
         if (serial !== this.parseWarmupSerial) return;
@@ -11203,6 +11217,12 @@ ${spelling}`);
       const placement = this.transcriptPlacementFromTarget(target);
       if (!placement) return;
       const settings = this.options.getSettings();
+      const compact = shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth));
+      const effectivePlacement = compact ? "bottom" : settings.subtitleTranscriptPlacement;
+      if (placement === effectivePlacement) {
+        this.closeTranscriptPanel();
+        return;
+      }
       settings.subtitleTranscriptPlacement = placement;
       if (placement !== "bottom") this.clampStoredSideWidthForCurrentVideo(placement);
       this.options.onSettingsChange();
@@ -11945,6 +11965,15 @@ ${spelling}`);
       this.clearVideoInsetForTranscriptPanel();
       this.syncControls();
     }
+    schedulePauseTranscriptPanelSync() {
+      if (this.pausePanelSyncScheduled) return;
+      this.pausePanelSyncScheduled = true;
+      requestAnimationFrame(() => window.setTimeout(() => {
+        this.pausePanelSyncScheduled = false;
+        if (this.destroyed) return;
+        this.syncPauseTranscriptPanel();
+      }, 0));
+    }
     syncPauseTranscriptPanel() {
       const settings = this.options.getSettings();
       if (!settings.subtitlePausePanel || !this.video || !this.video.paused || this.video.ended || !this.hasTranscriptSurface()) {
@@ -12630,7 +12659,7 @@ ${spelling}`);
       this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
-      return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin) : layout.left - videoRect.left - layout.margin;
+      return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
       this.fullscreen = Boolean(document.fullscreenElement);

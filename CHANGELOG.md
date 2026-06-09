@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.47] - 2026-06-09
+
+### Fixed
+
+- Fixed the player-overlay subtitle lagging behind the transcript panel: the overlay's parse warm-up refused the fast provisional parse tier the panel already used, so the overlay showed unparsed text until the slow authoritative batch returned. Both surfaces now share the same two-tier parse pipeline (provisional immediately, authoritative upgrade in place) with deduplicated in-flight requests.
+- Fixed furigana covering whole words instead of just the kanji (e.g. 話す showed はなす over the full word); explicit readings over mixed kanji-kana bases are now trimmed so ruby only sits above the kanji.
+- Fixed the transcript panel docked to the left sitting flush against the player; left docking now keeps the same gap as right docking.
+- Removed the phantom "YouTube native captions" track from the track selector on videos that have no captions at all.
+- Pressing the placement button for the currently active dock position now closes the transcript panel instead of doing nothing.
+- Hid the left/right placement buttons on small screens, where the panel always uses the bottom drawer layout and the side buttons were inert.
+
+### Changed
+
+- Pausing and resuming the video no longer rebuilds the pause transcript panel synchronously inside the media event; the work is deferred past the next paint so play/pause stays responsive on desktop and iPhone.
+
 ## [0.6.46] - 2026-06-09
 
 ### Fixed

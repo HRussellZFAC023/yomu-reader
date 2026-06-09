@@ -835,6 +835,9 @@ describe('SubtitlePlayerController', () => {
             paused = false;
             video.dispatchEvent(new Event('play'));
 
+            // The pause-panel sync is deferred past the next paint so play/pause
+            // stays responsive; flush the rAF + timeout before asserting.
+            await vi.advanceTimersByTimeAsync(20);
             expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(true);
             await vi.advanceTimersByTimeAsync(181);
             expect(panel.hidden).toBe(true);

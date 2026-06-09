@@ -25603,7 +25603,7 @@ describe('reader helpers', () => {
         expect(linkWord.querySelector('rt')?.textContent).toBe('あおぞら');
         expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(proseWord.tabIndex).toBe(-1);
-        expect(proseWord.querySelector('rt')?.textContent).toBe('よむ');
+        expect(proseWord.querySelector('rt')?.textContent).toBe('よ');
 
         const app = new ReaderApp();
         try {
@@ -25918,7 +25918,7 @@ describe('reader helpers', () => {
             expect(controlWord.tabIndex).toBe(-1);
         }
         expect(buttonWord.querySelector('rt')?.textContent).toBe('せってい');
-        expect(summaryWord.querySelector('rt')?.textContent).toBe('つづき');
+        expect(summaryWord.querySelector('rt')?.textContent).toBe('つづ');
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -25986,7 +25986,7 @@ describe('reader helpers', () => {
         expect(activeWord.querySelector('rt')?.textContent).toBe('きょう');
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
-        expect(linkWord.querySelector('rt')?.textContent).toBe('つづき');
+        expect(linkWord.querySelector('rt')?.textContent).toBe('つづ');
     });
 
     it('marks compact onclick controls passive in whole-page fallback scans', () => {
@@ -26013,7 +26013,7 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('[onclick] .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.tabIndex).toBe(-1);
-        expect(word.querySelector('rt')?.textContent).toBe('つづき');
+        expect(word.querySelector('rt')?.textContent).toBe('つづ');
     });
 
     it('collects hosted docs text in page order including Try Me content', () => {
