@@ -5563,7 +5563,9 @@ recommendedJiten	jiten.moe頻度データです。
       if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
       const now = Date.now();
       const cached = this.readyAudioCache.get(key2);
-      if (cached && cached.expiresAt > now) return cached.promise;
+      if (cached && cached.expiresAt > now) {
+        return cached.promise.then((audio) => this.createReadyAudio(audio.src));
+      }
       if (cached) this.readyAudioCache.delete(key2);
       let promise;
       promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl)).catch((error) => {
@@ -15330,6 +15332,10 @@ ${entry.reading || ""}`;
         return null;
       }
       const note = this.buildAnkiNote(card, sentence, settings, options);
+      if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) {
+        if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
+        return null;
+      }
       try {
         return await this.addNoteViaConnect(note, card);
       } catch (error) {
@@ -30806,8 +30812,7 @@ ${normalizedReading}`;
     };
     const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42);
     const setupStroke = (point) => {
-      const style = getComputedStyle(stage);
-      context.strokeStyle = style.getPropertyValue("--jpdb-reader-doodle-ink").trim() || DOODLE_COLOR_TOKENS.ink;
+      context.strokeStyle = resolvedDoodleInk(stage);
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = strokeWidth(point);
@@ -31012,6 +31017,10 @@ ${normalizedReading}`;
   function clearSelection() {
     const selection = document.getSelection?.();
     if (selection && !selection.isCollapsed) selection.removeAllRanges();
+  }
+  function resolvedDoodleInk(stage) {
+    const ink = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim();
+    return ink && !ink.startsWith("var(") ? ink : DOODLE_COLOR_TOKENS.ink;
   }
   function kanjiDoodleElements(popover) {
     const stage = popover.querySelector(".jpdb-reader-doodle-stage");
@@ -41649,7 +41658,6 @@ ${newTabCardReading(card)}`;
         </div>
     `;
   }
-  Logger.scope("OCR");
   const RENDERED_WORD_CONTRAST_VARS = [
     "--jpdb-reader-page-bg",
     "--jpdb-reader-highlight-backdrop",
@@ -43781,9 +43789,15 @@ ${newTabCardReading(card)}`;
     autocapitalize: "off",
     autocorrect: "off",
     spellcheck: "false",
-    enterkeyhint: "done"
+    enterkeyhint: "done",
+    "data-1p-ignore": "true",
+    "data-lpignore": "true",
+    "data-bwignore": "true",
+    "data-protonpass-ignore": "true",
+    "data-form-type": "other"
   };
-  const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"';
+  const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+  const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
   const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
   const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
   const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
@@ -43870,6 +43884,7 @@ ${newTabCardReading(card)}`;
   }
   function renderSettingsForm(settings, jpdbSettingsUrl, jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL) {
     return `
+            ${renderAutofillTrap()}
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
                 <h2>${SETTINGS_TITLE}</h2>
@@ -43902,12 +43917,20 @@ ${newTabCardReading(card)}`;
             </div>
     `;
   }
+  function renderAutofillTrap() {
+    return `
+            <div class="jpdb-reader-autofill-trap" aria-hidden="true">
+                <input type="text" name="yomu-autofill-trap-user" tabindex="-1" autocomplete="username" aria-hidden="true">
+                <input type="password" name="yomu-autofill-trap-pass" tabindex="-1" autocomplete="current-password" aria-hidden="true">
+            </div>
+    `;
+  }
   function renderSettingsSearch(language) {
     return `
             <div class="jpdb-reader-settings-search">
                 <label>
                     <span class="jpdb-reader-settings-label-text">${escapedUiText(language, "settingsSearch")}</span>
-                    <input type="search" data-settings-search placeholder="${escapedUiText(language, "settingsSearchPlaceholder")}" autocomplete="off">
+                    <input type="search" name="yomu-settings-search" data-settings-search placeholder="${escapedUiText(language, "settingsSearchPlaceholder")}" autocomplete="off"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
                 </label>
             </div>
             <div class="jpdb-reader-settings-search-empty" data-settings-search-empty hidden>${escapedUiText(language, "settingsSearchNoResults")}</div>
@@ -43942,6 +43965,7 @@ ${newTabCardReading(card)}`;
                         ${checkbox("jpdbPageWordEnhancementsEnabled", "Add sources to word/search pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                         ${checkbox("jpdbPageKanjiEnhancementsEnabled", "Add sources to kanji pages", settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
+                    <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
                 </div>
             </fieldset>
     `;
@@ -45790,6 +45814,22 @@ ${newTabCardReading(card)}`;
     const control = form.elements.namedItem(name);
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement ? control : null;
   }
+  function suppressCredentialAutofill(form) {
+    const guarded = form.querySelectorAll(
+      "input.jpdb-reader-masked-input, input[data-settings-search]"
+    );
+    guarded.forEach((input2) => {
+      if (input2.dataset.autofillGuarded === "true") return;
+      input2.dataset.autofillGuarded = "true";
+      input2.readOnly = true;
+      const enable = () => {
+        input2.readOnly = false;
+      };
+      input2.addEventListener("focus", enable);
+      input2.addEventListener("pointerdown", enable);
+      input2.addEventListener("keydown", enable);
+    });
+  }
   function ankiScanFormControls(form) {
     return {
       deck: namedSettingsControl(form, "ankiDeck"),
@@ -46302,6 +46342,7 @@ ${newTabCardReading(card)}`;
       });
     }
     bindEditorControls(form) {
+      suppressCredentialAutofill(form);
       syncBrowserTtsVoiceOptions(form);
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });

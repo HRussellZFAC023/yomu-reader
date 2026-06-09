@@ -678,7 +678,9 @@ export class AudioPlayer {
 
         const now = Date.now();
         const cached = this.readyAudioCache.get(key);
-        if (cached && cached.expiresAt > now) return cached.promise;
+        if (cached && cached.expiresAt > now) {
+            return cached.promise.then(audio => this.createReadyAudio(audio.src));
+        }
         if (cached) this.readyAudioCache.delete(key);
 
         let promise!: Promise<HTMLAudioElement>;

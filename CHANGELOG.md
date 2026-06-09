@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.39] - 2026-06-09
+
+### Added
+
+- Brought jiten.moe to parity with jpdb.io page enhancements: your dictionaries, Immersion Kit, kanji stroke practice, RTK/Heisig/Koohii, the component graph, uchisen, and the other sources now inject onto jiten vocabulary, kanji, and parse pages, including across in-app (SPA) navigation.
+
+### Fixed
+
+- Stopped browsers and password managers from autofilling saved site credentials over the API-key field (and spilling the username into the settings search box) with a decoy credential trap, per-field opt-outs, and readonly-until-focus inputs.
+- Synced the reader theme with jpdb.io and jiten.moe light/dark mode: an explicit theme is pushed to the host, auto follows the site, and toggling the site's own theme updates the reader to match.
+- Let a click on a scanned word inside a native link (such as jpdb's clickable kanji) follow the link; hover and modifier+click still open the lookup popup.
+- Kept the centered settings dialog in place when an Immersion Kit image finishes loading behind it, instead of flinging the panel into the top-left corner.
+
 ## [0.6.38] - 2026-06-08
 
 ### Fixed

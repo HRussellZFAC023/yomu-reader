@@ -11,6 +11,7 @@ import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
 import {
+    yomuImageOcrController,
     yomuSettingsDialogController,
     yomuSubtitlePlayerController,
     yomuYoutubeImmersionFilter,
@@ -216,7 +217,7 @@ import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
-import { ImageOcrController } from '../ocr/controller';
+import type { ImageOcrController } from '../ocr/controller';
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
     caretTextPositionFromPoint,
@@ -307,6 +308,18 @@ type ReaderLifecycleSurface = {
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
+
+function createNoopImageOcrController(): ImageOcrController {
+    const noop = (): void => undefined;
+    return {
+        init: noop,
+        refresh: noop,
+        destroy: noop,
+        scanVisible: noop,
+        pinLineForElement: noop,
+        captureSourceImageForElement: () => undefined,
+    } as unknown as ImageOcrController;
+}
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
     '.jpdb-ocr-layer',
@@ -461,15 +474,7 @@ export class ReaderApp {
         showSettings: panel => this.showSettings(panel),
     });
     private subtitles = this.createSubtitlePlayer();
-    private ocr = new ImageOcrController({
-        getSettings: () => this.settings,
-        parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
-        onToast: message => this.toast(message),
-        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
-        enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
-        enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
-        fallbackCardFromText: text => this.parser.fallbackCardFromText(text),
-    });
+    private ocr: ImageOcrController = this.createImageOcrController();
     private youtube = this.createYoutubeFilter();
     private pageScanner = new VisiblePageScanner({
         getSettings: () => this.settings,
@@ -582,6 +587,23 @@ export class ReaderApp {
             getSettings: () => this.settings,
             setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
             setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
+        });
+    }
+
+    private createImageOcrController(): ImageOcrController {
+        const Controller = yomuImageOcrController();
+        if (!Controller) {
+            log.warnOnce('ocr-companion-missing', 'OCR companion is missing; image reading is disabled.');
+            return createNoopImageOcrController();
+        }
+        return new Controller({
+            getSettings: () => this.settings,
+            parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
+            onToast: message => this.toast(message),
+            shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
+            enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
+            enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
+            fallbackCardFromText: text => this.parser.fallbackCardFromText(text),
         });
     }
 

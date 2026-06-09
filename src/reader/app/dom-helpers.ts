@@ -9,7 +9,7 @@ import {
 import { cardStateLabel } from './i18n';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
-import { normalizeOcrRenderedText } from '../ocr/controller';
+import { normalizeOcrRenderedText } from '../ocr/rendered-text';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from '../dom/rendered-word-state';
 import type { AnkiLookupResult } from '../anki/index';
@@ -126,7 +126,10 @@ export function applyAnkiLookupToRenderedWord(
 ): void {
     if (!ankiLookup.primary) {
         if (ankiLookup.trusted === false) return;
-        if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) return;
+        if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
+            word.dataset.ankiPreserveContrast = 'true';
+            return;
+        }
         clearRenderedWordAnkiState(word);
         word.classList.add(`anki-${ankiLookup.state}`);
         word.dataset.ankiState = ankiLookup.state;

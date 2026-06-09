@@ -4,6 +4,7 @@ export type SubtitlePlayerControllerClass = typeof import('../subtitles/controll
 export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
+export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
 
 interface YomuCompanionRegistry {
     settings?: {
@@ -12,6 +13,9 @@ interface YomuCompanionRegistry {
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
         YoutubeImmersionFilter: YoutubeImmersionFilterClass;
+    };
+    ocr?: {
+        ImageOcrController: ImageOcrControllerClass;
     };
 }
 
@@ -40,6 +44,10 @@ export function yomuSubtitlePlayerController(): SubtitlePlayerControllerClass | 
 
 export function yomuYoutubeImmersionFilter(): YoutubeImmersionFilterClass | undefined {
     return yomuCompanions().video?.YoutubeImmersionFilter;
+}
+
+export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
+    return yomuCompanions().ocr?.ImageOcrController;
 }
 
 function yomuCompanions(): YomuCompanionRegistry {

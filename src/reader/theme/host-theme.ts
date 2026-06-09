@@ -1,10 +1,10 @@
 export type HostTheme = 'light' | 'dark';
-export type ThemeHostKind = 'jpdb' | 'jiten';
+type ThemeHostKind = 'jpdb' | 'jiten';
 
 const HOST_DARK_CLASS = 'dark-mode';
 const JITEN_THEME_COOKIE = 'jiten-theme-mode';
 
-export function currentThemeHost(): ThemeHostKind | null {
+function currentThemeHost(): ThemeHostKind | null {
     const host = location.hostname;
     if (host === 'jpdb.io' || host.endsWith('.jpdb.io')) return 'jpdb';
     if (host === 'jiten.moe' || host.endsWith('.jiten.moe')) return 'jiten';
