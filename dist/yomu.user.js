@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.38
+// @version      0.6.39
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-mvizPPtJCB2pjCm2Rx8oylCkVeJNdfoRuwZ6OuxFB/I=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-YaDnQP43vNVvfkvySt9pnYjmM32mOecZtdH0bB2bu4E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-nVi0gutW01WPoio11he0If8VpyUPfcrvXPYSUnNlgZQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-n6p+M2YNcSzoRYk0RYGvbMSimW6hwk5q2IS2MyQHD8E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1553,7 +1553,7 @@
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$s = Logger.scope("Settings");
+  const log$r = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -2032,13 +2032,13 @@
   function normalizeLookupSettings(value) {
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber$1(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      jpdbDefinitionsPriority: clampNumber(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
       ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
-      hoverOpenDelayMs: clampNumber$1(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-      hoverCloseDelayMs: clampNumber$1(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+      hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+      hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
   }
   function normalizeNewTabSettings(value) {
@@ -2054,7 +2054,7 @@
       newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
       newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
-      newTabOfflineLimit: clampNumber$1(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -2108,12 +2108,12 @@
       popupMode: normalizePopupMode(value?.popupMode),
       stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
       popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
-      popoverWidth: clampNumber$1(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-      popoverHeight: clampNumber$1(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+      popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+      popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
       popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
       readerFontFamily: normalizeFontFamily(value?.readerFontFamily, DEFAULT_SETTINGS.readerFontFamily),
       popupFontFamily: normalizeFontFamily(value?.popupFontFamily, DEFAULT_SETTINGS.popupFontFamily),
-      popupFontWeight: clampNumber$1(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
+      popupFontWeight: clampNumber(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
     };
   }
   function normalizeMiningSettings(value) {
@@ -2132,14 +2132,14 @@
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
       immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
       nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
-      immersionKitPriority: clampNumber$1(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+      immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
       immersionKitLimitEnabled: booleanSetting(value, "immersionKitLimitEnabled"),
-      immersionKitLimit: clampNumber$1(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
-      immersionKitMinLength: clampNumber$1(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-      immersionKitMaxLength: clampNumber$1(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+      immersionKitLimit: clampNumber(settings.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit),
+      immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+      immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
       immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
       immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
-      immersionKitPlaybackRate: clampNumber$1(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+      immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
@@ -2149,8 +2149,8 @@
       ocrTextColor: sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(settings.ocrBackgroundColor, DEFAULT_SETTINGS.ocrBackgroundColor),
-      ocrBackgroundOpacity: clampNumber$1(settings.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
-      ocrFontScale: clampNumber$1(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+      ocrBackgroundOpacity: clampNumber(settings.ocrBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.ocrBackgroundOpacity),
+      ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
     };
   }
   function normalizeSubtitleSettings(value) {
@@ -2161,9 +2161,9 @@
       subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
       subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
       subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-      subtitleBackgroundOpacity: clampNumber$1(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+      subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
       subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
-      subtitleFontWeight: clampNumber$1(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+      subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
     };
   }
   function normalizeFontFamily(value, fallback) {
@@ -2230,7 +2230,7 @@
     if (value === "meta") return "Meta";
     return value === "shift" ? "Shift" : "";
   }
-  function clampNumber$1(value, min, max2, fallback) {
+  function clampNumber(value, min, max2, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : fallback;
   }
@@ -2246,7 +2246,7 @@
     for (const key of Object.keys(ranges)) {
       const { min, max: max2 } = ranges[key];
       const fallback = DEFAULT_SETTINGS[key];
-      normalized[key] = clampNumber$1(value?.[key], min, max2, typeof fallback === "number" ? fallback : 0);
+      normalized[key] = clampNumber(value?.[key], min, max2, typeof fallback === "number" ? fallback : 0);
     }
     return normalized;
   }
@@ -2472,7 +2472,7 @@
     const params = new URLSearchParams(search);
     const bootstrap = urlBootstrapSettings(params);
     if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-    log$s.info("Applying URL bootstrap settings", {
+    log$r.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(bootstrap.apiKey),
       hasAudio: Boolean(bootstrap.audio),
       hasOcr: Boolean(bootstrap.ocr)
@@ -2534,13 +2534,13 @@
       const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       return settings;
     } catch (error) {
-      log$s.warn("Settings load failed", { error });
+      log$r.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$s.warn("Skipped save during reset");
+      log$r.warn("Skipped save during reset");
       return;
     }
     try {
@@ -2549,7 +2549,7 @@
       await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
       dispatchSettingsChange(storedSettings);
     } catch (error) {
-      log$s.warn("Settings save failed", { error });
+      log$r.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -5123,19 +5123,19 @@
         return await requestViaFetch(url, options);
       } catch (error) {
         if (!userscriptRequest) throw error;
-        return await requestViaUserscript$1(url, options, userscriptRequest);
+        return await requestViaUserscript(url, options, userscriptRequest);
       }
     }
     if (userscriptRequest) {
       try {
-        return await requestViaUserscript$1(url, options, userscriptRequest);
+        return await requestViaUserscript(url, options, userscriptRequest);
       } catch (error) {
         if (!shouldRetryWithFetch(error)) throw error;
       }
     }
     return requestViaFetch(url, options);
   }
-  function requestViaUserscript$1(url, options, userscriptRequest) {
+  function requestViaUserscript(url, options, userscriptRequest) {
     return new Promise((resolve, reject) => {
       const signal = options.signal;
       if (signal?.aborted) {
@@ -5259,13 +5259,13 @@
     const value = await requestHttp(url, { ...options, responseType: "text" });
     return typeof value === "string" ? value : String(value ?? "");
   }
-  async function requestBlob$3(url, options = {}) {
+  async function requestBlob$2(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "blob" });
     if (value instanceof Blob) return value;
     if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
     throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? "Request"} did not return a blob.`);
   }
-  async function requestJson$3(url, options = {}) {
+  async function requestJson$2(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
@@ -7307,7 +7307,7 @@ recommendedJiten	jiten.moe頻度データです。
     return new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
   }
   async function loadJaGrammarRuleCopy() {
-    jaGrammarRuleCopyPromise ??= requestJson$3(JA_GRAMMAR_RULE_COPY_URL, {
+    jaGrammarRuleCopyPromise ??= requestJson$2(JA_GRAMMAR_RULE_COPY_URL, {
       failureLabel: "Japanese grammar copy request",
       timeoutMs: 15e3,
       allowDirectCrossOrigin: true,
@@ -7549,7 +7549,7 @@ recommendedJiten	jiten.moe頻度データです。
       failureLabel: uiText(language, "audioRequest"),
       timeoutLabel: uiText(language, "audioRequestTimedOut")
     };
-    return responseType === "blob" ? requestBlob$3(responseUrl, requestOptions) : requestText$6(responseUrl, requestOptions);
+    return responseType === "blob" ? requestBlob$2(responseUrl, requestOptions) : requestText$6(responseUrl, requestOptions);
   }
   function shouldPreferFetchForAudioRequests() {
     return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
@@ -8627,7 +8627,7 @@ recommendedJiten	jiten.moe頻度データです。
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$r = Logger.scope("Audio");
+  const log$q = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -8663,7 +8663,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.stopCurrent();
       const reservedAudio = this.reserveGestureAudioElement(request);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$r.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$q.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
@@ -8691,14 +8691,14 @@ recommendedJiten	jiten.moe頻度データです。
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$r.warn("No audio sources configured", { term: card.spelling });
+      log$q.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$r.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$q.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
@@ -8915,7 +8915,7 @@ recommendedJiten	jiten.moe頻度データです。
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$r.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$q.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -9023,7 +9023,9 @@ recommendedJiten	jiten.moe頻度データです。
       if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
       const now = Date.now();
       const cached = this.readyAudioCache.get(key);
-      if (cached && cached.expiresAt > now) return cached.promise;
+      if (cached && cached.expiresAt > now) {
+        return cached.promise.then((audio) => this.createReadyAudio(audio.src));
+      }
       if (cached) this.readyAudioCache.delete(key);
       let promise;
       promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl)).catch((error) => {
@@ -9900,7 +9902,7 @@ ${candidate.depth}`;
     }
     return -1;
   }
-  const log$q = Logger.scope("Yomitan");
+  const log$p = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -9915,10 +9917,10 @@ ${candidate.depth}`;
       name: file.name,
       size: file.size,
       type: file.type,
-      sourceHost: sourceUrl ? safeHost$2(sourceUrl) : ""
+      sourceHost: sourceUrl ? safeHost$1(sourceUrl) : ""
     };
   }
-  function safeHost$2(url) {
+  function safeHost$1(url) {
     try {
       return new URL(url, location.href).host;
     } catch {
@@ -9947,8 +9949,8 @@ ${candidate.depth}`;
     const precision = unit === 0 || size >= 10 ? 0 : 1;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
-  async function requestBlob$2(url, proxyUrl, onProgress, language = "en") {
-    const done = log$q.time("Dictionary download", { host: safeHost$2(url) });
+  async function requestBlob$1(url, proxyUrl, onProgress, language = "en") {
+    const done = log$p.time("Dictionary download", { host: safeHost$1(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -9957,18 +9959,18 @@ ${candidate.depth}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$q.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: response.response.size });
+          log$p.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$q.warn("Dictionary download HTTP error", { host: safeHost$2(url), status: response.status });
+          log$p.warn("Dictionary download HTTP error", { host: safeHost$1(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$q.warn("Dictionary download payload failed", { host: safeHost$2(url), status: response.status });
+        log$p.warn("Dictionary download payload failed", { host: safeHost$1(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -9985,19 +9987,19 @@ ${candidate.depth}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$q.warn("Dictionary download failed", { host: safeHost$2(url) });
+          log$p.warn("Dictionary download failed", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$q.warn("Dictionary download timed out", { host: safeHost$2(url) });
+          log$p.warn("Dictionary download timed out", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$q.warn("Dictionary download failed", { host: safeHost$2(url) });
+          log$p.warn("Dictionary download failed", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -10021,7 +10023,7 @@ ${candidate.depth}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$q.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: blob.size });
+    log$p.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -10053,17 +10055,17 @@ ${candidate.depth}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$q.warn("Dictionary download HTTP error", { host: safeHost$2(url), status });
+    log$p.warn("Dictionary download HTTP error", { host: safeHost$1(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
-    const host = safeHost$2(url);
+    const host = safeHost$1(url);
     if (isDictionaryCorsError(error)) {
-      log$q.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$p.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$q.warn("Dictionary download fetch failed", { host, error });
+    log$p.warn("Dictionary download fetch failed", { host, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -11323,7 +11325,7 @@ ${scopedInner}
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$p = Logger.scope("Yomitan");
+  const log$o = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -11344,7 +11346,7 @@ ${scopedInner}
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$p.warn("Term search index preparation failed", { error });
+        log$o.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -11378,7 +11380,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$p.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$o.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries = await this.getTermLookupEntries(
@@ -11403,7 +11405,7 @@ ${scopedInner}
             }).slice(0, limit);
             return results;
           } catch (error) {
-            log$p.warn("Term lookup failed", { expression, reading, error });
+            log$o.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -11413,7 +11415,7 @@ ${scopedInner}
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$p.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$o.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -11432,7 +11434,7 @@ ${scopedInner}
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$p.warn("Term search failed", { query: normalizedQuery, error });
+        log$o.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -11442,7 +11444,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$p.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$o.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11451,7 +11453,7 @@ ${scopedInner}
             const results = rankedDictionaryEntries(entries, rank, limit);
             return results;
           } catch (error) {
-            log$p.warn("Kanji lookup failed", { length: text2.length, error });
+            log$o.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -11462,14 +11464,14 @@ ${scopedInner}
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$p.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$o.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$p.warn("Kanji character list failed", { error });
+        log$o.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -11479,7 +11481,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$p.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$o.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11487,7 +11489,7 @@ ${scopedInner}
             const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$p.warn("Term metadata lookup failed", { expression, error });
+            log$o.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -11499,7 +11501,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$p.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$o.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11509,7 +11511,7 @@ ${scopedInner}
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$p.warn("Similar terms by kanji lookup failed", { character, error });
+            log$o.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -11518,7 +11520,7 @@ ${scopedInner}
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$p.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$o.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -11534,7 +11536,7 @@ ${scopedInner}
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$p.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$o.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -11589,7 +11591,7 @@ ${scopedInner}
       });
     }
     async summary() {
-      const done = log$p.time("Dictionary summary");
+      const done = log$o.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -11609,7 +11611,7 @@ ${scopedInner}
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$p.warn("Dictionary summary failed", { error });
+        log$o.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -11622,32 +11624,32 @@ ${scopedInner}
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$p.time("Dictionary presence check");
+      const done = log$o.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$p.warn("Dictionary presence check failed", { error });
+        log$o.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$p.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$o.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$p.warn("Random term listing failed", { limit, error });
+        log$o.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$p.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$o.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -11664,7 +11666,7 @@ ${scopedInner}
         }
         return results;
       } catch (error) {
-        log$p.warn("Random top term listing failed", { limit, error });
+        log$o.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -11746,26 +11748,26 @@ ${scopedInner}
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$p.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$o.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$p.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$o.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$p.info("Dictionary file import completed", summary);
+        log$o.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$p.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$o.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$p.info("Dictionary URL import started", { filename, host: safeHost$2(url) });
+      log$o.info("Dictionary URL import started", { filename, host: safeHost$1(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
-      const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
+      const blob = await requestBlob$1(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$p.info("Dictionary URL import completed", { filename, host: safeHost$2(url), ...summary });
+      log$o.info("Dictionary URL import completed", { filename, host: safeHost$1(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -11849,7 +11851,7 @@ ${scopedInner}
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$p.info("ZIP dictionary import parsed", summary);
+      log$o.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -11877,7 +11879,7 @@ ${scopedInner}
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$p.info("JSON dictionary import parsed", summary);
+      log$o.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -11976,13 +11978,13 @@ ${scopedInner}
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$p.info("Dexie dictionary import parsed", summary);
+      log$o.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$p.time("Dictionary export");
+      const done = log$o.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -11992,7 +11994,7 @@ ${scopedInner}
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$p.info("Dictionary export prepared", {
+        log$o.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -12010,7 +12012,7 @@ ${scopedInner}
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$p.warn("Dictionary export failed", { error });
+        log$o.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -12029,26 +12031,26 @@ ${scopedInner}
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$p.warn("Dictionary stylesheet render failed", { error });
+        log$o.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$p.time("Dictionary store clear");
+      const done = log$o.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$p.info("Dictionary store cleared");
+        log$o.info("Dictionary store cleared");
       } catch (error) {
-        log$p.warn("Dictionary store clear failed", { error });
+        log$o.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$p.time("Dictionary database factory reset");
+      const done = log$o.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -12057,10 +12059,10 @@ ${scopedInner}
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$p.warn("Dictionary reset pre-clear failed", { error });
+          log$o.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$p.warn("Dictionary delete incomplete after clear", { error });
+        log$o.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -12074,12 +12076,12 @@ ${scopedInner}
       try {
         const db = await dbPromise;
         db.close();
-        log$p.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$o.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$p.time("Dictionary database delete");
+      const done = log$o.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -12105,30 +12107,30 @@ ${scopedInner}
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$p.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$o.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$p.info("Dictionary database deleted", { name: DB_NAME });
+        log$o.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$p.warn("Dictionary database delete failed", { error });
+        log$o.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$p.time("Dictionary delete", { dictionary });
+      const done = log$o.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$p.info("Dictionary delete skipped; not installed", { dictionary });
+          log$o.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$p.info("Only installed dictionary cleared", { dictionary });
+          log$o.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -12144,9 +12146,9 @@ ${scopedInner}
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$p.info("Dictionary deleted", { dictionary });
+        log$o.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$p.warn("Dictionary delete failed", { dictionary, error });
+        log$o.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -12473,7 +12475,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$p.time("Term search index rebuild");
+      const done = log$o.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -12490,13 +12492,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$p.info("Term search index rebuilt", { terms: indexedTerms });
+        log$o.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$p.time("Term kanji index rebuild");
+      const done = log$o.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -12513,7 +12515,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$p.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$o.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -12600,7 +12602,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$p.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$o.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -12630,7 +12632,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$p.warn("Dictionary database open failed", { error: request.error });
+          log$o.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       });
@@ -12638,7 +12640,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$p.info("Dictionary DB version change; closing", {
+        log$o.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -14181,7 +14183,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$o = Logger.scope("Anki");
+  const log$n = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -14224,7 +14226,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$o.warn("Anki status save fell back", error);
+      log$n.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -14238,7 +14240,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$o.warn("Anki status metadata failed", error);
+      log$n.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -14552,7 +14554,7 @@ ${entry.reading || ""}`;
   const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
-  const log$n = Logger.scope("Anki");
+  const log$m = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -14624,7 +14626,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       } catch (error) {
-        log$n.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$m.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -14639,7 +14641,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$n.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$m.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -14792,7 +14794,7 @@ ${entry.reading || ""}`;
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$n.warn("Exact Anki status lookup failed", error);
+        log$m.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache) {
@@ -14822,7 +14824,7 @@ ${entry.reading || ""}`;
       if (!pending.length) return results;
       const batches = this.pendingLookupBatches(pending);
       try {
-        const done = log$n.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        const done = log$m.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -14831,7 +14833,7 @@ ${entry.reading || ""}`;
         done();
         return results;
       } catch (error) {
-        log$n.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        log$m.warn("Anki batch lookup failed", { terms: pending.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -14899,7 +14901,7 @@ ${entry.reading || ""}`;
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$n.warn("Anki status load failed", error);
+        log$m.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -14918,7 +14920,7 @@ ${entry.reading || ""}`;
       const keys = unique$1(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$n.warn("Anki status entry failed", error);
+        log$m.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -14951,7 +14953,7 @@ ${entry.reading || ""}`;
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$n.warn("Anki status index refresh failed", error);
+        log$m.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -15049,7 +15051,7 @@ ${entry.reading || ""}`;
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$n.warn("Queued Anki status index refresh failed", error);
+          log$m.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -15118,7 +15120,7 @@ ${entry.reading || ""}`;
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$n.warn("Anki status rebuild fell back", error);
+        log$m.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -15327,7 +15329,7 @@ ${entry.reading || ""}`;
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique$1([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$n.warn("Anki status cache update failed", error);
+        log$m.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -15475,7 +15477,7 @@ ${entry.reading || ""}`;
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$n.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$m.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -15499,7 +15501,7 @@ ${entry.reading || ""}`;
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$n.info("Answering Anki card", { cardId, grade, ease });
+      log$m.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15508,7 +15510,7 @@ ${entry.reading || ""}`;
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$n.info("Opening Anki note browser", { noteId });
+      log$m.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -15538,6 +15540,10 @@ ${entry.reading || ""}`;
         return null;
       }
       const note = this.buildAnkiNote(card, sentence, settings, options);
+      if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) {
+        if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
+        return null;
+      }
       try {
         return await this.addNoteViaConnect(note, card);
       } catch (error) {
@@ -15615,7 +15621,7 @@ ${entry.reading || ""}`;
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$n.info("Adding Anki note", {
+      log$m.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -15629,7 +15635,7 @@ ${entry.reading || ""}`;
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$n.info("Anki note added", { term: card.spelling, noteId });
+      log$m.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
       return noteId;
@@ -15637,7 +15643,7 @@ ${entry.reading || ""}`;
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError(error)) throw error;
-        log$n.warn("Anki duplicate preflight failed", error);
+        log$m.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
@@ -15675,7 +15681,7 @@ ${entry.reading || ""}`;
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$n.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$m.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -15693,7 +15699,7 @@ ${entry.reading || ""}`;
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$n.warn("Anki dirty marker failed", { reason }, error);
+          log$m.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -15707,12 +15713,12 @@ ${entry.reading || ""}`;
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$n.warn("Anki dirty marker failed", { reason }, error);
+        log$m.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$n.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$m.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -15744,7 +15750,7 @@ ${entry.reading || ""}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$n.info("Anki model created", { modelName });
+      log$m.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
@@ -15771,7 +15777,7 @@ ${entry.reading || ""}`;
       });
       this.markAvailable();
       if (response.error) {
-        log$n.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$m.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -15783,11 +15789,11 @@ ${entry.reading || ""}`;
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError(error)) {
-          log$n.warn("AnkiConnect multi failed; cooling down", error);
+          log$m.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$n.warn("AnkiConnect multi failed; retrying solo", error);
+        log$m.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -15845,7 +15851,7 @@ ${entry.reading || ""}`;
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$n.warn("Active video frame capture failed", error);
+      log$m.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -18171,7 +18177,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const trimmed = attrs.trim();
     return trimmed ? ` ${trimmed}` : "";
   }
-  const log$m = Logger.scope("StudyTools");
+  const log$l = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
@@ -18609,7 +18615,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: parsed.showKnown === true
       };
     } catch (error) {
-      log$m.warn("Grammar preference read failed", { error });
+      log$l.warn("Grammar preference read failed", { error });
       return fallback;
     }
   }
@@ -18621,7 +18627,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: preferences.showKnown
       }));
     } catch (error) {
-      log$m.warn("Grammar preference write failed", { error });
+      log$l.warn("Grammar preference write failed", { error });
     }
   }
   function setGrammarRuleKnown(ruleId, known) {
@@ -18654,17 +18660,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$m.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$l.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
-        const json = await requestJson$2(url);
+        const json = await requestJson$1(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$m.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$l.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$m.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$l.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -18957,7 +18963,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return afterLastParticle || match;
   }
   async function loadGrammarRuleData() {
-    grammarRuleDataPromise ??= requestJson$2(EN_GRAMMAR_RULE_DATA_URL, {
+    grammarRuleDataPromise ??= requestJson$1(EN_GRAMMAR_RULE_DATA_URL, {
       timeoutMs: GRAMMAR_RULE_DATA_TIMEOUT_MS,
       failureLabel: "English grammar rule data request",
       timeoutLabel: "Grammar rule data timed out."
@@ -19010,8 +19016,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isObjectRecord(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
-  function requestJson$2(url, options = {}) {
-    return requestJson$3(url, {
+  function requestJson$1(url, options = {}) {
+    return requestJson$2(url, {
       timeoutMs: options.timeoutMs ?? TRANSLATION_TIMEOUT_MS,
       allowDirectCrossOrigin: true,
       allowConfiguredProxy: false,
@@ -19021,13 +19027,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  const log$l = Logger.scope("StudyRender");
+  const log$k = Logger.scope("StudyRender");
   async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$l.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$k.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence(sentence, language);
@@ -20750,7 +20756,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$k = Logger.scope("MiningContext");
+  const log$j = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -20803,7 +20809,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     fetchImageDataUrl,
     fetchAudioDataUrl: fetchAudioDataUrl2
   }) {
-    const done = log$k.time("Resolve mining context", {
+    const done = log$j.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -20880,7 +20886,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$k.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$j.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -20895,7 +20901,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = parseStoredMiningContext(stored, normalized);
       return context;
     } catch (error) {
-      log$k.warn("Mining context load failed", { term: normalized, error });
+      log$j.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -21071,7 +21077,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$j = Logger.scope("JpdbKanji");
+  const log$i = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -21092,7 +21098,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$j.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$i.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$5(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -21105,7 +21111,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async fetchInfo(kanji) {
       const html = await requestText$5(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$j.warn("Kanji page request failed", { kanji }, error);
+        log$i.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -23251,7 +23257,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
-  const log$i = Logger.scope("CardRenderData");
+  const log$h = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
   const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -23336,7 +23342,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.dependencies.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$i.warn("Local term lookup failed", { term: card.spelling }, error);
+        log$h.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23344,7 +23350,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-        log$i.warn("Local kanji lookup failed", { term: card.spelling }, error);
+        log$h.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23352,7 +23358,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local metadata dictionary", this.dependencies.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch((error) => {
-        log$i.warn("Local metadata lookup failed", { term: card.spelling }, error);
+        log$h.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23360,7 +23366,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-        log$i.warn("Public pitch lookup failed", { term: card.spelling }, error);
+        log$h.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23372,7 +23378,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
-        log$i.warn("JPDB page lookup failed", { term: card.spelling }, error);
+        log$h.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -23380,7 +23386,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!settings.jpdbDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || !this.dependencies.jiten) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfo(card).catch((error) => {
-        log$i.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+        log$h.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
     }
@@ -23389,14 +23395,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const fallback = sourceCardAnkiLookupOrEmpty(card);
       if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
       return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-        log$i.warn("Cached Anki status failed", { term: card.spelling }, error);
+        log$h.warn("Cached Anki status failed", { term: card.spelling }, error);
         return fallback;
       });
     }
     loadDetailedAnkiLookup(card, fastLookup) {
       if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
       return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-        log$i.warn("Anki lookup failed", { term: card.spelling }, error);
+        log$h.warn("Anki lookup failed", { term: card.spelling }, error);
         return ankiLookupWithUnavailableDetails(fallback);
       }), ankiLookupWithUnavailableDetails(fallback)));
     }
@@ -23409,14 +23415,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!isApiMiningEnabled(settings) || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-        log$i.warn("JPDB deck list failed", { term: card.spelling }, error);
+        log$h.warn("JPDB deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
     loadAnkiDecks(card) {
       if (!this.settings().ankiEnabled) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-        log$i.warn("Anki deck list failed", { term: card.spelling }, error);
+        log$h.warn("Anki deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23424,7 +23430,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       if (!isApiMiningEnabled(settings) || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-        log$i.warn("Jiten deck list failed", { term: card.spelling }, error);
+        log$h.warn("Jiten deck list failed", { term: card.spelling }, error);
         return [];
       }), []);
     }
@@ -23435,7 +23441,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
       if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
       return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-        log$i.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+        log$h.warn("JPDB pool lookup failed", { term: card.spelling }, error);
         return false;
       }), false);
     }
@@ -23528,7 +23534,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Promise.race([
       promise,
       delay$1(timeoutMs).then(() => {
-        log$i.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+        log$h.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
     ]);
@@ -23547,6 +23553,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function yomuYoutubeImmersionFilter() {
     return yomuCompanions().video?.YoutubeImmersionFilter;
+  }
+  function yomuImageOcrController() {
+    return yomuCompanions().ocr?.ImageOcrController;
   }
   function yomuCompanions() {
     return globalThis.__yomuCompanions ?? {};
@@ -23648,7 +23657,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.options.onRefreshed?.(css.length);
     }
   }
-  const log$h = Logger.scope("FactoryReset");
+  const log$g = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
   const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -23700,12 +23709,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$h.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+        log$g.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
-        log$h.warn("All-data reset failed", error);
+        log$g.warn("All-data reset failed", error);
         this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
       }
     }
@@ -23713,7 +23722,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       try {
         return await this.dependencies.resetDictionaryDatabase();
       } catch (error) {
-        log$h.warn("Dictionary reset failed post-settings", error);
+        log$g.warn("Dictionary reset failed post-settings", error);
         this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -23724,7 +23733,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$h.info("Factory reset signal received", {
+      log$g.info("Factory reset signal received", {
         phase: signal.phase,
         href: signal.href,
         remote: source.remote,
@@ -23742,7 +23751,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async assertSettingsStorageDeleted() {
       const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
       if (!settingsKeysStillPresent.length) return;
-      log$h.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+      log$g.warn("Settings keys remained after reset", { settingsKeysStillPresent });
       throw new Error(this.text("factoryResetDeleteSettingsFailed"));
     }
     text(key, values = {}) {
@@ -24153,7 +24162,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderImmersionSource(params) {
     return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
   }
-  function isAbortError$3(error) {
+  function isAbortError$2(error) {
     return errorName(error) === "AbortError";
   }
   function errorName(error) {
@@ -24189,7 +24198,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$g = Logger.scope("ImmersionKit");
+  const log$f = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -24302,7 +24311,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const cacheInflight = !options.signal;
       const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
       if (inflight) return inflight;
-      const done = log$g.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$f.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -24346,18 +24355,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError$3(error)) throw error;
-        log$g.warn("Nadeshiko examples failed", { query }, error);
+        if (isAbortError$2(error)) throw error;
+        log$f.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$g.warn("Immersion Kit examples failed", { query }, error);
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+        log$f.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
     searchImmersionKit(query, settings, options) {
       this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
-      return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
+      return requestJson(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
         this.resetImmersionKitBackoff();
         return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
       }).catch((error) => {
@@ -24381,7 +24390,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     searchNadeshiko(query, settings, options) {
       const apiKey = settings.nadeshikoApiKey.trim();
       if (!apiKey) return Promise.resolve([]);
-      return requestJson$3(`${NADESHIKO_API_BASE}/search`, {
+      return requestJson$2(`${NADESHIKO_API_BASE}/search`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -24760,13 +24769,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function normalizeForSurfaceMatch(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
-  async function requestJson$1(url, timeoutMs, proxyUrl = "", signal, language = "en") {
+  async function requestJson(url, timeoutMs, proxyUrl = "", signal, language = "en") {
     let lastError;
     for (const candidate of urlCandidates(url)) {
       try {
         return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
       } catch (error) {
-        if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -24779,7 +24788,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return error instanceof Error ? error : new Error(fallback);
   }
   function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    return requestJson$3(url, {
+    return requestJson$2(url, {
       proxyUrl,
       timeoutMs,
       allowDirectCrossOrigin: true,
@@ -24791,7 +24800,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
       timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
     }).catch((error) => {
-      if (isAbortError$3(error)) throw error;
+      if (isAbortError$2(error)) throw error;
       if (isImmersionKitRateLimitError(error)) throw error;
       if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
         throw new Error(uiText(language, "immersionKitSearchBlocked"));
@@ -24802,8 +24811,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isImmersionKitRateLimitError(error) {
     return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
   }
-  function requestBlob$1(url, timeoutMs, proxyUrl = "", language = "en") {
-    return requestBlob$3(url, {
+  function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
+    return requestBlob$2(url, {
       proxyUrl,
       timeoutMs,
       allowDirectCrossOrigin: true,
@@ -24823,7 +24832,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let lastError;
     for (const candidate of candidates) {
       try {
-        return await requestBlob$1(candidate, timeoutMs, proxyUrl, language);
+        return await requestBlob(candidate, timeoutMs, proxyUrl, language);
       } catch (error) {
         lastError = error;
       }
@@ -25188,7 +25197,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const log$f = Logger.scope("ReaderParser");
+  const log$e = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
     return { includeLocalPitch: false, ...options, requireApi };
@@ -25208,7 +25217,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
-      const done = log$f.time("parse", {
+      const done = log$e.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -25259,7 +25268,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     handleRemoteParseError(source, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$f.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      log$e.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     canParse() {
@@ -25373,7 +25382,7 @@ ${spelling}`);
       const { dictionaries, getSettings } = this.dependencies;
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$f.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$e.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return Promise.all(matches.map(async (match) => {
@@ -25414,7 +25423,7 @@ ${spelling}`);
       const fallbackTokens = this.parseSegmentedText(text2);
       const replacementTokens = fallbackTokens.filter((fallback) => shouldPreferInflectedFallbackToken(fallback, tokens));
       const keptTokens = replacementTokens.length ? tokens.filter((token) => !replacementTokens.some((fallback) => tokenInsideRange(token, fallback.start, fallback.end))) : tokens;
-      const extraFallbackTokens = fallbackTokens.filter((fallback) => replacementTokens.includes(fallback) || !keptTokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
+      const extraFallbackTokens = fallbackTokens.filter((fallback) => replacementTokens.includes(fallback) || !keptTokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
       return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
     }
     async localPitchPattern(card, options) {
@@ -25429,7 +25438,7 @@ ${spelling}`);
       const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
         return localPitchPatternFromMeta(card.reading, metaEntries);
       }).catch((error) => {
-        log$f.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$e.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
       this.rememberLocalPitchCacheEntry(key, promise);
@@ -25509,7 +25518,7 @@ ${spelling}`);
   function offsetInsideFallbackMatch(start, end, offset) {
     return start <= offset && offset < end;
   }
-  function rangesOverlap$1(start, end, otherStart, otherEnd) {
+  function rangesOverlap(start, end, otherStart, otherEnd) {
     return start < otherEnd && otherStart < end;
   }
   function tokenInsideRange(token, start, end) {
@@ -25517,7 +25526,7 @@ ${spelling}`);
   }
   function shouldPreferInflectedFallbackToken(fallback, tokens) {
     if (!fallback.card.fallbackLookupTerms?.length) return false;
-    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
+    const overlapping = tokens.filter((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
   }
   function compareTokensByOffset(a, b) {
@@ -25531,9 +25540,6 @@ ${spelling}`);
   }
   let cachedSegmenterConstructor;
   let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text2) {
-    return segmentJapaneseText(text2);
-  }
   function segmentJapaneseText(text2) {
     const segmenter = japaneseWordSegmenter();
     if (!segmenter) {
@@ -25701,7 +25707,7 @@ ${spelling}`);
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$e = Logger.scope("ImmersionPopover");
+  const log$d = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -25780,7 +25786,7 @@ ${spelling}`);
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$e.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$d.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -25792,7 +25798,7 @@ ${spelling}`);
       return true;
     }
     shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError$3(error) || !controller.signal.aborted) return false;
+      if (!isAbortError$2(error) || !controller.signal.aborted) return false;
       clearImmersionLoadingState(container);
       return true;
     }
@@ -26063,7 +26069,7 @@ ${spelling}`);
                 handleAbort();
                 return;
               }
-              if (isAbortError$3(error)) {
+              if (isAbortError$2(error)) {
                 fail(error);
                 return;
               }
@@ -26090,7 +26096,7 @@ ${spelling}`);
         const examples = await this.options.client.search(query, settings, searchOptions);
         return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
       } catch (error) {
-        if (isAbortError$3(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
         return null;
       }
     }
@@ -26384,7 +26390,7 @@ ${spelling}`);
     }
     handleExampleAudioError(example, quiet, requestId, error) {
       if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
-      log$e.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$d.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     shouldClearAudioAfterExampleError(requestId) {
@@ -27659,7 +27665,7 @@ ${spelling}`);
     try {
       return await fetchImpl(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$2(error)) throw new JitenApiError("Jiten request timed out.");
+      if (isAbortError$1(error)) throw new JitenApiError("Jiten request timed out.");
       throw error;
     } finally {
       globalThis.clearTimeout(timeoutId);
@@ -27743,7 +27749,7 @@ ${spelling}`);
     const queryString = params.toString();
     return queryString ? `${url}?${queryString}` : url;
   }
-  function isAbortError$2(error) {
+  function isAbortError$1(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
@@ -28025,7 +28031,7 @@ ${spelling}`);
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const REQUEST_TIMEOUT_MS$1 = 3e4;
-  const log$d = Logger.scope("JpdbApi");
+  const log$c = Logger.scope("JpdbApi");
   class JpdbApiClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       this.getApiKey = getApiKey;
@@ -28040,7 +28046,7 @@ ${spelling}`);
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       this.assertCanRequest(token, endpoint);
-      const done = log$d.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$c.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await postJson(url, token, body, this.getProxyUrl());
       done();
       this.assertSuccessfulResponse(response, endpoint, token);
@@ -28049,31 +28055,31 @@ ${spelling}`);
     }
     assertCanRequest(token, endpoint) {
       if (!token) {
-        log$d.warn("JPDB API key missing", { endpoint });
+        log$c.warn("JPDB API key missing", { endpoint });
         throw new Error("JPDB API key is not set.");
       }
       if (this.rejectedToken === token) {
-        log$d.warn("JPDB API key was already rejected", { endpoint });
+        log$c.warn("JPDB API key was already rejected", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (Date.now() < this.retryAfter) {
-        log$d.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$c.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new Error("JPDB is rate limited. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$d.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$c.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new Error("JPDB rate limit reached.");
       }
       if (response.status === 403) {
         this.rejectedToken = token;
-        log$d.warn("JPDB rejected API key", { endpoint });
+        log$c.warn("JPDB rejected API key", { endpoint });
         throw new Error("JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$d.warn("JPDB request failed", { endpoint, status: response.status });
+        log$c.warn("JPDB request failed", { endpoint, status: response.status });
         throw new Error(`JPDB request failed (${response.status}).`);
       }
     }
@@ -28083,7 +28089,7 @@ ${spelling}`);
     const json = JSON.parse(response.text);
     const errorMessage = jpdbApplicationErrorMessage(json);
     if (errorMessage) {
-      log$d.warn("JPDB returned application error", { endpoint, message: errorMessage });
+      log$c.warn("JPDB returned application error", { endpoint, message: errorMessage });
       throw new Error(errorMessage);
     }
     return json;
@@ -28137,13 +28143,13 @@ ${spelling}`);
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$1(error)) throw new Error("JPDB request timed out.");
+      if (isAbortError(error)) throw new Error("JPDB request timed out.");
       throw error;
     } finally {
       window.clearTimeout(timeoutId);
     }
   }
-  function isAbortError$1(error) {
+  function isAbortError(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
   function jpdbApiFetchCandidates(url, proxyUrl) {
@@ -28273,7 +28279,7 @@ ${spelling}`);
   const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1e3;
   const USER_DECK_POOL_CONCURRENCY = 4;
   const JPDB_ALL_DECKS_ID = "all";
-  const log$c = Logger.scope("JpdbClient");
+  const log$b = Logger.scope("JpdbClient");
   const utf8Encoder = new TextEncoder();
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
@@ -28312,13 +28318,13 @@ ${spelling}`);
     }
     // Used by review controllers to submit JPDB grades.
     async reviewCard(card, grade) {
-      log$c.info("Reviewing card", { term: card.spelling, grade });
+      log$b.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
     // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
-      log$c.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$b.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       this.clearUserDeckPoolCache();
       if (sentence) await this.setCardSentence(card, sentence);
@@ -28334,13 +28340,13 @@ ${spelling}`);
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
-      const done = log$c.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
+      const done = log$b.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
       try {
         const pairs = await this.listDeckVocabularyPairsByRequestId(id);
         return await this.cardsFromDeckVocabularyPairs(pairs, maxCards, options);
       } catch (error) {
         if (id !== JPDB_ALL_DECKS_ID) throw error;
-        log$c.warn("JPDB all-decks list failed", error);
+        log$b.warn("JPDB all-decks list failed", error);
         return await this.listCardsFromListedDecks(maxCards, options);
       } finally {
         done();
@@ -28355,7 +28361,7 @@ ${spelling}`);
     }
     // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId, card) {
-      log$c.info("Removing card from deck", { term: card.spelling, deckId });
+      log$b.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: deckId,
         vocabulary: [[card.vid, card.sid]]
@@ -28396,7 +28402,7 @@ ${spelling}`);
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$c.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$b.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     async refreshCard(card) {
@@ -28406,7 +28412,7 @@ ${spelling}`);
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$c.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$b.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
@@ -28453,7 +28459,7 @@ ${spelling}`);
       try {
         return await this.fetchDeckVocabularyPairSet(JPDB_ALL_DECKS_ID);
       } catch (error) {
-        log$c.warn("JPDB all-decks membership failed", error);
+        log$b.warn("JPDB all-decks membership failed", error);
         return await this.fetchListedDeckVocabularyPairSet();
       }
     }
@@ -28473,7 +28479,7 @@ ${spelling}`);
       for (const deck of decks) {
         if (cards.length >= limit) break;
         const pairs = await this.listDeckVocabularyPairs(deck.id).catch((error) => {
-          log$c.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
+          log$b.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
           return [];
         });
         const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
@@ -28510,7 +28516,7 @@ ${spelling}`);
       this.userDeckPoolCache = void 0;
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$c.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$b.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -28755,7 +28761,7 @@ ${spelling}`);
   const REQUEST_TIMEOUT_MS = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
-  const log$b = Logger.scope("JpdbPublicPitch");
+  const log$a = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -28808,7 +28814,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$b.warn(message, context, error);
+      log$a.warn(message, context, error);
     }
   }
   function requestText$4(url, proxyUrl = "") {
@@ -29260,6 +29266,111 @@ ${glossaryKey}`;
     }
     return result;
   }
+  const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+  const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
+  const HEADWORD_SELECTOR = '.text-3xl[lang="ja"], .text-3xl.font-noto-sans';
+  const KANJI_GLYPH_SELECTOR = ".text-9xl";
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
+  function isJitenKanjiPage() {
+    return location.pathname.startsWith("/kanji/");
+  }
+  function isJitenVocabPage() {
+    return location.pathname.startsWith("/vocabulary/") || location.pathname.startsWith("/parse");
+  }
+  function isJitenEnhanceablePage() {
+    return isJitenKanjiPage() || isJitenVocabPage();
+  }
+  function extractCurrentJitenKanji() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    const fromPath = parts[0] === "kanji" && parts[1] ? firstReviewGlyph(decodePathPart(parts[1])) ?? "" : "";
+    return fromPath || (firstReviewGlyph(document.querySelector(KANJI_GLYPH_SELECTOR)?.textContent ?? "") ?? "");
+  }
+  function currentJitenTermTarget() {
+    if (isJitenKanjiPage()) {
+      const kanji = extractCurrentJitenKanji();
+      return kanji ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: jitenKanjiAnchor() } : null;
+    }
+    const headword = jitenHeadword();
+    if (!headword) return null;
+    return {
+      term: headword.term,
+      reading: headword.reading,
+      queries: uniqueLookupValues([headword.term, headword.reading, ...jitenAlternateForms()]),
+      examples: [],
+      anchor: jitenVocabAnchor()
+    };
+  }
+  function currentJitenLocalDictionaryTargets() {
+    if (isJitenKanjiPage()) {
+      const kanji = extractCurrentJitenKanji();
+      return kanji ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: jitenKanjiAnchor() }] : [];
+    }
+    const headword = jitenHeadword();
+    if (!headword) return [];
+    return [{
+      term: headword.term,
+      reading: headword.reading,
+      alternates: uniqueLookupValues([headword.reading, ...jitenAlternateForms()]),
+      compounds: [],
+      examples: [],
+      anchor: jitenVocabAnchor()
+    }];
+  }
+  function jitenHeadword() {
+    const element2 = ownedElement(document.querySelector(HEADWORD_SELECTOR));
+    const domTerm = element2 ? cleanText$1(extractBaseText(element2)) : "";
+    if (element2 && domTerm && JAPANESE_RE$1.test(domTerm)) {
+      return { term: domTerm, reading: cleanText$1(extractReadingText(element2)) || domTerm };
+    }
+    const titleTerm = termFromTitle();
+    return titleTerm ? { term: titleTerm, reading: titleTerm } : null;
+  }
+  function termFromTitle() {
+    const title = cleanText$1(document.title.replace(/\s*[-–—|].*$/, ""));
+    return JAPANESE_RE$1.test(title) ? title : "";
+  }
+  function jitenAlternateForms() {
+    const heading = Array.from(document.querySelectorAll("h1, h2, h3, h4")).find((node) => /^forms|別の表記|表記/i.test(cleanText$1(node.textContent ?? "")));
+    if (!heading?.parentElement) return [];
+    return Array.from(heading.parentElement.querySelectorAll('[lang="ja"], ruby')).map((node) => cleanText$1(extractBaseText(node))).filter((value) => value && JAPANESE_RE$1.test(value)).slice(0, 8);
+  }
+  function jitenVocabAnchor() {
+    const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
+    const lastChild = column?.lastElementChild;
+    if (lastChild instanceof HTMLElement) return lastChild;
+    return column ?? document.querySelector("main") ?? document.body;
+  }
+  function jitenKanjiAnchor() {
+    const cards = Array.from(document.querySelectorAll(".border.rounded-lg")).filter(ownedElement);
+    if (cards.length) return cards[cards.length - 1];
+    const header = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
+    return header ?? document.querySelector("main") ?? document.body;
+  }
+  function ownedElement(element2) {
+    return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
+  }
+  function isPageEnhancementHost() {
+    return isJpdbHost() || isJitenHost();
+  }
+  function isPageEnhancementReady() {
+    if (isJpdbHost()) return true;
+    return isJitenHost() && isJitenEnhanceablePage();
+  }
+  function isCurrentKanjiSurface() {
+    if (isJitenHost()) return isJitenKanjiPage();
+    return isKanjiPage() || isKanjiReviewBack();
+  }
+  function currentPageKanji() {
+    return isJitenHost() ? extractCurrentJitenKanji() : extractCurrentKanji();
+  }
+  function currentPageTermTarget() {
+    return isJitenHost() ? currentJitenTermTarget() : currentJpdbTermTarget();
+  }
+  function currentPageLocalDictionaryTargets() {
+    return isJitenHost() ? currentJitenLocalDictionaryTargets() : currentLocalDictionaryTargets();
+  }
   function vocabularyRoot(doc, spelling, reading) {
     const roots = jpdbVocabularyResultRoots(doc);
     const matches = roots.filter((root) => jpdbVocabularyRootMatches(root, spelling, reading, cleanText$1));
@@ -29471,7 +29582,7 @@ ${glossaryKey}`;
       timeoutLabel: "JPDB vocabulary request timed out."
     });
   }
-  const log$a = Logger.scope("JpdbVocabulary");
+  const log$9 = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -29569,7 +29680,7 @@ ${glossaryKey}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$a.warn(message, context, error);
+      log$9.warn(message, context, error);
     }
   }
   function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
@@ -29854,7 +29965,7 @@ ${glossaryKey}`;
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$9 = Logger.scope("KanjiOrigin");
+  const log$8 = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     lookup(kanji, settings) {
@@ -29871,9 +29982,9 @@ ${glossaryKey}`;
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$9.time("Kanji origin lookup", { kanji });
+      const done = log$8.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$9.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$8.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -29888,7 +29999,7 @@ ${glossaryKey}`;
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$9.time("Fetch Kanji Map info", { kanji });
+    const done = log$8.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$2(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -29896,10 +30007,10 @@ ${glossaryKey}`;
     return info;
   }
   function parseKanjiMapInfo(raw, kanji, sourceUrl) {
-    const record = asRecord$1(raw);
+    const record = asRecord(raw);
     if (!record) return void 0;
-    const kanjiAlive = asRecord$1(record.kanjialiveData);
-    const jisho = asRecord$1(record.jishoData);
+    const kanjiAlive = asRecord(record.kanjialiveData);
+    const jisho = asRecord(record.jishoData);
     const radical = readKanjiMapRadical(kanjiAlive, jisho);
     const examples = readKanjiMapExamples(kanjiAlive, jisho);
     const references = readKanjiMapReferences(kanjiAlive, jisho);
@@ -30248,12 +30359,12 @@ ${glossaryKey}`;
   function kanjiMapRadicalContext(kanjiAlive, jisho) {
     return {
       kanjiAlive,
-      aliveRadical: asRecord$1(kanjiAlive?.radical),
-      jishoRadical: asRecord$1(jisho?.radical)
+      aliveRadical: asRecord(kanjiAlive?.radical),
+      jishoRadical: asRecord(jisho?.radical)
     };
   }
   function readKanjiMapRadicalNames(context) {
-    const name = asRecord$1(context.aliveRadical?.name);
+    const name = asRecord(context.aliveRadical?.name);
     return {
       name: firstStringValue([name?.romaji, context.kanjiAlive?.rad_name]),
       reading: firstStringValue([name?.hiragana, context.kanjiAlive?.rad_name_ja])
@@ -30271,14 +30382,14 @@ ${glossaryKey}`;
     return firstStringValue([context.jishoRadical?.symbol, context.kanjiAlive?.rad_utf, context.aliveRadical?.character]);
   }
   function readKanjiMapRadicalMeaning(context) {
-    const meaning = asRecord$1(context.aliveRadical?.meaning);
+    const meaning = asRecord(context.aliveRadical?.meaning);
     return firstStringValue([meaning?.english, context.jishoRadical?.meaning, context.kanjiAlive?.rad_meaning]);
   }
   function readKanjiMapRadicalStrokes(context) {
     return firstNormalizedNumber([context.aliveRadical?.strokes, context.kanjiAlive?.rad_stroke]);
   }
   function readKanjiMapRadicalPosition(context) {
-    const position = asRecord$1(context.aliveRadical?.position);
+    const position = asRecord(context.aliveRadical?.position);
     return firstStringValue([position?.hiragana, context.kanjiAlive?.rad_position_ja]);
   }
   function firstStringValue(values) {
@@ -30316,17 +30427,17 @@ ${glossaryKey}`;
       examples.push(item);
     };
     unknownArray(kanjiAlive?.examples).forEach((example) => {
-      const record = asRecord$1(example);
-      add(record?.japanese, "", asRecord$1(record?.meaning)?.english);
+      const record = asRecord(example);
+      add(record?.japanese, "", asRecord(record?.meaning)?.english);
     });
     [...unknownArray(jisho?.onyomiExamples), ...unknownArray(jisho?.kunyomiExamples)].forEach((example) => {
-      const record = asRecord$1(example);
+      const record = asRecord(example);
       add(record?.example, record?.reading, record?.meaning);
     });
     return examples.slice(0, 6);
   }
   function readKanjiMapReferences(kanjiAlive, jisho) {
-    const references = asRecord$1(kanjiAlive?.references);
+    const references = asRecord(kanjiAlive?.references);
     const facts = [];
     const add = (label, value, source) => {
       const text2 = stringValue(value);
@@ -30468,7 +30579,7 @@ ${glossaryKey}`;
   function safeMediaUrl(value) {
     return /^https:\/\/media\.kanjialive\.com\//i.test(value) ? value : "";
   }
-  function asRecord$1(value) {
+  function asRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
   function parseJson(value) {
@@ -30484,21 +30595,21 @@ ${glossaryKey}`;
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$9.warn("Kanji origin request failed", { host: safeHost$1(url), error });
+      log$8.warn("Kanji origin request failed", { host: safeHost(url), error });
       throw error;
     });
   }
   function first(values) {
     return values.find((value) => value?.trim())?.trim();
   }
-  function safeHost$1(url) {
+  function safeHost(url) {
     try {
       return new URL(url, location.href).host;
     } catch {
       return "";
     }
   }
-  const log$8 = Logger.scope("KanjiDoodle");
+  const log$7 = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 35e-4;
   const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
@@ -30515,7 +30626,7 @@ ${glossaryKey}`;
     const { stage, canvas, ghost } = elements;
     const context = canvas.getContext("2d");
     if (!context) {
-      log$8.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$7.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -30575,8 +30686,7 @@ ${glossaryKey}`;
     };
     const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42);
     const setupStroke = (point) => {
-      const style = getComputedStyle(stage);
-      context.strokeStyle = style.getPropertyValue("--jpdb-reader-doodle-ink").trim() || DOODLE_COLOR_TOKENS.ink;
+      context.strokeStyle = resolvedDoodleInk(stage);
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = strokeWidth(point);
@@ -30781,6 +30891,10 @@ ${glossaryKey}`;
   function clearSelection() {
     const selection = document.getSelection?.();
     if (selection && !selection.isCollapsed) selection.removeAllRanges();
+  }
+  function resolvedDoodleInk(stage) {
+    const ink = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim();
+    return ink && !ink.startsWith("var(") ? ink : DOODLE_COLOR_TOKENS.ink;
   }
   function kanjiDoodleElements(popover) {
     const stage = popover.querySelector(".jpdb-reader-doodle-stage");
@@ -31205,7 +31319,7 @@ ${glossaryKey}`;
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$7 = Logger.scope("KanjiVG");
+  const log$6 = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -31225,7 +31339,7 @@ ${glossaryKey}`;
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
-        log$7.warn("Stroke-order request failed", { kanji }, error);
+        log$6.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -33846,6 +33960,26 @@ ${glossaryKey}`;
     '[class*="-icon" i]',
     '[class*="icon-" i]'
   ].join(",");
+  const NATIVE_CLICKABLE_SELECTOR = 'a[href], button, [role="button"], summary, [onclick]';
+  const READER_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-reader-popover";
+  function nativeClickableAncestor(target) {
+    const link = navigableLinkAncestor(target);
+    if (link) return link;
+    if (target && isJpdbHost() && isActiveNativePageReaderWord(target)) return null;
+    const clickable = closestTarget(target, NATIVE_CLICKABLE_SELECTOR);
+    if (!clickable || clickable.closest(READER_SURFACE_SELECTOR)) return null;
+    if (clickable instanceof HTMLAnchorElement && !hasNavigableHref(clickable)) return null;
+    return clickable;
+  }
+  function navigableLinkAncestor(target) {
+    const anchor = closestTarget(target, "a[href]");
+    if (!anchor || anchor.closest(READER_SURFACE_SELECTOR) || !hasNavigableHref(anchor)) return null;
+    return anchor;
+  }
+  function hasNavigableHref(anchor) {
+    const href = anchor.getAttribute("href")?.trim() ?? "";
+    return Boolean(href) && href !== "#" && !href.toLowerCase().startsWith("javascript:");
+  }
   function shouldIgnoreDocumentClickTarget(target) {
     return Boolean(closestTarget(target, READER_DOCUMENT_CLICK_IGNORE_SELECTOR)) || isNativePageLookupBlocked(target);
   }
@@ -33985,7 +34119,7 @@ ${glossaryKey}`;
   function nestedParseKey(targets) {
     return targets.map((target) => target.text).join("\n\n");
   }
-  const log$6 = Logger.scope("Onboarding");
+  const log$5 = Logger.scope("Onboarding");
   function selectedOnboardingLanguage(value, fallback) {
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
   }
@@ -34006,7 +34140,7 @@ ${glossaryKey}`;
       return true;
     }
     show() {
-      log$6.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$5.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -34089,7 +34223,7 @@ ${glossaryKey}`;
       actions.append(setup, dictionaries);
       this.languageSelect.addEventListener("change", () => {
         const language2 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
-        log$6.info("Onboarding language changed", { language: language2 });
+        log$5.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -34136,16 +34270,16 @@ ${glossaryKey}`;
       closeButton?.setAttribute("title", uiText(language, "closeOnboarding"));
     }
     async complete(openSettings) {
-      const done = log$6.time("Onboarding complete", { openSettings });
+      const done = log$5.time("Onboarding complete", { openSettings });
       const settings = this.completedOnboardingSettings(openSettings);
       try {
         this.options.setSettings(settings);
         await saveSettings(settings);
         this.close();
         this.openPostOnboardingSettings(openSettings);
-        log$6.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
+        log$5.info("Onboarding completed", { openSettings, language: settings.interfaceLanguage });
       } catch (error) {
-        log$6.warn("Onboarding completion failed", { openSettings, error });
+        log$5.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -34747,2174 +34881,6 @@ ${glossaryKey}`;
         target[key] = value;
       } catch {
       }
-    }
-  }
-  function pushJapaneseOcrLine(lines, text2, box) {
-    if (!text2 || !box || !HAS_JAPANESE$1.test(text2)) return;
-    lines.push({ text: text2, box, vertical: box.height > box.width * 1.25 && text2.length > 1 });
-  }
-  function clampBox(box, width, height) {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 2 || bottom - top < 2) return null;
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function unionBoxes(boxes) {
-    if (!boxes.length) return null;
-    const left = Math.min(...boxes.map((box) => box.left));
-    const top = Math.min(...boxes.map((box) => box.top));
-    const right = Math.max(...boxes.map((box) => box.left + box.width));
-    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function cleanOcrText(value) {
-    const text2 = typeof value === "string" ? value : String(value ?? "");
-    const normalized = text2.replace(/[ \t\r\n]+/g, HAS_JAPANESE$1.test(text2) ? "" : " ").trim();
-    return normalized.replaceAll("．．．", "…");
-  }
-  function numberFrom(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state = { width: fallbackWidth, height: fallbackHeight, lines: [] };
-    for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state);
-      appendCloudVisionTextAnnotations(response, state);
-    }
-    return state.lines.length ? { width: state.width, height: state.height, lines: state.lines } : null;
-  }
-  function cloudVisionResponses(record) {
-    if (Array.isArray(record.responses)) return record.responses;
-    return "fullTextAnnotation" in record ? [record] : [];
-  }
-  function appendCloudVisionPages(response, state) {
-    const annotation = response?.fullTextAnnotation;
-    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state);
-  }
-  function appendCloudVisionPage(page, state) {
-    state.width = numberFrom(page.width) || state.width;
-    state.height = numberFrom(page.height) || state.height;
-    for (const block of cloudVisionPageBlocks(page)) {
-      for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state.lines, state.width, state.height);
-      }
-    }
-  }
-  function cloudVisionPageBlocks(page) {
-    return Array.isArray(page.blocks) ? page.blocks : [];
-  }
-  function cloudVisionBlockParagraphs(block) {
-    const paragraphs = block?.paragraphs;
-    return Array.isArray(paragraphs) ? paragraphs : [];
-  }
-  function appendCloudVisionTextAnnotations(response, state) {
-    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state.lines.length || annotations.length <= 1) return;
-    for (const annotationItem of annotations.slice(1)) {
-      const item = annotationItem;
-      const text2 = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state.width, state.height);
-      pushJapaneseOcrLine(state.lines, text2, box);
-    }
-  }
-  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    const current = { text: "", boxes: [] };
-    for (const word of words) {
-      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
-    }
-    pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionWordSymbols(word) {
-    const symbols = word?.symbols;
-    return Array.isArray(symbols) ? symbols : [];
-  }
-  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
-    const symbolRecord = symbol;
-    current.text += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) current.boxes.push(box);
-    const breakType = cloudVisionSymbolBreakType(symbolRecord);
-    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
-    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionSymbolBreakType(symbol) {
-    return symbol.property?.detectedBreak?.type;
-  }
-  function cloudVisionBreakAddsSpace(breakType) {
-    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
-  }
-  function cloudVisionBreakEndsLine(breakType) {
-    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
-  }
-  function pushCloudVisionLine(lines, current) {
-    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
-    current.text = "";
-    current.boxes = [];
-  }
-  function normalizeCloudVisionVertices(value, width, height) {
-    if (!Array.isArray(value) || value.length < 2) return null;
-    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
-  }
-  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
-    ["n", "\n"],
-    ["r", "\r"],
-    ["t", "	"],
-    ["b", "\b"],
-    ["f", "\f"],
-    ["v", "\v"],
-    ["0", "\0"],
-    ["\n", ""]
-  ]);
-  function googleLensUploadCallbackLiteral(html, key) {
-    const marker = "AF_initDataCallback(";
-    let searchIndex = 0;
-    while (searchIndex < html.length) {
-      const markerIndex = html.indexOf(marker, searchIndex);
-      if (markerIndex < 0) return null;
-      const literalStart = markerIndex + marker.length;
-      const literal = readBalancedLiteral(html, literalStart);
-      if (literal && callbackLiteralHasKey(literal, key)) return literal;
-      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-    }
-    return null;
-  }
-  function callbackLiteralHasKey(literal, key) {
-    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
-  }
-  function escapeRegex(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function readBalancedLiteral(source, startIndex) {
-    const index = balancedLiteralStart(source, startIndex);
-    if (index < 0) return null;
-    const end = balancedLiteralEnd(source, index);
-    return end >= 0 ? source.slice(index, end + 1) : null;
-  }
-  function balancedLiteralStart(source, startIndex) {
-    let index = startIndex;
-    while (/\s/.test(source[index] ?? "")) index += 1;
-    return source[index] === "{" ? index : -1;
-  }
-  function balancedLiteralEnd(source, startIndex) {
-    let depth = 0;
-    for (let current = startIndex; current < source.length; current += 1) {
-      const char = source[current];
-      if (isQuote(char)) {
-        current = quotedLiteralEnd(source, current, char);
-        if (current < 0) return -1;
-        continue;
-      }
-      depth += balancedDepthDelta(char);
-      if (depth === 0) return current;
-    }
-    return -1;
-  }
-  function quotedLiteralEnd(source, startIndex, quote) {
-    for (let current = startIndex + 1; current < source.length; current += 1) {
-      const char = source[current];
-      if (char === "\\") {
-        current += 1;
-      } else if (char === quote) {
-        return current;
-      }
-    }
-    return -1;
-  }
-  function isQuote(char) {
-    return char === '"' || char === "'";
-  }
-  function balancedDepthDelta(char) {
-    if (char === "{" || char === "[" || char === "(") return 1;
-    if (char === "}" || char === "]" || char === ")") return -1;
-    return 0;
-  }
-  function parseJsDataLiteral(source) {
-    let index = 0;
-    const value = parseValue();
-    skipWhitespace();
-    if (index !== source.length) throw new Error("Unexpected trailing data.");
-    return value;
-    function parseValue() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === "{") return parseObject();
-      if (char === "[") return parseArray();
-      if (char === '"' || char === "'") return parseString();
-      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-      return parseIdentifierValue();
-    }
-    function parseObject() {
-      const record = {};
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "}") {
-        const key = parseObjectKey();
-        skipWhitespace();
-        expect(":");
-        record[key] = parseValue();
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("}");
-      return record;
-    }
-    function parseObjectKey() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === '"' || char === "'") return parseString();
-      return parseIdentifier();
-    }
-    function parseArray() {
-      const values = [];
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "]") {
-        if (source[index] === ",") {
-          values.push(null);
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        values.push(parseValue());
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("]");
-      return values;
-    }
-    function parseString() {
-      const quote = source[index];
-      let value2 = "";
-      index += 1;
-      while (index < source.length) {
-        const char = source[index++];
-        if (char === quote) return value2;
-        if (char !== "\\") {
-          value2 += char;
-          continue;
-        }
-        value2 += parseEscapeSequence();
-      }
-      throw new Error("Unterminated string.");
-    }
-    function parseEscapeSequence() {
-      const escaped = source[index++];
-      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-      if (typeof simpleEscape === "string") return simpleEscape;
-      if (escaped === "\r") return parseCarriageReturnEscape();
-      return parseNamedEscapeSequence(escaped);
-    }
-    function parseCarriageReturnEscape() {
-      if (source[index] === "\n") index += 1;
-      return "";
-    }
-    function parseNamedEscapeSequence(escaped) {
-      if (escaped === "x") return codePointEscape(2);
-      if (escaped === "u") return parseUnicodeEscape();
-      return escaped ?? "";
-    }
-    function parseUnicodeEscape() {
-      if (source[index] === "{") {
-        const end = source.indexOf("}", index + 1);
-        if (end < 0) throw new Error("Invalid unicode escape.");
-        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-        index = end + 1;
-        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-      }
-      return codePointEscape(4);
-    }
-    function codePointEscape(length) {
-      const hex = source.slice(index, index + length);
-      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-      index += length;
-      return String.fromCharCode(Number.parseInt(hex, 16));
-    }
-    function parseNumber() {
-      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-      if (!match) throw new Error("Invalid number.");
-      index += match[0].length;
-      return Number(match[0]);
-    }
-    function parseIdentifierValue() {
-      const identifier = parseIdentifier();
-      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-      if (identifier === "true") return true;
-      if (identifier === "false") return false;
-      if (identifier === "Infinity") return Infinity;
-      return identifier;
-    }
-    function parseIdentifier() {
-      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-      if (!match) throw new Error("Expected identifier.");
-      index += match[0].length;
-      return match[0];
-    }
-    function skipWhitespace() {
-      while (/\s/.test(source[index] ?? "")) index += 1;
-    }
-    function expect(char) {
-      if (source[index] !== char) throw new Error(`Expected ${char}.`);
-      index += 1;
-    }
-  }
-  const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-    const lines = collectGenericOcrLines(record, width, height);
-    return japaneseOcrResult(width, height, lines);
-  }
-  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-    return { width, height };
-  }
-  function collectGenericOcrLines(record, width, height) {
-    const lines = [];
-    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-    return lines;
-  }
-  function genericRawLines(record) {
-    return Array.isArray(record.lines) ? record.lines : record.regions;
-  }
-  function appendGenericOcrLines(lines, value, width, height, normalize) {
-    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
-  }
-  function normalizeSimpleLines(values, width, height) {
-    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
-  }
-  function normalizeStructuredOcrResults(values, width, height) {
-    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
-  }
-  function normalizeOcrRegionResults(regions, width, height) {
-    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
-  }
-  function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
-    if (!regionRecord) return [];
-    const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-    if (!Array.isArray(regionRecord.results)) return [];
-    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return offsetRegionLines(lines, regionBox, width, height);
-  }
-  function ocrRegionScale(regionBox, width, height) {
-    return {
-      scaleWidth: regionBox?.width ?? width,
-      scaleHeight: regionBox?.height ?? height
-    };
-  }
-  function offsetRegionLines(lines, regionBox, width, height) {
-    if (!regionBox) return lines;
-    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
-  }
-  function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE$1.test(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function cleanOcrLookupLines(lines, parsed) {
-    const cleaned = lines.map((line, index) => {
-      const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
-      return text2 === line.text ? line : { ...line, text: text2 };
-    });
-    return removeStandaloneFuriganaLines(cleaned);
-  }
-  function ocrLinesChanged(original, cleaned) {
-    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
-  }
-  function cleanOcrLookupText(text2, tokens) {
-    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-    let cleaned = text2;
-    for (const { ruby } of rubies) {
-      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-    }
-    return cleanOcrText(cleaned);
-  }
-  function removeOcrReadingAroundRuby(text2, reading, start, end) {
-    const cleanReading = cleanOcrText(reading);
-    if (!cleanReading) return text2;
-    if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-      return text2.slice(0, start - cleanReading.length) + text2.slice(start);
-    }
-    if (text2.slice(end, end + cleanReading.length) === cleanReading) {
-      return text2.slice(0, end) + text2.slice(end + cleanReading.length);
-    }
-    return text2;
-  }
-  function removeStandaloneFuriganaLines(lines) {
-    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-    return filtered.length ? filtered : lines;
-  }
-  function isStandaloneFuriganaLine(line, lines, index) {
-    const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
-    if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
-    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
-  }
-  function ocrLineLooksLikeFuriganaFor(furi, base) {
-    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-    const overlap = horizontalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
-    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-    return overlapRatio >= 0.32 && smaller && nearTop;
-  }
-  function horizontalOverlap(a, b) {
-    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-  }
-  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-    if (!furi.vertical || !base.vertical) return false;
-    const overlap = verticalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
-    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-    return overlapRatio >= 0.32 && smaller && nearSide;
-  }
-  function verticalOverlap(a, b) {
-    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-  }
-  function horizontalGap(a, b) {
-    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-    return 0;
-  }
-  function parseGoogleLensResponse(bytes, width, height) {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text2 = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text2 ? protoFirstMessage(text2, 1) : null;
-    if (!layout) return null;
-    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-  }
-  function googleLensParagraphLines(paragraph, width, height) {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
-  }
-  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text2 = googleLensLineText(words, paragraphVertical);
-    if (!text2 || !HAS_JAPANESE$1.test(text2)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    if (!box) return null;
-    return {
-      text: text2,
-      box,
-      vertical: paragraphVertical || box.height > box.width * 1.25 && text2.length > 1
-    };
-  }
-  function googleLensWords(line, width, height) {
-    return protoMessages(line, 1).map((word) => ({
-      text: protoString(word, 2),
-      separator: protoString(word, 3),
-      box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => Boolean(word.text));
-  }
-  function googleLensLineText(words, paragraphVertical) {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
-  }
-  function googleLensWordText(word, index, words) {
-    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
-  }
-  function googleLensLineBox(lineBox, words, paragraphBox) {
-    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-  }
-  function parseGoogleLensUploadHtml(html, width, height) {
-    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-    if (!literal) return null;
-    try {
-      const callback = parseJsDataLiteral(literal);
-      const lines = [];
-      for (const item of googleLensUploadLineItems(callback.data)) {
-        const { text: text2, box } = googleLensUploadLine(item, width, height);
-        pushJapaneseOcrLine(lines, text2, box);
-      }
-      return lines.length ? { width, height, lines } : null;
-    } catch {
-      return null;
-    }
-  }
-  function googleLensUploadLineItems(data) {
-    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-  }
-  function googleLensUploadBlocks(data) {
-    const blocks = data?.[2]?.[3]?.[0] ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-  }
-  function googleLensUploadBlockLineItems(block) {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    return Array.isArray(lineItems) ? lineItems : [];
-  }
-  function googleLensUploadLine(item, width, height) {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-      text: googleLensUploadLineText(lineData[0]),
-      box: googleLensUploadLineBox(lineData[1], width, height)
-    };
-  }
-  function googleLensUploadLineText(value) {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-  }
-  function googleLensUploadWordText(word) {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-  }
-  function googleLensUploadLineBox(value, width, height) {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-    }, width, height);
-  }
-  function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
-    if (!record) return null;
-    const text2 = simpleLineText(record);
-    const box = simpleLineBox(record, width, height);
-    if (!text2 || !box) return null;
-    return { text: text2, box, vertical: simpleLineIsVertical(record) };
-  }
-  function simpleLineText(record) {
-    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-  }
-  function simpleLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function simpleLineIsVertical(record) {
-    return Boolean(record.vertical ?? record.is_vertical);
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = structuredOcrTextLines(record);
-    const vertical = structuredOcrVertical(record);
-    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-    if (lines.length) return lines;
-    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
-  }
-  function structuredOcrTextLines(record) {
-    if (Array.isArray(record.text_lines)) return record.text_lines;
-    return Array.isArray(record.text) ? record.text : [];
-  }
-  function structuredOcrVertical(record) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical);
-  }
-  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
-    if (!lineRecord) return null;
-    const text2 = structuredOcrLineText(lineRecord);
-    const box = structuredOcrLineBox(lineRecord, width, height);
-    if (!text2 || !box) return null;
-    return { text: text2, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
-  }
-  function structuredOcrLineText(record) {
-    return stringFrom(record.content ?? record.text ?? record.word);
-  }
-  function structuredOcrLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function structuredOcrLineVertical(record, inheritedVertical) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
-  }
-  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-    const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
-    const box = normalizeBox(record.box, width, height);
-    return text2 && box ? [{ text: text2, box, vertical }] : [];
-  }
-  function normalizeOcrRegion(record, width, height) {
-    const region = readOcrRegion(record);
-    if (!region) return null;
-    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
-  }
-  function readOcrRegion(record) {
-    const position = record.position;
-    const size = record.size;
-    if (!position || !size) return null;
-    return completeOcrRegionParts({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(size.width),
-      height: numberFrom(size.height)
-    });
-  }
-  function completeOcrRegionParts(parts) {
-    if (parts.left === null) return null;
-    if (parts.top === null) return null;
-    if (parts.width === null) return null;
-    if (parts.height === null) return null;
-    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
-  }
-  function scaleOcrRegion(region, width, height) {
-    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-    return {
-      left: region.left / divisor * width,
-      top: region.top / divisor * height,
-      width: region.width / divisor * width,
-      height: region.height / divisor * height
-    };
-  }
-  function isFullImageOcrRegion(box, width, height) {
-    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-  }
-  function offsetLineToRegion(line, region, width, height) {
-    const box = clampBox({
-      left: region.left + line.box.left,
-      top: region.top + line.box.top,
-      width: line.box.width,
-      height: line.box.height
-    }, width, height);
-    return box ? { ...line, box } : null;
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
-  }
-  function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
-    if (!position || !dimensions) return null;
-    return boxFromNumbers({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(dimensions.width),
-      height: numberFrom(dimensions.height)
-    }, width, height, "percent-100");
-  }
-  function normalizeDirectBox(record, width, height) {
-    const box = directBoxNumbers(record);
-    return boxFromNumbers(box, width, height, directBoxScale(box));
-  }
-  function directBoxNumbers(record) {
-    return {
-      left: numberFrom(record.left ?? record.x),
-      top: numberFrom(record.top ?? record.y),
-      width: numberFrom(record.width ?? record.w),
-      height: numberFrom(record.height ?? record.h)
-    };
-  }
-  function directBoxScale(box) {
-    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-  }
-  function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = coordinatesAreFractional(xs, ys);
-    const scaledXs = scaleCoordinates(xs, width, percent);
-    const scaledYs = scaleCoordinates(ys, height, percent);
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function coordinatesAreFractional(xs, ys) {
-    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
-  }
-  function isFractionalCoordinate(value) {
-    return value >= 0 && value <= 1;
-  }
-  function scaleCoordinates(values, scale, enabled) {
-    return enabled ? values.map((value) => value * scale) : values;
-  }
-  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-    if (!hasCompleteBoxNumbers(box)) return null;
-    const scaleInfo = boxScaleInfo(scale);
-    return clampBox({
-      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-    }, imageWidth, imageHeight);
-  }
-  function hasCompleteBoxNumbers(box) {
-    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
-  }
-  function boxScaleInfo(scale) {
-    return {
-      fractional: scale !== "pixels",
-      factor: scale === "percent-100" ? 100 : 1
-    };
-  }
-  function scaleBoxNumber(value, dimension, scale) {
-    return scale.fractional ? value / scale.factor * dimension : value;
-  }
-  function decodeProtoMessage(bytes) {
-    const fields = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-      const [tag, nextOffset] = readVarint(bytes, offset);
-      offset = nextOffset;
-      const field = Number(tag >> 3n);
-      const wire = Number(tag & 7n);
-      if (!field) break;
-      if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        offset = afterValue;
-        fields.push({ field, wire, value });
-      } else if (wire === 1) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-        offset += 8;
-      } else if (wire === 2) {
-        const [length, afterLength] = readVarint(bytes, offset);
-        offset = afterLength;
-        const end = offset + Number(length);
-        fields.push({ field, wire, value: bytes.slice(offset, end) });
-        offset = end;
-      } else if (wire === 5) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-        offset += 4;
-      } else {
-        break;
-      }
-    }
-    return fields;
-  }
-  function readVarint(bytes, offset) {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-      const byte = bytes[offset++];
-      result |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return [result, offset];
-      shift += 7n;
-    }
-    return [result, offset];
-  }
-  function protoMessages(fields, field) {
-    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
-  }
-  function protoFirstMessage(fields, field) {
-    return protoMessages(fields, field)[0] ?? null;
-  }
-  function protoString(fields, field) {
-    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value) : "";
-  }
-  function protoNumber(fields, field) {
-    const item = fields.find((value) => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
-  }
-  function protoBox(geometry, width, height) {
-    const dimensions = protoBoxDimensions(geometry);
-    if (!dimensions) return null;
-    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
-  }
-  function protoBoxDimensions(geometry) {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const dimensions = {
-      centerX: protoNumber(box, 1),
-      centerY: protoNumber(box, 2),
-      width: protoNumber(box, 3),
-      height: protoNumber(box, 4)
-    };
-    return dimensions.width && dimensions.height ? dimensions : null;
-  }
-  function protoBoxIsNormalized(box) {
-    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
-  }
-  function scaledProtoBox(box, normalized, width, height) {
-    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
-    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
-    return {
-      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
-      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
-      width: scaledWidth,
-      height: scaledHeight
-    };
-  }
-  function scaledProtoBoxValue(value, scale, normalized) {
-    return normalized ? value * scale : value;
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  const MAX_CACHE_ITEMS = 36;
-  const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
-  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
-  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
-  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  const LENS_PLATFORM_WEB = 3;
-  const LENS_SURFACE_CHROMIUM = 4;
-  const LENS_AUTO_FILTER = 7;
-  const log$5 = Logger.scope("OCR");
-  const OCR_RECOGNIZERS = {
-    "google-lens": recognizeViaGoogleLens,
-    "cloud-vision": recognizeViaCloudVision,
-    "local-service": recognizeViaLocalService
-  };
-  const OCR_PROVIDER_CONFIGURED = {
-    "google-lens": () => true,
-    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    "local-service": () => true
-  };
-  const OCR_PROVIDER_LABELS = {
-    "google-lens": () => "google-lens",
-    "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
-    "local-service": localServiceProviderLabel
-  };
-  function shouldSkipOcrRequest(state, userRequested) {
-    return state.autoSkipped && !userRequested;
-  }
-  function updateOcrRequestFlags(state, image, userRequested) {
-    state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
-    state.manualRequested ||= userRequested;
-    if (userRequested) state.autoSkipped = false;
-  }
-  function isOcrImageStateIdle(state) {
-    return !state.result && !state.loading && !state.autoSkipped;
-  }
-  class LocalOcrUnavailableError extends Error {
-    constructor(endpointUrl2) {
-      super("Local OCR server is unreachable.");
-      this.endpointUrl = endpointUrl2;
-      this.name = "LocalOcrUnavailableError";
-    }
-  }
-  function beginOcrScan(state, image, settings, manualRequested) {
-    state.loading = true;
-    const provider = inlineProviderLabel(settings);
-    return {
-      provider,
-      done: log$5.time("scanImage", { provider, image: imageSummary(image), manualRequested })
-    };
-  }
-  function finishOcrScan(state) {
-    state.loading = false;
-    state.manualRequested = false;
-  }
-  function renderNoOcrLines(state) {
-    state.autoSkipped = true;
-    state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-  }
-  function logOcrFailure(state, provider, manualRequested, error) {
-    state.autoSkipped = !manualRequested;
-    if (isLocalOcrUnavailableError(error)) {
-      log$5.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
-      return;
-    }
-    log$5.warn("OCR scan failed", { provider, manualRequested }, error);
-  }
-  class ImageOcrController {
-    constructor(options) {
-      this.options = options;
-    }
-    states = /* @__PURE__ */ new Map();
-    cache = /* @__PURE__ */ new Map();
-    localOcrUnavailable;
-    observer;
-    observerMargin = "";
-    mutationObserver;
-    queue = [];
-    busy = false;
-    positionFrame = 0;
-    refreshTimer = 0;
-    lastPointerMoveImage;
-    handleDocumentPointerDown = (event) => {
-      this.unpinOcrLinesFromDocumentEvent(event);
-      this.requestOcrFromPointerEvent(event);
-    };
-    handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
-    handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
-    handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
-    init() {
-      this.refresh();
-      document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
-      document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
-      document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
-      document.addEventListener("click", this.handleDocumentClick, true);
-      window.addEventListener("scroll", () => {
-        if (!this.options.getSettings().ocrEnabled) return;
-        this.schedulePosition();
-        this.scheduleRefresh(240);
-      }, { passive: true });
-      window.addEventListener("resize", () => {
-        if (!this.options.getSettings().ocrEnabled) return;
-        this.schedulePosition();
-        this.scheduleRefresh(300);
-      }, { passive: true });
-      this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
-      this.mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
-      });
-    }
-    destroy() {
-      document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
-      document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
-      document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
-      document.removeEventListener("click", this.handleDocumentClick, true);
-      this.mutationObserver?.disconnect();
-      if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
-      this.clear();
-    }
-    refresh(options = {}) {
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) {
-        this.clear();
-        return;
-      }
-      if (this.shouldSkipRefresh(settings, options)) {
-        this.pruneDisconnectedStates();
-        this.schedulePosition();
-        return;
-      }
-      this.pruneDisconnectedStates();
-      this.ensureObserver(settings);
-      const images = this.refreshImages(settings);
-      for (const image of images) {
-        this.observeRefreshImage(image, settings);
-      }
-      this.schedulePosition();
-    }
-    shouldSkipRefresh(settings, options) {
-      if (options.userRequested) return false;
-      if (this.canAutoScanImage(settings)) return false;
-      return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
-    }
-    handleRenderableMediaMutations(mutations) {
-      const settings = this.options.getSettings();
-      if (!settings.ocrEnabled) return;
-      const summary = summarizeRenderableMediaMutations(mutations);
-      if (!summary.touched) return;
-      this.schedulePosition();
-      if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-      this.scheduleRefresh(summary.addedImage ? 0 : 40);
-    }
-    hasVisibleInlineOcrFallback(settings) {
-      return Array.from(document.images).some((image) => {
-        if (!readFallbackOcrResult(image, false)) return false;
-        return isCandidateImage(image, settings) && shouldObserveImage(image, settings);
-      });
-    }
-    refreshImages(settings) {
-      return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, settings.ocrMaxImagesPerPage);
-    }
-    compareRefreshImages(a, b) {
-      const priorityDelta = this.observePriority(a) - this.observePriority(b);
-      return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
-    }
-    observeRefreshImage(image, settings) {
-      const state = this.ensureState(image);
-      this.observer?.observe(image);
-      if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
-    }
-    shouldAutoEnqueueImage(image, state, settings) {
-      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, settings.ocrPrefetchMargin);
-    }
-    canAutoScanImage(settings) {
-      return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
-    }
-    async scanVisible() {
-      this.refresh({ userRequested: true });
-      const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
-      if (!images.length) {
-        this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
-        return;
-      }
-      images.forEach((image) => this.enqueue(image, true));
-      log$5.info("Manual OCR scan queued images", { images: images.length });
-    }
-    captureSourceImageForElement(element2) {
-      const line = element2?.closest?.(".jpdb-ocr-line");
-      if (!line) return void 0;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (!state) return void 0;
-      const image = captureImageElement(state.image);
-      return image;
-    }
-    pinLineForElement(element2) {
-      const line = element2?.closest?.(".jpdb-ocr-line");
-      if (!line) return;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (state) this.pinLine(state, line);
-    }
-    ensureObserver(settings) {
-      const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
-      if (this.observer && this.observerMargin === rootMargin) return;
-      this.observer?.disconnect();
-      this.observerMargin = rootMargin;
-      if (typeof IntersectionObserver !== "function") {
-        this.observer = void 0;
-        return;
-      }
-      this.observer = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const image = entry.target;
-          this.positionState(image);
-          const current = this.options.getSettings();
-          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
-        }
-      }, { rootMargin });
-    }
-    ensureState(image) {
-      const existing = this.states.get(image);
-      if (existing) return existing;
-      const overlay = document.createElement("div");
-      overlay.className = "jpdb-ocr-layer";
-      overlay.dataset.jpdbReaderRoot = "true";
-      document.body.append(overlay);
-      const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
-      image.addEventListener("load", () => {
-        this.resetStateIfImageChanged(state);
-        this.schedulePosition();
-        this.scheduleRefresh(0);
-      });
-      this.states.set(image, state);
-      if (image.complete && image.naturalWidth > 0) {
-        this.schedulePosition();
-        const settings = this.options.getSettings();
-        if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
-      }
-      return state;
-    }
-    enqueue(image, userRequested = false) {
-      const state = this.states.get(image) ?? this.ensureState(image);
-      if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
-      this.queueOcrRequest(image);
-    }
-    shouldQueueOcrRequest(state, image, userRequested) {
-      if (shouldSkipOcrRequest(state, userRequested)) return false;
-      const forceExistingOverlay = userRequested && !state.overlayRequested;
-      updateOcrRequestFlags(state, image, userRequested);
-      if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
-      return !state.loading;
-    }
-    queueOcrRequest(image) {
-      this.queueImageForOcr(image);
-      this.drainQueue();
-    }
-    renderExistingOcrResult(state, userRequested) {
-      if (!state.result) return false;
-      if (userRequested) void this.renderResult(state, state.result, true);
-      return true;
-    }
-    requestOcrFromPointerEvent(event) {
-      const image = ocrImageFromPointerEvent(event, this.options.getSettings());
-      if (!image) return;
-      if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
-      if (event.type === "pointermove") this.lastPointerMoveImage = image;
-      else this.lastPointerMoveImage = void 0;
-      this.enqueue(image, true);
-    }
-    queueImageForOcr(image) {
-      if (!this.queue.includes(image)) this.queue.push(image);
-    }
-    drainQueue() {
-      if (this.busy) return;
-      const image = this.queue.shift();
-      if (!image) return;
-      this.busy = true;
-      const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const delay2 = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
-      void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).finally(() => {
-        this.busy = false;
-        this.drainQueue();
-      });
-    }
-    async scanImage(image) {
-      const state = this.states.get(image) ?? this.ensureState(image);
-      const settings = this.options.getSettings();
-      const key = imageCacheKey(image);
-      const manualRequested = state.manualRequested;
-      this.resetStateIfImageChanged(state);
-      if (await this.renderCachedOcrResult(state, key)) return;
-      const scan = beginOcrScan(state, image, settings, manualRequested);
-      try {
-        await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
-      } catch (error) {
-        await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
-      } finally {
-        finishOcrScan(state);
-        scan.done();
-      }
-    }
-    async renderCachedOcrResult(state, key) {
-      const cached = this.cache.get(key);
-      if (!cached) return false;
-      await this.renderResult(state, cached);
-      state.manualRequested = false;
-      return true;
-    }
-    async scanUncachedImage(state, image, key, settings, provider, manualRequested) {
-      const inlineFallback = readFallbackOcrResult(image, false);
-      const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
-      const result = inlineFallback ?? providerResult;
-      if (!result?.lines.length) {
-        renderNoOcrLines(state);
-        return;
-      }
-      this.remember(key, result);
-      state.key = key;
-      await this.renderResult(state, result);
-      log$5.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
-    }
-    async renderOcrFailure(state, image, provider, manualRequested, error) {
-      const fallback = readFallbackOcrResult(image, false);
-      if (fallback?.lines.length) {
-        log$5.warn("OCR provider failed", { provider }, error);
-        await this.renderResult(state, fallback);
-        return;
-      }
-      logOcrFailure(state, provider, manualRequested, error);
-    }
-    recognizeImage(image, settings) {
-      const recognizer = ocrRecognizer(settings);
-      if (!recognizer) return Promise.resolve(null);
-      if (settings.ocrProvider !== "local-service") return recognizer(image, settings);
-      return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer);
-    }
-    async recognizeViaLocalServiceWithBackoff(image, settings, recognizer) {
-      const endpointUrl2 = localOcrEndpointUrl(settings);
-      if (this.isLocalOcrUnavailable(endpointUrl2)) throw new LocalOcrUnavailableError(endpointUrl2);
-      try {
-        const result = await recognizer(image, settings);
-        this.clearLocalOcrUnavailable(endpointUrl2);
-        return result;
-      } catch (error) {
-        if (isLocalOcrConnectionError(error)) this.rememberLocalOcrUnavailable(endpointUrl2);
-        throw error;
-      }
-    }
-    isLocalOcrUnavailable(endpointUrl2) {
-      const unavailable = this.localOcrUnavailable;
-      if (!unavailable || unavailable.endpointUrl !== endpointUrl2) return false;
-      if (Date.now() < unavailable.retryAt) return true;
-      this.localOcrUnavailable = void 0;
-      return false;
-    }
-    rememberLocalOcrUnavailable(endpointUrl2) {
-      this.localOcrUnavailable = { endpointUrl: endpointUrl2, retryAt: Date.now() + LOCAL_OCR_UNAVAILABLE_RETRY_MS };
-    }
-    clearLocalOcrUnavailable(endpointUrl2) {
-      if (this.localOcrUnavailable?.endpointUrl === endpointUrl2) this.localOcrUnavailable = void 0;
-    }
-    async renderResult(state, result, forceOverlay = false) {
-      state.result = result;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-      const settings = this.options.getSettings();
-      const showText = settings.ocrShowTextOverlay || forceOverlay;
-      const initialParsed = await this.parseOcrLines(result.lines);
-      const lines = cleanOcrLookupLines(result.lines, initialParsed);
-      const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      const sentence = lines.map((line) => line.text).join("\n");
-      const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
-        line.text,
-        parsed[index] ?? [],
-        this.options.fallbackCardFromText ?? ocrFallbackCardFromText
-      ));
-      const flatTokens = renderedTokens.flat();
-      await this.options.enrichTokensBeforeRender?.(flatTokens);
-      applyOcrOverlayStyle(state.overlay, settings);
-      for (const [index, line] of lines.entries()) {
-        state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
-      }
-      this.positionState(state.image);
-      void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
-    }
-    async parseOcrLines(lines) {
-      const options = ocrParseOptions();
-      return Promise.all(lines.map((line) => this.options.parseJapanese(line.text, options).catch(() => {
-        return [];
-      })));
-    }
-    renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
-      const element2 = createOcrLineElement(result, line, tokens, sentence, showText, settings);
-      element2.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element2, event));
-      return element2;
-    }
-    toggleOcrLinePinned(state, element2, event) {
-      const word = event.target.closest(".jpdb-reader-word[data-vid]");
-      if (element2.dataset.pinned === "true") {
-        this.unpinLine(element2);
-        if (word) return;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      element2.focus({ preventScroll: true });
-      this.pinLine(state, element2);
-      if (word) return;
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    pinLine(state, element2) {
-      state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
-        if (line !== element2) this.unpinLine(line);
-      });
-      element2.classList.add("jpdb-ocr-line-active");
-      element2.dataset.pinned = "true";
-    }
-    unpinLine(element2) {
-      element2.classList.remove("jpdb-ocr-line-active");
-      element2.dataset.pinned = "false";
-    }
-    unpinOcrLinesFromDocumentEvent(event) {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest(".jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab")) return;
-      this.unpinAllLines();
-    }
-    unpinAllLines() {
-      for (const state of this.states.values()) {
-        state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
-      }
-    }
-    observePriority(image) {
-      const state = this.states.get(image);
-      if (!state) return 0;
-      if (!state.result) return state.autoSkipped ? 2 : 0;
-      return 1;
-    }
-    resetStateIfImageChanged(state) {
-      const key = imageCacheKey(state.image);
-      if (key === state.key) return;
-      state.key = key;
-      state.result = void 0;
-      state.loading = false;
-      state.overlayRequested = false;
-      state.manualRequested = false;
-      state.autoSkipped = false;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
-    }
-    remember(key, result) {
-      this.cache.set(key, result);
-      while (this.cache.size > MAX_CACHE_ITEMS) {
-        const oldest = this.cache.keys().next().value;
-        if (!oldest) break;
-        this.cache.delete(oldest);
-      }
-    }
-    schedulePosition() {
-      if (this.positionFrame) return;
-      this.positionFrame = requestAnimationFrame(() => {
-        this.positionFrame = 0;
-        for (const image of this.states.keys()) this.positionState(image);
-      });
-    }
-    scheduleRefresh(delay2) {
-      window.clearTimeout(this.refreshTimer);
-      this.refreshTimer = window.setTimeout(() => this.refresh(), delay2);
-    }
-    positionState(image) {
-      const state = this.states.get(image);
-      if (!state) return;
-      const rect = image.getBoundingClientRect();
-      const visible = isImageVisibleForOcr(image, rect);
-      state.overlay.hidden = !visible;
-      if (!visible) return;
-      state.overlay.style.left = `${rect.left}px`;
-      state.overlay.style.top = `${rect.top}px`;
-      state.overlay.style.width = `${rect.width}px`;
-      state.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
-    }
-    fitLineFonts(state, frame) {
-      const scale = this.options.getSettings().ocrFontScale;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element2) => {
-        const boxLeft = frame.imageLeft + Number(element2.dataset.boxLeft) * frame.imageWidth;
-        const boxTop = frame.imageTop + Number(element2.dataset.boxTop) * frame.imageHeight;
-        const boxWidth = Number(element2.dataset.boxWidth) * frame.imageWidth;
-        const boxHeight = Number(element2.dataset.boxHeight) * frame.imageHeight;
-        if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
-        const text2 = element2.dataset.ocrText ?? "";
-        const vertical = element2.dataset.vertical === "true";
-        element2.style.fontSize = `${ocrFontPx(text2, boxWidth, boxHeight, vertical, scale)}px`;
-        this.fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
-      });
-    }
-    fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical) {
-      const textElement = element2.querySelector(".jpdb-ocr-line-text");
-      if (!textElement) return;
-      const hasFurigana = element2.dataset.hasFuri === "true";
-      const fontSize = Number.parseFloat(element2.style.fontSize) || 16;
-      const padX = Math.max(4, Math.round(fontSize * 0.16));
-      const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-      const padBottom = Math.max(3, Math.round(fontSize * 0.1));
-      element2.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
-      element2.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
-      element2.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
-      const contentRect = textElement.getBoundingClientRect();
-      const contentWidth = Math.max(1, contentRect.width);
-      const contentHeight = Math.max(1, contentRect.height);
-      const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
-      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
-      const minLeft = frame.imageLeft;
-      const minTop = frame.imageTop;
-      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
-      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
-      const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
-      const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
-      const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-      const top = clampNumber(shouldCenterOcrText(element2.dataset.ocrText ?? "", vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
-      element2.style.left = `${left}px`;
-      element2.style.top = `${top}px`;
-      element2.style.width = `${frameWidth}px`;
-      element2.style.height = `${frameHeight}px`;
-    }
-    clear() {
-      this.observer?.disconnect();
-      this.observer = void 0;
-      this.observerMargin = "";
-      window.clearTimeout(this.refreshTimer);
-      this.queue = [];
-      for (const state of this.states.values()) {
-        state.overlay.remove();
-      }
-      this.states.clear();
-    }
-    pruneDisconnectedStates() {
-      for (const [image, state] of this.states) {
-        if (image.isConnected) continue;
-        this.observer?.unobserve(image);
-        state.overlay.remove();
-        this.states.delete(image);
-      }
-    }
-  }
-  function applyOcrOverlayStyle(overlay, settings) {
-    overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
-    overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
-    overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
-    overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
-  }
-  function ocrParseOptions() {
-    return {
-      allowSegmentedFallback: true,
-      includeLocalPitch: true
-    };
-  }
-  function ocrTokensWithFallbackGaps(text2, tokens, fallbackCardFromText) {
-    const safeTokens = tokens.filter((token) => isRenderableOcrToken(token, text2.length));
-    const fallbackTokens = fallbackJapaneseSegments(text2).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text2, segment, fallbackCardFromText));
-    return fallbackTokens.length ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens) : safeTokens;
-  }
-  function isRenderableOcrToken(token, textLength) {
-    return Number.isFinite(token.start) && Number.isFinite(token.end) && token.start >= 0 && token.end <= textLength && token.end > token.start;
-  }
-  function ocrFallbackToken(sentence, segment, fallbackCardFromText) {
-    const card = fallbackCardFromText(segment.surface);
-    return {
-      card,
-      start: segment.start,
-      end: segment.end,
-      length: segment.end - segment.start,
-      rubies: [],
-      pitchClass: "",
-      sentence
-    };
-  }
-  function rangesOverlap(start, end, otherStart, otherEnd) {
-    return start < otherEnd && otherStart < end;
-  }
-  function compareOcrTokens(first2, second) {
-    return first2.start - second.start || second.length - first2.length;
-  }
-  function ocrFallbackCardFromText(text2) {
-    const spelling = text2.replace(/\s+/g, " ").trim().slice(0, 80);
-    const id = -stablePositiveHashId(`ocr-fallback
-${spelling}`);
-    return {
-      vid: id,
-      sid: id,
-      rid: 0,
-      spelling,
-      reading: "",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "fallback"
-    };
-  }
-  function createOcrLineElement(result, line, tokens, sentence, showText, settings) {
-    const element2 = document.createElement("div");
-    element2.className = showText ? "jpdb-ocr-line jpdb-ocr-line-visible" : "jpdb-ocr-line";
-    setOcrLineDataset(element2, result, line, sentence);
-    element2.tabIndex = 0;
-    element2.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
-    element2.setAttribute("aria-label", line.text);
-    const textElement = createOcrLineText(line, tokens, settings);
-    element2.append(textElement);
-    element2.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));
-    setOcrLinePosition(element2, result, line);
-    return element2;
-  }
-  function setOcrLineDataset(element2, result, line, sentence) {
-    element2.dataset.ocrText = line.text;
-    element2.dataset.boxLeft = String(line.box.left / result.width);
-    element2.dataset.boxTop = String(line.box.top / result.height);
-    element2.dataset.vertical = String(line.vertical);
-    element2.dataset.boxWidth = String(line.box.width / result.width);
-    element2.dataset.boxHeight = String(line.box.height / result.height);
-    element2.dataset.sentence = sentence;
-  }
-  function createOcrLineText(line, tokens, settings) {
-    const textElement = document.createElement("span");
-    textElement.className = "jpdb-ocr-line-text";
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml$1(line.text));
-    normalizeOcrRenderedText(textElement);
-    return textElement;
-  }
-  function setOcrLinePosition(element2, result, line) {
-    element2.style.left = `${100 * line.box.left / result.width}%`;
-    element2.style.top = `${100 * line.box.top / result.height}%`;
-    element2.style.width = `${100 * line.box.width / result.width}%`;
-    element2.style.height = `${100 * line.box.height / result.height}%`;
-  }
-  function renderedOcrImageFrame(image, rect, result) {
-    const style = getComputedStyle(image);
-    const content = imageContentBox(image, rect, style);
-    const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
-    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
-    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
-    return {
-      imageLeft: content.left + offset.x,
-      imageTop: content.top + offset.y,
-      imageWidth: Math.max(1, object.width),
-      imageHeight: Math.max(1, object.height)
-    };
-  }
-  function ocrSourceDimensions(image, rect, content, result) {
-    return {
-      sourceWidth: firstTruthyNumber(result?.width, image.naturalWidth, image.width, content.width, rect.width),
-      sourceHeight: firstTruthyNumber(result?.height, image.naturalHeight, image.height, content.height, rect.height)
-    };
-  }
-  function firstTruthyNumber(...values) {
-    const value = values.find((candidate) => Boolean(candidate));
-    return value === void 0 ? 1 : value;
-  }
-  function imageContentBox(image, rect, style) {
-    const scaleX = rectScale(rect.width, image.offsetWidth);
-    const scaleY = rectScale(rect.height, image.offsetHeight);
-    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
-    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
-    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
-    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
-    return {
-      left,
-      top,
-      width: Math.max(1, rect.width - left - right),
-      height: Math.max(1, rect.height - top - bottom)
-    };
-  }
-  function rectScale(rectSize, layoutSize) {
-    return layoutSize > 0 ? rectSize / layoutSize : 1;
-  }
-  function scaledBoxEdge(value, scale) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed * scale : 0;
-  }
-  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
-    const safeSourceWidth = Math.max(1, sourceWidth);
-    const safeSourceHeight = Math.max(1, sourceHeight);
-    const safeContentWidth = Math.max(1, contentWidth);
-    const safeContentHeight = Math.max(1, contentHeight);
-    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-    switch (objectFit) {
-      case "contain":
-        return contain();
-      case "cover":
-        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-      case "none":
-        return { width: safeSourceWidth, height: safeSourceHeight };
-      case "scale-down": {
-        const contained = contain();
-        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
-      }
-      case "fill":
-      default:
-        return { width: safeContentWidth, height: safeContentHeight };
-    }
-  }
-  function scaledObjectSize(width, height, scale) {
-    return {
-      width: Math.max(1, width * scale),
-      height: Math.max(1, height * scale)
-    };
-  }
-  function objectPositionOffset(value, freeX, freeY) {
-    const tokens = cssPositionTokens(value);
-    const axes = parseObjectPositionAxes(tokens);
-    return {
-      x: axisPositionOffset(axes.x, freeX),
-      y: axisPositionOffset(axes.y, freeY)
-    };
-  }
-  function cssPositionTokens(value) {
-    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
-  }
-  function parseObjectPositionAxes(tokens) {
-    const paired = parseKeywordPositionAxes(tokens);
-    if (paired) return paired;
-    const [first2 = "50%", second] = tokens;
-    if (isVerticalPositionKeyword(first2)) return { x: positionAxis(second || "50%"), y: positionAxis(first2) };
-    return { x: positionAxis(first2), y: positionAxis(second || "50%") };
-  }
-  function parseKeywordPositionAxes(tokens) {
-    let x = null;
-    let y = null;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isHorizontalPositionKeyword(token)) {
-        x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-        continue;
-      }
-      if (isVerticalPositionKeyword(token)) {
-        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-      }
-    }
-    return x || y ? { x: x ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
-  }
-  function positionAxis(token) {
-    return positionKeyword(token) ? { keyword: token } : { token };
-  }
-  function positionOffsetToken(token) {
-    return token && !positionKeyword(token) ? token : void 0;
-  }
-  function axisPositionOffset(axis, freeSpace) {
-    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
-    const offset = cssLengthPx(axis.offset);
-    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
-    return base + offset;
-  }
-  function keywordPositionOffset(keyword, freeSpace) {
-    if (keyword === "right" || keyword === "bottom") return freeSpace;
-    if (keyword === "center") return freeSpace / 2;
-    return 0;
-  }
-  function tokenPositionOffset(token, freeSpace) {
-    if (!token) return freeSpace / 2;
-    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
-    return cssLengthPx(token);
-  }
-  function cssLengthPx(value) {
-    if (!value) return 0;
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function positionKeyword(token) {
-    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
-  }
-  function isHorizontalPositionKeyword(token) {
-    return token === "left" || token === "right";
-  }
-  function isVerticalPositionKeyword(token) {
-    return token === "top" || token === "bottom";
-  }
-  function captureImageElement(image) {
-    try {
-      if (!image.naturalWidth || !image.naturalHeight) return void 0;
-      const canvas = document.createElement("canvas");
-      const maxWidth = 960;
-      const scale = Math.min(1, maxWidth / image.naturalWidth);
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return void 0;
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", 0.84);
-    } catch {
-      return void 0;
-    }
-  }
-  function readFallbackOcrResult(image, _includeAccessibleText = false) {
-    const width = image.naturalWidth || image.width || 1;
-    const height = image.naturalHeight || image.height || 1;
-    return parseFallbackOcrLines(image.dataset.ocrLines, width, height);
-  }
-  function parseFallbackOcrLines(data, width, height) {
-    if (!data) return null;
-    try {
-      return normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
-    } catch {
-      return null;
-    }
-  }
-  function ocrFontPx(text2, boxWidth, boxHeight, vertical, scale) {
-    const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text2));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? boxHeight / length * 1.12 : boxWidth / length * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
-  }
-  function visualTextLength(text2) {
-    return [...text2.trim()].reduce((total, char) => {
-      if (/\s/.test(char)) return total + 0.35;
-      if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
-      return total + 1;
-    }, 0);
-  }
-  function shouldCenterOcrText(text2, vertical) {
-    return vertical || visualTextLength(text2) <= 1.5;
-  }
-  function normalizeOcrRenderedText(root) {
-    normalizeOcrRuby(root);
-    normalizeOcrPlainText(root);
-  }
-  function normalizeOcrRuby(root) {
-    root.querySelectorAll("ruby").forEach((ruby) => {
-      const replacement = document.createElement("span");
-      replacement.className = "jpdb-ocr-ruby";
-      const furi = document.createElement("span");
-      furi.className = "jpdb-ocr-furi";
-      furi.dataset.jpdbReaderSurfaceIgnore = "true";
-      furi.setAttribute("aria-hidden", "true");
-      const base = document.createElement("span");
-      base.className = "jpdb-ocr-ruby-base";
-      for (const child of Array.from(ruby.childNodes)) {
-        if (child instanceof HTMLElement && child.tagName === "RT") {
-          furi.textContent += child.textContent ?? "";
-        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
-          base.append(child.cloneNode(true));
-        }
-      }
-      replacement.append(furi, base);
-      ruby.replaceWith(replacement);
-    });
-  }
-  function normalizeOcrPlainText(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
-        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
-        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      }
-    });
-    const textNodes = [];
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node instanceof Text) textNodes.push(node);
-    }
-    for (const textNode of textNodes) {
-      const replacement = document.createElement("span");
-      replacement.className = "jpdb-ocr-plain";
-      replacement.textContent = textNode.textContent ?? "";
-      textNode.replaceWith(replacement);
-    }
-  }
-  function clampNumber(value, min, max2) {
-    return Math.min(max2, Math.max(min, value));
-  }
-  async function recognizeViaLocalService(image, settings) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
-    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: settings.ocrLanguage || "ja-JP",
-      language: {
-        bcp47_tag: settings.ocrLanguage || "ja-JP",
-        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
-      },
-      base64_image: payload.base64,
-      image: payload.base64,
-      image_bytes: payload.base64,
-      ocr_engine: engine,
-      ocr_adapter_name: engine,
-      detection_only: false
-    });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaCloudVision(image, settings) {
-    const apiKey = settings.ocrCloudVisionApiKey.trim();
-    if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
-    const body = JSON.stringify({
-      requests: [{
-        image: { content: payload.base64 },
-        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
-        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
-      }]
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson(url, body, settings.audioTimeoutMs);
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaGoogleLens(image, settings) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88);
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    try {
-      const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
-      return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-    } catch (error) {
-      log$5.warn("Google Lens protobuf failed", error);
-      return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
-    }
-  }
-  function ocrRecognizer(settings) {
-    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
-    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
-  }
-  function isOcrProviderConfigured(settings) {
-    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
-  }
-  async function imageToBase64Payload(image, maxPixels) {
-    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86);
-    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
-  }
-  async function imageToBlobPayload(image, maxPixels, type, quality) {
-    const canvas = await imageToCanvas(image, maxPixels);
-    try {
-      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
-    } catch {
-      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
-      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
-    }
-  }
-  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    const data = new FormData();
-    data.append("encoded_image", blob, "image.jpg");
-    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout);
-    return parseGoogleLensUploadHtml(response, width, height);
-  }
-  async function imageToCanvas(image, maxPixels) {
-    try {
-      const canvas = drawImageToCanvas(image, maxPixels);
-      assertCanvasReadable(canvas);
-      return canvas;
-    } catch {
-      return imageBlobToCanvas(image, maxPixels);
-    }
-  }
-  async function imageBlobToCanvas(image, maxPixels) {
-    const url = image.currentSrc || image.src;
-    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-    const blob = await requestBlob(url);
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const loaded = await loadImage(objectUrl);
-      const canvas = drawImageToCanvas(loaded, maxPixels);
-      assertCanvasReadable(canvas);
-      return canvas;
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  function drawImageToCanvas(image, maxPixels) {
-    const size = loadedImageSize(image);
-    const canvas = scaledCanvas(size, maxPixels);
-    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-  function loadedImageSize(image) {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-    if (!width || !height) throw new Error("Image is not loaded yet.");
-    return { width, height };
-  }
-  function scaledCanvas(size, maxPixels) {
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(size.width * scale));
-    canvas.height = Math.max(1, Math.round(size.height * scale));
-    return canvas;
-  }
-  function drawableCanvasContext(canvas) {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable.");
-    return context;
-  }
-  function assertCanvasReadable(canvas) {
-    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
-  }
-  function createGoogleLensRequest(imageBytes, width, height, locale) {
-    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const requestId = protoMessage(
-      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
-      protoVarintField(2, 1),
-      protoVarintField(3, 1),
-      protoBytesField(4, randomBytes(16))
-    );
-    const localeContext = protoMessage(
-      protoStringField(1, language || "ja"),
-      protoStringField(2, region || "US"),
-      protoStringField(3, timeZone)
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-      protoVarintField(1, LENS_PLATFORM_WEB),
-      protoVarintField(2, LENS_SURFACE_CHROMIUM),
-      protoMessageField(4, localeContext),
-      protoMessageField(17, clientFilters)
-    );
-    const requestContext = protoMessage(
-      protoMessageField(3, requestId),
-      protoMessageField(4, clientContext)
-    );
-    const imageData = protoMessage(
-      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-      protoMessageField(1, requestContext),
-      protoMessageField(3, imageData)
-    )));
-  }
-  function isCandidateImage(image, settings) {
-    if (isIgnoredOcrImage(image)) return false;
-    const rect = image.getBoundingClientRect();
-    const area = rect.width * rect.height;
-    if (area < settings.ocrMinImageArea) return false;
-    if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
-    if (isImageOccludedByVideo(image, rect)) return false;
-    return isVisibleOcrImage(image);
-  }
-  function ocrImageFromPointerEvent(event, settings) {
-    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
-    const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
-    return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
-  }
-  function shouldHandleOcrPointerEvent(event) {
-    if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
-    return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
-  }
-  function isPointerLikeEvent(event) {
-    const candidate = event;
-    return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
-  }
-  function isHoverPointerType(pointerType) {
-    return !pointerType || pointerType === "mouse" || pointerType === "pen";
-  }
-  function pointerEventImageTarget(event) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
-    return target instanceof HTMLImageElement ? target : target.closest("img");
-  }
-  function pointerEventImageAtPoint(event) {
-    const element2 = document.elementFromPoint?.(event.clientX, event.clientY);
-    if (!element2 || element2.closest("[data-jpdb-reader-root]")) return null;
-    return element2 instanceof HTMLImageElement ? element2 : element2.closest("img");
-  }
-  function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
-  }
-  function isVisibleOcrImage(image) {
-    return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
-  }
-  function isImageVisibleForOcr(image, rect) {
-    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
-  }
-  function isInsideHiddenAncestor(element2) {
-    for (let current = element2.parentElement; current && current !== document.body; current = current.parentElement) {
-      if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
-    }
-    return false;
-  }
-  function isHiddenByCss(element2) {
-    const style = getComputedStyle(element2);
-    return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-  }
-  function isHiddenByAttribute(element2) {
-    return element2.getAttribute("aria-hidden") === "true" || element2.hasAttribute("hidden");
-  }
-  function mutationTouchesRenderableMedia(mutation) {
-    if (mutation.type === "childList") {
-      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
-    }
-    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
-  }
-  function summarizeRenderableMediaMutations(mutations) {
-    let addedImage = false;
-    let touched = false;
-    for (const mutation of mutations) {
-      if (!mutationTouchesRenderableMedia(mutation)) continue;
-      touched = true;
-      if (mutation.type === "childList" && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
-      if (addedImage) break;
-    }
-    return { touched, addedImage };
-  }
-  function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
-    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
-  }
-  function nodeContainsRenderableMedia(node) {
-    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLSourceElement || node instanceof Element && Boolean(node.querySelector("img, video, source"));
-  }
-  function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
-    const imageArea = rect.width * rect.height;
-    if (imageArea < 4) return false;
-    const imageRoot = image.getRootNode();
-    for (const video of document.querySelectorAll("video")) {
-      if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
-      if (videoOccludesImage(video, rect, imageArea)) return true;
-    }
-    return false;
-  }
-  function isVisiblePeerVideo(video, image, imageRoot) {
-    return video.isConnected && video.getRootNode() === imageRoot && !isSameMediaNode(video, image) && visibleVideoRect(video) !== null && !isHiddenByCss(video);
-  }
-  function visibleVideoRect(video) {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 2 && rect.height >= 2 ? rect : null;
-  }
-  function videoOccludesImage(video, imageRect, imageArea) {
-    const videoRect = visibleVideoRect(video);
-    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
-  }
-  function isSameMediaNode(video, image) {
-    return video === image.parentElement || image === video.parentElement;
-  }
-  function intersectionArea(a, b) {
-    const left = Math.max(a.left, b.left);
-    const top = Math.max(a.top, b.top);
-    const right = Math.min(a.right, b.right);
-    const bottom = Math.min(a.bottom, b.bottom);
-    return Math.max(0, right - left) * Math.max(0, bottom - top);
-  }
-  function shouldObserveImage(image, settings) {
-    return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
-  }
-  function hasInlineOcrFallback(image) {
-    return Boolean(readFallbackOcrResult(image, false));
-  }
-  function isNearViewport(element2, margin) {
-    const rect = element2.getBoundingClientRect();
-    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
-  }
-  function imageViewportDistance(image) {
-    const rect = image.getBoundingClientRect();
-    if (rect.bottom < 0) return -rect.bottom;
-    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
-    if (rect.right < 0) return -rect.right;
-    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
-    return 0;
-  }
-  function imageCacheKey(image) {
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
-  function protoMessage(...parts) {
-    return concatBytes(parts);
-  }
-  function protoMessageField(field, value) {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-  }
-  function protoBytesField(field, value) {
-    return protoMessageField(field, value);
-  }
-  function protoStringField(field, value) {
-    return protoBytesField(field, new TextEncoder().encode(value));
-  }
-  function protoVarintField(field, value) {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-  }
-  function protoTag(field, wire) {
-    return encodeVarint(field << 3 | wire);
-  }
-  function encodeVarint(value) {
-    let item = BigInt(value);
-    const bytes = [];
-    do {
-      let byte = Number(item & 0x7fn);
-      item >>= 7n;
-      if (item) byte |= 128;
-      bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-  }
-  function concatBytes(parts) {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-    return result;
-  }
-  function randomBytes(length) {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-  }
-  function requestJson(url, data, timeout) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers: { "content-type": "application/json" },
-      data,
-      responseType: "json",
-      timeout
-    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-  }
-  function fetchJsonWithTimeout(url, data, timeout) {
-    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestArrayBuffer(url, data, timeout) {
-    const body = new Uint8Array(data);
-    const headers = {
-      "content-type": "application/x-protobuf",
-      "x-goog-api-key": GOOGLE_LENS_API_KEY,
-      accept: "*/*",
-      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
-    };
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers,
-      data: body.buffer,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetch(url, {
-      method: "POST",
-      headers,
-      body: body.buffer
-    }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-  }
-  function requestTextForm(url, data, timeout) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      data,
-      responseType: "text",
-      timeout
-    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
-  }
-  function requestBlob(url) {
-    const userscriptRequest = requestViaUserscript({
-      method: "GET",
-      url,
-      responseType: "blob"
-    }, (response) => response.response, (status) => `Image fetch returned ${status}.`);
-    if (userscriptRequest) return userscriptRequest;
-    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-  }
-  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) return null;
-    return new Promise((resolve, reject) => {
-      userscriptRequest({
-        ...options,
-        onload: (response) => isSuccessfulHttpStatus(response.status) ? resolve(readResponse(response)) : reject(new Error(statusMessage(response.status))),
-        onerror: reject,
-        ...timeoutMessage ? { ontimeout: () => reject(new Error(timeoutMessage)) } : {}
-      });
-    });
-  }
-  function isSuccessfulHttpStatus(status) {
-    return status >= 200 && status < 300;
-  }
-  function loadImage(url) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Image decode failed."));
-      image.src = url;
-    });
-  }
-  function canvasToBlob(canvas, type, quality) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
-    });
-  }
-  function imageSummary(image) {
-    return {
-      host: safeHost(image.currentSrc || image.src),
-      width: image.naturalWidth || image.width,
-      height: image.naturalHeight || image.height,
-      altLength: image.alt?.length ?? 0
-    };
-  }
-  function inlineProviderLabel(settings) {
-    return configuredOcrProviderLabel(settings) ?? settings.ocrProvider;
-  }
-  function configuredOcrProviderLabel(settings) {
-    return OCR_PROVIDER_LABELS[settings.ocrProvider]?.(settings) ?? null;
-  }
-  function localServiceProviderLabel(settings) {
-    return `local-service:${ocrEngineLabel(settings)}`;
-  }
-  function ocrEngineLabel(settings) {
-    return settings.ocrEngine || "auto";
-  }
-  function localOcrEndpointUrl(settings) {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-  }
-  function isLocalOcrConnectionError(error) {
-    if (isLocalOcrUnavailableError(error)) return true;
-    if (!(error instanceof Error)) return true;
-    return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
-  }
-  function isLocalOcrUnavailableError(error) {
-    return error instanceof LocalOcrUnavailableError;
-  }
-  function isAbortError(error) {
-    return error instanceof Error && error.name === "AbortError";
-  }
-  function safeHost(value) {
-    try {
-      return new URL(value, location.href).host;
-    } catch {
-      return "inline-or-invalid";
     }
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
@@ -37751,6 +35717,12 @@ ${spelling}`);
     const unknownBackgroundWords = [];
     const neutralWords = [];
     for (const word of words) {
+      const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
+      const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
+      if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
+        delete word.dataset.ankiPreserveContrast;
+        continue;
+      }
       if (word.closest(YOMU_SURFACE_SELECTOR)) {
         neutralWords.push(word);
         continue;
@@ -37759,12 +35731,19 @@ ${spelling}`);
         neutralWords.push(word);
         continue;
       }
-      if (word.matches(":hover, :focus")) {
+      const isHovered = word.matches(":hover, :focus");
+      if (hasAnkiAccessibleColor) {
+        if (isHovered && !hasInlineTextColor) {
+          scheduleHoverSettledContrastRefresh(word);
+          continue;
+        }
+      }
+      if (isHovered) {
         scheduleHoverSettledContrastRefresh(word);
-        if (word.dataset.ankiState && hoverAnkiContrastIsStillReadable(word)) continue;
       }
       const background = pageBackgroundFor(word);
       if (!background) {
+        if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
         unknownBackgroundWords.push(word);
         continue;
       }
@@ -37837,15 +35816,6 @@ ${spelling}`);
     if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
     return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
   }
-  function hoverAnkiContrastIsStillReadable(word) {
-    const current = word.style.getPropertyValue("--jpdb-reader-word-accessible-color");
-    if (!current) return false;
-    const background = pageBackgroundFor(word);
-    if (!background) return false;
-    const paintBackground = renderedWordBackground(word, background);
-    const color = cssColorToHex(current, paintBackground.rgba);
-    return Boolean(color && contrastRatio(color, paintBackground.hex) >= TEXT_CONTRAST);
-  }
   function scheduleHoverSettledContrastRefresh(word) {
     if (pendingHoverContrastRefresh.has(word)) return;
     pendingHoverContrastRefresh.add(word);
@@ -37879,15 +35849,6 @@ ${spelling}`);
     const hex = rgbaToHex(rgba);
     return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
   }
-  function renderedWordBackground(word, pageBackground) {
-    return withContrastVarsDisabled(word, () => {
-      const color = cssColorToRgba(getComputedStyle(word).backgroundColor);
-      const hasPaint = Boolean(color && color.alpha > 0);
-      const rgba = color && color.alpha > 0 ? blendRgba(color, pageBackground.rgba) : pageBackground.rgba;
-      const hex = rgbaToHex(rgba);
-      return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba, hasPaint };
-    });
-  }
   function bestTextColor(background) {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
   }
@@ -37907,19 +35868,50 @@ ${spelling}`);
   function clearContrastVars(word) {
     RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
   }
-  function withContrastVarsDisabled(word, read) {
-    const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
-      name,
-      value: word.style.getPropertyValue(name),
-      priority: word.style.getPropertyPriority(name)
-    }));
-    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-    try {
-      return read();
-    } finally {
-      saved.forEach(({ name, value, priority: priority2 }) => {
-        if (value) word.style.setProperty(name, value, priority2);
-      });
+  function normalizeOcrRenderedText(root) {
+    normalizeOcrRuby(root);
+    normalizeOcrPlainText(root);
+  }
+  function normalizeOcrRuby(root) {
+    root.querySelectorAll("ruby").forEach((ruby) => {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-ruby";
+      const furi = document.createElement("span");
+      furi.className = "jpdb-ocr-furi";
+      furi.dataset.jpdbReaderSurfaceIgnore = "true";
+      furi.setAttribute("aria-hidden", "true");
+      const base = document.createElement("span");
+      base.className = "jpdb-ocr-ruby-base";
+      for (const child of Array.from(ruby.childNodes)) {
+        if (child instanceof HTMLElement && child.tagName === "RT") {
+          furi.textContent += child.textContent ?? "";
+        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
+          base.append(child.cloneNode(true));
+        }
+      }
+      replacement.append(furi, base);
+      ruby.replaceWith(replacement);
+    });
+  }
+  function normalizeOcrPlainText(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
+        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const textNodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text) textNodes.push(node);
+    }
+    for (const textNode of textNodes) {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-plain";
+      replacement.textContent = textNode.textContent ?? "";
+      textNode.replaceWith(replacement);
     }
   }
   const RENDERED_WORD_CARD_STATES = [
@@ -38138,7 +36130,10 @@ ${spelling}`);
   function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
     if (!ankiLookup.primary) {
       if (ankiLookup.trusted === false) return;
-      if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) return;
+      if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
+        word.dataset.ankiPreserveContrast = "true";
+        return;
+      }
       clearRenderedWordAnkiState(word);
       word.classList.add(`anki-${ankiLookup.state}`);
       word.dataset.ankiState = ankiLookup.state;
@@ -38322,6 +36317,58 @@ ${spelling}`);
   }
   function prefersLightMode() {
     return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches;
+  }
+  const HOST_DARK_CLASS = "dark-mode";
+  const JITEN_THEME_COOKIE = "jiten-theme-mode";
+  function currentThemeHost() {
+    const host = location.hostname;
+    if (host === "jpdb.io" || host.endsWith(".jpdb.io")) return "jpdb";
+    if (host === "jiten.moe" || host.endsWith(".jiten.moe")) return "jiten";
+    return null;
+  }
+  function isThemeSyncHost() {
+    return currentThemeHost() !== null;
+  }
+  function prefersDark() {
+    return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function detectHostTheme() {
+    if (document.documentElement.classList.contains(HOST_DARK_CLASS)) return "dark";
+    if (currentThemeHost() === "jiten") {
+      const mode = readJitenThemeCookie();
+      if (mode === "dark" || mode === "light") return mode;
+      return prefersDark() ? "dark" : "light";
+    }
+    return "light";
+  }
+  function applyHostTheme(theme) {
+    const root = document.documentElement;
+    root.classList.toggle(HOST_DARK_CLASS, theme === "dark");
+    root.style.colorScheme = theme;
+    if (currentThemeHost() === "jiten") writeJitenThemeCookie(theme);
+  }
+  function jitenThemeCookieMatches(theme) {
+    return currentThemeHost() === "jiten" && readJitenThemeCookie() === theme;
+  }
+  function readJitenThemeCookie() {
+    const match = document.cookie.match(/(?:^|;\s*)jiten-theme-mode=([^;]+)/);
+    return match ? decodeURIComponent(match[1]).trim() : "";
+  }
+  function writeJitenThemeCookie(theme) {
+    document.cookie = `${JITEN_THEME_COOKIE}=${theme}; path=/; max-age=31536000; samesite=lax`;
+  }
+  function observeHostTheme(onChange) {
+    if (typeof MutationObserver !== "function") return () => void 0;
+    const root = document.documentElement;
+    let last = detectHostTheme();
+    const observer = new MutationObserver(() => {
+      const next = detectHostTheme();
+      if (next === last) return;
+      last = next;
+      onChange(next);
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
+    return () => observer.disconnect();
   }
   function showReaderToast(message, durationMs = 3200) {
     const toast = document.createElement("div");
@@ -38909,6 +36956,19 @@ ${spelling}`);
   }
   const log = Logger.scope("ReaderApp");
   const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
+  const HOST_THEME_ENFORCE_STEPS = 12;
+  const HOST_THEME_ENFORCE_STEP_MS = 200;
+  function createNoopImageOcrController() {
+    const noop2 = () => void 0;
+    return {
+      init: noop2,
+      refresh: noop2,
+      destroy: noop2,
+      scanVisible: noop2,
+      pinLineForElement: noop2,
+      captureSourceImageForElement: () => void 0
+    };
+  }
   const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     "[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)",
     ".jpdb-ocr-layer",
@@ -38928,6 +36988,8 @@ ${spelling}`);
     abortController = new AbortController();
     isDestroyed = false;
     settings = DEFAULT_SETTINGS;
+    disposeHostThemeObserver;
+    hostThemeEnforceTimer;
     setImmersionTranslationBlurred = (blurred) => {
       if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
       this.settings = {
@@ -39058,15 +37120,7 @@ ${spelling}`);
       showSettings: (panel) => this.showSettings(panel)
     });
     subtitles = this.createSubtitlePlayer();
-    ocr = new ImageOcrController({
-      getSettings: () => this.settings,
-      parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
-      onToast: (message) => this.toast(message),
-      shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
-      enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
-      enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
-      fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
-    });
+    ocr = this.createImageOcrController();
     youtube = this.createYoutubeFilter();
     pageScanner = new VisiblePageScanner({
       getSettings: () => this.settings,
@@ -39133,6 +37187,7 @@ ${spelling}`);
     visiblePageReparseTimer;
     jpdbPageEnhanceTimer;
     jpdbPageEnhancementGeneration = 0;
+    lastEnhancedHref = "";
     nearbyReaderAudioPreloadTimer;
     preloadedTermAudioKeys = /* @__PURE__ */ new Set();
     nestedParseContentCache = /* @__PURE__ */ new Map();
@@ -39175,6 +37230,22 @@ ${spelling}`);
         getSettings: () => this.settings,
         setShowFilterNotice: (visible) => void this.setYoutubeFilterNoticeVisible(visible),
         setShowChannelRecommendations: (visible) => void this.setYoutubeChannelRecommendationsVisible(visible)
+      });
+    }
+    createImageOcrController() {
+      const Controller = yomuImageOcrController();
+      if (!Controller) {
+        log.warnOnce("ocr-companion-missing", "OCR companion is missing; image reading is disabled.");
+        return createNoopImageOcrController();
+      }
+      return new Controller({
+        getSettings: () => this.settings,
+        parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
+        onToast: (message) => this.toast(message),
+        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
+        enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
+        enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
+        fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
       });
     }
     missingCompanionSurface(label, key) {
@@ -39362,7 +37433,48 @@ ${spelling}`);
     }
     applyTheme(settings = this.settings) {
       applyReaderTheme(settings);
+      this.syncHostTheme(settings);
       refreshReaderWordContrast(document);
+    }
+    initHostThemeSync() {
+      if (this.disposeHostThemeObserver || !isThemeSyncHost()) return;
+      this.disposeHostThemeObserver = observeHostTheme((theme) => this.handleHostThemeChange(theme));
+    }
+    syncHostTheme(settings = this.settings) {
+      if (!isThemeSyncHost()) return;
+      this.initHostThemeSync();
+      window.clearTimeout(this.hostThemeEnforceTimer);
+      if (settings.theme === "auto") this.applyReaderThemeClasses(detectHostTheme());
+      else this.enforceHostTheme(settings.theme, HOST_THEME_ENFORCE_STEPS);
+    }
+    enforceHostTheme(theme, remaining) {
+      applyHostTheme(theme);
+      if (remaining <= 0 || this.isDestroyed) return;
+      this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
+    }
+    applyReaderThemeClasses(theme) {
+      const root = document.documentElement;
+      root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
+      root.classList.toggle("jpdb-reader-theme-light", theme === "light");
+    }
+    handleHostThemeChange(hostTheme) {
+      if (this.isDestroyed) return;
+      const setting = this.settings.theme;
+      if (setting === hostTheme) return;
+      if ((setting === "light" || setting === "dark") && jitenThemeCookieMatches(setting)) {
+        applyHostTheme(setting);
+        return;
+      }
+      if (setting === "auto") {
+        this.applyReaderThemeClasses(hostTheme);
+        refreshReaderWordContrast(document);
+        return;
+      }
+      this.settings = { ...this.settings, theme: hostTheme };
+      void saveSettings(this.settings);
+      applyReaderTheme(this.settings);
+      refreshReaderWordContrast(document);
+      this.publishThemeSettingsChange();
     }
     applyPreferredJapaneseSiteLanguage(settings = this.settings) {
       applyPreferredJapaneseSiteLanguage(settings.preferJapaneseSiteLanguage);
@@ -39413,13 +37525,13 @@ ${spelling}`);
       this.scheduleJpdbPageEnhancements(0);
     }
     initJpdbPageEnhancements() {
-      if (!isJpdbHost()) return;
+      if (!isPageEnhancementHost()) return;
       this.scheduleJpdbPageEnhancements(0);
       addWindowEventListener("popstate", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
       addWindowEventListener("hashchange", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
     }
     scheduleJpdbPageEnhancements(delay2 = 0) {
-      if (this.isDestroyed || !isJpdbHost()) return;
+      if (this.isDestroyed || !isPageEnhancementHost()) return;
       window.clearTimeout(this.jpdbPageEnhanceTimer);
       this.jpdbPageEnhanceTimer = window.setTimeout(() => {
         this.jpdbPageEnhanceTimer = void 0;
@@ -39428,9 +37540,10 @@ ${spelling}`);
     }
     async refreshJpdbPageEnhancements() {
       const generation = ++this.jpdbPageEnhancementGeneration;
+      this.lastEnhancedHref = location.href;
       this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
-      if (!this.settings.jpdbPageEnhancementsEnabled) return;
-      if (this.isCurrentJpdbKanjiSurface()) {
+      if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) return;
+      if (isCurrentKanjiSurface()) {
         if (this.settings.jpdbPageKanjiEnhancementsEnabled) this.installJpdbKanjiPageEnhancement(generation);
         return;
       }
@@ -39439,11 +37552,12 @@ ${spelling}`);
     removeJpdbPageEnhancements() {
       document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element2) => element2.remove());
     }
-    isCurrentJpdbKanjiSurface() {
-      return isKanjiPage() || isKanjiReviewBack();
+    jitenEnhancementsNeedRefresh() {
+      if (location.href !== this.lastEnhancedHref) return true;
+      return isPageEnhancementReady() && this.settings.jpdbPageEnhancementsEnabled && !document.querySelector("[data-yomu-jpdb-addon]");
     }
     async installJpdbWordPageEnhancements(generation) {
-      const targets = currentLocalDictionaryTargets();
+      const targets = currentPageLocalDictionaryTargets();
       await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
     }
     async installJpdbWordPageEnhancement(target, generation) {
@@ -39482,9 +37596,9 @@ ${spelling}`);
       ).slice(0, this.settings.localDictionaryMaxResults);
     }
     installJpdbKanjiPageEnhancement(generation) {
-      const kanji = extractCurrentKanji();
+      const kanji = currentPageKanji();
       if (!isKanjiCharacter$1(kanji) || !this.isCurrentJpdbPageEnhancement(generation)) return;
-      const target = currentJpdbTermTarget();
+      const target = currentPageTermTarget();
       const root = this.createJpdbPageAddonRoot("kanji", target?.anchor ?? document.body);
       if (!root) return;
       const language = this.settings.interfaceLanguage;
@@ -39548,7 +37662,7 @@ ${spelling}`);
       void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? "", actionButton.dataset.jpdbExampleSentence ?? "");
     }
     isCurrentJpdbPageEnhancement(generation) {
-      return !this.isDestroyed && isJpdbHost() && this.settings.jpdbPageEnhancementsEnabled && generation === this.jpdbPageEnhancementGeneration;
+      return !this.isDestroyed && isPageEnhancementHost() && this.settings.jpdbPageEnhancementsEnabled && generation === this.jpdbPageEnhancementGeneration;
     }
     applyAccentColor(color) {
       applyReaderAccentColor(color);
@@ -39568,6 +37682,8 @@ ${spelling}`);
       this.pageScanner.destroy?.();
       this.factoryReset.destroy();
       this.abortController.abort();
+      this.disposeHostThemeObserver?.();
+      window.clearTimeout(this.hostThemeEnforceTimer);
       this.autoScanObserver?.disconnect();
       this.ocr.destroy();
       this.subtitles.destroy();
@@ -39622,7 +37738,11 @@ ${spelling}`);
           this.pageHasJapaneseText = true;
           this.scheduleAutoScan(450);
         }
-        if (isJpdbHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) this.scheduleJpdbPageEnhancements(500);
+        if (isJitenHost()) {
+          if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+        } else if (isPageEnhancementHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) {
+          this.scheduleJpdbPageEnhancements(500);
+        }
       });
       this.observeAutoScanMutations();
       window.addEventListener("scroll", () => this.scheduleAutoScan(160, { force: true }), { passive: true });
@@ -39794,6 +37914,9 @@ ${spelling}`);
       if (this.consumeSuppressedReaderWordClick(event, word)) return;
       const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
       const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+      if (!insideReaderPopup && !insideSubtitlePlayer && nativeClickableAncestor(word) && !this.clickForcesReaderWordLookup(event)) {
+        return;
+      }
       if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
       event.preventDefault();
       event.stopPropagation();
@@ -39940,6 +38063,10 @@ ${spelling}`);
     }
     shouldLookupOnHover(event) {
       return !this.hasStickyModalPopover() && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
+    }
+    clickForcesReaderWordLookup(event) {
+      const hasModifier = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+      return hasModifier && this.shouldLookupOnHover(event);
     }
     hasHoverLookupShortcut() {
       return Boolean((this.settings.shortcuts.hoverLookup ?? "").trim());
@@ -41229,11 +39356,13 @@ ${spelling}`);
       return Boolean(hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings));
     }
     shouldSuppressRenderedKanaFragmentFallback(word, card, context) {
-      if (context.trigger === "modal") return false;
-      const spelling = card.spelling.trim();
-      const isSingleKana = /^[\u3040-\u30ffー]$/u.test(spelling);
-      if (!isSingleKana) return false;
-      return Boolean(publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup())?.terms.length);
+      const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
+      if (!lookup?.terms.length) return false;
+      const surface = renderedWordLookupText(word);
+      const spelling = normalizedLookupText(card.spelling);
+      const reading = normalizedLookupText(card.reading);
+      const isRenderedKanaFragment = KANA_ONLY_LOOKUP_RUN_RE.test(surface) && surface.length < Math.max(spelling.length, reading.length, lookup.terms[0]?.length ?? 0);
+      return isRenderedKanaFragment;
     }
     async resolvePublicJpdbRenderedWordCandidate(terms) {
       for (const term of terms) {
@@ -43231,6 +41360,7 @@ ${spelling}`);
     repositionableActivePopover() {
       if (!this.activePopover) return null;
       if (this.activePopover.classList.contains("jpdb-reader-sheet")) return null;
+      if (this.activePopover.classList.contains("jpdb-reader-settings")) return null;
       return this.activePopover;
     }
     repositionLockedActivePopover(popover) {

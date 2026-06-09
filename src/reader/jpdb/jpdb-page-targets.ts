@@ -413,7 +413,7 @@ function extractReadingFromUrl(): string {
     return vocabularyPathReading(location.pathname);
 }
 
-function decodePathPart(value: string): string {
+export function decodePathPart(value: string): string {
     try {
         return decodeURIComponent(value);
     } catch {
@@ -447,7 +447,7 @@ function termTargetFromElement(element: HTMLElement): { term: string; reading: s
     return { term, reading };
 }
 
-function extractBaseText(root: Node): string {
+export function extractBaseText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
     return extractBaseElementText(root as HTMLElement);
@@ -458,7 +458,7 @@ function extractBaseElementText(element: HTMLElement): string {
     return Array.from(element.childNodes).map(extractBaseText).join('');
 }
 
-function extractReadingText(root: Node): string {
+export function extractReadingText(root: Node): string {
     if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? '';
     if (root.nodeType !== Node.ELEMENT_NODE) return '';
     return extractReadingElementText(root as HTMLElement);
@@ -540,7 +540,7 @@ function sourceTextContent(element: Element | null | undefined): string {
     return element && isSourceElement(element as HTMLElement) ? element.textContent ?? '' : '';
 }
 
-function uniqueLookupValues(values: Array<string | undefined | null>): string[] {
+export function uniqueLookupValues(values: Array<string | undefined | null>): string[] {
     const seen = new Set<string>();
     const result: string[] = [];
     for (const value of values) {

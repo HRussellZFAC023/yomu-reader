@@ -937,798 +937,51 @@
   function renderKanjiNavigationText(value, options) {
     return escapeHtml(value);
   }
-  function clampNumber(value, min, max) {
-    return Math.min(Math.max(value, min), Math.max(min, max));
+  function normalizeOcrRenderedText(root) {
+    normalizeOcrRuby(root);
+    normalizeOcrPlainText(root);
   }
-  const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
-  const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
-  const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
-  function normalizeSubtitleCues(cues, options = {}) {
-    const normalized = [];
-    for (const cue of cues) normalized.push(...normalizedSubtitleCueParts(cue, options));
-    return normalized.sort((a, b) => a.start - b.start);
-  }
-  function normalizedSubtitleCueParts(cue, options) {
-    const base = normalizedSubtitleCueBase(cue, options);
-    if (!base) return [];
-    const sentenceParts = splitCueDisplayText(base.text);
-    if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
-    const timedParts = distributeCueParts(base, sentenceParts);
-    const normalized = timedParts.map((part) => normalizedSubtitleCuePart(base, part));
-    return normalized.length ? normalized : [{ ...base, transcriptEligible: base.transcriptEligible }];
-  }
-  function normalizedSubtitleCueBase(cue, options) {
-    const text = normalizeCaptionText(cue.text);
-    if (!hasUsableSubtitleCueBounds(cue, text)) return null;
-    const end = Math.max(cue.end, cue.start + MIN_SUBTITLE_CUE_DURATION_SECONDS);
-    const words = exactSubtitleWords(cue, cue.start, end);
-    return {
-      ...cue,
-      text,
-      start: cue.start,
-      end,
-      originalText: cue.originalText ?? text,
-      words,
-      wordTimingsExact: Boolean(words?.length),
-      transcriptEligible: options.transcriptEligible ?? cue.transcriptEligible ?? true
-    };
-  }
-  function hasUsableSubtitleCueBounds(cue, text) {
-    return Boolean(text && Number.isFinite(cue.start) && Number.isFinite(cue.end));
-  }
-  function normalizedSubtitleCuePart(base, part) {
-    const partWords = sliceCueWords(base, part.start, part.end);
-    return {
-      start: part.start,
-      end: part.end,
-      text: part.text,
-      originalText: base.originalText,
-      words: partWords,
-      wordTimingsExact: Boolean(partWords?.length),
-      transcriptEligible: base.transcriptEligible
-    };
-  }
-  function splitCueDisplayText(text) {
-    const normalized = normalizeCaptionText(text);
-    if (!normalized) return [];
-    const sentenceParts = splitSentencesByPunctuation(normalized);
-    if (sentenceParts.length > 1) return sentenceParts;
-    if (displayTextWeight(normalized) <= 38) return [normalized];
-    return splitOverlongCue(normalized);
-  }
-  function splitSentencesByPunctuation(text) {
-    const parts = [];
-    let start = 0;
-    let offset = 0;
-    for (const char of Array.from(text)) {
-      offset += char.length;
-      const end = subtitleSentenceBoundaryEnd(text, char, offset);
-      if (end === null) continue;
-      offset = end;
-      pushSubtitleSentencePart(parts, text, start, offset);
-      start = offset;
-    }
-    pushSubtitleSentencePart(parts, text, start, text.length);
-    return parts.length ? parts : [text];
-  }
-  function subtitleSentenceBoundaryEnd(text, char, offset) {
-    if (!isSubtitleSentencePunctuation(char)) return null;
-    return consumeClosingSubtitlePunctuation(text, offset);
-  }
-  function isSubtitleSentencePunctuation(char) {
-    return /[。！？!?]/u.test(char);
-  }
-  function consumeClosingSubtitlePunctuation(text, offset) {
-    let end = offset;
-    while (end < text.length && isSubtitleSentenceCloser(text[end])) end++;
-    return end;
-  }
-  function isSubtitleSentenceCloser(char) {
-    return /["'」』）\]]/u.test(char);
-  }
-  function pushSubtitleSentencePart(parts, text, start, end) {
-    const part = text.slice(start, end).trim();
-    if (part) parts.push(part);
-  }
-  function splitOverlongCue(text) {
-    const parts = [];
-    const tokens = overlongCueTokens(text);
-    let current = "";
-    for (const token of tokens) {
-      if (shouldFlushOverlongCuePart(current, token)) {
-        parts.push(current.trim());
-        current = token.trimStart();
-      } else {
-        current += token;
+  function normalizeOcrRuby(root) {
+    root.querySelectorAll("ruby").forEach((ruby) => {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-ruby";
+      const furi = document.createElement("span");
+      furi.className = "jpdb-ocr-furi";
+      furi.dataset.jpdbReaderSurfaceIgnore = "true";
+      furi.setAttribute("aria-hidden", "true");
+      const base = document.createElement("span");
+      base.className = "jpdb-ocr-ruby-base";
+      for (const child of Array.from(ruby.childNodes)) {
+        if (child instanceof HTMLElement && child.tagName === "RT") {
+          furi.textContent += child.textContent ?? "";
+        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
+          base.append(child.cloneNode(true));
+        }
       }
-    }
-    if (current.trim()) parts.push(current.trim());
-    return splitCuePartsOrOriginal(parts, text);
-  }
-  function overlongCueTokens(text) {
-    return text.includes(" ") ? text.split(/(\s+)/u).filter(Boolean) : Array.from(text);
-  }
-  function shouldFlushOverlongCuePart(current, token) {
-    return displayTextWeight(current + token) > 32 && Boolean(current.trim());
-  }
-  function splitCuePartsOrOriginal(parts, text) {
-    return parts.length > 1 ? parts : [text];
-  }
-  function distributeCueParts(cue, parts) {
-    const duration = Math.max(0.12, cue.end - cue.start);
-    const weights = parts.map((part) => Math.max(1, displayTextWeight(part)));
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || parts.length;
-    let cursor = cue.start;
-    return parts.map((part, index) => {
-      const partDuration = index === parts.length - 1 ? cue.end - cursor : duration * (weights[index] / totalWeight);
-      const start = cursor;
-      const end = index === parts.length - 1 ? cue.end : Math.min(cue.end, cursor + Math.max(0.12, partDuration));
-      cursor = end;
-      return { text: part, start, end: Math.max(end, start + 0.12) };
+      replacement.append(furi, base);
+      ruby.replaceWith(replacement);
     });
   }
-  function exactSubtitleWords(cue, start, end) {
-    if (!cue.wordTimingsExact || !cue.words?.length) return void 0;
-    const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
-    return words.length ? words : void 0;
-  }
-  function sliceCueWords(cue, start, end) {
-    return exactSubtitleWords(cue, start, end);
-  }
-  function renderKaraokeTextParts(text, progress) {
-    const chars = Array.from(text);
-    const split = clampNumber(Math.round(progress), 0, chars.length);
-    const past = chars.slice(0, split).join("");
-    const current = chars.slice(split, split + 1).join("");
-    const upcoming = chars.slice(split + 1).join("");
-    return [
-      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml(past)}</span>` : "",
-      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml(current)}</span>` : "",
-      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml(upcoming)}</span>` : ""
-    ].join("");
-  }
-  function karaokeCharacterProgress(cue, words, time) {
-    const total = compactTextLength(cue.text);
-    const edgeProgress = karaokeEdgeProgress(cue, time, total);
-    if (edgeProgress !== null) return edgeProgress;
-    return karaokeTimedWordProgress(sortedSubtitleWords(words), total, time);
-  }
-  function karaokeEdgeProgress(cue, time, total) {
-    if (!total) return 0;
-    if (time <= cue.start) return 0;
-    if (time >= cue.end) return total;
-    return null;
-  }
-  function sortedSubtitleWords(words) {
-    return [...words].filter(hasUsableSubtitleWordTiming).sort((a, b) => a.start - b.start);
-  }
-  function hasUsableSubtitleWordTiming(word) {
-    return Boolean(word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end));
-  }
-  function karaokeTimedWordProgress(words, total, time) {
-    let cursor = 0;
-    for (const word of words) {
-      const length = compactTextLength(word.text);
-      if (!length) continue;
-      if (time >= word.end) {
-        cursor += length;
-        continue;
+  function normalizeOcrPlainText(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
+        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
-      if (time <= word.start) return Math.min(total, cursor);
-      return karaokeProgressInsideWord(total, cursor, length, word, time);
-    }
-    return Math.min(total, cursor);
-  }
-  function karaokeProgressInsideWord(total, cursor, length, word, time) {
-    const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
-    return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
-  }
-  function compactTextLength(text) {
-    return Array.from(text.replace(/\s+/gu, "")).length;
-  }
-  function displayTextWeight(text) {
-    return compactTextLength(text);
-  }
-  function parseVttCuePayload(raw, cueStart, cueEnd) {
-    const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
-    const markers = vttTimestampMarkers(raw, timestampPattern);
-    const text = vttCueTextWithoutMarkers(raw, timestampPattern);
-    if (!markers.length) return { text };
-    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd);
-  }
-  function vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd) {
-    const words = [];
-    for (let index = 0; index < markers.length; index++) {
-      const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
-      if (!markerWord) continue;
-      if (/\s/u.test(markerWord.text)) return { text };
-      words.push(vttWordTiming(markerWord, cueStart, cueEnd));
-    }
-    return { text, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
-  }
-  function vttTimestampMarkers(raw, timestampPattern) {
-    const markers = [];
-    raw.replace(timestampPattern, (match, rawTime, index) => {
-      appendVttTimestampMarker(markers, match, rawTime, index);
-      return match;
     });
-    return markers;
-  }
-  function appendVttTimestampMarker(markers, match, rawTime, index) {
-    const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
-    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
-  }
-  function vttCueTextWithoutMarkers(raw, timestampPattern) {
-    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
-  }
-  function vttMarkerWord(raw, timestampPattern, markers, index) {
-    const marker = markers[index];
-    const next = markers[index + 1];
-    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
-    const segmentText = segmentRaw.trim();
-    return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
-  }
-  function vttWordTiming(markerWord, cueStart, cueEnd) {
-    const start = clampNumber(markerWord.start, cueStart, cueEnd);
-    const end = clampNumber(markerWord.end, cueStart, cueEnd);
-    return { text: markerWord.text, start, end: Math.max(start + 0.04, end) };
-  }
-  function parseSubtitleText(text, options = {}) {
-    const normalizedText = text.replace(/^\uFEFF/, "");
-    return parseKnownSubtitleText(normalizedText, options) ?? parseVttSubtitleText(normalizedText, options);
-  }
-  function parseKnownSubtitleText(text, options) {
-    const youtubeJson = parseYouTubeJson3SubtitleText(text, options);
-    if (youtubeJson.length) return youtubeJson;
-    const youtubeXml = parseYouTubeXmlSubtitleText(text, options);
-    if (youtubeXml.length) return youtubeXml;
-    return looksLikeAssSubtitleText(text) ? parseAssSubtitleText(text) : void 0;
-  }
-  function looksLikeAssSubtitleText(text) {
-    return /^\s*\[Script Info\]/im.test(text) || /^\s*Dialogue:/im.test(text);
-  }
-  function parseVttSubtitleText(text, options) {
-    const cues = text.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).map(readVttCueBlock).filter((cue) => Boolean(cue));
-    const sorted = cues.sort((a, b) => a.start - b.start);
-    return options.smoothYouTubeFragments ? smoothFragmentedYouTubeCues(sorted) : sorted;
-  }
-  function readVttCueBlock(block) {
-    const lines = block.split("\n").filter(Boolean);
-    const timeIndex = lines.findIndex((line) => line.includes("-->"));
-    if (timeIndex < 0) return null;
-    const [startRaw, endRaw] = lines[timeIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
-    const start = parseSubtitleTime(startRaw);
-    const end = parseSubtitleTime(endRaw);
-    const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
-    return Number.isFinite(start) && Number.isFinite(end) && payload.text ? { start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact } : null;
-  }
-  function parseYouTubeJson3SubtitleText(text, options = {}) {
-    if (!/^\s*\{/.test(text)) return [];
-    try {
-      const parsed = JSON.parse(text);
-      const sorted = parseYouTubeJson3Events(parsed.events ?? [], options);
-      return smoothFragmentedYouTubeCues(normalizeYouTubeAutoCaptionTiming(sorted, options.youtubeAutoGenerated === true));
-    } catch {
-      return [];
+    const textNodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text) textNodes.push(node);
     }
-  }
-  function parseYouTubeJson3Events(events, options) {
-    return events.map((event) => readYouTubeJson3Cue(event, options)).filter((cue) => Boolean(cue)).sort((a, b) => a.start - b.start);
-  }
-  function readYouTubeJson3Cue(event, options) {
-    const start = Number(event.tStartMs ?? Number.NaN) / 1e3;
-    const duration = Number(event.dDurationMs ?? 0) / 1e3;
-    const end = start + Math.max(duration, 0.75);
-    const text = youtubeJson3CueText(event.segs ?? []);
-    if (!isUsableYouTubeJson3Cue(start, end, text)) return null;
-    const words = options.youtubeAutoGenerated ? void 0 : youtubeJson3WordTimings(event.segs ?? [], start, end);
-    return { start, end, text, words, wordTimingsExact: Boolean(words?.length) };
-  }
-  function youtubeJson3CueText(segs) {
-    return segs.map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
-  }
-  function isUsableYouTubeJson3Cue(start, end, text) {
-    return Number.isFinite(start) && Number.isFinite(end) && Boolean(text);
-  }
-  function youtubeJson3WordTimings(segs, cueStart, cueEnd) {
-    const visible = segs.map((seg) => ({ text: seg.utf8 ?? "", offset: Number(seg.tOffsetMs) })).filter((seg) => seg.text.trim());
-    const timed = visible.filter((seg) => Number.isFinite(seg.offset) && !/\s/u.test(seg.text.trim()));
-    if (!timed.length || timed.length !== visible.length) return void 0;
-    return timed.map((seg, index) => {
-      const nextOffset = timed[index + 1]?.offset;
-      const start = cueStart + seg.offset / 1e3;
-      const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
-      return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
-    }).filter((word) => word.end > word.start);
-  }
-  function parseYouTubeXmlSubtitleText(text, options = {}) {
-    if (!looksLikeYouTubeXmlSubtitleText(text)) return [];
-    try {
-      const document2 = parseXmlDocument(text, "text/xml");
-      const srv3 = parseYouTubeSrv3Rows(document2, options);
-      const cues = [
-        ...parseYouTubeTimedTextElements(document2),
-        ...parseYouTubeTtmlParagraphs(document2),
-        ...srv3.cues
-      ];
-      const sorted = cues.sort((a, b) => a.start - b.start);
-      const autoGenerated = isYouTubeXmlAutoGenerated(options, srv3, sorted);
-      const normalized = normalizeYouTubeAutoCaptionTiming(sorted, autoGenerated);
-      return autoGenerated ? normalized : smoothFragmentedYouTubeCues(normalized);
-    } catch {
-      return [];
+    for (const textNode of textNodes) {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-plain";
+      replacement.textContent = textNode.textContent ?? "";
+      textNode.replaceWith(replacement);
     }
-  }
-  function looksLikeYouTubeXmlSubtitleText(text) {
-    return /^\s*</.test(text) && /(<text\b|<p\b)/i.test(text);
-  }
-  function isYouTubeXmlAutoGenerated(options, srv3, cues) {
-    return options.youtubeAutoGenerated === true || srv3.sawLineBoundary || looksLikeOverlappingAutoGeneratedCues(cues);
-  }
-  function parseYouTubeTimedTextElements(document2) {
-    return Array.from(document2.querySelectorAll("text[start]")).map(readYouTubeTimedTextCue).filter((cue) => Boolean(cue));
-  }
-  function readYouTubeTimedTextCue(element) {
-    const start = Number(element.getAttribute("start"));
-    const duration = Number(element.getAttribute("dur") ?? 0);
-    const text = normalizeCaptionText(element.textContent ?? "");
-    return Number.isFinite(start) && text ? { start, end: start + Math.max(duration, 0.75), text } : null;
-  }
-  function parseYouTubeTtmlParagraphs(document2) {
-    return Array.from(document2.querySelectorAll("p[begin]")).map(readYouTubeTtmlCue).filter((cue) => Boolean(cue));
-  }
-  function readYouTubeTtmlCue(element) {
-    const start = parseSubtitleClockValue(element.getAttribute("begin") ?? "");
-    const end = parseSubtitleClockValue(element.getAttribute("end") ?? "");
-    const text = normalizeCaptionText(element.textContent ?? "");
-    return Number.isFinite(start) && Number.isFinite(end) && text ? { start, end, text } : null;
-  }
-  function parseYouTubeSrv3Rows(document2, options) {
-    const rows = Array.from(document2.querySelectorAll("p[t], p[_t]"));
-    let sawLineBoundary = false;
-    const cues = [];
-    for (let index = 0; index < rows.length; index++) {
-      const result = readYouTubeSrv3Row(rows[index], rows[index + 1], options);
-      sawLineBoundary ||= result.sawLineBoundary;
-      if (result.cue) cues.push(result.cue);
-    }
-    return { cues, sawLineBoundary };
-  }
-  function readYouTubeSrv3Row(element, nextElement, options) {
-    const timing = youtubeSrv3Timing(element, nextElement);
-    const words = youtubeSrv3Words(element, timing, options);
-    const text = youtubeSrv3CueText(element, words);
-    return {
-      cue: Number.isFinite(timing.start) && text ? youtubeSrv3Cue(timing, text, words) : null,
-      sawLineBoundary: Number.isFinite(timing.nextLineBoundary)
-    };
-  }
-  function youtubeSrv3Timing(element, nextElement) {
-    const startMs = Number(youtubeSrv3StartAttribute(element));
-    const durationMs = Number(element.getAttribute("d") ?? element.getAttribute("_d") ?? 0);
-    const start = startMs / 1e3;
-    const nextLineBoundary = youtubeSrv3LineBoundaryTime(nextElement);
-    const rawEnd = start + Math.max(durationMs / 1e3, 0.75);
-    return {
-      start,
-      end: youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary),
-      nextLineBoundary
-    };
-  }
-  function youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary) {
-    return Number.isFinite(nextLineBoundary) && nextLineBoundary > start ? Math.min(rawEnd, nextLineBoundary) : rawEnd;
-  }
-  function youtubeSrv3Words(element, timing, options) {
-    return shouldReadYouTubeSrv3WordTimings(options, timing.nextLineBoundary) ? parseYouTubeSrv3WordNodes(element, timing.start, timing.end) : [];
-  }
-  function shouldReadYouTubeSrv3WordTimings(options, nextLineBoundary) {
-    return !options.youtubeAutoGenerated && !Number.isFinite(nextLineBoundary);
-  }
-  function youtubeSrv3CueText(element, words) {
-    return normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element.textContent ?? "");
-  }
-  function youtubeSrv3Cue(timing, text, words) {
-    return {
-      start: timing.start,
-      end: timing.end,
-      text,
-      words: words.length ? words : void 0,
-      wordTimingsExact: Boolean(words.length)
-    };
-  }
-  function youtubeSrv3LineBoundaryTime(element) {
-    if (!element) return Number.NaN;
-    if (!isYouTubeSrv3LineBoundaryText(element.textContent ?? "")) return Number.NaN;
-    const startMs = Number(youtubeSrv3StartAttribute(element));
-    return Number.isFinite(startMs) ? startMs / 1e3 : Number.NaN;
-  }
-  function isYouTubeSrv3LineBoundaryText(text) {
-    return text === "\n" || !text.trim();
-  }
-  function youtubeSrv3StartAttribute(element) {
-    return element.getAttribute("t") ?? element.getAttribute("_t");
-  }
-  function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
-    if (!cues.length) return cues;
-    const probablyAutoGenerated = knownAutoGenerated || looksLikeOverlappingAutoGeneratedCues(cues);
-    if (!probablyAutoGenerated) return cues;
-    return cues.map((cue, index) => {
-      const next = cues[index + 1];
-      const nextStart = next?.start;
-      const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
-      return {
-        ...cue,
-        end,
-        words: void 0,
-        wordTimingsExact: false
-      };
-    });
-  }
-  function looksLikeOverlappingAutoGeneratedCues(cues) {
-    const sampled = cues.slice(0, 80);
-    if (sampled.length < 3) return false;
-    let overlapping = 0;
-    for (let index = 1; index < sampled.length; index++) {
-      if (sampled[index - 1].end > sampled[index].start + 0.05) overlapping += 1;
-    }
-    return overlapping / sampled.length > 0.5;
-  }
-  function smoothFragmentedYouTubeCues(cues) {
-    if (!shouldSmoothFragmentedYouTubeCues(cues)) return cues;
-    const merged = [];
-    let current;
-    for (const cue of cues) {
-      current = mergeYouTubeFragmentIntoGroup(merged, current, cue);
-    }
-    if (current) merged.push(current);
-    return merged;
-  }
-  function shouldSmoothFragmentedYouTubeCues(cues) {
-    return cues.length >= 3 && looksLikeFragmentedYouTubeCues(cues);
-  }
-  function mergeYouTubeFragmentIntoGroup(merged, current, cue) {
-    const normalized = normalizeYouTubeCueFragment(cue);
-    if (!normalized.text) return current;
-    if (!current) {
-      return pushCurrentYouTubeCueGroup(merged, current, normalized);
-    }
-    if (shouldBreakYouTubeLine(current, normalized)) return pushCurrentYouTubeCueGroup(merged, current, normalized);
-    return mergeYouTubeCueFragments(current, normalized);
-  }
-  function normalizeYouTubeCueFragment(cue) {
-    const hasExactWords = cueHasExactWordTimings(cue);
-    return {
-      ...cue,
-      text: normalizeCaptionText(cue.text),
-      words: hasExactWords ? cue.words : void 0,
-      wordTimingsExact: hasExactWords
-    };
-  }
-  function pushCurrentYouTubeCueGroup(merged, current, next) {
-    if (current) merged.push(current);
-    return next;
-  }
-  function looksLikeFragmentedYouTubeCues(cues) {
-    const sampled = cues.slice(0, 80);
-    const fragments = sampled.filter((cue) => displayTextWeight(cue.text) <= 14 || cue.end - cue.start <= 1.35).length;
-    return fragments / sampled.length >= 0.42;
-  }
-  function shouldBreakYouTubeLine(current, next) {
-    const gap = next.start - current.end;
-    if (isYouTubeContinuationFragment(current, next)) return false;
-    return gap > 2.6 || gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text) || hasYouTubeLineBreakText(current);
-  }
-  function hasYouTubeLineBreakText(cue) {
-    return /[。！？!?]$/u.test(cue.text.trim()) || cue.end - cue.start >= 12 || displayTextWeight(cue.text) >= 68;
-  }
-  function isYouTubeContinuationFragment(current, next) {
-    return isTrailingPunctuationFragment(next.text) || isShortYouTubeContinuationFragment(next.text) || hasYouTubeCaptionTextOverlap(current.text, next.text);
-  }
-  function mergeYouTubeCueFragments(current, next) {
-    const progressive = isProgressiveYouTubeCaption(current.text, next.text);
-    const overlap = progressive ? 0 : youtubeCaptionTextOverlapLength(current.text, next.text);
-    const text = progressive ? next.text : mergeYouTubeCaptionFragmentText(current.text, next.text);
-    const words = mergedYouTubeCueWords(current, next, { progressive, overlap });
-    return {
-      ...current,
-      end: Math.max(current.end, next.end),
-      text,
-      originalText: text,
-      words,
-      wordTimingsExact: Boolean(words?.length)
-    };
-  }
-  function mergedYouTubeCueWords(current, next, merge) {
-    const words = youtubeCueMergeWords(current, next);
-    if (merge.progressive) return words.next;
-    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return void 0;
-    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
-  }
-  function youtubeCueMergeWords(current, next) {
-    return {
-      current: cueHasExactWordTimings(current) ? current.words : void 0,
-      next: cueHasExactWordTimings(next) ? next.words : void 0
-    };
-  }
-  function trimmedNextYouTubeCueWords(words, overlap) {
-    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
-  }
-  function canMergeYouTubeCueWords(currentWords, nextWords, nextText) {
-    return Boolean(currentWords && (nextWords || isTrailingPunctuationFragment(nextText)));
-  }
-  function mergeYouTubeCaptionFragmentText(left, right) {
-    const a = left.trim();
-    const b = right.trim();
-    const overlap = youtubeCaptionTextOverlapLength(a, b);
-    if (overlap > 0) {
-      const tail = sliceByCompactOffset(b, overlap);
-      return tail ? joinYouTubeCaptionFragments(a, tail) : a;
-    }
-    return joinYouTubeCaptionFragments(a, b);
-  }
-  function isProgressiveYouTubeCaption(current, next) {
-    const compactCurrent = compactCaptionText(current);
-    const compactNext = compactCaptionText(next);
-    return compactCurrent.length >= 2 && compactNext.length > compactCurrent.length && compactNext.startsWith(compactCurrent);
-  }
-  function joinYouTubeCaptionFragments(left, right) {
-    const a = left.trim();
-    const b = right.trim();
-    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
-    if (emptyJoin !== null) return emptyJoin;
-    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
-  }
-  function emptyYouTubeCaptionFragmentJoin(left, right) {
-    if (!left) return right;
-    return right ? null : left;
-  }
-  function youtubeCaptionFragmentSeparator(left, right) {
-    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return "";
-    return shouldSpaceYouTubeCaptionFragments(left, right) ? " " : "";
-  }
-  function shouldJoinYouTubeCaptionFragmentsDirectly(left, right) {
-    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
-  }
-  function shouldSpaceYouTubeCaptionFragments(left, right) {
-    return /[A-Za-z0-9]$/u.test(left) && /^[A-Za-z0-9]/u.test(right);
-  }
-  function isTrailingPunctuationFragment(text) {
-    return /^[、。，．！？!?…・]+$/u.test(text.trim());
-  }
-  function isShortYouTubeContinuationFragment(text) {
-    const compact = compactCaptionText(text);
-    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
-  }
-  function hasYouTubeCaptionTextOverlap(left, right) {
-    return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
-  }
-  function youtubeCaptionTextOverlapLength(left, right) {
-    const a = compactCaptionText(left);
-    const b = compactCaptionText(right);
-    const max = Math.min(a.length, b.length);
-    for (let length = max; length >= 2; length--) {
-      if (a.endsWith(b.slice(0, length))) return length;
-    }
-    return 0;
-  }
-  function compactCaptionText(text) {
-    return text.replace(/\s+/gu, "");
-  }
-  function subtitleWordsAfterCompactOffset(words, compactOffset) {
-    if (compactOffset <= 0) return words;
-    let cursor = 0;
-    return words.filter((word) => {
-      const start = cursor;
-      cursor += compactTextLength(word.text);
-      return start >= compactOffset;
-    });
-  }
-  function sliceByCompactOffset(text, compactOffset) {
-    if (compactOffset <= 0) return text;
-    for (const step of compactTextOffsetSteps(text)) {
-      if (step.seen >= compactOffset) return text.slice(step.index);
-    }
-    return "";
-  }
-  function compactTextOffsetSteps(text) {
-    const steps = [];
-    let index = 0;
-    let seen = 0;
-    for (const char of Array.from(text)) {
-      index += char.length;
-      if (/\s/u.test(char)) continue;
-      steps.push({ index, seen: ++seen });
-    }
-    return steps;
-  }
-  function parseYouTubeSrv3WordNodes(element, cueStart, cueEnd) {
-    const nodes = Array.from(element.querySelectorAll("s"));
-    if (!nodes.length) return [];
-    if (nodes.some((node) => /\s/u.test((node.textContent ?? "").trim()))) return [];
-    const starts = nodes.map((node) => youtubeSrv3WordStart(node, cueStart));
-    return nodes.map((node, index) => readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd)).filter((word) => Boolean(word?.text.trim() && word.end > word.start));
-  }
-  function youtubeSrv3WordStart(node, cueStart) {
-    const raw = Number(node.getAttribute("t") ?? node.getAttribute("_t"));
-    return Number.isFinite(raw) ? cueStart + raw / 1e3 : Number.NaN;
-  }
-  function readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd) {
-    const text = node.textContent ?? "";
-    if (!text) return null;
-    const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
-    const end = nextYouTubeSrv3WordEnd(starts, index, cueEnd);
-    return { text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
-  }
-  function nextYouTubeSrv3WordEnd(starts, index, cueEnd) {
-    const nextStart = starts.slice(index + 1).find(Number.isFinite);
-    return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
-  }
-  function parseAssSubtitleText(text) {
-    const state = createAssParseState();
-    for (const rawLine of text.replace(/\r/g, "").split("\n")) {
-      readAssSubtitleLine(rawLine.trim(), state);
-    }
-    return state.cues.sort((a, b) => a.start - b.start);
-  }
-  function createAssParseState() {
-    return {
-      cues: [],
-      inEvents: false,
-      format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
-    };
-  }
-  function readAssSubtitleLine(line, state) {
-    if (!shouldParseAssCueLine(line, state)) return;
-    const cue = readAssDialogueCue(line, state.format);
-    if (cue) state.cues.push(cue);
-  }
-  function shouldParseAssCueLine(line, state) {
-    if (shouldIgnoreAssLine(line)) return false;
-    if (updateAssSectionState(line, state)) return false;
-    if (!shouldReadAssDialogueLine(line, state)) return false;
-    return !readAssFormatLine(line, state);
-  }
-  function shouldReadAssDialogueLine(line, state) {
-    return state.inEvents || /^Dialogue:/i.test(line);
-  }
-  function shouldIgnoreAssLine(line) {
-    return !line || line.startsWith(";");
-  }
-  function updateAssSectionState(line, state) {
-    if (/^\[Events\]/i.test(line)) {
-      state.inEvents = true;
-      return true;
-    }
-    if (/^\[.+\]/.test(line)) {
-      state.inEvents = false;
-      return true;
-    }
-    return false;
-  }
-  function readAssFormatLine(line, state) {
-    if (!/^Format:/i.test(line)) return false;
-    state.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
-    return true;
-  }
-  function readAssDialogueCue(line, format) {
-    if (!/^Dialogue:/i.test(line)) return null;
-    const values = splitAssDialogue(line.slice(line.indexOf(":") + 1), format.length);
-    const fields = assDialogueFields(values, format);
-    const start = parseSubtitleTime(fields.start);
-    const end = parseSubtitleTime(fields.end);
-    const cueText = cleanAssSubtitleText(fields.text);
-    return Number.isFinite(start) && Number.isFinite(end) && cueText ? { start, end, text: cueText } : null;
-  }
-  function assDialogueFields(values, format) {
-    const textIndex = format.indexOf("text");
-    return {
-      start: values[format.indexOf("start")] ?? "",
-      end: values[format.indexOf("end")] ?? "",
-      text: values.slice(textIndex >= 0 ? textIndex : values.length - 1).join(",")
-    };
-  }
-  function splitAssDialogue(value, fieldCount) {
-    const parts = [];
-    let start = 0;
-    const maxSplits = Math.max(0, fieldCount - 1);
-    for (let index = 0; index < value.length && parts.length < maxSplits; index++) {
-      if (value[index] !== ",") continue;
-      parts.push(value.slice(start, index).trim());
-      start = index + 1;
-    }
-    parts.push(value.slice(start).trim());
-    return parts;
-  }
-  function cleanAssSubtitleText(value) {
-    return value.replace(/\{[^}]*}/g, "").replace(/\\[Nn]/g, "\n").replace(/\\h/g, " ").replace(/<[^>]+>/g, "").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
-  }
-  function parseSubtitleTime(value) {
-    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?/);
-    if (!match) return Number.NaN;
-    const [, hours = "0", minutes, seconds, fraction = "0"] = match;
-    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
-  }
-  function parseSubtitleClockValue(value) {
-    const trimmed = value.trim();
-    if (!trimmed) return Number.NaN;
-    if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) return Number(trimmed.slice(0, -1));
-    if (/^\d+(?:\.\d+)?ms$/i.test(trimmed)) return Number(trimmed.slice(0, -2)) / 1e3;
-    if (/^\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
-    return parseSubtitleTime(trimmed);
-  }
-  function formatSubtitleTime(value) {
-    const minutes = Math.floor(value / 60);
-    const seconds = Math.floor(value % 60).toString().padStart(2, "0");
-    return `${minutes}:${seconds}`;
-  }
-  function findAlignedCue(cues, cue) {
-    return cues.map((item) => ({
-      item,
-      overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
-      startDistance: Math.abs(cue.start - item.start)
-    })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
-  }
-  function findActiveSubtitleCue(cues, time) {
-    return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
-  }
-  function findActiveSubtitleCueFromIndex(cues, time, index) {
-    let best;
-    for (let i = index; i >= 0; i--) {
-      const result = activeSubtitleCueSearchResult(cues[i], time, best);
-      best = result.best;
-      if (result.done) break;
-    }
-    return best;
-  }
-  function activeSubtitleCueSearchResult(cue, time, best) {
-    if (shouldStopActiveSubtitleCueSearch(cue, best)) return { best, done: true };
-    if (!isSubtitleCueActiveAtTime(cue, time)) return { best, done: false };
-    return {
-      best: isBetterActiveSubtitleCue(cue, best) ? cue : best,
-      done: false
-    };
-  }
-  function latestSubtitleCueStartIndex(cues, time) {
-    let low = 0;
-    let high = cues.length - 1;
-    let index = -1;
-    const latestAllowedStart = time + ACTIVE_CUE_START_TOLERANCE_SECONDS;
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      if (cues[mid].start <= latestAllowedStart) {
-        index = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return index;
-  }
-  function shouldStopActiveSubtitleCueSearch(cue, best) {
-    return Boolean(best && cue.start < best.start);
-  }
-  function isSubtitleCueActiveAtTime(cue, time) {
-    return time >= cue.start - ACTIVE_CUE_START_TOLERANCE_SECONDS && time < cue.end + ACTIVE_CUE_END_GRACE_SECONDS;
-  }
-  function isBetterActiveSubtitleCue(cue, best) {
-    if (!best) return true;
-    if (cue.start > best.start) return true;
-    return cue.start === best.start && cue.end > best.end;
-  }
-  function subtitleCueSignature(cue) {
-    return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
-  }
-  function cueHasExactWordTimings(cue) {
-    return Boolean(cue?.wordTimingsExact && cue.words?.length);
-  }
-  function normalizeCaptionText(value) {
-    return value.replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
-  }
-  function escapeWithBreaks(value) {
-    return withBreaks(escapeHtml(value));
-  }
-  function withBreaks(value) {
-    return value.replace(/\n/g, "<br>");
   }
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail(event);
@@ -4228,6 +3481,3409 @@ recommendedJiten	jiten.moe頻度データです。
   function uiText(language, key2) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY.en[key2];
   }
+  function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
+    if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      if (scheduleIdleCallback(() => resolve(), timeoutMs)) return;
+      window.setTimeout(resolve, Math.max(0, fallbackDelayMs));
+    });
+  }
+  function scheduleIdleCallback(callback, timeoutMs = 75) {
+    const requestIdleCallback = window.requestIdleCallback;
+    if (typeof requestIdleCallback !== "function") return false;
+    requestIdleCallback.call(window, callback, { timeout: timeoutMs });
+    return true;
+  }
+  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function pushJapaneseOcrLine(lines, text, box) {
+    if (!text || !box || !HAS_JAPANESE.test(text)) return;
+    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+  }
+  function clampBox(box, width, height) {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function unionBoxes(boxes) {
+    if (!boxes.length) return null;
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.left + box.width));
+    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function cleanOcrText(value) {
+    const text = typeof value === "string" ? value : String(value ?? "");
+    const normalized = text.replace(/[ \t\r\n]+/g, HAS_JAPANESE.test(text) ? "" : " ").trim();
+    return normalized.replaceAll("．．．", "…");
+  }
+  function numberFrom(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+    const state = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+    for (const response of cloudVisionResponses(record)) {
+      appendCloudVisionPages(response, state);
+      appendCloudVisionTextAnnotations(response, state);
+    }
+    return state.lines.length ? { width: state.width, height: state.height, lines: state.lines } : null;
+  }
+  function cloudVisionResponses(record) {
+    if (Array.isArray(record.responses)) return record.responses;
+    return "fullTextAnnotation" in record ? [record] : [];
+  }
+  function appendCloudVisionPages(response, state) {
+    const annotation = response?.fullTextAnnotation;
+    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+    for (const page of pages) appendCloudVisionPage(page, state);
+  }
+  function appendCloudVisionPage(page, state) {
+    state.width = numberFrom(page.width) || state.width;
+    state.height = numberFrom(page.height) || state.height;
+    for (const block of cloudVisionPageBlocks(page)) {
+      for (const paragraph of cloudVisionBlockParagraphs(block)) {
+        pushCloudVisionParagraphLines(paragraph, state.lines, state.width, state.height);
+      }
+    }
+  }
+  function cloudVisionPageBlocks(page) {
+    return Array.isArray(page.blocks) ? page.blocks : [];
+  }
+  function cloudVisionBlockParagraphs(block) {
+    const paragraphs = block?.paragraphs;
+    return Array.isArray(paragraphs) ? paragraphs : [];
+  }
+  function appendCloudVisionTextAnnotations(response, state) {
+    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
+    if (state.lines.length || annotations.length <= 1) return;
+    for (const annotationItem of annotations.slice(1)) {
+      const item = annotationItem;
+      const text = cleanOcrText(item.description);
+      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state.width, state.height);
+      pushJapaneseOcrLine(state.lines, text, box);
+    }
+  }
+  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    const current = { text: "", boxes: [] };
+    for (const word of words) {
+      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
+    }
+    pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionWordSymbols(word) {
+    const symbols = word?.symbols;
+    return Array.isArray(symbols) ? symbols : [];
+  }
+  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
+    const symbolRecord = symbol;
+    current.text += String(symbolRecord.text ?? "");
+    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
+    if (box) current.boxes.push(box);
+    const breakType = cloudVisionSymbolBreakType(symbolRecord);
+    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
+    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionSymbolBreakType(symbol) {
+    return symbol.property?.detectedBreak?.type;
+  }
+  function cloudVisionBreakAddsSpace(breakType) {
+    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
+  }
+  function cloudVisionBreakEndsLine(breakType) {
+    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
+  }
+  function pushCloudVisionLine(lines, current) {
+    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
+    current.text = "";
+    current.boxes = [];
+  }
+  function normalizeCloudVisionVertices(value, width, height) {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
+    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+  }
+  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
+    ["n", "\n"],
+    ["r", "\r"],
+    ["t", "	"],
+    ["b", "\b"],
+    ["f", "\f"],
+    ["v", "\v"],
+    ["0", "\0"],
+    ["\n", ""]
+  ]);
+  function googleLensUploadCallbackLiteral(html, key2) {
+    const marker = "AF_initDataCallback(";
+    let searchIndex = 0;
+    while (searchIndex < html.length) {
+      const markerIndex = html.indexOf(marker, searchIndex);
+      if (markerIndex < 0) return null;
+      const literalStart = markerIndex + marker.length;
+      const literal = readBalancedLiteral(html, literalStart);
+      if (literal && callbackLiteralHasKey(literal, key2)) return literal;
+      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
+    }
+    return null;
+  }
+  function callbackLiteralHasKey(literal, key2) {
+    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key2)}['"]`).test(literal);
+  }
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function readBalancedLiteral(source, startIndex) {
+    const index = balancedLiteralStart(source, startIndex);
+    if (index < 0) return null;
+    const end = balancedLiteralEnd(source, index);
+    return end >= 0 ? source.slice(index, end + 1) : null;
+  }
+  function balancedLiteralStart(source, startIndex) {
+    let index = startIndex;
+    while (/\s/.test(source[index] ?? "")) index += 1;
+    return source[index] === "{" ? index : -1;
+  }
+  function balancedLiteralEnd(source, startIndex) {
+    let depth = 0;
+    for (let current = startIndex; current < source.length; current += 1) {
+      const char = source[current];
+      if (isQuote(char)) {
+        current = quotedLiteralEnd(source, current, char);
+        if (current < 0) return -1;
+        continue;
+      }
+      depth += balancedDepthDelta(char);
+      if (depth === 0) return current;
+    }
+    return -1;
+  }
+  function quotedLiteralEnd(source, startIndex, quote) {
+    for (let current = startIndex + 1; current < source.length; current += 1) {
+      const char = source[current];
+      if (char === "\\") {
+        current += 1;
+      } else if (char === quote) {
+        return current;
+      }
+    }
+    return -1;
+  }
+  function isQuote(char) {
+    return char === '"' || char === "'";
+  }
+  function balancedDepthDelta(char) {
+    if (char === "{" || char === "[" || char === "(") return 1;
+    if (char === "}" || char === "]" || char === ")") return -1;
+    return 0;
+  }
+  function parseJsDataLiteral(source) {
+    let index = 0;
+    const value = parseValue();
+    skipWhitespace();
+    if (index !== source.length) throw new Error("Unexpected trailing data.");
+    return value;
+    function parseValue() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === "{") return parseObject();
+      if (char === "[") return parseArray();
+      if (char === '"' || char === "'") return parseString();
+      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+      return parseIdentifierValue();
+    }
+    function parseObject() {
+      const record = {};
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "}") {
+        const key2 = parseObjectKey();
+        skipWhitespace();
+        expect(":");
+        record[key2] = parseValue();
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("}");
+      return record;
+    }
+    function parseObjectKey() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === '"' || char === "'") return parseString();
+      return parseIdentifier();
+    }
+    function parseArray() {
+      const values = [];
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "]") {
+        if (source[index] === ",") {
+          values.push(null);
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        values.push(parseValue());
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("]");
+      return values;
+    }
+    function parseString() {
+      const quote = source[index];
+      let value2 = "";
+      index += 1;
+      while (index < source.length) {
+        const char = source[index++];
+        if (char === quote) return value2;
+        if (char !== "\\") {
+          value2 += char;
+          continue;
+        }
+        value2 += parseEscapeSequence();
+      }
+      throw new Error("Unterminated string.");
+    }
+    function parseEscapeSequence() {
+      const escaped = source[index++];
+      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
+      if (typeof simpleEscape === "string") return simpleEscape;
+      if (escaped === "\r") return parseCarriageReturnEscape();
+      return parseNamedEscapeSequence(escaped);
+    }
+    function parseCarriageReturnEscape() {
+      if (source[index] === "\n") index += 1;
+      return "";
+    }
+    function parseNamedEscapeSequence(escaped) {
+      if (escaped === "x") return codePointEscape(2);
+      if (escaped === "u") return parseUnicodeEscape();
+      return escaped ?? "";
+    }
+    function parseUnicodeEscape() {
+      if (source[index] === "{") {
+        const end = source.indexOf("}", index + 1);
+        if (end < 0) throw new Error("Invalid unicode escape.");
+        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+        index = end + 1;
+        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+      }
+      return codePointEscape(4);
+    }
+    function codePointEscape(length) {
+      const hex = source.slice(index, index + length);
+      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+      index += length;
+      return String.fromCharCode(Number.parseInt(hex, 16));
+    }
+    function parseNumber() {
+      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+      if (!match) throw new Error("Invalid number.");
+      index += match[0].length;
+      return Number(match[0]);
+    }
+    function parseIdentifierValue() {
+      const identifier = parseIdentifier();
+      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+      if (identifier === "true") return true;
+      if (identifier === "false") return false;
+      if (identifier === "Infinity") return Infinity;
+      return identifier;
+    }
+    function parseIdentifier() {
+      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+      if (!match) throw new Error("Expected identifier.");
+      index += match[0].length;
+      return match[0];
+    }
+    function skipWhitespace() {
+      while (/\s/.test(source[index] ?? "")) index += 1;
+    }
+    function expect(char) {
+      if (source[index] !== char) throw new Error(`Expected ${char}.`);
+      index += 1;
+    }
+  }
+  const LENS_WRITING_TOP_TO_BOTTOM = 2;
+  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
+  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
+    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+    const lines = collectGenericOcrLines(record, width, height);
+    return japaneseOcrResult(width, height, lines);
+  }
+  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
+    const resolution = record.context_resolution;
+    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
+    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+    return { width, height };
+  }
+  function collectGenericOcrLines(record, width, height) {
+    const lines = [];
+    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+    return lines;
+  }
+  function genericRawLines(record) {
+    return Array.isArray(record.lines) ? record.lines : record.regions;
+  }
+  function appendGenericOcrLines(lines, value, width, height, normalize) {
+    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
+  }
+  function normalizeSimpleLines(values, width, height) {
+    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
+  }
+  function normalizeStructuredOcrResults(values, width, height) {
+    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
+  }
+  function normalizeOcrRegionResults(regions, width, height) {
+    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
+  }
+  function normalizeSingleOcrRegionResults(region, width, height) {
+    const regionRecord = asRecord(region);
+    if (!regionRecord) return [];
+    const regionBox = normalizeOcrRegion(regionRecord, width, height);
+    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
+    if (!Array.isArray(regionRecord.results)) return [];
+    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+    return offsetRegionLines(lines, regionBox, width, height);
+  }
+  function ocrRegionScale(regionBox, width, height) {
+    return {
+      scaleWidth: regionBox?.width ?? width,
+      scaleHeight: regionBox?.height ?? height
+    };
+  }
+  function offsetRegionLines(lines, regionBox, width, height) {
+    if (!regionBox) return lines;
+    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
+  }
+  function japaneseOcrResult(width, height, lines) {
+    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function cleanOcrLookupLines(lines, parsed) {
+    const cleaned = lines.map((line, index) => {
+      const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
+      return text === line.text ? line : { ...line, text };
+    });
+    return removeStandaloneFuriganaLines(cleaned);
+  }
+  function ocrLinesChanged(original, cleaned) {
+    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+  }
+  function cleanOcrLookupText(text, tokens) {
+    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+    let cleaned = text;
+    for (const { ruby } of rubies) {
+      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+    }
+    return cleanOcrText(cleaned);
+  }
+  function removeOcrReadingAroundRuby(text, reading, start, end) {
+    const cleanReading = cleanOcrText(reading);
+    if (!cleanReading) return text;
+    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+      return text.slice(0, start - cleanReading.length) + text.slice(start);
+    }
+    if (text.slice(end, end + cleanReading.length) === cleanReading) {
+      return text.slice(0, end) + text.slice(end + cleanReading.length);
+    }
+    return text;
+  }
+  function removeStandaloneFuriganaLines(lines) {
+    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+    return filtered.length ? filtered : lines;
+  }
+  function isStandaloneFuriganaLine(line, lines, index) {
+    const text = cleanOcrText(line.text).replace(/\s+/g, "");
+    if (!text || text.length > 10 || !OCR_KANA_ONLY_RE.test(text)) return false;
+    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+  }
+  function ocrLineLooksLikeFuriganaFor(furi, base) {
+    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+    const overlap = horizontalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+    return overlapRatio >= 0.32 && smaller && nearTop;
+  }
+  function horizontalOverlap(a, b) {
+    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+  }
+  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+    if (!furi.vertical || !base.vertical) return false;
+    const overlap = verticalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+    return overlapRatio >= 0.32 && smaller && nearSide;
+  }
+  function verticalOverlap(a, b) {
+    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+  }
+  function horizontalGap(a, b) {
+    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+    return 0;
+  }
+  function parseGoogleLensResponse(bytes, width, height) {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text ? protoFirstMessage(text, 1) : null;
+    if (!layout) return null;
+    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
+    return lines.length ? { width, height, lines } : null;
+  }
+  function googleLensParagraphLines(paragraph, width, height) {
+    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
+  }
+  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = googleLensWords(line, width, height);
+    const text = googleLensLineText(words, paragraphVertical);
+    if (!text || !HAS_JAPANESE.test(text)) return null;
+    const box = googleLensLineBox(lineBox, words, paragraphBox);
+    if (!box) return null;
+    return {
+      text,
+      box,
+      vertical: paragraphVertical || box.height > box.width * 1.25 && text.length > 1
+    };
+  }
+  function googleLensWords(line, width, height) {
+    return protoMessages(line, 1).map((word) => ({
+      text: protoString(word, 2),
+      separator: protoString(word, 3),
+      box: protoBox(protoFirstMessage(word, 4), width, height)
+    })).filter((word) => Boolean(word.text));
+  }
+  function googleLensLineText(words, paragraphVertical) {
+    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
+  }
+  function googleLensWordText(word, index, words) {
+    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
+  }
+  function googleLensLineBox(lineBox, words, paragraphBox) {
+    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+  }
+  function parseGoogleLensUploadHtml(html, width, height) {
+    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
+    if (!literal) return null;
+    try {
+      const callback = parseJsDataLiteral(literal);
+      const lines = [];
+      for (const item of googleLensUploadLineItems(callback.data)) {
+        const { text, box } = googleLensUploadLine(item, width, height);
+        pushJapaneseOcrLine(lines, text, box);
+      }
+      return lines.length ? { width, height, lines } : null;
+    } catch {
+      return null;
+    }
+  }
+  function googleLensUploadLineItems(data) {
+    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
+  }
+  function googleLensUploadBlocks(data) {
+    const blocks = data?.[2]?.[3]?.[0] ?? [];
+    return Array.isArray(blocks) ? blocks : [];
+  }
+  function googleLensUploadBlockLineItems(block) {
+    const blockData = Array.isArray(block) ? block : [];
+    const rawLines = blockData[2]?.[0]?.[5]?.[3];
+    const lineItems = rawLines?.[0];
+    return Array.isArray(lineItems) ? lineItems : [];
+  }
+  function googleLensUploadLine(item, width, height) {
+    const lineData = Array.isArray(item) ? item : [];
+    return {
+      text: googleLensUploadLineText(lineData[0]),
+      box: googleLensUploadLineBox(lineData[1], width, height)
+    };
+  }
+  function googleLensUploadLineText(value) {
+    const words = Array.isArray(value) ? value : [];
+    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
+  }
+  function googleLensUploadWordText(word) {
+    const wordData = Array.isArray(word) ? word : [];
+    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+  }
+  function googleLensUploadLineBox(value, width, height) {
+    const boxData = Array.isArray(value) ? value : [];
+    if (boxData.length < 4) return null;
+    return clampBox({
+      top: Number(boxData[0]) * height,
+      left: Number(boxData[1]) * width,
+      width: Number(boxData[2]) * width,
+      height: Number(boxData[3]) * height
+    }, width, height);
+  }
+  function normalizeSimpleLine(value, width, height) {
+    const record = asRecord(value);
+    if (!record) return null;
+    const text = simpleLineText(record);
+    const box = simpleLineBox(record, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: simpleLineIsVertical(record) };
+  }
+  function simpleLineText(record) {
+    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+  }
+  function simpleLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function simpleLineIsVertical(record) {
+    return Boolean(record.vertical ?? record.is_vertical);
+  }
+  function normalizeStructuredOcrResult(value, width, height) {
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    const textLines = structuredOcrTextLines(record);
+    const vertical = structuredOcrVertical(record);
+    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
+    if (lines.length) return lines;
+    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+  }
+  function structuredOcrTextLines(record) {
+    if (Array.isArray(record.text_lines)) return record.text_lines;
+    return Array.isArray(record.text) ? record.text : [];
+  }
+  function structuredOcrVertical(record) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical);
+  }
+  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
+    const lineRecord = asRecord(item);
+    if (!lineRecord) return null;
+    const text = structuredOcrLineText(lineRecord);
+    const box = structuredOcrLineBox(lineRecord, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+  }
+  function structuredOcrLineText(record) {
+    return stringFrom(record.content ?? record.text ?? record.word);
+  }
+  function structuredOcrLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function structuredOcrLineVertical(record, inheritedVertical) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+  }
+  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+    const text = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
+    const box = normalizeBox(record.box, width, height);
+    return text && box ? [{ text, box, vertical }] : [];
+  }
+  function normalizeOcrRegion(record, width, height) {
+    const region = readOcrRegion(record);
+    if (!region) return null;
+    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+  }
+  function readOcrRegion(record) {
+    const position = record.position;
+    const size = record.size;
+    if (!position || !size) return null;
+    return completeOcrRegionParts({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(size.width),
+      height: numberFrom(size.height)
+    });
+  }
+  function completeOcrRegionParts(parts) {
+    if (parts.left === null) return null;
+    if (parts.top === null) return null;
+    if (parts.width === null) return null;
+    if (parts.height === null) return null;
+    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
+  }
+  function scaleOcrRegion(region, width, height) {
+    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+    return {
+      left: region.left / divisor * width,
+      top: region.top / divisor * height,
+      width: region.width / divisor * width,
+      height: region.height / divisor * height
+    };
+  }
+  function isFullImageOcrRegion(box, width, height) {
+    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+  }
+  function offsetLineToRegion(line, region, width, height) {
+    const box = clampBox({
+      left: region.left + line.box.left,
+      top: region.top + line.box.top,
+      width: line.box.width,
+      height: line.box.height
+    }, width, height);
+    return box ? { ...line, box } : null;
+  }
+  function normalizeBox(value, width, height) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+  }
+  function normalizePositionDimensionsBox(record, width, height) {
+    const position = asRecord(record.position);
+    const dimensions = asRecord(record.dimensions);
+    if (!position || !dimensions) return null;
+    return boxFromNumbers({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(dimensions.width),
+      height: numberFrom(dimensions.height)
+    }, width, height, "percent-100");
+  }
+  function normalizeDirectBox(record, width, height) {
+    const box = directBoxNumbers(record);
+    return boxFromNumbers(box, width, height, directBoxScale(box));
+  }
+  function directBoxNumbers(record) {
+    return {
+      left: numberFrom(record.left ?? record.x),
+      top: numberFrom(record.top ?? record.y),
+      width: numberFrom(record.width ?? record.w),
+      height: numberFrom(record.height ?? record.h)
+    };
+  }
+  function directBoxScale(box) {
+    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
+  }
+  function normalizePointBox(record, width, height) {
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key2) => asRecord(record[key2])).filter((point) => Boolean(point));
+    if (points.length < 2) return null;
+    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
+    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
+    if (!xs.length || !ys.length) return null;
+    const percent = coordinatesAreFractional(xs, ys);
+    const scaledXs = scaleCoordinates(xs, width, percent);
+    const scaledYs = scaleCoordinates(ys, height, percent);
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+  }
+  function coordinatesAreFractional(xs, ys) {
+    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+  }
+  function isFractionalCoordinate(value) {
+    return value >= 0 && value <= 1;
+  }
+  function scaleCoordinates(values, scale, enabled) {
+    return enabled ? values.map((value) => value * scale) : values;
+  }
+  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
+    if (!hasCompleteBoxNumbers(box)) return null;
+    const scaleInfo = boxScaleInfo(scale);
+    return clampBox({
+      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
+    }, imageWidth, imageHeight);
+  }
+  function hasCompleteBoxNumbers(box) {
+    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+  }
+  function boxScaleInfo(scale) {
+    return {
+      fractional: scale !== "pixels",
+      factor: scale === "percent-100" ? 100 : 1
+    };
+  }
+  function scaleBoxNumber(value, dimension, scale) {
+    return scale.fractional ? value / scale.factor * dimension : value;
+  }
+  function decodeProtoMessage(bytes) {
+    const fields = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+      const [tag, nextOffset] = readVarint(bytes, offset);
+      offset = nextOffset;
+      const field = Number(tag >> 3n);
+      const wire = Number(tag & 7n);
+      if (!field) break;
+      if (wire === 0) {
+        const [value, afterValue] = readVarint(bytes, offset);
+        offset = afterValue;
+        fields.push({ field, wire, value });
+      } else if (wire === 1) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+        offset += 8;
+      } else if (wire === 2) {
+        const [length, afterLength] = readVarint(bytes, offset);
+        offset = afterLength;
+        const end = offset + Number(length);
+        fields.push({ field, wire, value: bytes.slice(offset, end) });
+        offset = end;
+      } else if (wire === 5) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+        offset += 4;
+      } else {
+        break;
+      }
+    }
+    return fields;
+  }
+  function readVarint(bytes, offset) {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+      const byte = bytes[offset++];
+      result |= BigInt(byte & 127) << shift;
+      if (!(byte & 128)) return [result, offset];
+      shift += 7n;
+    }
+    return [result, offset];
+  }
+  function protoMessages(fields, field) {
+    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+  }
+  function protoFirstMessage(fields, field) {
+    return protoMessages(fields, field)[0] ?? null;
+  }
+  function protoString(fields, field) {
+    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value) : "";
+  }
+  function protoNumber(fields, field) {
+    const item = fields.find((value) => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+  }
+  function protoBox(geometry, width, height) {
+    const dimensions = protoBoxDimensions(geometry);
+    if (!dimensions) return null;
+    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
+  }
+  function protoBoxDimensions(geometry) {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const dimensions = {
+      centerX: protoNumber(box, 1),
+      centerY: protoNumber(box, 2),
+      width: protoNumber(box, 3),
+      height: protoNumber(box, 4)
+    };
+    return dimensions.width && dimensions.height ? dimensions : null;
+  }
+  function protoBoxIsNormalized(box) {
+    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
+  }
+  function scaledProtoBox(box, normalized, width, height) {
+    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
+    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
+    return {
+      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
+      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
+      width: scaledWidth,
+      height: scaledHeight
+    };
+  }
+  function scaledProtoBoxValue(value, scale, normalized) {
+    return normalized ? value * scale : value;
+  }
+  function stringFrom(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+  }
+  function asRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  const GODAN_ROWS = [
+    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+  ];
+  const ICHIDAN_RULES = [
+    ["ました", "る", "polite past"],
+    ["ませんでした", "る", "polite negative past"],
+    ["ません", "る", "polite negative"],
+    ["ましょう", "る", "polite volitional"],
+    ["ます", "る", "polite"],
+    ["なかった", "る", "negative past"],
+    ["なくて", "る", "negative te-form"],
+    ["なければ", "る", "negative conditional"],
+    ["ない", "る", "negative"],
+    ["たかった", "る", "desiderative past"],
+    ["たくなかった", "る", "desiderative negative past"],
+    ["たくない", "る", "desiderative negative"],
+    ["たい", "る", "desiderative"],
+    ["なさい", "る", "polite request"],
+    ["すぎる", "る", "excessive"],
+    ["られなかった", "る", "potential/passive negative past"],
+    ["られない", "る", "potential/passive negative"],
+    ["られて", "る", "potential/passive te-form"],
+    ["られた", "る", "potential/passive past"],
+    ["られる", "る", "potential/passive"],
+    ["させられた", "る", "causative passive past"],
+    ["させられる", "る", "causative passive"],
+    ["させない", "る", "causative negative"],
+    ["させて", "る", "causative te-form"],
+    ["させた", "る", "causative past"],
+    ["させる", "る", "causative"],
+    ["れば", "る", "conditional"],
+    ["よう", "る", "volitional"],
+    ["ろ", "る", "imperative"],
+    ["て", "る", "te-form"],
+    ["た", "る", "past"]
+  ];
+  const I_ADJECTIVE_RULES = [
+    ["くなかった", "い", "negative past"],
+    ["くありませんでした", "い", "polite negative past"],
+    ["くありません", "い", "polite negative"],
+    ["かった", "い", "past"],
+    ["くない", "い", "negative"],
+    ["くて", "い", "te-form"],
+    ["ければ", "い", "conditional"],
+    ["そう", "い", "looks"],
+    ["すぎる", "い", "excessive"],
+    ["く", "い", "adverbial"]
+  ];
+  const SURU_RULES = [
+    ["しませんでした", "する", "polite negative past"],
+    ["しません", "する", "polite negative"],
+    ["しました", "する", "polite past"],
+    ["しましょう", "する", "polite volitional"],
+    ["します", "する", "polite"],
+    ["しなかった", "する", "negative past"],
+    ["しなくて", "する", "negative te-form"],
+    ["しなければ", "する", "negative conditional"],
+    ["しない", "する", "negative"],
+    ["しなさい", "する", "polite request"],
+    ["しすぎる", "する", "excessive"],
+    ["された", "する", "passive past"],
+    ["されて", "する", "passive te-form"],
+    ["される", "する", "passive"],
+    ["させた", "する", "causative past"],
+    ["させて", "する", "causative te-form"],
+    ["させる", "する", "causative"],
+    ["できなかった", "する", "potential negative past"],
+    ["できない", "する", "potential negative"],
+    ["できた", "する", "potential past"],
+    ["できて", "する", "potential te-form"],
+    ["できる", "する", "potential"],
+    ["すれば", "する", "conditional"],
+    ["しよう", "する", "volitional"],
+    ["しろ", "する", "imperative"],
+    ["せよ", "する", "imperative"],
+    ["した", "する", "past"],
+    ["して", "する", "te-form"]
+  ];
+  const KURU_RULES = [
+    ["来ませんでした", "来る", "polite negative past"],
+    ["来ません", "来る", "polite negative"],
+    ["来ました", "来る", "polite past"],
+    ["来ます", "来る", "polite"],
+    ["来なかった", "来る", "negative past"],
+    ["来なくて", "来る", "negative te-form"],
+    ["来ない", "来る", "negative"],
+    ["来なさい", "来る", "polite request"],
+    ["来すぎる", "来る", "excessive"],
+    ["来られた", "来る", "potential/passive past"],
+    ["来られて", "来る", "potential/passive te-form"],
+    ["来られる", "来る", "potential/passive"],
+    ["来れば", "来る", "conditional"],
+    ["来よう", "来る", "volitional"],
+    ["来い", "来る", "imperative"],
+    ["来た", "来る", "past"],
+    ["来て", "来る", "te-form"],
+    ["きませんでした", "くる", "polite negative past"],
+    ["きません", "くる", "polite negative"],
+    ["きました", "くる", "polite past"],
+    ["きます", "くる", "polite"],
+    ["こなかった", "くる", "negative past"],
+    ["こなくて", "くる", "negative te-form"],
+    ["こない", "くる", "negative"],
+    ["きなさい", "くる", "polite request"],
+    ["きすぎる", "くる", "excessive"],
+    ["こられた", "くる", "potential/passive past"],
+    ["こられて", "くる", "potential/passive te-form"],
+    ["こられる", "くる", "potential/passive"],
+    ["くれば", "くる", "conditional"],
+    ["こよう", "くる", "volitional"],
+    ["こい", "くる", "imperative"],
+    ["きた", "くる", "past"],
+    ["きて", "くる", "te-form"]
+  ];
+  const TE_ASPECT_SUFFIXES = [
+    ["いる", "progressive"],
+    ["います", "polite progressive"],
+    ["いました", "polite progressive past"],
+    ["いません", "polite progressive negative"],
+    ["いませんでした", "polite progressive negative past"],
+    ["いた", "progressive past"],
+    ["いて", "progressive te-form"],
+    ["いない", "progressive negative"],
+    ["いなかった", "progressive negative past"],
+    ["いれば", "progressive conditional"],
+    ["る", "contracted progressive"],
+    ["ます", "contracted polite progressive"],
+    ["ました", "contracted polite progressive past"],
+    ["た", "contracted progressive past"],
+    ["て", "contracted progressive te-form"],
+    ["ない", "contracted progressive negative"],
+    ["なかった", "contracted progressive negative past"]
+  ];
+  const TE_COMPLETION_SUFFIXES = [
+    ["しまう", "completion"],
+    ["しまった", "completion past"],
+    ["しまって", "completion te-form"],
+    ["しまわない", "completion negative"],
+    ["しまいます", "polite completion"],
+    ["しまいました", "polite completion past"]
+  ];
+  const CONTRACTED_COMPLETION_SUFFIXES = [
+    ["う", "contracted completion"],
+    ["った", "contracted completion past"],
+    ["って", "contracted completion te-form"],
+    ["わない", "contracted completion negative"],
+    ["います", "contracted polite completion"],
+    ["いました", "contracted polite completion past"]
+  ];
+  const RULES = [
+    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+    ...teCompoundRules("て", "る", ["v1"]),
+    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+  ];
+  function deinflectJapaneseTerm(source) {
+    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
+    const queue = [results[0]];
+    expandDeinflectionQueue(queue, results, seen);
+    const sorted = sortDeinflectedTerms(results);
+    return sorted;
+  }
+  function expandDeinflectionQueue(queue, results, seen) {
+    for (let index = 0; index < queue.length; index++) {
+      expandDeinflectedTerm(queue[index], queue, results, seen);
+    }
+  }
+  function expandDeinflectedTerm(current, queue, results, seen) {
+    if (isDeinflectionDepthLimitReached(current)) return;
+    for (const rule of RULES) {
+      rememberExpandedDeinflection(current, rule, queue, results, seen);
+    }
+  }
+  function isDeinflectionDepthLimitReached(current) {
+    return current.depth >= 2;
+  }
+  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
+    const next = deinflectedCandidate(current, rule);
+    if (!next) return;
+    if (!rememberDeinflectedCandidate(next, seen)) return;
+    results.push(next);
+    queue.push(next);
+  }
+  function sortDeinflectedTerms(results) {
+    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+  }
+  function deinflectedCandidate(current, rule) {
+    if (!canApplyDeinflectionRule(current.term, rule)) return null;
+    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
+    if (!term || term === current.term) return null;
+    return {
+      term,
+      rules: rule.rules,
+      reasons: [...current.reasons, rule.reason],
+      depth: current.depth + 1
+    };
+  }
+  function canApplyDeinflectionRule(term, rule) {
+    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+  }
+  function rememberDeinflectedCandidate(candidate, seen) {
+    const key2 = candidateKey(candidate);
+    if (seen.has(key2)) return false;
+    seen.add(key2);
+    return true;
+  }
+  function godanRules(row) {
+    const rules = row.rules;
+    return [
+      ...teCompoundRules(row.te, row.ending, rules),
+      { from: row.te, to: row.ending, reason: "te-form", rules },
+      { from: row.ta, to: row.ending, reason: "past", rules },
+      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+      { from: row.e, to: row.ending, reason: "imperative", rules }
+    ];
+  }
+  function teCompoundRules(te, to, rules) {
+    return [
+      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...contractedCompletionRules(te, to, rules)
+    ];
+  }
+  function contractedCompletionRules(te, to, rules) {
+    const stem = contractedCompletionStem(te);
+    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+  }
+  function contractedCompletionStem(te) {
+    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+    return "";
+  }
+  function candidateKey(candidate) {
+    return `${candidate.term}
+${candidate.rules.join(" ")}
+${candidate.depth}`;
+  }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stablePositiveHashId(value) {
+    return stableHash32(value) || 1;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
+  }
+  Logger.scope("Yomitan");
+  new TextDecoder();
+  Logger.scope("YomitanSettingsImport");
+  Logger.scope("Yomitan");
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  Logger.scope("ReaderParser");
+  function normalizeFallbackTerm(text) {
+    return text.replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function fallbackJapaneseSegments(text) {
+    return segmentJapaneseText(text);
+  }
+  function segmentJapaneseText(text) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return fallbackJapaneseRunSegment(match[0], start);
+      });
+    }
+    return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter);
+    });
+  }
+  function segmentJapaneseRun(text, offset, segmenter) {
+    const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
+      surface: segment.segment,
+      start: offset + segment.index,
+      end: offset + segment.index + segment.segment.length
+    }));
+    return mergeInflectedFallbackSegments(segments);
+  }
+  function mergeInflectedFallbackSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = inflectedFallbackSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function inflectedFallbackSpanAt(segments, startIndex) {
+    const first = segments[startIndex];
+    if (!first || isInflectionBoundarySegment(first.surface)) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface);
+      if (!current) break;
+      surface += current.surface;
+      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+      best = inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) ?? best;
+    }
+    return best;
+  }
+  function fallbackInflectionScanEnd(segments, startIndex) {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+  }
+  function nextInflectedFallbackSegment(segments, index, startIndex, first, surface) {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
+    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+  }
+  function isContiguousFallbackSegment(segments, index, startIndex, first) {
+    const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+  }
+  function inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+      segment: { surface, start: first.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  function isInflectionBoundarySegment(surface) {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+  }
+  function isInflectionContinuationSegment(surface) {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+  }
+  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface);
+  }
+  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+    const first = segments[startIndex]?.surface ?? "";
+    if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
+    const suffix = surface.slice(first.length);
+    return SURU_AUXILIARY_SUFFIX_RE.test(suffix) && lookupTerms.some((term) => term.endsWith("する"));
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment) {
+    const surface = segment.segment.trim();
+    return JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function intlSegmenter() {
+    const candidate = Intl.Segmenter;
+    return typeof candidate === "function" ? candidate : null;
+  }
+  function fallbackJapaneseRunSegment(text, offset) {
+    const surface = text.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function fallbackLookupTermsForText(text) {
+    const source = normalizeFallbackTerm(text);
+    if (!source) return [];
+    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
+    return uniqueStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+  }
+  function isUsefulFallbackLookupCandidate(candidate) {
+    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
+  }
+  function compareFallbackLookupCandidates(a, b) {
+    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  function fallbackRulePriority(candidate) {
+    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+    if (candidate.rules.some((rule) => rule === "v1")) return 1;
+    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+    return 3;
+  }
+  function uniqueStrings$1(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.filter((value) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  const MAX_CACHE_ITEMS = 36;
+  const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
+  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
+  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
+  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
+  const LENS_PLATFORM_WEB = 3;
+  const LENS_SURFACE_CHROMIUM = 4;
+  const LENS_AUTO_FILTER = 7;
+  const log$1 = Logger.scope("OCR");
+  const OCR_RECOGNIZERS = {
+    "google-lens": recognizeViaGoogleLens,
+    "cloud-vision": recognizeViaCloudVision,
+    "local-service": recognizeViaLocalService
+  };
+  const OCR_PROVIDER_CONFIGURED = {
+    "google-lens": () => true,
+    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    "local-service": () => true
+  };
+  const OCR_PROVIDER_LABELS = {
+    "google-lens": () => "google-lens",
+    "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
+    "local-service": localServiceProviderLabel
+  };
+  function shouldSkipOcrRequest(state, userRequested) {
+    return state.autoSkipped && !userRequested;
+  }
+  function updateOcrRequestFlags(state, image, userRequested) {
+    state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
+    state.manualRequested ||= userRequested;
+    if (userRequested) state.autoSkipped = false;
+  }
+  function isOcrImageStateIdle(state) {
+    return !state.result && !state.loading && !state.autoSkipped;
+  }
+  class LocalOcrUnavailableError extends Error {
+    constructor(endpointUrl) {
+      super("Local OCR server is unreachable.");
+      this.endpointUrl = endpointUrl;
+      this.name = "LocalOcrUnavailableError";
+    }
+  }
+  function beginOcrScan(state, image, settings, manualRequested) {
+    state.loading = true;
+    const provider = inlineProviderLabel(settings);
+    return {
+      provider,
+      done: log$1.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+    };
+  }
+  function finishOcrScan(state) {
+    state.loading = false;
+    state.manualRequested = false;
+  }
+  function renderNoOcrLines(state) {
+    state.autoSkipped = true;
+    state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+  }
+  function logOcrFailure(state, provider, manualRequested, error) {
+    state.autoSkipped = !manualRequested;
+    if (isLocalOcrUnavailableError(error)) {
+      log$1.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+      return;
+    }
+    log$1.warn("OCR scan failed", { provider, manualRequested }, error);
+  }
+  class ImageOcrController {
+    constructor(options) {
+      this.options = options;
+    }
+    states = /* @__PURE__ */ new Map();
+    cache = /* @__PURE__ */ new Map();
+    localOcrUnavailable;
+    observer;
+    observerMargin = "";
+    mutationObserver;
+    queue = [];
+    busy = false;
+    positionFrame = 0;
+    refreshTimer = 0;
+    lastPointerMoveImage;
+    handleDocumentPointerDown = (event) => {
+      this.unpinOcrLinesFromDocumentEvent(event);
+      this.requestOcrFromPointerEvent(event);
+    };
+    handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
+    handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
+    handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
+    init() {
+      this.refresh();
+      document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
+      document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
+      document.addEventListener("click", this.handleDocumentClick, true);
+      window.addEventListener("scroll", () => {
+        if (!this.options.getSettings().ocrEnabled) return;
+        this.schedulePosition();
+        this.scheduleRefresh(240);
+      }, { passive: true });
+      window.addEventListener("resize", () => {
+        if (!this.options.getSettings().ocrEnabled) return;
+        this.schedulePosition();
+        this.scheduleRefresh(300);
+      }, { passive: true });
+      this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
+      this.mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
+      });
+    }
+    destroy() {
+      document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
+      document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
+      document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
+      document.removeEventListener("click", this.handleDocumentClick, true);
+      this.mutationObserver?.disconnect();
+      if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
+      this.clear();
+    }
+    refresh(options = {}) {
+      const settings = this.options.getSettings();
+      if (!settings.ocrEnabled) {
+        this.clear();
+        return;
+      }
+      if (this.shouldSkipRefresh(settings, options)) {
+        this.pruneDisconnectedStates();
+        this.schedulePosition();
+        return;
+      }
+      this.pruneDisconnectedStates();
+      this.ensureObserver(settings);
+      const images = this.refreshImages(settings);
+      for (const image of images) {
+        this.observeRefreshImage(image, settings);
+      }
+      this.schedulePosition();
+    }
+    shouldSkipRefresh(settings, options) {
+      if (options.userRequested) return false;
+      if (this.canAutoScanImage(settings)) return false;
+      return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
+    }
+    handleRenderableMediaMutations(mutations) {
+      const settings = this.options.getSettings();
+      if (!settings.ocrEnabled) return;
+      const summary = summarizeRenderableMediaMutations(mutations);
+      if (!summary.touched) return;
+      this.schedulePosition();
+      if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
+      this.scheduleRefresh(summary.addedImage ? 0 : 40);
+    }
+    hasVisibleInlineOcrFallback(settings) {
+      return Array.from(document.images).some((image) => {
+        if (!readFallbackOcrResult(image, false)) return false;
+        return isCandidateImage(image, settings) && shouldObserveImage(image, settings);
+      });
+    }
+    refreshImages(settings) {
+      return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, settings.ocrMaxImagesPerPage);
+    }
+    compareRefreshImages(a, b) {
+      const priorityDelta = this.observePriority(a) - this.observePriority(b);
+      return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
+    }
+    observeRefreshImage(image, settings) {
+      const state = this.ensureState(image);
+      this.observer?.observe(image);
+      if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
+    }
+    shouldAutoEnqueueImage(image, state, settings) {
+      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, settings.ocrPrefetchMargin);
+    }
+    canAutoScanImage(settings) {
+      return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
+    }
+    async scanVisible() {
+      this.refresh({ userRequested: true });
+      const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
+      if (!images.length) {
+        this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
+        return;
+      }
+      images.forEach((image) => this.enqueue(image, true));
+      log$1.info("Manual OCR scan queued images", { images: images.length });
+    }
+    captureSourceImageForElement(element) {
+      const line = element?.closest?.(".jpdb-ocr-line");
+      if (!line) return void 0;
+      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (!state) return void 0;
+      const image = captureImageElement(state.image);
+      return image;
+    }
+    pinLineForElement(element) {
+      const line = element?.closest?.(".jpdb-ocr-line");
+      if (!line) return;
+      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (state) this.pinLine(state, line);
+    }
+    ensureObserver(settings) {
+      const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
+      if (this.observer && this.observerMargin === rootMargin) return;
+      this.observer?.disconnect();
+      this.observerMargin = rootMargin;
+      if (typeof IntersectionObserver !== "function") {
+        this.observer = void 0;
+        return;
+      }
+      this.observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const image = entry.target;
+          this.positionState(image);
+          const current = this.options.getSettings();
+          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
+        }
+      }, { rootMargin });
+    }
+    ensureState(image) {
+      const existing = this.states.get(image);
+      if (existing) return existing;
+      const overlay = document.createElement("div");
+      overlay.className = "jpdb-ocr-layer";
+      overlay.dataset.jpdbReaderRoot = "true";
+      document.body.append(overlay);
+      const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+      image.addEventListener("load", () => {
+        this.resetStateIfImageChanged(state);
+        this.schedulePosition();
+        this.scheduleRefresh(0);
+      });
+      this.states.set(image, state);
+      if (image.complete && image.naturalWidth > 0) {
+        this.schedulePosition();
+        const settings = this.options.getSettings();
+        if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
+      }
+      return state;
+    }
+    enqueue(image, userRequested = false) {
+      const state = this.states.get(image) ?? this.ensureState(image);
+      if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+      this.queueOcrRequest(image);
+    }
+    shouldQueueOcrRequest(state, image, userRequested) {
+      if (shouldSkipOcrRequest(state, userRequested)) return false;
+      const forceExistingOverlay = userRequested && !state.overlayRequested;
+      updateOcrRequestFlags(state, image, userRequested);
+      if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
+      return !state.loading;
+    }
+    queueOcrRequest(image) {
+      this.queueImageForOcr(image);
+      this.drainQueue();
+    }
+    renderExistingOcrResult(state, userRequested) {
+      if (!state.result) return false;
+      if (userRequested) void this.renderResult(state, state.result, true);
+      return true;
+    }
+    requestOcrFromPointerEvent(event) {
+      const image = ocrImageFromPointerEvent(event, this.options.getSettings());
+      if (!image) return;
+      if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
+      if (event.type === "pointermove") this.lastPointerMoveImage = image;
+      else this.lastPointerMoveImage = void 0;
+      this.enqueue(image, true);
+    }
+    queueImageForOcr(image) {
+      if (!this.queue.includes(image)) this.queue.push(image);
+    }
+    drainQueue() {
+      if (this.busy) return;
+      const image = this.queue.shift();
+      if (!image) return;
+      this.busy = true;
+      const hasFastText = Boolean(readFallbackOcrResult(image, false));
+      const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
+      void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
+        this.busy = false;
+        this.drainQueue();
+      });
+    }
+    async scanImage(image) {
+      const state = this.states.get(image) ?? this.ensureState(image);
+      const settings = this.options.getSettings();
+      const key2 = imageCacheKey(image);
+      const manualRequested = state.manualRequested;
+      this.resetStateIfImageChanged(state);
+      if (await this.renderCachedOcrResult(state, key2)) return;
+      const scan = beginOcrScan(state, image, settings, manualRequested);
+      try {
+        await this.scanUncachedImage(state, image, key2, settings, scan.provider, manualRequested);
+      } catch (error) {
+        await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
+      } finally {
+        finishOcrScan(state);
+        scan.done();
+      }
+    }
+    async renderCachedOcrResult(state, key2) {
+      const cached = this.cache.get(key2);
+      if (!cached) return false;
+      await this.renderResult(state, cached);
+      state.manualRequested = false;
+      return true;
+    }
+    async scanUncachedImage(state, image, key2, settings, provider, manualRequested) {
+      const inlineFallback = readFallbackOcrResult(image, false);
+      const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+      const result = inlineFallback ?? providerResult;
+      if (!result?.lines.length) {
+        renderNoOcrLines(state);
+        return;
+      }
+      this.remember(key2, result);
+      state.key = key2;
+      await this.renderResult(state, result);
+      log$1.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+    }
+    async renderOcrFailure(state, image, provider, manualRequested, error) {
+      const fallback = readFallbackOcrResult(image, false);
+      if (fallback?.lines.length) {
+        log$1.warn("OCR provider failed", { provider }, error);
+        await this.renderResult(state, fallback);
+        return;
+      }
+      logOcrFailure(state, provider, manualRequested, error);
+    }
+    recognizeImage(image, settings) {
+      const recognizer = ocrRecognizer(settings);
+      if (!recognizer) return Promise.resolve(null);
+      if (settings.ocrProvider !== "local-service") return recognizer(image, settings);
+      return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer);
+    }
+    async recognizeViaLocalServiceWithBackoff(image, settings, recognizer) {
+      const endpointUrl = localOcrEndpointUrl(settings);
+      if (this.isLocalOcrUnavailable(endpointUrl)) throw new LocalOcrUnavailableError(endpointUrl);
+      try {
+        const result = await recognizer(image, settings);
+        this.clearLocalOcrUnavailable(endpointUrl);
+        return result;
+      } catch (error) {
+        if (isLocalOcrConnectionError(error)) this.rememberLocalOcrUnavailable(endpointUrl);
+        throw error;
+      }
+    }
+    isLocalOcrUnavailable(endpointUrl) {
+      const unavailable = this.localOcrUnavailable;
+      if (!unavailable || unavailable.endpointUrl !== endpointUrl) return false;
+      if (Date.now() < unavailable.retryAt) return true;
+      this.localOcrUnavailable = void 0;
+      return false;
+    }
+    rememberLocalOcrUnavailable(endpointUrl) {
+      this.localOcrUnavailable = { endpointUrl, retryAt: Date.now() + LOCAL_OCR_UNAVAILABLE_RETRY_MS };
+    }
+    clearLocalOcrUnavailable(endpointUrl) {
+      if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
+    }
+    async renderResult(state, result, forceOverlay = false) {
+      state.result = result;
+      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+      const settings = this.options.getSettings();
+      const showText = settings.ocrShowTextOverlay || forceOverlay;
+      const initialParsed = await this.parseOcrLines(result.lines);
+      const lines = cleanOcrLookupLines(result.lines, initialParsed);
+      const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
+      const sentence = lines.map((line) => line.text).join("\n");
+      const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
+        line.text,
+        parsed[index] ?? [],
+        this.options.fallbackCardFromText ?? ocrFallbackCardFromText
+      ));
+      const flatTokens = renderedTokens.flat();
+      await this.options.enrichTokensBeforeRender?.(flatTokens);
+      applyOcrOverlayStyle(state.overlay, settings);
+      for (const [index, line] of lines.entries()) {
+        state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
+      }
+      this.positionState(state.image);
+      void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
+    }
+    async parseOcrLines(lines) {
+      const options = ocrParseOptions();
+      return Promise.all(lines.map((line) => this.options.parseJapanese(line.text, options).catch(() => {
+        return [];
+      })));
+    }
+    renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
+      const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
+      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element, event));
+      return element;
+    }
+    toggleOcrLinePinned(state, element, event) {
+      const word = event.target.closest(".jpdb-reader-word[data-vid]");
+      if (element.dataset.pinned === "true") {
+        this.unpinLine(element);
+        if (word) return;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      element.focus({ preventScroll: true });
+      this.pinLine(state, element);
+      if (word) return;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    pinLine(state, element) {
+      state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
+        if (line !== element) this.unpinLine(line);
+      });
+      element.classList.add("jpdb-ocr-line-active");
+      element.dataset.pinned = "true";
+    }
+    unpinLine(element) {
+      element.classList.remove("jpdb-ocr-line-active");
+      element.dataset.pinned = "false";
+    }
+    unpinOcrLinesFromDocumentEvent(event) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".jpdb-ocr-line, .jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding, .jpdb-reader-fab")) return;
+      this.unpinAllLines();
+    }
+    unpinAllLines() {
+      for (const state of this.states.values()) {
+        state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
+      }
+    }
+    observePriority(image) {
+      const state = this.states.get(image);
+      if (!state) return 0;
+      if (!state.result) return state.autoSkipped ? 2 : 0;
+      return 1;
+    }
+    resetStateIfImageChanged(state) {
+      const key2 = imageCacheKey(state.image);
+      if (key2 === state.key) return;
+      state.key = key2;
+      state.result = void 0;
+      state.loading = false;
+      state.overlayRequested = false;
+      state.manualRequested = false;
+      state.autoSkipped = false;
+      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+    }
+    remember(key2, result) {
+      this.cache.set(key2, result);
+      while (this.cache.size > MAX_CACHE_ITEMS) {
+        const oldest = this.cache.keys().next().value;
+        if (!oldest) break;
+        this.cache.delete(oldest);
+      }
+    }
+    schedulePosition() {
+      if (this.positionFrame) return;
+      this.positionFrame = requestAnimationFrame(() => {
+        this.positionFrame = 0;
+        for (const image of this.states.keys()) this.positionState(image);
+      });
+    }
+    scheduleRefresh(delay) {
+      window.clearTimeout(this.refreshTimer);
+      this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
+    }
+    positionState(image) {
+      const state = this.states.get(image);
+      if (!state) return;
+      const rect = image.getBoundingClientRect();
+      const visible = isImageVisibleForOcr(image, rect);
+      state.overlay.hidden = !visible;
+      if (!visible) return;
+      state.overlay.style.left = `${rect.left}px`;
+      state.overlay.style.top = `${rect.top}px`;
+      state.overlay.style.width = `${rect.width}px`;
+      state.overlay.style.height = `${rect.height}px`;
+      this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
+    }
+    fitLineFonts(state, frame) {
+      const scale = this.options.getSettings().ocrFontScale;
+      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
+        const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
+        const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
+        const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
+        const boxHeight = Number(element.dataset.boxHeight) * frame.imageHeight;
+        if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
+        const text = element.dataset.ocrText ?? "";
+        const vertical = element.dataset.vertical === "true";
+        element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
+        this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
+      });
+    }
+    fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical) {
+      const textElement = element.querySelector(".jpdb-ocr-line-text");
+      if (!textElement) return;
+      const hasFurigana = element.dataset.hasFuri === "true";
+      const fontSize = Number.parseFloat(element.style.fontSize) || 16;
+      const padX = Math.max(4, Math.round(fontSize * 0.16));
+      const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
+      const padBottom = Math.max(3, Math.round(fontSize * 0.1));
+      element.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
+      element.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
+      element.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
+      const contentRect = textElement.getBoundingClientRect();
+      const contentWidth = Math.max(1, contentRect.width);
+      const contentHeight = Math.max(1, contentRect.height);
+      const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
+      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
+      const minLeft = frame.imageLeft;
+      const minTop = frame.imageTop;
+      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
+      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
+      const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
+      const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
+      const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
+      const top = clampNumber$1(shouldCenterOcrText(element.dataset.ocrText ?? "", vertical) ? centeredTop : baselineAlignedTop, minTop, maxTop);
+      element.style.left = `${left}px`;
+      element.style.top = `${top}px`;
+      element.style.width = `${frameWidth}px`;
+      element.style.height = `${frameHeight}px`;
+    }
+    clear() {
+      this.observer?.disconnect();
+      this.observer = void 0;
+      this.observerMargin = "";
+      window.clearTimeout(this.refreshTimer);
+      this.queue = [];
+      for (const state of this.states.values()) {
+        state.overlay.remove();
+      }
+      this.states.clear();
+    }
+    pruneDisconnectedStates() {
+      for (const [image, state] of this.states) {
+        if (image.isConnected) continue;
+        this.observer?.unobserve(image);
+        state.overlay.remove();
+        this.states.delete(image);
+      }
+    }
+  }
+  function applyOcrOverlayStyle(overlay, settings) {
+    overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
+    overlay.style.setProperty("--jpdb-ocr-outline-color", settings.ocrOutlineColor);
+    overlay.style.setProperty("--jpdb-ocr-background-rgba", accentToRgba(settings.ocrBackgroundColor, settings.ocrBackgroundOpacity));
+    overlay.style.setProperty("--jpdb-ocr-background-active-rgba", accentToRgba(settings.ocrBackgroundColor, Math.min(1, settings.ocrBackgroundOpacity + 0.12)));
+  }
+  function ocrParseOptions() {
+    return {
+      allowSegmentedFallback: true,
+      includeLocalPitch: true
+    };
+  }
+  function ocrTokensWithFallbackGaps(text, tokens, fallbackCardFromText) {
+    const safeTokens = tokens.filter((token) => isRenderableOcrToken(token, text.length));
+    const fallbackTokens = fallbackJapaneseSegments(text).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text, segment, fallbackCardFromText));
+    return fallbackTokens.length ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens) : safeTokens;
+  }
+  function isRenderableOcrToken(token, textLength) {
+    return Number.isFinite(token.start) && Number.isFinite(token.end) && token.start >= 0 && token.end <= textLength && token.end > token.start;
+  }
+  function ocrFallbackToken(sentence, segment, fallbackCardFromText) {
+    const card = fallbackCardFromText(segment.surface);
+    return {
+      card,
+      start: segment.start,
+      end: segment.end,
+      length: segment.end - segment.start,
+      rubies: [],
+      pitchClass: "",
+      sentence
+    };
+  }
+  function rangesOverlap(start, end, otherStart, otherEnd) {
+    return start < otherEnd && otherStart < end;
+  }
+  function compareOcrTokens(first, second) {
+    return first.start - second.start || second.length - first.length;
+  }
+  function ocrFallbackCardFromText(text) {
+    const spelling = text.replace(/\s+/g, " ").trim().slice(0, 80);
+    const id = -stablePositiveHashId(`ocr-fallback
+${spelling}`);
+    return {
+      vid: id,
+      sid: id,
+      rid: 0,
+      spelling,
+      reading: "",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "fallback"
+    };
+  }
+  function createOcrLineElement(result, line, tokens, sentence, showText, settings) {
+    const element = document.createElement("div");
+    element.className = showText ? "jpdb-ocr-line jpdb-ocr-line-visible" : "jpdb-ocr-line";
+    setOcrLineDataset(element, result, line, sentence);
+    element.tabIndex = 0;
+    element.style.writingMode = line.vertical ? "vertical-rl" : "horizontal-tb";
+    element.setAttribute("aria-label", line.text);
+    const textElement = createOcrLineText(line, tokens, settings);
+    element.append(textElement);
+    element.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));
+    setOcrLinePosition(element, result, line);
+    return element;
+  }
+  function setOcrLineDataset(element, result, line, sentence) {
+    element.dataset.ocrText = line.text;
+    element.dataset.boxLeft = String(line.box.left / result.width);
+    element.dataset.boxTop = String(line.box.top / result.height);
+    element.dataset.vertical = String(line.vertical);
+    element.dataset.boxWidth = String(line.box.width / result.width);
+    element.dataset.boxHeight = String(line.box.height / result.height);
+    element.dataset.sentence = sentence;
+  }
+  function createOcrLineText(line, tokens, settings) {
+    const textElement = document.createElement("span");
+    textElement.className = "jpdb-ocr-line-text";
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
+    normalizeOcrRenderedText(textElement);
+    return textElement;
+  }
+  function setOcrLinePosition(element, result, line) {
+    element.style.left = `${100 * line.box.left / result.width}%`;
+    element.style.top = `${100 * line.box.top / result.height}%`;
+    element.style.width = `${100 * line.box.width / result.width}%`;
+    element.style.height = `${100 * line.box.height / result.height}%`;
+  }
+  function renderedOcrImageFrame(image, rect, result) {
+    const style = getComputedStyle(image);
+    const content = imageContentBox(image, rect, style);
+    const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
+    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
+    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
+    return {
+      imageLeft: content.left + offset.x,
+      imageTop: content.top + offset.y,
+      imageWidth: Math.max(1, object.width),
+      imageHeight: Math.max(1, object.height)
+    };
+  }
+  function ocrSourceDimensions(image, rect, content, result) {
+    return {
+      sourceWidth: firstTruthyNumber(result?.width, image.naturalWidth, image.width, content.width, rect.width),
+      sourceHeight: firstTruthyNumber(result?.height, image.naturalHeight, image.height, content.height, rect.height)
+    };
+  }
+  function firstTruthyNumber(...values) {
+    const value = values.find((candidate) => Boolean(candidate));
+    return value === void 0 ? 1 : value;
+  }
+  function imageContentBox(image, rect, style) {
+    const scaleX = rectScale(rect.width, image.offsetWidth);
+    const scaleY = rectScale(rect.height, image.offsetHeight);
+    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
+    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
+    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
+    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
+    return {
+      left,
+      top,
+      width: Math.max(1, rect.width - left - right),
+      height: Math.max(1, rect.height - top - bottom)
+    };
+  }
+  function rectScale(rectSize, layoutSize) {
+    return layoutSize > 0 ? rectSize / layoutSize : 1;
+  }
+  function scaledBoxEdge(value, scale) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed * scale : 0;
+  }
+  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
+    const safeSourceWidth = Math.max(1, sourceWidth);
+    const safeSourceHeight = Math.max(1, sourceHeight);
+    const safeContentWidth = Math.max(1, contentWidth);
+    const safeContentHeight = Math.max(1, contentHeight);
+    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+    switch (objectFit) {
+      case "contain":
+        return contain();
+      case "cover":
+        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+      case "none":
+        return { width: safeSourceWidth, height: safeSourceHeight };
+      case "scale-down": {
+        const contained = contain();
+        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
+      }
+      case "fill":
+      default:
+        return { width: safeContentWidth, height: safeContentHeight };
+    }
+  }
+  function scaledObjectSize(width, height, scale) {
+    return {
+      width: Math.max(1, width * scale),
+      height: Math.max(1, height * scale)
+    };
+  }
+  function objectPositionOffset(value, freeX, freeY) {
+    const tokens = cssPositionTokens(value);
+    const axes = parseObjectPositionAxes(tokens);
+    return {
+      x: axisPositionOffset(axes.x, freeX),
+      y: axisPositionOffset(axes.y, freeY)
+    };
+  }
+  function cssPositionTokens(value) {
+    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
+  }
+  function parseObjectPositionAxes(tokens) {
+    const paired = parseKeywordPositionAxes(tokens);
+    if (paired) return paired;
+    const [first = "50%", second] = tokens;
+    if (isVerticalPositionKeyword(first)) return { x: positionAxis(second || "50%"), y: positionAxis(first) };
+    return { x: positionAxis(first), y: positionAxis(second || "50%") };
+  }
+  function parseKeywordPositionAxes(tokens) {
+    let x = null;
+    let y = null;
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (isHorizontalPositionKeyword(token)) {
+        x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+        continue;
+      }
+      if (isVerticalPositionKeyword(token)) {
+        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+      }
+    }
+    return x || y ? { x: x ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
+  }
+  function positionAxis(token) {
+    return positionKeyword(token) ? { keyword: token } : { token };
+  }
+  function positionOffsetToken(token) {
+    return token && !positionKeyword(token) ? token : void 0;
+  }
+  function axisPositionOffset(axis, freeSpace) {
+    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
+    const offset = cssLengthPx(axis.offset);
+    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
+    return base + offset;
+  }
+  function keywordPositionOffset(keyword, freeSpace) {
+    if (keyword === "right" || keyword === "bottom") return freeSpace;
+    if (keyword === "center") return freeSpace / 2;
+    return 0;
+  }
+  function tokenPositionOffset(token, freeSpace) {
+    if (!token) return freeSpace / 2;
+    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
+    return cssLengthPx(token);
+  }
+  function cssLengthPx(value) {
+    if (!value) return 0;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function positionKeyword(token) {
+    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
+  }
+  function isHorizontalPositionKeyword(token) {
+    return token === "left" || token === "right";
+  }
+  function isVerticalPositionKeyword(token) {
+    return token === "top" || token === "bottom";
+  }
+  function captureImageElement(image) {
+    try {
+      if (!image.naturalWidth || !image.naturalHeight) return void 0;
+      const canvas = document.createElement("canvas");
+      const maxWidth = 960;
+      const scale = Math.min(1, maxWidth / image.naturalWidth);
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.84);
+    } catch {
+      return void 0;
+    }
+  }
+  function readFallbackOcrResult(image, _includeAccessibleText = false) {
+    const width = image.naturalWidth || image.width || 1;
+    const height = image.naturalHeight || image.height || 1;
+    return parseFallbackOcrLines(image.dataset.ocrLines, width, height);
+  }
+  function parseFallbackOcrLines(data, width, height) {
+    if (!data) return null;
+    try {
+      return normalizeOcrResult({ width, height, lines: JSON.parse(data) }, width, height);
+    } catch {
+      return null;
+    }
+  }
+  function ocrFontPx(text, boxWidth, boxHeight, vertical, scale) {
+    const safeScale = Math.max(0.7, Math.min(1.8, scale));
+    const length = Math.max(1, visualTextLength(text));
+    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
+    const byBoxLength = vertical ? boxHeight / length * 1.12 : boxWidth / length * 1.08;
+    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
+    return Math.max(11, Math.min(38, fitted));
+  }
+  function visualTextLength(text) {
+    return [...text.trim()].reduce((total, char) => {
+      if (/\s/.test(char)) return total + 0.35;
+      if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
+      return total + 1;
+    }, 0);
+  }
+  function shouldCenterOcrText(text, vertical) {
+    return vertical || visualTextLength(text) <= 1.5;
+  }
+  function clampNumber$1(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+  async function recognizeViaLocalService(image, settings) {
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
+    const body = JSON.stringify({
+      id: imageCacheKey(image),
+      language_code: settings.ocrLanguage || "ja-JP",
+      language: {
+        bcp47_tag: settings.ocrLanguage || "ja-JP",
+        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
+      },
+      base64_image: payload.base64,
+      image: payload.base64,
+      image_bytes: payload.base64,
+      ocr_engine: engine,
+      ocr_adapter_name: engine,
+      detection_only: false
+    });
+    const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaCloudVision(image, settings) {
+    const apiKey = settings.ocrCloudVisionApiKey.trim();
+    if (!apiKey) return null;
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const body = JSON.stringify({
+      requests: [{
+        image: { content: payload.base64 },
+        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
+        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
+      }]
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
+    const response = await requestJson(url, body, settings.audioTimeoutMs);
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaGoogleLens(image, settings) {
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    try {
+      const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+      return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+    } catch (error) {
+      log$1.warn("Google Lens protobuf failed", error);
+      return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
+    }
+  }
+  function ocrRecognizer(settings) {
+    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
+    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
+  }
+  function isOcrProviderConfigured(settings) {
+    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
+  }
+  async function imageToBase64Payload(image, maxPixels) {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86);
+    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  async function imageToBlobPayload(image, maxPixels, type, quality) {
+    const canvas = await imageToCanvas(image, maxPixels);
+    try {
+      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
+    } catch {
+      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
+      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
+    }
+  }
+  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
+    const data = new FormData();
+    data.append("encoded_image", blob, "image.jpg");
+    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout);
+    return parseGoogleLensUploadHtml(response, width, height);
+  }
+  async function imageToCanvas(image, maxPixels) {
+    try {
+      const canvas = drawImageToCanvas(image, maxPixels);
+      assertCanvasReadable(canvas);
+      return canvas;
+    } catch {
+      return imageBlobToCanvas(image, maxPixels);
+    }
+  }
+  async function imageBlobToCanvas(image, maxPixels) {
+    const url = image.currentSrc || image.src;
+    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
+    const blob = await requestBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const loaded = await loadImage(objectUrl);
+      const canvas = drawImageToCanvas(loaded, maxPixels);
+      assertCanvasReadable(canvas);
+      return canvas;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  function drawImageToCanvas(image, maxPixels) {
+    const size = loadedImageSize(image);
+    const canvas = scaledCanvas(size, maxPixels);
+    drawableCanvasContext(canvas).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  function loadedImageSize(image) {
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (!width || !height) throw new Error("Image is not loaded yet.");
+    return { width, height };
+  }
+  function scaledCanvas(size, maxPixels) {
+    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(size.width * scale));
+    canvas.height = Math.max(1, Math.round(size.height * scale));
+    return canvas;
+  }
+  function drawableCanvasContext(canvas) {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas unavailable.");
+    return context;
+  }
+  function assertCanvasReadable(canvas) {
+    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
+  }
+  function createGoogleLensRequest(imageBytes, width, height, locale) {
+    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const requestId = protoMessage(
+      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
+      protoVarintField(2, 1),
+      protoVarintField(3, 1),
+      protoBytesField(4, randomBytes(16))
+    );
+    const localeContext = protoMessage(
+      protoStringField(1, language || "ja"),
+      protoStringField(2, region || "US"),
+      protoStringField(3, timeZone)
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+      protoVarintField(1, LENS_PLATFORM_WEB),
+      protoVarintField(2, LENS_SURFACE_CHROMIUM),
+      protoMessageField(4, localeContext),
+      protoMessageField(17, clientFilters)
+    );
+    const requestContext = protoMessage(
+      protoMessageField(3, requestId),
+      protoMessageField(4, clientContext)
+    );
+    const imageData = protoMessage(
+      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+      protoMessageField(1, requestContext),
+      protoMessageField(3, imageData)
+    )));
+  }
+  function isCandidateImage(image, settings) {
+    if (isIgnoredOcrImage(image)) return false;
+    const rect = image.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    if (area < settings.ocrMinImageArea) return false;
+    if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
+    if (isImageOccludedByVideo(image, rect)) return false;
+    return isVisibleOcrImage(image);
+  }
+  function ocrImageFromPointerEvent(event, settings) {
+    if (!settings.ocrEnabled || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
+    return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
+  }
+  function shouldHandleOcrPointerEvent(event) {
+    if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
+    return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
+  }
+  function isPointerLikeEvent(event) {
+    const candidate = event;
+    return typeof candidate.clientX === "number" && typeof candidate.clientY === "number";
+  }
+  function isHoverPointerType(pointerType) {
+    return !pointerType || pointerType === "mouse" || pointerType === "pen";
+  }
+  function pointerEventImageTarget(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+    return target instanceof HTMLImageElement ? target : target.closest("img");
+  }
+  function pointerEventImageAtPoint(event) {
+    const element = document.elementFromPoint?.(event.clientX, event.clientY);
+    if (!element || element.closest("[data-jpdb-reader-root]")) return null;
+    return element instanceof HTMLImageElement ? element : element.closest("img");
+  }
+  function isIgnoredOcrImage(image) {
+    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
+  }
+  function isVisibleOcrImage(image) {
+    return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
+  }
+  function isImageVisibleForOcr(image, rect) {
+    return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
+  }
+  function isInsideHiddenAncestor(element) {
+    for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
+      if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
+    }
+    return false;
+  }
+  function isHiddenByCss(element) {
+    const style = getComputedStyle(element);
+    return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
+  }
+  function isHiddenByAttribute(element) {
+    return element.getAttribute("aria-hidden") === "true" || element.hasAttribute("hidden");
+  }
+  function mutationTouchesRenderableMedia(mutation) {
+    if (mutation.type === "childList") {
+      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
+    }
+    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+  }
+  function summarizeRenderableMediaMutations(mutations) {
+    let addedImage = false;
+    let touched = false;
+    for (const mutation of mutations) {
+      if (!mutationTouchesRenderableMedia(mutation)) continue;
+      touched = true;
+      if (mutation.type === "childList" && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
+      if (addedImage) break;
+    }
+    return { touched, addedImage };
+  }
+  function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
+    return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
+  }
+  function nodeContainsRenderableMedia(node) {
+    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLSourceElement || node instanceof Element && Boolean(node.querySelector("img, video, source"));
+  }
+  function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
+    const imageArea = rect.width * rect.height;
+    if (imageArea < 4) return false;
+    const imageRoot = image.getRootNode();
+    for (const video of document.querySelectorAll("video")) {
+      if (!isVisiblePeerVideo(video, image, imageRoot)) continue;
+      if (videoOccludesImage(video, rect, imageArea)) return true;
+    }
+    return false;
+  }
+  function isVisiblePeerVideo(video, image, imageRoot) {
+    return video.isConnected && video.getRootNode() === imageRoot && !isSameMediaNode(video, image) && visibleVideoRect(video) !== null && !isHiddenByCss(video);
+  }
+  function visibleVideoRect(video) {
+    const rect = video.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2 ? rect : null;
+  }
+  function videoOccludesImage(video, imageRect, imageArea) {
+    const videoRect = visibleVideoRect(video);
+    return Boolean(videoRect && intersectionArea(imageRect, videoRect) / imageArea >= 0.6);
+  }
+  function isSameMediaNode(video, image) {
+    return video === image.parentElement || image === video.parentElement;
+  }
+  function intersectionArea(a, b) {
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
+  function shouldObserveImage(image, settings) {
+    return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
+  }
+  function hasInlineOcrFallback(image) {
+    return Boolean(readFallbackOcrResult(image, false));
+  }
+  function isNearViewport(element, margin) {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function imageViewportDistance(image) {
+    const rect = image.getBoundingClientRect();
+    if (rect.bottom < 0) return -rect.bottom;
+    if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
+    if (rect.right < 0) return -rect.right;
+    if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
+    return 0;
+  }
+  function imageCacheKey(image) {
+    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
+  function protoMessage(...parts) {
+    return concatBytes(parts);
+  }
+  function protoMessageField(field, value) {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+  }
+  function protoBytesField(field, value) {
+    return protoMessageField(field, value);
+  }
+  function protoStringField(field, value) {
+    return protoBytesField(field, new TextEncoder().encode(value));
+  }
+  function protoVarintField(field, value) {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+  }
+  function protoTag(field, wire) {
+    return encodeVarint(field << 3 | wire);
+  }
+  function encodeVarint(value) {
+    let item = BigInt(value);
+    const bytes = [];
+    do {
+      let byte = Number(item & 0x7fn);
+      item >>= 7n;
+      if (item) byte |= 128;
+      bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+  }
+  function concatBytes(parts) {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  }
+  function randomBytes(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+  }
+  function requestJson(url, data, timeout) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers: { "content-type": "application/json" },
+      data,
+      responseType: "json",
+      timeout
+    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  }
+  function fetchJsonWithTimeout(url, data, timeout) {
+    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
+  }
+  function requestArrayBuffer(url, data, timeout) {
+    const body = new Uint8Array(data);
+    const headers = {
+      "content-type": "application/x-protobuf",
+      "x-goog-api-key": GOOGLE_LENS_API_KEY,
+      accept: "*/*",
+      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+    };
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers,
+      data: body.buffer,
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetch(url, {
+      method: "POST",
+      headers,
+      body: body.buffer
+    }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+  }
+  function requestTextForm(url, data, timeout) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      data,
+      responseType: "text",
+      timeout
+    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }
+  function requestBlob(url) {
+    const userscriptRequest = requestViaUserscript({
+      method: "GET",
+      url,
+      responseType: "blob"
+    }, (response) => response.response, (status) => `Image fetch returned ${status}.`);
+    if (userscriptRequest) return userscriptRequest;
+    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+  }
+  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (!userscriptRequest) return null;
+    return new Promise((resolve, reject) => {
+      userscriptRequest({
+        ...options,
+        onload: (response) => isSuccessfulHttpStatus(response.status) ? resolve(readResponse(response)) : reject(new Error(statusMessage(response.status))),
+        onerror: reject,
+        ...timeoutMessage ? { ontimeout: () => reject(new Error(timeoutMessage)) } : {}
+      });
+    });
+  }
+  function isSuccessfulHttpStatus(status) {
+    return status >= 200 && status < 300;
+  }
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Image decode failed."));
+      image.src = url;
+    });
+  }
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
+    });
+  }
+  function imageSummary(image) {
+    return {
+      host: safeHost$1(image.currentSrc || image.src),
+      width: image.naturalWidth || image.width,
+      height: image.naturalHeight || image.height,
+      altLength: image.alt?.length ?? 0
+    };
+  }
+  function inlineProviderLabel(settings) {
+    return configuredOcrProviderLabel(settings) ?? settings.ocrProvider;
+  }
+  function configuredOcrProviderLabel(settings) {
+    return OCR_PROVIDER_LABELS[settings.ocrProvider]?.(settings) ?? null;
+  }
+  function localServiceProviderLabel(settings) {
+    return `local-service:${ocrEngineLabel(settings)}`;
+  }
+  function ocrEngineLabel(settings) {
+    return settings.ocrEngine || "auto";
+  }
+  function localOcrEndpointUrl(settings) {
+    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+  }
+  function isLocalOcrConnectionError(error) {
+    if (isLocalOcrUnavailableError(error)) return true;
+    if (!(error instanceof Error)) return true;
+    return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+  }
+  function isLocalOcrUnavailableError(error) {
+    return error instanceof LocalOcrUnavailableError;
+  }
+  function isAbortError(error) {
+    return error instanceof Error && error.name === "AbortError";
+  }
+  function safeHost$1(value) {
+    try {
+      return new URL(value, location.href).host;
+    } catch {
+      return "inline-or-invalid";
+    }
+  }
+  function clampNumber(value, min, max) {
+    return Math.min(Math.max(value, min), Math.max(min, max));
+  }
+  const ACTIVE_CUE_START_TOLERANCE_SECONDS = 0.05;
+  const ACTIVE_CUE_END_GRACE_SECONDS = 0.12;
+  const MIN_SUBTITLE_CUE_DURATION_SECONDS = 0.12;
+  function normalizeSubtitleCues(cues, options = {}) {
+    const normalized = [];
+    for (const cue of cues) normalized.push(...normalizedSubtitleCueParts(cue, options));
+    return normalized.sort((a, b) => a.start - b.start);
+  }
+  function normalizedSubtitleCueParts(cue, options) {
+    const base = normalizedSubtitleCueBase(cue, options);
+    if (!base) return [];
+    const sentenceParts = splitCueDisplayText(base.text);
+    if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
+    const timedParts = distributeCueParts(base, sentenceParts);
+    const normalized = timedParts.map((part) => normalizedSubtitleCuePart(base, part));
+    return normalized.length ? normalized : [{ ...base, transcriptEligible: base.transcriptEligible }];
+  }
+  function normalizedSubtitleCueBase(cue, options) {
+    const text = normalizeCaptionText(cue.text);
+    if (!hasUsableSubtitleCueBounds(cue, text)) return null;
+    const end = Math.max(cue.end, cue.start + MIN_SUBTITLE_CUE_DURATION_SECONDS);
+    const words = exactSubtitleWords(cue, cue.start, end);
+    return {
+      ...cue,
+      text,
+      start: cue.start,
+      end,
+      originalText: cue.originalText ?? text,
+      words,
+      wordTimingsExact: Boolean(words?.length),
+      transcriptEligible: options.transcriptEligible ?? cue.transcriptEligible ?? true
+    };
+  }
+  function hasUsableSubtitleCueBounds(cue, text) {
+    return Boolean(text && Number.isFinite(cue.start) && Number.isFinite(cue.end));
+  }
+  function normalizedSubtitleCuePart(base, part) {
+    const partWords = sliceCueWords(base, part.start, part.end);
+    return {
+      start: part.start,
+      end: part.end,
+      text: part.text,
+      originalText: base.originalText,
+      words: partWords,
+      wordTimingsExact: Boolean(partWords?.length),
+      transcriptEligible: base.transcriptEligible
+    };
+  }
+  function splitCueDisplayText(text) {
+    const normalized = normalizeCaptionText(text);
+    if (!normalized) return [];
+    const sentenceParts = splitSentencesByPunctuation(normalized);
+    if (sentenceParts.length > 1) return sentenceParts;
+    if (displayTextWeight(normalized) <= 38) return [normalized];
+    return splitOverlongCue(normalized);
+  }
+  function splitSentencesByPunctuation(text) {
+    const parts = [];
+    let start = 0;
+    let offset = 0;
+    for (const char of Array.from(text)) {
+      offset += char.length;
+      const end = subtitleSentenceBoundaryEnd(text, char, offset);
+      if (end === null) continue;
+      offset = end;
+      pushSubtitleSentencePart(parts, text, start, offset);
+      start = offset;
+    }
+    pushSubtitleSentencePart(parts, text, start, text.length);
+    return parts.length ? parts : [text];
+  }
+  function subtitleSentenceBoundaryEnd(text, char, offset) {
+    if (!isSubtitleSentencePunctuation(char)) return null;
+    return consumeClosingSubtitlePunctuation(text, offset);
+  }
+  function isSubtitleSentencePunctuation(char) {
+    return /[。！？!?]/u.test(char);
+  }
+  function consumeClosingSubtitlePunctuation(text, offset) {
+    let end = offset;
+    while (end < text.length && isSubtitleSentenceCloser(text[end])) end++;
+    return end;
+  }
+  function isSubtitleSentenceCloser(char) {
+    return /["'」』）\]]/u.test(char);
+  }
+  function pushSubtitleSentencePart(parts, text, start, end) {
+    const part = text.slice(start, end).trim();
+    if (part) parts.push(part);
+  }
+  function splitOverlongCue(text) {
+    const parts = [];
+    const tokens = overlongCueTokens(text);
+    let current = "";
+    for (const token of tokens) {
+      if (shouldFlushOverlongCuePart(current, token)) {
+        parts.push(current.trim());
+        current = token.trimStart();
+      } else {
+        current += token;
+      }
+    }
+    if (current.trim()) parts.push(current.trim());
+    return splitCuePartsOrOriginal(parts, text);
+  }
+  function overlongCueTokens(text) {
+    return text.includes(" ") ? text.split(/(\s+)/u).filter(Boolean) : Array.from(text);
+  }
+  function shouldFlushOverlongCuePart(current, token) {
+    return displayTextWeight(current + token) > 32 && Boolean(current.trim());
+  }
+  function splitCuePartsOrOriginal(parts, text) {
+    return parts.length > 1 ? parts : [text];
+  }
+  function distributeCueParts(cue, parts) {
+    const duration = Math.max(0.12, cue.end - cue.start);
+    const weights = parts.map((part) => Math.max(1, displayTextWeight(part)));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || parts.length;
+    let cursor = cue.start;
+    return parts.map((part, index) => {
+      const partDuration = index === parts.length - 1 ? cue.end - cursor : duration * (weights[index] / totalWeight);
+      const start = cursor;
+      const end = index === parts.length - 1 ? cue.end : Math.min(cue.end, cursor + Math.max(0.12, partDuration));
+      cursor = end;
+      return { text: part, start, end: Math.max(end, start + 0.12) };
+    });
+  }
+  function exactSubtitleWords(cue, start, end) {
+    if (!cue.wordTimingsExact || !cue.words?.length) return void 0;
+    const words = cue.words.filter((word) => word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > start && word.start < end).map((word) => ({ ...word, start: clampNumber(word.start, start, end), end: clampNumber(word.end, start, end) })).filter((word) => word.end > word.start);
+    return words.length ? words : void 0;
+  }
+  function sliceCueWords(cue, start, end) {
+    return exactSubtitleWords(cue, start, end);
+  }
+  function renderKaraokeTextParts(text, progress) {
+    const chars = Array.from(text);
+    const split = clampNumber(Math.round(progress), 0, chars.length);
+    const past = chars.slice(0, split).join("");
+    const current = chars.slice(split, split + 1).join("");
+    const upcoming = chars.slice(split + 1).join("");
+    return [
+      past ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-spoken">${escapeHtml(past)}</span>` : "",
+      current ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-current">${escapeHtml(current)}</span>` : "",
+      upcoming ? `<span class="jpdb-subtitle-karaoke-word jpdb-subtitle-word-pending">${escapeHtml(upcoming)}</span>` : ""
+    ].join("");
+  }
+  function karaokeCharacterProgress(cue, words, time) {
+    const total = compactTextLength(cue.text);
+    const edgeProgress = karaokeEdgeProgress(cue, time, total);
+    if (edgeProgress !== null) return edgeProgress;
+    return karaokeTimedWordProgress(sortedSubtitleWords(words), total, time);
+  }
+  function karaokeEdgeProgress(cue, time, total) {
+    if (!total) return 0;
+    if (time <= cue.start) return 0;
+    if (time >= cue.end) return total;
+    return null;
+  }
+  function sortedSubtitleWords(words) {
+    return [...words].filter(hasUsableSubtitleWordTiming).sort((a, b) => a.start - b.start);
+  }
+  function hasUsableSubtitleWordTiming(word) {
+    return Boolean(word.text.trim() && Number.isFinite(word.start) && Number.isFinite(word.end));
+  }
+  function karaokeTimedWordProgress(words, total, time) {
+    let cursor = 0;
+    for (const word of words) {
+      const length = compactTextLength(word.text);
+      if (!length) continue;
+      if (time >= word.end) {
+        cursor += length;
+        continue;
+      }
+      if (time <= word.start) return Math.min(total, cursor);
+      return karaokeProgressInsideWord(total, cursor, length, word, time);
+    }
+    return Math.min(total, cursor);
+  }
+  function karaokeProgressInsideWord(total, cursor, length, word, time) {
+    const ratio = clampNumber((time - word.start) / Math.max(0.04, word.end - word.start), 0, 1);
+    return Math.min(total, cursor + Math.max(1, Math.floor(length * ratio)));
+  }
+  function compactTextLength(text) {
+    return Array.from(text.replace(/\s+/gu, "")).length;
+  }
+  function displayTextWeight(text) {
+    return compactTextLength(text);
+  }
+  function parseVttCuePayload(raw, cueStart, cueEnd) {
+    const timestampPattern = /<((?:(?:\d+:)?\d{2}:)?\d{2}[,.]\d{3})>/g;
+    const markers = vttTimestampMarkers(raw, timestampPattern);
+    const text = vttCueTextWithoutMarkers(raw, timestampPattern);
+    if (!markers.length) return { text };
+    return vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd);
+  }
+  function vttCuePayloadWithMarkers(raw, timestampPattern, markers, text, cueStart, cueEnd) {
+    const words = [];
+    for (let index = 0; index < markers.length; index++) {
+      const markerWord = vttMarkerWord(raw, timestampPattern, markers, index);
+      if (!markerWord) continue;
+      if (/\s/u.test(markerWord.text)) return { text };
+      words.push(vttWordTiming(markerWord, cueStart, cueEnd));
+    }
+    return { text, words: words.length ? words : void 0, wordTimingsExact: Boolean(words.length) };
+  }
+  function vttTimestampMarkers(raw, timestampPattern) {
+    const markers = [];
+    raw.replace(timestampPattern, (match, rawTime, index) => {
+      appendVttTimestampMarker(markers, match, rawTime, index);
+      return match;
+    });
+    return markers;
+  }
+  function appendVttTimestampMarker(markers, match, rawTime, index) {
+    const time = parseSubtitleTime(rawTime.includes(":") ? rawTime : `00:${rawTime}`);
+    if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
+  }
+  function vttCueTextWithoutMarkers(raw, timestampPattern) {
+    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+  }
+  function vttMarkerWord(raw, timestampPattern, markers, index) {
+    const marker = markers[index];
+    const next = markers[index + 1];
+    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
+    const segmentText = segmentRaw.trim();
+    return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
+  }
+  function vttWordTiming(markerWord, cueStart, cueEnd) {
+    const start = clampNumber(markerWord.start, cueStart, cueEnd);
+    const end = clampNumber(markerWord.end, cueStart, cueEnd);
+    return { text: markerWord.text, start, end: Math.max(start + 0.04, end) };
+  }
+  function parseSubtitleText(text, options = {}) {
+    const normalizedText = text.replace(/^\uFEFF/, "");
+    return parseKnownSubtitleText(normalizedText, options) ?? parseVttSubtitleText(normalizedText, options);
+  }
+  function parseKnownSubtitleText(text, options) {
+    const youtubeJson = parseYouTubeJson3SubtitleText(text, options);
+    if (youtubeJson.length) return youtubeJson;
+    const youtubeXml = parseYouTubeXmlSubtitleText(text, options);
+    if (youtubeXml.length) return youtubeXml;
+    return looksLikeAssSubtitleText(text) ? parseAssSubtitleText(text) : void 0;
+  }
+  function looksLikeAssSubtitleText(text) {
+    return /^\s*\[Script Info\]/im.test(text) || /^\s*Dialogue:/im.test(text);
+  }
+  function parseVttSubtitleText(text, options) {
+    const cues = text.replace(/\r/g, "").replace(/^WEBVTT.*?\n\n/s, "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).map(readVttCueBlock).filter((cue) => Boolean(cue));
+    const sorted = cues.sort((a, b) => a.start - b.start);
+    return options.smoothYouTubeFragments ? smoothFragmentedYouTubeCues(sorted) : sorted;
+  }
+  function readVttCueBlock(block) {
+    const lines = block.split("\n").filter(Boolean);
+    const timeIndex = lines.findIndex((line) => line.includes("-->"));
+    if (timeIndex < 0) return null;
+    const [startRaw, endRaw] = lines[timeIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
+    const start = parseSubtitleTime(startRaw);
+    const end = parseSubtitleTime(endRaw);
+    const payload = parseVttCuePayload(lines.slice(timeIndex + 1).join("\n"), start, end);
+    return Number.isFinite(start) && Number.isFinite(end) && payload.text ? { start, end, text: payload.text, words: payload.words, wordTimingsExact: payload.wordTimingsExact } : null;
+  }
+  function parseYouTubeJson3SubtitleText(text, options = {}) {
+    if (!/^\s*\{/.test(text)) return [];
+    try {
+      const parsed = JSON.parse(text);
+      const sorted = parseYouTubeJson3Events(parsed.events ?? [], options);
+      return smoothFragmentedYouTubeCues(normalizeYouTubeAutoCaptionTiming(sorted, options.youtubeAutoGenerated === true));
+    } catch {
+      return [];
+    }
+  }
+  function parseYouTubeJson3Events(events, options) {
+    return events.map((event) => readYouTubeJson3Cue(event, options)).filter((cue) => Boolean(cue)).sort((a, b) => a.start - b.start);
+  }
+  function readYouTubeJson3Cue(event, options) {
+    const start = Number(event.tStartMs ?? Number.NaN) / 1e3;
+    const duration = Number(event.dDurationMs ?? 0) / 1e3;
+    const end = start + Math.max(duration, 0.75);
+    const text = youtubeJson3CueText(event.segs ?? []);
+    if (!isUsableYouTubeJson3Cue(start, end, text)) return null;
+    const words = options.youtubeAutoGenerated ? void 0 : youtubeJson3WordTimings(event.segs ?? [], start, end);
+    return { start, end, text, words, wordTimingsExact: Boolean(words?.length) };
+  }
+  function youtubeJson3CueText(segs) {
+    return segs.map((seg) => seg.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
+  }
+  function isUsableYouTubeJson3Cue(start, end, text) {
+    return Number.isFinite(start) && Number.isFinite(end) && Boolean(text);
+  }
+  function youtubeJson3WordTimings(segs, cueStart, cueEnd) {
+    const visible = segs.map((seg) => ({ text: seg.utf8 ?? "", offset: Number(seg.tOffsetMs) })).filter((seg) => seg.text.trim());
+    const timed = visible.filter((seg) => Number.isFinite(seg.offset) && !/\s/u.test(seg.text.trim()));
+    if (!timed.length || timed.length !== visible.length) return void 0;
+    return timed.map((seg, index) => {
+      const nextOffset = timed[index + 1]?.offset;
+      const start = cueStart + seg.offset / 1e3;
+      const end = nextOffset === void 0 ? cueEnd : cueStart + nextOffset / 1e3;
+      return { text: seg.text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+    }).filter((word) => word.end > word.start);
+  }
+  function parseYouTubeXmlSubtitleText(text, options = {}) {
+    if (!looksLikeYouTubeXmlSubtitleText(text)) return [];
+    try {
+      const document2 = parseXmlDocument(text, "text/xml");
+      const srv3 = parseYouTubeSrv3Rows(document2, options);
+      const cues = [
+        ...parseYouTubeTimedTextElements(document2),
+        ...parseYouTubeTtmlParagraphs(document2),
+        ...srv3.cues
+      ];
+      const sorted = cues.sort((a, b) => a.start - b.start);
+      const autoGenerated = isYouTubeXmlAutoGenerated(options, srv3, sorted);
+      const normalized = normalizeYouTubeAutoCaptionTiming(sorted, autoGenerated);
+      return autoGenerated ? normalized : smoothFragmentedYouTubeCues(normalized);
+    } catch {
+      return [];
+    }
+  }
+  function looksLikeYouTubeXmlSubtitleText(text) {
+    return /^\s*</.test(text) && /(<text\b|<p\b)/i.test(text);
+  }
+  function isYouTubeXmlAutoGenerated(options, srv3, cues) {
+    return options.youtubeAutoGenerated === true || srv3.sawLineBoundary || looksLikeOverlappingAutoGeneratedCues(cues);
+  }
+  function parseYouTubeTimedTextElements(document2) {
+    return Array.from(document2.querySelectorAll("text[start]")).map(readYouTubeTimedTextCue).filter((cue) => Boolean(cue));
+  }
+  function readYouTubeTimedTextCue(element) {
+    const start = Number(element.getAttribute("start"));
+    const duration = Number(element.getAttribute("dur") ?? 0);
+    const text = normalizeCaptionText(element.textContent ?? "");
+    return Number.isFinite(start) && text ? { start, end: start + Math.max(duration, 0.75), text } : null;
+  }
+  function parseYouTubeTtmlParagraphs(document2) {
+    return Array.from(document2.querySelectorAll("p[begin]")).map(readYouTubeTtmlCue).filter((cue) => Boolean(cue));
+  }
+  function readYouTubeTtmlCue(element) {
+    const start = parseSubtitleClockValue(element.getAttribute("begin") ?? "");
+    const end = parseSubtitleClockValue(element.getAttribute("end") ?? "");
+    const text = normalizeCaptionText(element.textContent ?? "");
+    return Number.isFinite(start) && Number.isFinite(end) && text ? { start, end, text } : null;
+  }
+  function parseYouTubeSrv3Rows(document2, options) {
+    const rows = Array.from(document2.querySelectorAll("p[t], p[_t]"));
+    let sawLineBoundary = false;
+    const cues = [];
+    for (let index = 0; index < rows.length; index++) {
+      const result = readYouTubeSrv3Row(rows[index], rows[index + 1], options);
+      sawLineBoundary ||= result.sawLineBoundary;
+      if (result.cue) cues.push(result.cue);
+    }
+    return { cues, sawLineBoundary };
+  }
+  function readYouTubeSrv3Row(element, nextElement, options) {
+    const timing = youtubeSrv3Timing(element, nextElement);
+    const words = youtubeSrv3Words(element, timing, options);
+    const text = youtubeSrv3CueText(element, words);
+    return {
+      cue: Number.isFinite(timing.start) && text ? youtubeSrv3Cue(timing, text, words) : null,
+      sawLineBoundary: Number.isFinite(timing.nextLineBoundary)
+    };
+  }
+  function youtubeSrv3Timing(element, nextElement) {
+    const startMs = Number(youtubeSrv3StartAttribute(element));
+    const durationMs = Number(element.getAttribute("d") ?? element.getAttribute("_d") ?? 0);
+    const start = startMs / 1e3;
+    const nextLineBoundary = youtubeSrv3LineBoundaryTime(nextElement);
+    const rawEnd = start + Math.max(durationMs / 1e3, 0.75);
+    return {
+      start,
+      end: youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary),
+      nextLineBoundary
+    };
+  }
+  function youtubeSrv3CueEnd(start, rawEnd, nextLineBoundary) {
+    return Number.isFinite(nextLineBoundary) && nextLineBoundary > start ? Math.min(rawEnd, nextLineBoundary) : rawEnd;
+  }
+  function youtubeSrv3Words(element, timing, options) {
+    return shouldReadYouTubeSrv3WordTimings(options, timing.nextLineBoundary) ? parseYouTubeSrv3WordNodes(element, timing.start, timing.end) : [];
+  }
+  function shouldReadYouTubeSrv3WordTimings(options, nextLineBoundary) {
+    return !options.youtubeAutoGenerated && !Number.isFinite(nextLineBoundary);
+  }
+  function youtubeSrv3CueText(element, words) {
+    return normalizeCaptionText(words.length ? words.map((word) => word.text).join("") : element.textContent ?? "");
+  }
+  function youtubeSrv3Cue(timing, text, words) {
+    return {
+      start: timing.start,
+      end: timing.end,
+      text,
+      words: words.length ? words : void 0,
+      wordTimingsExact: Boolean(words.length)
+    };
+  }
+  function youtubeSrv3LineBoundaryTime(element) {
+    if (!element) return Number.NaN;
+    if (!isYouTubeSrv3LineBoundaryText(element.textContent ?? "")) return Number.NaN;
+    const startMs = Number(youtubeSrv3StartAttribute(element));
+    return Number.isFinite(startMs) ? startMs / 1e3 : Number.NaN;
+  }
+  function isYouTubeSrv3LineBoundaryText(text) {
+    return text === "\n" || !text.trim();
+  }
+  function youtubeSrv3StartAttribute(element) {
+    return element.getAttribute("t") ?? element.getAttribute("_t");
+  }
+  function normalizeYouTubeAutoCaptionTiming(cues, knownAutoGenerated) {
+    if (!cues.length) return cues;
+    const probablyAutoGenerated = knownAutoGenerated || looksLikeOverlappingAutoGeneratedCues(cues);
+    if (!probablyAutoGenerated) return cues;
+    return cues.map((cue, index) => {
+      const next = cues[index + 1];
+      const nextStart = next?.start;
+      const end = Number.isFinite(nextStart) && nextStart > cue.start ? Math.max(cue.start, Math.min(cue.end, nextStart - 1e-3)) : cue.end;
+      return {
+        ...cue,
+        end,
+        words: void 0,
+        wordTimingsExact: false
+      };
+    });
+  }
+  function looksLikeOverlappingAutoGeneratedCues(cues) {
+    const sampled = cues.slice(0, 80);
+    if (sampled.length < 3) return false;
+    let overlapping = 0;
+    for (let index = 1; index < sampled.length; index++) {
+      if (sampled[index - 1].end > sampled[index].start + 0.05) overlapping += 1;
+    }
+    return overlapping / sampled.length > 0.5;
+  }
+  function smoothFragmentedYouTubeCues(cues) {
+    if (!shouldSmoothFragmentedYouTubeCues(cues)) return cues;
+    const merged = [];
+    let current;
+    for (const cue of cues) {
+      current = mergeYouTubeFragmentIntoGroup(merged, current, cue);
+    }
+    if (current) merged.push(current);
+    return merged;
+  }
+  function shouldSmoothFragmentedYouTubeCues(cues) {
+    return cues.length >= 3 && looksLikeFragmentedYouTubeCues(cues);
+  }
+  function mergeYouTubeFragmentIntoGroup(merged, current, cue) {
+    const normalized = normalizeYouTubeCueFragment(cue);
+    if (!normalized.text) return current;
+    if (!current) {
+      return pushCurrentYouTubeCueGroup(merged, current, normalized);
+    }
+    if (shouldBreakYouTubeLine(current, normalized)) return pushCurrentYouTubeCueGroup(merged, current, normalized);
+    return mergeYouTubeCueFragments(current, normalized);
+  }
+  function normalizeYouTubeCueFragment(cue) {
+    const hasExactWords = cueHasExactWordTimings(cue);
+    return {
+      ...cue,
+      text: normalizeCaptionText(cue.text),
+      words: hasExactWords ? cue.words : void 0,
+      wordTimingsExact: hasExactWords
+    };
+  }
+  function pushCurrentYouTubeCueGroup(merged, current, next) {
+    if (current) merged.push(current);
+    return next;
+  }
+  function looksLikeFragmentedYouTubeCues(cues) {
+    const sampled = cues.slice(0, 80);
+    const fragments = sampled.filter((cue) => displayTextWeight(cue.text) <= 14 || cue.end - cue.start <= 1.35).length;
+    return fragments / sampled.length >= 0.42;
+  }
+  function shouldBreakYouTubeLine(current, next) {
+    const gap = next.start - current.end;
+    if (isYouTubeContinuationFragment(current, next)) return false;
+    return gap > 2.6 || gap < -0.2 && !isProgressiveYouTubeCaption(current.text, next.text) || hasYouTubeLineBreakText(current);
+  }
+  function hasYouTubeLineBreakText(cue) {
+    return /[。！？!?]$/u.test(cue.text.trim()) || cue.end - cue.start >= 12 || displayTextWeight(cue.text) >= 68;
+  }
+  function isYouTubeContinuationFragment(current, next) {
+    return isTrailingPunctuationFragment(next.text) || isShortYouTubeContinuationFragment(next.text) || hasYouTubeCaptionTextOverlap(current.text, next.text);
+  }
+  function mergeYouTubeCueFragments(current, next) {
+    const progressive = isProgressiveYouTubeCaption(current.text, next.text);
+    const overlap = progressive ? 0 : youtubeCaptionTextOverlapLength(current.text, next.text);
+    const text = progressive ? next.text : mergeYouTubeCaptionFragmentText(current.text, next.text);
+    const words = mergedYouTubeCueWords(current, next, { progressive, overlap });
+    return {
+      ...current,
+      end: Math.max(current.end, next.end),
+      text,
+      originalText: text,
+      words,
+      wordTimingsExact: Boolean(words?.length)
+    };
+  }
+  function mergedYouTubeCueWords(current, next, merge) {
+    const words = youtubeCueMergeWords(current, next);
+    if (merge.progressive) return words.next;
+    if (!canMergeYouTubeCueWords(words.current, words.next, next.text)) return void 0;
+    return [...words.current, ...trimmedNextYouTubeCueWords(words.next, merge.overlap)];
+  }
+  function youtubeCueMergeWords(current, next) {
+    return {
+      current: cueHasExactWordTimings(current) ? current.words : void 0,
+      next: cueHasExactWordTimings(next) ? next.words : void 0
+    };
+  }
+  function trimmedNextYouTubeCueWords(words, overlap) {
+    return words ? subtitleWordsAfterCompactOffset(words, overlap) : [];
+  }
+  function canMergeYouTubeCueWords(currentWords, nextWords, nextText) {
+    return Boolean(currentWords && (nextWords || isTrailingPunctuationFragment(nextText)));
+  }
+  function mergeYouTubeCaptionFragmentText(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    const overlap = youtubeCaptionTextOverlapLength(a, b);
+    if (overlap > 0) {
+      const tail = sliceByCompactOffset(b, overlap);
+      return tail ? joinYouTubeCaptionFragments(a, tail) : a;
+    }
+    return joinYouTubeCaptionFragments(a, b);
+  }
+  function isProgressiveYouTubeCaption(current, next) {
+    const compactCurrent = compactCaptionText(current);
+    const compactNext = compactCaptionText(next);
+    return compactCurrent.length >= 2 && compactNext.length > compactCurrent.length && compactNext.startsWith(compactCurrent);
+  }
+  function joinYouTubeCaptionFragments(left, right) {
+    const a = left.trim();
+    const b = right.trim();
+    const emptyJoin = emptyYouTubeCaptionFragmentJoin(a, b);
+    if (emptyJoin !== null) return emptyJoin;
+    return `${a}${youtubeCaptionFragmentSeparator(a, b)}${b}`;
+  }
+  function emptyYouTubeCaptionFragmentJoin(left, right) {
+    if (!left) return right;
+    return right ? null : left;
+  }
+  function youtubeCaptionFragmentSeparator(left, right) {
+    if (shouldJoinYouTubeCaptionFragmentsDirectly(left, right)) return "";
+    return shouldSpaceYouTubeCaptionFragments(left, right) ? " " : "";
+  }
+  function shouldJoinYouTubeCaptionFragmentsDirectly(left, right) {
+    return /^[、。，．！？!?））」』\]}]/u.test(right) || /[\s「『（([{]$/u.test(left);
+  }
+  function shouldSpaceYouTubeCaptionFragments(left, right) {
+    return /[A-Za-z0-9]$/u.test(left) && /^[A-Za-z0-9]/u.test(right);
+  }
+  function isTrailingPunctuationFragment(text) {
+    return /^[、。，．！？!?…・]+$/u.test(text.trim());
+  }
+  function isShortYouTubeContinuationFragment(text) {
+    const compact = compactCaptionText(text);
+    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
+  }
+  function hasYouTubeCaptionTextOverlap(left, right) {
+    return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
+  }
+  function youtubeCaptionTextOverlapLength(left, right) {
+    const a = compactCaptionText(left);
+    const b = compactCaptionText(right);
+    const max = Math.min(a.length, b.length);
+    for (let length = max; length >= 2; length--) {
+      if (a.endsWith(b.slice(0, length))) return length;
+    }
+    return 0;
+  }
+  function compactCaptionText(text) {
+    return text.replace(/\s+/gu, "");
+  }
+  function subtitleWordsAfterCompactOffset(words, compactOffset) {
+    if (compactOffset <= 0) return words;
+    let cursor = 0;
+    return words.filter((word) => {
+      const start = cursor;
+      cursor += compactTextLength(word.text);
+      return start >= compactOffset;
+    });
+  }
+  function sliceByCompactOffset(text, compactOffset) {
+    if (compactOffset <= 0) return text;
+    for (const step of compactTextOffsetSteps(text)) {
+      if (step.seen >= compactOffset) return text.slice(step.index);
+    }
+    return "";
+  }
+  function compactTextOffsetSteps(text) {
+    const steps = [];
+    let index = 0;
+    let seen = 0;
+    for (const char of Array.from(text)) {
+      index += char.length;
+      if (/\s/u.test(char)) continue;
+      steps.push({ index, seen: ++seen });
+    }
+    return steps;
+  }
+  function parseYouTubeSrv3WordNodes(element, cueStart, cueEnd) {
+    const nodes = Array.from(element.querySelectorAll("s"));
+    if (!nodes.length) return [];
+    if (nodes.some((node) => /\s/u.test((node.textContent ?? "").trim()))) return [];
+    const starts = nodes.map((node) => youtubeSrv3WordStart(node, cueStart));
+    return nodes.map((node, index) => readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd)).filter((word) => Boolean(word?.text.trim() && word.end > word.start));
+  }
+  function youtubeSrv3WordStart(node, cueStart) {
+    const raw = Number(node.getAttribute("t") ?? node.getAttribute("_t"));
+    return Number.isFinite(raw) ? cueStart + raw / 1e3 : Number.NaN;
+  }
+  function readYouTubeSrv3WordTiming(node, index, starts, cueStart, cueEnd) {
+    const text = node.textContent ?? "";
+    if (!text) return null;
+    const start = Number.isFinite(starts[index]) ? starts[index] : cueStart;
+    const end = nextYouTubeSrv3WordEnd(starts, index, cueEnd);
+    return { text, start: clampNumber(start, cueStart, cueEnd), end: clampNumber(end, cueStart, cueEnd) };
+  }
+  function nextYouTubeSrv3WordEnd(starts, index, cueEnd) {
+    const nextStart = starts.slice(index + 1).find(Number.isFinite);
+    return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
+  }
+  function parseAssSubtitleText(text) {
+    const state = createAssParseState();
+    for (const rawLine of text.replace(/\r/g, "").split("\n")) {
+      readAssSubtitleLine(rawLine.trim(), state);
+    }
+    return state.cues.sort((a, b) => a.start - b.start);
+  }
+  function createAssParseState() {
+    return {
+      cues: [],
+      inEvents: false,
+      format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
+    };
+  }
+  function readAssSubtitleLine(line, state) {
+    if (!shouldParseAssCueLine(line, state)) return;
+    const cue = readAssDialogueCue(line, state.format);
+    if (cue) state.cues.push(cue);
+  }
+  function shouldParseAssCueLine(line, state) {
+    if (shouldIgnoreAssLine(line)) return false;
+    if (updateAssSectionState(line, state)) return false;
+    if (!shouldReadAssDialogueLine(line, state)) return false;
+    return !readAssFormatLine(line, state);
+  }
+  function shouldReadAssDialogueLine(line, state) {
+    return state.inEvents || /^Dialogue:/i.test(line);
+  }
+  function shouldIgnoreAssLine(line) {
+    return !line || line.startsWith(";");
+  }
+  function updateAssSectionState(line, state) {
+    if (/^\[Events\]/i.test(line)) {
+      state.inEvents = true;
+      return true;
+    }
+    if (/^\[.+\]/.test(line)) {
+      state.inEvents = false;
+      return true;
+    }
+    return false;
+  }
+  function readAssFormatLine(line, state) {
+    if (!/^Format:/i.test(line)) return false;
+    state.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
+    return true;
+  }
+  function readAssDialogueCue(line, format) {
+    if (!/^Dialogue:/i.test(line)) return null;
+    const values = splitAssDialogue(line.slice(line.indexOf(":") + 1), format.length);
+    const fields = assDialogueFields(values, format);
+    const start = parseSubtitleTime(fields.start);
+    const end = parseSubtitleTime(fields.end);
+    const cueText = cleanAssSubtitleText(fields.text);
+    return Number.isFinite(start) && Number.isFinite(end) && cueText ? { start, end, text: cueText } : null;
+  }
+  function assDialogueFields(values, format) {
+    const textIndex = format.indexOf("text");
+    return {
+      start: values[format.indexOf("start")] ?? "",
+      end: values[format.indexOf("end")] ?? "",
+      text: values.slice(textIndex >= 0 ? textIndex : values.length - 1).join(",")
+    };
+  }
+  function splitAssDialogue(value, fieldCount) {
+    const parts = [];
+    let start = 0;
+    const maxSplits = Math.max(0, fieldCount - 1);
+    for (let index = 0; index < value.length && parts.length < maxSplits; index++) {
+      if (value[index] !== ",") continue;
+      parts.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+    parts.push(value.slice(start).trim());
+    return parts;
+  }
+  function cleanAssSubtitleText(value) {
+    return value.replace(/\{[^}]*}/g, "").replace(/\\[Nn]/g, "\n").replace(/\\h/g, " ").replace(/<[^>]+>/g, "").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
+  }
+  function parseSubtitleTime(value) {
+    const match = value.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:[,.](\d{1,3}))?/);
+    if (!match) return Number.NaN;
+    const [, hours = "0", minutes, seconds, fraction = "0"] = match;
+    return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(fraction.padEnd(3, "0")) / 1e3;
+  }
+  function parseSubtitleClockValue(value) {
+    const trimmed = value.trim();
+    if (!trimmed) return Number.NaN;
+    if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) return Number(trimmed.slice(0, -1));
+    if (/^\d+(?:\.\d+)?ms$/i.test(trimmed)) return Number(trimmed.slice(0, -2)) / 1e3;
+    if (/^\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+    return parseSubtitleTime(trimmed);
+  }
+  function formatSubtitleTime(value) {
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  }
+  function findAlignedCue(cues, cue) {
+    return cues.map((item) => ({
+      item,
+      overlap: Math.max(0, Math.min(cue.end, item.end) - Math.max(cue.start, item.start)),
+      startDistance: Math.abs(cue.start - item.start)
+    })).filter((candidate) => candidate.overlap > 0 || candidate.startDistance <= 0.45).sort((a, b) => b.overlap - a.overlap || a.startDistance - b.startDistance)[0]?.item;
+  }
+  function findActiveSubtitleCue(cues, time) {
+    return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
+  }
+  function findActiveSubtitleCueFromIndex(cues, time, index) {
+    let best;
+    for (let i = index; i >= 0; i--) {
+      const result = activeSubtitleCueSearchResult(cues[i], time, best);
+      best = result.best;
+      if (result.done) break;
+    }
+    return best;
+  }
+  function activeSubtitleCueSearchResult(cue, time, best) {
+    if (shouldStopActiveSubtitleCueSearch(cue, best)) return { best, done: true };
+    if (!isSubtitleCueActiveAtTime(cue, time)) return { best, done: false };
+    return {
+      best: isBetterActiveSubtitleCue(cue, best) ? cue : best,
+      done: false
+    };
+  }
+  function latestSubtitleCueStartIndex(cues, time) {
+    let low = 0;
+    let high = cues.length - 1;
+    let index = -1;
+    const latestAllowedStart = time + ACTIVE_CUE_START_TOLERANCE_SECONDS;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (cues[mid].start <= latestAllowedStart) {
+        index = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return index;
+  }
+  function shouldStopActiveSubtitleCueSearch(cue, best) {
+    return Boolean(best && cue.start < best.start);
+  }
+  function isSubtitleCueActiveAtTime(cue, time) {
+    return time >= cue.start - ACTIVE_CUE_START_TOLERANCE_SECONDS && time < cue.end + ACTIVE_CUE_END_GRACE_SECONDS;
+  }
+  function isBetterActiveSubtitleCue(cue, best) {
+    if (!best) return true;
+    if (cue.start > best.start) return true;
+    return cue.start === best.start && cue.end > best.end;
+  }
+  function subtitleCueSignature(cue) {
+    return `${cue.start.toFixed(2)}:${cue.end.toFixed(2)}:${cue.text.trim()}`;
+  }
+  function cueHasExactWordTimings(cue) {
+    return Boolean(cue?.wordTimingsExact && cue.words?.length);
+  }
+  function normalizeCaptionText(value) {
+    return value.replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+  }
+  function escapeWithBreaks(value) {
+    return withBreaks(escapeHtml(value));
+  }
+  function withBreaks(value) {
+    return value.replace(/\n/g, "<br>");
+  }
   const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.2;
   const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
   const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
@@ -6282,8 +8938,8 @@ recommendedJiten	jiten.moe頻度データです。
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
   }
   function isCaptionNearVideo(rect, videoRect) {
-    const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
-    const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
+    const horizontalOverlap2 = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
+    const overlapRatio = horizontalOverlap2 / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
@@ -6294,17 +8950,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function captionSitsBelowVideo(rect, videoRect, overlapRatio) {
     return rect.top >= videoRect.bottom && rect.top <= videoRect.bottom + 90 && overlapRatio > 0.25;
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
   }
   function isApiMiningEnabled(settings) {
     return settings.jpdbMiningEnabled;
@@ -10883,5 +13528,8 @@ recommendedJiten	jiten.moe頻度データです。
   registerYomuCompanion("video", {
     SubtitlePlayerController,
     YoutubeImmersionFilter
+  });
+  registerYomuCompanion("ocr", {
+    ImageOcrController
   });
 })();

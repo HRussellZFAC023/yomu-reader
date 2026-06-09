@@ -78,6 +78,9 @@ import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } fro
 import { waitForExpect } from './test-utils';
 import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
+import { registerYomuCompanion } from '../../src/reader/companions/registry';
+
+registerYomuCompanion('ocr', { ImageOcrController });
 
 const card: JPDBCard = {
     vid: 1,
