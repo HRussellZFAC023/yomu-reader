@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-nVi0gutW01WPoio11he0If8VpyUPfcrvXPYSUnNlgZQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-n6p+M2YNcSzoRYk0RYGvbMSimW6hwk5q2IS2MyQHD8E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-w7PBwwWnvhuTTWTr1ugOgh84rcouWg9BT10KTEVLjvw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-xjJJHEPir5ivrobbHLrncM3ud9/TeUPSXbN6/DVqUs8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1514,7 +1514,7 @@
     return { key: key.toLowerCase(), modifiers };
   }
   function normalizeShortcutPart(part) {
-    const value = part.trim();
+    const value = typeof part === "string" ? part.trim() : "";
     if (!value) return "";
     const lower = value.toLowerCase();
     const alias = shortcutPartAlias(lower);
@@ -5118,7 +5118,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -5242,6 +5242,14 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function isSameOriginUrl(url) {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch {
+      return false;
+    }
   }
   function shouldRetryWithFetch(error) {
     if (!(error instanceof Error)) return true;
@@ -9148,8 +9156,14 @@ recommendedJiten	jiten.moe頻度データです。
       this.pending.delete(current.promise);
       return current;
     }
-    racePendingSources() {
-      return this.hasQueuedSources() ? Promise.race([...this.pending, delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS)]) : Promise.race(this.pending);
+    async racePendingSources() {
+      if (!this.hasQueuedSources()) return Promise.race(this.pending);
+      const stagger = delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS);
+      try {
+        return await Promise.race([...this.pending, stagger.promise]);
+      } finally {
+        stagger.cancel();
+      }
     }
     startNextSource() {
       const sourceEntry = this.sources[this.nextSourceIndex++];
@@ -9202,7 +9216,11 @@ recommendedJiten	jiten.moe頻度データです。
     return request.userGesture && request.sources.some((source) => !isBrowserTextToSpeechSource(source));
   }
   function delayAudioSourceRace(ms) {
-    return new Promise((resolve) => window.setTimeout(() => resolve(null), ms));
+    let timer = 0;
+    const promise = new Promise((resolve) => {
+      timer = window.setTimeout(() => resolve(null), ms);
+    });
+    return { promise, cancel: () => window.clearTimeout(timer) };
   }
   function audioPlaybackAttemptResult(error, errors) {
     errors.push(error instanceof Error ? error.message : String(error));
@@ -16905,7 +16923,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function sanitizeAnkiCardFragment(fragment, mediaDataUrls, options) {
     fragment.querySelectorAll("script, style, link, iframe, object, embed, base, meta").forEach((node) => node.remove());
+    unwrapAnkiCardRuby(fragment);
     fragment.querySelectorAll("*").forEach((node) => sanitizeAnkiCardElement(node, mediaDataUrls, options));
+  }
+  function unwrapAnkiCardRuby(fragment) {
+    fragment.querySelectorAll("ruby").forEach((ruby) => {
+      ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
+      ruby.replaceWith(...Array.from(ruby.childNodes));
+    });
   }
   function sanitizeAnkiCardElement(element2, mediaDataUrls, options) {
     for (const attr of Array.from(element2.attributes)) {
@@ -17213,6 +17238,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     textarea.remove();
   }
   function normalizePressedKey(key) {
+    if (typeof key !== "string" || !key) return "";
     if (key === " ") return "space";
     return key.toLowerCase();
   }
@@ -22434,7 +22460,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderKanjiRadicalFrames(radicalFrames) {
     if (!radicalFrames.length) return "";
     return `<div class="jpdb-reader-radical-frames">
-        ${radicalFrames.map((url, index) => `<img src="${escapeHtml$1(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join("")}
+        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml$1(url)}">`).join("")}
     </div>`;
   }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
@@ -24467,8 +24493,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!file) return [];
       return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
-    // ImmersionPopoverController loads media blobs through the injected client.
-    // fallow-ignore-next-line unused-class-member
     async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
       const urls = urlCandidates(url);
       const key = urls.join("");
@@ -29343,10 +29367,10 @@ ${glossaryKey}`;
     return column ?? document.querySelector("main") ?? document.body;
   }
   function jitenKanjiAnchor() {
-    const cards = Array.from(document.querySelectorAll(".border.rounded-lg")).filter(ownedElement);
-    if (cards.length) return cards[cards.length - 1];
-    const header = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
-    return header ?? document.querySelector("main") ?? document.body;
+    const header = ownedElement(document.querySelector(".text-center"));
+    if (header) return header;
+    const glyphHeader = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
+    return glyphHeader ?? document.querySelector("main") ?? document.body;
   }
   function ownedElement(element2) {
     return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
@@ -37924,7 +37948,7 @@ ${glossaryKey}`;
       this.suppressSelectionLookupUntil = Date.now() + 350;
       if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
       this.ocr.pinLineForElement(word);
-      void this.showWord(word, { trigger: "click", userGesture: true });
+      void this.showWord(word, insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
     }
     consumeSuppressedReaderWordClick(event, word) {
       if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return false;
@@ -40390,6 +40414,11 @@ ${glossaryKey}`;
     installKanjiOriginImageFallbacks(mount) {
       mount.querySelectorAll("[data-radical-frame]").forEach((image) => {
         image.addEventListener("error", () => image.remove(), { once: true });
+        const url = image.dataset.radicalFrameUrl;
+        if (!url) return;
+        void this.immersionKit.fetchBlobUrl(url, 9e3, this.settings.corsProxyUrl, this.settings.interfaceLanguage).then((blobUrl) => {
+          image.src = blobUrl;
+        }).catch(() => image.remove());
       });
     }
     renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo = null, jitenVocabularyInfo = null, extraSectionsOrOptions = {}) {

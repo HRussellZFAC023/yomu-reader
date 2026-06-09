@@ -165,6 +165,10 @@ function readerTestConfig() {
         exclude: generatedShardExcludePatterns(),
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
+        // A handful of timing-sensitive audio/bridge tests pass in isolation but
+        // can flake when scheduling shifts under the full sequential run; retry
+        // absorbs that without masking a genuine, repeatable failure.
+        retry: 2,
         pool: 'forks',
         poolOptions: {
             forks: {

@@ -830,10 +830,14 @@ class AudioSourcePreparationRace {
         return current;
     }
 
-    private racePendingSources(): Promise<CompletedAudioSourcePreparation | null> {
-        return this.hasQueuedSources()
-            ? Promise.race([...this.pending, delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS)])
-            : Promise.race(this.pending);
+    private async racePendingSources(): Promise<CompletedAudioSourcePreparation | null> {
+        if (!this.hasQueuedSources()) return Promise.race(this.pending);
+        const stagger = delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS);
+        try {
+            return await Promise.race([...this.pending, stagger.promise]);
+        } finally {
+            stagger.cancel();
+        }
     }
 
     private startNextSource(): undefined {
@@ -898,8 +902,10 @@ function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolea
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
 }
 
-function delayAudioSourceRace(ms: number): Promise<null> {
-    return new Promise(resolve => window.setTimeout(() => resolve(null), ms));
+function delayAudioSourceRace(ms: number): { promise: Promise<null>; cancel: () => void } {
+    let timer = 0;
+    const promise = new Promise<null>(resolve => { timer = window.setTimeout(() => resolve(null), ms); });
+    return { promise, cancel: () => window.clearTimeout(timer) };
 }
 
 function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {

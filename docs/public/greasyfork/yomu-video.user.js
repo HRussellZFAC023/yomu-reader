@@ -548,7 +548,7 @@
     return { key: key2.toLowerCase(), modifiers };
   }
   function normalizeShortcutPart(part) {
-    const value = part.trim();
+    const value = typeof part === "string" ? part.trim() : "";
     if (!value) return "";
     const lower = value.toLowerCase();
     const alias = shortcutPartAlias(lower);
@@ -10525,6 +10525,7 @@ ${spelling}`);
       if (placement !== "bottom") this.clampStoredSideWidthForCurrentVideo(placement);
       this.options.onSettingsChange();
       this.renderOpenSubtitlePanel();
+      this.clearVideoInsetForTranscriptPanel();
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
     }
@@ -11897,6 +11898,8 @@ ${spelling}`);
     transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight) {
       const current = this.videoLayoutRect();
       const viewportKey = `${viewportWidth}x${viewportHeight}`;
+      const degenerate = current.width < 200 || current.height < 120;
+      if (degenerate) return this.transcriptLayoutReferenceRect ?? current;
       if (!this.transcriptLayoutReferenceRect || this.transcriptLayoutReferenceViewport !== viewportKey || current.width > this.transcriptLayoutReferenceRect.width + 20 || current.height > this.transcriptLayoutReferenceRect.height + 20) {
         this.transcriptLayoutReferenceRect = current;
         this.transcriptLayoutReferenceViewport = viewportKey;
@@ -11922,7 +11925,17 @@ ${spelling}`);
       this.fullscreen = Boolean(document.fullscreenElement);
       document.documentElement.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
-      if (this.fullscreen) this.clearVideoInsetForTranscriptPanel();
+      if (this.fullscreen) {
+        this.clearVideoInsetForTranscriptPanel();
+        return;
+      }
+      this.transcriptLayoutReferenceRect = void 0;
+      this.transcriptLayoutReferenceViewport = "";
+      if (this.isTranscriptPanelOpen()) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (!this.destroyed && !this.fullscreen) this.positionTranscriptPanel({ realignAfterInset: true });
+        }));
+      }
     }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);

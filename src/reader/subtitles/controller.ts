@@ -1639,6 +1639,7 @@ export class SubtitlePlayerController {
         if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
         this.options.onSettingsChange();
         this.renderOpenSubtitlePanel();
+        this.clearVideoInsetForTranscriptPanel();
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
     }
@@ -3232,6 +3233,10 @@ export class SubtitlePlayerController {
     private transcriptLayoutReferenceVideoRect(viewportWidth: number, viewportHeight: number): DOMRect {
         const current = this.videoLayoutRect();
         const viewportKey = `${viewportWidth}x${viewportHeight}`;
+        // A degenerate rect (player mid-resize, e.g. exiting fullscreen) would
+        // otherwise latch in as the reference and shrink the video to nothing.
+        const degenerate = current.width < 200 || current.height < 120;
+        if (degenerate) return this.transcriptLayoutReferenceRect ?? current;
         if (!this.transcriptLayoutReferenceRect
             || this.transcriptLayoutReferenceViewport !== viewportKey
             || current.width > this.transcriptLayoutReferenceRect.width + 20
@@ -3265,7 +3270,17 @@ export class SubtitlePlayerController {
         this.fullscreen = Boolean(document.fullscreenElement);
         document.documentElement.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
-        if (this.fullscreen) this.clearVideoInsetForTranscriptPanel();
+        if (this.fullscreen) {
+            this.clearVideoInsetForTranscriptPanel();
+            return;
+        }
+        this.transcriptLayoutReferenceRect = undefined;
+        this.transcriptLayoutReferenceViewport = '';
+        if (this.isTranscriptPanelOpen()) {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (!this.destroyed && !this.fullscreen) this.positionTranscriptPanel({ realignAfterInset: true });
+            }));
+        }
     }
 
     private scheduleAlignToVideo(): void {

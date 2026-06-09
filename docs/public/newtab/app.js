@@ -885,7 +885,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -1009,6 +1009,14 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function isSameOriginUrl(url) {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch {
+      return false;
+    }
   }
   function shouldRetryWithFetch(error) {
     if (!(error instanceof Error)) return true;
@@ -5688,8 +5696,14 @@ recommendedJiten	jiten.moe頻度データです。
       this.pending.delete(current.promise);
       return current;
     }
-    racePendingSources() {
-      return this.hasQueuedSources() ? Promise.race([...this.pending, delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS)]) : Promise.race(this.pending);
+    async racePendingSources() {
+      if (!this.hasQueuedSources()) return Promise.race(this.pending);
+      const stagger = delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS);
+      try {
+        return await Promise.race([...this.pending, stagger.promise]);
+      } finally {
+        stagger.cancel();
+      }
     }
     startNextSource() {
       const sourceEntry = this.sources[this.nextSourceIndex++];
@@ -5742,7 +5756,11 @@ recommendedJiten	jiten.moe頻度データです。
     return request.userGesture && request.sources.some((source) => !isBrowserTextToSpeechSource(source));
   }
   function delayAudioSourceRace(ms) {
-    return new Promise((resolve) => window.setTimeout(() => resolve(null), ms));
+    let timer = 0;
+    const promise = new Promise((resolve) => {
+      timer = window.setTimeout(() => resolve(null), ms);
+    });
+    return { promise, cancel: () => window.clearTimeout(timer) };
   }
   function audioPlaybackAttemptResult(error, errors) {
     errors.push(error instanceof Error ? error.message : String(error));
@@ -6386,7 +6404,7 @@ recommendedJiten	jiten.moe頻度データです。
     if (!isModifierKey(key2)) parts.push(key2);
   }
   function normalizeShortcutPart(part) {
-    const value = part.trim();
+    const value = typeof part === "string" ? part.trim() : "";
     if (!value) return "";
     const lower = value.toLowerCase();
     const alias = shortcutPartAlias(lower);
@@ -20140,7 +20158,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function sanitizeAnkiCardFragment(fragment2, mediaDataUrls, options) {
     fragment2.querySelectorAll("script, style, link, iframe, object, embed, base, meta").forEach((node) => node.remove());
+    unwrapAnkiCardRuby(fragment2);
     fragment2.querySelectorAll("*").forEach((node) => sanitizeAnkiCardElement(node, mediaDataUrls, options));
+  }
+  function unwrapAnkiCardRuby(fragment2) {
+    fragment2.querySelectorAll("ruby").forEach((ruby) => {
+      ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
+      ruby.replaceWith(...Array.from(ruby.childNodes));
+    });
   }
   function sanitizeAnkiCardElement(element, mediaDataUrls, options) {
     for (const attr of Array.from(element.attributes)) {
@@ -24864,8 +24889,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!file) return [];
       return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
-    // ImmersionPopoverController loads media blobs through the injected client.
-    // fallow-ignore-next-line unused-class-member
     async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
       const urls = urlCandidates(url);
       const key2 = urls.join("");

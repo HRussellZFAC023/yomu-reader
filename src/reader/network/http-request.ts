@@ -4,7 +4,10 @@ import { getUserscriptHttpRequest } from '../userscript/index';
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch) {
+    // preferFetch only makes sense same-origin; cross-origin fetch is blocked by
+    // strict page CSPs (e.g. jpdb.io), so route it through the userscript request
+    // which is exempt from the page's connect-src.
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
         try {
             return await requestViaFetch(url, options);
         } catch (error) {
@@ -140,6 +143,15 @@ function formatFailure(options: ReaderHttpOptions): string {
 
 function formatStatusFailure(options: ReaderHttpOptions, status: number): string {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? 'Request'} failed (${status}).`;
+}
+
+function isSameOriginUrl(url: string): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        return new URL(url, location.href).origin === location.origin;
+    } catch {
+        return false;
+    }
 }
 
 function shouldRetryWithFetch(error: unknown): boolean {

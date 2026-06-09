@@ -101,10 +101,10 @@ function jitenVocabAnchor(): HTMLElement {
 }
 
 function jitenKanjiAnchor(): HTMLElement {
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('.border.rounded-lg')).filter(ownedElement);
-    if (cards.length) return cards[cards.length - 1];
-    const header = document.querySelector<HTMLElement>(KANJI_GLYPH_SELECTOR)?.closest<HTMLElement>('.space-y-2');
-    return header ?? document.querySelector<HTMLElement>('main') ?? document.body;
+    const header = ownedElement(document.querySelector<HTMLElement>('.text-center'));
+    if (header) return header;
+    const glyphHeader = document.querySelector<HTMLElement>(KANJI_GLYPH_SELECTOR)?.closest<HTMLElement>('.space-y-2');
+    return glyphHeader ?? document.querySelector<HTMLElement>('main') ?? document.body;
 }
 
 function ownedElement<T extends HTMLElement>(element: T | null): T | null {

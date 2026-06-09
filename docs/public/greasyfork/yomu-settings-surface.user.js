@@ -911,7 +911,7 @@
     if (!isModifierKey(key)) parts.push(key);
   }
   function normalizeShortcutPart(part) {
-    const value = part.trim();
+    const value = typeof part === "string" ? part.trim() : "";
     if (!value) return "";
     const lower = value.toLowerCase();
     const alias = shortcutPartAlias(lower);

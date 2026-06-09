@@ -120,6 +120,7 @@ export async function copyText(text: string): Promise<void> {
 }
 
 export function normalizePressedKey(key: string): string {
+    if (typeof key !== 'string' || !key) return '';
     if (key === ' ') return 'space';
     return key.toLowerCase();
 }

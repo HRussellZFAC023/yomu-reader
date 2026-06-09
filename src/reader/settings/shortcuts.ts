@@ -65,7 +65,7 @@ function parseShortcut(shortcut: string): { key: string; modifiers: Set<string> 
 }
 
 function normalizeShortcutPart(part: string): string {
-    const value = part.trim();
+    const value = typeof part === 'string' ? part.trim() : '';
     if (!value) return '';
     const lower = value.toLowerCase();
     const alias = shortcutPartAlias(lower);
