@@ -36184,6 +36184,7 @@ ${glossaryKey}`;
     replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
   }
   function applyPublicVocabularyFurigana(word, card, settings) {
+    if (word.closest("ruby")) return;
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {

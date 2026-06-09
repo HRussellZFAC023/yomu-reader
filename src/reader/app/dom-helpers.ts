@@ -95,6 +95,7 @@ export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEn
 }
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {
+    if (word.closest('ruby')) return;
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
