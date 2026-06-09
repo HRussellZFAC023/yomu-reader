@@ -134,6 +134,6 @@ function radicalFrameUrls(radical: NonNullable<KanjiSourceInfo['kanjiMap']>['rad
 function renderKanjiRadicalFrames(radicalFrames: string[]): string {
     if (!radicalFrames.length) return '';
     return `<div class="jpdb-reader-radical-frames">
-        ${radicalFrames.map((url, index) => `<img src="${escapeHtml(url)}" alt="" loading="lazy" data-radical-frame="${index}">`).join('')}
+        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml(url)}">`).join('')}
     </div>`;
 }

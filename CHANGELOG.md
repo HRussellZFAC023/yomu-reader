@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.40] - 2026-06-09
+
+### Fixed
+
+- Stopped uncaught errors from keyboard events that arrive without a key (seen on YouTube), which were aborting reader and subtitle keydown handling.
+- Routed cross-origin requests (sentence translation, grammar data, jiten lookups/audio, and kanji radical images) through the userscript bridge so a strict page Content-Security-Policy such as jpdb.io's no longer blocks them.
+- Moved jiten.moe kanji-page enhancements to the top of the page (just below the kanji header) instead of the bottom.
+- Made Anki card furigana match the reader's ruby everywhere by re-parsing from base text; this also fixes single-kanji (RTK-style) cards that were rendering the character several times.
+- Clicking a word inside the lookup popover now dives into that word so the Back button returns to the previous card.
+- Hardened the YouTube subtitle side-panel layout: switching the panel between left and right no longer leaves a gap, exiting fullscreen restores the video, and a transient zero-size player no longer shrinks the video away.
+
+### Changed
+
+- Improved test stability by cancelling the audio source-race timer when a source wins, resetting fake timers between tests, and retrying the few timing-sensitive audio/bridge tests.
+
 ## [0.6.39] - 2026-06-09
 
 ### Added

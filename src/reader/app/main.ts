@@ -1393,7 +1393,9 @@ export class ReaderApp {
         this.suppressSelectionLookupUntil = Date.now() + 350;
         if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
         this.ocr.pinLineForElement(word);
-        void this.showWord(word, { trigger: 'click', userGesture: true });
+        void this.showWord(word, insideReaderPopup
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
+            : { trigger: 'click', userGesture: true });
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {
@@ -4570,6 +4572,13 @@ export class ReaderApp {
     private installKanjiOriginImageFallbacks(mount: HTMLElement): void {
         mount.querySelectorAll<HTMLImageElement>('[data-radical-frame]').forEach(image => {
             image.addEventListener('error', () => image.remove(), { once: true });
+            const url = image.dataset.radicalFrameUrl;
+            if (!url) return;
+            // Load cross-origin radical frames through the userscript bridge so a
+            // strict page CSP (jpdb.io img-src) can't block them.
+            void this.immersionKit.fetchBlobUrl(url, 9000, this.settings.corsProxyUrl, this.settings.interfaceLanguage)
+                .then(blobUrl => { image.src = blobUrl; })
+                .catch(() => image.remove());
         });
     }
 

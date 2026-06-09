@@ -422,7 +422,18 @@ function sanitizeAnkiCardHtml(
 
 function sanitizeAnkiCardFragment(fragment: DocumentFragment, mediaDataUrls: Record<string, string>, options: AnkiCardSanitizeOptions): void {
     fragment.querySelectorAll('script, style, link, iframe, object, embed, base, meta').forEach(node => node.remove());
+    unwrapAnkiCardRuby(fragment);
     fragment.querySelectorAll('*').forEach(node => sanitizeAnkiCardElement(node, mediaDataUrls, options));
+}
+
+// Drop baked-in furigana so the card body parses as plain base text and the
+// reader re-applies ruby in the same style as everywhere else (this also stops
+// the text collector from reading "base+reading" and rendering it duplicated).
+function unwrapAnkiCardRuby(fragment: DocumentFragment): void {
+    fragment.querySelectorAll('ruby').forEach(ruby => {
+        ruby.querySelectorAll('rt, rp').forEach(node => node.remove());
+        ruby.replaceWith(...Array.from(ruby.childNodes));
+    });
 }
 
 function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string, string>, options: AnkiCardSanitizeOptions): void {

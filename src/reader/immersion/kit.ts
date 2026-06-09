@@ -361,8 +361,6 @@ export class ImmersionKitClient {
         return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
     }
 
-    // ImmersionPopoverController loads media blobs through the injected client.
-    // fallow-ignore-next-line unused-class-member
     async fetchBlobUrl(url: string | string[], timeoutMs: number, proxyUrl = '', language: InterfaceLanguage = 'en'): Promise<string> {
         const urls = urlCandidates(url);
         const key = urls.join('\u0001');

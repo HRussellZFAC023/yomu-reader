@@ -64,4 +64,7 @@ beforeEach(() => {
 afterEach(() => {
     resetLocaleState();
     restoreJsdomMediaElementMethods();
+    // Stop a test that left fake timers (or stubbed globals) on from leaking into
+    // the next one, which otherwise surfaces as flaky failures in unrelated tests.
+    vi.useRealTimers();
 });
