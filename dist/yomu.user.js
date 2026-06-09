@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.42
+// @version      0.6.43
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -32106,27 +32106,44 @@ ${glossaryKey}`;
     "button",
     "summary",
     '[role="button"]',
+    '[role="link"]',
     '[role="menuitem"]',
+    '[role="tab"]',
     '[slot="more-button"]',
     ".more-button",
     "#more",
-    "#less"
+    "#less",
+    // YouTube wraps its controls in custom elements; treat them as passive so
+    // their labels (subscribe, like, chips, video titles) open the dictionary
+    // on hover without swallowing the native click.
+    "yt-button-shape",
+    "tp-yt-paper-button",
+    "ytd-subscribe-button-renderer",
+    "ytd-toggle-button-renderer",
+    "ytd-button-renderer",
+    "yt-chip-cloud-chip-renderer",
+    "ytd-guide-entry-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model"
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
+    // The video player owns its own chrome/captions; never wrap inside it.
+    "#movie_player",
+    ".html5-video-player",
+    ".ytp-chrome-top",
+    ".ytp-chrome-bottom",
+    ".ytp-popup",
+    ".ytp-tooltip",
+    "tp-yt-paper-tooltip",
+    '[role="slider"]',
+    // The watch-page <h1> feeds YouTube's SPA document title; wrapping it can
+    // break SPA navigation, so keep the title itself untouched.
     "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title",
-    "#secondary",
-    "ytd-compact-video-renderer",
-    "ytd-rich-grid-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-reel-shelf-renderer",
-    "ytd-rich-shelf-renderer",
-    "ytd-shelf-renderer",
-    "ytm-rich-grid-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2"
+    "ytd-watch-metadata #title"
   ].join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
   const GENERIC_PROSE_ROOTS = [
@@ -32597,6 +32614,12 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
+        // Whole desktop/mobile app shell: chrome, masthead, sidebar, feeds,
+        // and content are all scanned. Interactive elements are matched by
+        // passiveInteraction so hover opens the dictionary while the click
+        // still drives the native control (subscribe, links, chips, …).
+        "ytd-app",
+        "ytm-app",
         "ytd-watch-metadata",
         "ytd-watch-metadata #description",
         "ytd-watch-metadata #description-inline-expander",
@@ -32625,6 +32648,7 @@ ${glossaryKey}`;
       ],
       exclude: YOUTUBE_TEXT_EXCLUDE,
       allowUiText: true,
+      includeUiChrome: true,
       passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
