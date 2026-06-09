@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.43] - 2026-06-09
+
+### Changed
+
+- YouTube text scanning no longer excludes the page chrome, masthead, sidebar, and recommendation feeds. Interactive elements (the subscribe button, video-title links, chips, menu items, etc.) are now parsed with the passive-interaction pattern: hovering their Japanese text opens the dictionary while the click still triggers the native control. The video player chrome and the SPA watch title remain untouched.
+
 ## [0.6.42] - 2026-06-09
 
 ### Added
