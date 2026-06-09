@@ -627,17 +627,14 @@ button.jpdb-reader-action-pill {
 .jpdb-reader-word-pills {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 5px;
   min-width: 0;
   max-width: 100%;
   width: 100%;
   margin: 3px -4px -6px;
   padding: 3px 4px 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 .jpdb-reader-word-pills::-webkit-scrollbar {
   display: none;

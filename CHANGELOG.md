@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.42] - 2026-06-09
+
+### Added
+
+- Auto-generate a Japanese subtitle track by translating the English track when a video has no Japanese track available.
+
+### Fixed
+
+- Lookup pills (dictionary links, copy, and frequency badges) now wrap onto multiple lines instead of overflowing/clipping off the edge of the popover.
+
 ## [0.6.41] - 2026-06-09
 
 ### Fixed
