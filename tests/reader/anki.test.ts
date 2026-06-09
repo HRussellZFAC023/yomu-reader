@@ -1822,6 +1822,23 @@ describe('Anki rendered card details', () => {
         expect(summary?.textContent).toContain('New');
     });
 
+    it('threads persisted collapse state through the Anki section and per-deck cards', () => {
+        const word = existingAnkiNote({ noteId: 201, modelName: 'Core 2k', deckNames: ['Vocab 2k'], state: 'due' });
+        const kanji = existingAnkiNote({ noteId: 202, modelName: 'RRTK', deckNames: ['RRTK'], state: 'new', fields: { Kanji: '下', Keyword: 'below' } });
+        const lookup: AnkiLookupResult = { state: 'due', primary: word, notes: [word, kanji], trusted: true };
+        const container = document.createElement('div');
+        container.innerHTML = renderAnkiExistingSection(lookup, null, ankiRenderSettings(), {
+            sourceAttributes: (key, open) => `data-source-state-key="${key}" data-source-initial-open="${String(open ?? true)}"${(open ?? true) ? ' open' : ''}`,
+        });
+
+        const section = container.querySelector<HTMLElement>('.jpdb-reader-anki-existing');
+        expect(section?.dataset.sourceStateKey).toBe('__anki__');
+        const deckKeys = Array.from(container.querySelectorAll<HTMLElement>('.jpdb-reader-anki-existing-note'))
+            .map(card => card.dataset.sourceStateKey);
+        expect(deckKeys).toContain('__anki__:deck:Vocab 2k');
+        expect(deckKeys).toContain('__anki__:deck:RRTK');
+    });
+
     it('uses the aggregate Anki status in the section header when one duplicate is known', () => {
         const newMatch = existingAnkiNote({
             noteId: 101,

@@ -675,7 +675,7 @@ describe('JitenApiClient', () => {
         expect(normalizedCss).toContain('button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini {');
         expect(normalizedCss).toContain('.jpdb-reader-local-glossary .jpdb-reader-jiten-related-link.gloss-link { display: inline; max-width: 100%; color: inherit !important; text-decoration: none !important;');
         expect(normalizedCss).toContain('.jpdb-reader-jiten-related-head { display: inline; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: normal; line-break: auto; }');
-        expect(normalizedCss).toContain('.jpdb-reader-jiten-related-head .jpdb-reader-word { --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-underline: transparent; text-decoration-color: transparent !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-jiten-related-head .jpdb-reader-word');
     });
 
     it('mines Jiten-backed cards to native study decks', async () => {

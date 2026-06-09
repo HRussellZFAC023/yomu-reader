@@ -1,5 +1,5 @@
 import { AudioPlayer } from '../audio/player';
-import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError } from '../anki/index';
+import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
 import { copyText } from '../ui/browser';
 import { createAudioPreviewCard } from '../cards/utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
@@ -1590,6 +1590,9 @@ export class SettingsDialogController {
     private ankiSetupUnavailableStatus(settings: ReaderSettings, language: InterfaceLanguage): SettingsStatusLine {
         if (canUseMobileAnkiHandoff(settings)) {
             return { message: uiText(language, 'mobileAnkiReady'), tone: 'pending' };
+        }
+        if (typeof location !== 'undefined' && location.hostname && !['127.0.0.1', 'localhost', '::1'].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
+            return { message: uiText(language, 'ankiHostedBridgeMissing'), tone: 'pending', action: 'anki-unreachable' };
         }
         return { message: this.ankiUnreachableMessage(language), tone: 'pending', action: 'anki-unreachable' };
     }

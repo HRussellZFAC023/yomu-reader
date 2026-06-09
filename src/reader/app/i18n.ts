@@ -439,7 +439,7 @@ const COPY = {
         ankiStatusUseDesktopUrl: 'Use the LAN/Tailscale URL on mobile',
         ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
         ankiStatusRefreshAndCheck: 'Refresh, then check again',
-        ankiHostedCorsHint: 'Advanced: direct browser access needs this origin in AnkiConnect webCorsOriginList.',
+        ankiHostedCorsHint: 'Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.',
         ankiLibraryAdapter: 'Existing library adapter',
         ankiLibraryAdapterStatus: 'Scans decks and note types, then suggests mappings.',
         ankiLibraryChoices: 'Deck and note type',
@@ -1382,7 +1382,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続にはこのオリジンをAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
