@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.46
+// @version      0.6.47
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-DbbCs/v4M8TirftF7KMU+KDXDEm02EJdHta9qsLDhxo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-shXzn2xCfUGVrrQdr2qEvLNdiTN6daMcKLvKnFQUckw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-u73WCTleN1xbw8fEwgv9/ZZdwSCWts+PQYH3YBSKOvg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3996,9 +3996,14 @@
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const sources = sourceTokenRubies(surface, token);
     if (preserveTokenRubies) {
-      return sources.filter((ruby) => {
+      return sources.flatMap((ruby) => {
         const range = localRubyRange(surface, token, ruby);
-        return range !== null && KANJI_RE$3.test(surface.slice(range.start, range.end));
+        if (!range) return [];
+        const base = surface.slice(range.start, range.end);
+        if (!KANJI_RE$3.test(base)) return [];
+        if (!KANA_CHAR_RE.test(base)) return [ruby];
+        const parts = kanjiOnlyRubySegments(surface, token, ruby);
+        return parts.length ? parts : [ruby];
       });
     }
     return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));

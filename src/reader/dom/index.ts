@@ -1620,12 +1620,18 @@ function sameKanaCharacter(first: string | undefined, second: string | undefined
 function effectiveTokenRubies(surface: string, token: JPDBToken, preserveTokenRubies = false): JPDBToken['rubies'] {
     const sources = sourceTokenRubies(surface, token);
     if (preserveTokenRubies) {
-        // Preserve explicit rubies verbatim over kanji-containing bases; a
-        // kana-only base never needs furigana (the ruby would just repeat
-        // the visible word).
-        return sources.filter(ruby => {
+        // Preserve explicit rubies over kanji-containing bases; a kana-only
+        // base never needs furigana (the ruby would just repeat the visible
+        // word). When the base mixes kanji and kana (e.g. 話す/はなす), trim
+        // the ruby down to the kanji portion so furigana never covers kana.
+        return sources.flatMap(ruby => {
             const range = localRubyRange(surface, token, ruby);
-            return range !== null && KANJI_RE.test(surface.slice(range.start, range.end));
+            if (!range) return [];
+            const base = surface.slice(range.start, range.end);
+            if (!KANJI_RE.test(base)) return [];
+            if (!KANA_CHAR_RE.test(base)) return [ruby];
+            const parts = kanjiOnlyRubySegments(surface, token, ruby);
+            return parts.length ? parts : [ruby];
         });
     }
     return sources.flatMap(ruby => kanjiOnlyRubySegments(surface, token, ruby));

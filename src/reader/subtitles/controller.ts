@@ -46,6 +46,7 @@ import {
     shouldRefreshYouTubeTrackUrl,
     type YouTubeCaptionTrackCandidate,
     youtubeCaptionTrackIdentity,
+    youtubeVideoHasNativeCaptions,
 } from './subtitle-youtube';
 import {
     ensureTextTrackReadable,
@@ -402,6 +403,7 @@ export class SubtitlePlayerController {
     private subtitleSourceContextKey = '';
     private pausePanelOpen = false;
     private pausePanelDismissed = false;
+    private pausePanelSyncScheduled = false;
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -719,10 +721,12 @@ export class SubtitlePlayerController {
         this.videoResizeObserver.observe(video);
         video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
-        video.addEventListener('pause', () => this.syncPauseTranscriptPanel(), this.eventOptions({ passive: true }));
+        video.addEventListener('pause', () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
         video.addEventListener('play', () => {
             this.pausePanelDismissed = false;
-            this.closePauseTranscriptPanel();
+            // Same deferred path as pause: syncPauseTranscriptPanel sees the
+            // playing video and closes the auto-opened panel after the paint.
+            if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
             this.scheduleAlignToVideo();
         }, this.eventOptions({ passive: true }));
         this.scheduleAlignToVideo();
@@ -1088,6 +1092,7 @@ export class SubtitlePlayerController {
 
     private ensureDomCaptionFallbackTrack(selected: SubtitleTrackOption | undefined): SubtitleTrackOption | undefined {
         if (!isYouTubePage() || selected || this.tracks.some(track => track.kind === 'youtube')) return selected;
+        if (!youtubeVideoHasNativeCaptions()) return selected;
         const track = this.createYouTubeDomCaptionFallbackTrack();
         this.tracks.push(track);
         this.selectedTrackId = track.id;
@@ -1535,7 +1540,11 @@ export class SubtitlePlayerController {
         if (!texts.length) return;
         void (async () => {
             try {
-                await this.parseCueHtmlBatch(texts, settings, { allowProvisional: false });
+                // Allow the provisional tier so upcoming overlay cues render
+                // parsed immediately; the provisional path already enqueues the
+                // authoritative upgrade, and the shared pending maps dedupe this
+                // work against transcript-panel hydration.
+                await this.parseCueHtmlBatch(texts, settings);
             } catch {
             }
             if (serial !== this.parseWarmupSerial) return;
@@ -1641,6 +1650,13 @@ export class SubtitlePlayerController {
         const placement = this.transcriptPlacementFromTarget(target);
         if (!placement) return;
         const settings = this.options.getSettings();
+        const compact = shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth));
+        const effectivePlacement = compact ? 'bottom' : settings.subtitleTranscriptPlacement;
+        if (placement === effectivePlacement) {
+            // Re-pressing the active placement toggles the panel closed.
+            this.closeTranscriptPanel();
+            return;
+        }
         settings.subtitleTranscriptPlacement = placement;
         if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
         this.options.onSettingsChange();
@@ -2506,6 +2522,21 @@ export class SubtitlePlayerController {
         this.syncControls();
     }
 
+    private schedulePauseTranscriptPanelSync(): void {
+        // Opening the pause panel rebuilds the transcript DOM and triggers
+        // layout work; doing that synchronously inside the pause event makes
+        // pausing feel sluggish. Defer past the next paint so the player's
+        // pause feedback renders first (rAF runs before paint; the nested
+        // timeout lands after it).
+        if (this.pausePanelSyncScheduled) return;
+        this.pausePanelSyncScheduled = true;
+        requestAnimationFrame(() => window.setTimeout(() => {
+            this.pausePanelSyncScheduled = false;
+            if (this.destroyed) return;
+            this.syncPauseTranscriptPanel();
+        }, 0));
+    }
+
     private syncPauseTranscriptPanel(): void {
         const settings = this.options.getSettings();
         if (!settings.subtitlePausePanel || !this.video || !this.video.paused || this.video.ended || !this.hasTranscriptSurface()) {
@@ -3309,8 +3340,10 @@ export class SubtitlePlayerController {
         // measure the room from the panel's right edge to the viewport — not the
         // player's current (pre-shift) right edge, which under-counted and forced
         // the bottom fallback on smaller screens.
+        // The extra margin matches the doubled left-side inset gap applied by
+        // the video inset adapter so the shifted player still fits on screen.
         return layout.placement === 'left'
-            ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin)
+            ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2)
             : layout.left - videoRect.left - layout.margin;
     }
 

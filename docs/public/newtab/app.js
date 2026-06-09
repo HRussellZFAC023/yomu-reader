@@ -8452,9 +8452,14 @@ recommendedJiten	jiten.moe頻度データです。
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const sources = sourceTokenRubies(surface, token);
     if (preserveTokenRubies) {
-      return sources.filter((ruby) => {
+      return sources.flatMap((ruby) => {
         const range = localRubyRange(surface, token, ruby);
-        return range !== null && KANJI_RE$2.test(surface.slice(range.start, range.end));
+        if (!range) return [];
+        const base = surface.slice(range.start, range.end);
+        if (!KANJI_RE$2.test(base)) return [];
+        if (!KANA_CHAR_RE.test(base)) return [ruby];
+        const parts = kanjiOnlyRubySegments(surface, token, ruby);
+        return parts.length ? parts : [ruby];
       });
     }
     return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));

@@ -134,6 +134,16 @@ export function getYouTubeCaptionTracks(): YouTubeCaptionTrackCandidate[] {
     ], renderer?.translationLanguages);
 }
 
+export function youtubeVideoHasNativeCaptions(): boolean {
+    if (getYouTubeCaptionTracks().length) return true;
+    // YouTube hides/disables the CC button when the video has no caption
+    // tracks at all, which also means the DOM caption fallback can never
+    // produce text for it.
+    const button = document.querySelector<HTMLElement>('#movie_player .ytp-subtitles-button');
+    if (!button) return false;
+    return button.getAttribute('aria-disabled') !== 'true' && button.style.display !== 'none';
+}
+
 async function fallbackYouTubeCaptionCandidates(track: YouTubeSubtitleTrack): Promise<YouTubeCaptionTrackCandidate[]> {
     if (track.kind !== 'youtube') return [];
     const candidates = await getAndroidYouTubeCaptionTracks();

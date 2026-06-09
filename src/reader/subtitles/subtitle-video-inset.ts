@@ -168,7 +168,11 @@ interface VideoInsetMetrics {
 }
 
 function videoInsetMetrics(options: ApplySubtitleVideoInsetOptions): VideoInsetMetrics {
-    const insetPixels = Math.max(0, Math.round(options.panelSize) + options.margin);
+    // Left docking shifts the player so its left edge lands at the inset; add
+    // a second margin so the player is not flush against the panel (right
+    // docking gets its gap from the side-layout width math instead).
+    const gap = options.side === 'left' ? options.margin * 2 : options.margin;
+    const insetPixels = Math.max(0, Math.round(options.panelSize) + gap);
     const width = videoInsetWidth(options);
     const height = videoInsetHeight(options, width);
     const inset = `${insetPixels}px`;

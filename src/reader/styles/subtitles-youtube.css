@@ -893,6 +893,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   color: var(--jpdb-reader-text);
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface));
 }
+/* Compact viewports force the bottom drawer layout, so side placements are
+   inert there — hide their buttons instead of showing dead controls. Keep in
+   sync with shouldUseCompactSubtitleDrawer (700px). */
+@media (max-width: 699px) {
+  .jpdb-subtitle-panel-placement button[data-placement="left"],
+  .jpdb-subtitle-panel-placement button[data-placement="right"] {
+    display: none;
+  }
+}
 .jpdb-subtitle-panel-placement svg {
   width: 15px;
   height: 15px;
