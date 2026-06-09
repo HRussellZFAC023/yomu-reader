@@ -11048,7 +11048,7 @@ ${spelling}`);
       if (placement !== "bottom") this.clampStoredSideWidthForCurrentVideo(placement);
       this.options.onSettingsChange();
       this.renderOpenSubtitlePanel();
-      this.clearVideoInsetForTranscriptPanel();
+      this.videoInset.clear(this.video);
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
     }
