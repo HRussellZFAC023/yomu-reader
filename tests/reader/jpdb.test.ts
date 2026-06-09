@@ -9978,10 +9978,10 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps used-in vocabulary words free of reader underline styling', () => {
+    it('does not suppress reader underline styling on used-in vocabulary words', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-jpdb-used-in-term .jpdb-reader-word { --jpdb-reader-word-decoration-source: transparent; --jpdb-reader-word-underline: transparent; text-decoration-color: transparent !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-jpdb-used-in-term .jpdb-reader-word');
     });
 
     it('opens the top-level JPDB definition source by default', () => {

@@ -177,6 +177,7 @@ export class CardPopoverRenderer {
     private renderAnkiExistingSection(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
         return data.loading ? '' : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
             suppressReviewButtons: Boolean(view.reviewButtons),
+            sourceAttributes: (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded),
         });
     }
 

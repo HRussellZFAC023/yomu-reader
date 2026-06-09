@@ -1,6 +1,7 @@
 import { ANKI_CONNECT_ADDON_URL, DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom/index';
-import { resolveUiLanguage, uiText } from '../app/i18n';
+import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { hasUserscriptAnkiBridge } from '../anki/index';
 import { hasJitenApiCredential, hasJpdbApiCredential, readApiCredentialsFromFormData } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
@@ -87,11 +88,23 @@ function renderStatusAction(action: { label: string; href?: string; suffix?: str
 
 function ankiStatusActions(action: SettingsStatusAction | undefined, language: InterfaceLanguage): { label: string; href?: string; suffix?: string }[] {
     if (action === 'anki-unreachable') {
-        return [
+        const actions = [
             { label: uiText(language, 'ankiStatusOpenDesktop') },
             { label: uiText(language, 'ankiStatusInstallAddon'), href: ANKI_CONNECT_ADDON_URL },
             { label: uiText(language, 'ankiStatusMobileDocs'), href: MOBILE_ANKI_SETUP_DOCS_URL, suffix: uiText(language, 'ankiStatusUseDesktopUrl') },
         ];
+        if (typeof location !== 'undefined' && location.hostname && !['127.0.0.1', 'localhost', '::1'].includes(location.hostname)) {
+            if (!hasUserscriptAnkiBridge()) {
+                actions.unshift(
+                    { label: uiText(language, 'ankiStatusEnableUserscript') },
+                    { label: uiText(language, 'ankiStatusRefreshAndCheck') }
+                );
+            }
+            actions.push({
+                label: formatUiText(language, 'ankiHostedCorsHint', { origin: location.origin }),
+            });
+        }
+        return actions;
     }
     return [];
 }

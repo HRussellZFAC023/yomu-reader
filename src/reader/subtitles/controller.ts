@@ -2263,7 +2263,7 @@ export class SubtitlePlayerController {
         syncSubtitleDrawerButton(panelButton, {
             disabled: state.disabled,
             pressed: state.panelOpen,
-            placement: this.effectiveTranscriptPlacement,
+            placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
             language: this.options.getSettings().interfaceLanguage,
         });
     }

@@ -1,4 +1,5 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiRenderedCard } from './index';
+import { ANKI_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
@@ -13,6 +14,15 @@ interface AnkiCardSanitizeOptions {
 
 interface RenderAnkiExistingSectionOptions {
     suppressReviewButtons?: boolean;
+    sourceAttributes?: (key: string, initiallyExpanded?: boolean) => string;
+}
+
+function ankiDetailsStateAttributes(options: RenderAnkiExistingSectionOptions, key: string, initiallyOpen: boolean): string {
+    return options.sourceAttributes ? options.sourceAttributes(key, initiallyOpen) : initiallyOpen ? 'open' : '';
+}
+
+function ankiDeckSourceStateKey(note: AnkiExistingNote): string {
+    return `${ANKI_SOURCE_ID}:deck:${note.deckNames.join('/') || note.modelName}`;
 }
 
 const POPOVER_ANKI_SANITIZE: AnkiCardSanitizeOptions = {
@@ -65,7 +75,7 @@ export function renderAnkiExistingSection(
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" open>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
                 <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ''}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(summary)}</small>
@@ -154,7 +164,7 @@ function renderAnkiExistingNote(
         ${content}
     </div>`;
     }
-    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}"${open ? ' open' : ''}>
+    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
         <summary class="jpdb-reader-anki-existing-note-title">
             <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml(ankiNoteIdentityLabel(note, language))}</strong></span>
             <small>${escapeHtml(preview.summary)}</small>

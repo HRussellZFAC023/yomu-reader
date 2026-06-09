@@ -254,6 +254,29 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('shows the remembered transcript placement on the closed rail toggle', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitleTranscriptPlacement: 'left' as const,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+            expect(button.getAttribute('aria-pressed')).toBe('false');
+            expect(button.innerHTML).toContain('M10 5v14');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not mount native subtitle file inputs inside the floating player', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
