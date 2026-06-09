@@ -6363,8 +6363,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   overflow-wrap: anywhere;
 }
 .jpdb-reader-jpdb-compound-head {
-  display: grid;
-  gap: 0;
+  display: inline;
   max-width: 100%;
 }
 .jpdb-reader-jiten-related-head {
@@ -6386,11 +6385,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   font-weight: 650;
   line-height: 1;
 }
-.jpdb-reader-jiten-related-head .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: transparent;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration-color: transparent !important;
-}
+
 .jpdb-reader-jpdb-term-with-reading {
   display: inline-grid;
   grid-template-rows: auto auto;
@@ -6423,77 +6418,7 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   font-weight: var(--jpdb-reader-popup-font-weight, 400);
   line-height: 1.25;
 }
-.jpdb-reader-jpdb-used-in-term .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: transparent;
-  --jpdb-reader-word-underline: transparent;
-  text-decoration-color: transparent !important;
-}
-.jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-term .jpdb-reader-word {
-  --jpdb-reader-jpdb-highlight: color-mix(
-    in srgb,
-    var(--jpdb-reader-jpdb-color, var(--jpdb-reader-accent)) 22%,
-    var(--jpdb-reader-paper) 78%
-  );
-  --jpdb-reader-status-highlight: color-mix(
-    in srgb,
-    var(--jpdb-reader-status-color, var(--jpdb-reader-accent)) 22%,
-    var(--jpdb-reader-paper) 78%
-  );
-  --jpdb-reader-pitch-highlight: color-mix(
-    in srgb,
-    var(--jpdb-reader-pitch-color, var(--jpdb-reader-accent)) 20%,
-    var(--jpdb-reader-paper) 80%
-  );
-  --jpdb-reader-pitch-highlight-shadow: none;
-  box-shadow: 0 0 0 1px
-    color-mix(
-      in srgb,
-      var(--jpdb-reader-word-highlight-source, transparent) 58%,
-      transparent
-    ) !important;
-  color: var(--jpdb-reader-text) !important;
-  text-shadow: none !important;
-}
-.jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-term .jpdb-reader-furi {
-  color: color-mix(in srgb, var(--jpdb-reader-text) 64%, var(--jpdb-reader-muted)) !important;
-  font-weight: 650;
-}
-@media (prefers-color-scheme: light) {
-  :root:not(.jpdb-reader-theme-dark)
-    .jpdb-reader-jpdb-used-in-term
-    .jpdb-reader-word {
-    --jpdb-reader-jpdb-highlight: color-mix(
-      in srgb,
-      var(--jpdb-reader-jpdb-color, var(--jpdb-reader-accent)) 22%,
-      var(--jpdb-reader-paper) 78%
-    );
-    --jpdb-reader-status-highlight: color-mix(
-      in srgb,
-      var(--jpdb-reader-status-color, var(--jpdb-reader-accent)) 22%,
-      var(--jpdb-reader-paper) 78%
-    );
-    --jpdb-reader-pitch-highlight: color-mix(
-      in srgb,
-      var(--jpdb-reader-pitch-color, var(--jpdb-reader-accent)) 20%,
-      var(--jpdb-reader-paper) 80%
-    );
-    --jpdb-reader-pitch-highlight-shadow: none;
-    box-shadow: 0 0 0 1px
-      color-mix(
-        in srgb,
-        var(--jpdb-reader-word-highlight-source, transparent) 58%,
-        transparent
-      ) !important;
-    color: var(--jpdb-reader-text) !important;
-    text-shadow: none !important;
-  }
-  :root:not(.jpdb-reader-theme-dark)
-    .jpdb-reader-jpdb-used-in-term
-    .jpdb-reader-furi {
-    color: color-mix(in srgb, var(--jpdb-reader-text) 64%, var(--jpdb-reader-muted)) !important;
-    font-weight: 650;
-  }
-}
+
 .jpdb-reader-jpdb-compound-reading,
 .jpdb-reader-jpdb-compounds small,
 .jpdb-reader-jpdb-used-in small,

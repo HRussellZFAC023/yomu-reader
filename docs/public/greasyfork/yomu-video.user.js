@@ -1921,7 +1921,7 @@
       ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
       ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
       ankiStatusRefreshAndCheck: "Refresh, then check again",
-      ankiHostedCorsHint: "Advanced: direct browser access needs this origin in AnkiConnect webCorsOriginList.",
+      ankiHostedCorsHint: "Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
@@ -2840,7 +2840,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続にはこのオリジンをAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -7285,7 +7285,8 @@ ${spelling}`);
       document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
       applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
       applyGenericVideoInsetIfNeeded(options, metrics);
-      requestYouTubePlayerResize(metrics.width, metrics.height);
+      resizeYouTubePlayer(metrics.width, metrics.height);
+      dispatchVideoLayoutResize();
     }
     clear(video) {
       if (!hasActiveVideoInset(this.lastSignature)) return;
@@ -7299,6 +7300,7 @@ ${spelling}`);
       for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
       if (video) clearGenericVideoInset(video);
       resetYouTubePlayerResizeTracking();
+      dispatchVideoLayoutResize();
     }
   }
   function hasActiveVideoInset(lastSignature) {
@@ -7452,7 +7454,7 @@ ${spelling}`);
   function rectArea(rect) {
     return Math.max(0, rect.width) * Math.max(0, rect.height);
   }
-  function requestYouTubePlayerResize(width, height) {
+  function resizeYouTubePlayer(width, height) {
     if (!isYouTubePage$1()) return;
     const signature = youtubeResizeSignature(width, height);
     if (signature === lastYouTubePlayerResizeSignature) return;
@@ -7462,25 +7464,22 @@ ${spelling}`);
       if (canResizeYouTubePlayer(player, width, height)) player.setSize(Math.round(width), Math.round(height));
     } catch {
     }
-    dispatchWindowEvent(createWindowEvent("resize"));
-    scheduleYouTubeResizeEvent();
   }
   let lastYouTubePlayerResizeSignature = "";
-  let pendingYouTubeResizeEvent;
+  let pendingVideoLayoutResize;
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
-  function scheduleYouTubeResizeEvent() {
-    if (pendingYouTubeResizeEvent !== void 0) window.clearTimeout(pendingYouTubeResizeEvent);
-    pendingYouTubeResizeEvent = window.setTimeout(() => {
-      pendingYouTubeResizeEvent = void 0;
+  function dispatchVideoLayoutResize() {
+    dispatchWindowEvent(createWindowEvent("resize"));
+    if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
+    pendingVideoLayoutResize = window.setTimeout(() => {
+      pendingVideoLayoutResize = void 0;
       dispatchWindowEvent(createWindowEvent("resize"));
     }, 80);
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
-    if (pendingYouTubeResizeEvent !== void 0) window.clearTimeout(pendingYouTubeResizeEvent);
-    pendingYouTubeResizeEvent = void 0;
   }
   function youtubeMoviePlayer() {
     return document.querySelector("#movie_player");
@@ -9445,6 +9444,7 @@ ${spelling}`);
     secondarySelectionRequest = 0;
     subtitleSourceContextKey = "";
     pausePanelOpen = false;
+    pausePanelDismissed = false;
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -9739,6 +9739,7 @@ ${spelling}`);
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => this.syncPauseTranscriptPanel(), this.eventOptions({ passive: true }));
       video.addEventListener("play", () => {
+        this.pausePanelDismissed = false;
         this.closePauseTranscriptPanel();
         this.scheduleAlignToVideo();
       }, this.eventOptions({ passive: true }));
@@ -11055,7 +11056,7 @@ ${spelling}`);
       syncSubtitleDrawerButton(panelButton, {
         disabled: state.disabled,
         pressed: state.panelOpen,
-        placement: this.effectiveTranscriptPlacement,
+        placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
         language: this.options.getSettings().interfaceLanguage
       });
     }
@@ -11150,6 +11151,7 @@ ${spelling}`);
     openLinesPanel(options = {}) {
       if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
       const persist = options.persist ?? true;
+      if (!options.autoPause) this.pausePanelDismissed = false;
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = "lines";
       this.showTranscriptPanelElement();
@@ -11209,6 +11211,7 @@ ${spelling}`);
     openTracksPanel(options = {}) {
       if (!this.transcriptPanel) return;
       const persist = options.persist ?? true;
+      if (!options.autoPause) this.pausePanelDismissed = false;
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = "tracks";
       this.showTranscriptPanelElement();
@@ -11228,7 +11231,10 @@ ${spelling}`);
     closeTranscriptPanel(options = {}) {
       if (!this.transcriptPanel) return;
       const persist = options.persist ?? true;
-      if (!options.autoPause) this.pausePanelOpen = false;
+      if (!options.autoPause) {
+        this.pausePanelOpen = false;
+        if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
+      }
       this.hideTranscriptPanelElement();
       if (persist) {
         this.options.getSettings().subtitleTranscriptVisible = false;
@@ -11243,7 +11249,7 @@ ${spelling}`);
         this.closePauseTranscriptPanel();
         return;
       }
-      if (this.isTranscriptPanelOpen()) return;
+      if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
       this.openLinesPanel({ persist: false, autoPause: true });
     }
     closePauseTranscriptPanel() {

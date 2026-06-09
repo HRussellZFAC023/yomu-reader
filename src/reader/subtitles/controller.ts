@@ -398,6 +398,7 @@ export class SubtitlePlayerController {
     private secondarySelectionRequest = 0;
     private subtitleSourceContextKey = '';
     private pausePanelOpen = false;
+    private pausePanelDismissed = false;
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -717,6 +718,7 @@ export class SubtitlePlayerController {
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('pause', () => this.syncPauseTranscriptPanel(), this.eventOptions({ passive: true }));
         video.addEventListener('play', () => {
+            this.pausePanelDismissed = false;
             this.closePauseTranscriptPanel();
             this.scheduleAlignToVideo();
         }, this.eventOptions({ passive: true }));
@@ -2371,6 +2373,7 @@ export class SubtitlePlayerController {
     private openLinesPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
         const persist = options.persist ?? true;
+        if (!options.autoPause) this.pausePanelDismissed = false;
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = 'lines';
         this.showTranscriptPanelElement();
@@ -2436,6 +2439,7 @@ export class SubtitlePlayerController {
     private openTracksPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel) return;
         const persist = options.persist ?? true;
+        if (!options.autoPause) this.pausePanelDismissed = false;
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = 'tracks';
         this.showTranscriptPanelElement();
@@ -2457,7 +2461,13 @@ export class SubtitlePlayerController {
     private closeTranscriptPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel) return;
         const persist = options.persist ?? true;
-        if (!options.autoPause) this.pausePanelOpen = false;
+        if (!options.autoPause) {
+            this.pausePanelOpen = false;
+            // An explicit close while paused must stick: otherwise the "open panel
+            // when paused" feature reopens it on the next tick and the toggle can
+            // never close it. Re-arm on the next play (see the play listener).
+            if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
+        }
         this.hideTranscriptPanelElement();
         if (persist) {
             this.options.getSettings().subtitleTranscriptVisible = false;
@@ -2473,7 +2483,7 @@ export class SubtitlePlayerController {
             this.closePauseTranscriptPanel();
             return;
         }
-        if (this.isTranscriptPanelOpen()) return;
+        if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
         this.openLinesPanel({ persist: false, autoPause: true });
     }
 

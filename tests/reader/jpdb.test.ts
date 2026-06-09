@@ -422,7 +422,7 @@ function testCardPopoverRenderer(settings: Partial<ReaderSettings> = {}): CardPo
         renderWordHistory: () => '',
         renderWordPills: () => '',
         renderDefinitionSources: () => '',
-        dictionarySourceAttributes: () => '',
+        dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
         dictionaryLabel: name => name,
     });
 }
