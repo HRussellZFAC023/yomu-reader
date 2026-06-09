@@ -276,10 +276,11 @@ function callRemoveEventListener(
 }
 
 function callWithUnshadowedWindowDispatch(event: Event): DispatchCallResult {
+    const target = (window as any).wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor('dispatchEvent');
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-        if (!Reflect.deleteProperty(window, 'dispatchEvent')) return { called: false };
+        if (!Reflect.deleteProperty(target, 'dispatchEvent')) return { called: false };
         return callEventTargetMethod(readMethod<EventTarget['dispatchEvent']>(window, 'dispatchEvent'), window, event);
     } catch (error) {
         return { called: false, error };
@@ -293,10 +294,11 @@ function callWithUnshadowedWindowAddEventListener(
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
 ): AddListenerCallResult {
+    const target = (window as any).wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor('addEventListener');
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-        if (!Reflect.deleteProperty(window, 'addEventListener')) return { called: false };
+        if (!Reflect.deleteProperty(target, 'addEventListener')) return { called: false };
         return callAddEventListener(readMethod<EventTarget['addEventListener']>(window, 'addEventListener'), window, type, listener, options);
     } catch (error) {
         return { called: false, error };
@@ -310,10 +312,11 @@ function callWithUnshadowedWindowRemoveEventListener(
     listener: EventListenerOrEventListenerObject,
     options?: boolean | EventListenerOptions,
 ): AddListenerCallResult {
+    const target = (window as any).wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor('removeEventListener');
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-        if (!Reflect.deleteProperty(window, 'removeEventListener')) return { called: false };
+        if (!Reflect.deleteProperty(target, 'removeEventListener')) return { called: false };
         return callRemoveEventListener(readMethod<EventTarget['removeEventListener']>(window, 'removeEventListener'), window, type, listener, options);
     } catch (error) {
         return { called: false, error };
@@ -324,14 +327,16 @@ function callWithUnshadowedWindowRemoveEventListener(
 
 function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener', descriptor: PropertyDescriptor): void {
     try {
-        Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
+        const target = (window as any).wrappedJSObject || window;
+        Object.defineProperty(target, key, normalizedPropertyDescriptor(descriptor));
     } catch {
     }
 }
 
 export function safeWindowPropertyDescriptor(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener'): PropertyDescriptor | undefined {
     try {
-        return Object.getOwnPropertyDescriptor(window, key);
+        const target = (window as any).wrappedJSObject || window;
+        return Object.getOwnPropertyDescriptor(target, key);
     } catch {
         return undefined;
     }
