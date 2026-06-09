@@ -118,9 +118,9 @@ export class SubtitleVideoInsetAdapter {
         }
     }
 
-    apply(options: ApplySubtitleVideoInsetOptions): void {
+    apply(options: ApplySubtitleVideoInsetOptions): boolean {
         const metrics = videoInsetMetrics(options);
-        if (metrics.signature === this.lastSignature) return;
+        if (metrics.signature === this.lastSignature) return false;
 
         this.lastSignature = metrics.signature;
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-left', options.side === 'left');
@@ -131,10 +131,11 @@ export class SubtitleVideoInsetAdapter {
         applyGenericVideoInsetIfNeeded(options, metrics);
         resizeYouTubePlayer(metrics.width, metrics.height);
         dispatchVideoLayoutResize();
+        return true;
     }
 
-    clear(video?: HTMLVideoElement): void {
-        if (!hasActiveVideoInset(this.lastSignature)) return;
+    clear(video?: HTMLVideoElement): boolean {
+        if (!hasActiveVideoInset(this.lastSignature)) return false;
         this.lastSignature = '';
         document.documentElement.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
         document.documentElement.style.removeProperty('--jpdb-subtitle-video-inset');
@@ -149,6 +150,7 @@ export class SubtitleVideoInsetAdapter {
         // recompute the <video> element size, so it keeps the stale inset size
         // until something forces a relayout. Nudge it like exiting fullscreen does.
         dispatchVideoLayoutResize();
+        return true;
     }
 }
 

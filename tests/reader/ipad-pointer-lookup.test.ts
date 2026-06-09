@@ -358,4 +358,24 @@ describe('iPad pointer lookup', () => {
             document.body.replaceChildren();
         }
     });
+
+    it('allows pointer text lookup inside subtitle player and list roots', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-text">
+                    <span id="target">ハグ</span>
+                </div>
+            </div>
+        `;
+        try {
+            const target = document.getElementById('target')!;
+            const node = target.firstChild as Text;
+            const candidate = pointerTextLookupFromTextNode(node, 0);
+
+            expect(candidate).not.toBeNull();
+            expect(candidate?.text).toBe('ハグ');
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
 });

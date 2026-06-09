@@ -7888,7 +7888,7 @@ ${spelling}`);
     }
     apply(options) {
       const metrics = videoInsetMetrics(options);
-      if (metrics.signature === this.lastSignature) return;
+      if (metrics.signature === this.lastSignature) return false;
       this.lastSignature = metrics.signature;
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
@@ -7898,9 +7898,10 @@ ${spelling}`);
       applyGenericVideoInsetIfNeeded(options, metrics);
       resizeYouTubePlayer(metrics.width, metrics.height);
       dispatchVideoLayoutResize();
+      return true;
     }
     clear(video) {
-      if (!hasActiveVideoInset(this.lastSignature)) return;
+      if (!hasActiveVideoInset(this.lastSignature)) return false;
       this.lastSignature = "";
       document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
       document.documentElement.style.removeProperty("--jpdb-subtitle-video-inset");
@@ -7912,6 +7913,7 @@ ${spelling}`);
       if (video) clearGenericVideoInset(video);
       resetYouTubePlayerResizeTracking();
       dispatchVideoLayoutResize();
+      return true;
     }
   }
   function hasActiveVideoInset(lastSignature) {
@@ -12565,8 +12567,8 @@ ${spelling}`);
       this.syncTranscriptResizeHandle(layout);
       this.syncDrawerButtons(this.hasVisibleSubtitleLines());
       if (!options.skipInset) {
-        this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
-        if (options.realignAfterInset) this.scheduleTranscriptPanelRealignAfterInset();
+        const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
+        if (options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
       }
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
@@ -12649,14 +12651,13 @@ ${spelling}`);
     applyVideoInsetForTranscriptLayout(layout, videoRect = this.videoLayoutRect()) {
       if (!this.video) {
         this.clearVideoInsetForTranscriptPanel();
-        return;
+        return false;
       }
       if (layout.placement === "bottom") {
-        this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect);
-        return;
+        return this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect);
       }
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-      this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
+      return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
       return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
@@ -12696,15 +12697,15 @@ ${spelling}`);
     clearVideoInsetForTranscriptPanel() {
       this.transcriptLayoutReferenceRect = void 0;
       this.transcriptLayoutReferenceViewport = "";
-      this.videoInset.clear(this.video);
+      return this.videoInset.clear(this.video);
     }
     applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect()) {
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
-        return;
+        return false;
       }
       const panelRect = this.transcriptPanel?.getBoundingClientRect();
-      this.videoInset.apply({
+      return this.videoInset.apply({
         video: this.video,
         side,
         playerSize,

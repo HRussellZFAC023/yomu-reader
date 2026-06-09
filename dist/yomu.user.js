@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.47
+// @version      0.6.48
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-DbbCs/v4M8TirftF7KMU+KDXDEm02EJdHta9qsLDhxo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-u73WCTleN1xbw8fEwgv9/ZZdwSCWts+PQYH3YBSKOvg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Qb5YMvHOEGGWpuVUxyydx9VjxU9r7pFOFIIHbpSrX9w=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -32049,20 +32049,30 @@ ${glossaryKey}`;
     };
   }
   function isPointerTextParentEligible(parent) {
+    const insideSubtitle = Boolean(parent.closest(".jpdb-subtitle-player, .jpdb-subtitle-list"));
     const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
     let current = parent;
     while (current) {
-      if (!isPointerTextElementEligible(current, allowReaderRoot)) return false;
+      if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle)) return false;
       current = current.parentElement;
     }
     return true;
   }
-  function isPointerTextElementEligible(element2, allowReaderRoot = false) {
+  function isPointerTextElementEligible(element2, allowReaderRoot = false, insideSubtitle = false) {
     const style = getComputedStyle(element2);
-    return elementPassesPointerTextAttributes(element2, allowReaderRoot) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
+    return elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
   }
-  function elementPassesPointerTextAttributes(element2, allowReaderRoot) {
-    return (!element2.matches(POINTER_TEXT_SKIP_SELECTOR) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$1)) && !element2.hasAttribute("hidden") && !element2.hasAttribute("inert") && element2.getAttribute("aria-hidden")?.toLowerCase() !== "true";
+  function elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle = false) {
+    if (element2.hasAttribute("hidden") || element2.hasAttribute("inert") || element2.getAttribute("aria-hidden")?.toLowerCase() === "true") {
+      return false;
+    }
+    if (insideSubtitle) {
+      if (element2.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable="true"],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
+        return false;
+      }
+      return true;
+    }
+    return !element2.matches(POINTER_TEXT_SKIP_SELECTOR) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$1);
   }
   function stylePassesPointerTextLookup(style) {
     return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
