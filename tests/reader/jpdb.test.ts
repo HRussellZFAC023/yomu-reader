@@ -3310,10 +3310,10 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
     });
 
-    it('keeps compact popover lookup pills in one horizontal touch row', () => {
+    it('wraps compact popover lookup pills onto multiple rows when they overflow', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin: 3px -4px -6px; padding: 3px 4px 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin: 3px -4px -6px; padding: 3px 4px 6px; overflow: visible; }');
         expect(normalizedCss).toContain('@container (max-width: 340px) { .jpdb-reader-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; }');
         expect(normalizedCss).toContain('.jpdb-reader-word-pills { grid-column: 1 / -1; grid-row: 3; width: 100%; gap: 4px; margin-top: 2px; overscroll-behavior-inline: contain; padding-bottom: 4px; }');
         expect(normalizedCss).toContain('.jpdb-reader-action-pill { min-height: 34px !important; }');
