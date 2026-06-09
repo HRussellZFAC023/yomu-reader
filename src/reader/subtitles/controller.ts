@@ -2710,14 +2710,14 @@ export class SubtitlePlayerController {
                 startX,
                 startY,
             }));
-            this.positionTranscriptPanel();
+            this.positionTranscriptPanel({ skipInset: true });
         };
 
         const onUp = () => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
             saveTranscriptPanelSize(this.transcriptPanelSize);
-            this.positionTranscriptPanel();
+            this.positionTranscriptPanel({ realignAfterInset: true });
         };
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
@@ -3151,7 +3151,7 @@ export class SubtitlePlayerController {
         else this.renderTrackPanel();
     }
 
-    private positionTranscriptPanel(options: { realignAfterInset?: boolean } = {}): void {
+    private positionTranscriptPanel(options: { realignAfterInset?: boolean; skipInset?: boolean } = {}): void {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
             return;
@@ -3178,8 +3178,10 @@ export class SubtitlePlayerController {
         this.syncTranscriptPlacementClass();
         this.syncTranscriptResizeHandle(layout);
         this.syncDrawerButtons(this.hasVisibleSubtitleLines());
-        this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
-        if (options.realignAfterInset) this.scheduleTranscriptPanelRealignAfterInset();
+        if (!options.skipInset) {
+            this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
+            if (options.realignAfterInset) this.scheduleTranscriptPanelRealignAfterInset();
+        }
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
@@ -3244,6 +3246,7 @@ export class SubtitlePlayerController {
     }
 
     private shouldUseBottomTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
+        if (!isYouTubePage()) return false;
         if (layout.placement === 'bottom' || !this.video) return false;
         if (isYouTubeTheaterMode()) return true;
         if (videoRect.width <= 0) return false;
@@ -3267,7 +3270,7 @@ export class SubtitlePlayerController {
     }
 
     private transcriptLayoutReferenceVideoRect(viewportWidth: number, viewportHeight: number): DOMRect {
-        const current = this.videoLayoutRect();
+        const current = this.videoInset.measureWithoutInset(this.video, () => this.videoLayoutRect());
         const viewportKey = `${viewportWidth}x${viewportHeight}`;
         // A degenerate rect (player mid-resize, e.g. exiting fullscreen) would
         // otherwise latch in as the reference and shrink the video to nothing.

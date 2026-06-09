@@ -12737,6 +12737,7 @@ html.jpdb-reader-doodle-active * {
   overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  container-type: inline-size;
   border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 88%, var(--jpdb-reader-video-grid-line));
   border-radius: 22px;
   background: color-mix(in srgb, var(--jpdb-reader-bg) 94%, color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent));
@@ -12946,6 +12947,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
+}
+@container (max-width: 400px) {
+  .jpdb-subtitle-drawer-head {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .jpdb-subtitle-drawer-actions {
+    justify-content: flex-start;
+  }
 }
 .jpdb-subtitle-drawer-auto {
   display: inline-flex;

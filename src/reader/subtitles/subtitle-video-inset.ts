@@ -15,6 +15,109 @@ export interface ApplySubtitleVideoInsetOptions {
 export class SubtitleVideoInsetAdapter {
     private lastSignature = '';
 
+    hasActiveInset(): boolean {
+        return hasActiveVideoInset(this.lastSignature);
+    }
+
+    measureWithoutInset<T>(video: HTMLVideoElement | undefined, callback: () => T): T {
+        if (!this.hasActiveInset()) {
+            return callback();
+        }
+        const classes = {
+            left: document.documentElement.classList.contains('jpdb-subtitle-video-inset-left'),
+            right: document.documentElement.classList.contains('jpdb-subtitle-video-inset-right'),
+            bottom: document.documentElement.classList.contains('jpdb-subtitle-video-inset-bottom'),
+        };
+        const docInset = document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset');
+        const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+        const watchFlexyStyles = watchFlexy ? {
+            width: watchFlexy.style.getPropertyValue('--ytd-watch-flexy-player-width'),
+            height: watchFlexy.style.getPropertyValue('--ytd-watch-flexy-player-height'),
+            minHeight: watchFlexy.style.getPropertyValue('--ytd-watch-flexy-min-player-height'),
+        } : null;
+
+        const containers = youtubePlayerContainers();
+        const containerStyles = containers.map(element => {
+            const styles: Record<string, string> = {};
+            for (const prop of ['width', 'max-width', 'min-width', 'height', 'max-height', 'min-height', 'margin-left', 'margin-right']) {
+                styles[prop] = element.style.getPropertyValue(prop);
+            }
+            return { element, styles };
+        });
+
+        const target = video ? (genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video, 'right')) : null;
+        const targetStyles = target ? {
+            width: target.style.width,
+            height: target.style.height,
+            maxWidth: target.style.maxWidth,
+            maxHeight: target.style.maxHeight,
+            minWidth: target.style.minWidth,
+            minHeight: target.style.minHeight,
+            marginLeft: target.style.marginLeft,
+            marginRight: target.style.marginRight,
+            justifySelf: target.style.justifySelf,
+            objectFit: target.style.objectFit,
+        } : null;
+        const videoStyles = video && target !== video ? {
+            height: video.style.height,
+            maxHeight: video.style.maxHeight,
+            minHeight: video.style.minHeight,
+            objectFit: video.style.objectFit,
+        } : null;
+
+        document.documentElement.classList.remove('jpdb-subtitle-video-inset-left', 'jpdb-subtitle-video-inset-right', 'jpdb-subtitle-video-inset-bottom');
+        document.documentElement.style.removeProperty('--jpdb-subtitle-video-inset');
+        if (watchFlexy) {
+            watchFlexy.style.removeProperty('--ytd-watch-flexy-player-width');
+            watchFlexy.style.removeProperty('--ytd-watch-flexy-player-height');
+            watchFlexy.style.removeProperty('--ytd-watch-flexy-min-player-height');
+        }
+        for (const element of containers) {
+            clearYouTubePlayerContainerInset(element);
+        }
+        if (target) {
+            for (const prop of ['width', 'height', 'max-width', 'max-height', 'min-width', 'min-height', 'margin-left', 'margin-right', 'justify-self', 'object-fit']) {
+                target.style.removeProperty(prop);
+            }
+        }
+        if (video && target !== video) {
+            for (const prop of ['height', 'max-height', 'min-height', 'object-fit']) {
+                video.style.removeProperty(prop);
+            }
+        }
+
+        try {
+            return callback();
+        } finally {
+            if (classes.left) document.documentElement.classList.add('jpdb-subtitle-video-inset-left');
+            if (classes.right) document.documentElement.classList.add('jpdb-subtitle-video-inset-right');
+            if (classes.bottom) document.documentElement.classList.add('jpdb-subtitle-video-inset-bottom');
+            if (docInset) document.documentElement.style.setProperty('--jpdb-subtitle-video-inset', docInset);
+            if (watchFlexy && watchFlexyStyles) {
+                if (watchFlexyStyles.width) watchFlexy.style.setProperty('--ytd-watch-flexy-player-width', watchFlexyStyles.width);
+                if (watchFlexyStyles.height) watchFlexy.style.setProperty('--ytd-watch-flexy-player-height', watchFlexyStyles.height);
+                if (watchFlexyStyles.minHeight) watchFlexy.style.setProperty('--ytd-watch-flexy-min-player-height', watchFlexyStyles.minHeight);
+            }
+            for (const item of containerStyles) {
+                for (const [prop, val] of Object.entries(item.styles)) {
+                    if (val) item.element.style.setProperty(prop, val);
+                }
+            }
+            if (target && targetStyles) {
+                for (const [prop, val] of Object.entries(targetStyles)) {
+                    const cssProp = prop.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
+                    if (val) target.style.setProperty(cssProp, val);
+                }
+            }
+            if (video && videoStyles) {
+                for (const [prop, val] of Object.entries(videoStyles)) {
+                    const cssProp = prop.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
+                    if (val) video.style.setProperty(cssProp, val);
+                }
+            }
+        }
+    }
+
     apply(options: ApplySubtitleVideoInsetOptions): void {
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) return;
@@ -89,8 +192,16 @@ function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, _width: numbe
     return Math.max(180, Math.round(options.videoRect.height));
 }
 
+function isCijPage(): boolean {
+    const host = location.hostname;
+    return /(^|\.)cijapanese\.com$/i.test(host)
+        || host === 'localhost'
+        || host === '127.0.0.1'
+        || host === '';
+}
+
 function applyGenericVideoInsetIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {
-    if (!isYouTubePage() && options.video) {
+    if (isCijPage() && options.video) {
         applyGenericVideoInset(options.video, options.side, options.side === 'bottom' ? metrics.height : metrics.width, metrics.height);
     }
 }
@@ -272,6 +383,7 @@ function youtubeResizeSignature(width: number, height: number): string {
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
 function dispatchVideoLayoutResize(): void {
+    if (!isYouTubePage()) return;
     dispatchWindowEvent(createWindowEvent('resize'));
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
