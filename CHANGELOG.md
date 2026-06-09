@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.45] - 2026-06-09
+
+### Fixed
+
+- Fixed YouTube watch page elements (such as the video player, description, owner, actions, comments, and playlist header) failing to display (appearing as blank spaces) by explicitly ignoring them in the YouTube immersion filter so they are never hidden or marked as pending.
+- Fixed a TypeError (`window.dispatchEvent is not a function`) that occurred when closing or cancelling the settings dialog by routing all settings-related theme and dialog events through the unshadowed, hardened event dispatcher (`dispatchWindowEvent`).
+
 ## [0.6.44] - 2026-06-09
 
 ### Fixed

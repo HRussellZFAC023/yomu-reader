@@ -53,6 +53,7 @@ import type { AnkiLibraryScanResult } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
+import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 
 interface Refreshable {
     refresh: () => void;
@@ -1808,8 +1809,7 @@ function getReaderStorageExport(value: unknown): unknown {
 }
 
 function publishThemeSettingsChange(theme: ReaderSettings['theme'], options: { preview?: boolean } = {}): void {
-    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: options.preview === true, settings: { theme } } }));
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
 }
 
 function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {
