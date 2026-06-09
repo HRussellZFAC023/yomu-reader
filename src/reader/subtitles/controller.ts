@@ -238,7 +238,7 @@ const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
 const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
-const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
+const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 5000;
@@ -282,6 +282,9 @@ function transcriptWarmupIndexes(priority: number[], focusIndex: number, rowCoun
         ...priority,
         ...forwardIndexes(focusIndex, Math.min(rowCount, focusIndex + TRANSCRIPT_BACKGROUND_PARSE_AHEAD)),
         ...backwardIndexes(focusIndex - 1, Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND)),
+        // Then warm the whole transcript (lowest priority) so ruby is ready ahead
+        // of playback instead of appearing line-by-line as cues become active.
+        ...forwardIndexes(0, rowCount),
     ];
 }
 
@@ -3221,16 +3224,18 @@ export class SubtitlePlayerController {
     }
 
     private maxSideTranscriptWidthForVideo(
-        placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>,
+        _placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>,
         options: SubtitleDrawerLayoutOptions,
         videoRect: DOMRect,
     ): number {
         if (videoRect.width <= 0) return 0;
         const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
         const minimumPlayerWidth = minimumSideTranscriptPlayerWidth(videoRect.width);
-        return placement === 'left'
-            ? Math.floor(videoRect.right - margin * 2 - minimumPlayerWidth)
-            : Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
+        // Both placements share the same span (videoRect.left → viewport edge):
+        // when docking left the player shifts right, so the available panel width
+        // is symmetric. Using videoRect.right for left wrongly assumed the player
+        // stayed put, which forced the bottom fallback on smaller screens.
+        return Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
     }
 
     private clampStoredSideWidthForCurrentVideo(placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>): void {
@@ -3300,8 +3305,12 @@ export class SubtitlePlayerController {
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
+        // For left docking the player shifts right toward the viewport edge, so
+        // measure the room from the panel's right edge to the viewport — not the
+        // player's current (pre-shift) right edge, which under-counted and forced
+        // the bottom fallback on smaller screens.
         return layout.placement === 'left'
-            ? videoRect.right - (layout.left + layout.width + layout.margin)
+            ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin)
             : layout.left - videoRect.left - layout.margin;
     }
 

@@ -482,7 +482,7 @@ describe('SubtitlePlayerController', () => {
 
                     const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                     expect(panel.dataset.transcriptPlacement).toBe('right');
-                    expect(panel.style.width).toBe('930px');
+                    expect(panel.style.width).toBe('990px');
                     expect(panel.style.top).toBe('120px');
                     expect(internals.transcriptPanelSize.sideWidth).toBe(1200);
                 } finally {

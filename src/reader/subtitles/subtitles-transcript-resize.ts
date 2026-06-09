@@ -9,8 +9,11 @@ import type { ReaderSettings } from '../app/types';
 
 export const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
 
-export const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 340;
-const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 560;
+export const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
+// Lowered the absolute floor (was 560) so side docking stays available on
+// smaller screens instead of forcing the bottom layout; the ratio still keeps a
+// balanced player on wide screens.
+const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 400;
 const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_RATIO = 0.52;
 const TRANSCRIPT_PANEL_KEYBOARD_STEP_PX = 48;
 

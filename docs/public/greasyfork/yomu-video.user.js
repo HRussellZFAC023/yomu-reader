@@ -8880,6 +8880,61 @@ ${spelling}`);
   function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
+  const TRANSLATION_BATCH_SIZE = 25;
+  const TRANSLATION_TIMEOUT_MS = 8e3;
+  const TRANSLATION_SEPARATOR = "\n";
+  const log$1 = Logger.scope("SubtitleTranslate");
+  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage) {
+    if (!cues.length) return [];
+    const texts = cues.map((cue) => cue.text.trim());
+    const batches = batchTexts(texts, TRANSLATION_BATCH_SIZE);
+    const translated = [];
+    for (const batch of batches) {
+      const results = await translateBatch(batch, sourceLanguage, targetLanguage);
+      translated.push(...results);
+    }
+    return cues.map((cue, index) => ({
+      ...cue,
+      text: translated[index] || cue.text
+    }));
+  }
+  function batchTexts(texts, size) {
+    const batches = [];
+    for (let start = 0; start < texts.length; start += size) {
+      batches.push(texts.slice(start, start + size));
+    }
+    return batches;
+  }
+  async function translateBatch(texts, sourceLanguage, targetLanguage) {
+    const joined = texts.join(TRANSLATION_SEPARATOR);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
+    const done = log$1.time("Translate subtitle batch", { count: texts.length });
+    try {
+      const json = await requestJson$1(url, {
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        allowDirectCrossOrigin: true,
+        allowConfiguredProxy: false,
+        allowPublicProxies: false,
+        preferFetch: true,
+        failureLabel: "Subtitle translation request",
+        timeoutLabel: "Subtitle translation timed out."
+      });
+      const result = (json.sentences ?? []).map((item) => item.trans ?? "").join("");
+      const lines = result.split(TRANSLATION_SEPARATOR);
+      log$1.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
+      return padTranslationResults(lines, texts);
+    } catch (error) {
+      log$1.warn("Subtitle batch translation failed", { count: texts.length, error });
+      return texts;
+    } finally {
+      done();
+    }
+  }
+  function padTranslationResults(translated, originals) {
+    const result = translated.map((text) => text.trim());
+    while (result.length < originals.length) result.push(originals[result.length]);
+    return result;
+  }
   async function loadSubtitleTrackCues(track, options) {
     if (track.cues?.length) return { track, cues: track.cues };
     if (track.translatedFromTrackId) {
@@ -8898,8 +8953,7 @@ ${spelling}`);
     const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
-    const { translateSubtitleCues: translateSubtitleCues2 } = await Promise.resolve().then(() => subtitleTranslate);
-    const translatedCues = await translateSubtitleCues2(sourceCues, sourceTrack.language || "en", track.targetLanguage || track.language || "ja");
+    const translatedCues = await translateSubtitleCues(sourceCues, sourceTrack.language || "en", track.targetLanguage || track.language || "ja");
     track.cues = translatedCues;
     return { track, cues: translatedCues };
   }
@@ -9772,8 +9826,8 @@ ${spelling}`);
     }
   }
   const TRANSCRIPT_PANEL_ANIMATION_MS = 180;
-  const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 340;
-  const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 560;
+  const TRANSCRIPT_PANEL_MIN_SIDE_WIDTH = 300;
+  const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_WIDTH = 400;
   const TRANSCRIPT_PANEL_MIN_SIDE_PLAYER_RATIO = 0.52;
   const TRANSCRIPT_PANEL_KEYBOARD_STEP_PX = 48;
   function transcriptResizeBounds(viewportWidth, viewportHeight) {
@@ -9931,7 +9985,7 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
-  const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 40;
+  const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 5e3;
@@ -9939,10 +9993,10 @@ ${spelling}`);
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
   const SUBTITLE_FILE_ACCEPT = ".srt,.vtt,.ass,.ssa,text/vtt";
-  const log$1 = Logger.scope("Subtitles");
+  const log = Logger.scope("Subtitles");
   const TRACK_LOAD_OPTIONS = {
     requestText: requestSubtitleText,
-    onYouTubeRequestError: (track, url, error) => log$1.debug("YouTube subtitle request failed", {
+    onYouTubeRequestError: (track, url, error) => log.debug("YouTube subtitle request failed", {
       label: track.label,
       ...subtitleRequestFailureDetails(url),
       error
@@ -9955,7 +10009,10 @@ ${spelling}`);
     return [
       ...priority,
       ...forwardIndexes(focusIndex, Math.min(rowCount, focusIndex + TRANSCRIPT_BACKGROUND_PARSE_AHEAD)),
-      ...backwardIndexes(focusIndex - 1, Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND))
+      ...backwardIndexes(focusIndex - 1, Math.max(0, focusIndex - TRANSCRIPT_BACKGROUND_PARSE_BEHIND)),
+      // Then warm the whole transcript (lowest priority) so ruby is ready ahead
+      // of playback instead of appearing line-by-line as cues become active.
+      ...forwardIndexes(0, rowCount)
     ];
   }
   function uniqueSubtitleParseTexts(texts) {
@@ -10124,7 +10181,7 @@ ${spelling}`);
       }, this.eventOptions({ passive: true }));
       this.discoverVideo();
       this.tick();
-      log$1.info("Subtitle controller initialized");
+      log.info("Subtitle controller initialized");
     }
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
@@ -10294,7 +10351,7 @@ ${spelling}`);
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
-      log$1.info("Subtitle video detected", videoSummary(candidate));
+      log.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
       for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
@@ -11333,14 +11390,14 @@ ${spelling}`);
       await this.writeSubtitleClipboard(text, "Subtitle clipboard copy failed");
     }
     async writeSubtitleClipboard(text, failureMessage) {
-      await navigator.clipboard?.writeText(text).catch((error) => log$1.warn(failureMessage, error));
+      await navigator.clipboard?.writeText(text).catch((error) => log.warn(failureMessage, error));
     }
     async autoCopyCurrentCue() {
       if (!this.options.getSettings().subtitleAutoCopyLine || !this.currentCue?.text.trim()) return;
       const signature = subtitleCueSignature(this.currentCue);
       if (signature === this.lastAutoCopiedCueSignature) return;
       this.lastAutoCopiedCueSignature = signature;
-      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log$1.warn("Subtitle auto-copy failed", error));
+      await navigator.clipboard?.writeText(this.currentCue.text.trim()).catch((error) => log.warn("Subtitle auto-copy failed", error));
     }
     openSubtitleFilePicker(kind) {
       const input = document.createElement("input");
@@ -11370,7 +11427,7 @@ ${spelling}`);
       if (kind === "primary") await this.selectTrack(track.id);
       else await this.selectSecondaryTrack(track.id);
       this.updateFromLoadedCues();
-      log$1.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
+      log.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
     async selectTrack(id) {
       const requestId = this.preparePrimaryTrackSelection(id);
@@ -11503,7 +11560,7 @@ ${spelling}`);
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
-      log$1.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
+      log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
       const settings = this.options.getSettings();
@@ -11813,7 +11870,7 @@ ${spelling}`);
       settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
       this.options.onSettingsChange();
       this.render();
-      log$1.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
+      log.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     togglePausePanelMode() {
       const settings = this.options.getSettings();
@@ -12416,7 +12473,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterPrimaryClear();
       this.syncControls();
-      log$1.info("Primary subtitle track cleared");
+      log.info("Primary subtitle track cleared");
     }
     clearPrimaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -12439,7 +12496,7 @@ ${spelling}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterSecondaryClear();
       this.syncControls();
-      log$1.info("Secondary subtitle track cleared");
+      log.info("Secondary subtitle track cleared");
     }
     clearSecondaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -12512,11 +12569,11 @@ ${spelling}`);
       const currentWidth = options.size?.sideWidth ?? Math.min(460, options.viewportWidth * 0.32);
       return Math.round(Math.min(currentWidth, maxWidth));
     }
-    maxSideTranscriptWidthForVideo(placement, options, videoRect) {
+    maxSideTranscriptWidthForVideo(_placement, options, videoRect) {
       if (videoRect.width <= 0) return 0;
       const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
       const minimumPlayerWidth = minimumSideTranscriptPlayerWidth(videoRect.width);
-      return placement === "left" ? Math.floor(videoRect.right - margin * 2 - minimumPlayerWidth) : Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
+      return Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
     }
     clampStoredSideWidthForCurrentVideo(placement) {
       const constrained = this.constrainedSideTranscriptWidth(placement, {
@@ -12573,7 +12630,7 @@ ${spelling}`);
       this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
-      return layout.placement === "left" ? videoRect.right - (layout.left + layout.width + layout.margin) : layout.left - videoRect.left - layout.margin;
+      return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
       this.fullscreen = Boolean(document.fullscreenElement);
@@ -14245,63 +14302,4 @@ ${spelling}`);
   registerYomuCompanion("ocr", {
     ImageOcrController
   });
-  const TRANSLATION_BATCH_SIZE = 25;
-  const TRANSLATION_TIMEOUT_MS = 8e3;
-  const TRANSLATION_SEPARATOR = "\n";
-  const log = Logger.scope("SubtitleTranslate");
-  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage) {
-    if (!cues.length) return [];
-    const texts = cues.map((cue) => cue.text.trim());
-    const batches = batchTexts(texts, TRANSLATION_BATCH_SIZE);
-    const translated = [];
-    for (const batch of batches) {
-      const results = await translateBatch(batch, sourceLanguage, targetLanguage);
-      translated.push(...results);
-    }
-    return cues.map((cue, index) => ({
-      ...cue,
-      text: translated[index] || cue.text
-    }));
-  }
-  function batchTexts(texts, size) {
-    const batches = [];
-    for (let start = 0; start < texts.length; start += size) {
-      batches.push(texts.slice(start, start + size));
-    }
-    return batches;
-  }
-  async function translateBatch(texts, sourceLanguage, targetLanguage) {
-    const joined = texts.join(TRANSLATION_SEPARATOR);
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
-    const done = log.time("Translate subtitle batch", { count: texts.length });
-    try {
-      const json = await requestJson$1(url, {
-        timeoutMs: TRANSLATION_TIMEOUT_MS,
-        allowDirectCrossOrigin: true,
-        allowConfiguredProxy: false,
-        allowPublicProxies: false,
-        preferFetch: true,
-        failureLabel: "Subtitle translation request",
-        timeoutLabel: "Subtitle translation timed out."
-      });
-      const result = (json.sentences ?? []).map((item) => item.trans ?? "").join("");
-      const lines = result.split(TRANSLATION_SEPARATOR);
-      log.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
-      return padTranslationResults(lines, texts);
-    } catch (error) {
-      log.warn("Subtitle batch translation failed", { count: texts.length, error });
-      return texts;
-    } finally {
-      done();
-    }
-  }
-  function padTranslationResults(translated, originals) {
-    const result = translated.map((text) => text.trim());
-    while (result.length < originals.length) result.push(originals[result.length]);
-    return result;
-  }
-  const subtitleTranslate = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    translateSubtitleCues
-  }, Symbol.toStringTag, { value: "Module" }));
 })();
