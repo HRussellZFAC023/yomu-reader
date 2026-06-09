@@ -96,6 +96,12 @@ function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {
     }
     try {
         const script = document.createElement('script');
+        const nonce = Array.from(document.querySelectorAll('script[nonce]'))
+            .map(el => el.getAttribute('nonce'))
+            .find(Boolean);
+        if (nonce) {
+            script.setAttribute('nonce', nonce);
+        }
         const source = injectedPagePreferenceSource(enabled);
         const trusted = createTrustedScript(source);
         if (trusted && typeof trusted === 'object') {
