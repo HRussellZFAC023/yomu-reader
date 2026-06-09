@@ -869,6 +869,7 @@ export class ReaderApp {
     }
 
     private publishThemeSettingsChange(): void {
+        if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: this.settings.theme } } }));
     }
 

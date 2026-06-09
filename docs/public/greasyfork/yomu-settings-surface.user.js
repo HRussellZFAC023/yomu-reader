@@ -2193,10 +2193,11 @@
     }
   }
   function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
       return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
     } catch (error) {
       return { called: false, error };
@@ -2205,10 +2206,11 @@
     }
   }
   function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("addEventListener");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
       return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
@@ -2217,10 +2219,11 @@
     }
   }
   function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("removeEventListener");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
       return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
@@ -2230,13 +2233,15 @@
   }
   function restoreWindowProperty(key2, descriptor) {
     try {
-      Object.defineProperty(window, key2, normalizedPropertyDescriptor(descriptor));
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key2, normalizedPropertyDescriptor(descriptor));
     } catch {
     }
   }
   function safeWindowPropertyDescriptor(key2) {
     try {
-      return Object.getOwnPropertyDescriptor(window, key2);
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key2);
     } catch {
       return void 0;
     }

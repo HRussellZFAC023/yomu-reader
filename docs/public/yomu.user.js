@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.43
+// @version      0.6.44
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-T1SKCTKqJ05ooIlD+y6oo+9VCBmlXb6HYD4Cd2rQaVM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-N1XxPkryTPGyyUOWgQc+BsZJppIN7zesXS7oAzfxR80=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-AfPpo9AHQaZLZ/4MshKjDYb9BU8+u/9BEto891L06sk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-G9eC+8fTmpJ7mwXb/gvna0LeRjxOU+SWXAFLfdqxfxk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -4850,10 +4850,11 @@
     }
   }
   function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "dispatchEvent")) return { called: false };
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
       return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
     } catch (error) {
       return { called: false, error };
@@ -4862,10 +4863,11 @@
     }
   }
   function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("addEventListener");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "addEventListener")) return { called: false };
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
       return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
@@ -4874,10 +4876,11 @@
     }
   }
   function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
     const descriptor = safeWindowPropertyDescriptor("removeEventListener");
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
-      if (!Reflect.deleteProperty(window, "removeEventListener")) return { called: false };
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
       return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
@@ -4887,13 +4890,15 @@
   }
   function restoreWindowProperty(key, descriptor) {
     try {
-      Object.defineProperty(window, key, normalizedPropertyDescriptor(descriptor));
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key, normalizedPropertyDescriptor(descriptor));
     } catch {
     }
   }
   function safeWindowPropertyDescriptor(key) {
     try {
-      return Object.getOwnPropertyDescriptor(window, key);
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key);
     } catch {
       return void 0;
     }
@@ -34655,11 +34660,31 @@ ${glossaryKey}`;
     }
     try {
       const script = document.createElement("script");
-      script.textContent = injectedPagePreferenceSource(enabled);
+      const source = injectedPagePreferenceSource(enabled);
+      const trusted = createTrustedScript(source);
+      if (trusted && typeof trusted === "object") {
+        script.textContent = trusted;
+      } else {
+        script.textContent = source;
+      }
       parent.append(script);
       script.remove();
     } catch {
       if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+    }
+  }
+  function createTrustedScript(code) {
+    try {
+      const root = globalThis;
+      const factory = root.trustedTypes || (typeof window !== "undefined" ? window.trustedTypes : void 0) || root.unsafeWindow?.trustedTypes;
+      if (!factory) return code;
+      let policy = factory.getPolicy?.("yomu-reader-script");
+      if (!policy) {
+        policy = factory.createPolicy?.("yomu-reader-script", { createScript: (s) => s });
+      }
+      return policy && typeof policy.createScript === "function" ? policy.createScript(code) : code;
+    } catch {
+      return code;
     }
   }
   function injectedPagePreferenceSource(enabled) {
@@ -37535,6 +37560,7 @@ ${glossaryKey}`;
       applyPreferredJapaneseSiteLanguage(settings.preferJapaneseSiteLanguage);
     }
     publishThemeSettingsChange() {
+      if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
       window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings: { theme: this.settings.theme } } }));
     }
     async refreshDictionaryStyles() {

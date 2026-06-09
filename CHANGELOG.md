@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.44] - 2026-06-09
+
+### Fixed
+
+- Fixed YouTube page elements (such as the video player and description) failing to load by implementing a Trusted Types policy (`yomu-reader-script`) for injecting global language preferences, resolving CSP script blocks (`This document requires 'TrustedScript' assignment`).
+
 ## [0.6.43] - 2026-06-09
 
 ### Changed

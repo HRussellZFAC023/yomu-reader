@@ -96,11 +96,35 @@ function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {
     }
     try {
         const script = document.createElement('script');
-        script.textContent = injectedPagePreferenceSource(enabled);
+        const source = injectedPagePreferenceSource(enabled);
+        const trusted = createTrustedScript(source);
+        if (trusted && typeof trusted === 'object') {
+            (script as any).textContent = trusted;
+        } else {
+            script.textContent = source;
+        }
         parent.append(script);
         script.remove();
     } catch {
         if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+    }
+}
+
+function createTrustedScript(code: string): any {
+    try {
+        const root = globalThis as any;
+        const factory = root.trustedTypes
+            || (typeof window !== 'undefined' ? (window as any).trustedTypes : undefined)
+            || root.unsafeWindow?.trustedTypes;
+        if (!factory) return code;
+
+        let policy = factory.getPolicy?.('yomu-reader-script');
+        if (!policy) {
+            policy = factory.createPolicy?.('yomu-reader-script', { createScript: (s: string) => s });
+        }
+        return policy && typeof policy.createScript === 'function' ? policy.createScript(code) : code;
+    } catch {
+        return code;
     }
 }
 
