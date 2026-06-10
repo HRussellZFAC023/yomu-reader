@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.67
+// @version      0.6.68
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -32198,28 +32198,31 @@ ${glossaryKey}`;
     "や"
   ];
   const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
-  const POINTER_TEXT_SKIP_SELECTOR = [
+  const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
     "script",
     "style",
     "noscript",
     "textarea",
     "input",
     "select",
-    "button",
     "option",
-    "summary",
     "svg",
     "use",
     "rt",
     "rp",
     '[contenteditable="true"]',
+    READER_ROOT_SELECTOR$1
+  ].join(",");
+  const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
+    "button",
+    "summary",
     '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
-    "[onclick]",
-    READER_ROOT_SELECTOR$1
+    "[onclick]"
   ].join(",");
+  const POINTER_TEXT_SKIP_SELECTOR = `${POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR},${POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR}`;
   const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR$1} .jpdb-reader-local-glossary a[href]`;
   const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
   const YOUTUBE_METADATA_SELECTOR = [
@@ -32386,9 +32389,9 @@ ${glossaryKey}`;
     const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
     return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
   }
-  function pointerTextLookupFromTextNode(node, characterOffset) {
+  function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
     const parent = node.parentElement;
-    if (!parent || !isPointerTextParentEligible(parent)) return null;
+    if (!parent || !isPointerTextParentEligible(parent, options)) return null;
     const local = pointerTextLookupForText(parent, node.data, characterOffset);
     const contextual = pointerTextLookupContext(node, characterOffset, parent);
     return contextual ?? local;
@@ -32478,21 +32481,21 @@ ${glossaryKey}`;
       end: rangeEnd - leadingWhitespace
     };
   }
-  function isPointerTextParentEligible(parent) {
+  function isPointerTextParentEligible(parent, options = {}) {
     const insideSubtitle = Boolean(parent.closest(".jpdb-subtitle-player, .jpdb-subtitle-list"));
     const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
     let current = parent;
     while (current) {
-      if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle)) return false;
+      if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle, options)) return false;
       current = current.parentElement;
     }
     return true;
   }
-  function isPointerTextElementEligible(element2, allowReaderRoot = false, insideSubtitle = false) {
+  function isPointerTextElementEligible(element2, allowReaderRoot = false, insideSubtitle = false, options = {}) {
     const style = getComputedStyle(element2);
-    return elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
+    return elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle, options) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
   }
-  function elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle = false) {
+  function elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle = false, options = {}) {
     if (element2.hasAttribute("hidden") || element2.hasAttribute("inert") || element2.getAttribute("aria-hidden")?.toLowerCase() === "true") {
       return false;
     }
@@ -32502,7 +32505,8 @@ ${glossaryKey}`;
       }
       return true;
     }
-    return !element2.matches(POINTER_TEXT_SKIP_SELECTOR) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$1);
+    const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
+    return !element2.matches(skipSelector) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$1);
   }
   function stylePassesPointerTextLookup(style) {
     return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
@@ -39588,7 +39592,7 @@ ${glossaryKey}`;
       if (!position) return null;
       const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
       if (characterOffset === null) return null;
-      return this.lookupCandidateFromTextPosition(position.node, characterOffset);
+      return this.lookupCandidateFromTextPosition(position.node, characterOffset, options);
     }
     pointerLookupElement(x, y, eventTarget, options = {}) {
       const element2 = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
@@ -39598,8 +39602,8 @@ ${glossaryKey}`;
       const position = caretTextPositionFromPoint(x, y);
       return this.isUsablePointerTextPosition(element2, position) ? position : null;
     }
-    lookupCandidateFromTextPosition(node, characterOffset) {
-      return pointerTextLookupFromTextNode(node, characterOffset);
+    lookupCandidateFromTextPosition(node, characterOffset, options = {}) {
+      return pointerTextLookupFromTextNode(node, characterOffset, { allowInteractiveText: options.allowPassiveInteractionText });
     }
     isUsablePointerTextPosition(element2, position) {
       return Boolean(position && position.node.parentElement && (element2.contains(position.node) || position.node.parentElement.contains(element2)) && !position.node.parentElement.closest(".jpdb-reader-word"));

@@ -25,28 +25,34 @@ export const JPDB_POINTER_BOUNDARY_SEGMENTS = [
     'や',
 ];
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
-const POINTER_TEXT_SKIP_SELECTOR = [
+// Structural skips can never host a lookup; interactive skips are real page
+// text that hover lookups may read (a hover popover does not steal the click),
+// while click-driven lookups keep treating them as controls.
+const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
     'script',
     'style',
     'noscript',
     'textarea',
     'input',
     'select',
-    'button',
     'option',
-    'summary',
     'svg',
     'use',
     'rt',
     'rp',
     '[contenteditable="true"]',
+    READER_ROOT_SELECTOR,
+].join(',');
+const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
+    'button',
+    'summary',
     '[role="button"]',
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
     '[onclick]',
-    READER_ROOT_SELECTOR,
 ].join(',');
+const POINTER_TEXT_SKIP_SELECTOR = `${POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR},${POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR}`;
 const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR} .jpdb-reader-local-glossary a[href]`;
 const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
 const YOUTUBE_METADATA_SELECTOR = [
@@ -255,9 +261,13 @@ export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: n
     return candidates.find(offset => textCharacterContainsPoint(node, offset, x, y)) ?? null;
 }
 
-export function pointerTextLookupFromTextNode(node: Text, characterOffset: number): PointerTextLookup | null {
+export interface PointerTextLookupNodeOptions {
+    allowInteractiveText?: boolean;
+}
+
+export function pointerTextLookupFromTextNode(node: Text, characterOffset: number, options: PointerTextLookupNodeOptions = {}): PointerTextLookup | null {
     const parent = node.parentElement;
-    if (!parent || !isPointerTextParentEligible(parent)) return null;
+    if (!parent || !isPointerTextParentEligible(parent, options)) return null;
     const local = pointerTextLookupForText(parent, node.data, characterOffset);
     const contextual = pointerTextLookupContext(node, characterOffset, parent);
     return contextual ?? local;
@@ -367,25 +377,25 @@ function readablePointerTextContext(root: HTMLElement, target: Text): { text: st
     };
 }
 
-function isPointerTextParentEligible(parent: HTMLElement): boolean {
+function isPointerTextParentEligible(parent: HTMLElement, options: PointerTextLookupNodeOptions = {}): boolean {
     const insideSubtitle = Boolean(parent.closest('.jpdb-subtitle-player, .jpdb-subtitle-list'));
     const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
     let current: HTMLElement | null = parent;
     while (current) {
-        if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle)) return false;
+        if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle, options)) return false;
         current = current.parentElement;
     }
     return true;
 }
 
-function isPointerTextElementEligible(element: HTMLElement, allowReaderRoot = false, insideSubtitle = false): boolean {
+function isPointerTextElementEligible(element: HTMLElement, allowReaderRoot = false, insideSubtitle = false, options: PointerTextLookupNodeOptions = {}): boolean {
     const style = getComputedStyle(element);
-    return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle)
+    return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle, options)
         && stylePassesPointerTextLookup(style)
         && !isScreenReaderOnlyElement(element, style);
 }
 
-function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoot: boolean, insideSubtitle = false): boolean {
+function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoot: boolean, insideSubtitle = false, options: PointerTextLookupNodeOptions = {}): boolean {
     if (element.hasAttribute('hidden') || element.hasAttribute('inert') || element.getAttribute('aria-hidden')?.toLowerCase() === 'true') {
         return false;
     }
@@ -395,7 +405,8 @@ function elementPassesPointerTextAttributes(element: HTMLElement, allowReaderRoo
         }
         return true;
     }
-    return (!element.matches(POINTER_TEXT_SKIP_SELECTOR) || (allowReaderRoot && element.matches(READER_ROOT_SELECTOR)));
+    const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
+    return (!element.matches(skipSelector) || (allowReaderRoot && element.matches(READER_ROOT_SELECTOR)));
 }
 
 function stylePassesPointerTextLookup(style: CSSStyleDeclaration): boolean {

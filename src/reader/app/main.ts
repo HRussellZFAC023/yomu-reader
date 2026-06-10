@@ -2779,7 +2779,7 @@ export class ReaderApp {
         if (!position) return null;
         const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
         if (characterOffset === null) return null;
-        return this.lookupCandidateFromTextPosition(position.node, characterOffset);
+        return this.lookupCandidateFromTextPosition(position.node, characterOffset, options);
     }
 
     private pointerLookupElement(x: number, y: number, eventTarget: EventTarget | null, options: PointerTextLookupOptions = {}): Element | null {
@@ -2792,8 +2792,8 @@ export class ReaderApp {
         return this.isUsablePointerTextPosition(element, position) ? position : null;
     }
 
-    private lookupCandidateFromTextPosition(node: Text, characterOffset: number): PointerTextLookup | null {
-        return pointerTextLookupFromTextNode(node, characterOffset);
+    private lookupCandidateFromTextPosition(node: Text, characterOffset: number, options: PointerTextLookupOptions = {}): PointerTextLookup | null {
+        return pointerTextLookupFromTextNode(node, characterOffset, { allowInteractiveText: options.allowPassiveInteractionText });
     }
 
     private isUsablePointerTextPosition(element: Element, position: ReturnType<typeof caretTextPositionFromPoint>): position is NonNullable<ReturnType<typeof caretTextPositionFromPoint>> {
