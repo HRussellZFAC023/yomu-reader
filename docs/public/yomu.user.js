@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.48
+// @version      0.6.49
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-9VP4/hmLmbEzzynS5pUvtcnyLHrAoS+6VAWErDuM7Dc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RSrZr/XZJwxPsSB57RyH5sLm9yP1xdX8/WGyCXbeYkU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-gA3vPz94bHUcf/ut9o6JUWvYanzK3f2+JiXb3unnlBQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -37352,8 +37352,15 @@ ${glossaryKey}`;
       return new Controller({
         getSettings: () => this.settings,
         setShowFilterNotice: (visible) => void this.setYoutubeFilterNoticeVisible(visible),
-        setShowChannelRecommendations: (visible) => void this.setYoutubeChannelRecommendationsVisible(visible)
+        setShowChannelRecommendations: (visible) => void this.setYoutubeChannelRecommendationsVisible(visible),
+        parseShelfJapanese: (root) => void this.parseYoutubeShelfJapanese(root)
       });
+    }
+    async parseYoutubeShelfJapanese(root) {
+      if (!root.isConnected) return;
+      const plan = nestedTextParsePlan(root, 160);
+      if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+      await this.parseNestedJapaneseContent(root, plan, () => root.isConnected);
     }
     createImageOcrController() {
       const Controller = yomuImageOcrController();
