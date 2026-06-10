@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.54] - 2026-06-10
+
+### Fixed
+
+- Fixed Firefox extension errors "Not allowed to define cross-origin object as property" (XrayWrapper, content-script.js): restoring a page-shadowed `window.dispatchEvent`/`addEventListener` now clones the property descriptor into the page compartment via `cloneInto`. This also left window events broken afterwards, which is why popover sections such as Immersion Kit examples could hang on "Loading examples..." in the Firefox extension.
+
 ## [0.6.53] - 2026-06-10
 
 ### Fixed

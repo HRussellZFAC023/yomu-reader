@@ -328,8 +328,21 @@ function callWithUnshadowedWindowRemoveEventListener(
 function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener', descriptor: PropertyDescriptor): void {
     try {
         const target = (window as any).wrappedJSObject || window;
-        Object.defineProperty(target, key, normalizedPropertyDescriptor(descriptor));
+        Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
     } catch {
+    }
+}
+
+// Firefox content scripts may not define sandbox-created objects onto the
+// page's Xray-waived window ("Not allowed to define cross-origin object as
+// property"); the descriptor must be cloned into the page compartment first.
+export function pageCompartmentDescriptor(descriptor: PropertyDescriptor, _target: object): PropertyDescriptor {
+    const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
+    if (!cloneInto) return descriptor;
+    try {
+        return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }) as PropertyDescriptor;
+    } catch {
+        return descriptor;
     }
 }
 

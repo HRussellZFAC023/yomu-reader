@@ -678,8 +678,17 @@
   function restoreWindowProperty(key2, descriptor) {
     try {
       const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key2, normalizedPropertyDescriptor(descriptor));
+      Object.defineProperty(target, key2, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
     } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto) return descriptor;
+    try {
+      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return descriptor;
     }
   }
   function safeWindowPropertyDescriptor(key2) {
