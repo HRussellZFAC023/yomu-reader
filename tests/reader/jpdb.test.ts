@@ -3308,7 +3308,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-popover, .yomu-jpdb-page-addon) [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary { color: var(--subtitle-color); font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);');
         expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${subtitleSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word { text-decoration-thickness: .12em !important; text-underline-offset: .12em !important; }`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${subtitleSurfaces} .jpdb-reader-word { text-decoration-thickness: .12em !important; text-underline-offset: .12em !important;`);
+        // Unenriched words keep the underline invisible instead of flashing currentColor.
+        expect(normalizedCss).toMatch(/\.jpdb-reader-subtitle-underline-pitch :is\([^)]+\) \.jpdb-reader-word \{ text-decoration-thickness: \.12em !important; text-underline-offset: \.12em !important;[^}]*text-decoration-color: transparent; \}/);
         expect(normalizedCss).not.toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken { opacity: 1; } .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current { opacity: 1; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
@@ -25446,6 +25448,55 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(word)).toBe('終わり');
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(document.querySelector('.volume-card__title rt')).toBeNull();
+    });
+
+    it('keeps single-line ellipsis rows lookupable without furigana even when their height is content-sized', () => {
+        document.body.innerHTML = `
+            <main>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    新卒エンジニア、仕事終わりに勉強する
+                </span>
+            </main>
+        `;
+        const [target] = collectTextTargetsIn(document.body, 10, false);
+        expect(target.layoutSensitive).toBe(true);
+
+        applyTokensToTextNode(target, [{
+            card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しんそつ', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '新卒エンジニア、仕事終わりに勉強する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
+        expect(document.querySelector('rt')).toBeNull();
+    });
+
+    it('keeps furigana on wrapping prose where text-overflow is declared but inert', () => {
+        document.body.innerHTML = `
+            <main>
+                <div style="overflow:hidden;text-overflow:ellipsis">
+                    新卒エンジニア、仕事終わりに勉強する
+                </div>
+            </main>
+        `;
+        const [target] = collectTextTargetsIn(document.body, 10, false);
+        expect(target.layoutSensitive).toBe(false);
+
+        applyTokensToTextNode(target, [{
+            card: { ...card, cardState: ['known'], spelling: '新卒', reading: 'しんそつ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しんそつ', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '新卒エンジニア、仕事終わりに勉強する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
     });
 
     it('collects each Mokuro text box as one automatic scan target', () => {

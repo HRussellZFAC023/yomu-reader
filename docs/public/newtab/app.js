@@ -4341,7 +4341,7 @@ recommendedJiten	jiten.moe頻度データです。
   const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
   const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
   const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
-  const KANA_ONLY_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  const KANA_ONLY_RE$2 = /^[\u3040-\u30ffー・]+$/u;
   const JPDB_VOCABULARY_BASE_URL$1 = "https://jpdb.io/vocabulary";
   const JPDB_SEARCH_URL$1 = "https://jpdb.io/search";
   const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
@@ -4832,7 +4832,7 @@ recommendedJiten	jiten.moe頻度データです。
   function canUseKanaJishoAudioFallback(card) {
     const spelling = card.spelling.trim();
     const reading = card.reading.trim();
-    return Boolean(spelling && reading && KANA_ONLY_RE$1.test(spelling));
+    return Boolean(spelling && reading && KANA_ONLY_RE$2.test(spelling));
   }
   function findUniqueJishoReadingAudioElement(html, reading) {
     const matches = findHtmlElements(html, "audio").filter((element) => jishoAudioReading(element).trim() === reading);
@@ -7880,8 +7880,13 @@ recommendedJiten	jiten.moe頻度データです。
   function isLayoutSensitiveTextBox(element) {
     const style = safeComputedStyle(element);
     if (hasLineClamp(style)) return true;
+    if (isEllipsisTextRow(style)) return true;
     if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
     return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
+  }
+  function isEllipsisTextRow(style) {
+    if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
+    return style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box";
   }
   function hasLineClamp(style) {
     const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
@@ -25510,7 +25515,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return entry.promise;
   }
   const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
-  const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
+  const KANA_ONLY_RE$1 = /^[\u3040-\u30ffー]+$/u;
   function exampleSentenceLookupTokens(tokens, targetCard) {
     return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
   }
@@ -25522,7 +25527,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const surfaceLength = token.end - token.start;
     if (surfaceLength > 2) return false;
     const spelling = token.card.spelling.trim();
-    if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
+    if (!spelling || !KANA_ONLY_RE$1.test(spelling)) return false;
     return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
   }
   const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
@@ -25602,6 +25607,78 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function localizedImmersionSourceTitle(title, language) {
     return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
+  }
+  const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
+  const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
+  function splitReadingAcrossKanji(base, reading, readingsForKanji) {
+    const characters = Array.from(base);
+    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
+    const kana = toHiragana(reading.trim());
+    if (!kana || !KANA_ONLY_RE.test(kana)) return null;
+    const plans = alignKanjiReadings(characters, kana, 0, readingsForKanji);
+    if (plans.length !== 1) return null;
+    const segments = [];
+    let offset = 0;
+    plans[0].forEach((segment, index) => {
+      const segmentText = Array.from(reading).slice(offset, offset + segment.length).join("");
+      segments.push({ text: segmentText, start: index, end: index + 1 });
+      offset += segment.length;
+    });
+    return segments;
+  }
+  function alignKanjiReadings(characters, kana, index, readingsForKanji) {
+    if (index >= characters.length) return kana.length === 0 ? [[]] : [];
+    const candidates = candidateReadings(characters[index], readingsForKanji);
+    const plans = [];
+    for (const candidate of candidates) {
+      if (!kana.startsWith(candidate)) continue;
+      for (const rest of alignKanjiReadings(characters, kana.slice(candidate.length), index + 1, readingsForKanji)) {
+        plans.push([candidate, ...rest]);
+        if (plans.length > 1) return plans;
+      }
+    }
+    return plans;
+  }
+  function candidateReadings(kanji, readingsForKanji) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const raw of readingsForKanji(kanji)) {
+      const normalized = toHiragana(raw.trim()).replace(/[.\-．].*$/u, "");
+      if (!normalized || !KANA_ONLY_RE.test(normalized)) continue;
+      seen.add(normalized);
+      const voiced = withInitialDakuten(normalized);
+      if (voiced) seen.add(voiced);
+      if (/[つくきち]$/u.test(normalized)) seen.add(`${normalized.slice(0, -1)}っ`);
+    }
+    return [...seen].sort((a, b) => b.length - a.length);
+  }
+  const DAKUTEN_MAP = {
+    か: "が",
+    き: "ぎ",
+    く: "ぐ",
+    け: "げ",
+    こ: "ご",
+    さ: "ざ",
+    し: "じ",
+    す: "ず",
+    せ: "ぜ",
+    そ: "ぞ",
+    た: "だ",
+    ち: "ぢ",
+    つ: "づ",
+    て: "で",
+    と: "ど",
+    は: "ば",
+    ひ: "び",
+    ふ: "ぶ",
+    へ: "べ",
+    ほ: "ぼ"
+  };
+  function withInitialDakuten(reading) {
+    const voiced = DAKUTEN_MAP[reading[0] ?? ""];
+    return voiced ? `${voiced}${reading.slice(1)}` : null;
+  }
+  function toHiragana(value) {
+    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
   }
   function getPitchClass(pitchAccent, reading) {
     const pattern = contextPitchPattern(pitchAccent, reading);
@@ -25846,6 +25923,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
@@ -26022,12 +26100,13 @@ ${spelling}`);
         const pitch = await this.localPitchPattern(card, options);
         if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
+        const rubies = reading ? await this.localRubySegments(match.surface, reading, match.start, match.end) : [];
         return {
           card,
           start: match.start,
           end: match.end,
           length: match.end - match.start,
-          rubies: reading ? [{ text: reading, start: match.start, end: match.end, length: match.end - match.start }] : [],
+          rubies,
           pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
           sentence: text2
         };
@@ -26057,6 +26136,39 @@ ${spelling}`);
       const keptTokens = replacementTokens.length ? tokens.filter((token) => !replacementTokens.some((fallback) => tokenInsideRange(token, fallback.start, fallback.end))) : tokens;
       const extraFallbackTokens = fallbackTokens.filter((fallback) => replacementTokens.includes(fallback) || !keptTokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
       return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
+    }
+    // All-kanji compounds get their reading split per kanji when the user's
+    // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
+    // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
+    async localRubySegments(surface, reading, start, end) {
+      const whole = [{ text: reading, start, end, length: end - start }];
+      const characters = [...new Set(Array.from(surface))];
+      if (Array.from(surface).length < 2) return whole;
+      const readings2 = /* @__PURE__ */ new Map();
+      await Promise.all(characters.map(async (character) => {
+        readings2.set(character, await this.cachedKanjiReadings(character));
+      }));
+      const segments = splitReadingAcrossKanji(surface, reading, (kanji) => readings2.get(kanji) ?? []);
+      if (!segments) return whole;
+      return segments.map((segment) => ({
+        text: segment.text,
+        start: start + segment.start,
+        end: start + segment.end,
+        length: segment.end - segment.start
+      }));
+    }
+    cachedKanjiReadings(character) {
+      const cached = this.kanjiReadingCache.get(character);
+      if (cached) return cached;
+      const settings = this.dependencies.getSettings();
+      const lookupKanji = this.dependencies.dictionaries.lookupKanji;
+      const promise = typeof lookupKanji === "function" && settings.localDictionariesEnabled ? lookupKanji.call(this.dependencies.dictionaries, character, 3, settings.dictionaryPreferences).then((entries) => entries.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi])).catch(() => []) : Promise.resolve([]);
+      this.kanjiReadingCache.set(character, promise);
+      if (this.kanjiReadingCache.size > 400) {
+        const oldest = this.kanjiReadingCache.keys().next().value;
+        if (oldest) this.kanjiReadingCache.delete(oldest);
+      }
+      return promise;
     }
     async localPitchPattern(card, options) {
       const settings = this.dependencies.getSettings();

@@ -1,5 +1,6 @@
 import { JpdbClient } from '../jpdb/jpdb';
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
+import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { Logger } from '../app/logger';
 import { localPitchPatternFromMeta } from './pitch-meta';
@@ -62,6 +63,7 @@ export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<string>>();
+    private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
     constructor(private dependencies: ReaderParserDependencies) {}
 
@@ -263,12 +265,13 @@ export class ReaderParser {
             const pitch = await this.localPitchPattern(card, options);
             if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
             const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : '';
+            const rubies = reading ? await this.localRubySegments(match.surface, reading, match.start, match.end) : [];
             return {
                 card,
                 start: match.start,
                 end: match.end,
                 length: match.end - match.start,
-                rubies: reading ? [{ text: reading, start: match.start, end: match.end, length: match.end - match.start }] : [],
+                rubies,
                 pitchClass: pitch ? getPitchClass([pitch], card.reading) : '',
                 sentence: text,
             };
@@ -306,6 +309,45 @@ export class ReaderParser {
             .filter(fallback => replacementTokens.includes(fallback)
                 || !keptTokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
         return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
+    }
+
+    // All-kanji compounds get their reading split per kanji when the user's
+    // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
+    // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
+    private async localRubySegments(surface: string, reading: string, start: number, end: number): Promise<JPDBToken['rubies']> {
+        const whole = [{ text: reading, start, end, length: end - start }];
+        const characters = [...new Set(Array.from(surface))];
+        if (Array.from(surface).length < 2) return whole;
+        const readings = new Map<string, string[]>();
+        await Promise.all(characters.map(async character => {
+            readings.set(character, await this.cachedKanjiReadings(character));
+        }));
+        const segments = splitReadingAcrossKanji(surface, reading, kanji => readings.get(kanji) ?? []);
+        if (!segments) return whole;
+        return segments.map(segment => ({
+            text: segment.text,
+            start: start + segment.start,
+            end: start + segment.end,
+            length: segment.end - segment.start,
+        }));
+    }
+
+    private cachedKanjiReadings(character: string): Promise<string[]> {
+        const cached = this.kanjiReadingCache.get(character);
+        if (cached) return cached;
+        const settings = this.dependencies.getSettings();
+        const lookupKanji = this.dependencies.dictionaries.lookupKanji as ((text: string, limit: number, preferences?: ReaderSettings['dictionaryPreferences']) => Promise<Array<{ onyomi: string[]; kunyomi: string[] }>>) | undefined;
+        const promise = typeof lookupKanji === 'function' && settings.localDictionariesEnabled
+            ? lookupKanji.call(this.dependencies.dictionaries, character, 3, settings.dictionaryPreferences)
+                .then(entries => entries.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))
+                .catch(() => [])
+            : Promise.resolve([]);
+        this.kanjiReadingCache.set(character, promise);
+        if (this.kanjiReadingCache.size > 400) {
+            const oldest = this.kanjiReadingCache.keys().next().value;
+            if (oldest) this.kanjiReadingCache.delete(oldest);
+        }
+        return promise;
     }
 
     private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {

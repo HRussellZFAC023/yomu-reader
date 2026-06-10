@@ -704,9 +704,19 @@ const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
 function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
     const style = safeComputedStyle(element);
     if (hasLineClamp(style)) return true;
+    if (isEllipsisTextRow(style)) return true;
     if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
     // Unmeasured (0) stays constrained; only a measured tall box is exempt.
     return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
+}
+
+// A clipped single-line ellipsis row (m.youtube titles, channel bylines) is
+// sized for exactly one plain text line: ruby makes the line taller, the clip
+// swallows the base text, and the row shows only furigana. Height is no
+// exemption here — the row grows with whatever the line box becomes.
+function isEllipsisTextRow(style: CSSStyleDeclaration): boolean {
+    if (!clipsOverflow(style) || !style.textOverflow.includes('ellipsis')) return false;
+    return style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' || style.display === '-webkit-box';
 }
 
 function hasLineClamp(style: CSSStyleDeclaration): boolean {
