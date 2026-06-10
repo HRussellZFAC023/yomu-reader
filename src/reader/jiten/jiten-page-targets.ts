@@ -33,7 +33,7 @@ function isJitenVocabPage(): boolean {
     return location.pathname.startsWith('/vocabulary/') || location.pathname.startsWith('/parse');
 }
 
-export function isJitenStudyPage(): boolean {
+function isJitenStudyPage(): boolean {
     return location.pathname.startsWith('/srs/study');
 }
 
