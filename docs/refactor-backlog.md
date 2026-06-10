@@ -105,7 +105,7 @@ These came from the running product feedback thread and should stay visible unti
   3. VERIFIED EXISTING — the new-tab grade control already has an explicit target selector with a "Both" option whose label propagates onto the grade buttons (`newtab/review-controls.ts:100-130`); no silent dual-grade.
   4. Mining field retargeting is silent (`anki/index.ts:1937-1950`); preview mapped fields before write.
   5. jpdb-review-bridge staleness has no indicator (`jpdb/jpdb-review-bridge.ts:64-129`); show connected/stale and refresh on focus.
-  6. Kanji tab ignores locked-kanji state in selection (`newtab/controller.ts:2968-2985`); per-card source badges missing in auto mode; dedup key should normalize katakana/hiragana (`newtab/source-orchestrator.ts:125`).
+  6. Kanji tab ignores locked-kanji state in selection (`newtab/controller.ts:2968-2985`); per-card source badges missing in auto mode; DONE 0.6.69 — dedup key normalizes katakana/hiragana (`autoReviewMergeKey` kanaInsensitiveKey, tested).
 - P1 (2026-06-10): Provider parity (Anki/JPDB/Jiten same abilities; audited 2026-06-10, corrected against passing smokes — Jiten new-tab queue and Jiten stats ARE supported). Real gaps, ranked:
   1. DONE 0.6.59 — Anki blacklist→suspend/unsuspend toggle + never-forget→`yomu-never-forget` tag (anki/index.ts setCardsSuspended/setNotesTag, action-controller changeAnkiDeckState). Remaining polish: surface the tag as 'known' in the status index ranking.
   1b. DONE + LIVE-VERIFIED 2026-06-10: Jiten study-page addon mounts (immersion kit + imported dictionaries + headword detection) confirmed on jiten.moe/srs/study with the corrected test credentials. Remaining polish: verify per-card refresh when grading advances to the next word.

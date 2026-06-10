@@ -3316,6 +3316,15 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
     });
 
+    it('keeps passive control labels on the host line-wrapping contract', () => {
+        const normalizedCss = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\s+/g, ' ');
+
+        // Scanned prose may wrap; words inside buttons/chips/tabs must not
+        // override the host nowrap or CJK labels stack one char per line.
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
+        expect(normalizedCss).not.toMatch(/\.jpdb-reader-word\.jpdb-reader-scan-word \{ white-space: normal;/);
+    });
+
     it('wraps compact popover lookup pills onto multiple rows when they overflow', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
 
