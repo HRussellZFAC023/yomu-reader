@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.57
+// @version      0.6.58
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-RWA1MXkjSzwTh8CbsXgb7NWJppmP7HVIMessHEfGPzU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-R/Hhg1dwcvKXFdB98B3NT926snqiwsU4j1Dbs/0teIc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-NruMZtaNtXVmJw1Wwng9xoeZo8XBkdUgF90uFUnX+mM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -36953,7 +36953,7 @@ ${glossaryKey}`;
   }
   const log$1 = Logger.scope("VisiblePageScanner");
   const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
-  const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
+  const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
   class VisiblePageScanner {
     constructor(dependencies) {
@@ -37050,13 +37050,11 @@ ${glossaryKey}`;
             applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
             changedRoots.add(target.parent);
           });
-          changedRoots.forEach((root) => {
-            allChangedRoots.add(root);
-            this.dependencies.refreshWordContrast?.(root);
-          });
+          changedRoots.forEach((root) => allChangedRoots.add(root));
         });
         if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
       }
+      allChangedRoots.forEach((root) => this.dependencies.refreshWordContrast?.(root));
       return [...allChangedRoots];
     }
     preloadParsed(parsed, changedRoots = []) {

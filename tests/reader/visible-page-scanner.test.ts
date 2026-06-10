@@ -47,7 +47,9 @@ describe('VisiblePageScanner', () => {
                 includeLocalPitch: false,
                 allowSegmentedFallback: true,
             });
-            expect(pauseMutationObserver).toHaveBeenCalledTimes(11);
+            // Apply chunks are 48 targets wide so the first paint covers the
+            // whole parsed batch instead of arriving in 16-item waves.
+            expect(pauseMutationObserver).toHaveBeenCalledTimes(5);
         } finally {
             restoreRects();
             document.body.innerHTML = '';

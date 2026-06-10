@@ -2251,7 +2251,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('paces YouTube transcript warmup while still parsing ahead', async () => {
+    it('parses the transcript warmup head immediately and paces only the background tail', async () => {
         vi.useFakeTimers();
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -2294,19 +2294,21 @@ describe('SubtitlePlayerController', () => {
             internals.transcriptCacheWarmupSerial = 1;
             const warmup = internals.warmTranscriptParseCache(rows, 0, settings, 1);
 
-            await Promise.resolve();
-            expect(parseJapanese).toHaveBeenCalledTimes(2);
+            // The priority head (visible + lookahead rows) parses immediately
+            // without pacing so playback colorises instantly; only the
+            // background tail is paced.
+            await vi.advanceTimersByTimeAsync(0);
+            expect(parseJapanese.mock.calls.length).toBeGreaterThanOrEqual(49);
             expect(parseJapanese).toHaveBeenCalledWith('字幕0', SUBTITLE_PARSE_OPTIONS);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕1', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese).toHaveBeenCalledWith('字幕48', SUBTITLE_PARSE_OPTIONS);
+            const afterPriorityHead = parseJapanese.mock.calls.length;
 
             await vi.advanceTimersByTimeAsync(119);
-            expect(parseJapanese).toHaveBeenCalledTimes(2);
+            expect(parseJapanese.mock.calls.length).toBe(afterPriorityHead);
 
             await vi.advanceTimersByTimeAsync(1);
             await Promise.resolve();
-            expect(parseJapanese).toHaveBeenCalledTimes(4);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕2', SUBTITLE_PARSE_OPTIONS);
-            expect(parseJapanese).toHaveBeenCalledWith('字幕3', SUBTITLE_PARSE_OPTIONS);
+            expect(parseJapanese.mock.calls.length).toBeGreaterThan(afterPriorityHead);
 
             internals.transcriptCacheWarmupSerial = 2;
             await vi.runOnlyPendingTimersAsync();
