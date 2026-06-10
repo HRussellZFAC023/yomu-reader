@@ -1,6 +1,11 @@
 # Changelog
 
-## [0.6.48] - 2026-06-10
+## [0.6.49] - 2026-06-10
+
+### Fixed
+
+- Fixed unreadable channel-suggestion text on mobile YouTube dark mode: m.youtube.com does not set the desktop `html[dark]` attribute, so channel names and Subscribe buttons fell back to light-theme colors (invisible on the dark background). The shelf now detects the page theme from the rendered background and applies the matching palette.
+- Channel-suggestion descriptions are now parsed by Yomu like the rest of the page, so Japanese text in the shelf gets furigana ruby and dictionary lookups instead of being plain text.
 
 ### Added
 

@@ -591,7 +591,15 @@ export class ReaderApp {
             getSettings: () => this.settings,
             setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
             setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
+            parseShelfJapanese: root => void this.parseYoutubeShelfJapanese(root),
         });
+    }
+
+    private async parseYoutubeShelfJapanese(root: HTMLElement): Promise<void> {
+        if (!root.isConnected) return;
+        const plan = nestedTextParsePlan(root, 160);
+        if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
+        await this.parseNestedJapaneseContent(root, plan, () => root.isConnected);
     }
 
     private createImageOcrController(): ImageOcrController {

@@ -223,6 +223,7 @@ export class YoutubeImmersionFilter {
         getSettings: () => ReaderSettings;
         setShowFilterNotice?: (visible: boolean) => void;
         setShowChannelRecommendations?: (visible: boolean) => void;
+        parseShelfJapanese?: (root: HTMLElement) => void;
         isActivePage?: () => boolean;
     }) {}
 
@@ -710,7 +711,16 @@ export class YoutubeImmersionFilter {
         this.renderChannelFilters(elements.filters);
         elements.list.replaceChildren(...renderedRecommendations.map(channel => this.renderChannelRow(channel)));
         this.setChannelShelfBusy(this.subscriptionBusy);
+        this.syncChannelShelfTheme();
+        if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
         void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+    }
+
+    // m.youtube.com does not use the desktop html[dark] attribute, so detect
+    // the page theme from the rendered background and mirror it on the shelf.
+    private syncChannelShelfTheme(): void {
+        if (!this.channelShelf) return;
+        this.channelShelf.classList.toggle('is-dark', youtubePageUsesDarkTheme());
     }
 
     private currentChannelRecommendations(): YouTubeChannelRecommendation[] {
@@ -782,7 +792,7 @@ export class YoutubeImmersionFilter {
         meta.textContent = channelRowMetaText(channel, preview);
 
         const description = document.createElement('div');
-        description.className = 'jpdb-youtube-channel-description';
+        description.className = 'jpdb-youtube-channel-description jpdb-reader-parseable';
         description.textContent = preview?.description || youtubeChannelRecommendationDescription(channel);
 
         const tags = document.createElement('div');
@@ -908,6 +918,7 @@ export class YoutubeImmersionFilter {
         if (!row) return;
         const replacement = this.renderChannelRow(channel);
         row.replaceWith(replacement);
+        if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
     }
 
     private async subscribeToChannels(channels: YouTubeChannelRecommendation[]): Promise<void> {
@@ -1294,6 +1305,28 @@ function youTubeChannelPreviewFromBrowseData(
         description: youTubeChannelPreviewDescription(metadata, data),
         subscribed: youTubeBrowseDataShowsSubscribed(data),
     };
+}
+
+function youtubePageUsesDarkTheme(): boolean {
+    if (document.documentElement.hasAttribute('dark')) return true;
+    const background = readPageBackgroundColor();
+    if (!background) return false;
+    return relativeBackgroundLuminance(background) < 0.4;
+}
+
+function readPageBackgroundColor(): [number, number, number] | null {
+    for (const element of [document.body, document.documentElement]) {
+        if (!element) continue;
+        const match = getComputedStyle(element).backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (!match) continue;
+        if (match[4] !== undefined && Number.parseFloat(match[4]) === 0) continue;
+        return [Number(match[1]), Number(match[2]), Number(match[3])];
+    }
+    return null;
+}
+
+function relativeBackgroundLuminance([red, green, blue]: [number, number, number]): number {
+    return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
 }
 
 function youTubeBrowseDataShowsSubscribed(data: unknown): boolean {
