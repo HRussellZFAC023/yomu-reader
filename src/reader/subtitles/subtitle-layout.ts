@@ -18,8 +18,6 @@ export interface TranscriptPanelLayout {
 export const TRANSCRIPT_PANEL_MARGIN = 10;
 export const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
 const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
-const TRANSCRIPT_PANEL_MAX_BOTTOM_VIEWPORT_RATIO = 0.5;
-const TRANSCRIPT_PANEL_MIN_BOTTOM_PLAYER_HEIGHT = 280;
 
 export interface TranscriptPanelSize {
     sideWidth?: number;
@@ -63,14 +61,10 @@ function compactSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions, size:
     };
 }
 
+// Users may pull the bottom drawer as high as they like; only the viewport
+// itself (minus margins) limits the drag.
 export function maxTranscriptBottomPanelHeight(viewportHeight: number, margin = TRANSCRIPT_PANEL_MARGIN): number {
-    const viewportMax = Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight - margin * 3);
-    const ratioMax = Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight * TRANSCRIPT_PANEL_MAX_BOTTOM_VIEWPORT_RATIO);
-    const playerMax = Math.max(
-        TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
-        viewportHeight - Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_PLAYER_HEIGHT, viewportHeight * 0.38) - margin * 2,
-    );
-    return Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, Math.min(viewportMax, ratioMax, playerMax));
+    return Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight - margin * 3);
 }
 
 function sideSubtitleDrawerLayout(

@@ -632,6 +632,17 @@ export class SubtitlePlayerController {
         return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
     }
 
+    // Our rail belongs next to a real player: if the video offers playback
+    // controls (native attribute or a known player chrome) or we actually
+    // have subtitle data for it, show ours too. Decorative/ad videos (e.g.
+    // Discord promos) have neither, so the rail stays away.
+    private videoHasPlayerAffordances(): boolean {
+        if (!this.video) return false;
+        if (this.video.controls || isYouTubePage()) return true;
+        if (this.video.closest('#movie_player, .html5-video-player, [data-yomu-video-frame]')) return true;
+        return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
+    }
+
     private clearDiscoveredVideoCandidate(): void {
         this.video = undefined;
         this.subtitleSourceContextKey = '';
@@ -986,7 +997,8 @@ export class SubtitlePlayerController {
     private applyVideoLayout(rect: DOMRect): void {
         if (!this.root) return;
         const videoVisible = isSubtitleOverlayVideoVisible(rect)
-            && (!this.video || isSubtitleVideoElementRenderable(this.video));
+            && (!this.video || isSubtitleVideoElementRenderable(this.video))
+            && this.videoHasPlayerAffordances();
         this.root.classList.toggle('jpdb-subtitle-video-out-of-view', !videoVisible);
         if (!videoVisible) {
             this.clearVideoInsetForTranscriptPanel();

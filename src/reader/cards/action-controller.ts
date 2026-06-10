@@ -82,6 +82,7 @@ interface PreparedAnkiAdd {
 function assertReviewableApiCardState(states: string[], settings: ReaderSettings): void {
     if (states.includes('blacklisted')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedBlacklisted'));
     if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
+    if (states.includes('redundant')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedRedundant'));
 }
 
 export class CardActionController {
