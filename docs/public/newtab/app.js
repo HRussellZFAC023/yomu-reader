@@ -32806,8 +32806,11 @@ ${normalizedReading}`;
   function autoReviewMergeKey(card) {
     const spelling = card.spelling.trim();
     if (!spelling) return "";
-    return `${spelling}
-${newTabCardReading(card)}`;
+    return `${kanaInsensitiveKey(spelling)}
+${kanaInsensitiveKey(newTabCardReading(card))}`;
+  }
+  function kanaInsensitiveKey(value) {
+    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
   }
   function interleaveNewTabCards(groups) {
     const maxLength = Math.max(0, ...groups.map((group) => group.length));
