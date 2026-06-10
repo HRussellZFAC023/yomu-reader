@@ -8168,6 +8168,9 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   text-decoration-thickness: .12em !important;
   text-underline-offset: .12em !important;
+  /* No pitch class yet means no semantic color yet — stay invisible instead
+     of flashing a currentColor underline while enrichment runs. */
+  text-decoration-color: transparent;
 }
 :is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;

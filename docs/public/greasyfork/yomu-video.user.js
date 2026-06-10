@@ -6635,10 +6635,12 @@ ${spelling}`);
     for (const cue of cues) normalized.push(...normalizedSubtitleCueParts(cue, options));
     return normalized.sort((a, b) => a.start - b.start);
   }
+  const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
   function normalizedSubtitleCueParts(cue, options) {
     const base = normalizedSubtitleCueBase(cue, options);
     if (!base) return [];
-    const sentenceParts = splitCueDisplayText(base.text);
+    if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
+    const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
     if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
     const timedParts = distributeCueParts(base, sentenceParts);
     const normalized = timedParts.map((part) => normalizedSubtitleCuePart(base, part));
@@ -6674,6 +6676,17 @@ ${spelling}`);
       wordTimingsExact: Boolean(partWords?.length),
       transcriptEligible: base.transcriptEligible
     };
+  }
+  function mergePunctuationOnlyCueParts(parts) {
+    const merged = [];
+    for (const part of parts) {
+      if (merged.length && !HAS_CUE_WORD_CONTENT_RE.test(part)) {
+        merged[merged.length - 1] += part;
+      } else {
+        merged.push(part);
+      }
+    }
+    return merged;
   }
   function splitCueDisplayText(text) {
     const normalized = normalizeCaptionText(text);
@@ -13501,7 +13514,9 @@ ${spelling}`);
       elements.never.textContent = "Hide";
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
-      if (!this.subscriptionBusy) elements.status.textContent = readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.";
+      if (!this.subscriptionBusy) {
+        elements.status.textContent = !renderedRecommendations.length ? "You are subscribed to all of these channels — nothing new to suggest right now." : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.";
+      }
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
       this.setChannelShelfBusy(this.subscriptionBusy);

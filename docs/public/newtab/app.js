@@ -5177,9 +5177,28 @@ recommendedJiten	jiten.moe頻度データです。
     }
   }
   const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
-  async function createPageMediaUrl(blob) {
-    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(blob);
-    return URL.createObjectURL(blob);
+  const AUDIO_EXTENSION_TYPES = {
+    aac: "audio/aac",
+    flac: "audio/flac",
+    m4a: "audio/mp4",
+    mp3: "audio/mpeg",
+    oga: "audio/ogg",
+    ogg: "audio/ogg",
+    opus: "audio/ogg",
+    wav: "audio/wav",
+    weba: "audio/webm",
+    webm: "audio/webm"
+  };
+  async function createPageMediaUrl(blob, sourceUrl = "") {
+    const typed = withUsableMediaType(blob, sourceUrl);
+    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
+    return URL.createObjectURL(typed);
+  }
+  function withUsableMediaType(blob, sourceUrl) {
+    const type = (blob.type || "").toLowerCase();
+    if (type && type !== "application/octet-stream" && type !== "binary/octet-stream") return blob;
+    const extension = sourceUrl.split(/[?#]/)[0]?.split(".").pop()?.toLowerCase() ?? "";
+    return new Blob([blob], { type: AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
   }
   function revokePageMediaUrl(url) {
     if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
@@ -5656,7 +5675,7 @@ recommendedJiten	jiten.moe頻度データです。
     }
     async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
       const settings = this.getSettings();
-      return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage));
+      return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
     playTextToSpeech(text2, voiceName) {
       const settings = this.getSettings();
@@ -25053,7 +25072,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const key2 = urls.join("");
       return this.mediaBlobUrlCache.getOrCreate(key2, async () => {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-        const blobUrl = await createPageMediaUrl(blob);
+        const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
         return blobUrl;
       });
     }
@@ -35712,7 +35731,7 @@ ${newTabCardReading(card)}`;
     return params.toString();
   }
   function requestBlobUrl(url, timeout, proxyUrl) {
-    return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob));
+    return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
   }
   function requestBlob(url, timeout, proxyUrl) {
     return requestBlob$3(url, {

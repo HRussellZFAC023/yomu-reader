@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.61
+// @version      0.6.62
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Fnjy7fV93Zsu3gEbwlHF9uBVC87Wko9aPrXcBHjdLdE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-n+6K6luJ5OsbxW5Lfrx1aeuKQQe7UC1TQe+ueTSw1SU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-GXha+RO0iXuAn6gKttJ+IntTxZB0LEorbzeBDxJHCAg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -8649,9 +8649,28 @@ recommendedJiten	jiten.moe頻度データです。
     }
   }
   const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
-  async function createPageMediaUrl(blob) {
-    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(blob);
-    return URL.createObjectURL(blob);
+  const AUDIO_EXTENSION_TYPES = {
+    aac: "audio/aac",
+    flac: "audio/flac",
+    m4a: "audio/mp4",
+    mp3: "audio/mpeg",
+    oga: "audio/ogg",
+    ogg: "audio/ogg",
+    opus: "audio/ogg",
+    wav: "audio/wav",
+    weba: "audio/webm",
+    webm: "audio/webm"
+  };
+  async function createPageMediaUrl(blob, sourceUrl = "") {
+    const typed = withUsableMediaType(blob, sourceUrl);
+    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
+    return URL.createObjectURL(typed);
+  }
+  function withUsableMediaType(blob, sourceUrl) {
+    const type = (blob.type || "").toLowerCase();
+    if (type && type !== "application/octet-stream" && type !== "binary/octet-stream") return blob;
+    const extension = sourceUrl.split(/[?#]/)[0]?.split(".").pop()?.toLowerCase() ?? "";
+    return new Blob([blob], { type: AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
   }
   function shouldUseDataUrlForPageMedia() {
     if (typeof location === "undefined") return false;
@@ -9125,7 +9144,7 @@ recommendedJiten	jiten.moe頻度データです。
     }
     async fetchAudioAsBlobUrl(url, sourceUrl, timeoutMs, mode) {
       const settings = this.getSettings();
-      return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage));
+      return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
     playTextToSpeech(text2, voiceName) {
       const settings = this.getSettings();
@@ -24643,7 +24662,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const key = urls.join("");
       return this.mediaBlobUrlCache.getOrCreate(key, async () => {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-        const blobUrl = await createPageMediaUrl(blob);
+        const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
         return blobUrl;
       });
     }
