@@ -11,6 +11,32 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
     if (!pitch) return '';
 
     if (!reading) return '';
+    const graph = renderPitchGraphSvg(reading, pitch);
+    return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : '';
+}
+
+export interface ExpressionComponentPitch {
+    text: string;
+    reading: string;
+    pitch: string;
+}
+
+// Expressions (気合いを入れる) have no pitch of their own; presenting one
+// component's accent as the whole expression would be wrong. Instead each
+// component gets its own labelled mini graph.
+export function renderExpressionComponentPitches(components: ExpressionComponentPitch[]): string {
+    const graphs = components
+        .map(component => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) }))
+        .filter(entry => entry.svg)
+        .map(entry => `<span class="jpdb-reader-pitch-component">
+            ${entry.svg}
+            <span class="jpdb-reader-pitch-component-label">${escapeHtml(entry.component.text)}</span>
+        </span>`);
+    if (!graphs.length) return '';
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join('')}</div>`;
+}
+
+function renderPitchGraphSvg(reading: string, pitch: string): string {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return '';
@@ -18,11 +44,11 @@ export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []
     const width = morae.length * 24 + 18;
     const points = highs.map((level, index) => `${9 + index * 24},${level === 'H' ? 10 : 29}`).join(' ');
     const cls = pitchClassNameForPattern(pitch, reading) || 'unknown';
-    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
+    return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
         ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === 'H' ? 10 : 29}" r="3"></circle>`).join('')}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml(mora)}</text>`).join('')}
-    </svg></div>`;
+    </svg>`;
 }
 
 export function cardPronunciationReading(card: Pick<JPDBCard, 'reading' | 'spelling' | 'wordWithReading'>): string {

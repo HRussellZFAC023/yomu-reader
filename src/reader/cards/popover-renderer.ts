@@ -10,7 +10,7 @@ import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { cardPronunciationReading, renderPitch } from '../popup/render';
+import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
 import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
@@ -167,7 +167,12 @@ export class CardPopoverRenderer {
     }
 
     private renderPitch(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
-        return this.settings().showPitchAccent ? renderPitch(card, data.metaEntries) : '';
+        if (!this.settings().showPitchAccent) return '';
+        const whole = renderPitch(card, data.metaEntries);
+        if (whole) return whole;
+        // Expressions: per-component graphs, never one component's accent
+        // presented as the whole expression.
+        return data.loading ? '' : renderExpressionComponentPitches(data.componentPitches ?? []);
     }
 
     private renderPartOfSpeech(view: CardPopoverRenderView): string {
