@@ -1388,28 +1388,32 @@ export class ReaderApp {
     }
 
     private handleReaderWordClick(event: MouseEvent, word: HTMLElement): void {
-        if (!this.canLookupReaderWord(word)) return;
-        if (word.dataset.jpdbReaderPassive === 'true') return;
-        if (this.consumeSuppressedReaderWordClick(event, word)) return;
+        const surfaces = this.readerWordClickSurfaces(event, word);
+        if (!surfaces) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.prepareModalLookupFromPointer(event);
+        this.suppressSelectionLookupUntil = Date.now() + 350;
+        if (surfaces.insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
+        this.ocr.pinLineForElement(word);
+        void this.showWord(word, surfaces.insideReaderPopup
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
+            : { trigger: 'click', userGesture: true });
+    }
 
+    private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
+        if (!this.canLookupReaderWord(word)) return null;
+        if (word.dataset.jpdbReaderPassive === 'true') return null;
+        if (this.consumeSuppressedReaderWordClick(event, word)) return null;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
         if (!insideReaderPopup && !insideSubtitlePlayer
             && nativeClickableAncestor(word)
             && !this.clickForcesReaderWordLookup(event)) {
-            return;
+            return null;
         }
-        if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        this.prepareModalLookupFromPointer(event);
-        this.suppressSelectionLookupUntil = Date.now() + 350;
-        if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
-        this.ocr.pinLineForElement(word);
-        void this.showWord(word, insideReaderPopup
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
-            : { trigger: 'click', userGesture: true });
+        if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
+        return { insideReaderPopup, insideSubtitlePlayer };
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {

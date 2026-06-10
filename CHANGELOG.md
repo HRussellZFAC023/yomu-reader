@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.60] - 2026-06-10
+
+### Fixed
+
+- Fixed "Subscribe all 100" (and "Subscribe visible") doing nothing: the already-subscribed detection scanned the whole channel payload, where unrelated shelves can carry subscribed flags, so every suggestion could be wrongly marked subscribed and the action list came out empty. Detection is now scoped to the channel's own header, and when everything genuinely is subscribed the shelf says so instead of silently ignoring the click.
+
+### Changed
+
+- Further fallow code-health work (high-complexity findings 17 → 16): the reader-word click handler's guard chain extracted into `readerWordClickSurfaces`, and the per-word contrast variable application decomposed out of one large closure (word-contrast CRAP 71.3 → 26.5).
+
 ## [0.6.59] - 2026-06-10
 
 ### Added

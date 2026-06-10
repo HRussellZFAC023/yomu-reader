@@ -1453,6 +1453,8 @@ export class AnkiConnectClient {
 
     // Suspension is Anki's native blacklist analog: suspended cards never
     // come up for review and already render with the dedicated state color.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds: number[], suspended: boolean): Promise<void> {
         if (!cardIds.length) return;
         log.info('Setting Anki card suspension', { cardIds, suspended });
@@ -1463,6 +1465,8 @@ export class AnkiConnectClient {
     }
 
     // The never-forget analog: a tag the user can also filter on inside Anki.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds: number[], tag: string, present: boolean): Promise<void> {
         if (!noteIds.length) return;
         log.info('Setting Anki note tag', { noteIds, tag, present });

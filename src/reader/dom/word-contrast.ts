@@ -113,47 +113,65 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
         savedVars[i].forEach(({ name, value, priority }) => {
             if (value) word.style.setProperty(name, value, priority);
         });
-
-        const background = activeBackgrounds[i];
-        const m = measurements[i];
-
-        word.style.setProperty('--jpdb-reader-page-bg', background.css);
-        word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
-        word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
-
-        const colorRgba = cssColorToRgba(m.bgColor);
-        const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-        const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
-        const paintBackgroundHex = rgbaToHex(rgba);
-
-        let accessibleHighlightColor: string | null = null;
-        if (hasPaint) {
-            accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
-            word.style.setProperty('--jpdb-reader-word-accessible-highlight', accessibleHighlightColor);
-        } else {
-            word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
-        }
-
-        const accessibleRgba = accessibleHighlightColor ? (cssColorToRgba(accessibleHighlightColor) ?? rgba) : rgba;
-        const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
-
-        const sourceText = cssColorToHex(m.color, accessibleRgba);
-        const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
-        
-        const decorationColorRgba = cssColorToRgba(m.decoration);
-        const decoration = (decorationColorRgba && decorationColorRgba.alpha > 0)
-            ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba)
-            : null;
-
-        const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
-
-        word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-        word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
-        if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, accessibleHex, TEXT_CONTRAST));
-        else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
-        if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
-        else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+        applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
     });
+}
+
+type WordContrastMeasurement = {
+    bgColor: string;
+    color: string;
+    decoration: string;
+    parentColor: string;
+    furiColor?: string;
+};
+
+function applyWordContrastVars(word: HTMLElement, background: PageBackground, m: WordContrastMeasurement): void {
+    word.style.setProperty('--jpdb-reader-page-bg', background.css);
+    word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
+    word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
+
+    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor);
+
+    const sourceText = cssColorToHex(m.color, accessibleRgba);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+    const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
+    const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+
+    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+    else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
+    if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
+}
+
+function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string): {
+    accessibleHex: string;
+    accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>;
+} {
+    const colorRgba = cssColorToRgba(wordBgColor);
+    const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
+    const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+    const paintBackgroundHex = rgbaToHex(rgba);
+
+    let accessibleHighlightColor: string | null = null;
+    if (hasPaint) {
+        accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
+        word.style.setProperty('--jpdb-reader-word-accessible-highlight', accessibleHighlightColor);
+    } else {
+        word.style.removeProperty('--jpdb-reader-word-accessible-highlight');
+    }
+
+    const accessibleRgba = accessibleHighlightColor ? (cssColorToRgba(accessibleHighlightColor) ?? rgba) : rgba;
+    const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
+    return { accessibleHex, accessibleRgba };
+}
+
+function resolveDecorationHex(decorationColor: string, accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>): string | null {
+    const decorationColorRgba = cssColorToRgba(decorationColor);
+    return (decorationColorRgba && decorationColorRgba.alpha > 0)
+        ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba)
+        : null;
 }
 
 export function refreshReaderWordContrastForWord(word: HTMLElement): void {

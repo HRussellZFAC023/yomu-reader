@@ -943,8 +943,13 @@ export class YoutubeImmersionFilter {
     }
 
     private async subscribeToChannels(channels: YouTubeChannelRecommendation[]): Promise<void> {
-        if (this.subscriptionBusy || !channels.length) return;
+        if (this.subscriptionBusy) return;
         const elements = this.channelShelfElements(this.ensureChannelShelf());
+        if (!channels.length) {
+            // Never leave the button looking dead: say why nothing happened.
+            elements.status.textContent = 'All of these channels are already subscribed.';
+            return;
+        }
         const config = readYouTubeClientConfig();
         if (!config) {
             elements.status.textContent = 'YouTube session data is not available on this page yet.';
@@ -1351,7 +1356,13 @@ function relativeBackgroundLuminance([red, green, blue]: [number, number, number
 }
 
 function youTubeBrowseDataShowsSubscribed(data: unknown): boolean {
-    return findNestedYouTubeValue(data, value => {
+    // Only the channel header speaks for THIS channel; the full browse payload
+    // can contain subscribeButtonRenderer entries for unrelated shelves, which
+    // would mark every suggestion as subscribed and empty the shelf (breaking
+    // "Subscribe all").
+    const header = recordValue(data)?.header;
+    if (!header) return false;
+    return findNestedYouTubeValue(header, value => {
         const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
         return renderer?.subscribed === true ? 'subscribed' : '';
     }) === 'subscribed';
