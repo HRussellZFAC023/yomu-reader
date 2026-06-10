@@ -712,6 +712,26 @@ describe('settings dialog keyboard dismissal', () => {
         expect(status.textContent).toContain('No JPDB or Jiten key');
     });
 
+    it('upgrades the JPDB status to a live connected/rejected answer via ping', async () => {
+        const ping = vi.fn().mockResolvedValue(true);
+        const { form } = createSettingsDialog({
+            jpdb: { clear: vi.fn(), listDecks: vi.fn().mockResolvedValue([]), ping },
+        });
+        const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
+        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+
+        apiKey.value = 'jpdb-key';
+        apiKey.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(status.textContent).toContain('Connected to JPDB'));
+        expect(status.dataset.statusTone).toBe('success');
+        expect(ping).toHaveBeenCalled();
+
+        ping.mockResolvedValue(false);
+        apiKey.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(status.textContent).toContain('did not accept the key'));
+        expect(status.dataset.statusTone).toBe('error');
+    });
+
     it('updates the API status light when the API key field changes to a Jiten key', () => {
         const { form } = createSettingsDialog();
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
