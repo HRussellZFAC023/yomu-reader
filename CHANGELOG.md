@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.64] - 2026-06-10
+
+### Changed
+
+- YouTube feed filtering now uses offscreen absolute positioning to hide non-Japanese cards (the technique used by NihongoTube) instead of display:none with max-height collapse animations. Filtered cards leave the layout instantly with no content-shift transition, YouTube's virtualized grid bookkeeping stays intact, and scrolling mostly-English feeds is dramatically smoother with fewer gaps.
+
+### Notes
+
+- Expression pitch (e.g. 気合いを入れる): showing a single component's pitch as the whole expression would be misleading, so the correct fix is a per-component multi-graph popover — designed and queued in the backlog rather than faked.
+
 ## [0.6.63] - 2026-06-10
 
 ### Fixed
