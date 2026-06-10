@@ -109,7 +109,10 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     font: 400 14px/1.35 Roboto, Arial, sans-serif;
 }
 
-html[dark] .jpdb-youtube-channel-shelf {
+/* Desktop sets html[dark]; m.youtube.com does not, so the controller also
+   mirrors the detected page theme onto the shelf as .is-dark. */
+html[dark] .jpdb-youtube-channel-shelf,
+.jpdb-youtube-channel-shelf.is-dark {
     --yomu-shelf-text: #f1f1f1;
     --yomu-shelf-muted: #aaa;
     --yomu-shelf-inverse: #0f0f0f;
