@@ -470,6 +470,7 @@ export class SettingsDialogController {
     private modalSiblingState?: ModalSiblingState;
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
+    private jpdbConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
@@ -497,6 +498,7 @@ export class SettingsDialogController {
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
         void this.refreshAnkiConnectionStatus(form);
+        void this.refreshJpdbConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
         void this.refreshDeckControls(form);
         this.refreshSettingsJapaneseParse(form);
@@ -818,7 +820,10 @@ export class SettingsDialogController {
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiCredential"]');
         apiKeyInput?.addEventListener('input', () => this.syncJpdbStatus(form));
-        apiKeyInput?.addEventListener('change', () => void this.refreshDeckControls(form));
+        apiKeyInput?.addEventListener('change', () => {
+            void this.refreshDeckControls(form);
+            void this.refreshJpdbConnectionStatus(form);
+        });
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
@@ -960,6 +965,35 @@ export class SettingsDialogController {
         );
         status.dataset.statusTone = line.tone;
         status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    // Live probe via jpdb /ping: upgrades the static "key set" line to a real
+    // connected/rejected answer (Anki and Jiten already have live probes).
+    private async refreshJpdbConnectionStatus(form: HTMLFormElement): Promise<void> {
+        this.syncJpdbStatus(form);
+        const status = form.querySelector<HTMLElement>('[data-jpdb-status]');
+        if (!status) return;
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const apiKey = effectiveJpdbApiKey(formSettings);
+        if (!apiKey) return;
+        const ping = (this.dependencies.jpdb as { ping?: () => Promise<boolean> }).ping;
+        if (typeof ping !== 'function') return;
+        const requestId = ++this.jpdbConnectionProbeId;
+        const originalKey = this.settings.apiKey;
+        this.settings.apiKey = apiKey;
+        let connected = false;
+        try {
+            connected = await ping.call(this.dependencies.jpdb);
+        } finally {
+            this.settings.apiKey = originalKey;
+        }
+        if (this.currentForm !== form || !form.isConnected || requestId !== this.jpdbConnectionProbeId) return;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const line: SettingsStatusLine = connected
+            ? { message: uiText(language, 'jpdbConnected'), tone: 'success' }
+            : { message: uiText(language, 'jpdbConnectionFailed'), tone: 'error' };
+        status.dataset.statusTone = line.tone;
+        status.textContent = formatSettingsStatusLine(line, language);
     }
 
     private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {

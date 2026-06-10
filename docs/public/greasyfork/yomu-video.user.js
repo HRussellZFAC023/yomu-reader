@@ -2071,6 +2071,8 @@
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbApiKeyMissing: "No JPDB key.",
+      jpdbConnected: "Connected to JPDB.",
+      jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
       statusEnabled: "enabled",
@@ -3505,6 +3507,8 @@ jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
+jpdbConnected	JPDBに接続しました。
+jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
 statusEnabled	有効

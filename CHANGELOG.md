@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.71] - 2026-06-10
+
+### Added
+
+- The settings dialog now shows a live JPDB connection status: the static "JPDB key set" line upgrades to "Connected to JPDB" or "JPDB did not accept the key" via the jpdb `/ping` endpoint, probed when the dialog opens and whenever the key changes — matching the live probes Anki and Jiten already had.
+
 ## [0.6.70] - 2026-06-10
 
 ### Fixed

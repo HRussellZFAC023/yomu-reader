@@ -2452,6 +2452,8 @@
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbApiKeyMissing: "No JPDB key.",
+      jpdbConnected: "Connected to JPDB.",
+      jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
       statusEnabled: "enabled",
@@ -3886,6 +3888,8 @@ jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
+jpdbConnected	JPDBに接続しました。
+jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
 statusEnabled	有効
@@ -9419,6 +9423,7 @@ recommendedJiten	jiten.moe頻度データです。
     modalSiblingState;
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
+    jpdbConnectionProbeId = 0;
     ankiLibraryScanId = 0;
     open(panel) {
       log.info("Opening settings", { panel: panel ?? "default" });
@@ -9440,6 +9445,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.syncDictionaryOperationState(form);
       this.syncJpdbStatus(form);
       void this.refreshAnkiConnectionStatus(form);
+      void this.refreshJpdbConnectionStatus(form);
       void this.refreshDictionaryStatus(form);
       void this.refreshDeckControls(form);
       this.refreshSettingsJapaneseParse(form);
@@ -9744,7 +9750,10 @@ recommendedJiten	jiten.moe頻度データです。
       syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       const apiKeyInput = form.querySelector('input[name="apiCredential"]');
       apiKeyInput?.addEventListener("input", () => this.syncJpdbStatus(form));
-      apiKeyInput?.addEventListener("change", () => void this.refreshDeckControls(form));
+      apiKeyInput?.addEventListener("change", () => {
+        void this.refreshDeckControls(form);
+        void this.refreshJpdbConnectionStatus(form);
+      });
       form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
@@ -9873,6 +9882,32 @@ recommendedJiten	jiten.moe頻度データです。
       );
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+    // Live probe via jpdb /ping: upgrades the static "key set" line to a real
+    // connected/rejected answer (Anki and Jiten already have live probes).
+    async refreshJpdbConnectionStatus(form) {
+      this.syncJpdbStatus(form);
+      const status = form.querySelector("[data-jpdb-status]");
+      if (!status) return;
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const apiKey = effectiveJpdbApiKey(formSettings);
+      if (!apiKey) return;
+      const ping = this.dependencies.jpdb.ping;
+      if (typeof ping !== "function") return;
+      const requestId = ++this.jpdbConnectionProbeId;
+      const originalKey = this.settings.apiKey;
+      this.settings.apiKey = apiKey;
+      let connected = false;
+      try {
+        connected = await ping.call(this.dependencies.jpdb);
+      } finally {
+        this.settings.apiKey = originalKey;
+      }
+      if (this.currentForm !== form || !form.isConnected || requestId !== this.jpdbConnectionProbeId) return;
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const line = connected ? { message: uiText(language, "jpdbConnected"), tone: "success" } : { message: uiText(language, "jpdbConnectionFailed"), tone: "error" };
+      status.dataset.statusTone = line.tone;
+      status.textContent = formatSettingsStatusLine(line, language);
     }
     async refreshAnkiConnectionStatus(form) {
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);

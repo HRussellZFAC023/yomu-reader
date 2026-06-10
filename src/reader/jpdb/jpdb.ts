@@ -110,6 +110,16 @@ export class JpdbClient {
         return decks;
     }
 
+    // Settings connection probe: jpdb's /ping answers any authenticated key.
+    async ping(): Promise<boolean> {
+        try {
+            await this.api.request<Record<string, never>>('ping', {});
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     // Used by new-tab study and stats loaders to sample deck cards.
     // fallow-ignore-next-line unused-class-member
     async listDeckCards(deckId: string, limit = 80, options: JpdbListDeckCardsOptions = {}): Promise<JPDBCard[]> {
