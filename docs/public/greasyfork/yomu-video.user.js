@@ -13471,7 +13471,15 @@ ${spelling}`);
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
       this.setChannelShelfBusy(this.subscriptionBusy);
+      this.syncChannelShelfTheme();
+      if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
       void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+    }
+    // m.youtube.com does not use the desktop html[dark] attribute, so detect
+    // the page theme from the rendered background and mirror it on the shelf.
+    syncChannelShelfTheme() {
+      if (!this.channelShelf) return;
+      this.channelShelf.classList.toggle("is-dark", youtubePageUsesDarkTheme());
     }
     currentChannelRecommendations() {
       return this.channelShelfExpanded ? this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter)) : this.compactChannelRecommendations;
@@ -13532,7 +13540,7 @@ ${spelling}`);
       meta.className = "jpdb-youtube-channel-meta";
       meta.textContent = channelRowMetaText(channel, preview);
       const description = document.createElement("div");
-      description.className = "jpdb-youtube-channel-description";
+      description.className = "jpdb-youtube-channel-description jpdb-reader-parseable";
       description.textContent = preview?.description || youtubeChannelRecommendationDescription(channel);
       const tags = document.createElement("div");
       tags.className = "jpdb-youtube-channel-tags";
@@ -13642,6 +13650,7 @@ ${spelling}`);
       if (!row) return;
       const replacement = this.renderChannelRow(channel);
       row.replaceWith(replacement);
+      if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
     }
     async subscribeToChannels(channels) {
       if (this.subscriptionBusy || !channels.length) return;
@@ -13961,6 +13970,25 @@ ${spelling}`);
       description: youTubeChannelPreviewDescription(metadata, data),
       subscribed: youTubeBrowseDataShowsSubscribed(data)
     };
+  }
+  function youtubePageUsesDarkTheme() {
+    if (document.documentElement.hasAttribute("dark")) return true;
+    const background = readPageBackgroundColor();
+    if (!background) return false;
+    return relativeBackgroundLuminance(background) < 0.4;
+  }
+  function readPageBackgroundColor() {
+    for (const element of [document.body, document.documentElement]) {
+      if (!element) continue;
+      const match = getComputedStyle(element).backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (!match) continue;
+      if (match[4] !== void 0 && Number.parseFloat(match[4]) === 0) continue;
+      return [Number(match[1]), Number(match[2]), Number(match[3])];
+    }
+    return null;
+  }
+  function relativeBackgroundLuminance([red, green, blue]) {
+    return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
   }
   function youTubeBrowseDataShowsSubscribed(data) {
     return findNestedYouTubeValue(data, (value) => {
