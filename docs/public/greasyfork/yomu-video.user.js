@@ -13004,8 +13004,9 @@ ${spelling}`);
   const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
   const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
   const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-  const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
-  const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
+  const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
+  const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
+  const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
   const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
@@ -13073,6 +13074,8 @@ ${spelling}`);
     compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     subscribedChannelHandles = /* @__PURE__ */ new Set();
     channelShelfRefreshTimer;
+    lastAdvancedShortPath = "";
+    lastShortAdvanceAt = 0;
     // Already-subscribed channels never belong in the suggestions; the pool
     // backfills the compact view so subscribing keeps the shelf full.
     get compactChannelRecommendations() {
@@ -13193,6 +13196,7 @@ ${spelling}`);
     applyFilterDecision(decision) {
       if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
         this.showCard(decision.candidate.card);
+        if (decision.kind === "hide") this.advancePastFilteredShort();
         return;
       }
       if (decision.kind === "skip") {
@@ -13215,6 +13219,19 @@ ${spelling}`);
           this.showCard(shelf);
         }
       }
+    }
+    advancePastFilteredShort() {
+      const shortPath = location.pathname;
+      if (this.lastAdvancedShortPath === shortPath) return;
+      const now = performance.now();
+      if (now - this.lastShortAdvanceAt < YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS) return;
+      const next = document.querySelector(
+        'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"]'
+      );
+      if (!next) return;
+      this.lastAdvancedShortPath = shortPath;
+      this.lastShortAdvanceAt = now;
+      next.click();
     }
     restoreCurrentShortsWatchItem() {
       if (!isYouTubeShortsWatchPage()) return;
@@ -14324,8 +14341,12 @@ ${spelling}`);
     return continuation?.isConnected ? continuation : null;
   }
   function nudgeYouTubeContinuationItem(continuation) {
-    if (!isNearPageBottom()) return false;
+    const rect = continuation.getBoundingClientRect();
+    if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
+    if (rect.top <= window.innerHeight) return true;
+    const previousY = window.scrollY;
     continuation.scrollIntoView({ block: "end" });
+    if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);
     return true;
   }
   function isYouTubeWatchPage() {

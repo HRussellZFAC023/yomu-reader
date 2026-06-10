@@ -501,6 +501,12 @@ describe('YouTube immersion filter', () => {
         const continuation = card('continuation') as HTMLElement & { scrollIntoView: (options?: ScrollIntoViewOptions) => void };
         const scrollIntoView = vi.fn();
         continuation.scrollIntoView = scrollIntoView;
+        // Place the loader more than one viewport down so the nudge has to
+        // scroll (within a viewport it now loads without moving the page).
+        Object.defineProperty(continuation, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, window.innerHeight * 1.5, 400, 80),
+        });
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: { jp: '日本語で花の名前を覚える' },
         });

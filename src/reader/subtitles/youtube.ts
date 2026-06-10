@@ -81,8 +81,9 @@ const YOUTUBE_FILTER_COLLAPSE_DELAY_MS = 80;
 const YOUTUBE_FILTER_SCROLL_COLLAPSE_DELAY_MS = 650;
 const YOUTUBE_FILTER_SCROLL_SETTLE_MS = 280;
 const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
-const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
-const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
+const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
+const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
+const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
 const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
 // Multiple of the list's 4/2/1-column layouts so the compact shelf fills its rows.
 const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
@@ -208,6 +209,8 @@ export class YoutubeImmersionFilter {
     private readonly compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     private readonly subscribedChannelHandles = new Set<string>();
     private channelShelfRefreshTimer?: number;
+    private lastAdvancedShortPath = '';
+    private lastShortAdvanceAt = 0;
 
     // Already-subscribed channels never belong in the suggestions; the pool
     // backfills the compact view so subscribing keeps the shelf full.
@@ -354,7 +357,11 @@ export class YoutubeImmersionFilter {
 
     private applyFilterDecision(decision: YouTubeFilterDecision): void {
         if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
+            // The active reel must stay visible, but when it would have been
+            // filtered, step the player forward so the feed lands on the next
+            // Japanese short instead of parking on an English one.
             this.showCard(decision.candidate.card);
+            if (decision.kind === 'hide') this.advancePastFilteredShort();
             return;
         }
         if (decision.kind === 'skip') {
@@ -378,6 +385,20 @@ export class YoutubeImmersionFilter {
                 this.showCard(shelf);
             }
         }
+    }
+
+    private advancePastFilteredShort(): void {
+        const shortPath = location.pathname;
+        if (this.lastAdvancedShortPath === shortPath) return;
+        const now = performance.now();
+        if (now - this.lastShortAdvanceAt < YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS) return;
+        const next = document.querySelector<HTMLButtonElement>(
+            'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"]',
+        );
+        if (!next) return;
+        this.lastAdvancedShortPath = shortPath;
+        this.lastShortAdvanceAt = now;
+        next.click();
     }
 
     private restoreCurrentShortsWatchItem(): void {
@@ -1738,8 +1759,16 @@ function findYouTubeContinuationItem(): HTMLElement | null {
 }
 
 function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
-    if (!isNearPageBottom()) return false;
+    // Filtering collapses cards, which can leave the continuation loader a
+    // couple of screens below while the visible feed looks empty. Trigger it
+    // early; when that means scrolling, bounce there and restore the user's
+    // position once YouTube's intersection observer has seen it.
+    const rect = continuation.getBoundingClientRect();
+    if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
+    if (rect.top <= window.innerHeight) return true;
+    const previousY = window.scrollY;
     continuation.scrollIntoView({ block: 'end' });
+    if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);
     return true;
 }
 
