@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.66] - 2026-06-10
+
+### Fixed
+
+- Videos with only English subtitles now reliably offer (and auto-select) the auto-generated Japanese translation everywhere, not just on YouTube: native `<track>` subtitles (the Sky News-style player) now synthesize the translated track too, and the synthetic option no longer vanishes from the subtitle panel after the next track rescan — stale-track culling previously mistook it for a dead native/page track because it carries no TextTrack or page source of its own. The translation is removed together with its source track (orphan cascade) instead.
+- A real Japanese track appearing after the machine translation was auto-selected now takes over as primary on all paths (native, page files, YouTube); the synthetic stays listed but never outranks the real thing.
+
 ## [0.6.65] - 2026-06-10
 
 ### Added
