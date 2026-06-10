@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.58] - 2026-06-10
+
+### Fixed
+
+- Furigana and word colors now appear much closer to instantly instead of loading in waves, from a root-cause audit of the latency chain:
+  - Subtitle transcript warmup no longer paces the priority head of the queue — the visible rows and the lookahead window parse immediately, with the 120ms YouTube pacing applied only to the background tail (was ~1s before lookahead rows were ready).
+  - Subtitle word-state colorisation retries every 1s instead of every 5s, so JPDB/Anki state colors land on cues during playback instead of lagging multiple lines behind.
+  - Page scans apply parsed ruby in chunks of 48 targets (was 16), so the first paint covers the whole parsed batch instead of arriving in three visible waves.
+  - The word-contrast pass runs once per container after a scan completes instead of once per 16-item chunk, removing repeated style recalcs (layout thrash) during page parsing.
+
+### Notes
+
+- Remaining items from the latency audit (pre-warmed Anki status during render, persistent IntersectionObserver re-prioritisation, parallel cold-start pitch lookups) are recorded in the Snow Leopard backlog task with file:line evidence.
+
 ## [0.6.57] - 2026-06-10
 
 ### Changed

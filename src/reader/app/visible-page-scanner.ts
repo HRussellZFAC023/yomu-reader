@@ -7,7 +7,9 @@ import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
-const VISIBLE_SCAN_APPLY_BATCH_SIZE = 16;
+// Large enough that the first apply paints everything just parsed in one go —
+// small chunks made ruby/colors arrive in visible waves.
+const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 interface VisibleScanParseOptions {
     jpdbTimeoutMs?: number;
@@ -147,13 +149,13 @@ export class VisiblePageScanner {
                     applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
                     changedRoots.add(target.parent);
                 });
-                changedRoots.forEach(root => {
-                    allChangedRoots.add(root);
-                    this.dependencies.refreshWordContrast?.(root);
-                });
+                changedRoots.forEach(root => allChangedRoots.add(root));
             });
             if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
         }
+        // One contrast pass per unique root after all chunks — running it per
+        // chunk forced repeated style recalcs on the same containers.
+        allChangedRoots.forEach(root => this.dependencies.refreshWordContrast?.(root));
         return [...allChangedRoots];
     }
 

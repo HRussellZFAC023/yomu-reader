@@ -245,7 +245,10 @@ const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
-const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 5000;
+// Cues near the playhead must colorise immediately; only the whole-transcript
+// tail of the warmup queue is paced.
+const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
+const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
@@ -2982,7 +2985,11 @@ export class SubtitlePlayerController {
                     for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
                 } catch {
                 }
-                if (cursor < planned.length) await waitForBackgroundTranscriptParseTurn(pauseMs);
+                // The plan is priority-ordered (visible + lookahead first):
+                // never pace the head of the queue, only the background tail.
+                if (cursor < planned.length && cursor > TRANSCRIPT_WARMUP_PRIORITY_ROWS) {
+                    await waitForBackgroundTranscriptParseTurn(pauseMs);
+                }
             }
         };
 

@@ -9973,7 +9973,8 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
-  const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 5e3;
+  const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
+  const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
@@ -12327,7 +12328,9 @@ ${spelling}`);
             for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
           } catch {
           }
-          if (cursor < planned.length) await waitForBackgroundTranscriptParseTurn(pauseMs);
+          if (cursor < planned.length && cursor > TRANSCRIPT_WARMUP_PRIORITY_ROWS) {
+            await waitForBackgroundTranscriptParseTurn(pauseMs);
+          }
         }
       };
       const workers = Array.from(
