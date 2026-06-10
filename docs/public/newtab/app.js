@@ -8121,8 +8121,8 @@ recommendedJiten	jiten.moe頻度データです。
   function scanTargetAllowsRuby(target) {
     return target.layoutSensitive !== true;
   }
-  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, passiveInteraction) {
-    return !hasNativeRuby && (!layoutSensitive || passiveInteraction);
+  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
+    return !hasNativeRuby && !layoutSensitive;
   }
   function isInsideOwnedReaderRoot(element) {
     const readerRoot = element.closest(READER_ROOT_SELECTOR);
