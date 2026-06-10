@@ -56,11 +56,16 @@ export function normalizeSubtitleCues(cues: SubtitleCue[], options: { transcript
     return normalized.sort((a, b) => a.start - b.start);
 }
 
+// A cue with no letters or digits (a lone 。 or ? — common in auto captions)
+// has nothing to read, parse, or mine; rendering it as a row is just noise.
+const HAS_CUE_WORD_CONTENT_RE = /[\p{L}\p{N}]/u;
+
 function normalizedSubtitleCueParts(cue: SubtitleCue, options: { transcriptEligible?: boolean }): SubtitleCue[] {
     const base = normalizedSubtitleCueBase(cue, options);
     if (!base) return [];
+    if (!HAS_CUE_WORD_CONTENT_RE.test(base.text)) return [];
 
-    const sentenceParts = splitCueDisplayText(base.text);
+    const sentenceParts = mergePunctuationOnlyCueParts(splitCueDisplayText(base.text));
     if (sentenceParts.length <= 1) return [{ ...base, transcriptEligible: base.transcriptEligible }];
 
     const timedParts = distributeCueParts(base, sentenceParts);
@@ -100,6 +105,18 @@ function normalizedSubtitleCuePart(base: NormalizedSubtitleCue, part: { text: st
         wordTimingsExact: Boolean(partWords?.length),
         transcriptEligible: base.transcriptEligible,
     };
+}
+
+function mergePunctuationOnlyCueParts(parts: string[]): string[] {
+    const merged: string[] = [];
+    for (const part of parts) {
+        if (merged.length && !HAS_CUE_WORD_CONTENT_RE.test(part)) {
+            merged[merged.length - 1] += part;
+        } else {
+            merged.push(part);
+        }
+    }
+    return merged;
 }
 
 function splitCueDisplayText(text: string): string[] {

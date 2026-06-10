@@ -727,7 +727,11 @@ export class YoutubeImmersionFilter {
         elements.never.textContent = 'Hide';
         elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
-        if (!this.subscriptionBusy) elements.status.textContent = readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.';
+        if (!this.subscriptionBusy) {
+            elements.status.textContent = !renderedRecommendations.length
+                ? 'You are subscribed to all of these channels — nothing new to suggest right now.'
+                : readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.';
+        }
 
         this.renderChannelFilters(elements.filters);
         elements.list.replaceChildren(...renderedRecommendations.map(channel => this.renderChannelRow(channel)));

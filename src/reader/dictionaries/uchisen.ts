@@ -1068,7 +1068,7 @@ function encodedForm(fields: Record<string, string>): string {
 }
 
 function requestBlobUrl(url: string, timeout: number, proxyUrl: string): Promise<string> {
-    return requestBlob(url, timeout, proxyUrl).then(blob => createPageMediaUrl(blob));
+    return requestBlob(url, timeout, proxyUrl).then(blob => createPageMediaUrl(blob, url));
 }
 
 function requestBlob(url: string, timeout: number, proxyUrl: string): Promise<Blob> {
