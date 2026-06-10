@@ -74,6 +74,7 @@ import {
 } from './card-details';
 import {
     ANKI_STATUS_INDEX_COUNT_CHECK_MS,
+    ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS,
     ANKI_STATUS_INDEX_MAX_STALE_MS,
     ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE,
     ANKI_STATUS_INDEX_NOTE_CONCURRENCY,
@@ -240,8 +241,12 @@ export class AnkiConnectClient {
     private availabilityCheckedAt = 0;
     private unavailableUntil = 0;
     private isDestroyed = false;
+    private focusStatusRefreshListener?: () => void;
+    private lastFocusStatusRefreshAt = 0;
 
-    constructor(private getSettings: () => ReaderSettings) {}
+    constructor(private getSettings: () => ReaderSettings) {
+        this.installFocusStatusRefresh();
+    }
 
     destroy(): void {
         this.isDestroyed = true;
@@ -250,6 +255,30 @@ export class AnkiConnectClient {
         this.statusIndexRefresh = undefined;
         this.statusIndexRefreshQueued = false;
         this.availabilityProbe = undefined;
+        if (this.focusStatusRefreshListener) {
+            window.removeEventListener('focus', this.focusStatusRefreshListener);
+            document.removeEventListener('visibilitychange', this.focusStatusRefreshListener);
+            this.focusStatusRefreshListener = undefined;
+        }
+    }
+
+    // The status index is validated by deck card COUNT, which misses reviews
+    // done in Anki itself (state changes, same count). Returning to the tab
+    // after being away is exactly when that happens, so expire the index then.
+    private installFocusStatusRefresh(): void {
+        if (typeof window === 'undefined') return;
+        this.focusStatusRefreshListener = () => {
+            if (this.isDestroyed || document.visibilityState === 'hidden') return;
+            const awayMs = Date.now() - this.lastFocusStatusRefreshAt;
+            if (awayMs < ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS) return;
+            this.lastFocusStatusRefreshAt = Date.now();
+            const index = this.validStatusIndex(this.statusIndex);
+            if (!index) return;
+            this.statusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
+            this.queueStatusIndexRefresh();
+        };
+        window.addEventListener('focus', this.focusStatusRefreshListener);
+        document.addEventListener('visibilitychange', this.focusStatusRefreshListener);
     }
 
     // Used by settings connection checks through the Anki client dependency.

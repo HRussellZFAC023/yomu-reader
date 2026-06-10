@@ -11,6 +11,9 @@ export interface NewTabLoadResult {
     sourceLabel: string;
     reviewCountMode?: boolean;
     emptyMessageKey?: NewTabTextKey;
+    // Set when configured review sources returned nothing and practice words
+    // were substituted — the UI must say so instead of silently swapping data.
+    fallbackNotice?: boolean;
 }
 
 export interface NewTabLoadAccumulator {
@@ -18,6 +21,7 @@ export interface NewTabLoadAccumulator {
     labels: string[];
     reviewCountMode: boolean;
     emptyMessageKey?: NewTabTextKey;
+    fallbackNotice?: boolean;
 }
 
 function appendLoadedWords(result: NewTabLoadResult, cards: JPDBCard[], labels: string[]): void {
@@ -99,6 +103,7 @@ export function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: R
         sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : newTabText(language, 'noSource'),
         reviewCountMode: accumulator.reviewCountMode,
         emptyMessageKey: accumulator.emptyMessageKey,
+        fallbackNotice: accumulator.fallbackNotice,
     };
 }
 

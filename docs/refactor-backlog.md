@@ -94,9 +94,9 @@ These came from inspecting `../../references/anki-jpdb.reader`, `../../reference
 These came from the running product feedback thread and should stay visible until verified or intentionally closed.
 
 - P0 (2026-06-10): Trust-audit findings (code-level audit done 2026-06-10; live AnkiConnect+JPDB verification still required). Fix in this order:
-  1. Silent fallback substitutes non-user sources: when JPDB/Anki return no cards the new-tab silently shows dictionary/Jiten practice words with no notice (`newtab/controller.ts:2279-2348`). Show an explicit "no reviews available — showing practice words" state.
-  2. Anki status colors go stale: status index freshness is validated by deck card COUNT, not note modification time (`anki/index.ts:747-759`, `anki/status-index.ts:322`), so reviewing cards without changing counts leaves wrong colors for up to 30min. Use `mod` times (see incremental-refresh ticket below) or refresh on window focus.
-  3. Dual-grade without indication: grading with no explicit target grades BOTH JPDB and Anki (`newtab/controller.ts:6651-6667`). Surface the target(s) on the grade control.
+  1. DONE 0.6.51 — Silent fallback now announces itself: `fallbackNotice` flows through the load accumulator and renders "No reviews ready — showing practice words" in the new-tab status line when configured review sources return empty.
+  2. PARTIAL 0.6.51 — Focus-triggered status refresh added (`installFocusStatusRefresh` in anki/index.ts, throttled 2min): returning to the tab expires the count-validated index so externally-reviewed cards recolor. Full mod-time incremental refresh remains (see incremental-refresh ticket below).
+  3. VERIFIED EXISTING — the new-tab grade control already has an explicit target selector with a "Both" option whose label propagates onto the grade buttons (`newtab/review-controls.ts:100-130`); no silent dual-grade.
   4. Mining field retargeting is silent (`anki/index.ts:1937-1950`); preview mapped fields before write.
   5. jpdb-review-bridge staleness has no indicator (`jpdb/jpdb-review-bridge.ts:64-129`); show connected/stale and refresh on focus.
   6. Kanji tab ignores locked-kanji state in selection (`newtab/controller.ts:2968-2985`); per-card source badges missing in auto mode; dedup key should normalize katakana/hiragana (`newtab/source-orchestrator.ts:125`).

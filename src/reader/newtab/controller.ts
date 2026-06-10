@@ -609,6 +609,7 @@ export class NewTabController {
     private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionProgress = new NewTabSessionProgressTracker();
     private emptyLoadMessageKey: NewTabTextKey | null = null;
+    private fallbackStudyNotice = false;
     private loadGeneration = 0;
     private sourceSwitchGeneration = 0;
     private searchGeneration = 0;
@@ -1772,6 +1773,7 @@ export class NewTabController {
     private applyLoadedWordState(result: NewTabLoadResult, statsStudyFilter: 'trouble' | null): void {
         this.reviewCountMode = result.reviewCountMode === true;
         this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
+        this.fallbackStudyNotice = result.fallbackNotice === true;
         this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
         this.statsStudyFilter = null;
     }
@@ -2278,6 +2280,9 @@ export class NewTabController {
 
     private async loadFallbackStudyWordsIfNeeded(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator, onProgress?: (message: string) => void): Promise<void> {
         if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
+        // Substituting practice words for an expected (but empty/unreachable)
+        // review queue must be announced, not silent.
+        if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
         const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
         const fallback = jitenOnlyApiFallback
             ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress)
@@ -2292,6 +2297,13 @@ export class NewTabController {
             }
         }
         appendNewTabLoadResult(accumulator, fallback);
+    }
+
+    private hasConfiguredReviewSources(): boolean {
+        const settings = this.dependencies.getSettings();
+        return hasJpdbApiCredential(settings)
+            || hasJitenApiCredential(settings)
+            || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
     }
 
     private shouldUseJitenOnlyApiStudyFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
@@ -3281,6 +3293,7 @@ export class NewTabController {
         const baseLabel = this.newTabCountLabel(card);
         const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
         const labels = [
+            this.fallbackStudyNotice ? this.text('reviewFallbackNotice') : '',
             baseLabel,
             snapshot ? formatNewTabSessionProgressLabel(snapshot, {
                 completed: this.text('sessionDone'),
