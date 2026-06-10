@@ -57,6 +57,7 @@
         "smoke:feedback": "node scripts/feedback-smoke.mjs",
         "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
         "smoke:keyless-popover": "node scripts/keyless-word-popover-smoke.mjs",
+        "smoke:late-content": "node scripts/late-content-smoke.mjs",
         "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
         "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
         "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
