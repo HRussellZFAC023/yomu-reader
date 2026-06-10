@@ -48,7 +48,11 @@ import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { ReaderParser, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../src/reader/kanji/rtk';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
+import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
+
+// These tests assert English UI copy; pin the interface language since the
+// shipped default is now 'ja'.
+const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings/form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/app/site-parsers';
 import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
@@ -8459,6 +8463,37 @@ describe('reader helpers', () => {
         }
     });
 
+    it('renders the pitch variant matching the contextual reading instead of the first pattern', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: '行く',
+            reading: 'いく',
+            // First pattern fits a longer reading (おこなう); second fits いく.
+            pitchAccent: ['LHHHL', 'LHL'],
+            source: 'local',
+        });
+
+        expect(html).toContain('jpdb-reader-pitch');
+        expect(html).toContain('class="odaka"');
+        expect(html).toContain('>い<');
+        expect(html).toContain('>く<');
+    });
+
+    it('falls back to local pitch metadata when no card pattern fits the contextual reading', () => {
+        const html = renderPitch({
+            ...card,
+            spelling: '行く',
+            reading: 'いく',
+            pitchAccent: ['LHHHL'],
+            source: 'local',
+        }, [
+            { expression: '行く', mode: 'pitch', data: { reading: 'いく', pitches: [{ position: 0 }] }, dictionary: 'Pitch' },
+        ]);
+
+        expect(html).toContain('jpdb-reader-pitch');
+        expect(html).toContain('class="heiban"');
+    });
+
     it('renders pitch accent graphs from local Yomitan metadata without a JPDB card pitch', () => {
         const html = renderPitch({
             ...card,
@@ -14505,6 +14540,70 @@ describe('reader helpers', () => {
 
             expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
             expect(showRenderedWordCard).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('shows the cached card for an exact kana word when larger JPDB expansion candidates are unresolved', async () => {
+        const app = new ReaderApp();
+        const tapCard = testPublicCard({
+            vid: 1076340,
+            spelling: 'タップ',
+            reading: 'タップ',
+        });
+        const word = appendRenderedReaderWord(tapCard, { text: 'タップ' });
+        word.dataset.sentence = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
+        word.dataset.expression = 'タップ';
+        word.dataset.reading = 'タップ';
+        word.dataset.tokenStart = '7';
+        word.dataset.tokenEnd = '10';
+        const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(app, {
+            cachedCards: [tapCard],
+        });
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true });
+
+            expect(publicLookupCard).toHaveBeenCalled();
+            expect(showRenderedWordCard).toHaveBeenCalledWith(
+                tapCard,
+                expect.objectContaining({ anchor: word }),
+                expect.objectContaining({ trigger: 'click', userGesture: true }),
+                false,
+            );
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not hold an exact kana word popover hostage to a hung JPDB expansion lookup', async () => {
+        const app = new ReaderApp();
+        const tapCard = testPublicCard({
+            vid: 1076340,
+            spelling: 'タップ',
+            reading: 'タップ',
+        });
+        const word = appendRenderedReaderWord(tapCard, { text: 'タップ' });
+        word.dataset.sentence = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
+        word.dataset.expression = 'タップ';
+        word.dataset.reading = 'タップ';
+        const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
+            cachedCards: [tapCard],
+            publicLookupCard: vi.fn(() => new Promise<undefined>(() => undefined)),
+        });
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true });
+
+            expect(showRenderedWordCard).toHaveBeenCalledWith(
+                tapCard,
+                expect.objectContaining({ anchor: word }),
+                expect.objectContaining({ trigger: 'click', userGesture: true }),
+                false,
+            );
         } finally {
             app.destroy();
             document.body.replaceChildren();

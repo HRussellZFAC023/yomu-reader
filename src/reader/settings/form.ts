@@ -22,7 +22,7 @@ import { uniqueStrings } from '../core/string-utils';
 import type { ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from '../app/types';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
-import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
+import { definitionSourceRows, frequencySourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
@@ -699,6 +699,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
+                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
                     <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
@@ -1697,16 +1698,50 @@ function syncSettingsSelectOptionMeta(form: HTMLFormElement, language: Interface
             existingMeta?.remove();
             return;
         }
-        const text = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
-        if (existingMeta) {
-            if (existingMeta.textContent !== text) existingMeta.textContent = text;
-            return;
-        }
-        const meta = document.createElement('div');
-        meta.className = 'jpdb-reader-select-options-meta';
+        const wasExpanded = existingMeta?.classList.contains('expanded') ?? false;
+
+        const meta = existingMeta ?? document.createElement('div');
+        meta.className = wasExpanded ? 'jpdb-reader-select-options-meta expanded' : 'jpdb-reader-select-options-meta';
         meta.dataset.settingsSelectOptionsMeta = '';
-        meta.textContent = text;
-        selectElement.insertAdjacentElement('afterend', meta);
+
+        if (labels.length <= 5) {
+            meta.textContent = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
+        } else {
+            meta.replaceChildren();
+
+            const prefixText = `${uiText(language, 'selectOptions')}: `;
+
+            const truncatedSpan = document.createElement('span');
+            truncatedSpan.className = 'jpdb-reader-select-options-truncated';
+            truncatedSpan.textContent = prefixText + labels.slice(0, 4).join(' / ');
+            meta.appendChild(truncatedSpan);
+
+            const separatorSpan = document.createElement('span');
+            separatorSpan.className = 'jpdb-reader-select-options-separator';
+            separatorSpan.textContent = ' / ';
+            meta.appendChild(separatorSpan);
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'jpdb-reader-select-options-toggle';
+            toggle.textContent = `+${labels.length - 4}`;
+
+            toggle.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                meta.classList.add('expanded');
+            });
+            meta.appendChild(toggle);
+
+            const fullSpan = document.createElement('span');
+            fullSpan.className = 'jpdb-reader-select-options-full';
+            fullSpan.textContent = prefixText + labels.join(' / ');
+            meta.appendChild(fullSpan);
+        }
+
+        if (!existingMeta) {
+            selectElement.insertAdjacentElement('afterend', meta);
+        }
     });
 }
 
@@ -1935,7 +1970,10 @@ function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLEle
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const rows = definitionSourceRows(settings);
     const showAlias = rows.some(row => !row.readonly);
-    const visibleNames = new Set(rows.filter(row => row.removable).map(row => row.name));
+    const visibleNames = new Set([
+        ...rows.filter(row => row.removable).map(row => row.name),
+        ...frequencySourceRows(settings).map(row => row.name),
+    ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map(preference => {
         const index = settings.dictionaryPreferences.indexOf(preference);
@@ -1961,6 +1999,20 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
+}
+
+export function renderFrequencyDictionaryRows(settings: ReaderSettings): string {
+    const rows = frequencySourceRows(settings);
+    if (!rows.length) return '';
+    return `
+        <div class="jpdb-reader-settings-subsection">
+            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
+            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
+            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+                ${renderSourceRowsList(rows, { sourceLabel: 'Frequency dictionary', showAlias: true })}
+            </div>
+        </div>
+    `;
 }
 
 export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {

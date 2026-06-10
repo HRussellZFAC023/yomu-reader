@@ -4,7 +4,11 @@ import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YO
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+
+// These tests assert English UI copy; pin the interface language since the
+// shipped default is now 'ja'.
+const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import {
     existingAnkiNote,

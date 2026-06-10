@@ -93,6 +93,7 @@ These came from inspecting `../../references/anki-jpdb.reader`, `../../reference
 
 These came from the running product feedback thread and should stay visible until verified or intentionally closed.
 
+- P0 (2026-06-10, user: "currently I don't trust it"): End-to-end trust audit of the Anki integration, mining, and new-tab word/kanji study. Verify the review queue and word/kanji selection are really aligned to the user's own feed (their decks, their JPDB review state, their frequency data), that what gets mined matches what the popover showed, and that the flow is clear and easy to use for a non-technical user. Lead item for the next release batch; needs live AnkiConnect + JPDB verification, not just unit tests.
 - P0: Hosted AnkiConnect must be reliable on live Firefox and Chrome. Firefox currently shows "not connected" on the live site, and Chrome can connect while clicked words such as よむ still fail to show Anki status. The settings message should tell a non-technical user exactly which bridge, browser, or AnkiConnect step failed.
 - P0: New-tab fallback must not regress. When neither JPDB nor Anki has ready review cards, the Word tab should fall back to the random/local study words from earlier versions instead of showing "No review cards ready."
 - P0: New-tab source switching must be deterministic. The JPDB/Anki pill currently can go JPDB to JPDB on the second press; the control should cycle through only available sources, explain disabled sources, and never appear inert.

@@ -1,12 +1,29 @@
 # Changelog
 
-## [0.6.48] - 2026-06-09
+## [0.6.48] - 2026-06-10
+
+### Added
+
+- Frequency dictionaries now have their own settings group with enable/disable, drag/button reorder, rename, and remove — the order controls which frequency badge shows first on cards.
+- Added a keyless word-popover Playwright smoke (`smoke:keyless-popover`).
 
 ### Fixed
 
 - Fixed subtitle overlays and transcript rows blocking dictionary popover lookups on Japanese words (such as katakana `ハグ`) and particles (`と`/`を`).
 - Fixed transcript panel drawer layout: prevented `jpdb-subtitle-drawer-title` and `jpdb-subtitle-drawer-meta` from being cut off on narrow screens by wrapping them and adding ellipsis truncation.
 - Fixed an infinite requestAnimationFrame loop when aligning layout insets by checking if the inset metrics actually changed.
+- Pitch accent now picks the variant that fits the word's contextual reading instead of always the first stored pattern, and falls back to the public JPDB pitch lookup when a Jiten/local pattern belongs to a different reading (e.g. dictionary form).
+- Keyless mode: player-overlay subtitles are parsed and colorised through the same fast provisional tier as the transcript panel — previously cues without an API key waited on a slow JPDB-timeout path and loaded visibly late. Both surfaces share one cache, so no parse work is repeated.
+- Keyless mode: tapping a kana word that exactly matches its card (e.g. タップ) opens the popover again instead of being swallowed by the kana-fragment suppression.
+- Anki popover preview: dictionary definitions are spaced and sectioned again (the mined-note styles only existed in the Anki model CSS), and Anki bracket furigana (漢字[かんじ]) no longer shows raw brackets — the base text is re-parsed so ruby matches Yomu's kanji-only furigana everywhere else.
+- The subtitle overlay rail (panel toggle) no longer appears on pages whose video is hidden via visibility or opacity.
+- JPDB vocabulary payload parsing is now defensive against malformed rows.
+- YouTube channel suggestions: already-subscribed channels are excluded (detected from YouTube page data), subscribing flips the row to an accessible "Subscribed ✓" state announced by the live status and then backfills it with a fresh suggestion, the compact shelf fills its rows, and the shelf follows YouTube's own dark/light theme so a light extension theme on dark YouTube stays readable.
+
+### Changed
+
+- The default interface language for fresh installs is now Japanese; existing users' stored language preference is unchanged.
+- The settings dictionary panel shows an expandable select-options summary instead of clipped text.
 
 ## [0.6.47] - 2026-06-09
 

@@ -1,12 +1,13 @@
 import { escapeHtml } from '../dom/index';
-import { pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
+import { contextPitchPattern, pitchClassNameForPattern, pitchLevelsForDisplay, splitMorae } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import type { JPDBCard } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export function renderPitch(card: JPDBCard, metaEntries: YomitanMetaEntry[] = []): string {
     const reading = cardPronunciationReading(card);
-    const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(reading || card.reading, metaEntries);
+    const pitch = contextPitchPattern(card.pitchAccent, reading)
+        || localPitchPatternFromMeta(reading || card.reading, metaEntries);
     if (!pitch) return '';
 
     if (!reading) return '';

@@ -6591,7 +6591,7 @@ recommendedJiten	jiten.moe頻度データです。
     apiKey: "",
     jitenApiKey: "",
     onboardingSeen: false,
-    interfaceLanguage: "auto",
+    interfaceLanguage: "ja",
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,
@@ -20181,6 +20181,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
       ruby.replaceWith(...Array.from(ruby.childNodes));
     });
+    stripAnkiBracketFurigana(fragment2);
+  }
+  const ANKI_BRACKET_FURIGANA_RE = / ?([㐀-鿿々-〇]+)\[([぀-ヿー・]+)\]/gu;
+  function stripAnkiBracketFurigana(fragment2) {
+    const walker = document.createTreeWalker(fragment2, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text2 = node.nodeValue ?? "";
+      if (!text2.includes("[")) continue;
+      const replaced = text2.replace(ANKI_BRACKET_FURIGANA_RE, "$1");
+      if (replaced !== text2) node.nodeValue = replaced;
+    }
   }
   function sanitizeAnkiCardElement(element, mediaDataUrls, options) {
     for (const attr of Array.from(element.attributes)) {
@@ -20604,6 +20615,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         help: ""
       }))
     ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
+  }
+  function frequencySourceRows(settings) {
+    return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency").map((preference) => ({
+      id: preference.name,
+      name: preference.name,
+      alias: preference.alias,
+      enabled: preference.enabled,
+      priority: preference.priority,
+      prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+      readonly: false,
+      removable: true,
+      dictionaryType: "frequency",
+      help: ""
+    })).sort(compareSourceRows);
   }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
@@ -22948,6 +22973,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function pitchClassNameForPattern(pattern, reading) {
     return pitchProfileForPattern(pattern, reading).className;
   }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
   function pitchNumberFromPattern(pattern, reading) {
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
@@ -23045,7 +23075,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderPitch(card, metaEntries = []) {
     const reading = cardPronunciationReading(card);
-    const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(reading || card.reading, metaEntries);
+    const pitch = contextPitchPattern(card.pitchAccent, reading) || localPitchPatternFromMeta(reading || card.reading, metaEntries);
     if (!pitch) return "";
     if (!reading) return "";
     const morae = splitMorae(reading);
@@ -25412,7 +25442,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
   }
   function getPitchClass(pitchAccent, reading) {
-    return pitchAccent[0] ? pitchClassNameForPattern(pitchAccent[0], reading) : "";
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
   }
   function assignSentenceInfo(paragraphs, tokens) {
     paragraphs.forEach((paragraph, index) => {
@@ -25583,35 +25614,41 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return reading;
   }
   function jpdbVocabularyToCards(vocabulary2) {
-    const cards = vocabulary2.map(([
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank2,
-      partOfSpeech,
-      meaningsChunks,
-      meaningsPartOfSpeech,
-      cardState,
-      pitchAccent
-    ]) => ({
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank: frequencyRank2,
-      partOfSpeech,
-      meanings: meaningsChunks.map((glosses, index) => ({
-        glosses,
-        partOfSpeech: meaningsPartOfSpeech[index] ?? []
-      })),
-      cardState: normalizeCardStates(cardState),
-      pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-      wordWithReading: null,
-      source: "jpdb"
-    }));
+    if (!Array.isArray(vocabulary2)) return [];
+    const cards = [];
+    for (const item of vocabulary2) {
+      if (!Array.isArray(item)) continue;
+      const [
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank2,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent
+      ] = item;
+      cards.push({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank: frequencyRank2,
+        partOfSpeech,
+        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+          glosses,
+          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+        })),
+        cardState: normalizeCardStates(cardState),
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        wordWithReading: null,
+        source: "jpdb"
+      });
+    }
     return cards;
   }
   const LOCAL_MATCH_LIMIT = 40;
@@ -44443,6 +44480,7 @@ ${newTabCardReading(card)}`;
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
+                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
                     <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
@@ -45454,16 +45492,41 @@ ${newTabCardReading(card)}`;
         existingMeta?.remove();
         return;
       }
-      const text2 = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
-      if (existingMeta) {
-        if (existingMeta.textContent !== text2) existingMeta.textContent = text2;
-        return;
-      }
-      const meta = document.createElement("div");
-      meta.className = "jpdb-reader-select-options-meta";
+      const wasExpanded = existingMeta?.classList.contains("expanded") ?? false;
+      const meta = existingMeta ?? document.createElement("div");
+      meta.className = wasExpanded ? "jpdb-reader-select-options-meta expanded" : "jpdb-reader-select-options-meta";
       meta.dataset.settingsSelectOptionsMeta = "";
-      meta.textContent = text2;
-      selectElement.insertAdjacentElement("afterend", meta);
+      if (labels.length <= 5) {
+        meta.textContent = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
+      } else {
+        meta.replaceChildren();
+        const prefixText = `${uiText(language, "selectOptions")}: `;
+        const truncatedSpan = document.createElement("span");
+        truncatedSpan.className = "jpdb-reader-select-options-truncated";
+        truncatedSpan.textContent = prefixText + labels.slice(0, 4).join(" / ");
+        meta.appendChild(truncatedSpan);
+        const separatorSpan = document.createElement("span");
+        separatorSpan.className = "jpdb-reader-select-options-separator";
+        separatorSpan.textContent = " / ";
+        meta.appendChild(separatorSpan);
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "jpdb-reader-select-options-toggle";
+        toggle.textContent = `+${labels.length - 4}`;
+        toggle.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          meta.classList.add("expanded");
+        });
+        meta.appendChild(toggle);
+        const fullSpan = document.createElement("span");
+        fullSpan.className = "jpdb-reader-select-options-full";
+        fullSpan.textContent = prefixText + labels.join(" / ");
+        meta.appendChild(fullSpan);
+      }
+      if (!existingMeta) {
+        selectElement.insertAdjacentElement("afterend", meta);
+      }
     });
   }
   function setShortcutPlaceholder(form, name, placeholder) {
@@ -45671,7 +45734,10 @@ ${newTabCardReading(card)}`;
   function renderDictionarySourceRows(settings) {
     const rows = definitionSourceRows(settings);
     const showAlias = rows.some((row) => !row.readonly);
-    const visibleNames = new Set(rows.filter((row) => row.removable).map((row) => row.name));
+    const visibleNames = /* @__PURE__ */ new Set([
+      ...rows.filter((row) => row.removable).map((row) => row.name),
+      ...frequencySourceRows(settings).map((row) => row.name)
+    ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map((preference) => {
       const index = settings.dictionaryPreferences.indexOf(preference);
@@ -45694,6 +45760,19 @@ ${newTabCardReading(card)}`;
   }
   function renderKanjiSourceRows(settings) {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
+  }
+  function renderFrequencyDictionaryRows(settings) {
+    const rows = frequencySourceRows(settings);
+    if (!rows.length) return "";
+    return `
+        <div class="jpdb-reader-settings-subsection">
+            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
+            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
+            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+                ${renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true })}
+            </div>
+        </div>
+    `;
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -46047,12 +46126,14 @@ ${newTabCardReading(card)}`;
     return {
       status: form.querySelector("[data-dictionary-status]"),
       priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
+      frequency: form.querySelector("[data-frequency-dictionaries]"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
   function dictionaryStatusText(summary, language) {

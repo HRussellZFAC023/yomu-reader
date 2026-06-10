@@ -127,6 +127,17 @@ export function compareSubtitleVideoCandidates(a: HTMLVideoElement, b: HTMLVideo
         || videoElementArea(b) - videoElementArea(a);
 }
 
+// A hidden video keeps a positive rect when hidden via visibility/opacity
+// (unlike display:none), so the rect check alone leaves the overlay rail
+// floating over unrelated content.
+export function isSubtitleVideoElementRenderable(video: HTMLVideoElement): boolean {
+    if (video.hidden) return false;
+    const style = getComputedStyle(video);
+    return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && Number.parseFloat(style.opacity || '1') > 0.01;
+}
+
 export function isSubtitleOverlayVideoVisible(rect: DOMRect): boolean {
     const visible = rectViewportIntersection(rect);
     if (visible.width < SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH || visible.height < SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT) return false;

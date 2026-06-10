@@ -12,7 +12,11 @@ import { parseJpdbReviewDocument } from '../../src/reader/jpdb/jpdb-review-bridg
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT } from '../../src/reader/kanji/doodle';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates } from '../../src/reader/kanji/stroke-grader';
 import { createReaderPopover } from '../../src/reader/popup/shell';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+
+// These tests assert English UI copy; pin the interface language since the
+// shipped default is now 'ja'.
+const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { definitionSourceRows } from '../../src/reader/sources/sections';
 import { renderNewTabGradeControlButtons, summarizeNewTabReviewSources } from '../../src/reader/newtab/review-controls';
 import type { JPDBCard, JPDBGrade, JPDBToken } from '../../src/reader/app/types';

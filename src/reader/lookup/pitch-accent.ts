@@ -85,6 +85,15 @@ export function pitchClassNameForPattern(pattern: string, reading: string): Pitc
     return pitchProfileForPattern(pattern, reading).className;
 }
 
+// A card can carry several pitch variants (e.g. dictionary-form vs the
+// reading actually used in this sentence). Pick the first variant that fits
+// the contextual reading's mora count instead of blindly using the first.
+export function contextPitchPattern(patterns: string[] | null | undefined, reading: string): string {
+    if (!patterns?.length) return '';
+    if (!reading) return patterns[0];
+    return patterns.find(pattern => pitchClassNameForPattern(pattern, reading) !== '') ?? '';
+}
+
 function pitchNumberFromPattern(pattern: string, reading: string): number | null {
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);

@@ -87,16 +87,35 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 }
 
 .jpdb-youtube-channel-shelf {
+    /* The shelf sits inline in the YouTube feed, so it must follow the PAGE
+       theme (html[dark]) — not the extension theme — or light-extension +
+       dark-YouTube becomes unreadable. The --yt-spec-* vars are preferred
+       when present; these are the page-theme fallbacks. */
+    --yomu-shelf-text: #0f0f0f;
+    --yomu-shelf-muted: #606060;
+    --yomu-shelf-inverse: #fff;
+    --yomu-shelf-chip: rgba(0, 0, 0, 0.05);
+    --yomu-shelf-chip-hover: rgba(0, 0, 0, 0.1);
+    --yomu-shelf-border: rgba(0, 0, 0, 0.1);
     display: block;
     grid-column: 1 / -1;
     box-sizing: border-box;
     width: 100%;
     margin: 4px 0 20px;
     padding: 14px 0 4px;
-    border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
-    border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
-    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    border-top: 1px solid var(--yt-spec-10-percent-layer, var(--yomu-shelf-border));
+    border-bottom: 1px solid var(--yt-spec-10-percent-layer, var(--yomu-shelf-border));
+    color: var(--yt-spec-text-primary, var(--yomu-shelf-text));
     font: 400 14px/1.35 Roboto, Arial, sans-serif;
+}
+
+html[dark] .jpdb-youtube-channel-shelf {
+    --yomu-shelf-text: #f1f1f1;
+    --yomu-shelf-muted: #aaa;
+    --yomu-shelf-inverse: #0f0f0f;
+    --yomu-shelf-chip: rgba(255, 255, 255, 0.1);
+    --yomu-shelf-chip-hover: rgba(255, 255, 255, 0.2);
+    --yomu-shelf-border: rgba(255, 255, 255, 0.12);
 }
 
 .jpdb-youtube-channel-shelf-head,
@@ -114,13 +133,13 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 
 .jpdb-youtube-channel-shelf-eyebrow {
     margin-bottom: 3px;
-    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
     font-size: 12px;
 }
 
 .jpdb-youtube-channel-shelf h2 {
     margin: 0;
-    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    color: var(--yt-spec-text-primary, var(--yomu-shelf-text));
     font: 500 20px/1.25 Roboto, Arial, sans-serif;
     letter-spacing: 0;
 }
@@ -129,7 +148,7 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 .jpdb-youtube-channel-description,
 .jpdb-youtube-channel-meta,
 .jpdb-youtube-channel-shelf-status {
-    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
 }
 
 .jpdb-youtube-channel-shelf p {
@@ -155,15 +174,15 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     padding: 0 14px;
     border: 0;
     border-radius: 18px;
-    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
-    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    background: var(--yt-spec-badge-chip-background, var(--yomu-shelf-chip));
+    color: var(--yt-spec-text-primary, var(--yomu-shelf-text));
     font: 500 14px/1 Roboto, Arial, sans-serif;
     cursor: pointer;
 }
 
 .jpdb-youtube-channel-shelf button:hover,
 .jpdb-youtube-channel-shelf button:focus-visible {
-    background: var(--yt-spec-button-chip-background-hover, rgba(0, 0, 0, 0.1));
+    background: var(--yt-spec-button-chip-background-hover, var(--yomu-shelf-chip-hover));
 }
 
 .jpdb-youtube-channel-shelf button:focus-visible {
@@ -179,13 +198,13 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-visible"],
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-all"],
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="subscribe-one"] {
-    background: var(--yt-spec-text-primary, var(--jpdb-reader-text));
-    color: var(--yt-spec-text-primary-inverse, var(--jpdb-reader-bg));
+    background: var(--yt-spec-text-primary, var(--yomu-shelf-text));
+    color: var(--yt-spec-text-primary-inverse, var(--yomu-shelf-inverse));
 }
 
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="dismiss"],
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="never"] {
-    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
 }
 
 .jpdb-youtube-channel-shelf-filters {
@@ -198,8 +217,8 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 }
 
 .jpdb-youtube-channel-shelf-filters button[aria-pressed="true"] {
-    background: var(--yt-spec-text-primary, var(--jpdb-reader-text));
-    color: var(--yt-spec-text-primary-inverse, var(--jpdb-reader-bg));
+    background: var(--yt-spec-text-primary, var(--yomu-shelf-text));
+    color: var(--yt-spec-text-primary-inverse, var(--yomu-shelf-inverse));
 }
 
 .jpdb-youtube-channel-shelf-list {
@@ -218,7 +237,19 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     gap: 12px;
     min-width: 0;
     padding: 10px 4px;
-    border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.08));
+    border-top: 1px solid var(--yt-spec-10-percent-layer, var(--yomu-shelf-border));
+}
+
+.jpdb-youtube-channel-row.is-subscribed {
+    opacity: 0.72;
+    transition: opacity 240ms ease;
+}
+
+.jpdb-youtube-channel-row.is-subscribed [data-yomu-youtube-channel-action="subscribe-one"] {
+    cursor: default;
+    background: var(--yt-spec-badge-chip-background, var(--yomu-shelf-chip));
+    color: var(--yt-spec-text-primary, var(--yomu-shelf-text));
+    opacity: 1;
 }
 
 .jpdb-youtube-channel-avatar {
@@ -229,8 +260,8 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     height: 40px;
     overflow: hidden;
     border-radius: 50%;
-    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.08));
-    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    background: var(--yt-spec-badge-chip-background, var(--yomu-shelf-chip));
+    color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
     font: 500 15px/1 Roboto, Arial, sans-serif;
     text-decoration: none;
 }
@@ -250,7 +281,7 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
 .jpdb-youtube-channel-name {
     display: block;
     overflow: hidden;
-    color: var(--yt-spec-text-primary, var(--jpdb-reader-text));
+    color: var(--yt-spec-text-primary, var(--yomu-shelf-text));
     font: 500 14px/1.25 Roboto, Arial, sans-serif;
     text-decoration: none;
     text-overflow: ellipsis;
@@ -281,8 +312,8 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     overflow: hidden;
     padding: 2px 6px;
     border-radius: 10px;
-    background: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
-    color: var(--yt-spec-text-secondary, var(--jpdb-reader-muted));
+    background: var(--yt-spec-badge-chip-background, var(--yomu-shelf-chip));
+    color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;

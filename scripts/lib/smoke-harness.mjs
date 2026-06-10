@@ -104,7 +104,10 @@ async function listenOnLoopback(server, bindErrorMessage = 'Could not bind fixtu
 }
 
 export function closeServer(server) {
-    return new Promise(resolve => server.close(resolve));
+    // Accept either a raw http.Server or the { server, origin } wrapper returned
+    // by startLoopbackServer, so a wrapper passed by mistake cannot hang the run.
+    const target = server?.server ?? server;
+    return new Promise(resolve => target.close(resolve));
 }
 
 export async function closeSmokeBrowserAndServer(browser, server) {
