@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.53
+// @version      0.6.54
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-/syvHiTcCJhftlxX3I9AHQ1d4CjRS8bM0Dgc2+Uge/8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-OvT+alayMhbQ89hcKwhOlI+FsqqsKuMvDz81LZNNvbI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-RWA1MXkjSzwTh8CbsXgb7NWJppmP7HVIMessHEfGPzU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-r31hTOn2U1n5qqKS7g+54tIpAAbnnaKxJW1iyzssSxk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1428,8 +1428,17 @@
   function restoreWindowProperty(key, descriptor) {
     try {
       const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key, normalizedPropertyDescriptor(descriptor));
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
     } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto) return descriptor;
+    try {
+      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return descriptor;
     }
   }
   function safeWindowPropertyDescriptor(key) {

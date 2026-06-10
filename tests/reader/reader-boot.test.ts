@@ -13,7 +13,7 @@ vi.mock('../../src/reader/app/main', () => ({
 }));
 
 import { bootReaderApp } from '../../src/reader/app/boot';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, pageCompartmentDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
 
 type BootWindow = Window & {
     __yomuReaderAppInitialized?: boolean;
@@ -262,6 +262,25 @@ describe('reader boot', () => {
 
         expect(shouldTemporarilyUnshadowWindowProperty(descriptor)).toBe(false);
         expect(() => dispatchWindowEvent(createWindowCustomEvent('yomu-reader-descriptor-value-failure-test'))).not.toThrow();
+    });
+
+    it('clones restored window property descriptors into the page compartment on Firefox', () => {
+        // Restoring a shadowed page window property must go through cloneInto
+        // or Firefox rejects it ("Not allowed to define cross-origin object
+        // as property"), which also left dispatchEvent deleted and broke
+        // popover loads (e.g. Immersion Kit examples) on the extension.
+        const cloned = { configurable: true, cloned: true };
+        const cloneInto = vi.fn(() => cloned);
+        vi.stubGlobal('cloneInto', cloneInto);
+        const descriptor: PropertyDescriptor = { configurable: true, value: vi.fn() };
+
+        const result = pageCompartmentDescriptor(descriptor, {});
+
+        expect(cloneInto).toHaveBeenCalledWith(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+        expect(result).toBe(cloned);
+
+        vi.unstubAllGlobals();
+        expect(pageCompartmentDescriptor(descriptor, {})).toBe(descriptor);
     });
 
     it('clones custom event details into Firefox userscript page scope when available', () => {
