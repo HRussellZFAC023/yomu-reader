@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.59] - 2026-06-10
+
+### Added
+
+- Anki deck-state parity: blacklisting an Anki-backed word now suspends its cards natively (suspended cards never come up for review and already have their own state color), and never-forget tags the note `yomu-never-forget` — both toggle on re-press and can be managed from inside Anki too.
+- Jiten review history: Jiten exposes only per-day counters, so each study-batch load now snapshots them locally (up to ~400 days) and merges them into the stats page's activity/heatmap like the Anki history source.
+
+### Fixed
+
+- Anki status colors now load in parallel with page rendering: the cached status lookup starts as soon as a parse finishes (overlapping the DOM work) instead of after it, removing most of the gray→color pop-in after a scan.
+
 ## [0.6.58] - 2026-06-10
 
 ### Fixed

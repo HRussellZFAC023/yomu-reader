@@ -39,6 +39,10 @@ export interface VisiblePageScannerDependencies {
     preloadParsedTokens: (tokens: JPDBToken[]) => void;
     enrichPitchWords: (tokens: JPDBToken[]) => Promise<void> | void;
     enrichAnkiWords: (tokens: JPDBToken[], roots?: ParentNode[]) => Promise<void> | void;
+    // Starts the Anki status lookup immediately (overlapping the DOM apply)
+    // and returns a callback that applies the colors once roots are known —
+    // this removes most of the gray→color pop-in after a scan.
+    beginAnkiWordEnrichment?: (tokens: JPDBToken[]) => (roots: ParentNode[]) => void;
     prepareSubtitleTokensBeforeRender?: (tokens: JPDBToken[]) => Promise<void> | void;
     refreshWordContrast?: (root: ParentNode) => void;
     toast: (message: string) => void;
@@ -128,8 +132,14 @@ export class VisiblePageScanner {
             const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
             if (this.destroyed) return;
+            // Kick the status-color lookup off before touching the DOM so the
+            // IndexedDB roundtrip overlaps the apply work.
+            const applyAnkiColors = this.shouldEnrichAnkiWords()
+                ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat())
+                : undefined;
             const changedRoots = await this.applyTokens(batch, parsed);
-            this.preloadParsed(parsed, changedRoots);
+            applyAnkiColors?.(changedRoots);
+            this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
             if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
         }
     }
@@ -159,12 +169,12 @@ export class VisiblePageScanner {
         return [...allChangedRoots];
     }
 
-    private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = []): void {
+    private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = [], options: { skipAnki?: boolean } = {}): void {
         if (this.destroyed) return;
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
         void this.dependencies.enrichPitchWords(tokens);
-        if (this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
+        if (!options.skipAnki && this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
     }
 
     private shouldEnrichAnkiWords(): boolean {

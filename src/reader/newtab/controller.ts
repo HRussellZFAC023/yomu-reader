@@ -185,6 +185,7 @@ import {
 } from './session-progress';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import {
+    applyJitenDailyStats,
     applyJpdbReviewImport,
     combineStatsSources,
     emptyStatsDashboardSnapshot,
@@ -198,6 +199,7 @@ import {
     type StatsSourceId,
     type StatsSourceSnapshot,
 } from '../app/stats';
+import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
@@ -1918,7 +1920,7 @@ export class NewTabController {
             this.loadAnkiStatsSource(),
         ]);
         if (generation !== this.statsGeneration || !root.isConnected) return;
-        const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
+        const jpdbWithHistory = applyJitenDailyStats(applyJpdbReviewImport(jpdb, history), loadJitenDailyStats());
         this.statsSnapshot = {
             jpdb: jpdbWithHistory,
             anki,

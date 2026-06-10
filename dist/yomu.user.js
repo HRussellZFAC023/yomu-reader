@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.58
+// @version      0.6.59
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-RWA1MXkjSzwTh8CbsXgb7NWJppmP7HVIMessHEfGPzU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-NruMZtaNtXVmJw1Wwng9xoeZo8XBkdUgF90uFUnX+mM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tOQU2v62SN5I0m/h4EtIltUlN0l9ng+Vq0ijDwnq0FQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-/Ojt/HhOuks7uYzrqNpZJ43pdpZDtt44X8Q+9hUV2QA=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6075,6 +6075,10 @@
       reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
       reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
       reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
+      ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
+      ankiCardsUnsuspended: "Unsuspended in Anki.",
+      ankiNeverForgetTagAdded: "Tagged yomu-never-forget in Anki.",
+      ankiNeverForgetTagRemoved: "Removed the yomu-never-forget tag in Anki.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
@@ -6648,6 +6652,10 @@ reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレ�
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
+ankiCardsSuspended	Ankiで保留にしました（ブラックリストと同様の扱い）。
+ankiCardsUnsuspended	Ankiの保留を解除しました。
+ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
+ankiNeverForgetTagRemoved	Ankiのyomu-never-forgetタグを外しました。
 forget	忘れる
 never	忘れない
 neverHint	忘れないデッキへ移動します。
@@ -15575,6 +15583,25 @@ ${entry.reading || ""}`;
       this.statusLookupCache.clear();
       this.markStatusIndexDirtyAfterMutation("review");
     }
+    // Suspension is Anki's native blacklist analog: suspended cards never
+    // come up for review and already render with the dedicated state color.
+    async setCardsSuspended(cardIds, suspended) {
+      if (!cardIds.length) return;
+      log$m.info("Setting Anki card suspension", { cardIds, suspended });
+      await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("review");
+    }
+    // The never-forget analog: a tag the user can also filter on inside Anki.
+    async setNotesTag(noteIds, tag, present) {
+      if (!noteIds.length) return;
+      log$m.info("Setting Anki note tag", { noteIds, tag, present });
+      await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("merge");
+    }
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
@@ -19589,6 +19616,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
     if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
   }
+  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   class CardActionController {
     constructor(options) {
       this.options = options;
@@ -19816,10 +19844,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async changeProviderDeckState(card, state, deck) {
       const settings = this.options.getSettings();
       const provider = this.apiProviderForCard(card, settings);
+      if (!provider && settings.ankiEnabled && await this.changeAnkiDeckState(card, state, settings)) return;
       this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
       const wasSet = normalizeCardStates(card.cardState).includes(state);
       await provider.setDeckState(card, state, deck);
       this.options.toast(uiText(settings.interfaceLanguage, wasSet ? "removedFromDeck" : "addedToDeckToast"));
+    }
+    // Anki has no blacklist/never-forget decks; map blacklist to native card
+    // suspension (same effect: never reviewed, dedicated state color) and
+    // never-forget to a tag that can also be filtered inside Anki.
+    async changeAnkiDeckState(card, state, settings) {
+      const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
+      if (!lookup?.notes.length) return false;
+      if (state === "blacklisted") {
+        const cardIds = lookup.notes.flatMap((note) => note.cardIds);
+        const suspended = lookup.state === "suspended";
+        await this.options.anki.setCardsSuspended(cardIds, !suspended);
+        this.options.toast(uiText(settings.interfaceLanguage, suspended ? "ankiCardsUnsuspended" : "ankiCardsSuspended"));
+        return true;
+      }
+      const noteIds = lookup.notes.map((note) => note.noteId);
+      const tagged = lookup.notes.every((note) => note.tags?.includes(ANKI_NEVER_FORGET_TAG));
+      await this.options.anki.setNotesTag(noteIds, ANKI_NEVER_FORGET_TAG, !tagged);
+      this.options.toast(uiText(settings.interfaceLanguage, tagged ? "ankiNeverForgetTagRemoved" : "ankiNeverForgetTagAdded"));
+      return true;
     }
     async gradeCard(button2, card, sentence) {
       const grade = button2.dataset.grade;
@@ -26984,6 +27032,50 @@ ${spelling}`);
   function intersects(a, b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   }
+  const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
+  const JITEN_DAILY_STATS_MAX_DAYS = 400;
+  function recordJitenDailyStats(counts, now = /* @__PURE__ */ new Date()) {
+    const newCardsToday = finiteCount(counts.newCardsToday);
+    const reviewsToday = finiteCount(counts.reviewsToday);
+    if (newCardsToday === void 0 && reviewsToday === void 0) return;
+    try {
+      const stored = loadJitenDailyStats();
+      const key = jitenStatsDateKey(now);
+      const previous = stored[key];
+      stored[key] = {
+        // Counters reset at Jiten's day boundary; keep the daily maximum
+        // so a late small batch never shrinks an earlier snapshot.
+        newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
+        reviewsToday: Math.max(previous?.reviewsToday ?? 0, reviewsToday ?? 0),
+        updatedAt: now.getTime()
+      };
+      gmStorageSetSync(JITEN_DAILY_STATS_KEY, pruneJitenDailyStats(stored));
+    } catch {
+    }
+  }
+  function loadJitenDailyStats() {
+    try {
+      const stored = gmStorageGetSync(JITEN_DAILY_STATS_KEY, {});
+      return stored && typeof stored === "object" && !Array.isArray(stored) ? { ...stored } : {};
+    } catch {
+      return {};
+    }
+  }
+  function jitenStatsDateKey(date) {
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+  function pruneJitenDailyStats(stored) {
+    const keys = Object.keys(stored).sort();
+    while (keys.length > JITEN_DAILY_STATS_MAX_DAYS) {
+      delete stored[keys.shift() ?? ""];
+    }
+    return stored;
+  }
+  function finiteCount(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
+  }
   const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$2 = 3e4;
   const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
@@ -27056,6 +27148,7 @@ ${spelling}`);
         method: "GET",
         query: { limit: cardLimit }
       });
+      recordJitenDailyStats(response);
       return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
     }
     async reviewCard(card, grade) {
@@ -37030,8 +37123,10 @@ ${glossaryKey}`;
         const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
         const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
         if (this.destroyed) return;
+        const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat()) : void 0;
         const changedRoots = await this.applyTokens(batch, parsed);
-        this.preloadParsed(parsed, changedRoots);
+        applyAnkiColors?.(changedRoots);
+        this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
         if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
       }
     }
@@ -37057,12 +37152,12 @@ ${glossaryKey}`;
       allChangedRoots.forEach((root) => this.dependencies.refreshWordContrast?.(root));
       return [...allChangedRoots];
     }
-    preloadParsed(parsed, changedRoots = []) {
+    preloadParsed(parsed, changedRoots = [], options = {}) {
       if (this.destroyed) return;
       const tokens = parsed.flat();
       this.dependencies.preloadParsedTokens(tokens);
       void this.dependencies.enrichPitchWords(tokens);
-      if (this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
+      if (!options.skipAnki && this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
     }
     shouldEnrichAnkiWords() {
       return !this.destroyed && shouldLookupAnkiStatus(this.dependencies.getSettings());
@@ -37384,6 +37479,7 @@ ${glossaryKey}`;
       preloadParsedTokens: (tokens) => this.preloadTermAudioForTokens(tokens),
       enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+      beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
       prepareSubtitleTokensBeforeRender: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
       refreshWordContrast: (root) => refreshReaderWordContrast(root),
       toast: (message) => this.toast(message)
@@ -40812,6 +40908,29 @@ ${glossaryKey}`;
     queueAnkiWordEnrichment(tokens, roots = [document]) {
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
       void this.enrichAnkiWords(tokens, roots);
+    }
+    // Starts the cached status lookup before the scan touches the DOM so the
+    // IndexedDB roundtrip overlaps the token apply; colors then land in the
+    // same breath as the ruby instead of popping in afterwards.
+    beginAnkiWordEnrichment(tokens) {
+      if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueTokens = tokens.filter((token) => {
+        const key = cardKey(token.card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
+        log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
+        return uniqueTokens.map(() => untrustedAnkiLookupResult());
+      });
+      return (roots) => {
+        void lookups.then((resolved) => {
+          if (!this.shouldRunAnkiBackgroundWork()) return;
+          this.applyAnkiLookupsToRenderedWords(uniqueTokens, resolved, roots);
+        });
+      };
     }
     async enrichAnkiWords(tokens, roots = [document]) {
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;

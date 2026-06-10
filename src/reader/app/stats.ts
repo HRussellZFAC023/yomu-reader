@@ -173,6 +173,27 @@ export function applyJpdbReviewImport(source: StatsSourceSnapshot, imported: Jpd
     });
 }
 
+// Jiten has no history API; its per-day counters are snapshotted locally on
+// every study-batch load (see dictionaries/jiten-stats-cache) and merged into
+// the API source's activity here.
+export function applyJitenDailyStats(source: StatsSourceSnapshot, byDate: Record<string, { newCardsToday: number; reviewsToday: number; updatedAt: number }>): StatsSourceSnapshot {
+    const entries = Object.entries(byDate);
+    if (!entries.length) return source;
+    const daily: StatsDailyPoint[] = entries.map(([date, snapshot]) => ({
+        date,
+        reviews: snapshot.reviewsToday,
+        correct: 0,
+        failed: 0,
+        newCards: snapshot.newCardsToday,
+        minutes: 0,
+    }));
+    return finalizeStatsSource({
+        ...source,
+        daily: mergeDailyPoints(source.daily, daily),
+        updatedAt: Math.max(source.updatedAt ?? 0, ...entries.map(([, snapshot]) => snapshot.updatedAt)),
+    });
+}
+
 export function combineStatsSources(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): StatsCombinedSnapshot {
     const daily = mergeDailyPoints(jpdb.daily, anki.daily);
     return finalizeCombinedStatsSource({

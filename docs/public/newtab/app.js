@@ -1835,6 +1835,10 @@
       reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
       reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
       reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
+      ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
+      ankiCardsUnsuspended: "Unsuspended in Anki.",
+      ankiNeverForgetTagAdded: "Tagged yomu-never-forget in Anki.",
+      ankiNeverForgetTagRemoved: "Removed the yomu-never-forget tag in Anki.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
@@ -2408,6 +2412,10 @@ reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレ�
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
+ankiCardsSuspended	Ankiで保留にしました（ブラックリストと同様の扱い）。
+ankiCardsUnsuspended	Ankiの保留を解除しました。
+ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
+ankiNeverForgetTagRemoved	Ankiのyomu-never-forgetタグを外しました。
 forget	忘れる
 never	忘れない
 neverHint	忘れないデッキへ移動します。
@@ -15367,6 +15375,25 @@ ${entry.reading || ""}`;
       this.statusLookupCache.clear();
       this.markStatusIndexDirtyAfterMutation("review");
     }
+    // Suspension is Anki's native blacklist analog: suspended cards never
+    // come up for review and already render with the dedicated state color.
+    async setCardsSuspended(cardIds, suspended) {
+      if (!cardIds.length) return;
+      log$p.info("Setting Anki card suspension", { cardIds, suspended });
+      await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("review");
+    }
+    // The never-forget analog: a tag the user can also filter on inside Anki.
+    async setNotesTag(noteIds, tag, present) {
+      if (!noteIds.length) return;
+      log$p.info("Setting Anki note tag", { noteIds, tag, present });
+      await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("merge");
+    }
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
@@ -19338,6 +19365,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
     if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
   }
+  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   class CardActionController {
     constructor(options) {
       this.options = options;
@@ -19565,10 +19593,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async changeProviderDeckState(card, state, deck) {
       const settings = this.options.getSettings();
       const provider = this.apiProviderForCard(card, settings);
+      if (!provider && settings.ankiEnabled && await this.changeAnkiDeckState(card, state, settings)) return;
       this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
       const wasSet = normalizeCardStates(card.cardState).includes(state);
       await provider.setDeckState(card, state, deck);
       this.options.toast(uiText(settings.interfaceLanguage, wasSet ? "removedFromDeck" : "addedToDeckToast"));
+    }
+    // Anki has no blacklist/never-forget decks; map blacklist to native card
+    // suspension (same effect: never reviewed, dedicated state color) and
+    // never-forget to a tag that can also be filtered inside Anki.
+    async changeAnkiDeckState(card, state, settings) {
+      const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
+      if (!lookup?.notes.length) return false;
+      if (state === "blacklisted") {
+        const cardIds = lookup.notes.flatMap((note) => note.cardIds);
+        const suspended = lookup.state === "suspended";
+        await this.options.anki.setCardsSuspended(cardIds, !suspended);
+        this.options.toast(uiText(settings.interfaceLanguage, suspended ? "ankiCardsUnsuspended" : "ankiCardsSuspended"));
+        return true;
+      }
+      const noteIds = lookup.notes.map((note) => note.noteId);
+      const tagged = lookup.notes.every((note) => note.tags?.includes(ANKI_NEVER_FORGET_TAG));
+      await this.options.anki.setNotesTag(noteIds, ANKI_NEVER_FORGET_TAG, !tagged);
+      this.options.toast(uiText(settings.interfaceLanguage, tagged ? "ankiNeverForgetTagRemoved" : "ankiNeverForgetTagAdded"));
+      return true;
     }
     async gradeCard(button, card, sentence) {
       const grade = button.dataset.grade;
@@ -27925,6 +27973,50 @@ ${spelling}`);
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";
   }
+  const JITEN_DAILY_STATS_KEY = "jpdb-reader-jiten-daily-stats";
+  const JITEN_DAILY_STATS_MAX_DAYS = 400;
+  function recordJitenDailyStats(counts, now = /* @__PURE__ */ new Date()) {
+    const newCardsToday = finiteCount(counts.newCardsToday);
+    const reviewsToday = finiteCount(counts.reviewsToday);
+    if (newCardsToday === void 0 && reviewsToday === void 0) return;
+    try {
+      const stored = loadJitenDailyStats();
+      const key2 = jitenStatsDateKey(now);
+      const previous = stored[key2];
+      stored[key2] = {
+        // Counters reset at Jiten's day boundary; keep the daily maximum
+        // so a late small batch never shrinks an earlier snapshot.
+        newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
+        reviewsToday: Math.max(previous?.reviewsToday ?? 0, reviewsToday ?? 0),
+        updatedAt: now.getTime()
+      };
+      gmStorageSetSync(JITEN_DAILY_STATS_KEY, pruneJitenDailyStats(stored));
+    } catch {
+    }
+  }
+  function loadJitenDailyStats() {
+    try {
+      const stored = gmStorageGetSync(JITEN_DAILY_STATS_KEY, {});
+      return stored && typeof stored === "object" && !Array.isArray(stored) ? { ...stored } : {};
+    } catch {
+      return {};
+    }
+  }
+  function jitenStatsDateKey(date) {
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+  function pruneJitenDailyStats(stored) {
+    const keys = Object.keys(stored).sort();
+    while (keys.length > JITEN_DAILY_STATS_MAX_DAYS) {
+      delete stored[keys.shift() ?? ""];
+    }
+    return stored;
+  }
+  function finiteCount(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : void 0;
+  }
   const JITEN_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$1 = 3e4;
   const MISSING_API_KEY_MESSAGE = "Jiten API key is not set.";
@@ -27997,6 +28089,7 @@ ${spelling}`);
         method: "GET",
         query: { limit: cardLimit }
       });
+      recordJitenDailyStats(response);
       return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
     }
     async reviewCard(card, grade) {
@@ -32637,6 +32730,23 @@ ${newTabCardReading(card)}`;
       updatedAt: Math.max(source.updatedAt ?? 0, imported.importedAt)
     });
   }
+  function applyJitenDailyStats(source, byDate) {
+    const entries = Object.entries(byDate);
+    if (!entries.length) return source;
+    const daily = entries.map(([date, snapshot]) => ({
+      date,
+      reviews: snapshot.reviewsToday,
+      correct: 0,
+      failed: 0,
+      newCards: snapshot.newCardsToday,
+      minutes: 0
+    }));
+    return finalizeStatsSource({
+      ...source,
+      daily: mergeDailyPoints(source.daily, daily),
+      updatedAt: Math.max(source.updatedAt ?? 0, ...entries.map(([, snapshot]) => snapshot.updatedAt))
+    });
+  }
   function combineStatsSources(jpdb, anki) {
     const daily = mergeDailyPoints(jpdb.daily, anki.daily);
     return finalizeCombinedStatsSource({
@@ -36853,7 +36963,7 @@ ${newTabCardReading(card)}`;
         this.loadAnkiStatsSource()
       ]);
       if (generation !== this.statsGeneration || !root.isConnected) return;
-      const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
+      const jpdbWithHistory = applyJitenDailyStats(applyJpdbReviewImport(jpdb, history), loadJitenDailyStats());
       this.statsSnapshot = {
         jpdb: jpdbWithHistory,
         anki,
