@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.65] - 2026-06-10
+
+### Added
+
+- Per-kanji furigana on all-kanji compounds: when the user's imported kanji dictionaries allow exactly one alignment of the whole-word reading (琉球藍 → 琉=りゅう・球=きゅう・藍=あい, including rendaku ぐみ and sokuon がっ surface forms), local-dictionary tokens now carry per-kanji ruby segments instead of one ruby spanning the compound. Ambiguous or unalignable readings keep the whole-word ruby — no guessing.
+
+### Fixed
+
+- m.youtube rows (video titles, channel bylines) no longer show only furigana with the base text clipped away: single-line ellipsis rows (overflow hidden + text-overflow: ellipsis on nowrap text) are now treated as layout-sensitive on every site regardless of measured height, so words stay lookupable and colored but ruby that would grow the line is suppressed. Wrapping prose with an inert text-overflow declaration keeps its furigana.
+
+### Notes
+
+- Restored a subtitle-CSS regression test that had drifted from the intentional 0.6.62 change (pitch underlines stay transparent until enrichment): the assertion now covers the transparent-by-default declaration, closing a gap where the full jpdb test shard had not been re-run to completion since.
+
 ## [0.6.64] - 2026-06-10
 
 ### Changed
