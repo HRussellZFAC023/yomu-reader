@@ -13989,6 +13989,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_STORAGE_KEY = "yomu:anki-status-index:v1";
   const ANKI_STATUS_INDEX_VERSION = 1;
   const ANKI_STATUS_INDEX_COUNT_CHECK_MS = 5 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS = 2 * 60 * 1e3;
   const ANKI_STATUS_INDEX_MAX_STALE_MS = 30 * 60 * 1e3;
   const ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE = 500;
   const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;
@@ -14418,6 +14419,7 @@ ${entry.reading || ""}`;
   class AnkiConnectClient {
     constructor(getSettings) {
       this.getSettings = getSettings;
+      this.installFocusStatusRefresh();
     }
     lookupCache = /* @__PURE__ */ new Map();
     statusLookupCache = /* @__PURE__ */ new Map();
@@ -14430,6 +14432,8 @@ ${entry.reading || ""}`;
     availabilityCheckedAt = 0;
     unavailableUntil = 0;
     isDestroyed = false;
+    focusStatusRefreshListener;
+    lastFocusStatusRefreshAt = 0;
     destroy() {
       this.isDestroyed = true;
       this.lookupInflight.clear();
@@ -14437,6 +14441,29 @@ ${entry.reading || ""}`;
       this.statusIndexRefresh = void 0;
       this.statusIndexRefreshQueued = false;
       this.availabilityProbe = void 0;
+      if (this.focusStatusRefreshListener) {
+        window.removeEventListener("focus", this.focusStatusRefreshListener);
+        document.removeEventListener("visibilitychange", this.focusStatusRefreshListener);
+        this.focusStatusRefreshListener = void 0;
+      }
+    }
+    // The status index is validated by deck card COUNT, which misses reviews
+    // done in Anki itself (state changes, same count). Returning to the tab
+    // after being away is exactly when that happens, so expire the index then.
+    installFocusStatusRefresh() {
+      if (typeof window === "undefined") return;
+      this.focusStatusRefreshListener = () => {
+        if (this.isDestroyed || document.visibilityState === "hidden") return;
+        const awayMs = Date.now() - this.lastFocusStatusRefreshAt;
+        if (awayMs < ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS) return;
+        this.lastFocusStatusRefreshAt = Date.now();
+        const index = this.validStatusIndex(this.statusIndex);
+        if (!index) return;
+        this.statusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
+        this.queueStatusIndexRefresh();
+      };
+      window.addEventListener("focus", this.focusStatusRefreshListener);
+      document.addEventListener("visibilitychange", this.focusStatusRefreshListener);
     }
     // Used by settings connection checks through the Anki client dependency.
     async isConnected() {
@@ -19119,6 +19146,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       noWordsYet: "Looking for more words...",
       noKanjiCardsYet: "Looking for more kanji...",
       noReviewWordsReady: "No review cards ready.",
+      reviewFallbackNotice: "No reviews ready — showing practice words",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
       couldNotLoadWords: "Could not load words.",
@@ -19230,6 +19258,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     noWordsYet: "さらに単語を探しています…",
     noKanjiCardsYet: "さらに漢字を探しています…",
     noReviewWordsReady: "復習する単語カードは今ありません。",
+    reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
     couldNotLoadWords: "単語を読み込めませんでした。",
@@ -32382,7 +32411,8 @@ ${normalizedReading}`;
       cards: accumulator.cards,
       sourceLabel: accumulator.labels.length ? accumulator.labels.join(" + ") : newTabText(language, "noSource"),
       reviewCountMode: accumulator.reviewCountMode,
-      emptyMessageKey: accumulator.emptyMessageKey
+      emptyMessageKey: accumulator.emptyMessageKey,
+      fallbackNotice: accumulator.fallbackNotice
     };
   }
   function mergeDedupeCardMetadata(primary, secondary) {
@@ -35582,6 +35612,7 @@ ${newTabCardReading(card)}`;
     reviewHistoryCards = [];
     sessionProgress = new NewTabSessionProgressTracker();
     emptyLoadMessageKey = null;
+    fallbackStudyNotice = false;
     loadGeneration = 0;
     sourceSwitchGeneration = 0;
     searchGeneration = 0;
@@ -36635,6 +36666,7 @@ ${newTabCardReading(card)}`;
     applyLoadedWordState(result, statsStudyFilter) {
       this.reviewCountMode = result.reviewCountMode === true;
       this.emptyLoadMessageKey = result.emptyMessageKey ?? null;
+      this.fallbackStudyNotice = result.fallbackNotice === true;
       this.sourceLabel = this.loadedWordSourceLabel(result.sourceLabel, statsStudyFilter);
       this.statsStudyFilter = null;
     }
@@ -37060,6 +37092,7 @@ ${newTabCardReading(card)}`;
     }
     async loadFallbackStudyWordsIfNeeded(plan, accumulator, onProgress) {
       if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
+      if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
       const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
       const fallback = jitenOnlyApiFallback ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress);
       if (fallback.cards.length && !accumulator.cards.length) {
@@ -37072,6 +37105,10 @@ ${newTabCardReading(card)}`;
         }
       }
       appendNewTabLoadResult(accumulator, fallback);
+    }
+    hasConfiguredReviewSources() {
+      const settings = this.dependencies.getSettings();
+      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
     }
     shouldUseJitenOnlyApiStudyFallback(plan, accumulator) {
       if (accumulator.cards.length || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
@@ -37902,6 +37939,7 @@ ${newTabCardReading(card)}`;
       const baseLabel = this.newTabCountLabel(card);
       const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
       const labels = [
+        this.fallbackStudyNotice ? this.text("reviewFallbackNotice") : "",
         baseLabel,
         snapshot ? formatNewTabSessionProgressLabel(snapshot, {
           completed: this.text("sessionDone"),

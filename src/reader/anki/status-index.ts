@@ -27,6 +27,9 @@ import { ankiCardStateRank, ankiStatusIndexEntryFromInfo } from './card-details'
 export const ANKI_STATUS_INDEX_STORAGE_KEY = 'yomu:anki-status-index:v1';
 export const ANKI_STATUS_INDEX_VERSION = 1;
 export const ANKI_STATUS_INDEX_COUNT_CHECK_MS = 5 * 60 * 1000;
+// Minimum gap between focus-triggered full refreshes (returning to the tab
+// after reviewing in Anki is when count-based freshness goes stale).
+export const ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS = 2 * 60 * 1000;
 export const ANKI_STATUS_INDEX_MAX_STALE_MS = 30 * 60 * 1000;
 export const ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE = 500;
 export const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;

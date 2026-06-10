@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.51] - 2026-06-10
+
+### Fixed
+
+- The new tab now says so when it substitutes practice words for an empty or unreachable review queue ("No reviews ready — showing practice words") instead of silently showing non-review words as if they were your JPDB/Anki feed.
+- Anki word colors no longer stay stale after reviewing in Anki itself: returning to the tab expires the count-validated status index (throttled to once per 2 minutes), so state changes that don't alter deck counts get picked up immediately instead of after up to 30 minutes.
+
+### Notes
+
+- Verified the new-tab grade control already exposes an explicit JPDB/Anki/Both target whose label propagates onto the grade buttons — no silent dual-grading. Updated the trust-audit backlog accordingly.
+
 ## [0.6.50] - 2026-06-10
 
 ### Fixed
