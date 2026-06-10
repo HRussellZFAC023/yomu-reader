@@ -50,6 +50,7 @@ interface CardActionControllerOptions {
     toast: (message: string) => void;
     invalidateCardData?: () => void;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
+    onApiCardStateChanged?: (card: JPDBCard) => void;
 }
 
 interface CardActionContext {
@@ -301,6 +302,7 @@ export class CardActionController {
         await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
         if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
         this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
+        this.notifyApiCardStateChanged(card);
     }
 
     private async openAnkiNote(button: HTMLButtonElement): Promise<void> {
@@ -355,6 +357,7 @@ export class CardActionController {
         const wasSet = normalizeCardStates(card.cardState).includes(state);
         await provider.setDeckState(card, state, deck);
         this.options.toast(uiText(settings.interfaceLanguage, wasSet ? 'removedFromDeck' : 'addedToDeckToast'));
+        this.notifyApiCardStateChanged(card);
     }
 
     // Anki has no blacklist/never-forget decks; map blacklist to native card
@@ -420,6 +423,7 @@ export class CardActionController {
         const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
         if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
         else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+        this.notifyApiCardStateChanged(card);
     }
 
     // Jiten Reader parity: optionally add every reviewed word to the mining
@@ -521,6 +525,14 @@ export class CardActionController {
     private notifyAnkiStatusChanged(card: JPDBCard): void {
         this.options.invalidateCardData?.();
         this.options.onAnkiStatusChanged?.(card);
+    }
+
+    // After an API-side state change (review, mining, blacklist/never-forget),
+    // rendered page words for the same card recolor immediately instead of
+    // waiting for a rescan.
+    private notifyApiCardStateChanged(card: JPDBCard): void {
+        this.options.invalidateCardData?.();
+        this.options.onApiCardStateChanged?.(card);
     }
 
     private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {

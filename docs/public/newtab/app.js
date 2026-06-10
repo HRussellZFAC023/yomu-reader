@@ -19146,17 +19146,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       selectedDeckLabel: (_current, data) => jitenDeckLabel$1((data.jitenDecks ?? [])[0]),
       addToDeck: async (deckId, card, sentence, context) => {
         await jiten.addToStudyDeck(selectedJitenDeckId(deckId), card, sentence, context?.sourceTitle);
+        await refreshJitenCardState(jiten, card);
       },
       reviewCard: async (card, grade) => {
         await jiten.reviewCard(card, grade);
+        await refreshJitenCardState(jiten, card);
         return {};
       },
       setDeckState: async (card, state) => {
         const jitenState = state === "blacklisted" ? "blacklist" : "neverForget";
         const action = normalizeCardStates(card.cardState).includes(state) ? "remove" : "add";
         await jiten.setVocabularyState(card, jitenState, action);
+        await refreshJitenCardState(jiten, card);
       }
     };
+  }
+  async function refreshJitenCardState(jiten, card) {
+    if (typeof jiten.refreshCardState !== "function") return;
+    await jiten.refreshCardState(card).catch(() => void 0);
   }
   function isJitenBackedCard(card) {
     return card.source === "jiten" || finitePositiveInteger(card.jitenWordId) !== void 0 && finiteNonNegativeInteger(card.jitenReadingIndex) !== void 0;
@@ -19613,6 +19620,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title });
       if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
       this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
+      this.notifyApiCardStateChanged(card);
     }
     async openAnkiNote(button) {
       const settings = this.options.getSettings();
@@ -19662,6 +19670,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const wasSet = normalizeCardStates(card.cardState).includes(state);
       await provider.setDeckState(card, state, deck);
       this.options.toast(uiText(settings.interfaceLanguage, wasSet ? "removedFromDeck" : "addedToDeckToast"));
+      this.notifyApiCardStateChanged(card);
     }
     // Anki has no blacklist/never-forget decks; map blacklist to native card
     // suspension (same effect: never reviewed, dedicated state color) and
@@ -19722,6 +19731,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
       if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
       else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+      this.notifyApiCardStateChanged(card);
     }
     // Jiten Reader parity: optionally add every reviewed word to the mining
     // deck so reviewing doubles as collecting (off by default).
@@ -19806,6 +19816,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     notifyAnkiStatusChanged(card) {
       this.options.invalidateCardData?.();
       this.options.onAnkiStatusChanged?.(card);
+    }
+    // After an API-side state change (review, mining, blacklist/never-forget),
+    // rendered page words for the same card recolor immediately instead of
+    // waiting for a rescan.
+    notifyApiCardStateChanged(card) {
+      this.options.invalidateCardData?.();
+      this.options.onApiCardStateChanged?.(card);
     }
     async showExistingAnkiCard(card, sentence) {
       const settings = this.options.getSettings();
@@ -28367,6 +28384,15 @@ ${spelling}`);
         ...jitenCardReference(card),
         rating: jitenRatingForGrade(grade)
       });
+    }
+    // Parity with JPDB's refreshCard: Jiten exposes card state only through
+    // /parse (knownState), so refresh by re-parsing the word itself and
+    // copying the fresh state back onto the card.
+    async refreshCardState(card) {
+      const reference = jitenCardReference(card);
+      const [tokens] = await this.parse([card.spelling]);
+      const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
+      if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
     }
     async setVocabularyState(card, deck, action) {
       await this.request("srs/set-vocabulary-state", {

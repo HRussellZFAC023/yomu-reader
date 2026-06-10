@@ -144,17 +144,27 @@ function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSe
         selectedDeckLabel: (_current, data) => jitenDeckLabel((data.jitenDecks ?? [])[0]),
         addToDeck: async (deckId, card, sentence, context) => {
             await jiten.addToStudyDeck(selectedJitenDeckId(deckId), card, sentence, context?.sourceTitle);
+            await refreshJitenCardState(jiten, card);
         },
         reviewCard: async (card, grade) => {
             await jiten.reviewCard(card, grade);
+            // JPDB refreshes card state inside reviewCard; mirror it so page
+            // words and the popover recolor from the real post-review state.
+            await refreshJitenCardState(jiten, card);
             return {};
         },
         setDeckState: async (card, state) => {
             const jitenState = state === 'blacklisted' ? 'blacklist' : 'neverForget';
             const action = normalizeCardStates(card.cardState).includes(state) ? 'remove' : 'add';
             await jiten.setVocabularyState(card, jitenState, action);
+            await refreshJitenCardState(jiten, card);
         },
     };
+}
+
+async function refreshJitenCardState(jiten: JitenApiClient, card: JPDBCard): Promise<void> {
+    if (typeof jiten.refreshCardState !== 'function') return;
+    await jiten.refreshCardState(card).catch(() => undefined);
 }
 
 export function isJitenBackedCard(card: JPDBCard): boolean {

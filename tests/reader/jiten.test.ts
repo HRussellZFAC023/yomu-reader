@@ -194,6 +194,44 @@ describe('JitenApiClient', () => {
         });
     });
 
+    it('refreshes a card state from a self-parse after reviews (JPDB refreshCard parity)', async () => {
+        const fetchMock = createFetchMock({
+            vocabulary: [{
+                wordId: 42,
+                readingIndex: 2,
+                spelling: '日本語',
+                reading: '日本語[にほんご]',
+                partsOfSpeech: ['n'],
+                meaningsChunks: [['Japanese language']],
+                meaningsPartOfSpeech: ['n'],
+                knownState: [4],
+                pitchAccents: [0],
+            }],
+            tokens: [[{ wordId: 42, readingIndex: 2, start: 0, end: 3, length: 3 }]],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+        const card = {
+            vid: 42,
+            sid: 2,
+            rid: 0,
+            spelling: '日本語',
+            reading: 'にほんご',
+            frequencyRank: null,
+            partOfSpeech: ['n'],
+            meanings: [],
+            cardState: ['new'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jiten' as const,
+            jitenWordId: 42,
+            jitenReadingIndex: 2,
+        };
+
+        await client.refreshCardState(card as never);
+
+        expect(card.cardState).toEqual(['due']);
+    });
+
     it('maps the Jiten known-state enum to Yomu card states', async () => {
         const fetchMock = createFetchMock({
             vocabulary: [
