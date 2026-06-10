@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from '../settings/index';
 import { gmStorageGet, gmStorageGetSync } from './storage';
+import { pageCompartmentDescriptor } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 
 const JAPANESE_LANGUAGE = 'ja';
@@ -286,7 +287,7 @@ function restoreJapanesePreferences(state: JapanesePreferenceState): void {
     state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
         try {
-            if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, snapshot.descriptor);
+            if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, pageCompartmentDescriptor(snapshot.descriptor, snapshot.target));
             else delete (snapshot.target as Record<PropertyKey, unknown>)[snapshot.key];
         } catch {
             // Some browser host objects are immutable after first definition; leave them as-is.
@@ -444,10 +445,13 @@ function defineGetter(state: JapanesePreferenceState, target: object | null | un
     if (!target) return;
     rememberDescriptor(state, target, key);
     try {
-        Object.defineProperty(target, key, {
+        // Firefox Xray: a sandbox getter must be cloned into the page
+        // compartment or the define throws "Not allowed to define
+        // cross-origin object" and the spoof silently never applies.
+        Object.defineProperty(target, key, pageCompartmentDescriptor({
             configurable: true,
             get: getter,
-        });
+        }, target));
     } catch {
         // Browser-defined properties may be non-configurable in some engines.
     }
@@ -462,11 +466,11 @@ function defineValue(state: JapanesePreferenceState, target: object | null | und
 function defineUntrackedValue(target: object | null | undefined, key: PropertyKey, value: unknown): void {
     if (!target) return;
     try {
-        Object.defineProperty(target, key, {
+        Object.defineProperty(target, key, pageCompartmentDescriptor({
             configurable: true,
             writable: true,
             value,
-        });
+        }, target));
     } catch {
         try {
             (target as Record<PropertyKey, unknown>)[key] = value;

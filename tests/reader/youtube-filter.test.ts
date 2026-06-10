@@ -11,6 +11,7 @@ import {
     YoutubeImmersionFilter,
     collectYouTubeVideoCards,
     isProbablyJapaneseYouTubeText,
+    rebalanceYouTubeGridRows,
 } from '../../src/reader/subtitles/youtube';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
@@ -1146,5 +1147,58 @@ describe('YouTube immersion filter', () => {
             filter.destroy();
             vi.stubGlobal('MutationObserver', OriginalMutationObserver);
         }
+    });
+
+    it('re-marks the first visible item of each row after filtering (rowless lockup grid)', () => {
+        document.body.innerHTML = `
+            <ytd-rich-grid-renderer>
+                <div id="contents">
+                    <ytd-rich-item-renderer id="v1" items-per-row="3" is-in-first-column=""></ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer id="f1" items-per-row="3" class="jpdb-youtube-filtered jpdb-youtube-first-in-row"></ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer id="f2" items-per-row="3" is-in-first-column=""></ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer id="v2" items-per-row="3"></ytd-rich-item-renderer>
+                    <ytd-rich-section-renderer id="section"></ytd-rich-section-renderer>
+                    <ytd-rich-item-renderer id="v3" items-per-row="3"></ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer id="v4" items-per-row="3" is-first-in-column=""></ytd-rich-item-renderer>
+                </div>
+            </ytd-rich-grid-renderer>
+        `;
+        document.getElementById('f2')!.classList.add('jpdb-youtube-filtered');
+
+        rebalanceYouTubeGridRows();
+
+        // v1 starts row 0; filtered f1/f2 leave the flow; v2 sits beside v1.
+        expect(document.getElementById('v1')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
+        expect(document.getElementById('v2')!.classList.contains('jpdb-youtube-first-in-row')).toBe(false);
+        // The visible section breaks the row: v3 restarts at column 0.
+        expect(document.getElementById('v3')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
+        expect(document.getElementById('v4')!.classList.contains('jpdb-youtube-first-in-row')).toBe(false);
+        // Filtered items never keep the marker; stale YouTube flags are gone.
+        expect(document.getElementById('f1')!.classList.contains('jpdb-youtube-first-in-row')).toBe(false);
+        expect(document.getElementById('v1')!.hasAttribute('is-in-first-column')).toBe(false);
+        expect(document.getElementById('v4')!.hasAttribute('is-first-in-column')).toBe(false);
+        // Filtered items keep their stale attribute harmlessly offscreen.
+        expect(document.getElementById('f2')!.hasAttribute('is-in-first-column')).toBe(true);
+    });
+
+    it('treats a fully filtered section as a row break only when hidden', () => {
+        document.body.innerHTML = `
+            <ytd-rich-grid-renderer>
+                <div id="contents">
+                    <ytd-rich-item-renderer id="v1" items-per-row="2"></ytd-rich-item-renderer>
+                    <ytd-rich-section-renderer id="hidden-section" class="jpdb-youtube-filtered"></ytd-rich-section-renderer>
+                    <ytd-rich-item-renderer id="v2" items-per-row="2"></ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer id="v3" items-per-row="2"></ytd-rich-item-renderer>
+                </div>
+            </ytd-rich-grid-renderer>
+        `;
+
+        rebalanceYouTubeGridRows();
+
+        // The hidden section leaves the flow, so v2 continues v1's row and v3
+        // starts the next one.
+        expect(document.getElementById('v1')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
+        expect(document.getElementById('v2')!.classList.contains('jpdb-youtube-first-in-row')).toBe(false);
+        expect(document.getElementById('v3')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
     });
 });

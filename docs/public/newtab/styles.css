@@ -13486,6 +13486,14 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     display: contents !important;
 }
 
+/* The rowless lockup grid keys row-start margins off is-in-first-column,
+   computed by YouTube for the unfiltered feed. After filtering, the scan
+   strips the stale flags from visible items and re-marks each visual row's
+   first item with this class (the NihongoTube margin compensation). */
+html.jpdb-youtube-filter-active ytd-rich-item-renderer.jpdb-youtube-first-in-row {
+    margin-left: calc(var(--ytd-rich-grid-item-margin) / 2 + var(--ytd-rich-grid-gutter-margin));
+}
+
 .jpdb-youtube-filter-bar {
     position: fixed;
     left: 50%;
