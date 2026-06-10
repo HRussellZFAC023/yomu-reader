@@ -378,4 +378,51 @@ describe('iPad pointer lookup', () => {
             document.body.replaceChildren();
         }
     });
+
+    it('reads Japanese button labels when interactive text is allowed (hover lookups)', () => {
+        document.body.innerHTML = '<button id="subscribe"><span id="label">登録する</span></button>';
+        try {
+            const node = document.getElementById('label')!.firstChild as Text;
+
+            // Click-driven lookups keep treating controls as controls...
+            expect(pointerTextLookupFromTextNode(node, 0)).toBeNull();
+
+            // ...but a hover popover does not steal the click, so it may read
+            // the label.
+            const candidate = pointerTextLookupFromTextNode(node, 0, { allowInteractiveText: true });
+            expect(candidate).not.toBeNull();
+            expect(candidate?.text).toContain('登録する');
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
+
+    it('reads role=button and onclick hosts with interactive text allowed', () => {
+        document.body.innerHTML = `
+            <div role="button" id="chip">字幕</div>
+            <span onclick="void 0" id="action">設定</span>
+        `;
+        try {
+            const chipNode = document.getElementById('chip')!.firstChild as Text;
+            const actionNode = document.getElementById('action')!.firstChild as Text;
+
+            expect(pointerTextLookupFromTextNode(chipNode, 0)).toBeNull();
+            expect(pointerTextLookupFromTextNode(actionNode, 0)).toBeNull();
+            expect(pointerTextLookupFromTextNode(chipNode, 0, { allowInteractiveText: true })?.text).toContain('字幕');
+            expect(pointerTextLookupFromTextNode(actionNode, 0, { allowInteractiveText: true })?.text).toContain('設定');
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
+
+    it('never reads structural skips even with interactive text allowed', () => {
+        document.body.innerHTML = '<ruby id="word">読む<rt id="furi">よむ</rt></ruby>';
+        try {
+            const rtNode = document.getElementById('furi')!.firstChild as Text;
+
+            expect(pointerTextLookupFromTextNode(rtNode, 0, { allowInteractiveText: true })).toBeNull();
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.68] - 2026-06-10
+
+### Fixed
+
+- Hovering Japanese text on buttons, chips, tabs, and other clickable controls now shows the dictionary popover. Hover lookups treat interactive elements as readable text (a hover popover does not steal the click); click-driven lookups still leave controls alone so clicking a button performs its action. Structural content (form fields, furigana annotations, SVG, editable areas) stays excluded everywhere.
+
 ## [0.6.67] - 2026-06-10
 
 ### Fixed
