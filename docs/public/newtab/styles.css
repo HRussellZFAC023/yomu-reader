@@ -13452,31 +13452,23 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     opacity: 0 !important;
 }
 
-.jpdb-youtube-filtered {
-    max-height: var(--yomu-youtube-filter-card-height, 640px) !important;
-    overflow: hidden !important;
-    transform: translateY(-4px);
-    transition:
-        opacity 160ms ease,
-        transform 180ms ease,
-        max-height 240ms ease,
-        margin 240ms ease,
-        padding 240ms ease;
-}
-
-.jpdb-youtube-filter-collapsing {
-    max-height: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-
+/* Filtered cards leave the flow instantly without display:none (which makes
+   YouTube's virtualized grid janky) — the nihongotube technique: offscreen
+   absolute positioning keeps the renderer's bookkeeping intact while the
+   remaining cards reflow with zero content-shift animation. */
+.jpdb-youtube-filtered,
+.jpdb-youtube-filter-collapsing,
 .jpdb-youtube-filter-collapsed {
-    display: none !important;
-    max-height: 0 !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    transition: none !important;
 }
 
 html.jpdb-youtube-filter-active ytd-rich-grid-row,
