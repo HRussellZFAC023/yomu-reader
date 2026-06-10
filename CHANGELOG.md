@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.53] - 2026-06-10
+
+### Fixed
+
+- YouTube Shorts: with the immersion filter active, landing on a non-Japanese short now steps the player forward automatically so scrolling continues to the next Japanese short instead of parking on an English one.
+- YouTube feed: filtered-out cards no longer leave the feed starved — the continuation loader is triggered earlier (within reach of the viewport, not only at the absolute page bottom, with the visible-video target raised and the throttle halved), and when triggering it requires a scroll the page position is restored, fixing the blank "scrolling in" gaps.
+
 ## [0.6.52] - 2026-06-10
 
 ### Fixed
