@@ -5096,12 +5096,13 @@ describe('reader helpers', () => {
         const lockedCard: JPDBCard = { ...card, cardState: ['locked'] };
         await expect(controller.reviewGrade('okay', lockedCard)).resolves.toBeUndefined();
         expect(reviewCard).toHaveBeenCalledWith(lockedCard, 'okay');
-        expect(invalidateCardData).not.toHaveBeenCalled();
+        // API reviews now invalidate cached card data so page words recolor.
+        expect(invalidateCardData).toHaveBeenCalledTimes(1);
         expect(onAnkiStatusChanged).not.toHaveBeenCalled();
 
         await expect(controller.reviewGrade('okay', lockedCard, undefined, { ankiCardId: 20 })).resolves.toBeUndefined();
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
-        expect(invalidateCardData).toHaveBeenCalledTimes(1);
+        expect(invalidateCardData).toHaveBeenCalledTimes(2);
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(lockedCard);
     });
 
@@ -5120,7 +5121,8 @@ describe('reader helpers', () => {
         expect(addToDeck).toHaveBeenCalledWith(DEFAULT_SETTINGS.miningDeck, card, undefined);
         expect(reviewCard).toHaveBeenCalledWith(card, 'okay');
         expect(answerCard).toHaveBeenCalledWith(20, 'okay');
-        expect(invalidateCardData).toHaveBeenCalledTimes(1);
+        // Once for the API review (page-word recolor), once for the Anki answer.
+        expect(invalidateCardData).toHaveBeenCalledTimes(2);
         expect(onAnkiStatusChanged).toHaveBeenCalledWith(card);
     });
 

@@ -440,6 +440,7 @@ export class ReaderApp {
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
+        onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
     });
     private immersionPopover = new ImmersionPopoverController({
         getSettings: () => this.settings,

@@ -331,6 +331,17 @@ export class JitenApiClient {
         });
     }
 
+    // Parity with JPDB's refreshCard: Jiten exposes card state only through
+    // /parse (knownState), so refresh by re-parsing the word itself and
+    // copying the fresh state back onto the card.
+    async refreshCardState(card: JPDBCard): Promise<void> {
+        const reference = jitenCardReference(card);
+        const [tokens] = await this.parse([card.spelling]);
+        const fresh = (tokens ?? []).find(token => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card
+            ?? (tokens ?? [])[0]?.card;
+        if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
+    }
+
     async setVocabularyState(card: JPDBCard, deck: JitenVocabularyDeckState, action: JitenVocabularyStateAction): Promise<void> {
         await this.request('srs/set-vocabulary-state', {
             ...jitenCardReference(card),

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.74] - 2026-06-10
+
+### Fixed
+
+- Grading, mining, or blacklisting a Jiten-backed word now recolors that word everywhere on the page immediately, matching JPDB and Anki: Jiten card state is refreshed from a self-parse after each SRS action (Jiten only exposes state through /parse), and a new action-controller hook re-styles all rendered occurrences of the card for every API provider — no rescan or reload needed.
+
 ## [0.6.73] - 2026-06-10
 
 ### Added
