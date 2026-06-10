@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.70] - 2026-06-10
+
+### Fixed
+
+- youtube.com/feed/channels no longer renders empty with the feed filter on: the page wraps every subscribed channel in one shelf, which the filter classified as a hideable "non-video container" and removed as a single item. Containers holding channel listings are never treated as feed noise now (applies to channel shelves anywhere, not just /feed/channels).
+- YouTube home feed gaps after filtering (the user-visible holes and full-width empty bands): the rowless lockup grid keys row-start margins off per-item `is-in-first-column` flags that YouTube computes for the unfiltered feed and never recomputes. After each filter pass the scan now strips the stale flags and re-marks the first visible item of each row with a margin-compensation class (the NihongoTube technique), and rich sections whose entire content is filtered are hidden with their wrapper so they stop leaving full-width bands. Scrolling stays natural — filtered cards still leave the flow with zero content-shift animation.
+- Firefox: "Not allowed to define cross-origin object as property" console errors from the site-language preference are gone, and the Japanese-language spoof now actually applies on Firefox — property descriptors (getters and values) are cloned into the page compartment before being defined on Xray-wrapped objects.
+- Restored the scan-word CSS regression assertion that broke the 0.6.69 CI run (the chip nowrap fix changed the selector; the older test still expected the unscoped rule).
+
 ## [0.6.69] - 2026-06-10
 
 ### Fixed

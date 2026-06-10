@@ -3213,7 +3213,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
         expect(normalizedCss).toContain('display: inline;');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); outline: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: var(--jpdb-reader-hover) !important;');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');

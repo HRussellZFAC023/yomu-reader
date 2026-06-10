@@ -24,6 +24,7 @@ const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_PENDING_CLASS = 'jpdb-youtube-filter-pending';
+const YOUTUBE_FIRST_IN_ROW_CLASS = 'jpdb-youtube-first-in-row';
 const YOUTUBE_COLLAPSING_CLASS = 'jpdb-youtube-filter-collapsing';
 const YOUTUBE_COLLAPSED_CLASS = 'jpdb-youtube-filter-collapsed';
 const YOUTUBE_FILTERED_SELECTOR = `[data-yomu-youtube-filtered="true"],[data-yomu-youtube-pending="true"],.${YOUTUBE_FILTERED_CLASS},.${YOUTUBE_PENDING_CLASS}`;
@@ -37,6 +38,8 @@ const VIDEO_CARD_CLOSEST_SELECTOR = VIDEO_CARD_SELECTOR;
 const NON_VIDEO_CONTAINER_SELECTOR = `${SHELF_SELECTOR},ytd-playlist-renderer,ytd-compact-playlist-renderer,ytd-radio-renderer,ytd-compact-radio-renderer,ytm-playlist-renderer,ytm-compact-playlist-renderer`;
 
 const FILTERABLE_VIDEO_SHELF_SELECTOR = SHELF_SELECTOR;
+
+const CHANNEL_LISTING_CONTENT_SELECTOR = 'ytd-channel-renderer,ytd-grid-channel-renderer,ytm-channel-list-item-renderer,ytm-compact-channel-renderer';
 
 const SHORTS_WATCH_ITEM_SELECTOR = 'ytd-shorts,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2';
 
@@ -385,6 +388,24 @@ export class YoutubeImmersionFilter {
                 this.showCard(shelf);
             }
         }
+        this.syncEmptiedRichSections();
+        rebalanceYouTubeGridRows();
+    }
+
+    // A rich section whose entire filterable content is hidden must take its
+    // wrapper with it: the empty ytd-rich-section-renderer otherwise keeps its
+    // padding/margins as a full-width gap band in the feed.
+    private syncEmptiedRichSections(): void {
+        document.querySelectorAll<HTMLElement>('ytd-rich-section-renderer').forEach(section => {
+            const hidden = section.querySelectorAll(`.${YOUTUBE_FILTERED_CLASS}`).length;
+            if (!hidden) return;
+            const visibleContent = collectYouTubeVideoCards(section)
+                .some(card => !card.classList.contains(YOUTUBE_FILTERED_CLASS));
+            const visibleShelf = Array.from(section.querySelectorAll<HTMLElement>(SHELF_SELECTOR))
+                .some(shelf => !shelf.classList.contains(YOUTUBE_FILTERED_CLASS));
+            if (!visibleContent && !visibleShelf) this.hideCard(section);
+            else this.showCard(section);
+        });
     }
 
     private advancePastFilteredShort(): void {
@@ -1122,6 +1143,9 @@ export class YoutubeImmersionFilter {
         document
             .querySelectorAll<HTMLElement>(YOUTUBE_FILTERED_SELECTOR)
             .forEach(card => this.showCard(card));
+        document
+            .querySelectorAll<HTMLElement>(`.${YOUTUBE_FIRST_IN_ROW_CLASS}`)
+            .forEach(card => card.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS));
     }
 
     private currentNoticeScope(): string {
@@ -1594,6 +1618,38 @@ function collectFilterableVideoShelves(root: ParentNode = document): HTMLElement
         .filter(isFilterableVideoShelf);
 }
 
+// YouTube computes per-item row flags (is-in-first-column / is-first-in-column
+// plus first-row margins) for the FULL feed and never recomputes them when
+// items leave the flow, so offscreen-filtering leaves stale flags: rows start
+// mid-grid, margins misalign, and holes appear. The NihongoTube fix: strip
+// YouTube's flags and re-mark the first VISIBLE item of each row with our own
+// margin-compensation class, resetting the row counter at visible sections.
+export function rebalanceYouTubeGridRows(root: ParentNode = document): void {
+    root.querySelectorAll<HTMLElement>('ytd-rich-grid-renderer div#contents').forEach(contents => {
+        const sample = contents.querySelector<HTMLElement>('ytd-rich-item-renderer');
+        const itemsPerRow = Number(sample?.getAttribute('items-per-row') ?? '');
+        if (!Number.isFinite(itemsPerRow) || itemsPerRow <= 0) return;
+        let column = 0;
+        for (const child of Array.from(contents.children)) {
+            if (!(child instanceof HTMLElement)) continue;
+            const tag = child.tagName.toLowerCase();
+            if (tag === 'ytd-rich-section-renderer') {
+                if (!child.classList.contains(YOUTUBE_FILTERED_CLASS)) column = 0;
+                continue;
+            }
+            if (tag !== 'ytd-rich-item-renderer') continue;
+            if (child.classList.contains(YOUTUBE_FILTERED_CLASS) || child.classList.contains(YOUTUBE_PENDING_CLASS)) {
+                child.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS);
+                continue;
+            }
+            child.removeAttribute('is-in-first-column');
+            child.removeAttribute('is-first-in-column');
+            child.classList.toggle(YOUTUBE_FIRST_IN_ROW_CLASS, column % itemsPerRow === 0);
+            column += 1;
+        }
+    });
+}
+
 function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
     if (shouldIgnoreYouTubeCardElement(element)) return null;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return normalizeYouTubeNonVideoContainer(element);
@@ -1609,11 +1665,16 @@ function normalizeYouTubeFilterItem(element: HTMLElement): HTMLElement | null {
 }
 
 function isYouTubeAlwaysHiddenItem(card: HTMLElement): boolean {
+    if (card.querySelector(CHANNEL_LISTING_CONTENT_SELECTOR)) return false;
     return card.matches(NON_VIDEO_CONTAINER_SELECTOR) || isYouTubePlaylistLikeCard(card);
 }
 
 function normalizeYouTubeNonVideoContainer(element: HTMLElement): HTMLElement | null {
     if (isFilterableVideoShelf(element)) return null;
+    // Channel listings (/feed/channels wraps every subscribed channel in one
+    // ytd-shelf-renderer) are management surfaces, not feed noise: hiding the
+    // "non-video container" there blanks the whole page as one item.
+    if (element.querySelector(CHANNEL_LISTING_CONTENT_SELECTOR)) return null;
     return element;
 }
 

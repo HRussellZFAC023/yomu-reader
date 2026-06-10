@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.69
+// @version      0.6.70
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Fnjy7fV93Zsu3gEbwlHF9uBVC87Wko9aPrXcBHjdLdE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-gGJQrNXVCxap1Z8d/fM3iHp8zyvWYX0TYCw2oKeq2GE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-sBtom7/SMvduZ00KlTafd0EnZcrUEX7HEKXS6LpyeJw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -35257,7 +35257,7 @@ ${glossaryKey}`;
     state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
       try {
-        if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, snapshot.descriptor);
+        if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, pageCompartmentDescriptor(snapshot.descriptor, snapshot.target));
         else delete snapshot.target[snapshot.key];
       } catch {
       }
@@ -35389,10 +35389,10 @@ ${glossaryKey}`;
     if (!target) return;
     rememberDescriptor(state, target, key);
     try {
-      Object.defineProperty(target, key, {
+      Object.defineProperty(target, key, pageCompartmentDescriptor({
         configurable: true,
         get: getter
-      });
+      }, target));
     } catch {
     }
   }
@@ -35404,11 +35404,11 @@ ${glossaryKey}`;
   function defineUntrackedValue(target, key, value) {
     if (!target) return;
     try {
-      Object.defineProperty(target, key, {
+      Object.defineProperty(target, key, pageCompartmentDescriptor({
         configurable: true,
         writable: true,
         value
-      });
+      }, target));
     } catch {
       try {
         target[key] = value;
