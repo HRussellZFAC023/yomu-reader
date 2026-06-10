@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.60
+// @version      0.6.61
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tOQU2v62SN5I0m/h4EtIltUlN0l9ng+Vq0ijDwnq0FQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-KLYjdsipP3CDPS8sJP/W/HpRlDvpqtbch2ONLwZ4e40=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Fnjy7fV93Zsu3gEbwlHF9uBVC87Wko9aPrXcBHjdLdE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-n+6K6luJ5OsbxW5Lfrx1aeuKQQe7UC1TQe+ueTSw1SU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2124,6 +2124,7 @@
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
     miningDeck: "forq",
+    autoMineOnReview: false,
     neverForgetDeck: "never-forget",
     blacklistDeck: "blacklist",
     addToForq: false,
@@ -2375,6 +2376,7 @@
     return {
       ankiTags: trimmedStringSetting(value, "ankiTags", DEFAULT_SETTINGS.ankiTags),
       miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
+      autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
@@ -19912,6 +19914,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       assertReviewableApiCardState(states, settings);
       const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
       if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+      else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+    }
+    // Jiten Reader parity: optionally add every reviewed word to the mining
+    // deck so reviewing doubles as collecting (off by default).
+    async autoMineReviewedCard(provider, card, sentence, states, settings) {
+      if (!states.includes("not-in-deck")) return;
+      try {
+        const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
+        if (!deckId) return;
+        await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
+        this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+      } catch {
+      }
     }
     reviewDeckId(options) {
       return options.deckId || this.options.getSettings().miningDeck || "forq";

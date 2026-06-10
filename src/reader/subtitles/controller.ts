@@ -248,6 +248,9 @@ const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
 // Cues near the playhead must colorise immediately; only the whole-transcript
 // tail of the warmup queue is paced.
 const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
+const SUBTITLE_TICK_ACTIVE_MS = 250;
+const SUBTITLE_TICK_PAUSED_MS = 600;
+const SUBTITLE_TICK_IDLE_MS = 1500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
@@ -445,6 +448,7 @@ export class SubtitlePlayerController {
         this.observer.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions());
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
+        document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
         document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
         for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
@@ -928,11 +932,26 @@ export class SubtitlePlayerController {
     private tick(): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
-        if (settings.subtitlePlayerEnabled) this.tickSubtitlePlayer(settings);
+        if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
         this.tickTimer = window.setTimeout(() => {
             this.tickTimer = undefined;
             this.tick();
-        }, 250);
+        }, this.tickDelayMs(settings));
+    }
+
+    // The 250ms cadence is only needed while a video is actually playing;
+    // hidden tabs and videoless pages ticking that fast just drains battery.
+    private tickDelayMs(settings: ReaderSettings): number {
+        if (document.hidden || !settings.subtitlePlayerEnabled || !this.video) return SUBTITLE_TICK_IDLE_MS;
+        if (this.video.paused && !this.isTranscriptPanelOpen()) return SUBTITLE_TICK_PAUSED_MS;
+        return SUBTITLE_TICK_ACTIVE_MS;
+    }
+
+    private restartTickAfterVisibilityChange(): void {
+        if (this.destroyed || document.hidden || this.tickTimer === undefined) return;
+        window.clearTimeout(this.tickTimer);
+        this.tickTimer = undefined;
+        this.tick();
     }
 
     private tickSubtitlePlayer(settings: ReaderSettings): void {

@@ -158,6 +158,7 @@ export function renderDeckControls(settings: ReaderSettings, decks: JPDBDeck[], 
     return `
         <div class="grid">
             ${deckSelect('miningDeck', 'Mining deck', settings.miningDeck, miningOptions, disabled, language)}
+            ${checkbox('autoMineOnReview', 'Add reviewed words to the mining deck automatically', settings.autoMineOnReview)}
             ${deckSelect('newTabJpdbDeck', 'New tab JPDB deck', settings.newTabJpdbDeck, newTabOptions, disabled, language)}
             ${deckSelect('neverForgetDeck', 'Never forget deck', settings.neverForgetDeck, deckOptions, disabled, language)}
             ${deckSelect('blacklistDeck', 'Blacklist deck', settings.blacklistDeck, deckOptions, disabled, language)}

@@ -408,6 +408,7 @@ function readMiningFormSettings(reader: SettingsFormReader): Partial<ReaderSetti
     const { get, has } = reader;
     return {
         jpdbMiningEnabled: has('jpdbMiningEnabled'),
+        autoMineOnReview: has('autoMineOnReview'),
         miningDeck: get('miningDeck').trim() || 'forq',
         neverForgetDeck: get('neverForgetDeck').trim() || 'never-forget',
         blacklistDeck: get('blacklistDeck').trim() || 'blacklist',
