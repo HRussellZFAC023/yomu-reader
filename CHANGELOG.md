@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.61] - 2026-06-10
+
+### Added
+
+- Auto-mine on review (Jiten Reader parity, off by default — settings > Anki & mining): grading a word that isn't in your deck adds it to the mining deck automatically, so reviewing doubles as collecting.
+
+### Changed
+
+- Battery: the subtitle player's internal clock now adapts — 250ms only while a video is actually playing, slower while paused, and 1.5s (with no per-tick work) when the tab is hidden or the page has no video; it snaps back instantly when the tab becomes visible.
+
+### Notes
+
+- Jiten's API exposes no per-word deck-membership lookup (only per-deck word lists), so the "decks this word belongs to" popup list can't be built without N expensive requests; recorded as an upstream limitation in the backlog. Anki deck names already show on existing-note titles; JPDB membership already feeds the in-deck state dot.
+
 ## [0.6.60] - 2026-06-10
 
 ### Fixed

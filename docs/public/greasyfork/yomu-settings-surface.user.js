@@ -1516,6 +1516,7 @@
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
     miningDeck: "forq",
+    autoMineOnReview: false,
     neverForgetDeck: "never-forget",
     blacklistDeck: "blacklist",
     addToForq: false,
@@ -1770,6 +1771,7 @@
     return {
       ankiTags: trimmedStringSetting(value, "ankiTags", DEFAULT_SETTINGS.ankiTags),
       miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
+      autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
@@ -5973,6 +5975,7 @@ recommendedJiten	jiten.moe頻度データです。
     const { get, has } = reader;
     return {
       jpdbMiningEnabled: has("jpdbMiningEnabled"),
+      autoMineOnReview: has("autoMineOnReview"),
       miningDeck: get("miningDeck").trim() || "forq",
       neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
       blacklistDeck: get("blacklistDeck").trim() || "blacklist",
@@ -6759,6 +6762,7 @@ recommendedJiten	jiten.moe頻度データです。
     return `
         <div class="grid">
             ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled, language)}
+            ${checkbox("autoMineOnReview", "Add reviewed words to the mining deck automatically", settings.autoMineOnReview)}
             ${deckSelect("newTabJpdbDeck", "New tab JPDB deck", settings.newTabJpdbDeck, newTabOptions, disabled, language)}
             ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled, language)}
             ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled, language)}

@@ -419,6 +419,21 @@ export class CardActionController {
         assertReviewableApiCardState(states, settings);
         const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
         if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
+        else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+    }
+
+    // Jiten Reader parity: optionally add every reviewed word to the mining
+    // deck so reviewing doubles as collecting (off by default).
+    private async autoMineReviewedCard(provider: ApiSrsProviderAdapter, card: JPDBCard, sentence: string | undefined, states: string[], settings: ReaderSettings): Promise<void> {
+        if (!states.includes('not-in-deck')) return;
+        try {
+            const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
+            if (!deckId) return;
+            await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
+            this.options.toast(uiText(settings.interfaceLanguage, 'addedToDeckAndReviewed'));
+        } catch {
+            // Auto-mining is a convenience; the review itself already succeeded.
+        }
     }
 
     private reviewDeckId(options: { deckId?: string }): string {

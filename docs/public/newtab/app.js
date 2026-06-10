@@ -6788,6 +6788,7 @@ recommendedJiten	jiten.moe頻度データです。
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
     miningDeck: "forq",
+    autoMineOnReview: false,
     neverForgetDeck: "never-forget",
     blacklistDeck: "blacklist",
     addToForq: false,
@@ -7042,6 +7043,7 @@ recommendedJiten	jiten.moe頻度データです。
     return {
       ankiTags: trimmedStringSetting(value, "ankiTags", DEFAULT_SETTINGS.ankiTags),
       miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
+      autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
@@ -19661,6 +19663,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       assertReviewableApiCardState(states, settings);
       const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
       if (result.addedBeforeReview) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+      else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
+    }
+    // Jiten Reader parity: optionally add every reviewed word to the mining
+    // deck so reviewing doubles as collecting (off by default).
+    async autoMineReviewedCard(provider, card, sentence, states, settings) {
+      if (!states.includes("not-in-deck")) return;
+      try {
+        const deckId = provider.selectedDeckId(this.reviewDeckId({}), settings);
+        if (!deckId) return;
+        await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
+        this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
+      } catch {
+      }
     }
     reviewDeckId(options) {
       return options.deckId || this.options.getSettings().miningDeck || "forq";
@@ -43121,6 +43136,7 @@ ${newTabCardReading(card)}`;
     const { get, has } = reader;
     return {
       jpdbMiningEnabled: has("jpdbMiningEnabled"),
+      autoMineOnReview: has("autoMineOnReview"),
       miningDeck: get("miningDeck").trim() || "forq",
       neverForgetDeck: get("neverForgetDeck").trim() || "never-forget",
       blacklistDeck: get("blacklistDeck").trim() || "blacklist",
@@ -43894,6 +43910,7 @@ ${newTabCardReading(card)}`;
     return `
         <div class="grid">
             ${deckSelect("miningDeck", "Mining deck", settings.miningDeck, miningOptions, disabled, language)}
+            ${checkbox("autoMineOnReview", "Add reviewed words to the mining deck automatically", settings.autoMineOnReview)}
             ${deckSelect("newTabJpdbDeck", "New tab JPDB deck", settings.newTabJpdbDeck, newTabOptions, disabled, language)}
             ${deckSelect("neverForgetDeck", "Never forget deck", settings.neverForgetDeck, deckOptions, disabled, language)}
             ${deckSelect("blacklistDeck", "Blacklist deck", settings.blacklistDeck, deckOptions, disabled, language)}

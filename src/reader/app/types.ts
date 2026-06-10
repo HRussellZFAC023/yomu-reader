@@ -391,6 +391,7 @@ export interface ReaderSettings {
     popupFontFamily: string;
     popupFontWeight: number;
     miningDeck: string;
+    autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
     neverForgetDeck: string;
     blacklistDeck: string;
