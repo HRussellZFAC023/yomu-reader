@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.57] - 2026-06-10
+
+### Changed
+
+- Code-health pass driving the worst fallow CRAP findings down (high-complexity findings 26 → 17): the subtitle video-inset measurement now uses small style-snapshot helpers instead of one 100-line save/clear/restore function (was CRAP 299.6), and the Jiten kanji "words using this kanji" reading-filter/paging logic — previously triplicated across the popover, new tab, and hosted runtime — is now one shared module (`jiten-kanji-words-actions.ts`) so the three surfaces cannot drift.
+
+### Notes
+
+- Live-verified with the corrected Jiten test credentials that the study-page addon mounts (Immersion Kit + imported dictionaries) work on jiten.moe/srs/study.
+- Added the "Snow Leopard" quality-release task to the backlog: latent re-render/battery bugs, instant ruby/colorisation (page + subtitles), YouTube seamlessness, fallow health to zero.
+
 ## [0.6.56] - 2026-06-10
 
 ### Fixed

@@ -19,16 +19,18 @@ import {
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { runLimited } from '../core/async-utils';
-import type { JitenApiClient, JitenKanjiInfo, JitenKanjiWordsPage } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
     jitenKanjiReadingRows,
-    jitenKanjiWordsPageSize,
     renderJitenKanjiInfoWithAttributes,
     renderJitenKanjiKeywordLine,
-    renderJitenKanjiWordsMoreButton,
-    renderJitenKanjiWordsPage,
 } from '../jiten/jiten-kanji-info-render';
+import {
+    filterJitenKanjiWords as filterSharedJitenKanjiWords,
+    loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords,
+    type JitenKanjiWordsActionContext,
+} from '../jiten/jiten-kanji-words-actions';
 import type { JpdbClient } from '../jpdb/jpdb';
 import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -1517,47 +1519,19 @@ export class NewTabController {
         return true;
     }
 
-    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
-        if (button.disabled || typeof lookupKanjiWords !== 'function') return;
-        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
-        if (!character) return;
-        const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
-        const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
-        button.disabled = true;
-        try {
-            const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, {
-                reading: button.dataset.jitenKanjiReading || undefined,
-                page,
-                pageSize,
-            });
-            if (!button.isConnected) return;
-            this.appendJitenKanjiWords(button, wordsPage, page);
-        } catch {
-            if (button.isConnected) button.disabled = false;
-        }
+    private jitenKanjiWordsActionContext(): JitenKanjiWordsActionContext | null {
+        const jiten = this.dependencies.jiten;
+        const lookupKanjiWords = jiten?.lookupKanjiWords;
+        if (typeof lookupKanjiWords !== 'function') return null;
+        return {
+            lookupKanjiWords: (character, options) => lookupKanjiWords.call(jiten, character, options),
+            language: () => this.dependencies.getSettings().interfaceLanguage,
+        };
     }
 
-    private appendJitenKanjiWords(button: HTMLButtonElement, page: JitenKanjiWordsPage | null, requestedPage: number): void {
-        const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || '');
-        const grid = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
-        if (!html || !grid) {
-            button.remove();
-            return;
-        }
-        button.insertAdjacentHTML('beforebegin', html);
-        this.removeDuplicateJitenKanjiWords(grid);
-        const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
-        const rendered = grid.querySelectorAll('[data-jiten-kanji-word-key]').length;
-        if (!page?.items.length || (total > 0 && rendered >= total)) {
-            button.remove();
-            return;
-        }
-        button.dataset.jitenKanjiPage = String(requestedPage + 1);
-        button.dataset.jitenKanjiTotal = String(total);
-        const status = button.querySelector<HTMLElement>('.jpdb-reader-source-status');
-        if (status) status.textContent = String(Math.max(0, total - rendered));
-        button.disabled = false;
+    private async loadMoreJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
+        const context = this.jitenKanjiWordsActionContext();
+        if (context) await loadMoreSharedJitenKanjiWords(button, context);
     }
 
     private handleNestedJitenKanjiReadingAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
@@ -1569,43 +1543,8 @@ export class NewTabController {
     }
 
     private async filterJitenKanjiWords(button: HTMLButtonElement): Promise<void> {
-        const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
-        if (button.disabled || typeof lookupKanjiWords !== 'function') return;
-        const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
-        const reading = button.dataset.jitenKanjiReading?.trim() ?? '';
-        const source = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji');
-        const grid = source?.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
-        if (!character || !reading || !source || !grid) return;
-        source.querySelectorAll<HTMLButtonElement>('[data-action="jiten-kanji-reading"]').forEach(candidate => {
-            candidate.setAttribute('aria-pressed', candidate === button ? 'true' : 'false');
-        });
-        button.disabled = true;
-        try {
-            const pageSize = jitenKanjiWordsPageSize();
-            const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, { reading, page: 1, pageSize });
-            if (!source.isConnected || !grid.isConnected) return;
-            const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
-            const rendered = wordsPage?.items.length ?? 0;
-            const total = wordsPage?.total ?? rendered;
-            const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.dependencies.getSettings().interfaceLanguage);
-            setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSimilarWords'))}</div>`);
-        } catch {
-            // Keep the previous list visible if the filtered Jiten page misses.
-        } finally {
-            if (button.isConnected) button.disabled = false;
-        }
-    }
-
-    private removeDuplicateJitenKanjiWords(grid: HTMLElement): void {
-        const seen = new Set<string>();
-        grid.querySelectorAll<HTMLElement>('[data-jiten-kanji-word-key]').forEach(word => {
-            const key = word.dataset.jitenKanjiWordKey ?? '';
-            if (!key || !seen.has(key)) {
-                if (key) seen.add(key);
-                return;
-            }
-            word.remove();
-        });
+        const context = this.jitenKanjiWordsActionContext();
+        if (context) await filterSharedJitenKanjiWords(button, context);
     }
 
     private handleNestedJpdbExampleAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {

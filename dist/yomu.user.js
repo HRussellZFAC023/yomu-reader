@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.56
+// @version      0.6.57
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-RWA1MXkjSzwTh8CbsXgb7NWJppmP7HVIMessHEfGPzU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-r31hTOn2U1n5qqKS7g+54tIpAAbnnaKxJW1iyzssSxk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-R/Hhg1dwcvKXFdB98B3NT926snqiwsU4j1Dbs/0teIc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -28137,6 +28137,85 @@ ${spelling}`);
     const rawPitch = Array.isArray(source.pitchAccents) ? source.pitchAccents : Array.isArray(source.pitchAccent) ? source.pitchAccent : [];
     return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
   }
+  async function filterJitenKanjiWords(button2, context) {
+    if (button2.disabled) return;
+    const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
+    const reading = button2.dataset.jitenKanjiReading?.trim() ?? "";
+    const source = button2.closest(".jpdb-reader-jiten-kanji");
+    const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
+    if (!character || !reading || !source || !grid) return;
+    source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
+      candidate.setAttribute("aria-pressed", candidate === button2 ? "true" : "false");
+    });
+    button2.disabled = true;
+    try {
+      const wordsPage = await context.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
+      if (!source.isConnected || !grid.isConnected) return;
+      const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
+      const rendered = wordsPage?.items.length ?? 0;
+      const total = wordsPage?.total ?? rendered;
+      const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, context.language());
+      setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(context.language(), "noSimilarWords"))}</div>`);
+      context.afterRender?.();
+    } catch (error) {
+      context.onError?.({ character, reading }, error);
+    } finally {
+      if (button2.isConnected) button2.disabled = false;
+    }
+  }
+  async function loadMoreJitenKanjiWords(button2, context) {
+    if (button2.disabled) return;
+    const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
+    if (!character) return;
+    const page = Math.max(2, Number(button2.dataset.jitenKanjiPage) || 2);
+    const pageSize = Math.max(1, Number(button2.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
+    button2.disabled = true;
+    try {
+      const wordsPage = await context.lookupKanjiWords(character, {
+        reading: button2.dataset.jitenKanjiReading || void 0,
+        page,
+        pageSize
+      });
+      if (!button2.isConnected) return;
+      appendJitenKanjiWords(button2, wordsPage, page, context);
+    } catch (error) {
+      context.onError?.({ character, page }, error);
+      if (button2.isConnected) button2.disabled = false;
+    }
+  }
+  function appendJitenKanjiWords(button2, page, requestedPage, context) {
+    const html = renderJitenKanjiWordsPage(page, button2.dataset.jitenKanjiReading || "");
+    const grid = button2.closest(".jpdb-reader-jiten-kanji-vocabulary");
+    if (!html || !grid) {
+      button2.remove();
+      return;
+    }
+    button2.insertAdjacentHTML("beforebegin", html);
+    removeDuplicateJitenKanjiWords(grid);
+    const total = page?.total || Number(button2.dataset.jitenKanjiTotal) || 0;
+    const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
+    if (!page?.items.length || total > 0 && rendered >= total) {
+      button2.remove();
+    } else {
+      button2.dataset.jitenKanjiPage = String(requestedPage + 1);
+      button2.dataset.jitenKanjiTotal = String(total);
+      const status = button2.querySelector(".jpdb-reader-source-status");
+      if (status) status.textContent = String(Math.max(0, total - rendered));
+      button2.disabled = false;
+    }
+    context.afterRender?.();
+  }
+  function removeDuplicateJitenKanjiWords(grid) {
+    const seen = /* @__PURE__ */ new Set();
+    grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
+      const key = word.dataset.jitenKanjiWordKey ?? "";
+      if (!key || !seen.has(key)) {
+        if (key) seen.add(key);
+        return;
+      }
+      word.remove();
+    });
+  }
   const API_BASE = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const REQUEST_TIMEOUT_MS$1 = 3e4;
@@ -40287,85 +40366,22 @@ ${glossaryKey}`;
       };
       void handlers[actionButton.dataset.action ?? ""]?.();
     }
-    async loadMoreJitenKanjiWords(button2) {
-      if (button2.disabled || !this.isJitenApiActive()) return;
-      const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
-      if (!character) return;
-      const page = Math.max(2, Number(button2.dataset.jitenKanjiPage) || 2);
-      const pageSize = Math.max(1, Number(button2.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
-      button2.disabled = true;
-      try {
-        const wordsPage = await this.jiten.lookupKanjiWords(character, {
-          reading: button2.dataset.jitenKanjiReading || void 0,
-          page,
-          pageSize
-        });
-        if (!button2.isConnected) return;
-        this.appendJitenKanjiWords(button2, wordsPage, page);
-      } catch (error) {
-        log.warn("Jiten kanji words page lookup failed", { character, page }, error);
-        if (button2.isConnected) button2.disabled = false;
-      }
+    jitenKanjiWordsActionContext() {
+      if (!this.isJitenApiActive()) return null;
+      return {
+        lookupKanjiWords: (character, options) => this.jiten.lookupKanjiWords(character, options),
+        language: () => this.settings.interfaceLanguage,
+        afterRender: () => this.repositionActivePopover(),
+        onError: (details, error) => log.warn("Jiten kanji words lookup failed", details, error)
+      };
     }
-    appendJitenKanjiWords(button2, page, requestedPage) {
-      const html = renderJitenKanjiWordsPage(page, button2.dataset.jitenKanjiReading || "");
-      const grid = button2.closest(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!html || !grid) {
-        button2.remove();
-        return;
-      }
-      button2.insertAdjacentHTML("beforebegin", html);
-      this.removeDuplicateJitenKanjiWords(grid);
-      const total = page?.total || Number(button2.dataset.jitenKanjiTotal) || 0;
-      const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
-      if (!page?.items.length || total > 0 && rendered >= total) {
-        button2.remove();
-      } else {
-        button2.dataset.jitenKanjiPage = String(requestedPage + 1);
-        button2.dataset.jitenKanjiTotal = String(total);
-        const status = button2.querySelector(".jpdb-reader-source-status");
-        if (status) status.textContent = String(Math.max(0, total - rendered));
-        button2.disabled = false;
-      }
-      this.repositionActivePopover();
+    async loadMoreJitenKanjiWords(button2) {
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await loadMoreJitenKanjiWords(button2, context);
     }
     async filterJitenKanjiWords(button2) {
-      if (button2.disabled || !this.isJitenApiActive()) return;
-      const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
-      const reading = button2.dataset.jitenKanjiReading?.trim() ?? "";
-      const source = button2.closest(".jpdb-reader-jiten-kanji");
-      const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!character || !reading || !source || !grid) return;
-      source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
-        candidate.setAttribute("aria-pressed", candidate === button2 ? "true" : "false");
-      });
-      button2.disabled = true;
-      try {
-        const pageSize = jitenKanjiWordsPageSize();
-        const wordsPage = await this.jiten.lookupKanjiWords(character, { reading, page: 1, pageSize });
-        if (!source.isConnected || !grid.isConnected) return;
-        const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
-        const rendered = wordsPage?.items.length ?? 0;
-        const total = wordsPage?.total ?? rendered;
-        const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.settings.interfaceLanguage);
-        setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(this.settings.interfaceLanguage, "noSimilarWords"))}</div>`);
-        this.repositionActivePopover();
-      } catch (error) {
-        log.warn("Jiten kanji reading filter failed", { character, reading }, error);
-      } finally {
-        if (button2.isConnected) button2.disabled = false;
-      }
-    }
-    removeDuplicateJitenKanjiWords(grid) {
-      const seen = /* @__PURE__ */ new Set();
-      grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
-        const key = word.dataset.jitenKanjiWordKey ?? "";
-        if (!key || !seen.has(key)) {
-          if (key) seen.add(key);
-          return;
-        }
-        word.remove();
-      });
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await filterJitenKanjiWords(button2, context);
     }
     startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language, pageTarget) {
       this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);

@@ -29092,6 +29092,85 @@ ${spelling}`);
     const rawPitch = Array.isArray(source.pitchAccents) ? source.pitchAccents : Array.isArray(source.pitchAccent) ? source.pitchAccent : [];
     return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
   }
+  async function filterJitenKanjiWords(button, context) {
+    if (button.disabled) return;
+    const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
+    const reading = button.dataset.jitenKanjiReading?.trim() ?? "";
+    const source = button.closest(".jpdb-reader-jiten-kanji");
+    const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
+    if (!character || !reading || !source || !grid) return;
+    source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
+      candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+    });
+    button.disabled = true;
+    try {
+      const wordsPage = await context.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
+      if (!source.isConnected || !grid.isConnected) return;
+      const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
+      const rendered = wordsPage?.items.length ?? 0;
+      const total = wordsPage?.total ?? rendered;
+      const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, context.language());
+      setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(context.language(), "noSimilarWords"))}</div>`);
+      context.afterRender?.();
+    } catch (error) {
+      context.onError?.({ character, reading }, error);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+  async function loadMoreJitenKanjiWords(button, context) {
+    if (button.disabled) return;
+    const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
+    if (!character) return;
+    const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
+    const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
+    button.disabled = true;
+    try {
+      const wordsPage = await context.lookupKanjiWords(character, {
+        reading: button.dataset.jitenKanjiReading || void 0,
+        page,
+        pageSize
+      });
+      if (!button.isConnected) return;
+      appendJitenKanjiWords(button, wordsPage, page, context);
+    } catch (error) {
+      context.onError?.({ character, page }, error);
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+  function appendJitenKanjiWords(button, page, requestedPage, context) {
+    const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || "");
+    const grid = button.closest(".jpdb-reader-jiten-kanji-vocabulary");
+    if (!html || !grid) {
+      button.remove();
+      return;
+    }
+    button.insertAdjacentHTML("beforebegin", html);
+    removeDuplicateJitenKanjiWords(grid);
+    const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
+    const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
+    if (!page?.items.length || total > 0 && rendered >= total) {
+      button.remove();
+    } else {
+      button.dataset.jitenKanjiPage = String(requestedPage + 1);
+      button.dataset.jitenKanjiTotal = String(total);
+      const status = button.querySelector(".jpdb-reader-source-status");
+      if (status) status.textContent = String(Math.max(0, total - rendered));
+      button.disabled = false;
+    }
+    context.afterRender?.();
+  }
+  function removeDuplicateJitenKanjiWords(grid) {
+    const seen = /* @__PURE__ */ new Set();
+    grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
+      const key2 = word.dataset.jitenKanjiWordKey ?? "";
+      if (!key2 || !seen.has(key2)) {
+        if (key2) seen.add(key2);
+        return;
+      }
+      word.remove();
+    });
+  }
   const JPDB_SEARCH_URL = "https://jpdb.io/search";
   const REQUEST_BACKOFF_INITIAL_MS = 3e4;
   const REQUEST_BACKOFF_MAX_MS = 5 * 6e4;
@@ -36461,46 +36540,18 @@ ${newTabCardReading(card)}`;
       void this.loadMoreJitenKanjiWords(button);
       return true;
     }
-    async loadMoreJitenKanjiWords(button) {
-      const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
-      if (button.disabled || typeof lookupKanjiWords !== "function") return;
-      const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
-      if (!character) return;
-      const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
-      const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
-      button.disabled = true;
-      try {
-        const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, {
-          reading: button.dataset.jitenKanjiReading || void 0,
-          page,
-          pageSize
-        });
-        if (!button.isConnected) return;
-        this.appendJitenKanjiWords(button, wordsPage, page);
-      } catch {
-        if (button.isConnected) button.disabled = false;
-      }
+    jitenKanjiWordsActionContext() {
+      const jiten = this.dependencies.jiten;
+      const lookupKanjiWords = jiten?.lookupKanjiWords;
+      if (typeof lookupKanjiWords !== "function") return null;
+      return {
+        lookupKanjiWords: (character, options) => lookupKanjiWords.call(jiten, character, options),
+        language: () => this.dependencies.getSettings().interfaceLanguage
+      };
     }
-    appendJitenKanjiWords(button, page, requestedPage) {
-      const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || "");
-      const grid = button.closest(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!html || !grid) {
-        button.remove();
-        return;
-      }
-      button.insertAdjacentHTML("beforebegin", html);
-      this.removeDuplicateJitenKanjiWords(grid);
-      const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
-      const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
-      if (!page?.items.length || total > 0 && rendered >= total) {
-        button.remove();
-        return;
-      }
-      button.dataset.jitenKanjiPage = String(requestedPage + 1);
-      button.dataset.jitenKanjiTotal = String(total);
-      const status = button.querySelector(".jpdb-reader-source-status");
-      if (status) status.textContent = String(Math.max(0, total - rendered));
-      button.disabled = false;
+    async loadMoreJitenKanjiWords(button) {
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await loadMoreJitenKanjiWords(button, context);
     }
     handleNestedJitenKanjiReadingAction(actionTarget, event) {
       const button = actionTarget.closest('button[data-action="jiten-kanji-reading"]');
@@ -36510,41 +36561,8 @@ ${newTabCardReading(card)}`;
       return true;
     }
     async filterJitenKanjiWords(button) {
-      const lookupKanjiWords = this.dependencies.jiten?.lookupKanjiWords;
-      if (button.disabled || typeof lookupKanjiWords !== "function") return;
-      const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
-      const reading = button.dataset.jitenKanjiReading?.trim() ?? "";
-      const source = button.closest(".jpdb-reader-jiten-kanji");
-      const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!character || !reading || !source || !grid) return;
-      source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
-        candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
-      });
-      button.disabled = true;
-      try {
-        const pageSize = jitenKanjiWordsPageSize();
-        const wordsPage = await lookupKanjiWords.call(this.dependencies.jiten, character, { reading, page: 1, pageSize });
-        if (!source.isConnected || !grid.isConnected) return;
-        const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
-        const rendered = wordsPage?.items.length ?? 0;
-        const total = wordsPage?.total ?? rendered;
-        const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.dependencies.getSettings().interfaceLanguage);
-        setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(this.dependencies.getSettings().interfaceLanguage, "noSimilarWords"))}</div>`);
-      } catch {
-      } finally {
-        if (button.isConnected) button.disabled = false;
-      }
-    }
-    removeDuplicateJitenKanjiWords(grid) {
-      const seen = /* @__PURE__ */ new Set();
-      grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
-        const key2 = word.dataset.jitenKanjiWordKey ?? "";
-        if (!key2 || !seen.has(key2)) {
-          if (key2) seen.add(key2);
-          return;
-        }
-        word.remove();
-      });
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await filterJitenKanjiWords(button, context);
     }
     handleNestedJpdbExampleAudioAction(actionTarget, event) {
       const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
@@ -48582,85 +48600,22 @@ ${newTabCardReading(card)}`;
       const handler = handlers[button.dataset.action ?? ""];
       if (handler) handler();
     }
-    async loadMoreJitenKanjiWords(button) {
-      if (button.disabled || !this.isJitenApiActive()) return;
-      const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
-      if (!character) return;
-      const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
-      const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
-      button.disabled = true;
-      try {
-        const wordsPage = await this.jiten.lookupKanjiWords(character, {
-          reading: button.dataset.jitenKanjiReading || void 0,
-          page,
-          pageSize
-        });
-        if (!button.isConnected) return;
-        this.appendJitenKanjiWords(button, wordsPage, page);
-      } catch (error) {
-        log.warn("Jiten kanji words page lookup failed", { character, page }, error);
-        if (button.isConnected) button.disabled = false;
-      }
+    jitenKanjiWordsActionContext() {
+      if (!this.isJitenApiActive()) return null;
+      return {
+        lookupKanjiWords: (character, options) => this.jiten.lookupKanjiWords(character, options),
+        language: () => this.settings.interfaceLanguage,
+        afterRender: () => this.repositionLookupPopover(),
+        onError: (details, error) => log.warn("Jiten kanji words lookup failed", details, error)
+      };
     }
-    appendJitenKanjiWords(button, page, requestedPage) {
-      const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || "");
-      const grid = button.closest(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!html || !grid) {
-        button.remove();
-        return;
-      }
-      button.insertAdjacentHTML("beforebegin", html);
-      this.removeDuplicateJitenKanjiWords(grid);
-      const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
-      const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
-      if (!page?.items.length || total > 0 && rendered >= total) {
-        button.remove();
-        return;
-      }
-      button.dataset.jitenKanjiPage = String(requestedPage + 1);
-      button.dataset.jitenKanjiTotal = String(total);
-      const status = button.querySelector(".jpdb-reader-source-status");
-      if (status) status.textContent = String(Math.max(0, total - rendered));
-      button.disabled = false;
-      this.repositionLookupPopover();
+    async loadMoreJitenKanjiWords(button) {
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await loadMoreJitenKanjiWords(button, context);
     }
     async filterJitenKanjiWords(button) {
-      if (button.disabled || !this.isJitenApiActive()) return;
-      const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
-      const reading = button.dataset.jitenKanjiReading?.trim() ?? "";
-      const source = button.closest(".jpdb-reader-jiten-kanji");
-      const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
-      if (!character || !reading || !source || !grid) return;
-      source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
-        candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
-      });
-      button.disabled = true;
-      try {
-        const pageSize = jitenKanjiWordsPageSize();
-        const wordsPage = await this.jiten.lookupKanjiWords(character, { reading, page: 1, pageSize });
-        if (!source.isConnected || !grid.isConnected) return;
-        const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
-        const rendered = wordsPage?.items.length ?? 0;
-        const total = wordsPage?.total ?? rendered;
-        const moreHtml = renderJitenKanjiWordsMoreButton(character, reading, rendered, total, 2, this.settings.interfaceLanguage);
-        setInnerHtml(grid, wordsHtml || moreHtml ? `${wordsHtml}${moreHtml}` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(this.settings.interfaceLanguage, "noSimilarWords"))}</div>`);
-        this.repositionLookupPopover();
-      } catch (error) {
-        log.warn("Jiten kanji reading filter failed", { character, reading }, error);
-      } finally {
-        if (button.isConnected) button.disabled = false;
-      }
-    }
-    removeDuplicateJitenKanjiWords(grid) {
-      const seen = /* @__PURE__ */ new Set();
-      grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
-        const key2 = word.dataset.jitenKanjiWordKey ?? "";
-        if (!key2 || !seen.has(key2)) {
-          if (key2) seen.add(key2);
-          return;
-        }
-        word.remove();
-      });
+      const context = this.jitenKanjiWordsActionContext();
+      if (context) await filterJitenKanjiWords(button, context);
     }
     lookupTextFromPopoverButton(button) {
       const { expression, reading } = lookupTextRequestFromPopoverButton(button);
