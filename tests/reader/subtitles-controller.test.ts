@@ -2486,6 +2486,130 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps every cue pre-parsed ahead of playback so display never waits on a parse', async () => {
+        vi.useFakeTimers();
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                subtitleTranscriptAutoScroll: false,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+            };
+            // Realistic parse latency: each batch takes 30ms, far less than one
+            // cue duration but enough to catch display-time parsing.
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => {
+                await new Promise(resolve => setTimeout(resolve, 30));
+                return texts.map(text => [makeSubtitleToken(text)]);
+            });
+            const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+            installController(controller);
+            const video = attachVideo(controller, { currentTime: 0.5 });
+            const cues = Array.from({ length: 40 }, (_, index) => ({
+                start: index * 2,
+                end: index * 2 + 1.8,
+                text: `再生中の字幕${index}`,
+                transcriptEligible: true,
+            }));
+            const internals = controllerInternals<{
+                cues: typeof cues;
+                selectedTrackId: string;
+                updateFromLoadedCues: () => void;
+                subtitleWarmupTexts: (start: number, end: number, settings: ReaderSettings) => string[];
+            }>(controller);
+            internals.selectedTrackId = 'file-0';
+            internals.cues = cues;
+
+            // Track selection warms the initial window.
+            internals.updateFromLoadedCues();
+            await vi.advanceTimersByTimeAsync(50);
+
+            // Continuous playback: every cue must already be warmed (parsed or
+            // known-empty) by the moment it becomes the active cue.
+            const misses: number[] = [];
+            for (let index = 1; index < cues.length; index++) {
+                (video as { currentTime: number }).currentTime = cues[index].start + 0.1;
+                if (internals.subtitleWarmupTexts(index, index + 1, settings).length) misses.push(index);
+                internals.updateFromLoadedCues();
+                // One active tick (250ms) of background time between cues.
+                await vi.advanceTimersByTimeAsync(250);
+            }
+
+            expect(misses).toEqual([]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('pre-parses pending DOM captions during the stability window', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [makeSubtitleToken(text)]));
+        const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+        const internals = controllerInternals<{
+            isDomCaptionStable: (text: string, nowMs: number) => boolean;
+        }>(controller);
+
+        // First sighting starts the stability clock AND the parse.
+        expect(internals.isDomCaptionStable('新しい字幕です', 1000)).toBe(false);
+        expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['新しい字幕です']);
+
+        // Stability passing renders from the already-warmed cache; the same
+        // text does not restart the parse.
+        expect(internals.isDomCaptionStable('新しい字幕です', 1300)).toBe(true);
+        expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+    });
+
+    it('recovers the parse window within one warmup turn after a long seek', async () => {
+        vi.useFakeTimers();
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                subtitleTranscriptAutoScroll: false,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+            };
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => {
+                await new Promise(resolve => setTimeout(resolve, 30));
+                return texts.map(text => [makeSubtitleToken(text)]);
+            });
+            const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+            installController(controller);
+            const video = attachVideo(controller, { currentTime: 0.5 });
+            const cues = Array.from({ length: 60 }, (_, index) => ({
+                start: index * 2,
+                end: index * 2 + 1.8,
+                text: `シーク字幕${index}`,
+                transcriptEligible: true,
+            }));
+            const internals = controllerInternals<{
+                cues: typeof cues;
+                selectedTrackId: string;
+                updateFromLoadedCues: () => void;
+                subtitleWarmupTexts: (start: number, end: number, settings: ReaderSettings) => string[];
+            }>(controller);
+            internals.selectedTrackId = 'file-0';
+            internals.cues = cues;
+            internals.updateFromLoadedCues();
+            await vi.advanceTimersByTimeAsync(50);
+
+            // Seek far outside the warmed window.
+            (video as { currentTime: number }).currentTime = cues[45].start + 0.1;
+            internals.updateFromLoadedCues();
+            await vi.advanceTimersByTimeAsync(50);
+
+            // One warmup turn later the active cue and its lookahead are warm.
+            expect(internals.subtitleWarmupTexts(45, 46, settings)).toEqual([]);
+            expect(internals.subtitleWarmupTexts(46, 52, settings)).toEqual([]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('batches transcript cache warmup when a batch parser is available', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,

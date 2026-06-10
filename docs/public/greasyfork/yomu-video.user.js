@@ -10818,9 +10818,14 @@ ${spelling}`);
     isDomCaptionStable(text, nowMs2) {
       if (this.pendingDomCaption?.text !== text) {
         this.pendingDomCaption = { text, firstSeenAt: nowMs2 };
+        this.warmDomCaptionParse(text);
         return false;
       }
       return nowMs2 - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS && text !== this.lastDomCaption;
+    }
+    warmDomCaptionParse(text) {
+      if (!text.trim() || !this.shouldParseSubtitles()) return;
+      void this.parseCueHtmlBatch([text]).catch(() => void 0);
     }
     applyDomCaptionFallback(text, selected) {
       this.lastDomCaption = text;

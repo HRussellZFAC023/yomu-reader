@@ -145,6 +145,12 @@
   overflow-wrap: anywhere;
   word-break: normal;
 }
+/* Page addons mount inside host DOM; a host text-transform (uppercase nav,
+   stylized article bodies) must not restyle example text or translations. */
+.jpdb-reader-example-sentence,
+.jpdb-reader-example-translation {
+  text-transform: none;
+}
 .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
   position: absolute;
   left: clamp(10px, 4%, 18px);

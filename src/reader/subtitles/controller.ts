@@ -1194,9 +1194,17 @@ export class SubtitlePlayerController {
     private isDomCaptionStable(text: string, nowMs: number): boolean {
         if (this.pendingDomCaption?.text !== text) {
             this.pendingDomCaption = { text, firstSeenAt: nowMs };
+            // Parse during the stability window instead of after it, so the
+            // caption renders colorized the moment it counts as stable.
+            this.warmDomCaptionParse(text);
             return false;
         }
         return nowMs - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS && text !== this.lastDomCaption;
+    }
+
+    private warmDomCaptionParse(text: string): void {
+        if (!text.trim() || !this.shouldParseSubtitles()) return;
+        void this.parseCueHtmlBatch([text]).catch(() => undefined);
     }
 
     private applyDomCaptionFallback(text: string, selected: SubtitleTrackOption | undefined): void {
