@@ -1825,6 +1825,7 @@
       reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
       reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
       reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
+      reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
@@ -2397,6 +2398,7 @@ reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
+reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
 forget	忘れる
 never	忘れない
 neverHint	忘れないデッキへ移動します。
@@ -19320,6 +19322,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function assertReviewableApiCardState(states, settings) {
     if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
+    if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
   }
   class CardActionController {
     constructor(options) {

@@ -1573,6 +1573,66 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('renders Jiten card-state breakdowns on the stats page across SRS states', async () => {
+        const states: Array<[string, Array<'due' | 'known' | 'learning' | 'new'>]> = [
+            ['読む', ['due']],
+            ['書く', ['known']],
+            ['話す', ['learning']],
+            ['聞く', ['new']],
+        ];
+        const listStudyBatchCards = vi.fn(async () => states.map(([spelling, cardState], index) => newTabTestCard({
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            cardState,
+            jitenWordId: index + 1,
+            spelling,
+            reading: spelling,
+        })));
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+        }, {
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+        });
+        try {
+            const root = await renderLoadedApiStats(controller);
+
+            expect(root.textContent).toContain('Jiten SRS loaded.');
+            const breakdown = root.querySelector('[data-stats-breakdown]') ?? root;
+            // All four states must be represented in the rendered stats.
+            expect(breakdown.textContent).toMatch(/due/i);
+            expect(breakdown.textContent).toMatch(/known/i);
+            expect(breakdown.textContent).toMatch(/learning/i);
+            expect(breakdown.textContent).toMatch(/new/i);
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('shows an error state on the stats page when the Jiten API fails instead of going blank', async () => {
+        const listStudyBatchCards = vi.fn(async () => {
+            throw new Error('Jiten API unreachable');
+        });
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+        }, {
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+        });
+        try {
+            const root = await renderLoadedApiStats(controller);
+
+            expect(listStudyBatchCards).toHaveBeenCalled();
+            expect(root.textContent).toContain('Jiten API unreachable');
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('combines JPDB and Jiten SRS in the new-tab API stats connection', async () => {
         const jpdbCard = newTabTestCard({
             source: 'jpdb',

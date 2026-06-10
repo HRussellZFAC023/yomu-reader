@@ -2773,6 +2773,7 @@
       reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
       reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
       reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
+      reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
@@ -3326,6 +3327,7 @@ reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
+reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
 forget	忘れる
 never	忘れない
 neverHint	忘れないデッキへ移動します。
@@ -7541,8 +7543,6 @@ ${spelling}`);
   const TRANSCRIPT_PANEL_MARGIN = 10;
   const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
-  const TRANSCRIPT_PANEL_MAX_BOTTOM_VIEWPORT_RATIO = 0.5;
-  const TRANSCRIPT_PANEL_MIN_BOTTOM_PLAYER_HEIGHT = 280;
   function computeSubtitleDrawerLayout(options) {
     const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
@@ -7568,13 +7568,7 @@ ${spelling}`);
     };
   }
   function maxTranscriptBottomPanelHeight(viewportHeight, margin = TRANSCRIPT_PANEL_MARGIN) {
-    const viewportMax = Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight - margin * 3);
-    const ratioMax = Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight * TRANSCRIPT_PANEL_MAX_BOTTOM_VIEWPORT_RATIO);
-    const playerMax = Math.max(
-      TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
-      viewportHeight - Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_PLAYER_HEIGHT, viewportHeight * 0.38) - margin * 2
-    );
-    return Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, Math.min(viewportMax, ratioMax, playerMax));
+    return Math.max(TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT, viewportHeight - margin * 3);
   }
   function sideSubtitleDrawerLayout(options, size, margin, preferredPlacement) {
     const top = clampNumber(options.anchorTop ?? 72, margin, Math.max(margin, options.viewportHeight - 280));
@@ -10354,6 +10348,16 @@ ${spelling}`);
       if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
       return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
     }
+    // Our rail belongs next to a real player: if the video offers playback
+    // controls (native attribute or a known player chrome) or we actually
+    // have subtitle data for it, show ours too. Decorative/ad videos (e.g.
+    // Discord promos) have neither, so the rail stays away.
+    videoHasPlayerAffordances() {
+      if (!this.video) return false;
+      if (this.video.controls || isYouTubePage()) return true;
+      if (this.video.closest("#movie_player, .html5-video-player, [data-yomu-video-frame]")) return true;
+      return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
+    }
     clearDiscoveredVideoCandidate() {
       this.video = void 0;
       this.subtitleSourceContextKey = "";
@@ -10656,7 +10660,7 @@ ${spelling}`);
     }
     applyVideoLayout(rect) {
       if (!this.root) return;
-      const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video));
+      const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
       this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
       if (!videoVisible) {
         this.clearVideoInsetForTranscriptPanel();

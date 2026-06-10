@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.52] - 2026-06-10
+
+### Fixed
+
+- The subtitle rail no longer appears next to decorative or ad videos (e.g. Discord promos): our controls now follow the same rule as the player's own — they only show for videos that offer playback controls (native or a known player chrome) or that have subtitle data loaded.
+- Removed the half-viewport cap on the bottom transcript drawer: it can now be pulled up to nearly the full window height.
+- JPDB-redundant words can no longer be reviewed (parity with Jiten Reader); attempting it explains why instead of silently grading a card JPDB considers covered elsewhere.
+
+### Added
+
+- New `smoke:reader-sites` Playwright smoke that injects the built userscript into live Ttsu Reader, Yatsu Reader, and a YouTube watch page, asserting clean install (no console errors), the reader FAB, and no stray subtitle rail. All three pass.
+- Jiten stats coverage: new unit tests verify the stats page renders Jiten card-state breakdowns across SRS states and shows an explicit error (not a blank page) when the Jiten API fails.
+
 ## [0.6.51] - 2026-06-10
 
 ### Fixed

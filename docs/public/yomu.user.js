@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.51
+// @version      0.6.52
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-9VP4/hmLmbEzzynS5pUvtcnyLHrAoS+6VAWErDuM7Dc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LCzKDx0LpuGsjdb2dKadRJXhhBDi4M9nHkaEguR3L58=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-/syvHiTcCJhftlxX3I9AHQ1d4CjRS8bM0Dgc2+Uge/8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Stu9yTTwLHvCuysYMDKVNnkgcw7QO1+2Jb35hwx7EV4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6062,6 +6062,7 @@
       reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
       reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
       reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
+      reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
@@ -6634,6 +6635,7 @@ reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
+reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
 forget	忘れる
 never	忘れない
 neverHint	忘れないデッキへ移動します。
@@ -19571,6 +19573,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function assertReviewableApiCardState(states, settings) {
     if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
+    if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
   }
   class CardActionController {
     constructor(options) {

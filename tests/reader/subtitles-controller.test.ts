@@ -100,6 +100,9 @@ function attachVideo(
     options: { currentTime?: number; rect?: DOMRect; video?: HTMLVideoElement } = {},
 ): HTMLVideoElement {
     const video = options.video ?? document.createElement('video');
+    // The fixtures represent a real player; the rail only follows videos
+    // that offer playback controls (or have subtitle data).
+    if (!options.video) video.controls = true;
     if (options.currentTime !== undefined) {
         Object.defineProperty(video, 'currentTime', {
             configurable: true,
@@ -1443,8 +1446,10 @@ describe('SubtitlePlayerController', () => {
 
                 handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
 
-                expect(panel.style.height).toBe('410px');
-                expect(handle.getAttribute('aria-valuenow')).toBe('410');
+                // The bottom drawer is no longer capped at half the viewport;
+                // a full keyboard step applies (only the viewport clamps it).
+                expect(panel.style.height).toBe('425px');
+                expect(handle.getAttribute('aria-valuenow')).toBe('425');
             } finally {
                 controller.destroy();
             }
