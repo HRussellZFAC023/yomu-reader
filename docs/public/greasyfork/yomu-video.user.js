@@ -7804,94 +7804,12 @@ ${spelling}`);
       if (!this.hasActiveInset()) {
         return callback();
       }
-      const classes = {
-        left: document.documentElement.classList.contains("jpdb-subtitle-video-inset-left"),
-        right: document.documentElement.classList.contains("jpdb-subtitle-video-inset-right"),
-        bottom: document.documentElement.classList.contains("jpdb-subtitle-video-inset-bottom")
-      };
-      const docInset = document.documentElement.style.getPropertyValue("--jpdb-subtitle-video-inset");
-      const watchFlexy = document.querySelector("ytd-watch-flexy");
-      const watchFlexyStyles = watchFlexy ? {
-        width: watchFlexy.style.getPropertyValue("--ytd-watch-flexy-player-width"),
-        height: watchFlexy.style.getPropertyValue("--ytd-watch-flexy-player-height"),
-        minHeight: watchFlexy.style.getPropertyValue("--ytd-watch-flexy-min-player-height")
-      } : null;
-      const containers = youtubePlayerContainers();
-      const containerStyles = containers.map((element) => {
-        const styles = {};
-        for (const prop of ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"]) {
-          styles[prop] = element.style.getPropertyValue(prop);
-        }
-        return { element, styles };
-      });
-      const target = video ? genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video, "right") : null;
-      const targetStyles = target ? {
-        width: target.style.width,
-        height: target.style.height,
-        maxWidth: target.style.maxWidth,
-        maxHeight: target.style.maxHeight,
-        minWidth: target.style.minWidth,
-        minHeight: target.style.minHeight,
-        marginLeft: target.style.marginLeft,
-        marginRight: target.style.marginRight,
-        justifySelf: target.style.justifySelf,
-        objectFit: target.style.objectFit
-      } : null;
-      const videoStyles = video && target !== video ? {
-        height: video.style.height,
-        maxHeight: video.style.maxHeight,
-        minHeight: video.style.minHeight,
-        objectFit: video.style.objectFit
-      } : null;
-      document.documentElement.classList.remove("jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom");
-      document.documentElement.style.removeProperty("--jpdb-subtitle-video-inset");
-      if (watchFlexy) {
-        watchFlexy.style.removeProperty("--ytd-watch-flexy-player-width");
-        watchFlexy.style.removeProperty("--ytd-watch-flexy-player-height");
-        watchFlexy.style.removeProperty("--ytd-watch-flexy-min-player-height");
-      }
-      for (const element of containers) {
-        clearYouTubePlayerContainerInset(element);
-      }
-      if (target) {
-        for (const prop of ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit"]) {
-          target.style.removeProperty(prop);
-        }
-      }
-      if (video && target !== video) {
-        for (const prop of ["height", "max-height", "min-height", "object-fit"]) {
-          video.style.removeProperty(prop);
-        }
-      }
+      const snapshots = captureVideoInsetSnapshots(video);
+      for (const snapshot of snapshots) snapshot.clear();
       try {
         return callback();
       } finally {
-        if (classes.left) document.documentElement.classList.add("jpdb-subtitle-video-inset-left");
-        if (classes.right) document.documentElement.classList.add("jpdb-subtitle-video-inset-right");
-        if (classes.bottom) document.documentElement.classList.add("jpdb-subtitle-video-inset-bottom");
-        if (docInset) document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", docInset);
-        if (watchFlexy && watchFlexyStyles) {
-          if (watchFlexyStyles.width) watchFlexy.style.setProperty("--ytd-watch-flexy-player-width", watchFlexyStyles.width);
-          if (watchFlexyStyles.height) watchFlexy.style.setProperty("--ytd-watch-flexy-player-height", watchFlexyStyles.height);
-          if (watchFlexyStyles.minHeight) watchFlexy.style.setProperty("--ytd-watch-flexy-min-player-height", watchFlexyStyles.minHeight);
-        }
-        for (const item of containerStyles) {
-          for (const [prop, val] of Object.entries(item.styles)) {
-            if (val) item.element.style.setProperty(prop, val);
-          }
-        }
-        if (target && targetStyles) {
-          for (const [prop, val] of Object.entries(targetStyles)) {
-            const cssProp = prop.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-            if (val) target.style.setProperty(cssProp, val);
-          }
-        }
-        if (video && videoStyles) {
-          for (const [prop, val] of Object.entries(videoStyles)) {
-            const cssProp = prop.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-            if (val) video.style.setProperty(cssProp, val);
-          }
-        }
+        for (const snapshot of snapshots) snapshot.restore();
       }
     }
     apply(options) {
@@ -7956,6 +7874,51 @@ ${spelling}`);
     if (isCijPage() && options.video) {
       applyGenericVideoInset(options.video, options.side, options.side === "bottom" ? metrics.height : metrics.width, metrics.height);
     }
+  }
+  const GENERIC_TARGET_INSET_PROPS = ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit"];
+  const CONTAINED_VIDEO_INSET_PROPS = ["height", "max-height", "min-height", "object-fit"];
+  const CONTAINER_INSET_PROPS = ["width", "max-width", "min-width", "height", "max-height", "min-height", "margin-left", "margin-right"];
+  const WATCH_FLEXY_INSET_VARS = ["--ytd-watch-flexy-player-width", "--ytd-watch-flexy-player-height", "--ytd-watch-flexy-min-player-height"];
+  function captureVideoInsetSnapshots(video) {
+    const target = video ? genericVideoInsetTargets.get(video) ?? genericVideoLayoutTarget(video, "right") : null;
+    const snapshots = [documentInsetSnapshot()];
+    const watchFlexy = document.querySelector("ytd-watch-flexy");
+    if (watchFlexy) snapshots.push(elementStyleSnapshot(watchFlexy, WATCH_FLEXY_INSET_VARS));
+    for (const element of youtubePlayerContainers()) {
+      snapshots.push(elementStyleSnapshot(element, CONTAINER_INSET_PROPS, () => clearYouTubePlayerContainerInset(element)));
+    }
+    if (target) snapshots.push(elementStyleSnapshot(target, GENERIC_TARGET_INSET_PROPS));
+    if (video && target !== video) snapshots.push(elementStyleSnapshot(video, CONTAINED_VIDEO_INSET_PROPS));
+    return snapshots;
+  }
+  function documentInsetSnapshot() {
+    const root = document.documentElement;
+    const insetClasses = ["jpdb-subtitle-video-inset-left", "jpdb-subtitle-video-inset-right", "jpdb-subtitle-video-inset-bottom"];
+    const activeClasses = insetClasses.filter((name) => root.classList.contains(name));
+    const docInset = root.style.getPropertyValue("--jpdb-subtitle-video-inset");
+    return {
+      clear: () => {
+        root.classList.remove(...insetClasses);
+        root.style.removeProperty("--jpdb-subtitle-video-inset");
+      },
+      restore: () => {
+        root.classList.add(...activeClasses);
+        if (docInset) root.style.setProperty("--jpdb-subtitle-video-inset", docInset);
+      }
+    };
+  }
+  function elementStyleSnapshot(element, props, clear) {
+    const saved = props.map((prop) => [prop, element.style.getPropertyValue(prop)]);
+    return {
+      clear: clear ?? (() => {
+        for (const prop of props) element.style.removeProperty(prop);
+      }),
+      restore: () => {
+        for (const [prop, value] of saved) {
+          if (value) element.style.setProperty(prop, value);
+        }
+      }
+    };
   }
   function createSubtitleVideoInsetAdapter() {
     return new SubtitleVideoInsetAdapter();
