@@ -1,6 +1,14 @@
 # Yomu Refactor Backlog
 
-Last updated: 2026-06-10.
+Last updated: 2026-06-10 (post-0.6.75; eleven releases 0.6.65→0.6.75 shipped this day, all CI workflows green at HEAD).
+
+## Remaining Large Lanes (next sessions)
+
+- P1 engineering: incremental Anki status-index refresh by mod-time; field-scoped Anki lookup with strict query escaping; adapter state machine for nonstandard decks; Anki media manifest/card-audio cache; abortable visible-work scheduler.
+- Jiten v1.2.x larges: mass-review visible words (button + keybind), simplified custom-domain allowlist, redundant-word UI suppression option, mobile close-button position, toast redesign, deck/word-list membership checkmark in popover, deck-based word styling.
+- P0 single card-state mutation bus: popover-driven API changes now propagate to page words (0.6.74); remaining: new-tab→page cross-tab propagation, kana-run token identity parity (P0 ticket above).
+- Live-debug with the user's environment: missing ruby on real Google Maps/claude.ai (smoke:late-content is the regression net); logged-in YouTube feed ghost-cards/"loading" after the 0.6.70 rebalance; `smoke:youtube-grid` covers the logged-out shape.
+- Userscript size headroom is down to ~55 KB (1,945,187 bytes at 0.6.75): the next feature lane should revisit ADR 0003 companion extraction before adding large code.
 
 ## JIT Subtitle Parse Contract (pinned 0.6.67)
 
