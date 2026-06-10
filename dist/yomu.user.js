@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.59
+// @version      0.6.60
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tOQU2v62SN5I0m/h4EtIltUlN0l9ng+Vq0ijDwnq0FQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-/Ojt/HhOuks7uYzrqNpZJ43pdpZDtt44X8Q+9hUV2QA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-KLYjdsipP3CDPS8sJP/W/HpRlDvpqtbch2ONLwZ4e40=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -15585,6 +15585,8 @@ ${entry.reading || ""}`;
     }
     // Suspension is Anki's native blacklist analog: suspended cards never
     // come up for review and already render with the dedicated state color.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
       log$m.info("Setting Anki card suspension", { cardIds, suspended });
@@ -15594,6 +15596,8 @@ ${entry.reading || ""}`;
       this.markStatusIndexDirtyAfterMutation("review");
     }
     // The never-forget analog: a tag the user can also filter on inside Anki.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
       log$m.info("Setting Anki note tag", { noteIds, tag, present });
@@ -36127,36 +36131,44 @@ ${glossaryKey}`;
       savedVars[i].forEach(({ name, value, priority: priority2 }) => {
         if (value) word.style.setProperty(name, value, priority2);
       });
-      const background = activeBackgrounds[i];
-      const m = measurements[i];
-      word.style.setProperty("--jpdb-reader-page-bg", background.css);
-      word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
-      word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
-      const colorRgba = cssColorToRgba(m.bgColor);
-      const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
-      const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
-      const paintBackgroundHex = rgbaToHex(rgba);
-      let accessibleHighlightColor = null;
-      if (hasPaint) {
-        accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
-        word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
-      } else {
-        word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
-      }
-      const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
-      const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
-      const sourceText = cssColorToHex(m.color, accessibleRgba);
-      const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
-      const decorationColorRgba = cssColorToRgba(m.decoration);
-      const decoration = decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
-      const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
-      word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-      word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
-      if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, accessibleHex, TEXT_CONTRAST));
-      else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
-      if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
-      else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+      applyWordContrastVars(word, activeBackgrounds[i], measurements[i]);
     });
+  }
+  function applyWordContrastVars(word, background, m) {
+    word.style.setProperty("--jpdb-reader-page-bg", background.css);
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor);
+    const sourceText = cssColorToHex(m.color, accessibleRgba);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+    const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
+    const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+    else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
+    if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+  }
+  function resolveAccessibleHighlight(word, background, wordBgColor) {
+    const colorRgba = cssColorToRgba(wordBgColor);
+    const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
+    const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+    const paintBackgroundHex = rgbaToHex(rgba);
+    let accessibleHighlightColor = null;
+    if (hasPaint) {
+      accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
+      word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
+    } else {
+      word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    }
+    const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
+    const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
+    return { accessibleHex, accessibleRgba };
+  }
+  function resolveDecorationHex(decorationColor, accessibleRgba) {
+    const decorationColorRgba = cssColorToRgba(decorationColor);
+    return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
   }
   function refreshReaderWordContrastForWord(word) {
     refreshReaderWordContrast(word.parentElement ?? word);
@@ -38267,22 +38279,27 @@ ${glossaryKey}`;
       });
     }
     handleReaderWordClick(event, word) {
-      if (!this.canLookupReaderWord(word)) return;
-      if (word.dataset.jpdbReaderPassive === "true") return;
-      if (this.consumeSuppressedReaderWordClick(event, word)) return;
-      const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
-      const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
-      if (!insideReaderPopup && !insideSubtitlePlayer && nativeClickableAncestor(word) && !this.clickForcesReaderWordLookup(event)) {
-        return;
-      }
-      if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return;
+      const surfaces = this.readerWordClickSurfaces(event, word);
+      if (!surfaces) return;
       event.preventDefault();
       event.stopPropagation();
       this.prepareModalLookupFromPointer(event);
       this.suppressSelectionLookupUntil = Date.now() + 350;
-      if (insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
+      if (surfaces.insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
       this.ocr.pinLineForElement(word);
-      void this.showWord(word, insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+    }
+    readerWordClickSurfaces(event, word) {
+      if (!this.canLookupReaderWord(word)) return null;
+      if (word.dataset.jpdbReaderPassive === "true") return null;
+      if (this.consumeSuppressedReaderWordClick(event, word)) return null;
+      const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
+      const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+      if (!insideReaderPopup && !insideSubtitlePlayer && nativeClickableAncestor(word) && !this.clickForcesReaderWordLookup(event)) {
+        return null;
+      }
+      if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
+      return { insideReaderPopup, insideSubtitlePlayer };
     }
     consumeSuppressedReaderWordClick(event, word) {
       if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return false;

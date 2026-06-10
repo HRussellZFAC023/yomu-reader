@@ -13670,8 +13670,12 @@ ${spelling}`);
       if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
     }
     async subscribeToChannels(channels) {
-      if (this.subscriptionBusy || !channels.length) return;
+      if (this.subscriptionBusy) return;
       const elements = this.channelShelfElements(this.ensureChannelShelf());
+      if (!channels.length) {
+        elements.status.textContent = "All of these channels are already subscribed.";
+        return;
+      }
       const config = readYouTubeClientConfig();
       if (!config) {
         elements.status.textContent = "YouTube session data is not available on this page yet.";
@@ -14008,7 +14012,9 @@ ${spelling}`);
     return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
   }
   function youTubeBrowseDataShowsSubscribed(data) {
-    return findNestedYouTubeValue(data, (value) => {
+    const header = recordValue(data)?.header;
+    if (!header) return false;
+    return findNestedYouTubeValue(header, (value) => {
       const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
       return renderer?.subscribed === true ? "subscribed" : "";
     }) === "subscribed";

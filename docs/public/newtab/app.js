@@ -15377,6 +15377,8 @@ ${entry.reading || ""}`;
     }
     // Suspension is Anki's native blacklist analog: suspended cards never
     // come up for review and already render with the dedicated state color.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
       log$p.info("Setting Anki card suspension", { cardIds, suspended });
@@ -15386,6 +15388,8 @@ ${entry.reading || ""}`;
       this.markStatusIndexDirtyAfterMutation("review");
     }
     // The never-forget analog: a tag the user can also filter on inside Anki.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
       log$p.info("Setting Anki note tag", { noteIds, tag, present });
