@@ -5643,8 +5643,38 @@ recommendedJiten	jiten.moe頻度データです。
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       this.current = audio;
       this.rewindPreparedAudio(audio);
-      await audio.play();
+      try {
+        await audio.play();
+      } catch (error) {
+        if (await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+        throw error;
+      }
       return true;
+    }
+    async playViaWebAudio(audioUrl, requestId, isCurrent) {
+      if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return false;
+      const AudioContextCtor = getAudioContextConstructor();
+      if (!AudioContextCtor) return false;
+      let context;
+      try {
+        const bytes = await (await fetch(audioUrl)).arrayBuffer();
+        context = new AudioContextCtor();
+        await resumeAudioContext(context);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        const decoded = await context.decodeAudioData(bytes);
+        const source = context.createBufferSource();
+        source.buffer = decoded;
+        source.connect(context.destination);
+        await new Promise((resolve) => {
+          source.onended = () => resolve();
+          source.start();
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        await context?.close().catch(() => void 0);
+      }
     }
     rewindPreparedAudio(audio) {
       try {

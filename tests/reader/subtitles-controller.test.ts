@@ -16,7 +16,9 @@ const SUBTITLE_PARSE_OPTIONS = {
     jpdbTimeoutMs: 1200,
     allowJpdbTimeoutFallback: true,
     allowSegmentedFallback: true,
-    includeLocalPitch: false,
+    // Pitch is baked in at parse time so cue underline colors show during
+    // playback instead of arriving via late enrichment.
+    includeLocalPitch: true,
 };
 
 async function withMatchMedia<T>(matches: (query: string) => boolean, callback: () => T | Promise<T>): Promise<T> {
@@ -1894,7 +1896,7 @@ describe('SubtitlePlayerController', () => {
             expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
             expect(word.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -2057,8 +2059,8 @@ describe('SubtitlePlayerController', () => {
             const provisionalHtml = await internals.parseCueHtml('読む', settings);
             const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(key);
 
-            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { requireJpdb: true, includeLocalPitch: false });
-            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: false });
+            expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(provisionalHtml).toContain('jpdb-not-in-deck');
             expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();

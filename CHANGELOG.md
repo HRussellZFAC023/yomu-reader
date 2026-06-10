@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.63] - 2026-06-10
+
+### Fixed
+
+- Pitch underline colors now show during video playback instead of arriving "just in time" (or only when pausing): local pitch accent is included at subtitle parse time, so the colors are baked into each cue's HTML before it is displayed; the per-word pitch lookup is cached.
+- Audio now plays even on pages whose CSP blocks blob/data media entirely (claude.ai): when the media element refuses the source, playback falls back to Web Audio decoding (AudioContext), which media-src does not govern.
+- jiten.moe direct loads (e.g. /parse?text=…) no longer leave the Immersion Kit / dictionary addons stranded in the wrong place with no examples: when the SPA hands us only a coarse pre-hydration anchor, the mount is marked and automatically re-anchored once the real content exists (previously only a manual refresh fixed it).
+
+### Added
+
+- `smoke:late-content` regression harness proving late-streamed SPA text (the Google Maps / claude.ai pattern) is parsed by the auto-scan observer; the live-site gap is narrowed to shadow-DOM/injection-timing suspects recorded in the backlog.
+
 ## [0.6.62] - 2026-06-10
 
 ### Fixed

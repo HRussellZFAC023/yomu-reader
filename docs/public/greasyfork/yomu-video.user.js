@@ -9673,20 +9673,20 @@ ${spelling}`);
       jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
       allowJpdbTimeoutFallback: true,
       allowSegmentedFallback: shouldAllowSegmentedSubtitleFallback(),
-      includeLocalPitch: false
+      includeLocalPitch: true
     };
   }
   function provisionalSubtitleParseOptions() {
     return {
       skipJpdb: true,
       allowSegmentedFallback: true,
-      includeLocalPitch: false
+      includeLocalPitch: true
     };
   }
   function authoritativeSubtitleParseOptions() {
     return {
       requireJpdb: true,
-      includeLocalPitch: false
+      includeLocalPitch: true
     };
   }
   function hasSubtitleParserSource(_settings) {

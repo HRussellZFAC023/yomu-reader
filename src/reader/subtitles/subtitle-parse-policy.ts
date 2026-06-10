@@ -53,12 +53,15 @@ export function waitForBackgroundTranscriptParseTurn(delayMs: number): Promise<v
     return new Promise(resolve => window.setTimeout(resolve, delayMs));
 }
 
+// Local pitch is included at parse time so pitch underline colors are baked
+// into the cue HTML before display (they used to arrive via late enrichment,
+// visible only when pausing). The per-term result is cached by the parser.
 export function subtitleParseOptions(settings: ReaderSettings): SubtitleParseOptions {
     return {
         jpdbTimeoutMs: SUBTITLE_BACKGROUND_PARSE_TIMEOUT_MS,
         allowJpdbTimeoutFallback: true,
         allowSegmentedFallback: shouldAllowSegmentedSubtitleFallback(settings),
-        includeLocalPitch: false,
+        includeLocalPitch: true,
     };
 }
 
@@ -66,14 +69,14 @@ export function provisionalSubtitleParseOptions(): SubtitleParseOptions {
     return {
         skipJpdb: true,
         allowSegmentedFallback: true,
-        includeLocalPitch: false,
+        includeLocalPitch: true,
     };
 }
 
 export function authoritativeSubtitleParseOptions(): SubtitleParseOptions {
     return {
         requireJpdb: true,
-        includeLocalPitch: false,
+        includeLocalPitch: true,
     };
 }
 

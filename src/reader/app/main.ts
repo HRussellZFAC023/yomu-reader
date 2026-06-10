@@ -967,7 +967,15 @@ export class ReaderApp {
 
     private jitenEnhancementsNeedRefresh(): boolean {
         if (location.href !== this.lastEnhancedHref) return true;
-        return isPageEnhancementReady() && this.settings.jpdbPageEnhancementsEnabled && !document.querySelector('[data-yomu-jpdb-addon]');
+        if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
+        if (!document.querySelector('[data-yomu-jpdb-addon]')) return true;
+        return this.jitenAddonStrandedOnFallbackAnchor();
+    }
+
+    private jitenAddonStrandedOnFallbackAnchor(): boolean {
+        if (!document.querySelector('[data-yomu-jpdb-addon][data-yomu-anchor-fallback="true"]')) return false;
+        const anchor = currentPageTermTarget()?.anchor;
+        return Boolean(anchor && anchor !== document.body && anchor.tagName !== 'MAIN');
     }
 
     private async installJpdbWordPageEnhancements(generation: number): Promise<void> {
@@ -1042,6 +1050,10 @@ export class ReaderApp {
         const root = document.createElement('div');
         root.dataset.jpdbReaderRoot = 'true';
         root.dataset.yomuJpdbAddon = kind;
+        // SPA pages (Nuxt on jiten.moe) can hand us only a coarse fallback
+        // anchor before hydration; mark it so the enhancement re-mounts once
+        // the real anchor exists instead of staying stranded.
+        root.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === 'MAIN');
         root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
         this.pauseAutoScanObserver(() => {
             if (anchor === document.body) document.body.prepend(root);

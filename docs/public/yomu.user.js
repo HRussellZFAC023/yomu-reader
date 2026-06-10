@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.62
+// @version      0.6.63
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Fnjy7fV93Zsu3gEbwlHF9uBVC87Wko9aPrXcBHjdLdE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-GXha+RO0iXuAn6gKttJ+IntTxZB0LEorbzeBDxJHCAg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-YF8T3b5xZWmJZ3UyxQN05XeuIKPWzXFHgqD9dzbBFFw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -9112,8 +9112,38 @@ recommendedJiten	jiten.moe頻度データです。
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       this.current = audio;
       this.rewindPreparedAudio(audio);
-      await audio.play();
+      try {
+        await audio.play();
+      } catch (error) {
+        if (await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+        throw error;
+      }
       return true;
+    }
+    async playViaWebAudio(audioUrl, requestId, isCurrent) {
+      if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return false;
+      const AudioContextCtor = getAudioContextConstructor();
+      if (!AudioContextCtor) return false;
+      let context;
+      try {
+        const bytes = await (await fetch(audioUrl)).arrayBuffer();
+        context = new AudioContextCtor();
+        await resumeAudioContext(context);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+        const decoded = await context.decodeAudioData(bytes);
+        const source = context.createBufferSource();
+        source.buffer = decoded;
+        source.connect(context.destination);
+        await new Promise((resolve) => {
+          source.onended = () => resolve();
+          source.start();
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        await context?.close().catch(() => void 0);
+      }
     }
     rewindPreparedAudio(audio) {
       try {
@@ -37958,7 +37988,14 @@ ${glossaryKey}`;
     }
     jitenEnhancementsNeedRefresh() {
       if (location.href !== this.lastEnhancedHref) return true;
-      return isPageEnhancementReady() && this.settings.jpdbPageEnhancementsEnabled && !document.querySelector("[data-yomu-jpdb-addon]");
+      if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
+      if (!document.querySelector("[data-yomu-jpdb-addon]")) return true;
+      return this.jitenAddonStrandedOnFallbackAnchor();
+    }
+    jitenAddonStrandedOnFallbackAnchor() {
+      if (!document.querySelector('[data-yomu-jpdb-addon][data-yomu-anchor-fallback="true"]')) return false;
+      const anchor = currentPageTermTarget()?.anchor;
+      return Boolean(anchor && anchor !== document.body && anchor.tagName !== "MAIN");
     }
     async installJpdbWordPageEnhancements(generation) {
       const targets = currentPageLocalDictionaryTargets();
@@ -38023,6 +38060,7 @@ ${glossaryKey}`;
       const root = document.createElement("div");
       root.dataset.jpdbReaderRoot = "true";
       root.dataset.yomuJpdbAddon = kind;
+      root.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === "MAIN");
       root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
       this.pauseAutoScanObserver(() => {
         if (anchor === document.body) document.body.prepend(root);

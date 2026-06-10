@@ -713,8 +713,42 @@ export class AudioPlayer {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         this.current = audio;
         this.rewindPreparedAudio(audio);
-        await audio.play();
+        try {
+            await audio.play();
+        } catch (error) {
+            // Pages with a strict CSP media-src (e.g. claude.ai) refuse blob/
+            // data URLs on media elements; Web Audio decoding is not subject
+            // to media-src, so fall through to it before giving up.
+            if (await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+            throw error;
+        }
         return true;
+    }
+
+    private async playViaWebAudio(audioUrl: string, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+        if (!audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) return false;
+        const AudioContextCtor = getAudioContextConstructor();
+        if (!AudioContextCtor) return false;
+        let context: AudioContext | undefined;
+        try {
+            const bytes = await (await fetch(audioUrl)).arrayBuffer();
+            context = new AudioContextCtor();
+            await resumeAudioContext(context);
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+            const decoded = await context.decodeAudioData(bytes);
+            const source = context.createBufferSource();
+            source.buffer = decoded;
+            source.connect(context.destination);
+            await new Promise<void>(resolve => {
+                source.onended = () => resolve();
+                source.start();
+            });
+            return true;
+        } catch {
+            return false;
+        } finally {
+            await context?.close().catch(() => undefined);
+        }
     }
 
     private rewindPreparedAudio(audio: HTMLAudioElement): void {
