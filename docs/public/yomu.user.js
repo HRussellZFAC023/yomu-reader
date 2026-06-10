@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.72
+// @version      0.6.73
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -22824,17 +22824,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const pitch = contextPitchPattern(card.pitchAccent, reading) || localPitchPatternFromMeta(reading || card.reading, metaEntries);
     if (!pitch) return "";
     if (!reading) return "";
+    const graph = renderPitchGraphSvg(reading, pitch);
+    return graph ? `<div class="jpdb-reader-pitch">${graph}</div>` : "";
+  }
+  function renderExpressionComponentPitches(components2) {
+    const graphs = components2.map((component) => ({ component, svg: renderPitchGraphSvg(component.reading, component.pitch) })).filter((entry) => entry.svg).map((entry) => `<span class="jpdb-reader-pitch-component">
+            ${entry.svg}
+            <span class="jpdb-reader-pitch-component-label">${escapeHtml$1(entry.component.text)}</span>
+        </span>`);
+    if (!graphs.length) return "";
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-components">${graphs.join("")}</div>`;
+  }
+  function renderPitchGraphSvg(reading, pitch) {
     const morae = splitMorae(reading);
     const highs = pitchLevelsForDisplay(pitch, reading);
     if (highs.length < 2) return "";
     const width = morae.length * 24 + 18;
     const points = highs.map((level, index) => `${9 + index * 24},${level === "H" ? 10 : 29}`).join(" ");
     const cls = pitchClassNameForPattern(pitch, reading) || "unknown";
-    return `<div class="jpdb-reader-pitch"><svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
+    return `<svg width="${width}" height="46" viewBox="0 0 ${width} 46" aria-hidden="true">
         <polyline class="${cls}" points="${points}"></polyline>
         ${highs.map((level, index) => `<circle class="${cls}" cx="${9 + index * 24}" cy="${level === "H" ? 10 : 29}" r="3"></circle>`).join("")}
         ${morae.map((mora, index) => `<text x="${9 + index * 24}" y="44" text-anchor="middle">${escapeHtml$1(mora)}</text>`).join("")}
-    </svg></div>`;
+    </svg>`;
   }
   function cardPronunciationReading(card) {
     const reading = pronunciationCandidate(card.reading);
@@ -23117,7 +23129,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </div>`;
     }
     renderPitch(card, data) {
-      return this.settings().showPitchAccent ? renderPitch(card, data.metaEntries) : "";
+      if (!this.settings().showPitchAccent) return "";
+      const whole = renderPitch(card, data.metaEntries);
+      if (whole) return whole;
+      return data.loading ? "" : renderExpressionComponentPitches(data.componentPitches ?? []);
     }
     renderPartOfSpeech(view) {
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
@@ -23498,6 +23513,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const CARD_RENDER_PITCH_TIMEOUT_MS = 6500;
   const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
   const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
+  const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
+  const EXPRESSION_CONNECTIVE_KANA = /* @__PURE__ */ new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
   function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null) {
     return {
       localEntries,
@@ -23558,10 +23575,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
       const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
       const jitenVocabularyInfo = this.loadJitenVocabularyInfo(card);
+      const componentPitches = this.withFallback(
+        card,
+        CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
+        "expression component pitch",
+        this.loadExpressionComponentPitches(card, localMetaEntries),
+        []
+      );
       void pitchAccent.catch(() => void 0);
       void jpdbDeckMembership.catch(() => void 0);
       void jitenVocabularyInfo.catch(() => void 0);
-      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo);
+      void componentPitches.catch(() => void 0);
+      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches);
       return { localEntries, localMetaEntries, pitchAccent, ankiLookup: fastAnkiLookup, hydrateAnkiLookup, jpdbVocabularyInfo, jitenVocabularyInfo, all };
     }
     withFallback(card, timeoutMs, detail, promise, fallback) {
@@ -23674,7 +23699,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return false;
       }), false);
     }
-    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo) {
+    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches) {
       const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
       return Promise.all([
         localEntries,
@@ -23686,11 +23711,62 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ankiDecks,
         jpdbDeckMembership,
         jpdbVocabularyInfo,
-        jitenVocabularyInfo
-      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2]) => {
+        jitenVocabularyInfo,
+        componentPitches.catch(() => [])
+      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, componentPitchesValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2 };
+        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, componentPitches: componentPitchesValue };
       });
+    }
+    // Expressions have no whole-word accent: when every pitch source for the
+    // card itself stays empty, segment the spelling against the local
+    // dictionaries (greedy longest match, particles skipped) and collect each
+    // component's own pitch for the per-component popover graphs.
+    async loadExpressionComponentPitches(card, localMetaEntries) {
+      const settings = this.settings();
+      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
+      const metaEntries = await localMetaEntries.catch(() => []);
+      if (card.pitchAccent.length) return [];
+      if (localPitchPatternFromMeta(card.reading, metaEntries)) return [];
+      const components2 = await this.segmentExpressionComponents(card.spelling);
+      if (components2.length < 2) return [];
+      const pitches = [];
+      for (const component of components2) {
+        const meta = await this.dependencies.dictionaries.lookupTermMeta(component.expression, 12, settings.dictionaryPreferences).catch(() => []);
+        const pitch = localPitchPatternFromMeta(component.reading, meta);
+        if (pitch) pitches.push({ text: component.expression, reading: component.reading, pitch });
+      }
+      return pitches;
+    }
+    async segmentExpressionComponents(spelling) {
+      const characters = Array.from(spelling.trim());
+      if (characters.length < 3 || characters.length > 16) return [];
+      const settings = this.settings();
+      const components2 = [];
+      let cursor = 0;
+      let misses = 0;
+      while (cursor < characters.length && components2.length < 4 && misses <= 4) {
+        const matched = await this.longestExpressionComponentAt(characters, cursor, settings);
+        if (matched) {
+          components2.push(matched);
+          cursor += Array.from(matched.expression).length;
+          continue;
+        }
+        if (!EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) misses += 1;
+        cursor += 1;
+      }
+      return components2;
+    }
+    async longestExpressionComponentAt(characters, cursor, settings) {
+      const maxLength = Math.min(8, characters.length - cursor);
+      for (let length = maxLength; length >= 1; length--) {
+        const candidate = characters.slice(cursor, cursor + length).join("");
+        if (length === 1 && !isKanjiCharacter$1(candidate)) return null;
+        const entries = await this.dependencies.dictionaries.lookup(candidate, candidate, 3, settings.dictionaryPreferences).catch(() => []);
+        const exact = entries.find((entry) => entry.expression === candidate || !entry.expression && entry.reading === candidate || entry.reading === candidate);
+        if (exact) return { expression: candidate, reading: exact.reading || candidate };
+      }
+      return null;
     }
     applyLocalPitchAccent(card, metaEntries) {
       if (card.pitchAccent.length) return;

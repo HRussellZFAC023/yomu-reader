@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.73] - 2026-06-10
+
+### Added
+
+- Multi-word expressions (気合いを入れる) now show pitch accent in the popover as one labelled mini graph per component: the expression is segmented against your local dictionaries (greedy longest match, particles skipped) and each component's own accent is rendered side by side — a single component's pitch is never presented as the whole expression's. Appears when the expression itself has no pitch entry, pitch accent display is on, and local dictionaries are enabled.
+
 ## [0.6.72] - 2026-06-10
 
 ### Fixed
