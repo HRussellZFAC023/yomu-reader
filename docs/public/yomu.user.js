@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.71
+// @version      0.6.72
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-303HRsF+qPth3D3dZSSf0Dz4XErPHm3DiqOuvdx8bhY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-JN9XCVBTjoZB5p3oMGn4nOlcVcwUAZb+bsKBQQAuLZE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-FRKnRsvlv4BGOd8co17p3t3kwkRFtJaaAHqFUyeGgyI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -28800,7 +28800,8 @@ ${spelling}`);
       const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
       return decks;
     }
-    // Settings connection probe: jpdb's /ping answers any authenticated key.
+    // Used by the settings dialog as the live JPDB connection probe.
+    // fallow-ignore-next-line unused-class-member
     async ping() {
       try {
         await this.api.request("ping", {});

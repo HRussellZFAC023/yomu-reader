@@ -27848,7 +27848,8 @@ ${spelling}`);
       const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
       return decks;
     }
-    // Settings connection probe: jpdb's /ping answers any authenticated key.
+    // Used by the settings dialog as the live JPDB connection probe.
+    // fallow-ignore-next-line unused-class-member
     async ping() {
       try {
         await this.api.request("ping", {});
@@ -47019,14 +47020,13 @@ ${newTabCardReading(card)}`;
       const formSettings = readFormSettings(new FormData(form), this.settings);
       const apiKey = effectiveJpdbApiKey(formSettings);
       if (!apiKey) return;
-      const ping = this.dependencies.jpdb.ping;
-      if (typeof ping !== "function") return;
+      if (typeof this.dependencies.jpdb.ping !== "function") return;
       const requestId = ++this.jpdbConnectionProbeId;
       const originalKey = this.settings.apiKey;
       this.settings.apiKey = apiKey;
       let connected = false;
       try {
-        connected = await ping.call(this.dependencies.jpdb);
+        connected = await this.dependencies.jpdb.ping();
       } finally {
         this.settings.apiKey = originalKey;
       }
