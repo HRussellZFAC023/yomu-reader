@@ -2554,12 +2554,14 @@ export class NewTabController {
 
     private loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN): NewTabLoadResult {
         const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
-        if (typeof fallbackCardFromText !== 'function') return emptyNewTabLoadResult(this.text('dictionary'));
+        // Built-in seed words are not the user's dictionary — labeling them
+        // "Dictionary" confused keyless users who never imported one.
+        if (typeof fallbackCardFromText !== 'function') return emptyNewTabLoadResult(this.text('starterWords'));
         const cards = randomPublicJpdbSeedWords(limit)
             .map(term => fallbackCardFromText.call(this.dependencies.parser, term));
         return {
             cards,
-            sourceLabel: this.text('dictionary'),
+            sourceLabel: this.text('starterWords'),
             reviewCountMode: false,
         };
     }

@@ -19157,6 +19157,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       noWordsYet: "Looking for more words...",
       noKanjiCardsYet: "Looking for more kanji...",
       noReviewWordsReady: "No review cards ready.",
+      starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
@@ -19269,6 +19270,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     noWordsYet: "さらに単語を探しています…",
     noKanjiCardsYet: "さらに漢字を探しています…",
     noReviewWordsReady: "復習する単語カードは今ありません。",
+    starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
@@ -37321,11 +37323,11 @@ ${newTabCardReading(card)}`;
     }
     loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN) {
       const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
-      if (typeof fallbackCardFromText !== "function") return emptyNewTabLoadResult(this.text("dictionary"));
+      if (typeof fallbackCardFromText !== "function") return emptyNewTabLoadResult(this.text("starterWords"));
       const cards = randomPublicJpdbSeedWords(limit).map((term) => fallbackCardFromText.call(this.dependencies.parser, term));
       return {
         cards,
-        sourceLabel: this.text("dictionary"),
+        sourceLabel: this.text("starterWords"),
         reviewCountMode: false
       };
     }

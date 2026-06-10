@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.55] - 2026-06-10
+
+### Added
+
+- New `smoke:study-personas` Playwright harness that simulates users on the study page across environments — keyless beginner (desktop + 390x844 mobile) and a reviewer whose Jiten API is unreachable — gathering timing/labeling/console feedback. All personas pass; the degraded-reviewer run verifies end-to-end that the "No reviews ready — showing practice words" notice appears exactly when configured review sources fail and never for keyless users.
+- Recorded the full JPDB/Jiten/Anki capability parity matrix in docs/refactor-backlog.md (new-tab queue, kanji study, grading, mining attachments, deck states, stats, audio, status colors, offline behavior) with the real gaps ranked: Anki deck-state actions (blacklist→suspend mapping planned), Jiten page-word state refresh after grading, Anki kanji study, Jiten media attachments (upstream limitation — to be surfaced in UI), JPDB live-review intervals.
+
+### Fixed
+
+- Built-in starter study words are now labeled "Starter words" (入門単語) instead of "Dictionary", which confused keyless users who had never imported a dictionary.
+
 ## [0.6.54] - 2026-06-10
 
 ### Fixed
