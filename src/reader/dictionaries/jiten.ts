@@ -1,4 +1,5 @@
 import { requestHttp } from '../network/http-request';
+import { recordJitenDailyStats } from './jiten-stats-cache';
 import type { ReaderHttpOptions } from '../network/http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
@@ -319,6 +320,7 @@ export class JitenApiClient {
             method: 'GET',
             query: { limit: cardLimit },
         });
+        recordJitenDailyStats(response);
         return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
     }
 

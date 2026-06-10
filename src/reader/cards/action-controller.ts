@@ -85,6 +85,8 @@ function assertReviewableApiCardState(states: string[], settings: ReaderSettings
     if (states.includes('redundant')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedRedundant'));
 }
 
+const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
+
 export class CardActionController {
     constructor(private options: CardActionControllerOptions) {}
 
@@ -348,10 +350,31 @@ export class CardActionController {
     private async changeProviderDeckState(card: JPDBCard, state: ApiSrsDeckState, deck: string): Promise<void> {
         const settings = this.options.getSettings();
         const provider = this.apiProviderForCard(card, settings);
+        if (!provider && settings.ankiEnabled && await this.changeAnkiDeckState(card, state, settings)) return;
         this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? 'jpdbDeckStateApiKeyRequired'));
         const wasSet = normalizeCardStates(card.cardState).includes(state);
         await provider.setDeckState(card, state, deck);
         this.options.toast(uiText(settings.interfaceLanguage, wasSet ? 'removedFromDeck' : 'addedToDeckToast'));
+    }
+
+    // Anki has no blacklist/never-forget decks; map blacklist to native card
+    // suspension (same effect: never reviewed, dedicated state color) and
+    // never-forget to a tag that can also be filtered inside Anki.
+    private async changeAnkiDeckState(card: JPDBCard, state: ApiSrsDeckState, settings: ReaderSettings): Promise<boolean> {
+        const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
+        if (!lookup?.notes.length) return false;
+        if (state === 'blacklisted') {
+            const cardIds = lookup.notes.flatMap(note => note.cardIds);
+            const suspended = lookup.state === 'suspended';
+            await this.options.anki.setCardsSuspended(cardIds, !suspended);
+            this.options.toast(uiText(settings.interfaceLanguage, suspended ? 'ankiCardsUnsuspended' : 'ankiCardsSuspended'));
+            return true;
+        }
+        const noteIds = lookup.notes.map(note => note.noteId);
+        const tagged = lookup.notes.every(note => note.tags?.includes(ANKI_NEVER_FORGET_TAG));
+        await this.options.anki.setNotesTag(noteIds, ANKI_NEVER_FORGET_TAG, !tagged);
+        this.options.toast(uiText(settings.interfaceLanguage, tagged ? 'ankiNeverForgetTagRemoved' : 'ankiNeverForgetTagAdded'));
+        return true;
     }
 
     private async gradeCard(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {

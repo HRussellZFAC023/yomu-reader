@@ -488,6 +488,7 @@ export class ReaderApp {
         preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
+        beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
         prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
@@ -4799,6 +4800,31 @@ export class ReaderApp {
     private queueAnkiWordEnrichment(tokens: JPDBToken[], roots: ParentNode[] = [document]): void {
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
         void this.enrichAnkiWords(tokens, roots);
+    }
+
+    // Starts the cached status lookup before the scan touches the DOM so the
+    // IndexedDB roundtrip overlaps the token apply; colors then land in the
+    // same breath as the ruby instead of popping in afterwards.
+    private beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void {
+        if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => undefined;
+        const seen = new Set<string>();
+        const uniqueTokens = tokens.filter(token => {
+            const key = cardKey(token.card);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
+            .catch(error => {
+                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
+                return uniqueTokens.map(() => untrustedAnkiLookupResult());
+            });
+        return roots => {
+            void lookups.then(resolved => {
+                if (!this.shouldRunAnkiBackgroundWork()) return;
+                this.applyAnkiLookupsToRenderedWords(uniqueTokens, resolved, roots);
+            });
+        };
     }
 
     private async enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[] = [document]): Promise<void> {

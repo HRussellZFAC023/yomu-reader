@@ -1451,6 +1451,27 @@ export class AnkiConnectClient {
         this.markStatusIndexDirtyAfterMutation('review');
     }
 
+    // Suspension is Anki's native blacklist analog: suspended cards never
+    // come up for review and already render with the dedicated state color.
+    async setCardsSuspended(cardIds: number[], suspended: boolean): Promise<void> {
+        if (!cardIds.length) return;
+        log.info('Setting Anki card suspension', { cardIds, suspended });
+        await this.invoke<boolean | null>(suspended ? 'suspend' : 'unsuspend', { cards: cardIds });
+        this.lookupCache.clear();
+        this.statusLookupCache.clear();
+        this.markStatusIndexDirtyAfterMutation('review');
+    }
+
+    // The never-forget analog: a tag the user can also filter on inside Anki.
+    async setNotesTag(noteIds: number[], tag: string, present: boolean): Promise<void> {
+        if (!noteIds.length) return;
+        log.info('Setting Anki note tag', { noteIds, tag, present });
+        await this.invoke<null>(present ? 'addTags' : 'removeTags', { notes: noteIds, tags: tag });
+        this.lookupCache.clear();
+        this.statusLookupCache.clear();
+        this.markStatusIndexDirtyAfterMutation('merge');
+    }
+
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId: number): Promise<void> {
