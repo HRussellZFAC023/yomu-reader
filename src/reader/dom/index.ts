@@ -695,11 +695,18 @@ function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
     return false;
 }
 
+// Roughly three text lines: a clipped box taller than this is a page shell or
+// scroll region where ruby can grow freely, not a fixed chrome row that would
+// cut the base text. Keeping the test height-based keeps ruby behavior uniform
+// across sites instead of needing per-site rules.
+const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
+
 function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
     const style = safeComputedStyle(element);
-    return hasLineClamp(style)
-        || hasClippedTextConstraint(style)
-        || isPositionedTextOverlay(style);
+    if (hasLineClamp(style)) return true;
+    if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
+    // Unmeasured (0) stays constrained; only a measured tall box is exempt.
+    return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
 }
 
 function hasLineClamp(style: CSSStyleDeclaration): boolean {

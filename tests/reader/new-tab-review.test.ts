@@ -3428,7 +3428,27 @@ describe('new tab review helpers', () => {
         expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
     });
 
-    it.todo('wires card.reviewGradeIntervals into the main new-tab grade bar');
+    it('wires card.reviewGradeIntervals into the main new-tab grade bar', () => {
+        const buttons = renderNewTabGradeControlButtons({
+            apiShortLabel: 'Jiten',
+            bothLabel: 'Both',
+            grades: [['fail', 'Fail'], ['okay', 'Pass']],
+            intervals: {
+                fail: { buttonLabel: '10m' },
+                okay: { buttonLabel: '+3d' },
+            },
+            selectorLabel: 'Grade target',
+            selectedOption: undefined,
+            summary: '',
+            targetLabel: 'Grades Jiten',
+            targetOptions: [],
+        } as never);
+        const gradeButtons = buttons.filter(node => node.matches?.('[data-newtab-action="grade"]')) as HTMLButtonElement[];
+
+        expect(gradeButtons.map(button => button.dataset.gradeInterval)).toEqual(['10m', '+3d']);
+        expect(gradeButtons[0]?.getAttribute('aria-label')).toContain('10m');
+        expect(gradeButtons[1]?.title).toContain('+3d');
+    });
 
     it('submits swipe-left and swipe-right grades on unrevealed new-tab SRS cards', async () => {
         vi.stubGlobal('PointerEvent', class {});

@@ -7817,9 +7817,12 @@ recommendedJiten	jiten.moe頻度データです。
     }
     return false;
   }
+  const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element) {
     const style = safeComputedStyle(element);
-    return hasLineClamp(style) || hasClippedTextConstraint(style) || isPositionedTextOverlay(style);
+    if (hasLineClamp(style)) return true;
+    if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
+    return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
   }
   function hasLineClamp(style) {
     const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
