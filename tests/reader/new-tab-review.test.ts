@@ -571,7 +571,7 @@ async function expectBuiltInFallbackWords(controller: NewTabController, fallback
     }).loadWords();
     expect(result.cards.length).toBeGreaterThan(0);
     expect(result.cards.every(card => card.source === 'fallback')).toBe(true);
-    expect(result.sourceLabel).toBe('Dictionary');
+    expect(result.sourceLabel).toBe('Starter words');
     expect(result.reviewCountMode).toBe(false);
     expect(fallbackCardFromText).toHaveBeenCalled();
     return result;
