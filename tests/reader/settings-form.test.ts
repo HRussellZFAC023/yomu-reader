@@ -2,11 +2,24 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/app/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
-import { DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+
+// These tests assert English UI copy; pin the interface language since the
+// shipped default is now 'ja'.
+const DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' as const };
+
+const frequencySettings = {
+    ...DEFAULT_SETTINGS,
+    dictionaryPreferences: [
+        { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 0, type: 'terms' as const },
+        { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 1, type: 'frequency' as const },
+        { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: false, priority: 2, type: 'frequency' as const },
+    ],
+};
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const DOCS_THEME_SOURCE = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
@@ -154,6 +167,37 @@ describe('settings help panel', () => {
         const helpPanelText = form.querySelector('[data-settings-panel="help"]')?.textContent ?? '';
         expect(helpPanelText).not.toContain('Online Japanese vocabulary review and mining service used for lookup');
         expect(helpPanelText).not.toContain('Reading text from images');
+    });
+});
+
+describe('frequency dictionary preferences', () => {
+    it('renders frequency dictionaries with toggle, reorder, and remove controls', () => {
+        const form = renderSettingsTestForm(frequencySettings);
+        const editor = form.querySelector<HTMLElement>('[data-frequency-dictionaries]')!;
+
+        const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'));
+        expect(rows.map(row => row.dataset.sourceId)).toEqual(['BCCWJ', 'JPDB Freq']);
+        for (const row of rows) {
+            expect(row.querySelector('[data-source-enable-toggle]')).not.toBeNull();
+            expect(row.querySelector('[data-source-drag-handle]')).not.toBeNull();
+            expect(row.querySelector('[data-action="dictionary-source-up"]')).not.toBeNull();
+            expect(row.querySelector('[data-action="delete-yomitan-dictionary"]')).not.toBeNull();
+        }
+        // Frequency dictionaries are no longer duplicated as hidden inputs.
+        expect(form.querySelectorAll('input[name="dictionaryPreferences.1.name"]').length).toBe(1);
+    });
+
+    it('round-trips frequency dictionary toggles and order through form read', () => {
+        const form = renderSettingsTestForm(frequencySettings);
+        const editor = form.querySelector<HTMLElement>('[data-frequency-dictionaries]')!;
+        const disabledToggle = editor.querySelector<HTMLInputElement>('[data-source-row][data-source-id="JPDB Freq"] [data-source-enable-toggle]')!;
+        disabledToggle.checked = true;
+
+        const saved = readFormSettings(new FormData(form), frequencySettings);
+        const frequency = saved.dictionaryPreferences.filter(preference => preference.type === 'frequency');
+
+        expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'JPDB Freq']);
+        expect(frequency.every(preference => preference.enabled)).toBe(true);
     });
 });
 
@@ -1328,6 +1372,55 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'en');
 
         expect(languageSelect.parentElement?.querySelector('[data-settings-select-options-meta]')).toBeNull();
+    });
+
+    it('truncates select option metadata when options exceed 5 and expands on toggle click', () => {
+        const form = document.createElement('form');
+        form.innerHTML = `
+            <label>
+                Test Select
+                <select name="testSelect">
+                    <option value="1">自動</option>
+                    <option value="2">英語</option>
+                    <option value="3">日本語</option>
+                    <option value="4">ドイツ語</option>
+                    <option value="5">フランス語</option>
+                    <option value="6">中国語</option>
+                    <option value="7">韓国語</option>
+                </select>
+            </label>
+        `;
+        const select = form.querySelector('select')!;
+
+        localizeSettingsForm(form, 'ja');
+
+        const meta = select.nextElementSibling as HTMLElement;
+        expect(meta).not.toBeNull();
+        expect(meta.dataset.settingsSelectOptionsMeta).toBe('');
+        expect(meta.classList.contains('expanded')).toBe(false);
+
+        // Truncated list should show first 4 options
+        const truncated = meta.querySelector('.jpdb-reader-select-options-truncated')!;
+        expect(truncated.textContent).toBe('選択肢: 自動 / 英語 / 日本語 / ドイツ語');
+
+        // Toggle button should show +3
+        const toggle = meta.querySelector<HTMLButtonElement>('.jpdb-reader-select-options-toggle')!;
+        expect(toggle.textContent).toBe('+3');
+
+        // Full list should contain all 7 options
+        const full = meta.querySelector('.jpdb-reader-select-options-full')!;
+        expect(full.textContent).toBe('選択肢: 自動 / 英語 / 日本語 / ドイツ語 / フランス語 / 中国語 / 韓国語');
+
+        // Click the toggle button
+        toggle.click();
+
+        expect(meta.classList.contains('expanded')).toBe(true);
+
+        // Check that relocalizing keeps it expanded
+        localizeSettingsForm(form, 'ja');
+
+        const newMeta = select.nextElementSibling as HTMLElement;
+        expect(newMeta.classList.contains('expanded')).toBe(true);
     });
 
     it('keeps parsed audio source metadata out of the preview button column', () => {

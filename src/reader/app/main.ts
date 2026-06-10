@@ -143,6 +143,7 @@ import {
     PITCH_LOCAL_META_LIMIT,
     POINTER_TEXT_JPDB_TIMEOUT_MS,
     PRELOADED_TERM_AUDIO_KEY_LIMIT,
+    RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS,
     RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     SUBTITLE_SURFACE_SELECTOR,
     TERM_AUDIO_PRELOAD_LIMIT,
@@ -218,6 +219,8 @@ import { OnboardingController } from './onboarding';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { contextPitchPattern } from '../lookup/pitch-accent';
+import { cardPronunciationReading } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
@@ -3173,11 +3176,15 @@ export class ReaderApp {
     ): Promise<boolean> {
         const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
         if (!lookup) return false;
-        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms);
+        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms, this.isExactRenderedWordCardMatch(word, card));
         if (!resolved) return false;
         this.parser.cacheCards?.([resolved]);
         await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
         return true;
+    }
+
+    private isExactRenderedWordCardMatch(word: HTMLElement, card: JPDBCard): boolean {
+        return renderedWordLookupText(word) === normalizedLookupText(card.spelling);
     }
 
     private async showParsedRenderedWordCandidate(
@@ -3235,6 +3242,7 @@ export class ReaderApp {
     ): boolean {
         const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
         if (!lookup?.terms.length) return false;
+        if (this.isExactRenderedWordCardMatch(word, card)) return false;
         const surface = renderedWordLookupText(word);
         const spelling = normalizedLookupText(card.spelling);
         const reading = normalizedLookupText(card.reading);
@@ -3243,7 +3251,20 @@ export class ReaderApp {
         return isRenderedKanaFragment;
     }
 
-    private async resolvePublicJpdbRenderedWordCandidate(terms: string[]): Promise<JPDBCard | undefined> {
+    private resolvePublicJpdbRenderedWordCandidate(terms: string[], boundWait: boolean): Promise<JPDBCard | undefined> {
+        const resolved = this.resolvePublicJpdbRenderedWordCandidateTerms(terms);
+        if (!boundWait) return resolved;
+        // The clicked surface already matches its cached card, so the expansion
+        // lookup is only a best-effort upgrade: don't hold the popover hostage
+        // to a slow or offline public lookup.
+        void resolved.catch(() => undefined);
+        return Promise.race([
+            resolved,
+            wait(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS).then(() => undefined),
+        ]);
+    }
+
+    private async resolvePublicJpdbRenderedWordCandidateTerms(terms: string[]): Promise<JPDBCard | undefined> {
         for (const term of terms) {
             const resolved = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
             if (resolved) return resolved;
@@ -3324,7 +3345,7 @@ export class ReaderApp {
             .filter(span => span.end - span.start > lookup.surfaceLength)
             .map(span => span.term);
         if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
-        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
+        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms, false);
         if (!resolved) return false;
         await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
         return true;
@@ -5078,9 +5099,9 @@ export class ReaderApp {
     }
 
     private async fillCardPitchFromLocalDictionary(card: JPDBCard): Promise<void> {
-        if (card.pitchAccent.length) return;
+        if (cardHasContextPitch(card)) return;
         const localPitch = await this.localPitchAccentForCard(card);
-        if (localPitch.length) card.pitchAccent = localPitch;
+        if (localPitch.length) card.pitchAccent = mergePitchPatterns(localPitch, card.pitchAccent);
     }
 
     private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup'> = {}): Promise<void> {
@@ -5103,14 +5124,14 @@ export class ReaderApp {
     }
 
     private async resolvePitchFallbackCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<JPDBCard> {
-        if (fallback.pitchAccent.length || options.publicLookup === false) return fallback;
+        if (cardHasContextPitch(fallback) || options.publicLookup === false) return fallback;
         return await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
     }
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<void> {
-        if (card.pitchAccent.length || options.publicLookup === false) return;
+        if (cardHasContextPitch(card) || options.publicLookup === false) return;
         const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-        if (pitchAccent.length) card.pitchAccent = pitchAccent;
+        if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
 
     private applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): void {
@@ -6018,6 +6039,20 @@ function publicLookupCardFromResults(cards: JPDBCard[], term: string, exact: boo
     if (reading) return cards.find(card => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find(card => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? undefined : cards[0]);
+}
+
+// "Has pitch" for enrichment means a pattern that actually fits the card's
+// contextual reading; a Jiten/local pattern for a different reading (e.g.
+// dictionary form) should still fall through to the JPDB pitch lookup.
+function cardHasContextPitch(card: JPDBCard): boolean {
+    if (!card.pitchAccent.length) return false;
+    const reading = cardPronunciationReading(card);
+    if (!reading) return true;
+    return Boolean(contextPitchPattern(card.pitchAccent, reading));
+}
+
+function mergePitchPatterns(preferred: string[], existing: string[]): string[] {
+    return [...preferred, ...existing.filter(pattern => !preferred.includes(pattern))];
 }
 
 function jitenFallbackTokenMatches(term: string, token: JPDBToken): boolean {

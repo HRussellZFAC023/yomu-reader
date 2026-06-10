@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-DbbCs/v4M8TirftF7KMU+KDXDEm02EJdHta9qsLDhxo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Qb5YMvHOEGGWpuVUxyydx9VjxU9r7pFOFIIHbpSrX9w=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-9VP4/hmLmbEzzynS5pUvtcnyLHrAoS+6VAWErDuM7Dc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RSrZr/XZJwxPsSB57RyH5sLm9yP1xdX8/WGyCXbeYkU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1937,7 +1937,7 @@
     apiKey: "",
     jitenApiKey: "",
     onboardingSeen: false,
-    interfaceLanguage: "auto",
+    interfaceLanguage: "ja",
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,
@@ -16946,6 +16946,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
       ruby.replaceWith(...Array.from(ruby.childNodes));
     });
+    stripAnkiBracketFurigana(fragment);
+  }
+  const ANKI_BRACKET_FURIGANA_RE = / ?([㐀-鿿々-〇]+)\[([぀-ヿー・]+)\]/gu;
+  function stripAnkiBracketFurigana(fragment) {
+    const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text2 = node.nodeValue ?? "";
+      if (!text2.includes("[")) continue;
+      const replaced = text2.replace(ANKI_BRACKET_FURIGANA_RE, "$1");
+      if (replaced !== text2) node.nodeValue = replaced;
+    }
   }
   function sanitizeAnkiCardElement(element2, mediaDataUrls, options) {
     for (const attr of Array.from(element2.attributes)) {
@@ -22537,6 +22548,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function pitchClassNameForPattern(pattern, reading) {
     return pitchProfileForPattern(pattern, reading).className;
   }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
   function pitchNumberFromPattern(pattern, reading) {
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
@@ -22634,7 +22650,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderPitch(card, metaEntries = []) {
     const reading = cardPronunciationReading(card);
-    const pitch = card.pitchAccent[0] || localPitchPatternFromMeta(reading || card.reading, metaEntries);
+    const pitch = contextPitchPattern(card.pitchAccent, reading) || localPitchPatternFromMeta(reading || card.reading, metaEntries);
     if (!pitch) return "";
     if (!reading) return "";
     const morae = splitMorae(reading);
@@ -25019,7 +25035,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
   }
   function getPitchClass(pitchAccent, reading) {
-    return pitchAccent[0] ? pitchClassNameForPattern(pitchAccent[0], reading) : "";
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
   }
   function assignSentenceInfo(paragraphs, tokens) {
     paragraphs.forEach((paragraph, index) => {
@@ -25190,35 +25207,41 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return reading;
   }
   function jpdbVocabularyToCards(vocabulary2) {
-    const cards = vocabulary2.map(([
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank2,
-      partOfSpeech,
-      meaningsChunks,
-      meaningsPartOfSpeech,
-      cardState,
-      pitchAccent
-    ]) => ({
-      vid,
-      sid,
-      rid,
-      spelling,
-      reading,
-      frequencyRank: frequencyRank2,
-      partOfSpeech,
-      meanings: meaningsChunks.map((glosses, index) => ({
-        glosses,
-        partOfSpeech: meaningsPartOfSpeech[index] ?? []
-      })),
-      cardState: normalizeCardStates(cardState),
-      pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-      wordWithReading: null,
-      source: "jpdb"
-    }));
+    if (!Array.isArray(vocabulary2)) return [];
+    const cards = [];
+    for (const item of vocabulary2) {
+      if (!Array.isArray(item)) continue;
+      const [
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank2,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent
+      ] = item;
+      cards.push({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank: frequencyRank2,
+        partOfSpeech,
+        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+          glosses,
+          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+        })),
+        cardState: normalizeCardStates(cardState),
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        wordWithReading: null,
+        source: "jpdb"
+      });
+    }
     return cards;
   }
   const LOCAL_MATCH_LIMIT = 40;
@@ -33073,6 +33096,7 @@ ${glossaryKey}`;
   const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
   const TEXT_LOOKUP_JPDB_TIMEOUT_MS = 650;
   const POINTER_TEXT_JPDB_TIMEOUT_MS = 450;
+  const RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS = 450;
   const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
   const PITCH_ENRICHMENT_LIMIT = 12;
   const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
@@ -39418,11 +39442,14 @@ ${glossaryKey}`;
     async showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings) {
       const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
       if (!lookup) return false;
-      const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms);
+      const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms, this.isExactRenderedWordCardMatch(word, card));
       if (!resolved) return false;
       this.parser.cacheCards?.([resolved]);
       await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
       return true;
+    }
+    isExactRenderedWordCardMatch(word, card) {
+      return renderedWordLookupText(word) === normalizedLookupText(card.spelling);
     }
     async showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings) {
       if (!this.canUseParserBackedRenderedWordLookup()) return false;
@@ -39457,13 +39484,23 @@ ${glossaryKey}`;
     shouldSuppressRenderedKanaFragmentFallback(word, card, context) {
       const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
       if (!lookup?.terms.length) return false;
+      if (this.isExactRenderedWordCardMatch(word, card)) return false;
       const surface = renderedWordLookupText(word);
       const spelling = normalizedLookupText(card.spelling);
       const reading = normalizedLookupText(card.reading);
       const isRenderedKanaFragment = KANA_ONLY_LOOKUP_RUN_RE.test(surface) && surface.length < Math.max(spelling.length, reading.length, lookup.terms[0]?.length ?? 0);
       return isRenderedKanaFragment;
     }
-    async resolvePublicJpdbRenderedWordCandidate(terms) {
+    resolvePublicJpdbRenderedWordCandidate(terms, boundWait) {
+      const resolved = this.resolvePublicJpdbRenderedWordCandidateTerms(terms);
+      if (!boundWait) return resolved;
+      void resolved.catch(() => void 0);
+      return Promise.race([
+        resolved,
+        wait(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS).then(() => void 0)
+      ]);
+    }
+    async resolvePublicJpdbRenderedWordCandidateTerms(terms) {
       for (const term of terms) {
         const resolved = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
         if (resolved) return resolved;
@@ -39515,7 +39552,7 @@ ${glossaryKey}`;
     async lookupUncachedPageWordViaPublicJpdb(word, lookup, options, trigger, navigation) {
       const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset).filter((span) => span.end - span.start > lookup.surfaceLength).map((span) => span.term);
       if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
-      const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms);
+      const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms, false);
       if (!resolved) return false;
       await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
       return true;
@@ -40904,9 +40941,9 @@ ${glossaryKey}`;
       }
     }
     async fillCardPitchFromLocalDictionary(card) {
-      if (card.pitchAccent.length) return;
+      if (cardHasContextPitch(card)) return;
       const localPitch = await this.localPitchAccentForCard(card);
-      if (localPitch.length) card.pitchAccent = localPitch;
+      if (localPitch.length) card.pitchAccent = mergePitchPatterns(localPitch, card.pitchAccent);
     }
     async enrichPitchToken(token, options = {}) {
       const fallback = token.card;
@@ -40926,13 +40963,13 @@ ${glossaryKey}`;
       return card;
     }
     async resolvePitchFallbackCard(fallback, options) {
-      if (fallback.pitchAccent.length || options.publicLookup === false) return fallback;
+      if (cardHasContextPitch(fallback) || options.publicLookup === false) return fallback;
       return await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
     }
     async ensureCardPitchAccent(card, options) {
-      if (card.pitchAccent.length || options.publicLookup === false) return;
+      if (cardHasContextPitch(card) || options.publicLookup === false) return;
       const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-      if (pitchAccent.length) card.pitchAccent = pitchAccent;
+      if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
     applyResolvedPitchCardToToken(token, fallback, card, pitchClass) {
       this.applyPublicVocabularyToRenderedWords(fallback, card, pitchClass || "unknown");
@@ -41713,6 +41750,15 @@ ${glossaryKey}`;
     if (reading) return cards.find((card) => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find((card) => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? void 0 : cards[0]);
+  }
+  function cardHasContextPitch(card) {
+    if (!card.pitchAccent.length) return false;
+    const reading = cardPronunciationReading(card);
+    if (!reading) return true;
+    return Boolean(contextPitchPattern(card.pitchAccent, reading));
+  }
+  function mergePitchPatterns(preferred, existing) {
+    return [...preferred, ...existing.filter((pattern) => !preferred.includes(pattern))];
   }
   function jitenFallbackTokenMatches(term, token) {
     const normalizedTerm = normalizedLookupText(term);

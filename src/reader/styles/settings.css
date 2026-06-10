@@ -250,6 +250,38 @@
   right: 0;
   padding-top: 4px;
 }
+.jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta.expanded {
+  position: static;
+  padding-top: 6px;
+}
+.jpdb-reader-select-options-full {
+  display: none;
+}
+.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-full {
+  display: inline;
+}
+.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-truncated,
+.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-toggle,
+.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-separator {
+  display: none;
+}
+.jpdb-reader-select-options-toggle {
+  display: inline;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  font: inherit !important;
+  font-weight: 800 !important;
+  cursor: pointer;
+  text-decoration: underline !important;
+}
+.jpdb-reader-select-options-toggle:hover,
+.jpdb-reader-select-options-toggle:focus-visible {
+  color: var(--jpdb-reader-accent) !important;
+  outline: none !important;
+}
 .jpdb-reader-font-family-control {
   display: grid;
   gap: 8px;

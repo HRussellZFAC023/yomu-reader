@@ -1329,7 +1329,7 @@
     apiKey: "",
     jitenApiKey: "",
     onboardingSeen: false,
-    interfaceLanguage: "auto",
+    interfaceLanguage: "ja",
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,
@@ -6982,6 +6982,20 @@ recommendedJiten	jiten.moe頻度データです。
       }))
     ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
   }
+  function frequencySourceRows(settings) {
+    return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency").map((preference) => ({
+      id: preference.name,
+      name: preference.name,
+      alias: preference.alias,
+      enabled: preference.enabled,
+      priority: preference.priority,
+      prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+      readonly: false,
+      removable: true,
+      dictionaryType: "frequency",
+      help: ""
+    })).sort(compareSourceRows);
+  }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
     const apiSource = activeApiDefinitionSource(settings);
@@ -7693,6 +7707,7 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
+                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
                     <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
@@ -8704,16 +8719,41 @@ recommendedJiten	jiten.moe頻度データです。
         existingMeta?.remove();
         return;
       }
-      const text = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
-      if (existingMeta) {
-        if (existingMeta.textContent !== text) existingMeta.textContent = text;
-        return;
-      }
-      const meta = document.createElement("div");
-      meta.className = "jpdb-reader-select-options-meta";
+      const wasExpanded = existingMeta?.classList.contains("expanded") ?? false;
+      const meta = existingMeta ?? document.createElement("div");
+      meta.className = wasExpanded ? "jpdb-reader-select-options-meta expanded" : "jpdb-reader-select-options-meta";
       meta.dataset.settingsSelectOptionsMeta = "";
-      meta.textContent = text;
-      selectElement.insertAdjacentElement("afterend", meta);
+      if (labels.length <= 5) {
+        meta.textContent = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
+      } else {
+        meta.replaceChildren();
+        const prefixText = `${uiText(language, "selectOptions")}: `;
+        const truncatedSpan = document.createElement("span");
+        truncatedSpan.className = "jpdb-reader-select-options-truncated";
+        truncatedSpan.textContent = prefixText + labels.slice(0, 4).join(" / ");
+        meta.appendChild(truncatedSpan);
+        const separatorSpan = document.createElement("span");
+        separatorSpan.className = "jpdb-reader-select-options-separator";
+        separatorSpan.textContent = " / ";
+        meta.appendChild(separatorSpan);
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "jpdb-reader-select-options-toggle";
+        toggle.textContent = `+${labels.length - 4}`;
+        toggle.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          meta.classList.add("expanded");
+        });
+        meta.appendChild(toggle);
+        const fullSpan = document.createElement("span");
+        fullSpan.className = "jpdb-reader-select-options-full";
+        fullSpan.textContent = prefixText + labels.join(" / ");
+        meta.appendChild(fullSpan);
+      }
+      if (!existingMeta) {
+        selectElement.insertAdjacentElement("afterend", meta);
+      }
     });
   }
   function setShortcutPlaceholder(form, name, placeholder) {
@@ -8921,7 +8961,10 @@ recommendedJiten	jiten.moe頻度データです。
   function renderDictionarySourceRows(settings) {
     const rows = definitionSourceRows(settings);
     const showAlias = rows.some((row) => !row.readonly);
-    const visibleNames = new Set(rows.filter((row) => row.removable).map((row) => row.name));
+    const visibleNames = /* @__PURE__ */ new Set([
+      ...rows.filter((row) => row.removable).map((row) => row.name),
+      ...frequencySourceRows(settings).map((row) => row.name)
+    ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map((preference) => {
       const index = settings.dictionaryPreferences.indexOf(preference);
@@ -8944,6 +8987,19 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderKanjiSourceRows(settings) {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
+  }
+  function renderFrequencyDictionaryRows(settings) {
+    const rows = frequencySourceRows(settings);
+    if (!rows.length) return "";
+    return `
+        <div class="jpdb-reader-settings-subsection">
+            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
+            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
+            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+                ${renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true })}
+            </div>
+        </div>
+    `;
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -9297,12 +9353,14 @@ recommendedJiten	jiten.moe頻度データです。
     return {
       status: form.querySelector("[data-dictionary-status]"),
       priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
+      frequency: form.querySelector("[data-frequency-dictionaries]"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
   function dictionaryStatusText(summary, language) {

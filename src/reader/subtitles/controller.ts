@@ -120,6 +120,7 @@ import {
     applyElementLayout,
     compareSubtitleVideoCandidates,
     isSubtitleOverlayVideoVisible,
+    isSubtitleVideoElementRenderable,
     renderPanelModeControls,
     renderPanelNavigationControls,
     renderPanelPlacementControls,
@@ -143,7 +144,7 @@ import { OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, matchesShortcut } from '../settings/index';
-import { hasJpdbApiCredential } from '../settings/api-credential';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
@@ -979,7 +980,8 @@ export class SubtitlePlayerController {
 
     private applyVideoLayout(rect: DOMRect): void {
         if (!this.root) return;
-        const videoVisible = isSubtitleOverlayVideoVisible(rect);
+        const videoVisible = isSubtitleOverlayVideoVisible(rect)
+            && (!this.video || isSubtitleVideoElementRenderable(this.video));
         this.root.classList.toggle('jpdb-subtitle-video-out-of-view', !videoVisible);
         if (!videoVisible) {
             this.clearVideoInsetForTranscriptPanel();
@@ -1349,6 +1351,9 @@ export class SubtitlePlayerController {
     }
 
     private ensureAuthoritativeParsedCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): void {
+        // Without an API credential there is no authoritative tier to upgrade
+        // to; the provisional parse is the final result for both surfaces.
+        if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
         const missing = items.filter(item => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
         if (!missing.length) return;
         const parsed = this.options.parseJapaneseBatch
@@ -1508,8 +1513,11 @@ export class SubtitlePlayerController {
         this.options.afterParseTokens(tokens, roots);
     }
 
-    private shouldUseProvisionalSubtitleParse(settings: ReaderSettings): boolean {
-        return Boolean(hasJpdbApiCredential(settings) && isYouTubePage());
+    private shouldUseProvisionalSubtitleParse(_settings: ReaderSettings): boolean {
+        // The provisional tier (skipJpdb + segmented fallback) is also the
+        // keyless parse, so overlay cues render colorised immediately even
+        // without an API key instead of waiting on the slow JPDB-timeout path.
+        return isYouTubePage();
     }
 
     private hasFreshEmptyParsedHtml(key: string): boolean {

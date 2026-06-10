@@ -32,7 +32,7 @@ export interface SettingsSourceRow {
     readonly: boolean;
     help: string;
     removable?: boolean;
-    dictionaryType?: 'terms' | 'kanji';
+    dictionaryType?: 'terms' | 'kanji' | 'frequency';
 }
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
@@ -109,6 +109,24 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             help: '',
         })),
     ].filter(row => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled)
+        .sort(compareSourceRows);
+}
+
+export function frequencySourceRows(settings: ReaderSettings): SettingsSourceRow[] {
+    return settings.dictionaryPreferences
+        .filter(preference => preference.type === 'frequency')
+        .map(preference => ({
+            id: preference.name,
+            name: preference.name,
+            alias: preference.alias,
+            enabled: preference.enabled,
+            priority: preference.priority,
+            prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+            readonly: false,
+            removable: true,
+            dictionaryType: 'frequency' as const,
+            help: '',
+        }))
         .sort(compareSourceRows);
 }
 

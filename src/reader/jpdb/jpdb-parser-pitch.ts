@@ -1,5 +1,6 @@
-import { pitchClassNameForPattern } from '../lookup/pitch-accent';
+import { contextPitchPattern, pitchClassNameForPattern } from '../lookup/pitch-accent';
 
 export function getPitchClass(pitchAccent: string[], reading: string): string {
-    return pitchAccent[0] ? pitchClassNameForPattern(pitchAccent[0], reading) : '';
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : '';
 }

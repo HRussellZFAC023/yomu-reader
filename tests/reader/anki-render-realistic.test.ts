@@ -77,6 +77,30 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expectSafeRenderedAnkiFixture(section);
     });
 
+    it('strips Anki bracket furigana from rendered card bodies so the reader re-applies ruby', () => {
+        const note = existingAnkiNote({
+            noteId: 870,
+            modelName: 'Kaishi 1.5k',
+            deckNames: ['Kaishi 1.5k'],
+            cardIds: [8701],
+            primaryCardId: 8701,
+            state: 'new',
+            fields: { Word: '始める' },
+            renderedCards: [{
+                cardId: 8701,
+                deckName: 'Kaishi 1.5k',
+                mediaDataUrls: {},
+                question: '<div lang="ja">テストを 始[はじ]めて ください。</div>',
+                answer: '<div lang="ja">テストを 始[はじ]めて ください。<div>Please [sic] start.</div></div>',
+            }],
+        });
+        const section = renderExistingAnkiLookup([note]);
+
+        expect(section.textContent).toContain('始めて');
+        expect(section.textContent).not.toContain('[はじ]');
+        expect(section.textContent).toContain('[sic]');
+    });
+
     it('renders Kaishi 1.5k cards without long audio filenames or fallback labels', () => {
         const section = renderExistingAnkiLookup([kaishiVocabNote()]);
         const { bodies, audioControls } = renderedAnkiCardParts(section);

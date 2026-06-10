@@ -444,6 +444,22 @@ function unwrapAnkiCardRuby(fragment: DocumentFragment): void {
         ruby.querySelectorAll('rt, rp').forEach(node => node.remove());
         ruby.replaceWith(...Array.from(ruby.childNodes));
     });
+    stripAnkiBracketFurigana(fragment);
+}
+
+// Anki's bracket furigana (`日本語[にほんご]`, with an optional separating
+// space before the base) would otherwise show its raw brackets in the
+// preview. Reduce it to base text like <ruby> above.
+const ANKI_BRACKET_FURIGANA_RE = / ?([㐀-鿿々-〇]+)\[([぀-ヿー・]+)\]/gu;
+
+function stripAnkiBracketFurigana(fragment: DocumentFragment): void {
+    const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.nodeValue ?? '';
+        if (!text.includes('[')) continue;
+        const replaced = text.replace(ANKI_BRACKET_FURIGANA_RE, '$1');
+        if (replaced !== text) node.nodeValue = replaced;
+    }
 }
 
 function sanitizeAnkiCardElement(element: Element, mediaDataUrls: Record<string, string>, options: AnkiCardSanitizeOptions): void {

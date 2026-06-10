@@ -189,7 +189,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     jitenApiKey: '',
     onboardingSeen: false,
-    interfaceLanguage: 'auto',
+    interfaceLanguage: 'ja',
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,

@@ -84,7 +84,8 @@ const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
 const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
-const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 6;
+// Multiple of the list's 4/2/1-column layouts so the compact shelf fills its rows.
+const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
 const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
 const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
 const YOUTUBE_NAVIGATION_EVENTS = [
@@ -131,6 +132,7 @@ type YouTubeChannelPreview = {
     avatarUrl: string;
     subscriberText: string;
     description: string;
+    subscribed: boolean;
 };
 
 type YouTubeClientConfig = {
@@ -203,7 +205,19 @@ export class YoutubeImmersionFilter {
     private readonly channelIdCache = new Map<string, string | null>();
     private readonly pendingChannelPreviews = new Set<string>();
     private readonly cardTimers = new WeakMap<HTMLElement, number[]>();
-    private readonly compactChannelRecommendations = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    private readonly compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+    private readonly subscribedChannelHandles = new Set<string>();
+    private channelShelfRefreshTimer?: number;
+
+    // Already-subscribed channels never belong in the suggestions; the pool
+    // backfills the compact view so subscribing keeps the shelf full.
+    private get compactChannelRecommendations(): YouTubeChannelRecommendation[] {
+        return this.unsubscribedChannels(this.compactChannelPool).slice(0, YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    }
+
+    private unsubscribedChannels(channels: YouTubeChannelRecommendation[]): YouTubeChannelRecommendation[] {
+        return channels.filter(channel => !this.subscribedChannelHandles.has(channel.handle));
+    }
 
     constructor(private readonly options: {
         getSettings: () => ReaderSettings;
@@ -701,7 +715,7 @@ export class YoutubeImmersionFilter {
 
     private currentChannelRecommendations(): YouTubeChannelRecommendation[] {
         return this.channelShelfExpanded
-            ? filterYouTubeChannelRecommendations(this.channelShelfFilter)
+            ? this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter))
             : this.compactChannelRecommendations;
     }
 
@@ -846,7 +860,7 @@ export class YoutubeImmersionFilter {
                 void this.subscribeToChannels(this.currentRenderedChannels());
                 return;
             case 'subscribe-all':
-                void this.subscribeToChannels(allYouTubeChannelRecommendations());
+                void this.subscribeToChannels(this.unsubscribedChannels(allYouTubeChannelRecommendations()));
                 return;
         }
     }
@@ -858,7 +872,7 @@ export class YoutubeImmersionFilter {
 
     private currentRenderedChannels(): YouTubeChannelRecommendation[] {
         if (!this.channelShelfExpanded) return this.compactChannelRecommendations;
-        return filterYouTubeChannelRecommendations(this.channelShelfFilter);
+        return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
 
     private async hydrateChannelPreviews(channels: YouTubeChannelRecommendation[]): Promise<void> {
@@ -871,6 +885,11 @@ export class YoutubeImmersionFilter {
                 .then(preview => {
                     this.channelPreviewCache.set(channel.handle, preview);
                     if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
+                    if (preview?.subscribed) {
+                        this.subscribedChannelHandles.add(channel.handle);
+                        this.scheduleChannelShelfRefresh(0);
+                        return;
+                    }
                     this.updateRenderedChannelPreview(channel);
                 })
                 .catch(() => {
@@ -912,6 +931,7 @@ export class YoutubeImmersionFilter {
                 if (!channelId) throw new Error('Missing YouTube channel id.');
                 await subscribeYouTubeChannel(channelId, config);
                 subscribed += 1;
+                this.markChannelRowSubscribed(channel);
             } catch {
                 failed += 1;
             }
@@ -921,6 +941,30 @@ export class YoutubeImmersionFilter {
         elements.status.textContent = failed
             ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.`
             : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`;
+        if (subscribed) this.scheduleChannelShelfRefresh();
+    }
+
+    // Show the confirmation in place first (button flips to "Subscribed", the
+    // live status announces it), then let the refresh swap the row for the
+    // next unsubscribed suggestion.
+    private markChannelRowSubscribed(channel: YouTubeChannelRecommendation): void {
+        this.subscribedChannelHandles.add(channel.handle);
+        const row = Array.from(this.channelShelf?.querySelectorAll<HTMLElement>('[data-yomu-channel-handle]') ?? [])
+            .find(candidate => candidate.dataset.yomuChannelHandle === channel.handle);
+        const button = row?.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-one"]');
+        row?.classList.add('is-subscribed');
+        if (!button) return;
+        button.disabled = true;
+        button.textContent = 'Subscribed ✓';
+        button.setAttribute('aria-label', `Subscribed to ${channel.name}`);
+    }
+
+    private scheduleChannelShelfRefresh(delayMs = 1800): void {
+        window.clearTimeout(this.channelShelfRefreshTimer);
+        this.channelShelfRefreshTimer = window.setTimeout(() => {
+            this.channelShelfRefreshTimer = undefined;
+            if (this.channelShelf?.isConnected) this.renderChannelShelf(this.channelShelfElements(this.channelShelf));
+        }, delayMs);
     }
 
     private setChannelShelfBusy(busy: boolean): void {
@@ -948,8 +992,10 @@ export class YoutubeImmersionFilter {
     private clear(): void {
         window.clearTimeout(this.timer);
         window.clearTimeout(this.metadataRescanTimer);
+        window.clearTimeout(this.channelShelfRefreshTimer);
         this.timer = undefined;
         this.metadataRescanTimer = undefined;
+        this.channelShelfRefreshTimer = undefined;
         this.revealed = false;
         this.clearFilteredCards();
         this.removeNotice();
@@ -1246,7 +1292,15 @@ function youTubeChannelPreviewFromBrowseData(
         avatarUrl: youTubeChannelPreviewAvatarUrl(metadata, data),
         subscriberText: findNestedString(data, 'subscriberCountText'),
         description: youTubeChannelPreviewDescription(metadata, data),
+        subscribed: youTubeBrowseDataShowsSubscribed(data),
     };
+}
+
+function youTubeBrowseDataShowsSubscribed(data: unknown): boolean {
+    return findNestedYouTubeValue(data, value => {
+        const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
+        return renderer?.subscribed === true ? 'subscribed' : '';
+    }) === 'subscribed';
 }
 
 function youTubeChannelMetadata(data: Record<string, unknown>): Record<string, unknown> {

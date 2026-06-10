@@ -7495,6 +7495,11 @@ ${spelling}`);
   function compareSubtitleVideoCandidates(a, b) {
     return videoElementVisibleArea(b) - videoElementVisibleArea(a) || videoElementArea(b) - videoElementArea(a);
   }
+  function isSubtitleVideoElementRenderable(video) {
+    if (video.hidden) return false;
+    const style = getComputedStyle(video);
+    return style.display !== "none" && style.visibility !== "hidden" && Number.parseFloat(style.opacity || "1") > 0.01;
+  }
   function isSubtitleOverlayVideoVisible(rect) {
     const visible = rectViewportIntersection(rect);
     if (visible.width < SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH || visible.height < SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT) return false;
@@ -10650,7 +10655,7 @@ ${spelling}`);
     }
     applyVideoLayout(rect) {
       if (!this.root) return;
-      const videoVisible = isSubtitleOverlayVideoVisible(rect);
+      const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video));
       this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
       if (!videoVisible) {
         this.clearVideoInsetForTranscriptPanel();
@@ -10969,6 +10974,7 @@ ${spelling}`);
       this.ensureAuthoritativeParsedCueHtmlBatch([{ text, key: key2 }], settings);
     }
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
+      if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
       const missing = items.filter((item) => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
@@ -11099,8 +11105,8 @@ ${spelling}`);
       this.parsedTokenNotifiedAt.set(key2, now);
       this.options.afterParseTokens(tokens, roots);
     }
-    shouldUseProvisionalSubtitleParse(settings) {
-      return Boolean(hasJpdbApiCredential(settings) && isYouTubePage());
+    shouldUseProvisionalSubtitleParse(_settings) {
+      return isYouTubePage();
     }
     hasFreshEmptyParsedHtml(key2) {
       return Boolean(this.freshEmptyParsedHtml(key2));
@@ -12984,7 +12990,7 @@ ${spelling}`);
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 18;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 2400;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
-  const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 6;
+  const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
   const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
   const YOUTUBE_NAVIGATION_EVENTS = [
@@ -13047,7 +13053,17 @@ ${spelling}`);
     channelIdCache = /* @__PURE__ */ new Map();
     pendingChannelPreviews = /* @__PURE__ */ new Set();
     cardTimers = /* @__PURE__ */ new WeakMap();
-    compactChannelRecommendations = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+    subscribedChannelHandles = /* @__PURE__ */ new Set();
+    channelShelfRefreshTimer;
+    // Already-subscribed channels never belong in the suggestions; the pool
+    // backfills the compact view so subscribing keeps the shelf full.
+    get compactChannelRecommendations() {
+      return this.unsubscribedChannels(this.compactChannelPool).slice(0, YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    }
+    unsubscribedChannels(channels) {
+      return channels.filter((channel) => !this.subscribedChannelHandles.has(channel.handle));
+    }
     // fallow-ignore-next-line unused-class-member
     init() {
       this.destroy();
@@ -13458,7 +13474,7 @@ ${spelling}`);
       void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
     }
     currentChannelRecommendations() {
-      return this.channelShelfExpanded ? filterYouTubeChannelRecommendations(this.channelShelfFilter) : this.compactChannelRecommendations;
+      return this.channelShelfExpanded ? this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter)) : this.compactChannelRecommendations;
     }
     renderChannelFilters(filters) {
       filters.hidden = !this.channelShelfExpanded;
@@ -13586,7 +13602,7 @@ ${spelling}`);
           void this.subscribeToChannels(this.currentRenderedChannels());
           return;
         case "subscribe-all":
-          void this.subscribeToChannels(allYouTubeChannelRecommendations());
+          void this.subscribeToChannels(this.unsubscribedChannels(allYouTubeChannelRecommendations()));
           return;
       }
     }
@@ -13596,7 +13612,7 @@ ${spelling}`);
     }
     currentRenderedChannels() {
       if (!this.channelShelfExpanded) return this.compactChannelRecommendations;
-      return filterYouTubeChannelRecommendations(this.channelShelfFilter);
+      return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
     async hydrateChannelPreviews(channels) {
       const config = readYouTubeClientConfig();
@@ -13607,6 +13623,11 @@ ${spelling}`);
         void fetchYouTubeChannelPreview(channel, config, this.channelIdCache).then((preview) => {
           this.channelPreviewCache.set(channel.handle, preview);
           if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
+          if (preview?.subscribed) {
+            this.subscribedChannelHandles.add(channel.handle);
+            this.scheduleChannelShelfRefresh(0);
+            return;
+          }
           this.updateRenderedChannelPreview(channel);
         }).catch(() => {
           this.channelPreviewCache.set(channel.handle, null);
@@ -13642,6 +13663,7 @@ ${spelling}`);
           if (!channelId) throw new Error("Missing YouTube channel id.");
           await subscribeYouTubeChannel(channelId, config);
           subscribed += 1;
+          this.markChannelRowSubscribed(channel);
         } catch {
           failed += 1;
         }
@@ -13649,6 +13671,27 @@ ${spelling}`);
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
       elements.status.textContent = failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`;
+      if (subscribed) this.scheduleChannelShelfRefresh();
+    }
+    // Show the confirmation in place first (button flips to "Subscribed", the
+    // live status announces it), then let the refresh swap the row for the
+    // next unsubscribed suggestion.
+    markChannelRowSubscribed(channel) {
+      this.subscribedChannelHandles.add(channel.handle);
+      const row = Array.from(this.channelShelf?.querySelectorAll("[data-yomu-channel-handle]") ?? []).find((candidate) => candidate.dataset.yomuChannelHandle === channel.handle);
+      const button = row?.querySelector('[data-yomu-youtube-channel-action="subscribe-one"]');
+      row?.classList.add("is-subscribed");
+      if (!button) return;
+      button.disabled = true;
+      button.textContent = "Subscribed ✓";
+      button.setAttribute("aria-label", `Subscribed to ${channel.name}`);
+    }
+    scheduleChannelShelfRefresh(delayMs = 1800) {
+      window.clearTimeout(this.channelShelfRefreshTimer);
+      this.channelShelfRefreshTimer = window.setTimeout(() => {
+        this.channelShelfRefreshTimer = void 0;
+        if (this.channelShelf?.isConnected) this.renderChannelShelf(this.channelShelfElements(this.channelShelf));
+      }, delayMs);
     }
     setChannelShelfBusy(busy) {
       this.channelShelf?.querySelectorAll('[data-yomu-youtube-channel-action^="subscribe"]').forEach((button) => {
@@ -13672,8 +13715,10 @@ ${spelling}`);
     clear() {
       window.clearTimeout(this.timer);
       window.clearTimeout(this.metadataRescanTimer);
+      window.clearTimeout(this.channelShelfRefreshTimer);
       this.timer = void 0;
       this.metadataRescanTimer = void 0;
+      this.channelShelfRefreshTimer = void 0;
       this.revealed = false;
       this.clearFilteredCards();
       this.removeNotice();
@@ -13913,8 +13958,15 @@ ${spelling}`);
       title: youTubeChannelPreviewTitle(channel, metadata, data),
       avatarUrl: youTubeChannelPreviewAvatarUrl(metadata, data),
       subscriberText: findNestedString(data, "subscriberCountText"),
-      description: youTubeChannelPreviewDescription(metadata, data)
+      description: youTubeChannelPreviewDescription(metadata, data),
+      subscribed: youTubeBrowseDataShowsSubscribed(data)
     };
+  }
+  function youTubeBrowseDataShowsSubscribed(data) {
+    return findNestedYouTubeValue(data, (value) => {
+      const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
+      return renderer?.subscribed === true ? "subscribed" : "";
+    }) === "subscribed";
   }
   function youTubeChannelMetadata(data) {
     return recordValue(recordValue(data.metadata)?.channelMetadataRenderer) ?? {};

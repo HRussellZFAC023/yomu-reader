@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+
+// These tests assert English UI copy; pin the interface language since the
+// shipped default is now 'ja'.
+const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/subtitles/youtube-channel-recommendations';
 import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
@@ -715,7 +719,7 @@ describe('YouTube immersion filter', () => {
         expect(shelf.parentElement?.tagName.toLowerCase()).toBe('main');
         expect(shelf.textContent).toContain('Start your Japanese YouTube feed');
         expect(shelf.textContent).toContain('100 curated channels');
-        expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(6);
+        expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(8);
         expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
         expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toContain('Subscribe here');
 
