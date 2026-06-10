@@ -55,7 +55,10 @@ export function isStalePageSubtitleTrack(
     sourceKeys: ReadonlySet<string>,
     sourceUrls: ReadonlySet<string>,
 ): boolean {
+    // Synthetic translated tracks have no page source of their own — they live
+    // and die with their source track, not with the page's subtitle listing.
     return track.kind === 'remote'
+        && !track.translatedFromTrackId
         && !sourceKeys.has(track.sourceKey ?? '')
         && !hasCurrentPageSubtitleTrackUrl(track, sourceUrls);
 }

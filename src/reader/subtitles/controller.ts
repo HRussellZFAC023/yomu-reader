@@ -712,7 +712,11 @@ export class SubtitlePlayerController {
 
     private removeStaleNativeTracks(video: HTMLVideoElement): void {
         const textTracks = new Set(Array.from(video.textTracks));
-        this.removeSubtitleTracks(track => track.kind === 'native' && (!track.track || !textTracks.has(track.track)));
+        // Synthetic translated tracks have no TextTrack of their own; they are
+        // culled with their source via the orphan cascade, not by liveness.
+        this.removeSubtitleTracks(track => track.kind === 'native'
+            && !track.translatedFromTrackId
+            && (!track.track || !textTracks.has(track.track)));
     }
 
     private removeSubtitleTracks(predicate: (track: SubtitleTrackOption) => boolean): number {
@@ -728,9 +732,14 @@ export class SubtitlePlayerController {
     }
 
     private removeSubtitleTrackIds(removedIds: Set<string>): void {
-        this.tracks = this.tracks.filter(track => !removedIds.has(track.id));
-        if (removedIds.has(this.selectedTrackId)) this.resetPrimarySubtitleState();
-        if (removedIds.has(this.secondaryTrackId)) this.resetSecondarySubtitleState();
+        // Cascade: a synthetic translated track cannot outlive its source.
+        const removed = new Set(removedIds);
+        for (const track of this.tracks) {
+            if (track.translatedFromTrackId && removed.has(track.translatedFromTrackId)) removed.add(track.id);
+        }
+        this.tracks = this.tracks.filter(track => !removed.has(track.id));
+        if (removed.has(this.selectedTrackId)) this.resetPrimarySubtitleState();
+        if (removed.has(this.secondaryTrackId)) this.resetSecondarySubtitleState();
     }
 
     private renderOpenSubtitlePanel(): void {
@@ -766,6 +775,7 @@ export class SubtitlePlayerController {
 
         track.addEventListener('cuechange', () => this.updateFromNativeTrack(track), this.eventOptions());
         this.maybeAutoSelectNativeTrack(option);
+        if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
         window.setTimeout(() => {
             if (this.destroyed) return;
             this.setNativeTrackModes();
@@ -801,6 +811,7 @@ export class SubtitlePlayerController {
 
     private finishPageSubtitleTrackDiscovery(changes: { added: number; updated: number; removed: number }): void {
         const generated = this.ensureTranslatedJapaneseTrack();
+        if (generated) this.maybeAutoSelectTranslatedJapaneseTrack();
         if (changes.added || changes.updated || changes.removed || generated) {
             this.renderTrackPanel();
             this.syncControls();
@@ -846,7 +857,7 @@ export class SubtitlePlayerController {
 
     private shouldAutoSelectPrimaryPageTrack(option: SubtitleTrackOption, selected: SubtitleTrackOption | undefined): boolean {
         return isJapaneseSubtitleTrack(option)
-            && (!this.selectedTrackId || shouldReplaceWaitingNativeTrack(selected, option, this.cues));
+            && (!this.selectedTrackId || this.isSyntheticTranslatedSelection() || shouldReplaceWaitingNativeTrack(selected, option, this.cues));
     }
 
     private shouldAutoSelectSecondaryPageTrack(option: SubtitleTrackOption, secondary: SubtitleTrackOption | undefined): boolean {
@@ -862,9 +873,22 @@ export class SubtitlePlayerController {
     }
 
     private autoSelectableNativeTrackRole(option: SubtitleTrackOption): 'primary' | 'secondary' | null {
-        if (!this.selectedTrackId && isJapaneseSubtitleTrack(option)) return 'primary';
+        // A real Japanese track always beats an auto-selected machine translation.
+        if (isJapaneseSubtitleTrack(option) && (!this.selectedTrackId || this.isSyntheticTranslatedSelection())) return 'primary';
         if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) return 'secondary';
         return null;
+    }
+
+    private isSyntheticTranslatedSelection(): boolean {
+        if (!this.selectedTrackId) return false;
+        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        return Boolean(selected?.translatedFromTrackId);
+    }
+
+    private maybeAutoSelectTranslatedJapaneseTrack(): void {
+        if (this.selectedTrackId) return;
+        const synthetic = this.tracks.find(track => track.translatedFromTrackId && isJapaneseSubtitleTrack(track));
+        if (synthetic) void this.selectTrack(synthetic.id);
     }
 
     private autoSelectNativeTrack(option: SubtitleTrackOption, track: TextTrack, role: 'primary' | 'secondary'): void {
@@ -2304,11 +2328,14 @@ export class SubtitlePlayerController {
     }
 
     private findAutoPrimaryYouTubeTrack(): SubtitleTrackOption | undefined {
-        if (this.selectedTrackId) return undefined;
+        // A synthetic translated selection stays replaceable by a real Japanese track.
+        if (this.selectedTrackId && !this.isSyntheticTranslatedSelection()) return undefined;
         if (this.youtubeAutoSelectSuppressedVideoId && this.youtubeAutoSelectSuppressedVideoId === this.youtubeVideoId) return undefined;
-        return [...this.tracks]
+        const candidate = [...this.tracks]
             .filter(track => track.kind === 'youtube' && isJapaneseSubtitleTrack(track))
-            .sort(compareSubtitleTrackOptions)[0];
+            .sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId))
+                || compareSubtitleTrackOptions(a, b))[0];
+        return candidate?.id === this.selectedTrackId ? undefined : candidate;
     }
 
     private findAutoSecondaryYouTubeTrack(primaryTrackId = this.selectedTrackId): SubtitleTrackOption | undefined {
