@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.62] - 2026-06-10
+
+### Fixed
+
+- Audio on CSP-strict sites (e.g. claude.ai): fetched audio blobs were created without a MIME type, so media elements refused them ("Content-Type application/octet-stream is not supported", "No decoders"). Blob types are now inferred from the source URL (mp3/ogg/m4a/…), fixing word/sentence/Immersion Kit playback wherever blob URLs are permitted. (A Web Audio fallback for pages whose CSP blocks blob media entirely is tracked in the backlog.)
+- Subtitles no longer render punctuation-only cues (a lone 。 or ?) as their own rows: sentence splitting merges trailing punctuation into the preceding line and contentless cues are dropped.
+- Pitch-underline mode no longer flashes a colorless underline before the pitch class arrives — undetermined words keep a transparent underline.
+- The channel-suggestions shelf now says "You are subscribed to all of these channels" when there is nothing left to suggest, instead of showing an empty list (or appearing broken).
+
+### Notes
+
+- The remaining items from the critical batch (sites missing ruby/colorisation like Google Maps and claude.ai, just-in-time pitch colors during playback, jiten /parse direct-load mount race, expression-level pitch, per-kanji jukugo ruby, nihongotube-informed feed smoothness) are recorded as P0 in docs/refactor-backlog.md with reproduction notes.
+
 ## [0.6.61] - 2026-06-10
 
 ### Added

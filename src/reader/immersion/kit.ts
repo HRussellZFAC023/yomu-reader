@@ -366,7 +366,7 @@ export class ImmersionKitClient {
         const key = urls.join('\u0001');
         return this.mediaBlobUrlCache.getOrCreate(key, async () => {
             const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-            const blobUrl = await createPageMediaUrl(blob);
+            const blobUrl = await createPageMediaUrl(blob, urls[0] ?? '');
             return blobUrl;
         });
     }

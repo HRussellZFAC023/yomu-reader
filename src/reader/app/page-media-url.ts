@@ -2,9 +2,33 @@ import { readBlobAsDataUrl } from '../core/blob-data-url';
 
 const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
 
-export async function createPageMediaUrl(blob: Blob): Promise<string> {
-    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(blob);
-    return URL.createObjectURL(blob);
+// GM-fetched audio frequently arrives as application/octet-stream; media
+// elements refuse to decode that ("No decoders for requested formats"), so
+// re-wrap with a usable audio type inferred from the source URL.
+const AUDIO_EXTENSION_TYPES: Record<string, string> = {
+    aac: 'audio/aac',
+    flac: 'audio/flac',
+    m4a: 'audio/mp4',
+    mp3: 'audio/mpeg',
+    oga: 'audio/ogg',
+    ogg: 'audio/ogg',
+    opus: 'audio/ogg',
+    wav: 'audio/wav',
+    weba: 'audio/webm',
+    webm: 'audio/webm',
+};
+
+export async function createPageMediaUrl(blob: Blob, sourceUrl = ''): Promise<string> {
+    const typed = withUsableMediaType(blob, sourceUrl);
+    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
+    return URL.createObjectURL(typed);
+}
+
+function withUsableMediaType(blob: Blob, sourceUrl: string): Blob {
+    const type = (blob.type || '').toLowerCase();
+    if (type && type !== 'application/octet-stream' && type !== 'binary/octet-stream') return blob;
+    const extension = sourceUrl.split(/[?#]/)[0]?.split('.').pop()?.toLowerCase() ?? '';
+    return new Blob([blob], { type: AUDIO_EXTENSION_TYPES[extension] ?? 'audio/mpeg' });
 }
 
 export function revokePageMediaUrl(url: string): void {
