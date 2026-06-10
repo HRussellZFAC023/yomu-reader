@@ -976,14 +976,13 @@ export class SettingsDialogController {
         const formSettings = readFormSettings(new FormData(form), this.settings);
         const apiKey = effectiveJpdbApiKey(formSettings);
         if (!apiKey) return;
-        const ping = (this.dependencies.jpdb as { ping?: () => Promise<boolean> }).ping;
-        if (typeof ping !== 'function') return;
+        if (typeof this.dependencies.jpdb.ping !== 'function') return;
         const requestId = ++this.jpdbConnectionProbeId;
         const originalKey = this.settings.apiKey;
         this.settings.apiKey = apiKey;
         let connected = false;
         try {
-            connected = await ping.call(this.dependencies.jpdb);
+            connected = await this.dependencies.jpdb.ping();
         } finally {
             this.settings.apiKey = originalKey;
         }

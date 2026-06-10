@@ -110,7 +110,8 @@ export class JpdbClient {
         return decks;
     }
 
-    // Settings connection probe: jpdb's /ping answers any authenticated key.
+    // Used by the settings dialog as the live JPDB connection probe.
+    // fallow-ignore-next-line unused-class-member
     async ping(): Promise<boolean> {
         try {
             await this.api.request<Record<string, never>>('ping', {});

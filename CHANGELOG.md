@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.72] - 2026-06-10
+
+### Fixed
+
+- CI dead-code check: `JpdbClient.ping` is reached through the settings dialog's dependency interface, which the static analyzer cannot trace — marked with the same used-via-interface pragma as `parse()` (the 0.6.71 CI run flagged it).
+
+### Added
+
+- `smoke:youtube-grid`: a desktop Playwright probe for the home-feed filter layout — asserts no empty visible section bands, every visible row's first item carries the margin-compensation marker, and no visible cards overlap. Companion to the 0.6.70 grid-rebalance fix.
+
 ## [0.6.71] - 2026-06-10
 
 ### Added
