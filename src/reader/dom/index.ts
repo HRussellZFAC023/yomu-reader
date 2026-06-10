@@ -1157,8 +1157,13 @@ function scanTargetAllowsRuby(target: ScanTextTarget): boolean {
     return target.layoutSensitive !== true;
 }
 
-function scanFragmentAllowsRuby(hasNativeRuby: boolean, layoutSensitive: boolean, passiveInteraction: boolean): boolean {
-    return !hasNativeRuby && (!layoutSensitive || passiveInteraction);
+function scanFragmentAllowsRuby(hasNativeRuby: boolean, layoutSensitive: boolean, _passiveInteraction: boolean): boolean {
+    // Layout-sensitive boxes (line-clamped/fixed-height chrome like YouTube
+    // metadata rows and buttons) must never get ruby — the taller ruby line
+    // gets clipped so only the furigana stays visible, or fixed-height
+    // buttons wrap badly. Passive chrome keeps colorised lookup words; it
+    // just renders them without ruby.
+    return !hasNativeRuby && !layoutSensitive;
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {

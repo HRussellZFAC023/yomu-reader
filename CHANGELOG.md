@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.50] - 2026-06-10
+
+### Fixed
+
+- Fixed clipped/invisible text in YouTube chrome: line-clamped and fixed-height boxes (video metadata rows, subscribe buttons) no longer receive furigana ruby — the taller ruby line was clipping the base text so only the furigana stayed visible, or wrapping fixed-height buttons. These words stay colorised and lookupable, just without ruby.
+- Fixed subtitle word colorisation disappearing when stepping back to a previous line: cache-hit renders now re-apply JPDB/Anki state colors to the freshly inserted nodes, and the parse warm-up window keeps more history behind the active cue (6 behind / 10 ahead) so back-navigation always hits the cache.
+- Fixed the subtitle rail and panel opener staying permanently visible on mobile: the controls now auto-hide after the idle delay (touch devices get no mouse movement to trigger it) and follow m.youtube.com's own player-controls overlay, so tapping the video reveals them together with YouTube's controls.
+
+### Notes
+
+- Recorded the full Anki/mining/new-tab trust-audit findings and the Jiten Reader v1.2.x parity matrix in docs/refactor-backlog.md as the prioritized plan for the next releases.
+
 ## [0.6.49] - 2026-06-10
 
 ### Fixed

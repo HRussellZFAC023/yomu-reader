@@ -9993,8 +9993,8 @@ ${spelling}`);
     if (id !== void 0) window.cancelAnimationFrame(id);
     return void 0;
   }
-  const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 2;
-  const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 7;
+  const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
+  const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
   const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
   const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
@@ -10312,6 +10312,7 @@ ${spelling}`);
       document.body.appendChild(this.transcriptPanel);
       this.root = root;
       this.refresh();
+      this.scheduleControlsIdle();
     }
     scheduleDiscoverVideo() {
       if (this.discoverTimer !== void 0) return;
@@ -10819,6 +10820,16 @@ ${spelling}`);
       const primary = this.renderPrimarySubtitle(text, settings);
       setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
       this.applyRenderedPrimarySubtitle(primary, text);
+      this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+    }
+    // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
+    // DOM, so JPDB/Anki state colors must be re-applied to the new nodes even
+    // though the parse itself was cached.
+    notifyParsedTokensForRenderedPrimary(text, settings, html) {
+      if (!parsedSubtitleHtmlHasReaderWords(html)) return;
+      const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
+      if (!primary) return;
+      this.notifyParsedTokensForKey(this.parseCacheKey(text, settings), true, [primary]);
     }
     renderPrimarySubtitle(text, settings) {
       const activeCue = this.currentCue;
@@ -11313,6 +11324,8 @@ ${spelling}`);
       return pointInRect(x, y, this.video.getBoundingClientRect());
     }
     videoPlayerChromeHidden() {
+      const mobileOverlay = document.querySelector("#player-control-overlay");
+      if (mobileOverlay) return !mobileOverlay.classList.contains("fadein");
       const player = this.video?.closest("#movie_player, .html5-video-player");
       return Boolean(player?.classList.contains("ytp-autohide") || player?.classList.contains("ytp-hide-controls") || player?.classList.contains("ytp-player-minimized"));
     }

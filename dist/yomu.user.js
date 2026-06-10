@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.49
+// @version      0.6.50
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-9VP4/hmLmbEzzynS5pUvtcnyLHrAoS+6VAWErDuM7Dc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-gA3vPz94bHUcf/ut9o6JUWvYanzK3f2+JiXb3unnlBQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LCzKDx0LpuGsjdb2dKadRJXhhBDi4M9nHkaEguR3L58=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3629,8 +3629,8 @@
   function scanTargetAllowsRuby(target) {
     return target.layoutSensitive !== true;
   }
-  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, passiveInteraction) {
-    return !hasNativeRuby && (!layoutSensitive || passiveInteraction);
+  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
+    return !hasNativeRuby && !layoutSensitive;
   }
   function isInsideOwnedReaderRoot(element2) {
     const readerRoot = element2.closest(READER_ROOT_SELECTOR$2);

@@ -229,8 +229,10 @@ function clearWindowAnimationFrame(id: number | undefined): undefined {
     return undefined;
 }
 
-const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 2;
-const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 7;
+// Behind matters for the previous-line button: keep enough parsed history
+// that stepping back always hits the cache.
+const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
+const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
 const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
 const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
 const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
@@ -577,6 +579,9 @@ export class SubtitlePlayerController {
         document.body.appendChild(this.transcriptPanel);
         this.root = root;
         this.refresh();
+        // Touch devices get no pointermove, so without this the rail stays
+        // visible forever; tapping the video re-reveals it via pointerdown.
+        this.scheduleControlsIdle();
     }
 
     private scheduleDiscoverVideo(): void {
@@ -1168,6 +1173,17 @@ export class SubtitlePlayerController {
         const primary = this.renderPrimarySubtitle(text, settings);
         setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
         this.applyRenderedPrimarySubtitle(primary, text);
+        this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+    }
+
+    // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
+    // DOM, so JPDB/Anki state colors must be re-applied to the new nodes even
+    // though the parse itself was cached.
+    private notifyParsedTokensForRenderedPrimary(text: string, settings: ReaderSettings, html: string): void {
+        if (!parsedSubtitleHtmlHasReaderWords(html)) return;
+        const primary = this.subtitleEl?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        if (!primary) return;
+        this.notifyParsedTokensForKey(this.parseCacheKey(text, settings), true, [primary]);
     }
 
     private renderPrimarySubtitle(text: string, settings: ReaderSettings): ReturnType<typeof renderSubtitlePrimary> {
@@ -1761,6 +1777,10 @@ export class SubtitlePlayerController {
     }
 
     private videoPlayerChromeHidden(): boolean {
+        // m.youtube.com renders its controls in #player-control-overlay and
+        // toggles a fadein class; the desktop ytp-* classes never appear there.
+        const mobileOverlay = document.querySelector<HTMLElement>('#player-control-overlay');
+        if (mobileOverlay) return !mobileOverlay.classList.contains('fadein');
         const player = this.video?.closest<HTMLElement>('#movie_player, .html5-video-player');
         return Boolean(player?.classList.contains('ytp-autohide')
             || player?.classList.contains('ytp-hide-controls')
