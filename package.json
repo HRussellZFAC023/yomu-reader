@@ -1,90 +1,91 @@
 {
-    "name": "yomu-reader",
-    "version": "0.6.68",
-    "private": true,
-    "type": "module",
-    "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",
-    "license": "GPL-3.0-or-later",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/HRussellZFAC023/yomu-reader.git"
-    },
-    "bugs": {
-        "url": "https://github.com/HRussellZFAC023/yomu-reader/issues"
-    },
-    "homepage": "https://hrussellzfac023.github.io/yomu-reader/",
-    "keywords": [
-        "userscript",
-        "jpdb",
-        "jiten",
-        "yomitan",
-        "japanese",
-        "ocr",
-        "subtitles",
-        "tampermonkey"
-    ],
-    "yomu": {
-        "allowedRequireUrls": [
-            "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js",
-            "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js"
-        ]
-    },
-    "scripts": {
-        "build": "npm run build:userscript",
-        "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",
-        "build:userscript": "vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/build-greasyfork-libraries.mjs && node scripts/format-userscript-css.cjs && node scripts/annotate-greasyfork-requires.cjs && node scripts/annotate-userscript-compliance.cjs",
-        "build:userscript:self-contained": "YOMU_USERSCRIPT_BUNDLE_MODE=self-contained vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
-        "check": "npm run typecheck && npm run test:ci && npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify",
-        "dev": "node scripts/dev-userscript.mjs",
-        "dev:ipad": "node scripts/dev-ipad.mjs",
-        "dev:vite": "vite --host 127.0.0.1",
-        "docs": "vitepress dev docs --host 127.0.0.1",
-        "docs:build": "vitepress build docs",
-        "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
-        "fallow": "fallow",
-        "fallow:audit": "fallow audit --format compact",
-        "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
-        "profile:performance": "node scripts/profile-performance.mjs",
-        "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
-        "qa:live": "node scripts/jpdb-live-smoke.mjs",
-        "screenshots:real": "node scripts/capture-real-screenshots.mjs",
-        "size:bundle": "node scripts/bundle-size-report.mjs",
-        "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
-        "size:modules": "vite build --config config/vite/size.config.ts",
-        "smoke:anki": "node scripts/anki-mining-smoke.mjs",
-        "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
-        "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
-        "smoke:feedback": "node scripts/feedback-smoke.mjs",
-        "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
-        "smoke:keyless-popover": "node scripts/keyless-word-popover-smoke.mjs",
-        "smoke:late-content": "node scripts/late-content-smoke.mjs",
-        "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
-        "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
-        "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
-        "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
-        "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
-        "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
-        "test": "vitest run",
-        "test:ci": "node scripts/run-ci-suite.mjs",
-        "typecheck": "tsc --noEmit",
-        "verify": "node scripts/verify-userscript.cjs"
-    },
-    "dependencies": {
-        "fflate": "^0.8.2"
-    },
-    "devDependencies": {
-        "@axe-core/playwright": "^4.11.3",
-        "@types/node": "^25.1.0",
-        "vue": "^3.5.34",
-        "esbuild": "^0.21.5",
-        "fake-indexeddb": "^6.2.5",
-        "fallow": "^2.88.3",
-        "jsdom": "^24.0.0",
-        "playwright": "^1.56.1",
-        "typescript": "^5.3.3",
-        "vite": "^5.1.4",
-        "vite-plugin-monkey": "^3.5.1",
-        "vitepress": "^1.6.4",
-        "vitest": "^1.3.1"
-    }
+  "name": "yomu-reader",
+  "version": "0.6.69",
+  "private": true,
+  "type": "module",
+  "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HRussellZFAC023/yomu-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HRussellZFAC023/yomu-reader/issues"
+  },
+  "homepage": "https://hrussellzfac023.github.io/yomu-reader/",
+  "keywords": [
+    "userscript",
+    "jpdb",
+    "jiten",
+    "yomitan",
+    "japanese",
+    "ocr",
+    "subtitles",
+    "tampermonkey"
+  ],
+  "yomu": {
+    "allowedRequireUrls": [
+      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js",
+      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js"
+    ]
+  },
+  "scripts": {
+    "build": "npm run build:userscript",
+    "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",
+    "build:userscript": "vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/build-greasyfork-libraries.mjs && node scripts/format-userscript-css.cjs && node scripts/annotate-greasyfork-requires.cjs && node scripts/annotate-userscript-compliance.cjs",
+    "build:userscript:self-contained": "YOMU_USERSCRIPT_BUNDLE_MODE=self-contained vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
+    "check": "npm run typecheck && npm run test:ci && npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify",
+    "dev": "node scripts/dev-userscript.mjs",
+    "dev:ipad": "node scripts/dev-ipad.mjs",
+    "dev:vite": "vite --host 127.0.0.1",
+    "docs": "vitepress dev docs --host 127.0.0.1",
+    "docs:build": "vitepress build docs",
+    "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
+    "fallow": "fallow",
+    "fallow:audit": "fallow audit --format compact",
+    "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
+    "profile:performance": "node scripts/profile-performance.mjs",
+    "qa": "npm run check && node scripts/qa-audit.mjs && node scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs",
+    "qa:live": "node scripts/jpdb-live-smoke.mjs",
+    "screenshots:real": "node scripts/capture-real-screenshots.mjs",
+    "size:bundle": "node scripts/bundle-size-report.mjs",
+    "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
+    "size:modules": "vite build --config config/vite/size.config.ts",
+    "smoke:anki": "node scripts/anki-mining-smoke.mjs",
+    "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
+    "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
+    "smoke:feedback": "node scripts/feedback-smoke.mjs",
+    "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
+    "smoke:keyless-popover": "node scripts/keyless-word-popover-smoke.mjs",
+    "smoke:late-content": "node scripts/late-content-smoke.mjs",
+    "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
+    "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
+    "smoke:mobile-youtube": "node scripts/mobile-youtube-overlap-probe.mjs",
+    "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
+    "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
+    "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
+    "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
+    "test": "vitest run",
+    "test:ci": "node scripts/run-ci-suite.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-userscript.cjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
+    "@types/node": "^25.1.0",
+    "vue": "^3.5.34",
+    "esbuild": "^0.21.5",
+    "fake-indexeddb": "^6.2.5",
+    "fallow": "^2.88.3",
+    "jsdom": "^24.0.0",
+    "playwright": "^1.56.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "vite-plugin-monkey": "^3.5.1",
+    "vitepress": "^1.6.4",
+    "vitest": "^1.3.1"
+  }
 }

@@ -130,7 +130,13 @@ export function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard):
 function autoReviewMergeKey(card: JPDBCard): string {
     const spelling = card.spelling.trim();
     if (!spelling) return '';
-    return `${spelling}\n${newTabCardReading(card)}`;
+    // Kana-insensitive: providers disagree on katakana vs hiragana readings
+    // (and spellings of kana-only words); ベッド/べっど are the same card.
+    return `${kanaInsensitiveKey(spelling)}\n${kanaInsensitiveKey(newTabCardReading(card))}`;
+}
+
+function kanaInsensitiveKey(value: string): string {
+    return value.replace(/[ァ-ヶ]/g, char => String.fromCharCode(char.charCodeAt(0) - 0x60));
 }
 
 function interleaveNewTabCards(groups: JPDBCard[][]): JPDBCard[] {

@@ -37,6 +37,11 @@ const context = await browser.newContext({
     bypassCSP: true,
     locale: 'ja-JP',
 });
+// Pre-set consent cookies so the cookie interstitial never mounts.
+await context.addCookies([
+    { name: 'CONSENT', value: 'YES+cb.20240101-08-p0.ja+FX+667', domain: '.youtube.com', path: '/' },
+    { name: 'SOCS', value: 'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA4X3AwGgJqYSACGgYIgJzqrQY', domain: '.youtube.com', path: '/' },
+]);
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(String(error)));
@@ -47,6 +52,19 @@ page.on('console', message => {
 try {
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
     await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+
+    // Dismiss the consent sheet when YouTube serves it anyway: expand the
+    // "続きを読む" fold first, then accept.
+    for (const selector of ['button:has-text("続きを読む")', 'button:has-text("すべてに同意")', 'button:has-text("Accept all")', 'form[action*="consent"] button']) {
+        const control = page.locator(selector).first();
+        if (await control.count() && await control.isVisible().catch(() => false)) {
+            await control.tap().catch(() => control.click().catch(() => undefined));
+            await page.waitForTimeout(1500);
+        }
+    }
+    await page.waitForLoadState('domcontentloaded').catch(() => undefined);
+    await page.waitForSelector('video, ytm-watch', { timeout: 20000 }).catch(() => undefined);
+
     await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForTimeout(8000);
@@ -127,14 +145,45 @@ try {
             }
         }
 
+        // 4) Action-chip diagnostics: chips whose label wraps to multiple lines
+        // (the stacked 共/有 overlap) with the computed styles that allow it.
+        const chipDiagnostics = [];
+        for (const word of document.querySelectorAll('.jpdb-reader-word')) {
+            const text = (word.textContent ?? '').trim();
+            if (!text) continue;
+            const rect = word.getBoundingClientRect();
+            const range = document.createRange();
+            range.selectNodeContents(word);
+            const lineRects = [...range.getClientRects()].filter(r => r.width > 2 && r.height > 4);
+            const chain = [];
+            let current = word;
+            for (let depth = 0; current && depth < 5; depth++) {
+                const style = getComputedStyle(current);
+                chain.push({
+                    tag: current.tagName.toLowerCase(),
+                    class: current.className.toString().slice(0, 60),
+                    display: style.display,
+                    whiteSpace: style.whiteSpace,
+                    width: Math.round(current.getBoundingClientRect().width),
+                });
+                current = current.parentElement;
+            }
+            if (lineRects.length > 1) {
+                chipDiagnostics.push({ text, lines: lineRects.length, top: Math.round(rect.top), chain });
+                if (chipDiagnostics.length >= 4) break;
+            }
+        }
+
         return {
             host: location.host,
             hasRuby: Boolean(document.querySelector('rt.jpdb-reader-furi')),
             parsedWords: document.querySelectorAll('.jpdb-reader-word').length,
+            parsedWordTexts: [...document.querySelectorAll('.jpdb-reader-word')].map(word => (word.textContent ?? '').trim()).slice(0, 12),
             descriptionFound: Boolean(description),
             lineOverlaps,
             surfaceOverlaps,
             missingBases,
+            chipDiagnostics,
         };
     });
 

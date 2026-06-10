@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.69] - 2026-06-10
+
+### Fixed
+
+- m.youtube action chips (共有/保存/報告/チャンネル登録) no longer collapse into stacked, overlapping characters that spilled into the description area: scanned words inside passive UI controls now respect the host's nowrap contract instead of re-enabling per-character wrapping (the prose-wrapping rule from 0.4.47 now excludes `.jpdb-reader-passive-word`). Reproduced and verified fixed in an iPhone-profile Playwright probe against the live watch page (`npm run smoke:mobile-youtube`).
+- New-tab auto review no longer shows the same word twice when providers disagree on kana script (JPDB ベッド vs Anki べっど): the cross-provider dedupe key is now kana-insensitive.
+- CI dead-code check: registered the new mobile probe as `smoke:mobile-youtube` (the 0.6.68 CI run flagged the unregistered script).
+
 ## [0.6.68] - 2026-06-10
 
 ### Fixed
