@@ -4629,7 +4629,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   content: none;
 }
 
-.jpdb-reader-word.jpdb-reader-scan-word {
+/* Long annotated prose may wrap even when the host says nowrap — but never
+   inside passive UI controls (buttons, chips, tabs): their nowrap is a layout
+   contract, and re-enabling wrapping stacks CJK labels one character per line
+   (m.youtube action chips). */
+.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere !important;
