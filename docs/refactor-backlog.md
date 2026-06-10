@@ -1,6 +1,12 @@
 # Yomu Refactor Backlog
 
-Last updated: 2026-06-07.
+Last updated: 2026-06-10.
+
+## JIT Subtitle Parse Contract (pinned 0.6.67)
+
+- Playback-simulation regression tests now pin the just-in-time guarantees in `tests/reader/subtitles-controller.test.ts`: continuous playback never reaches a cue that is not already parsed/cached (40-cue walk with realistic 30ms batch latency), and a long seek re-warms the active cue plus the 10-cue lookahead within one warmup turn.
+- DOM-caption fallback (YouTube native captions) now parses during the 180ms stability window instead of after it, so captions render colorized the moment they count as stable.
+- Known by-design behavior: cues whose parse yields no annotatable words live in a TTL'd empty cache and re-parse periodically (transient-failure self-healing); token-bearing cues cache permanently until pruned.
 
 ## Current Scoreboard
 
@@ -138,13 +144,13 @@ These came from the running product feedback thread and should stay visible unti
 - P0 (2026-06-10, user critical batch — screenshots/console logs in session):
   1. Audio playback blocked on CSP-strict sites (claude.ai): our audio blobs are created without a MIME type ("HTTP Content-Type of application/octet-stream is not supported", "No decoders"); also page CSP media-src blocks blob: URLs entirely → DONE: blob types fixed (0.6.62) and Web Audio playback fallback added (0.6.63).
   2. Many sites missing ruby+colorisation entirely (google maps, claude.ai): INVESTIGATED 2026-06-10 — extension matches *://*/* (not manifest gating) and the late-streamed-SPA-text pattern parses correctly in the new `smoke:late-content` harness (auto-scan observer works). Remaining suspects need LIVE debugging on the real sites: shadow-DOM content (claude.ai message roots?), MV3/Firefox content-script world timing, or viewport-intersection failures in their nested scroll layouts. Use the smoke as the regression net once reproduced.
-  3. Subtitle underlines flash BLACK before pitch colors load: default text-decoration-color must be transparent until the pitch class arrives.
+  3. DONE 0.6.62 — subtitle pitch underlines default to transparent text-decoration-color until the pitch class arrives (regression test re-pinned 0.6.65 after assertion drift).
   4. DONE 0.6.63 — local pitch included at subtitle parse time (subtitle-parse-policy includeLocalPitch: true), colors baked into cue HTML pre-display.
   5. Multi-word expressions (e.g. 気合いを入れる) missing pitch: underline side resolved by transparent-unknown default (0.6.62). Remaining design (M): per-component multi-graph in the popover — parse the expression, look up each component's pitch, render N small graphs; never present one component's pitch as the whole expression.
-  6. Furigana still misaligned on some words (琉球藍: readings spread evenly instead of per-kanji りゅう/きゅう/あい): per-kanji ruby segmentation when reading boundaries are derivable (jukugo split).
-  7. Subtitles sometimes render a single punctuation mark as a whole cue: filter punctuation-only cues from transcript/overlay.
+  6. DONE 0.6.65 — per-kanji ruby segmentation on all-kanji compounds when the user's kanji dictionaries yield exactly one greedy alignment (琉球藍 → りゅう/きゅう/あい, rendaku + sokuon surface forms included); ambiguous readings keep the whole-word ruby.
+  7. DONE 0.6.62 — punctuation-only cues are merged into the preceding line or dropped (sentence splitting keeps trailing punctuation attached).
   8. DONE 0.6.63 — fallback-anchored addon mounts are tagged and re-anchored automatically once the hydrated anchor exists (jitenAddonStrandedOnFallbackAnchor).
-  9. Immersion-kit example words sometimes missing pitch/furigana and some words unparsed; one translation rendered ALL-CAPS (likely page text-transform leaking into our block — scope a text-transform: none).
+  9. PARTIAL 0.6.67 — ALL-CAPS translations fixed (text-transform: none scoped onto example sentences/translations so host-page transforms cannot leak in). Remaining: some example words still missing pitch/furigana or unparsed.
   10. DONE 0.6.64 — adopted NihongoTube's offscreen-absolute hiding (no display:none, no collapse transitions); verify live and consider their .first-in-row margin compensation if row alignment drifts.
   11. Channel suggestions shelf possibly hidden when ALL 100 subscribed — must show with an explicit "all subscribed" state, never disappear ambiguously.
 - P1 (2026-06-10, user): "Snow Leopard" quality release — no new features; sweep for latent bugs and quality-of-life polish. Scope: (a) subtle re-render loops that drain battery (rAF chains, MutationObserver feedback loops, timers that never idle — audit subtitles/controller.ts tick paths, youtube.ts observers, visible-page scanner); (b) subtitle experience polish (colorisation timing, cue transitions, panel resize smoothness); (c) YouTube seamlessness (filter reflow, shelf jank); (d) fallow health: drive complexity/CRAP findings to 0 (`npm run fallow:audit`), keep dead-code at 0; (e) idle CPU profile target: zero timers/rAF when the page is idle and no video is playing.

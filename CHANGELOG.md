@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.67] - 2026-06-10
+
+### Fixed
+
+- YouTube native-caption fallback (the "YouTube native captions" track) now parses each caption during its 180ms stability window instead of after it, so captions appear colorized with furigana the moment they render instead of flashing plain first.
+- Immersion Kit translations no longer render ALL-CAPS on pages whose styles set text-transform on ancestors: example sentences and translations now pin `text-transform: none`.
+
+### Added
+
+- Playback-simulation regression tests pinning the just-in-time subtitle contract: continuous playback never displays a cue that is not already parsed and cached (40-cue walk under realistic parse latency), and a long seek re-warms the active cue plus its 10-cue lookahead within one warmup turn. These tests reproduce display-time parse misses if the warmup pipeline ever regresses.
+
 ## [0.6.66] - 2026-06-10
 
 ### Fixed
