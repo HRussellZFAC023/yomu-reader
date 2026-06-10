@@ -10,7 +10,15 @@ import { cleanText, firstReviewGlyph, JAPANESE_RE } from '../jpdb/jpdb-text';
 
 const READER_OWNED_SELECTOR = '[data-jpdb-reader-root], [data-yomu-jpdb-addon]';
 const VOCAB_COLUMN_SELECTOR = 'div.flex.flex-col.max-w-2xl';
-const HEADWORD_SELECTOR = '.text-3xl[lang="ja"], .text-3xl.font-noto-sans';
+// The SRS study card renders its headword larger than vocabulary pages do, so
+// include the bigger size buckets; matching stays tolerant (no match → no-op).
+const HEADWORD_SELECTOR = [
+    '.text-3xl[lang="ja"]',
+    '.text-3xl.font-noto-sans',
+    '.text-4xl[lang="ja"]',
+    '.text-5xl[lang="ja"]',
+    '.text-6xl[lang="ja"]',
+].join(', ');
 const KANJI_GLYPH_SELECTOR = '.text-9xl';
 
 export function isJitenHost(): boolean {
@@ -25,8 +33,12 @@ function isJitenVocabPage(): boolean {
     return location.pathname.startsWith('/vocabulary/') || location.pathname.startsWith('/parse');
 }
 
+export function isJitenStudyPage(): boolean {
+    return location.pathname.startsWith('/srs/study');
+}
+
 export function isJitenEnhanceablePage(): boolean {
-    return isJitenKanjiPage() || isJitenVocabPage();
+    return isJitenKanjiPage() || isJitenVocabPage() || isJitenStudyPage();
 }
 
 export function extractCurrentJitenKanji(): string {

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.56] - 2026-06-10
+
+### Fixed
+
+- Fixed furigana ruby disappearing from ordinary prose on sites whose page shell clips overflow (e.g. example sentences on jiten.moe): layout-sensitivity is now judged by the box's actual height — only short fixed boxes (under ~3 lines) that would really clip the taller ruby line suppress furigana, while tall clipped containers (page shells, scroll regions) keep ruby. One uniform rule across all sites, no per-site parsing.
+
+### Added
+
+- Yomu enhancements (Immersion Kit examples, imported dictionaries, kanji tools) now also mount on the Jiten SRS study page (jiten.moe/srs/study), like the vocabulary/kanji/parse pages. Live verification pending — the Jiten test account is temporarily locked.
+- Verified and pinned with a test that Jiten per-grade intervals from study-batch responses reach the new-tab grade buttons (data-grade-interval, aria/title labels).
+
 ## [0.6.55] - 2026-06-10
 
 ### Added

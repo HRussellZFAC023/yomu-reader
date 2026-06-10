@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.55
+// @version      0.6.56
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -3323,9 +3323,12 @@
     }
     return false;
   }
+  const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element2) {
     const style = safeComputedStyle(element2);
-    return hasLineClamp(style) || hasClippedTextConstraint(style) || isPositionedTextOverlay(style);
+    if (hasLineClamp(style)) return true;
+    if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
+    return element2.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
   }
   function hasLineClamp(style) {
     const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
@@ -29374,7 +29377,13 @@ ${glossaryKey}`;
   }
   const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
   const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
-  const HEADWORD_SELECTOR = '.text-3xl[lang="ja"], .text-3xl.font-noto-sans';
+  const HEADWORD_SELECTOR = [
+    '.text-3xl[lang="ja"]',
+    ".text-3xl.font-noto-sans",
+    '.text-4xl[lang="ja"]',
+    '.text-5xl[lang="ja"]',
+    '.text-6xl[lang="ja"]'
+  ].join(", ");
   const KANJI_GLYPH_SELECTOR = ".text-9xl";
   function isJitenHost() {
     return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
@@ -29385,8 +29394,11 @@ ${glossaryKey}`;
   function isJitenVocabPage() {
     return location.pathname.startsWith("/vocabulary/") || location.pathname.startsWith("/parse");
   }
+  function isJitenStudyPage() {
+    return location.pathname.startsWith("/srs/study");
+  }
   function isJitenEnhanceablePage() {
-    return isJitenKanjiPage() || isJitenVocabPage();
+    return isJitenKanjiPage() || isJitenVocabPage() || isJitenStudyPage();
   }
   function extractCurrentJitenKanji() {
     const parts = location.pathname.split("/").filter(Boolean);
