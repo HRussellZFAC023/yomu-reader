@@ -332,7 +332,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -6689,6 +6689,11 @@ export class NewTabController {
         if (!hasJitenApiCredential(settings)) throw new Error(this.text('addJitenApiKeyReview'));
         if (typeof this.dependencies.jiten?.reviewCard !== 'function') throw new Error(this.text('couldNotSubmitGrade'));
         await this.dependencies.jiten.reviewCard(card, grade);
+        // Parity with the JPDB path (jpdb.reviewCard refreshes internally):
+        // pull the post-review state so the review summary reflects reality.
+        if (typeof this.dependencies.jiten.refreshCardState === 'function') {
+            await this.dependencies.jiten.refreshCardState(card).catch(() => undefined);
+        }
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.75] - 2026-06-10
+
+### Fixed
+
+- New-tab Jiten reviews now refresh the graded card's state from Jiten after submitting (the JPDB path already did this internally), so the review summary and any later renders of the card reflect the real post-review state.
+
 ## [0.6.74] - 2026-06-10
 
 ### Fixed

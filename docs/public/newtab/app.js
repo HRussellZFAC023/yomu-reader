@@ -41374,6 +41374,9 @@ ${newTabCardReading(card)}`;
       if (!hasJitenApiCredential(settings)) throw new Error(this.text("addJitenApiKeyReview"));
       if (typeof this.dependencies.jiten?.reviewCard !== "function") throw new Error(this.text("couldNotSubmitGrade"));
       await this.dependencies.jiten.reviewCard(card, grade);
+      if (typeof this.dependencies.jiten.refreshCardState === "function") {
+        await this.dependencies.jiten.refreshCardState(card).catch(() => void 0);
+      }
     }
     async submitAnkiGrade(card, grade, explicitCardId) {
       const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
