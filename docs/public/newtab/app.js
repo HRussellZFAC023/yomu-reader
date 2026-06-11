@@ -35024,6 +35024,21 @@ ${entry.url}`),
   function liveJpdbCardIdentity(card) {
     return card.jpdbReviewId || cardKey(card);
   }
+  function newTabDueSummary(cards) {
+    const summary = { dueWords: 0, dueKanji: 0, newWords: 0, newKanji: 0 };
+    for (const card of cards) {
+      if (!isScheduledStudyCard(card)) continue;
+      const characters = Array.from(card.spelling.trim());
+      const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? "");
+      const isNew = card.cardState.includes("new") || card.cardState.includes("not-in-deck");
+      if (isNew) {
+        if (isKanjiCard) summary.newKanji += 1;
+        else summary.newWords += 1;
+      } else if (isKanjiCard) summary.dueKanji += 1;
+      else summary.dueWords += 1;
+    }
+    return summary;
+  }
   function shouldReplaceKanjiStudyCard(card, existing) {
     const cardPriority = kanjiStudyCardPriority(card);
     const existingPriority = kanjiStudyCardPriority(existing);
@@ -38646,6 +38661,7 @@ ${newTabCardReading(card)}`;
       const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
       const labels = [
         this.fallbackStudyNotice ? this.text("reviewFallbackNotice") : "",
+        this.dueSummaryLabel(),
         baseLabel,
         snapshot ? formatNewTabSessionProgressLabel(snapshot, {
           completed: this.text("sessionDone"),
@@ -38658,6 +38674,20 @@ ${newTabCardReading(card)}`;
         return;
       }
       this.renderCount(slots.count, labels.join(" · "), snapshot);
+    }
+    // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
+    // count of unseen items — only shown when it adds information beyond the
+    // session snapshot's plain "Due N".
+    dueSummaryLabel() {
+      if (!this.reviewCountMode) return "";
+      const summary = newTabDueSummary(this.allWords);
+      const fresh = summary.newWords + summary.newKanji;
+      const parts = [];
+      if (summary.dueKanji && summary.dueWords) {
+        parts.push(`${summary.dueWords} ${this.text("statsWordsRow").toLowerCase()} · ${summary.dueKanji} ${this.text("kanji").toLowerCase()}`);
+      }
+      if (fresh) parts.push(`${fresh} ${this.text("stateNew").toLowerCase()}`);
+      return parts.join(" · ");
     }
     sessionProgressCards() {
       return this.visibleWords.filter((card) => !this.isReviewHistoryCard(card));

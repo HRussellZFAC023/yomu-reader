@@ -72,7 +72,7 @@ rows need jpdb-only data — render the rows we can compute and label the table 
 provider; do NOT fake indirect numbers. Anki: counts from status index by queue. Jiten:
 counts from study-batch/cards API.
 
-### SH-2: Due summary sentence + "Start reviewing" parity on the Word tab header
+### SH-2: Due summary sentence — SHIPPED 0.6.90 (session label now adds the due words/kanji split and unseen-new count when they add information beyond the snapshot's Due N; start-button copy unchanged by design)
 "You have N due items (X vocabulary and Y kanji) and M new items…" above the queue,
 computed from the active source's queue metadata; one primary button starts the session
 (already exists implicitly — make the copy/shape match).

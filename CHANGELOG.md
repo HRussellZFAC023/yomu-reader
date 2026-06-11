@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.90] - 2026-06-11
+
+### Added
+
+- Study session label now mirrors JPDB's Learn summary: when the due pile mixes vocabulary and kanji it shows the split ('20 words · 92 kanji'), and unseen items add an 'N new' count — alongside the existing Done/Left/Due session progress. Second slice of the study-hub parity plan.
+
 ## [0.6.89] - 2026-06-11
 
 ### Added
