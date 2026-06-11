@@ -19376,6 +19376,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       studyDeckSelector: "Study deck",
       showOnlyFilter: "Show only",
       browseSelectPage: "Select page",
+      partOfDeck: "Part of the {deck} deck",
       composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
       statsLearningProgress: "Learning progress",
@@ -19505,6 +19506,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     studyDeckSelector: "学習デッキ",
     showOnlyFilter: "表示対象",
     browseSelectPage: "ページを選択",
+    partOfDeck: "デッキ「{deck}」に含まれています",
     composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
     statsLearningProgress: "学習の進捗",
@@ -38472,6 +38474,12 @@ ${newTabCardReading(card)}`;
           timeoutMs
         );
         const cards = jpdbReviewCardsForNewTab(loaded.value, cardLimit);
+        const deckName = await this.jpdbDeckNameForMembership(selectedDeck);
+        if (deckName) {
+          for (const card of cards) {
+            if (!card.jpdbDeckMembership) card.jpdbDeckMembership = this.formatNewTabText("partOfDeck", { deck: deckName });
+          }
+        }
         return {
           cards,
           sourceLabel: "JPDB",
@@ -38481,6 +38489,18 @@ ${newTabCardReading(card)}`;
       } catch {
         return null;
       }
+    }
+    async jpdbDeckNameForMembership(deckId) {
+      const normalized = deckId.trim();
+      if (!normalized || normalized === "all" || normalized === JPDB_ALL_DECKS) return "";
+      const settings = this.dependencies.getSettings();
+      const key2 = effectiveJpdbApiKey(settings);
+      if (this.deckSelectorDecks?.key !== key2) {
+        const listDecks = typeof this.dependencies.jpdb.listDecks === "function" ? this.dependencies.jpdb.listDecks() : Promise.resolve([]);
+        this.deckSelectorDecks = { key: key2, promise: listDecks.catch(() => []) };
+      }
+      const decks = await this.deckSelectorDecks.promise;
+      return decks.find((deck) => deck.id === normalized)?.name ?? "";
     }
     async remoteSourceWithFallback(label, promise, fallback, timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS) {
       return (await this.remoteSourceResult(label, promise, fallback, timeoutMs)).value;

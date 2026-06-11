@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.105] - 2026-06-11
+
+### Added
+
+- When the study queue is scoped to a specific JPDB deck, every card's back now carries jpdb.io's 'Part of the X deck' membership line (localized). Live-bridge cards keep the line scraped from jpdb.io itself when present.
+
 ## [0.6.104] - 2026-06-11
 
 ### Added
