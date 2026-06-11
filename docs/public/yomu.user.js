@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.94
+// @version      0.6.95
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19608,6 +19608,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsCombined: "Combined",
       statsConnections: "Connections",
       statsReviewsToday: "Reviews today",
+      statsDueNow: "Due now",
+      statsNewToday: "new",
       statsTotalReviews: "Total reviews",
       statsCurrentStreak: "Current streak",
       statsLongestStreak: "Longest streak",
@@ -19730,6 +19732,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsCombined: "合計",
     statsConnections: "接続",
     statsReviewsToday: "今日の復習",
+    statsDueNow: "現在の期限",
+    statsNewToday: "新規",
     statsTotalReviews: "総復習数",
     statsCurrentStreak: "現在の連続日数",
     statsLongestStreak: "最長連続日数",

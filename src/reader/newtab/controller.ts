@@ -5301,6 +5301,11 @@ export class NewTabController {
                 const filter = target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter;
                 this.browseFilter = (filter ?? 'all') as BrowseFilter;
                 this.browsePage = 0;
+                const query = normalizeSearchQuery(this.searchQuery);
+                if (this.browseFilter === 'all' && query) {
+                    this.performSearch(root, query);
+                    return true;
+                }
                 const mount = this.searchResultsMount(root);
                 if (mount) this.renderBrowseResults(mount);
                 return true;
@@ -5432,6 +5437,11 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!query) {
             this.renderSearchIdle(root);
+        } else if (this.browseFilter !== 'all' && this.browsePool && results) {
+            // SH-3 v2: with a state chip active, typing searches MY cards
+            // (Jiten Cards parity); the All chip returns to dictionary search.
+            delete results.dataset.searchQuery;
+            this.renderBrowseResults(results);
         } else if (results?.dataset.searchQuery !== query) {
             this.performSearch(root, query);
         }
@@ -6285,7 +6295,8 @@ export class NewTabController {
     private renderBrowseResults(mount: HTMLElement): void {
         const cards = this.browsePool ?? [];
         const language = this.language();
-        const filtered = filterBrowseCards(cards, this.browseFilter, '');
+        const query = this.browseFilter !== 'all' ? normalizeSearchQuery(this.searchQuery) : '';
+        const filtered = filterBrowseCards(cards, this.browseFilter, query);
         replaceChildrenWith(mount,
             renderBrowseChips(cards, this.browseFilter, language, this.text('browseAllChip')),
             renderBrowseList(filtered, this.browsePage, language, {

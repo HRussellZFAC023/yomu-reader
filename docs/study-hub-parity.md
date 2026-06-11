@@ -77,7 +77,7 @@ counts from study-batch/cards API.
 computed from the active source's queue metadata; one primary button starts the session
 (already exists implicitly — make the copy/shape match).
 
-### SH-3: Card browser ("My Cards") — v1 SHIPPED 0.6.92 (idle Search tab shows the SRS pool with JPDB Show-only-order state chips + counts, 50-row pages, state badge + Top-N frequency per row, row click opens the full superset lookup; JPDB+Jiten pools). v2 remaining: search-within-pool while a chip is active, Anki pool rows, select-page bulk actions (Jiten parity), due-in column
+### SH-3: Card browser ("My Cards") — v1 SHIPPED 0.6.92 (idle Search tab shows the SRS pool with JPDB Show-only-order state chips + counts, 50-row pages, state badge + Top-N frequency per row, row click opens the full superset lookup; JPDB+Jiten pools). v2 search-within-pool SHIPPED 0.6.95 (typing with a state chip active searches MY cards; the All chip returns to dictionary search). Still remaining: Anki pool rows, select-page bulk actions, due-in column
 New "Browse" surface (or extend Search mode): chips with live counts (All/New/Learning/
 Due/Known/Failed/Suspended·Blacklisted/Never-forget/Locked/Redundant — union of JPDB and
 Jiten vocab), search by spelling, paginated rows (furigana spelling, first meaning,
@@ -105,7 +105,7 @@ study page with per-deck progress, reorder (JPDB API permitting — page uses
 note it), create-empty/add-from-search where the API allows, and per-deck "study only
 this deck" filtering of the queue.
 
-### SH-7: Today panel + forecast (Jiten shape)
+### SH-7: Today panel — core SHIPPED 0.6.95 (Due-now tile with time estimate + reviews-today '+N new' detail beside the existing streak metrics). Remaining: 7d/30d forecast (only honest for Anki — needs due timestamps from the status index; JPDB API exposes none)
 "Done today (reviews/new), due now, next review countdown, streak, next 7d/30d
 forecast." Anki: `getNumCardsReviewedByDay` + due forecast from status index;
 Jiten: study-batch metadata + daily cache; JPDB API: no forecast — show due-now only and

@@ -1707,6 +1707,19 @@ describe('new tab review helpers', () => {
             // Clicking a row opens the lookup for that word.
             root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-browse-row')!.click();
             expect(lookupText).toHaveBeenCalledWith('書く', 'かく', expect.anything());
+
+            // With a chip active, typing searches MY cards instead of the
+            // dictionaries (SH-3 v2).
+            (controller as unknown as { searchQuery: string }).searchQuery = 'よむ';
+            (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+            const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
+            expect(rows).toHaveLength(0); // 読む is known, filter is still 'due'
+            const knownChip = [...root.querySelectorAll<HTMLElement>('[data-newtab-action="browse-filter"]')]
+                .find(chip => chip.dataset.browseFilter === 'known') as HTMLButtonElement;
+            knownChip.click();
+            const knownRows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
+            expect(knownRows).toHaveLength(1);
+            expect(knownRows[0]?.textContent).toContain('読む');
         } finally {
             controller.destroy();
             document.body.replaceChildren();
