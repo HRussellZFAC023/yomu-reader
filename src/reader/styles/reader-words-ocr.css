@@ -813,3 +813,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   color: inherit !important;
   text-decoration: none !important;
 }
+
+/* Hosts with their own bottom action dock (e.g. jiten.moe study): keep the
+   puck clear of native controls. */
+.jpdb-reader-fab.jpdb-reader-fab-raised {
+  bottom: max(150px, calc(env(safe-area-inset-bottom) + 136px));
+}
