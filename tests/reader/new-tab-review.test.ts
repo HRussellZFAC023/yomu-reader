@@ -3788,6 +3788,52 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('renders the Composed-of component-kanji line on revealed word backs (SH-4)', async () => {
+        const rtkLookup = vi.fn(async (kanji: string) => kanji === '日' ? { keyword: 'day' } : null);
+        const jpdbKanjiLookup = vi.fn(async (kanji: string) => kanji === '本' ? { keyword: 'book' } : null);
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
+            rtk: { lookup: rtkLookup } as never,
+            jpdbKanji: { lookup: jpdbKanjiLookup } as never,
+        });
+        const card = newTabTestCard({ spelling: '日本', reading: 'にほん', source: 'jpdb', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'JPDB',
+            state: { source: 'jpdb', revealAnswer: true },
+            appendToDocument: true,
+        });
+        try {
+            const row = root.querySelector<HTMLElement>('[data-newtab-composed-of]')!;
+            expect(row).not.toBeNull();
+            const chips = [...row.querySelectorAll<HTMLElement>('[data-kanji]')];
+            expect(chips.map(chip => chip.dataset.kanji)).toEqual(['日', '本']);
+            // Chips reuse the kanji popover action for drilldown.
+            expect(chips[0].dataset.action).toBe('kanji');
+            await waitForExpect(() => {
+                expect(row.textContent).toContain('day');
+                expect(row.textContent).toContain('book');
+            });
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('skips the Composed-of line for kana-only words', () => {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {
+            rtk: { lookup: vi.fn(async () => null) } as never,
+        });
+        const card = newTabTestCard({ spelling: 'よむ', reading: 'よむ', source: 'jpdb', cardState: ['due'] });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'JPDB',
+            state: { source: 'jpdb', revealAnswer: true },
+        });
+        try {
+            expect(root.querySelector('[data-newtab-composed-of]')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not reuse a stale JPDB cache entry when switching to Anki', async () => {
         resetNewTabReviewStorage();
         const { settings, listDeckCards, listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');

@@ -7,6 +7,7 @@ import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/pars
 import { ANKI_SOURCE_ID, APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
+import { isKanjiCharacter } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
 import { localizedImmersionSourceTitle } from '../immersion/labels';
@@ -3812,6 +3813,49 @@ export class NewTabController {
                 ? el('p', { class: 'jpdb-reader-newtab-deck-membership' }, card.jpdbDeckMembership)
                 : null,
         );
+        this.appendComposedOfLine(meaning, card);
+    }
+
+    // SH-4 fidelity: jpdb.io's review back lists the word's component kanji
+    // with their keywords ("Composed of"). Chips reuse the existing kanji
+    // popover action for drilldown; keywords hydrate from RTK/JPDB lazily.
+    private async composedOfKeywordLookup(client: { lookup?: (kanji: string) => Promise<{ keyword?: string } | null> } | undefined, character: string): Promise<string> {
+        if (typeof client?.lookup !== 'function') return '';
+        const result = await client.lookup(character).catch(() => null);
+        return result?.keyword ?? '';
+    }
+
+    private appendComposedOfLine(meaning: HTMLElement, card: JPDBCard): void {
+        const kanjiCharacters = [...new Set(Array.from(card.spelling).filter(isKanjiCharacter))];
+        if (kanjiCharacters.length === 0) return;
+        const row = el('div', { class: 'jpdb-reader-newtab-composed-of', dataset: { newtabComposedOf: true } },
+            el('span', { class: 'jpdb-reader-newtab-composed-of-label' }, this.text('composedOf')),
+            ...kanjiCharacters.map(character => el('button', {
+                type: 'button',
+                class: 'jpdb-reader-newtab-composed-of-kanji',
+                dataset: { action: 'kanji', kanji: character },
+                title: `${this.text('showKanji')}: ${character}`,
+            },
+            el('span', { lang: 'ja' }, character),
+            el('small', {}, this.keywordCache.get(character) ?? ''))),
+        );
+        meaning.append(row);
+        void this.hydrateComposedOfKeywords(row, kanjiCharacters);
+    }
+
+    private async hydrateComposedOfKeywords(row: HTMLElement, kanjiCharacters: string[]): Promise<void> {
+        await Promise.all(kanjiCharacters.map(async character => {
+            if (this.keywordCache.has(character)) return;
+            const keyword = (await this.composedOfKeywordLookup(this.dependencies.rtk, character))
+                || (await this.composedOfKeywordLookup(this.dependencies.jpdbKanji, character));
+            if (keyword) this.keywordCache.set(character, keyword);
+        }));
+        if (!row.isConnected) return;
+        row.querySelectorAll<HTMLElement>('[data-kanji]').forEach(chip => {
+            const small = chip.querySelector('small');
+            const keyword = this.keywordCache.get(chip.dataset.kanji ?? '');
+            if (small && keyword) small.textContent = keyword;
+        });
     }
 
     private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
