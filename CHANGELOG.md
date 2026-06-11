@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.81] - 2026-06-11
+
+### Fixed
+
+- Anki notes tagged `yomu-never-forget` (the popover's never-forget action) now rank as never-forget everywhere Yomu colors words — popover lookups and the background status index — instead of flipping back to due/new whenever the card's queue state changed. JPDB parity: a word you marked as always-known stays that color.
+
 ## [0.6.80] - 2026-06-11
 
 ### Fixed

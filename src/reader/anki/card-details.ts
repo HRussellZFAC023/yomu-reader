@@ -236,13 +236,26 @@ function ankiNotePrimaryCardId(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): n
     return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
 }
 
+// Yomu's JPDB-parity never-forget marker, set from the popover deck-state
+// menu (Anki has no native never-forget deck). Shared with the card action
+// controller so writes and ranking always agree on the tag.
+export const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
+
 function ankiCardDetailSummary(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'deckNames' | 'primaryCardId' | 'state' | 'reps' | 'lapses'> {
     return {
         deckNames: ankiNoteDeckNames(noteCards),
         primaryCardId: ankiNotePrimaryCardId(note, noteCards),
-        state: stateFromAnkiCards(noteCards),
+        state: ankiNoteState(note, noteCards),
         ...ankiNoteReviewMetrics(noteCards),
     };
+}
+
+// A note the user marked never-forget ranks as never-forget regardless of
+// its queue state, matching JPDB: due/new queue churn must not recolor a
+// word the user said they always know.
+function ankiNoteState(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): CardState {
+    if ((note.tags ?? []).includes(ANKI_NEVER_FORGET_TAG)) return 'never-forget';
+    return stateFromAnkiCards(noteCards);
 }
 
 function ankiNoteReviewMetrics(noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'reps' | 'lapses'> {

@@ -1749,6 +1749,34 @@ describe('Anki rendered card details', () => {
         });
     });
 
+    it('ranks notes tagged yomu-never-forget as never-forget regardless of queue state', () => {
+        const dueCard = {
+            cardId: 456,
+            deckName: 'Mining',
+            card: 'Recognition',
+            ord: 0,
+            // a due review-queue card would normally rank the note 'due'
+            queue: 2,
+            type: 2,
+            due: 0,
+            note: 201,
+            question: '<div>日本語</div>',
+            answer: '<div>Japanese</div>',
+        };
+        const noteInfo = {
+            noteId: 201,
+            modelName: 'Sentence Mining',
+            cards: [456],
+            fields: { Expression: { value: '日本語' } },
+        };
+
+        const tagged = ankiExistingNoteFromInfo({ ...noteInfo, tags: ['yomu-never-forget'] }, [dueCard]);
+        expect(tagged.state).toBe('never-forget');
+
+        const untagged = ankiExistingNoteFromInfo({ ...noteInfo, tags: ['other'] }, [dueCard]);
+        expect(untagged.state).not.toBe('never-forget');
+    });
+
     it('uses Anki template names in collapsible card headings and grade target labels', () => {
         const note = existingAnkiNote({
             primaryCardId: 456,
