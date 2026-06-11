@@ -3,7 +3,7 @@ import { ANKI_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
-import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
+import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings, ReviewGradeIntervals } from '../app/types';
 import { cardStateLabel, formatUiText, uiText, type UiCopyKey } from '../app/i18n';
 
 interface AnkiCardSanitizeOptions {
@@ -704,15 +704,23 @@ function localizedContextSourceLabel(context: StoredMiningContext, language: Int
 export function renderReviewButtons(
     settings: ReaderSettings,
     ankiNote: AnkiExistingNote | null = null,
-    options: { disabled?: boolean; title?: string; targetLabel?: string } = {},
+    options: { disabled?: boolean; title?: string; targetLabel?: string; intervals?: ReviewGradeIntervals } = {},
 ): string {
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : '';
     const grades = reviewButtonGrades(settings);
     const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml(options.targetLabel)}</div>` : '';
+    // Jiten/Anki parity: due-in previews on the popover grade row, same data
+    // the study page's grade bar shows.
+    const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
+    const intervalSpan = (grade: string): string => {
+        const interval = intervals?.[grade as keyof ReviewGradeIntervals];
+        const label = interval?.buttonLabel || interval?.intervalLabel || '';
+        return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml(label)}</span>` : '';
+    };
     return `
         ${target}
         <div class="jpdb-reader-row${grades.length === 5 ? ' jpdb-reader-grades' : ''}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}</button>`).join('')}
+            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join('')}
         </div>
     `;
 }

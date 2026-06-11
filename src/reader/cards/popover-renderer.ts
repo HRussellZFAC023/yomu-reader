@@ -276,7 +276,7 @@ export class CardPopoverRenderer {
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
-        return this.renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language);
+        return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
     }
 
     private reviewButtonsEarlyResult(
@@ -290,6 +290,7 @@ export class CardPopoverRenderer {
     }
 
     private renderApiReviewButtons(
+        card: JPDBCard,
         provider: ApiSrsProviderView | null,
         data: CardRenderData & { loading: boolean },
         cardStates: ReturnType<typeof normalizeCardStates>,
@@ -299,6 +300,8 @@ export class CardPopoverRenderer {
         return renderReviewButtons(this.settings(), null, {
             targetLabel: provider?.label ?? uiText(language, 'gradeJpdbCardTarget'),
             title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
+            // Jiten/Anki parity: due-in previews on the popover grade row.
+            intervals: card.reviewGradeIntervals,
         });
     }
 

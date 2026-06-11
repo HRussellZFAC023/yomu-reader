@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.109] - 2026-06-11
+
+### Added
+
+- Due-in previews now appear on the popover grade row too — the buttons you grade page words with — matching the study page and Jiten's 1m/10m/16d/28d pattern. Anki existing-note grade rows get the same computed Hard/Good/Easy previews as the study queue.
+
 ## [0.6.108] - 2026-06-11
 
 ### Added

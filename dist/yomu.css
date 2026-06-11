@@ -9592,3 +9592,13 @@ html[dark] .jpdb-youtube-channel-shelf,
         margin-top: 4px;
     }
 }
+
+
+/* Due-in previews on the popover grade row (Jiten/Anki parity). */
+.jpdb-reader-btn .jpdb-reader-grade-interval {
+  display: block;
+  margin-top: 1px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.75;
+}

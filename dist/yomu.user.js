@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.108
+// @version      0.6.109
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14061,6 +14061,7 @@ ${entry.reading || ""}`;
     return cardsByNote;
   }
   function ankiExistingNoteFromInfo(note, noteCards) {
+    for (const noteCard of noteCards) applyComputedAnkiNextReviews(noteCard);
     const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(noteCards);
     return {
       noteId: note.noteId,
@@ -14130,6 +14131,23 @@ ${entry.reading || ""}`;
       return 4;
     };
     return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
+  }
+  function applyComputedAnkiNextReviews(card) {
+    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
+    if (card.type !== 2) return;
+    const interval = Number(card.interval);
+    const ease = Number(card.factor) / 1e3;
+    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
+    const hard = Math.max(interval * 1.2, interval + 1);
+    const good = Math.max(hard + 1, interval * ease);
+    const easy = Math.max(good + 1, good * 1.3);
+    card.buttons = [2, 3, 4];
+    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
+  }
+  function formatAnkiIntervalDays(days) {
+    if (days < 30) return `${Math.round(days)}d`;
+    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, "")}mo`;
+    return `${(days / 365.25).toFixed(1).replace(/\.0$/, "")}y`;
   }
   function reviewGradeIntervalsFromAnkiCards(cards) {
     return reviewGradeIntervalsFromAnkiCard(pickPrimaryCard(cards));
@@ -17337,10 +17355,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
     const grades = reviewButtonGrades(settings);
     const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>` : "";
+    const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
+    const intervalSpan = (grade) => {
+      const interval = intervals?.[grade];
+      const label = interval?.buttonLabel || interval?.intervalLabel || "";
+      return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$1(label)}</span>` : "";
+    };
     return `
         ${target}
         <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}</button>`).join("")}
+            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join("")}
         </div>
     `;
   }
@@ -23430,17 +23454,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
-      return this.renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language);
+      return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
     }
     reviewButtonsEarlyResult(card, data, reviewBlockReason) {
       if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
       if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       return void 0;
     }
-    renderApiReviewButtons(provider, data, cardStates, selectedDeckLabel, language) {
+    renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language) {
       return renderReviewButtons(this.settings(), null, {
         targetLabel: provider?.label ?? uiText(language, "gradeJpdbCardTarget"),
-        title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language)
+        title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
+        // Jiten/Anki parity: due-in previews on the popover grade row.
+        intervals: card.reviewGradeIntervals
       });
     }
     shouldRenderReviewButtons(data, provider, reviewBlockReason) {
