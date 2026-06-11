@@ -325,6 +325,12 @@ function hasDetectedReviewCard(spelling: string, kanji: string, cardValue: strin
 }
 
 function clickRevealControl(): void {
+    // Live-verified stable id on jpdb.io/review fronts.
+    const showAnswer = document.querySelector<HTMLElement>('#show-answer');
+    if (showAnswer) {
+        showAnswer.click();
+        return;
+    }
     const direct = findControl(['reveal', 'show answer', 'answer']);
     if (direct) {
         direct.click();
@@ -338,6 +344,14 @@ function clickRevealControl(): void {
 }
 
 function clickGradeControl(grade: JPDBGrade): void {
+    // Live-verified 2026-06-11: jpdb.io/review renders each grade as a form
+    // with a stable submit id (#grade-1 .. #grade-5); prefer the id over text
+    // matching so ✘/✔ prefixes or copy changes cannot break grading.
+    const direct = document.querySelector<HTMLElement>(JPDB_GRADE_CONTROL_IDS[grade] ?? '');
+    if (direct) {
+        direct.click();
+        return;
+    }
     const terms = gradeTerms(grade);
     const control = findControl(terms);
     if (control) {
@@ -363,6 +377,16 @@ function findControl(terms: string[]): HTMLElement | null {
 function gradeTerms(grade: JPDBGrade): string[] {
     return JPDB_GRADE_CONTROL_TERMS[grade] ?? [grade];
 }
+
+const JPDB_GRADE_CONTROL_IDS: Partial<Record<JPDBGrade, string>> = {
+    nothing: '#grade-1',
+    something: '#grade-2',
+    hard: '#grade-3',
+    okay: '#grade-4',
+    easy: '#grade-5',
+    fail: '#grade-1',
+    pass: '#grade-4',
+};
 
 const JPDB_GRADE_CONTROL_TERMS: Record<JPDBGrade, string[]> = {
     nothing: ['nothing', 'again', 'forgot'],

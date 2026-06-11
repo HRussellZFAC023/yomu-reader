@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.84
+// @version      0.6.85
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -36210,6 +36210,11 @@ ${glossaryKey}`;
     return Boolean(spelling || kanji || cardValue);
   }
   function clickRevealControl() {
+    const showAnswer = document.querySelector("#show-answer");
+    if (showAnswer) {
+      showAnswer.click();
+      return;
+    }
     const direct = findControl(["reveal", "show answer", "answer"]);
     if (direct) {
       direct.click();
@@ -36221,6 +36226,11 @@ ${glossaryKey}`;
     else form?.requestSubmit?.();
   }
   function clickGradeControl(grade) {
+    const direct = document.querySelector(JPDB_GRADE_CONTROL_IDS[grade] ?? "");
+    if (direct) {
+      direct.click();
+      return;
+    }
     const terms = gradeTerms(grade);
     const control = findControl(terms);
     if (control) {
@@ -36243,6 +36253,15 @@ ${glossaryKey}`;
   function gradeTerms(grade) {
     return JPDB_GRADE_CONTROL_TERMS[grade] ?? [grade];
   }
+  const JPDB_GRADE_CONTROL_IDS = {
+    nothing: "#grade-1",
+    something: "#grade-2",
+    hard: "#grade-3",
+    okay: "#grade-4",
+    easy: "#grade-5",
+    fail: "#grade-1",
+    pass: "#grade-4"
+  };
   const JPDB_GRADE_CONTROL_TERMS = {
     nothing: ["nothing", "again", "forgot"],
     something: ["something"],
