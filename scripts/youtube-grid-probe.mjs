@@ -91,6 +91,33 @@ try {
             .map(row => row.sort((a, b) => a.left - b.left)[0])
             .filter(first => first && !first.item.classList.contains('jpdb-youtube-first-in-row')).length;
 
+        // Trailing row gaps: a visible row with free slots even though more
+        // items follow below it with no visible section break in between
+        // (the 0.6.77 gap bug: spurious row-start gutters wrapped cards early).
+        const sortedRows = [...rows.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([, row]) => row.sort((a, b) => a.left - b.left));
+        const maxRowCount = Math.max(0, ...sortedRows.map(row => row.length));
+        const sectionTops = [...document.querySelectorAll('ytd-rich-section-renderer')]
+            .filter(section => !section.classList.contains('jpdb-youtube-filtered') && visible(section))
+            .map(section => section.getBoundingClientRect().top);
+        let trailingRowGaps = 0;
+        for (let i = 0; i < sortedRows.length - 1; i++) {
+            const rowTop = sortedRows[i][0].item.getBoundingClientRect().top;
+            const nextTop = sortedRows[i + 1][0].item.getBoundingClientRect().top;
+            const sectionBetween = sectionTops.some(top => top > rowTop && top < nextTop);
+            if (!sectionBetween && sortedRows[i].length < maxRowCount) trailingRowGaps++;
+        }
+
+        // Ghost skeleton sizing: when continuation ghost cards are visible,
+        // they must match real card widths (not squeezed into a partial row).
+        const ghostCards = [...document.querySelectorAll('ytd-ghost-grid-renderer .ghost-card')].filter(visible);
+        const cardWidths = shown.map(item => item.getBoundingClientRect().width).sort((a, b) => a - b);
+        const medianCardWidth = cardWidths[Math.floor(cardWidths.length / 2)] ?? 0;
+        const wrongSizeGhostCards = medianCardWidth
+            ? ghostCards.filter(card => Math.abs(card.getBoundingClientRect().width - medianCardWidth) > medianCardWidth * 0.15).length
+            : 0;
+
         // Stacked cards: visible items overlapping each other.
         let overlaps = 0;
         const rects = shown.map(item => item.getBoundingClientRect());
@@ -110,6 +137,9 @@ try {
             gapBands,
             rowsMissingMarker: filterActive ? rowsMissingMarker : 0,
             overlappingCards: overlaps,
+            trailingRowGaps: filterActive ? trailingRowGaps : 0,
+            visibleGhostCards: ghostCards.length,
+            wrongSizeGhostCards: filterActive ? wrongSizeGhostCards : 0,
         };
     });
 
@@ -118,6 +148,8 @@ try {
         if (report.gapBands.length) problems.push(`empty visible sections: ${JSON.stringify(report.gapBands)}`);
         if (report.rowsMissingMarker) problems.push(`${report.rowsMissingMarker} visible rows missing first-in-row marker`);
         if (report.overlappingCards) problems.push(`${report.overlappingCards} overlapping visible cards`);
+        if (report.trailingRowGaps) problems.push(`${report.trailingRowGaps} rows with free slots while items wait below`);
+        if (report.wrongSizeGhostCards) problems.push(`${report.wrongSizeGhostCards} ghost skeleton cards at the wrong width`);
     }
     console.log(JSON.stringify({ ...report, problems, errors: errors.slice(0, 3) }, null, 2));
     if (problems.length) process.exitCode = 1;
