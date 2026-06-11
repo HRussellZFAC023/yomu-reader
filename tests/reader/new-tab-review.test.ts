@@ -2086,6 +2086,7 @@ describe('new tab review helpers', () => {
             actions.push(request.action);
             if (request.action === 'findCards') return [101, 102, 103];
             if (request.action === 'areDue') return [true, false, true];
+            if (request.action === 'getDeckConfig') return { new: { delays: [1, 10], ints: [1, 4] } };
             if (request.action === 'cardsInfo') return [
                 { cardId: 101, note: 1, deckName: 'Yomu', queue: 2, type: 2, due: 0 },
                 { cardId: 102, note: 2, deckName: 'Yomu', queue: 2, type: 2, due: 99 },
@@ -2126,7 +2127,9 @@ describe('new tab review helpers', () => {
         });
         const cards = await listNewTabAnkiCards(client, settings, 10);
 
-        expect(actions).toEqual(['version', 'deckNames', 'findCards', 'areDue', 'cardsInfo', 'notesInfo', 'findCards', 'cardsInfo', 'notesInfo']);
+        // getDeckConfig: 0.6.110 fetches the deck's learning steps once per
+        // distinct deck to preview new-card due-ins.
+        expect(actions).toEqual(['version', 'deckNames', 'findCards', 'areDue', 'cardsInfo', 'getDeckConfig', 'notesInfo', 'findCards', 'cardsInfo', 'getDeckConfig', 'notesInfo']);
         expect(cards.map(card => card.spelling)).toEqual(['読む', '書く']);
         expect(cards[0].ankiCardId).toBe(101);
         expect(cards[0].sentence).toBe('本を読む。');
