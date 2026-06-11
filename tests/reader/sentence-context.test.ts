@@ -178,6 +178,32 @@ describe('reader sentence context', () => {
         }
     });
 
+    it('keeps the subtitle track-status line out of subtitle sentence context', () => {
+        const app = new ReaderApp();
+        const cue = '無駄な動きは一切なく、それぞれの腕は';
+        const internals = app as unknown as PointerTextCardInternals;
+        // The cue ends without sentence punctuation, so without the
+        // surface-ignore stamp the ancestor walk reaches the player root and
+        // appends the chrome status ("2 subtitle tracks detected") to the
+        // sentence sent to translation (user-reported).
+        document.body.innerHTML = `
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-text">
+                    <div class="jpdb-subtitle-primary"><span class="jpdb-reader-word" data-sentence="${cue}" data-expression="無駄">無駄</span>な動きは一切なく、それぞれの腕は</div>
+                    <button class="jpdb-subtitle-secondary" type="button">It moves with no wasted motion.</button>
+                </div>
+                <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true">2 subtitle tracks detected</div>
+            </div>
+        `;
+
+        try {
+            expect(internals.renderedWordSentence(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
+                .toBe(cue);
+        } finally {
+            app.destroy();
+        }
+    });
+
     it('uses the parsed Immersion Kit example sentence instead of popup chrome', () => {
         const app = new ReaderApp();
         const internals = app as unknown as PointerTextCardInternals;

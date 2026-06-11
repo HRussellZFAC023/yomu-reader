@@ -31454,8 +31454,8 @@ ${spelling}`);
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
-            <div class="jpdb-subtitle-status" aria-live="polite"></div>
-            <div class="jpdb-subtitle-rail">
+            <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true"></div>
+            <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore="true">
                 <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml$1(panelLabel)}" aria-label="${escapeHtml$1(panelLabel)}">${subtitleIcon("panel-right")}</button>
@@ -34971,6 +34971,10 @@ ${spelling}`);
         elements.status.textContent = "YouTube session data is not available on this page yet.";
         return;
       }
+      if (!youTubeSapisidCookie()) {
+        elements.status.textContent = "Sign in to YouTube to subscribe to channels.";
+        return;
+      }
       this.subscriptionBusy = true;
       this.setChannelShelfBusy(true);
       let subscribed = 0;
@@ -35339,15 +35343,48 @@ ${spelling}`);
     });
   }
   async function postYouTubeInnerTube(path, config, body) {
+    const headers = { ...youtubeInnerTubeHeaders(config), ...await youTubeAuthorizationHeaders() };
     const response = await fetch(`${location.origin}/youtubei/v1/${path}?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`, {
       method: "POST",
       credentials: "same-origin",
-      headers: youtubeInnerTubeHeaders(config),
+      headers,
       body: JSON.stringify({ context: config.context, ...body })
     });
     if (!response.ok) throw new Error(`YouTube request failed: ${response.status}`);
     const json = await response.json();
     return recordValue(json) ?? {};
+  }
+  let cachedYouTubeAuthorization;
+  async function youTubeAuthorizationHeaders() {
+    const sapisid = youTubeSapisidCookie();
+    const subtle = globalThis.crypto?.subtle;
+    if (!sapisid || !subtle) return {};
+    const timestamp = Math.floor(Date.now() / 1e3);
+    const key = `${timestamp} ${sapisid} ${location.origin}`;
+    if (cachedYouTubeAuthorization?.key !== key) {
+      cachedYouTubeAuthorization = { key, headers: computeYouTubeAuthorizationHeaders(subtle, timestamp, key) };
+    }
+    return cachedYouTubeAuthorization.headers;
+  }
+  async function computeYouTubeAuthorizationHeaders(subtle, timestamp, payload) {
+    try {
+      const digest = await subtle.digest("SHA-1", new TextEncoder().encode(payload));
+      const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      return {
+        Authorization: `SAPISIDHASH ${timestamp}_${hash}`,
+        "X-Origin": location.origin,
+        "X-Goog-AuthUser": readYouTubeConfigString(readYouTubeConfigSource(), "SESSION_INDEX") || "0"
+      };
+    } catch {
+      return {};
+    }
+  }
+  function youTubeSapisidCookie() {
+    for (const name of ["SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID"]) {
+      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp$2(name)}=([^;\\s]+)`, "u"));
+      if (match?.[1]) return match[1];
+    }
+    return "";
   }
   function youtubeInnerTubeHeaders(config) {
     const headers = {

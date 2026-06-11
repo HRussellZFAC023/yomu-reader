@@ -9,7 +9,7 @@ YouTube (mobile usability first):
 - UT-2 P0: Channel-shelf Subscribe says "subscribed" but the channel is NOT subscribed on refresh/YouTube check. Suspect: the subscribe POST silently fails (missing innertube params/consent) while the UI optimistically flips.
 - UT-3 P0: ASB-style subtitle rerender loop — flicker + page lag; pitch-accent highlight appears then disappears. Suspect: cue re-render replacing enriched HTML with unenriched parse, then re-enriching (loop); pin enriched cue HTML by content hash.
 - UT-4: "Tracks detected" status text leaks into ASB-player translations.
-- UT-5: Home-feed description teaser ("…" ending) flashes to FULL description without subscribe panel; after collapse the added parsing is lost. Suspect: our scan expanding/collapsing yt-formatted-string snippets; preserve tokens through collapse.
+- DONE 0.6.125 — UT-5 'tracks detected' leak: cue without terminal punctuation let the ancestor sentence walk reach the player root and append the chrome status line; .jpdb-subtitle-status/.jpdb-subtitle-rail now carry data-jpdb-reader-surface-ignore. Regression pinned in sentence-context.test.ts with the user's literal string.
 - UT-6: Non-Japanese channel community posts still show in the feed (post cards lack video links — extend filter to community-post cards).
 - UT-7: Arabic subtitles load first, then switch to Japanese. Default-track selection should prefer ja immediately.
 
