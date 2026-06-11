@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.6.111",
+  "version": "0.6.112",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",
@@ -25,6 +25,7 @@
   ],
   "yomu": {
     "allowedRequireUrls": [
+      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js",
       "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js",
       "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js"
     ]

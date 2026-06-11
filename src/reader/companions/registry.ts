@@ -5,6 +5,11 @@ export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerContro
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
+export type KanjiOriginClientClass = typeof import('../kanji/origin').KanjiOriginClient;
+export type KanjiVGClientClass = typeof import('../kanji/vg').KanjiVGClient;
+export type RtkClientClass = typeof import('../kanji/rtk').RtkClient;
+export type JpdbKanjiClientClass = typeof import('../jpdb/jpdb-kanji').JpdbKanjiClient;
+export type RenderKanjiOriginGraphFn = typeof import('../popup/origin-graph').renderKanjiOriginGraph;
 
 interface YomuCompanionRegistry {
     settings?: {
@@ -16,6 +21,15 @@ interface YomuCompanionRegistry {
     };
     ocr?: {
         ImageOcrController: ImageOcrControllerClass;
+    };
+    // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
+    // import-severing is the follow-up lane — see refactor-backlog).
+    kanjiStudy?: {
+        KanjiOriginClient: KanjiOriginClientClass;
+        KanjiVGClient: KanjiVGClientClass;
+        RtkClient: RtkClientClass;
+        JpdbKanjiClient: JpdbKanjiClientClass;
+        renderKanjiOriginGraph: RenderKanjiOriginGraphFn;
     };
 }
 
@@ -48,6 +62,11 @@ export function yomuYoutubeImmersionFilter(): YoutubeImmersionFilterClass | unde
 
 export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
     return yomuCompanions().ocr?.ImageOcrController;
+}
+
+// fallow-ignore-next-line unused-export
+export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['kanjiStudy']> | undefined {
+    return yomuCompanions().kanjiStudy;
 }
 
 function yomuCompanions(): YomuCompanionRegistry {

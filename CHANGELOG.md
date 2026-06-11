@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.112] - 2026-06-11
+
+### Changed
+
+- ADR-0003 phase 1: a third Greasy Fork companion library, Yomu Kanji/Study (kanji origin graphs, KanjiVG stroke data, RTK keywords, JPDB kanji pages), now builds and ships alongside the Settings Surface and Video companions, with its registry slot wired into the core. Phase 2 (severing the core's direct imports, freeing ~147 KB toward the 2 MB Greasy Fork limit) follows; behavior is unchanged in this release.
+
 ## [0.6.111] - 2026-06-11
 
 ### Added
