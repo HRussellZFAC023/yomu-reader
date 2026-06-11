@@ -30,6 +30,7 @@ export function cardsByNoteId(cards: AnkiCardInfo[]): Map<number, AnkiCardInfo[]
 }
 
 export function ankiExistingNoteFromInfo(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): AnkiExistingNote {
+    for (const noteCard of noteCards) applyComputedAnkiNextReviews(noteCard);
     const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(noteCards);
     return {
         noteId: note.noteId,
@@ -114,6 +115,32 @@ export function pickPrimaryCard<T extends AnkiPrimaryCardInfo>(cards: T[]): T | 
         return 4;
     };
     return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
+}
+
+// Per-ease next-interval preview for REVIEW cards, computed the way Anki's
+// own answer buttons do — Hard = interval x 1.2, Good = interval x ease,
+// Easy = Good x 1.3 (day-rounded, fuzz ignored). AnkiConnect exposes the
+// real per-ease strings only inside the GUI reviewer (guiCurrentCard), so
+// cardsInfo-loaded cards would otherwise never show intervals. Learning/new
+// cards stay blank rather than guessing deck step config, and Again is
+// omitted for the same reason (its relearn step is config).
+export function applyComputedAnkiNextReviews(card: { type?: number; interval?: number; factor?: number; buttons?: number[]; nextReviews?: string[] }): void {
+    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
+    if (card.type !== 2) return;
+    const interval = Number(card.interval);
+    const ease = Number(card.factor) / 1000;
+    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
+    const hard = Math.max(interval * 1.2, interval + 1);
+    const good = Math.max(hard + 1, interval * ease);
+    const easy = Math.max(good + 1, good * 1.3);
+    card.buttons = [2, 3, 4];
+    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
+}
+
+function formatAnkiIntervalDays(days: number): string {
+    if (days < 30) return `${Math.round(days)}d`;
+    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, '')}mo`;
+    return `${(days / 365.25).toFixed(1).replace(/\.0$/, '')}y`;
 }
 
 export function reviewGradeIntervalsFromAnkiCards(cards: AnkiReviewGradeCardInfo[]): ReviewGradeIntervals | undefined {

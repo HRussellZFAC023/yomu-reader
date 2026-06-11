@@ -58,6 +58,7 @@ export interface AnkiCardInfo {
     reps?: number;
     lapses?: number;
     interval?: number;
+    factor?: number;
     buttons?: number[];
     nextReviews?: string[];
     note?: number;

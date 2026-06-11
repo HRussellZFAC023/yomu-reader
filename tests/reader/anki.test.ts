@@ -2,9 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, buildYomuAnkiPreviewFields, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
-import { applyComputedAnkiNextReviews } from '../../src/reader/anki/new-tab';
-import { reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
-import { renderAnkiExistingSection } from '../../src/reader/anki/render';
+import { applyComputedAnkiNextReviews, reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
+import { renderAnkiExistingSection, renderReviewButtons } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
@@ -2010,5 +2009,25 @@ describe('Anki computed next-review previews', () => {
         applyComputedAnkiNextReviews(card);
         expect(card.nextReviews).toEqual(['<10m', '12d', '25d', '1.2mo']);
         expect(card.buttons).toBeUndefined();
+    });
+});
+
+describe('popover review-button intervals', () => {
+    it('shows due-in previews on the grade row when intervals are provided (Jiten/Anki parity)', () => {
+        const html = renderReviewButtons({ ...DEFAULT_SETTINGS, ankiEnabled: true }, null, {
+            targetLabel: 'Anki',
+            intervals: {
+                okay: { buttonLabel: '25d' },
+                easy: { buttonLabel: '1.1mo' },
+            } as never,
+        });
+        expect(html).toContain('jpdb-reader-grade-interval');
+        expect(html).toContain('25d');
+        expect(html).toContain('1.1mo');
+    });
+
+    it('renders plain buttons when no intervals exist', () => {
+        const html = renderReviewButtons({ ...DEFAULT_SETTINGS, ankiEnabled: true }, null, { targetLabel: 'JPDB' });
+        expect(html).not.toContain('jpdb-reader-grade-interval');
     });
 });
