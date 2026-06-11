@@ -10,6 +10,16 @@ export type KanjiVGClientClass = typeof import('../kanji/vg').KanjiVGClient;
 export type RtkClientClass = typeof import('../kanji/rtk').RtkClient;
 export type JpdbKanjiClientClass = typeof import('../jpdb/jpdb-kanji').JpdbKanjiClient;
 export type RenderKanjiOriginGraphFn = typeof import('../popup/origin-graph').renderKanjiOriginGraph;
+export type RenderJpdbKanjiInfoFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
+export type RenderJpdbKanjiMiningControlsFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;
+export type RenderKanjiPracticeFn = typeof import('../popup/kanji-practice').renderKanjiPractice;
+export type RenderKanjiOriginsFn = typeof import('../popup/kanji-origin').renderKanjiOrigins;
+export type BuildRtkComponentSummariesFn = typeof import('../popup/rtk-info').buildRtkComponentSummaries;
+export type RenderKanjiKeywordLineFn = typeof import('../popup/rtk-info').renderKanjiKeywordLine;
+export type RenderRtkInfoFn = typeof import('../popup/rtk-info').renderRtkInfo;
+export type InstallOriginGraphInteractionsFn = typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
+export type BuildKanjiFactsFn = typeof import('../kanji/origin').buildKanjiFacts;
+export type BuildKanjiOriginGraphFn = typeof import('../kanji/origin').buildKanjiOriginGraph;
 
 interface YomuCompanionRegistry {
     settings?: {
@@ -30,6 +40,16 @@ interface YomuCompanionRegistry {
         RtkClient: RtkClientClass;
         JpdbKanjiClient: JpdbKanjiClientClass;
         renderKanjiOriginGraph: RenderKanjiOriginGraphFn;
+        renderJpdbKanjiInfo: RenderJpdbKanjiInfoFn;
+        renderJpdbKanjiMiningControls: RenderJpdbKanjiMiningControlsFn;
+        renderKanjiPractice: RenderKanjiPracticeFn;
+        renderKanjiOrigins: RenderKanjiOriginsFn;
+        buildRtkComponentSummaries: BuildRtkComponentSummariesFn;
+        renderKanjiKeywordLine: RenderKanjiKeywordLineFn;
+        renderRtkInfo: RenderRtkInfoFn;
+        installOriginGraphInteractions: InstallOriginGraphInteractionsFn;
+        buildKanjiFacts: BuildKanjiFactsFn;
+        buildKanjiOriginGraph: BuildKanjiOriginGraphFn;
     };
 }
 
@@ -64,7 +84,6 @@ export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
     return yomuCompanions().ocr?.ImageOcrController;
 }
 
-// fallow-ignore-next-line unused-export
 export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['kanjiStudy']> | undefined {
     return yomuCompanions().kanjiStudy;
 }

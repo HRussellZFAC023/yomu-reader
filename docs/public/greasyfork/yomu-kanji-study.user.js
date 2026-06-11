@@ -1263,6 +1263,668 @@
     const value = await requestHttp(url, { ...options, responseType: "text" });
     return typeof value === "string" ? value : String(value ?? "");
   }
+  function uniqueStrings(values, options = {}) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const normalized = options.trim ? value?.trim() : value;
+      if (normalized === void 0 || normalized === null) continue;
+      if (options.dropEmpty && !normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  }
+  function uniqueNonEmptyStrings(values) {
+    return uniqueStrings(values, { dropEmpty: true });
+  }
+  const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
+  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const log$3 = Logger.scope("KanjiOrigin");
+  class KanjiOriginClient {
+    cache = /* @__PURE__ */ new Map();
+    lookup(kanji, settings) {
+      const key2 = Array.from(kanji)[0] ?? kanji;
+      if (!key2 || !settings.kanjiOriginsEnabled) {
+        return Promise.resolve(null);
+      }
+      const cacheKey = kanjiOriginCacheKey(key2, settings);
+      let promise = this.cache.get(cacheKey);
+      if (!promise) {
+        promise = this.fetchInfo(key2, settings);
+        this.cache.set(cacheKey, promise);
+      }
+      return promise;
+    }
+    async fetchInfo(kanji, settings) {
+      const done = log$3.time("Kanji origin lookup", { kanji });
+      const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
+        log$3.warn("Kanji Map origin lookup failed", { kanji, error });
+        return void 0;
+      }) : void 0;
+      const result = kanjiMap ? { kanjiMap } : null;
+      done();
+      return result;
+    }
+  }
+  function kanjiOriginCacheKey(kanji, settings) {
+    return [
+      kanji,
+      settings.kanjiOriginKanjiMapEnabled ? "map" : ""
+    ].join(":");
+  }
+  async function fetchKanjiMapInfo(kanji) {
+    const done = log$3.time("Fetch Kanji Map info", { kanji });
+    const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
+    const raw = parseJson(await requestText$3(sourceUrl));
+    const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
+    done();
+    return info;
+  }
+  function parseKanjiMapInfo(raw, kanji, sourceUrl) {
+    const record = asRecord(raw);
+    if (!record) return void 0;
+    const kanjiAlive = asRecord(record.kanjialiveData);
+    const jisho = asRecord(record.jishoData);
+    const radical = readKanjiMapRadical(kanjiAlive, jisho);
+    const examples = readKanjiMapExamples(kanjiAlive, jisho);
+    const references = readKanjiMapReferences(kanjiAlive, jisho);
+    const metrics = readKanjiMapMetrics(kanjiAlive, jisho);
+    const readings2 = readKanjiMapReadings(kanjiAlive, jisho);
+    return {
+      kanji,
+      ...metrics,
+      ...readings2,
+      parts: readKanjiMapParts(jisho, kanji),
+      hint: stripHtml(stringValue(kanjiAlive?.mn_hint)),
+      radical,
+      examples,
+      references,
+      sourceUrl,
+      kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
+      jishoUrl: stringValue(jisho?.uri)
+    };
+  }
+  function readKanjiMapMetrics(kanjiAlive, jisho) {
+    return {
+      meaning: kanjiMapMeaning(kanjiAlive, jisho),
+      grade: kanjiMapGrade(kanjiAlive, jisho),
+      jlpt: normalizeJlpt(stringValue(jisho?.jlptLevel)) ?? "",
+      strokeCount: kanjiMapStrokeCount(kanjiAlive, jisho),
+      frequencyRank: normalizeFrequency(stringValue(jisho?.newspaperFrequencyRank))
+    };
+  }
+  function kanjiMapMeaning(kanjiAlive, jisho) {
+    return stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning);
+  }
+  function kanjiMapGrade(kanjiAlive, jisho) {
+    return normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? "";
+  }
+  function kanjiMapStrokeCount(kanjiAlive, jisho) {
+    return numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke);
+  }
+  function readKanjiMapReadings(kanjiAlive, jisho) {
+    return {
+      kunyomi: stringArray(jisho?.kunyomi, stringValue(kanjiAlive?.kunyomi_ja) || stringValue(kanjiAlive?.kunyomi)),
+      onyomi: stringArray(jisho?.onyomi, stringValue(kanjiAlive?.onyomi_ja) || stringValue(kanjiAlive?.onyomi))
+    };
+  }
+  function readKanjiMapParts(jisho, kanji) {
+    return stringArray(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE$1.test(part)).slice(0, 10);
+  }
+  function stripHtml(value) {
+    return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  }
+  function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
+    const facts = /* @__PURE__ */ new Map();
+    for (const candidate of kanjiFactCandidates(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo)) {
+      addKanjiFact(facts, candidate.label, candidate.value, candidate.source);
+    }
+    if (!facts.has("Character")) addKanjiFact(facts, "Character", kanji, "current lookup");
+    const result = Array.from(facts.values()).filter((fact) => fact.label !== "Character").slice(0, 8);
+    return result;
+  }
+  function kanjiFactCandidates(_kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo) {
+    const local = extractLocalKanjiFacts(entries);
+    const map = sourceInfo?.kanjiMap;
+    return [
+      kanjiMeaningFact(map, jpdbInfo, rtkInfo, entries),
+      kanjiTypeFact(jpdbInfo, local, map),
+      kanjiJlptFact(local, map),
+      kanjiGradeFact(local, map),
+      kanjiStrokeFact(kanjiVGInfo, local, map),
+      kanjiFrequencyFact(jpdbInfo, local, map),
+      kanjiKankenFact(jpdbInfo),
+      kanjiRadicalFact(map)
+    ];
+  }
+  function kanjiMeaningFact(map, jpdbInfo, rtkInfo, entries) {
+    const meaning = kanjiMeaningCandidate(map, jpdbInfo, rtkInfo, entries);
+    return { label: "Meaning", value: meaning?.value ?? "", source: meaning?.source ?? "" };
+  }
+  function kanjiTypeFact(jpdbInfo, local, map) {
+    return {
+      label: "Type",
+      value: kanjiTypeValue(jpdbInfo, local, map),
+      source: kanjiTypeSource(jpdbInfo, local)
+    };
+  }
+  function kanjiTypeValue(jpdbInfo, local, map) {
+    return normalizeKanjiType(jpdbInfo?.type) ?? local.type ?? typeFromGrade(map?.grade) ?? "";
+  }
+  function kanjiTypeSource(jpdbInfo, local) {
+    return jpdbInfo?.type ? "JPDB" : local.typeSource ?? "Kanji Alive / Jisho";
+  }
+  function kanjiJlptFact(local, map) {
+    const candidate = firstFactCandidate([
+      { value: local.jlpt, source: local.jlptSource },
+      { value: map?.jlpt, source: "Jisho" }
+    ]);
+    return { label: "JLPT", value: candidate?.value ?? "", source: candidate?.source ?? "" };
+  }
+  function kanjiGradeFact(local, map) {
+    return { label: "Grade", value: local.grade ?? map?.grade ?? "", source: local.gradeSource ?? "Kanji Alive / Jisho" };
+  }
+  function kanjiStrokeFact(kanjiVGInfo, local, map) {
+    return { label: "Strokes", value: kanjiStrokeValue(kanjiVGInfo, local, map), source: kanjiStrokeSource(kanjiVGInfo, local) };
+  }
+  function kanjiFrequencyFact(jpdbInfo, local, map) {
+    return {
+      label: "Frequency",
+      value: kanjiFrequencyValue(jpdbInfo, local, map),
+      source: kanjiFrequencySource(jpdbInfo, local, map)
+    };
+  }
+  function kanjiFrequencyValue(jpdbInfo, local, map) {
+    return jpdbInfo?.frequency || local.frequency || map?.frequencyRank || "";
+  }
+  function kanjiFrequencySource(jpdbInfo, local, map) {
+    if (jpdbInfo?.frequency) return "JPDB";
+    if (local.frequency) return local.frequencySource ?? "local dictionary";
+    if (map?.frequencyRank) return "Jisho";
+    return "Jisho";
+  }
+  function kanjiKankenFact(jpdbInfo) {
+    const candidate = firstFactCandidate([
+      { value: jpdbInfo?.kanken, source: "JPDB" }
+    ]);
+    return { label: "Kanken", value: candidate?.value ?? "", source: candidate?.source ?? "" };
+  }
+  function kanjiRadicalFact(map) {
+    return { label: "Radical", value: kanjiRadicalValue(map), source: "Kanji Alive / Jisho" };
+  }
+  function kanjiMeaningCandidate(map, jpdbInfo, rtkInfo, entries) {
+    const localMeaning = firstLocalMeaning(entries);
+    return firstFactCandidate([
+      { value: map?.meaning, source: "Kanji Alive / Jisho" },
+      { value: jpdbInfo?.keyword, source: "JPDB" },
+      { value: rtkInfo?.keyword, source: "RTK" },
+      ...localMeaning ? [localMeaning] : []
+    ]);
+  }
+  function kanjiStrokeValue(kanjiVGInfo, local, map) {
+    return kanjiVGInfo?.strokeCount ? String(kanjiVGInfo.strokeCount) : local.strokes ?? normalizeNumber(map?.strokeCount) ?? "";
+  }
+  function kanjiStrokeSource(kanjiVGInfo, local) {
+    return kanjiVGInfo?.strokeCount ? "KanjiVG" : local.strokesSource ?? "Kanji Alive / Jisho";
+  }
+  function kanjiRadicalValue(map) {
+    return map?.radical ? [map.radical.symbol, map.radical.meaning].filter(Boolean).join(" ") : "";
+  }
+  function addKanjiFact(facts, label, value, source) {
+    const normalized = value?.trim();
+    if (!normalized || facts.has(label)) return;
+    facts.set(label, { label, value: normalized, source: source || "source unknown" });
+  }
+  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
+    const nodes = /* @__PURE__ */ new Map();
+    const edges = [];
+    const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
+    const kanjiVGPositions = kanjiVGComponentPositionMap(kanjiVGInfo);
+    const builder = { kanji, nodes, edges, kanjiVGPositions };
+    nodes.set(kanji, {
+      id: kanji,
+      label: kanji,
+      kind: "current",
+      detail: first([jpdbInfo?.keyword, rtkInfo?.keyword, sourceInfo?.kanjiMap?.meaning, meanings[0]]) ?? "current kanji",
+      source: "current lookup"
+    });
+    sourceInfo?.kanjiMap?.radical?.symbol && addKanjiOriginComponent(
+      builder,
+      sourceInfo.kanjiMap.radical.symbol,
+      first([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? "radical",
+      "radical",
+      "Kanji Alive / Jisho",
+      sourceInfo.kanjiMap.radical.position
+    );
+    sourceInfo?.kanjiMap?.parts.forEach((part) => addKanjiOriginComponent(builder, part, "structural part", "structural part", "Kanji structure"));
+    jpdbInfo?.components.forEach((component) => addKanjiOriginComponent(builder, component.kanji, component.keyword, "JPDB component", "JPDB"));
+    jpdbInfo?.usedInKanji?.forEach((component) => addUsedInKanji(builder, component.kanji, component.keyword, "JPDB"));
+    rtkInfo?.componentKanji.forEach((component) => addKanjiOriginComponent(builder, component, "RTK element", "RTK element", "RTK"));
+    kanjiVGInfo?.componentPositions?.filter((component) => component.direct).forEach((component) => addDirectKanjiVGComponent(builder, component));
+    kanjiVGInfo?.componentPositions?.filter((component) => !component.direct).sort((a, b) => a.depth - b.depth).forEach((component) => addKanjiVGSubcomponent(builder, component));
+    splitRtkElements$1(rtkInfo?.elements ?? "").filter((element) => !Array.from(element).some((character) => character === kanji)).slice(0, 6).forEach((element, index) => addRtkMemoryCue(builder, element, index));
+    const graph = { nodes: Array.from(nodes.values()).slice(0, 24), edges: edges.slice(0, 36) };
+    return graph;
+  }
+  function addKanjiOriginEdge(builder, from, to, label) {
+    if (!from || !to || !canAddKanjiOriginEdge(builder.edges, from, to, label)) return;
+    builder.edges.push({ from, to, label });
+  }
+  function canAddKanjiOriginEdge(edges, from, to, label) {
+    if (from === to) return false;
+    return !edges.some((edge) => edge.from === from && edge.to === to && edge.label === label);
+  }
+  function addKanjiOriginComponentNode(builder, id, detail, source, position, geometry) {
+    if (!id || id === builder.kanji) return null;
+    const existing = builder.nodes.get(id);
+    if (existing) updateKanjiOriginComponentNode(existing, detail, position, geometry);
+    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source, position, geometry });
+    return id;
+  }
+  function updateKanjiOriginComponentNode(node, detail, position, geometry) {
+    if (!node.detail && detail) node.detail = detail;
+    if (!node.position && position) node.position = position;
+    if (!node.geometry && geometry) node.geometry = geometry;
+  }
+  function addKanjiOriginComponent(builder, id, detail, label, source, position, geometry) {
+    const kanjiVGPosition = builder.kanjiVGPositions.get(id);
+    const resolvedPosition = position || kanjiVGPosition?.position;
+    const resolvedGeometry = geometry ?? kanjiVGPosition?.geometry;
+    const nodeId = addKanjiOriginComponentNode(builder, id, detail, source, resolvedPosition, resolvedGeometry);
+    addKanjiOriginEdge(builder, nodeId ?? void 0, builder.kanji, label);
+  }
+  function addUsedInKanji(builder, id, detail, source) {
+    const nodeId = addUsedInKanjiNode(builder, id, detail, source);
+    addKanjiOriginEdge(builder, builder.kanji, nodeId ?? void 0, "used in kanji");
+  }
+  function addUsedInKanjiNode(builder, id, detail, source) {
+    if (!id || id === builder.kanji) return null;
+    const existing = builder.nodes.get(id);
+    if (existing) updateUsedInKanjiNode(existing, detail);
+    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source });
+    return id;
+  }
+  function updateUsedInKanjiNode(node, detail) {
+    if (!node.detail && detail) node.detail = detail;
+  }
+  function addDirectKanjiVGComponent(builder, component) {
+    const id = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
+    addKanjiOriginComponent(builder, id, "visual component", "KanjiVG component", "KanjiVG", component.position, kanjiVGComponentGeometry(component));
+  }
+  function addKanjiVGSubcomponent(builder, component) {
+    if (!isNestedKanjiVGSubcomponent(component, builder.kanji)) return;
+    const parent = nestedKanjiVGParent(component, builder);
+    if (!parent) return;
+    const child = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
+    if (hasCompetingDirectComponentEdge(builder, component, child)) return;
+    addKanjiVGSubcomponentEdge(builder, component, parent, child);
+  }
+  function addKanjiVGSubcomponentEdge(builder, component, parent, child) {
+    const parentPosition = builder.kanjiVGPositions.get(parent);
+    const parentId = addKanjiOriginComponentNode(builder, parent, "visual component", "KanjiVG", parentPosition?.position, parentPosition?.geometry) ?? parent;
+    const childId = addKanjiOriginComponentNode(builder, child, "visual subcomponent", "KanjiVG", component.position, kanjiVGComponentGeometry(component)) ?? child;
+    addKanjiOriginEdge(builder, childId, parentId, "subcomponent");
+  }
+  function addRtkMemoryCue(builder, element, index) {
+    const id = `rtk:${index}:${element}`;
+    builder.nodes.set(id, { id, label: element, kind: "related", detail: "RTK keyword", source: "RTK" });
+    builder.edges.push({ from: id, to: builder.kanji, label: "memory cue" });
+  }
+  function isNestedKanjiVGSubcomponent(component, currentKanji) {
+    return Boolean(component.component && component.component !== currentKanji && !component.variant);
+  }
+  function nestedKanjiVGParent(component, builder) {
+    if (!component.parent || component.parent === builder.kanji) return "";
+    const parent = resolveKanjiVGComponentId(builder.nodes, component.parent, component.parentOriginal);
+    return parent === builder.kanji ? "" : parent;
+  }
+  function hasCompetingDirectComponentEdge(builder, component, child) {
+    return [child, component.component, component.original].some((id) => hasDirectComponentEdge(builder, id));
+  }
+  function hasDirectComponentEdge(builder, id) {
+    return Boolean(id && builder.edges.some((edge) => isDirectKanjiComponentEdge(edge, id, builder.kanji)));
+  }
+  function isDirectKanjiComponentEdge(edge, id, kanji) {
+    return edge.from === id && edge.to === kanji && edge.label !== "subcomponent";
+  }
+  function resolveKanjiVGComponentId(nodes, component, original) {
+    if (nodes.has(component)) return component;
+    return original && nodes.has(original) ? original : component;
+  }
+  function kanjiVGComponentPositionMap(info) {
+    const positions = /* @__PURE__ */ new Map();
+    info?.componentPositions?.forEach((component) => {
+      const position = normalizeKanjiVGPosition(component.position);
+      if (!position) return;
+      const geometry = kanjiVGComponentGeometry(component);
+      kanjiVGPositionKeys(component).forEach((key2) => {
+        const existing = positions.get(key2);
+        if (!existing || !existing.direct && component.direct) {
+          positions.set(key2, { position, direct: component.direct, geometry });
+        } else if (!existing.geometry && geometry) {
+          positions.set(key2, { ...existing, geometry });
+        }
+      });
+    });
+    return positions;
+  }
+  function kanjiVGComponentGeometry(component) {
+    return component.center ? {
+      x: component.center.x,
+      y: component.center.y,
+      width: component.bounds?.width,
+      height: component.bounds?.height
+    } : void 0;
+  }
+  function kanjiVGPositionKeys(component) {
+    const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
+    const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
+    return uniqueNonEmptyStrings([
+      component.component,
+      component.original,
+      ...componentAliases,
+      ...originalAliases
+    ]);
+  }
+  function normalizeKanjiVGPosition(value) {
+    const normalized = value.toLowerCase().trim();
+    return KANJIVG_POSITION_ALIASES.get(normalized) ?? normalized;
+  }
+  const KANJIVG_COMPONENT_ALIASES = /* @__PURE__ */ new Map([
+    ["⻖", ["阝", "阜"]],
+    ["阜", ["⻖", "阝"]]
+  ]);
+  const KANJIVG_POSITION_ALIASES = /* @__PURE__ */ new Map([
+    ["top", "top"],
+    ["tare", "top"],
+    ["bottom", "bottom"],
+    ["nyo", "bottom"],
+    ["left", "left"],
+    ["right", "right"],
+    ["inside", "center"],
+    ["kamae", "center"],
+    ["middle", "center"]
+  ]);
+  function firstFactCandidate(candidates) {
+    return candidates.find((candidate) => candidate.value?.trim());
+  }
+  function firstLocalMeaning(entries) {
+    for (const entry of entries) {
+      const value = first(entry.meanings);
+      if (value) return { value, source: entry.dictionary || "local dictionary" };
+    }
+    return void 0;
+  }
+  function readKanjiMapRadical(kanjiAlive, jisho) {
+    const context = kanjiMapRadicalContext(kanjiAlive, jisho);
+    const basics = readKanjiMapRadicalBasics(context);
+    if (!hasKanjiMapRadical(basics)) return void 0;
+    return {
+      symbol: basics.symbol,
+      forms: stringArray(context.jishoRadical?.forms),
+      ...readKanjiMapRadicalNames(context),
+      meaning: basics.meaning,
+      strokes: readKanjiMapRadicalStrokes(context),
+      position: readKanjiMapRadicalPosition(context),
+      image: basics.image,
+      animation: basics.animation
+    };
+  }
+  function kanjiMapRadicalContext(kanjiAlive, jisho) {
+    return {
+      kanjiAlive,
+      aliveRadical: asRecord(kanjiAlive?.radical),
+      jishoRadical: asRecord(jisho?.radical)
+    };
+  }
+  function readKanjiMapRadicalNames(context) {
+    const name = asRecord(context.aliveRadical?.name);
+    return {
+      name: firstStringValue([name?.romaji, context.kanjiAlive?.rad_name]),
+      reading: firstStringValue([name?.hiragana, context.kanjiAlive?.rad_name_ja])
+    };
+  }
+  function readKanjiMapRadicalBasics(context) {
+    return {
+      symbol: readKanjiMapRadicalSymbol(context),
+      meaning: readKanjiMapRadicalMeaning(context),
+      image: safeMediaValue(context.aliveRadical?.image),
+      animation: safeMediaValues(context.aliveRadical?.animation).slice(0, 4)
+    };
+  }
+  function readKanjiMapRadicalSymbol(context) {
+    return firstStringValue([context.jishoRadical?.symbol, context.kanjiAlive?.rad_utf, context.aliveRadical?.character]);
+  }
+  function readKanjiMapRadicalMeaning(context) {
+    const meaning = asRecord(context.aliveRadical?.meaning);
+    return firstStringValue([meaning?.english, context.jishoRadical?.meaning, context.kanjiAlive?.rad_meaning]);
+  }
+  function readKanjiMapRadicalStrokes(context) {
+    return firstNormalizedNumber([context.aliveRadical?.strokes, context.kanjiAlive?.rad_stroke]);
+  }
+  function readKanjiMapRadicalPosition(context) {
+    const position = asRecord(context.aliveRadical?.position);
+    return firstStringValue([position?.hiragana, context.kanjiAlive?.rad_position_ja]);
+  }
+  function firstStringValue(values) {
+    for (const value of values) {
+      const text = stringValue(value);
+      if (text) return text;
+    }
+    return "";
+  }
+  function firstNormalizedNumber(values) {
+    for (const value of values) {
+      const number = normalizeNumber(value);
+      if (number !== void 0) return number;
+    }
+    return "";
+  }
+  function safeMediaValue(value) {
+    return safeMediaUrl(stringValue(value));
+  }
+  function safeMediaValues(value) {
+    return unknownArray(value).map(safeMediaValue).filter(Boolean);
+  }
+  function hasKanjiMapRadical(radical) {
+    return Boolean(radical.symbol || radical.meaning || radical.image);
+  }
+  function readKanjiMapExamples(kanjiAlive, jisho) {
+    const examples = [];
+    const add = (expression, reading, meaning) => {
+      const item = {
+        expression: stringValue(expression),
+        reading: stringValue(reading),
+        meaning: stringValue(meaning)
+      };
+      if (!item.expression || examples.some((existing) => existing.expression === item.expression)) return;
+      examples.push(item);
+    };
+    unknownArray(kanjiAlive?.examples).forEach((example) => {
+      const record = asRecord(example);
+      add(record?.japanese, "", asRecord(record?.meaning)?.english);
+    });
+    [...unknownArray(jisho?.onyomiExamples), ...unknownArray(jisho?.kunyomiExamples)].forEach((example) => {
+      const record = asRecord(example);
+      add(record?.example, record?.reading, record?.meaning);
+    });
+    return examples.slice(0, 6);
+  }
+  function readKanjiMapReferences(kanjiAlive, jisho) {
+    const references = asRecord(kanjiAlive?.references);
+    const facts = [];
+    const add = (label, value, source) => {
+      const text = stringValue(value);
+      if (text) facts.push({ label, value: text, source });
+    };
+    add("Kodansha", references?.kodansha, "Kanji Alive");
+    add("Classic Nelson", references?.classic_nelson, "Kanji Alive");
+    add("Jisho", jisho?.uri, "Jisho");
+    return facts.slice(0, 4);
+  }
+  function extractLocalKanjiFacts(entries) {
+    const facts = {};
+    for (const entry of entries) {
+      const source = entry.dictionary || "local dictionary";
+      for (const tag of entry.tags) {
+        readTagFact(tag, facts, source);
+      }
+      readStatsFacts(entry.stats, facts, source);
+    }
+    return facts;
+  }
+  function readTagFact(tag, facts, source) {
+    const normalized = tag.trim().toLowerCase().replace(/[＿_]/g, " ");
+    readTagTypeFact(normalized, facts, source);
+    readTagJlptFact(normalized, facts, source);
+    readTagGradeFact(normalized, facts, source);
+    readTagStrokeFact(normalized, facts, source);
+    readTagFrequencyFact(normalized, facts, source);
+  }
+  function readTagTypeFact(normalized, facts, source) {
+    if (facts.type) return;
+    if (/\b(jōyō|jouyou|joyo)\b/.test(normalized)) setFact(facts, "type", "Jōyō kanji", source);
+    else if (/\b(jinmeiyō|jinmeiyou|jinmeiyo)\b/.test(normalized)) setFact(facts, "type", "Jinmeiyō kanji", source);
+    else if (/\b(hyōgai|hyougai|hyogai|outside|neither)\b/.test(normalized)) setFact(facts, "type", "Outside jōyō/jinmeiyō", source);
+  }
+  function readTagJlptFact(normalized, facts, source) {
+    const jlpt = normalized.match(/\b(?:jlpt\s*)?n?([1-5])\b/);
+    if (!facts.jlpt && jlpt && /jlpt|^n[1-5]$/.test(normalized)) setFact(facts, "jlpt", `N${jlpt[1]}`, source);
+  }
+  function readTagGradeFact(normalized, facts, source) {
+    const grade = normalized.match(/\b(?:grade|gakunen|school)\s*([1-6])\b/);
+    if (!facts.grade && grade) setFact(facts, "grade", `Grade ${grade[1]}`, source);
+  }
+  function readTagStrokeFact(normalized, facts, source) {
+    const strokes = normalized.match(/\b(?:strokes?|画数)\s*:?\s*(\d{1,2})\b/) ?? normalized.match(/\b(\d{1,2})\s*strokes?\b/);
+    if (!facts.strokes && strokes) setFact(facts, "strokes", strokes[1], source);
+  }
+  function readTagFrequencyFact(normalized, facts, source) {
+    const frequency = normalized.match(/\b(?:freq|frequency)\s*:?\s*(\d{1,5})\b/);
+    if (!facts.frequency && frequency) setFact(facts, "frequency", `#${frequency[1]}`, source);
+  }
+  function readStatsFacts(stats, facts, source) {
+    if (!stats || typeof stats !== "object") return;
+    const values = flattenStats(stats);
+    setFact(facts, "jlpt", normalizeJlpt(firstValue(values, ["jlpt", "jlptLevel", "jlpt_level"])), source);
+    setFact(facts, "grade", normalizeGrade(firstValue(values, ["grade", "schoolGrade", "gradeLevel", "jouyouGrade"])), source);
+    setFact(facts, "strokes", normalizeNumber(firstValue(values, ["strokes", "strokeCount", "stroke_count"])), source);
+    setFact(facts, "frequency", normalizeFrequency(firstValue(values, ["frequency", "freq", "frequencyRank"])), source);
+  }
+  function setFact(facts, key2, value, source) {
+    if (!value || facts[key2]) return;
+    facts[key2] = value;
+    facts[`${key2}Source`] = source;
+  }
+  function flattenStats(stats, prefix = "") {
+    const values = /* @__PURE__ */ new Map();
+    if (!isPlainStatsRecord(stats)) return values;
+    for (const [key2, value] of Object.entries(stats)) {
+      const fullKey = prefix ? `${prefix}.${key2}` : key2;
+      values.set(key2, value);
+      values.set(fullKey, value);
+      if (isPlainStatsRecord(value)) flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
+    }
+    return values;
+  }
+  function isPlainStatsRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+  function firstValue(values, keys) {
+    for (const key2 of keys) {
+      if (values.has(key2)) return values.get(key2);
+    }
+    return void 0;
+  }
+  function normalizeKanjiType(value) {
+    if (!value) return void 0;
+    if (/jinmeiy/i.test(value)) return "Jinmeiyō kanji";
+    if (/j[oō]y[oō]|grade/i.test(value)) return "Jōyō kanji";
+    return value;
+  }
+  function typeFromGrade(value) {
+    if (!value) return void 0;
+    return /grade/i.test(value) ? "Jōyō kanji" : void 0;
+  }
+  function normalizeJlpt(value) {
+    if (value === void 0 || value === null || value === "") return void 0;
+    const match = String(value).match(/[nN]?([1-5])/);
+    return match ? `N${match[1]}` : void 0;
+  }
+  function normalizeGrade(value) {
+    if (value === void 0 || value === null || value === "") return "";
+    const text = String(value).trim();
+    const match = text.match(/(?:grade\s*)?([1-6])/i);
+    return match ? `Grade ${match[1]}` : text;
+  }
+  function normalizeNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    const match = String(value ?? "").match(/\d{1,5}/);
+    return match?.[0];
+  }
+  function normalizeFrequency(value) {
+    const number = normalizeNumber(value);
+    return number ? `#${number}` : "";
+  }
+  function splitRtkElements$1(value) {
+    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function stringArray(value, fallback = "") {
+    const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
+    return values.map((item) => stringValue(item)).map((item) => item.trim()).filter(Boolean);
+  }
+  function unknownArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function stringValue(value) {
+    if (value === void 0 || value === null) return "";
+    if (typeof value === "string") return value.trim();
+    if (isFiniteNumber(value)) return String(value);
+    return "";
+  }
+  function isFiniteNumber(value) {
+    return typeof value === "number" && Number.isFinite(value);
+  }
+  function numberValue(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const match = String(value ?? "").match(/\d+/);
+    return match ? Number(match[0]) : void 0;
+  }
+  function safeMediaUrl(value) {
+    return /^https:\/\/media\.kanjialive\.com\//i.test(value) ? value : "";
+  }
+  function asRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+  }
+  function parseJson(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  function requestText$3(url) {
+    return requestText$4(url, {
+      timeoutMs: 1e4,
+      failureLabel: "Kanji origin request",
+      timeoutLabel: "Kanji origin request timed out."
+    }).catch((error) => {
+      log$3.warn("Kanji origin request failed", { host: safeHost(url), error });
+      throw error;
+    });
+  }
+  function first(values) {
+    return values.find((value) => value?.trim())?.trim();
+  }
+  function safeHost(url) {
+    try {
+      return new URL(url, location.href).host;
+    } catch {
+      return "";
+    }
+  }
   let trustedHtmlPolicy;
   function parseHtmlDocument(html) {
     const parsed = parseHtmlWithDomParser(html);
@@ -1442,1154 +2104,6 @@
     "H5",
     "H6"
   ]);
-  const JAPANESE_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
-  const JPDB_BASE_URL = "https://jpdb.io";
-  function cleanText$1(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function decodePathPart(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-  function absoluteJpdbUrl(value, fallback = "") {
-    try {
-      return new URL(value || "/", JPDB_BASE_URL).toString();
-    } catch {
-      return fallback;
-    }
-  }
-  function parseJpdbVocabularyUrl(value) {
-    if (!value) return null;
-    try {
-      return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
-    } catch {
-      return null;
-    }
-  }
-  function parseJpdbVocabularyPath(pathname) {
-    const parts = pathname.split("/").filter(Boolean);
-    if (parts[0] !== "vocabulary") return null;
-    const vid = Number.parseInt(parts[1] ?? "", 10);
-    const reading = decodePathPart(parts[3] ?? "");
-    return {
-      vid: Number.isFinite(vid) ? vid : 0,
-      expression: decodePathPart(parts[2] ?? ""),
-      reading: JAPANESE_RE$1.test(reading) ? reading : ""
-    };
-  }
-  const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$3 = Logger.scope("JpdbKanji");
-  class JpdbKanjiClient {
-    constructor(getCorsProxyUrl = () => "") {
-      this.getCorsProxyUrl = getCorsProxyUrl;
-    }
-    cache = /* @__PURE__ */ new Map();
-    actions = /* @__PURE__ */ new Map();
-    lookup(kanji) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2) return Promise.resolve(null);
-      let promise = this.cache.get(key2);
-      if (!promise) {
-        promise = this.fetchInfo(key2);
-        this.cache.set(key2, promise);
-      }
-      return promise;
-    }
-    async performAction(actionId) {
-      const action = this.actions.get(actionId);
-      if (!action) throw new Error("JPDB kanji action is no longer available.");
-      if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$3.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
-      await requestText$3(action.url, "", {
-        method: action.method,
-        payload: action.payload,
-        allowProxyFallback: false,
-        allowConfiguredProxy: false,
-        credentials: "same-origin"
-      });
-      this.cache.delete(action.kanji);
-      return this.lookup(action.kanji);
-    }
-    async fetchInfo(kanji) {
-      const html = await requestText$3(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$3.warn("Kanji page request failed", { kanji }, error);
-        return "";
-      });
-      const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
-      if (info) {
-        visibleJpdbKanjiActions(info).forEach((action) => this.actions.set(action.id, action));
-      }
-      return info;
-    }
-  }
-  function parseJpdbKanjiHtml(html, kanji) {
-    const doc = parseHtmlDocument(html);
-    const keyword = sectionText(doc, "Keyword") || metaKeyword(doc, kanji);
-    if (!keyword) return null;
-    const parsed = parsedJpdbKanjiPage(doc);
-    const actions = kanjiActions(doc, kanji);
-    const visibleActions = actions.filter(isVisibleKanjiAction);
-    return {
-      kanji,
-      keyword,
-      ...parsed,
-      mnemonic: sectionText(doc, "Mnemonic"),
-      actions,
-      loggedIn: isLoggedIn(doc),
-      kanjiReviewsEnabled: visibleActions.length > 0
-    };
-  }
-  function parsedJpdbKanjiPage(doc) {
-    const infoRows = infoTableRows(doc);
-    return {
-      frequency: infoRows.get("Frequency") ?? "",
-      type: infoRows.get("Type") ?? "",
-      kanken: infoRows.get("Kanken") ?? "",
-      heisig: infoRows.get("Heisig") ?? "",
-      oldForms: oldForms(doc),
-      readings: readings(doc),
-      components: components(doc),
-      usedInKanji: usedInKanji(doc),
-      vocabulary: vocabulary(doc).slice(0, 8)
-    };
-  }
-  function visibleJpdbKanjiActions(info) {
-    if (!info?.kanjiReviewsEnabled) return [];
-    return info.actions.filter(isVisibleKanjiAction).slice(0, 3);
-  }
-  function isVisibleKanjiAction(action) {
-    return action.enabled && action.role !== "other";
-  }
-  function isLoggedIn(doc) {
-    return !doc.querySelector('a[href="/login"], a[href^="/login?"], form[action="/login"], form[action^="/login?"]');
-  }
-  function kanjiActions(doc, kanji) {
-    const menu = doc.querySelector(".result.kanji .menu, .kanji .menu, .menu");
-    if (!menu) return [];
-    const actions = [];
-    const push = (action) => {
-      const id = `jpdb-kanji:${encodeURIComponent(kanji)}:${actions.length}`;
-      actions.push({ ...action, id });
-    };
-    menu.querySelectorAll("form").forEach((form) => {
-      const method = (form.getAttribute("method") || "GET").toUpperCase() === "POST" ? "POST" : "GET";
-      const url = absoluteJpdbUrl(form.getAttribute("action") || `/kanji/${encodeURIComponent(kanji)}`, "https://jpdb.io/");
-      const submitters = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"]')).filter((submitter) => cleanText$1(labelForControl(submitter)) && submitter.getAttribute("type")?.toLowerCase() !== "button");
-      const controls = submitters.length ? submitters : [form];
-      controls.forEach((control) => {
-        const action = kanjiFormAction(form, control, kanji, method, url);
-        if (action) push(action);
-      });
-    });
-    menu.querySelectorAll("a[href]").forEach((link) => {
-      if (link.closest("form")) return;
-      const label = cleanText$1(labelForControl(link));
-      if (!label) return;
-      const url = absoluteJpdbUrl(link.getAttribute("href") ?? "", "https://jpdb.io/");
-      push({
-        kanji,
-        label,
-        role: classifyKanjiAction(label, url),
-        kind: "link",
-        method: "GET",
-        url,
-        payload: {},
-        enabled: !isDisabled(link)
-      });
-    });
-    return actions.filter((action) => action.role !== "other" || /kanji|review|deck|blacklist|known|forget/i.test(action.label));
-  }
-  function labelForControl(element) {
-    if (element instanceof HTMLInputElement) return inputControlLabel(element);
-    return element.getAttribute("aria-label") || element.title || element.textContent || "";
-  }
-  function kanjiFormAction(form, control, kanji, method, url) {
-    const label = cleanText$1(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
-    if (!label) return null;
-    return {
-      kanji,
-      label,
-      role: classifyKanjiAction(label, `${url} ${kanjiFormActionContext(form, control)}`),
-      kind: "form",
-      method,
-      url,
-      payload: formPayload(form, control instanceof HTMLFormElement ? null : control),
-      enabled: kanjiFormActionEnabled(form, control)
-    };
-  }
-  function kanjiFormActionContext(form, control) {
-    return control instanceof HTMLFormElement ? form.textContent ?? "" : control.getAttribute("value") ?? "";
-  }
-  function kanjiFormActionEnabled(form, control) {
-    if (control instanceof HTMLFormElement) return !isDisabled(form);
-    return !isDisabled(control) && !isDisabled(form);
-  }
-  function classifyKanjiAction(label, context) {
-    const labelText = label.toLowerCase();
-    const text = `${label} ${context}`.toLowerCase();
-    if (KANJI_ACTION_OTHER_RE.test(labelText)) return "other";
-    return KANJI_ACTION_PATTERNS.find(({ pattern }) => pattern.test(text))?.role ?? "other";
-  }
-  function inputControlLabel(element) {
-    return element.getAttribute("aria-label") || element.title || element.value || element.name;
-  }
-  const KANJI_ACTION_OTHER_RE = /\b(enable|settings?|configure|preferences?|history|stats?|open|view)\b/;
-  const KANJI_ACTION_PATTERNS = [
-    { role: "blacklist", pattern: /\b(blacklist|unblacklist|block|ignore|suspend)\b/ },
-    { role: "neverforget", pattern: /\b(never[-\s]?forget|always\s+remember)\b/ },
-    { role: "forget", pattern: /\b(forget|remove|delete|unlearn)\b/ },
-    { role: "known", pattern: /\b(known|know|learned|mark\s+known|remember)\b/ },
-    { role: "review", pattern: /\b(review|due|study)\b/ },
-    { role: "mine", pattern: /\b(add|mine|mining|deck|prioriti[sz]e|learn)\b/ }
-  ];
-  function formPayload(form, submitter) {
-    const payload = {};
-    form.querySelectorAll("input, select, textarea").forEach((control) => {
-      addFormControlPayload(payload, control);
-    });
-    if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
-      const name = submitter.name;
-      if (name) payload[name] = submitter.value;
-    }
-    return payload;
-  }
-  function addFormControlPayload(payload, control) {
-    if (!control.name || !shouldIncludeFormControl(control)) return;
-    payload[control.name] = control.value;
-  }
-  function shouldIncludeFormControl(control) {
-    return !(control instanceof HTMLInputElement) || shouldIncludeInputControl(control);
-  }
-  function shouldIncludeInputControl(control) {
-    const type = control.type.toLowerCase();
-    if (IGNORED_FORM_INPUT_TYPES.has(type)) return false;
-    return !CHECKED_FORM_INPUT_TYPES.has(type) || control.checked;
-  }
-  const IGNORED_FORM_INPUT_TYPES = /* @__PURE__ */ new Set(["submit", "button", "image", "reset", "file"]);
-  const CHECKED_FORM_INPUT_TYPES = /* @__PURE__ */ new Set(["checkbox", "radio"]);
-  function isDisabled(element) {
-    return element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true" || element.classList.contains("disabled") || element.classList.contains("is-disabled");
-  }
-  function sectionText(doc, label) {
-    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element) => cleanText$1(element.textContent ?? "") === label);
-    const section = heading?.parentElement?.querySelector(".subsection") ?? null;
-    const value = cleanText$1(section?.textContent ?? "");
-    return isMissingSectionValue(value, section) ? "" : value;
-  }
-  function infoTableRows(doc) {
-    const rows = /* @__PURE__ */ new Map();
-    doc.querySelectorAll(".cross-table tr").forEach((row) => {
-      const cells = Array.from(row.querySelectorAll("td"));
-      if (cells.length < 2) return;
-      const key2 = cleanText$1(cells[0].textContent ?? "");
-      const value = cleanInfoTableValue(cells[1]);
-      if (value) rows.set(key2, value);
-    });
-    return rows;
-  }
-  function oldForms(doc) {
-    const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => cleanText$1(item.querySelector("td")?.textContent ?? "") === "Old form");
-    return Array.from(row?.querySelectorAll('a[href^="/kanji/"]') ?? []).map((link) => cleanText$1(link.textContent ?? "")).filter(Boolean);
-  }
-  function readings(doc) {
-    const seen = /* @__PURE__ */ new Set();
-    const entries = [];
-    doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
-      const link = row.querySelector("a");
-      const reading = cleanText$1(link?.textContent ?? "");
-      if (!reading || seen.has(reading)) return;
-      seen.add(reading);
-      entries.push({
-        reading,
-        share: cleanText$1(row.textContent ?? "").replace(reading, "").trim(),
-        common: row.closest(".kanji-reading-list-common") !== null
-      });
-    });
-    return entries;
-  }
-  function components(doc) {
-    return kanjiSectionEntries(doc, (label) => label.startsWith("Composed of"));
-  }
-  function usedInKanji(doc) {
-    return kanjiSectionEntries(doc, (label) => label.startsWith("Used in kanji"));
-  }
-  function kanjiSectionEntries(doc, matchesLabel) {
-    return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji")).filter((section) => matchesLabel(cleanText$1(section.querySelector(".subsection-label")?.textContent ?? ""))).flatMap((section) => Array.from(section.querySelectorAll(".subsection > div"))).map((element) => ({
-      kanji: cleanText$1(element.querySelector(".spelling")?.textContent ?? ""),
-      keyword: cleanText$1(element.querySelector(".description")?.textContent ?? "")
-    })).filter((component) => component.kanji && component.keyword);
-  }
-  function vocabulary(doc) {
-    const entries = [];
-    doc.querySelectorAll(".subsection-used-in .used-in").forEach((element) => {
-      const entry = jpdbKanjiVocabularyEntry(element);
-      if (entry) entries.push(entry);
-    });
-    return entries;
-  }
-  function jpdbKanjiVocabularyEntry(element) {
-    const link = element.querySelector('.jp a[href^="/vocabulary/"]');
-    if (!link) return null;
-    const expression = jpdbKanjiVocabularyExpression(link);
-    const meaning = jpdbKanjiVocabularyMeaning(element);
-    if (!isJpdbKanjiVocabularyEntry(expression, meaning)) return null;
-    return {
-      expression,
-      reading: jpdbKanjiVocabularyReading(link),
-      meaning,
-      url: absoluteJpdbUrl(jpdbKanjiVocabularyHref(link))
-    };
-  }
-  function jpdbKanjiVocabularyExpression(link) {
-    const identity = parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link));
-    return identity?.expression || textWithoutRuby(link);
-  }
-  function jpdbKanjiVocabularyReading(link) {
-    return parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link))?.reading ?? "";
-  }
-  function jpdbKanjiVocabularyMeaning(element) {
-    return cleanText$1(element.querySelector(".en")?.textContent ?? "");
-  }
-  function jpdbKanjiVocabularyHref(link) {
-    return link.getAttribute("href") ?? "";
-  }
-  function isJpdbKanjiVocabularyEntry(expression, meaning) {
-    return JAPANESE_RE$1.test(expression) && Boolean(meaning);
-  }
-  function textWithoutRuby(element) {
-    const clone = element.cloneNode(true);
-    clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-    return cleanText$1(clone.textContent ?? "");
-  }
-  function metaKeyword(doc, kanji) {
-    const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-    const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
-    return cleanText$1(match?.[1] ?? "");
-  }
-  function cleanInfoTableValue(cell) {
-    return cleanText$1(cell.textContent ?? "").replace(/\s+\?$/, "");
-  }
-  function isMissingSectionValue(value, section) {
-    const normalized = value.trim().toLowerCase();
-    return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
-  }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function requestText$3(url, proxyUrl = "", options = {}) {
-    const method = options.method ?? "GET";
-    const body = requestTextBody(options.payload);
-    const requestUrl = requestTextUrl(url, method, body);
-    const headers = requestTextHeaders(method);
-    return requestText$4(requestUrl, {
-      method,
-      headers,
-      data: method === "POST" ? body : void 0,
-      proxyUrl,
-      credentials: options.credentials ?? "omit",
-      redirect: "follow",
-      timeoutMs: 8e3,
-      allowPublicProxies: options.allowProxyFallback ?? method === "GET",
-      allowConfiguredProxy: options.allowConfiguredProxy,
-      failureLabel: "JPDB kanji request",
-      timeoutLabel: "JPDB kanji request timed out."
-    });
-  }
-  function requestTextBody(payload) {
-    return payload && Object.keys(payload).length ? new URLSearchParams(payload).toString() : "";
-  }
-  function requestTextUrl(url, method, body) {
-    return method === "GET" && body ? `${url}${url.includes("?") ? "&" : "?"}${body}` : url;
-  }
-  function requestTextHeaders(method) {
-    return method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : void 0;
-  }
-  const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
-  const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$2 = Logger.scope("KanjiOrigin");
-  class KanjiOriginClient {
-    cache = /* @__PURE__ */ new Map();
-    lookup(kanji, settings) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2 || !settings.kanjiOriginsEnabled) {
-        return Promise.resolve(null);
-      }
-      const cacheKey = kanjiOriginCacheKey(key2, settings);
-      let promise = this.cache.get(cacheKey);
-      if (!promise) {
-        promise = this.fetchInfo(key2, settings);
-        this.cache.set(cacheKey, promise);
-      }
-      return promise;
-    }
-    async fetchInfo(kanji, settings) {
-      const done = log$2.time("Kanji origin lookup", { kanji });
-      const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$2.warn("Kanji Map origin lookup failed", { kanji, error });
-        return void 0;
-      }) : void 0;
-      const result = kanjiMap ? { kanjiMap } : null;
-      done();
-      return result;
-    }
-  }
-  function kanjiOriginCacheKey(kanji, settings) {
-    return [
-      kanji,
-      settings.kanjiOriginKanjiMapEnabled ? "map" : ""
-    ].join(":");
-  }
-  async function fetchKanjiMapInfo(kanji) {
-    const done = log$2.time("Fetch Kanji Map info", { kanji });
-    const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
-    const raw = parseJson(await requestText$2(sourceUrl));
-    const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
-    done();
-    return info;
-  }
-  function parseKanjiMapInfo(raw, kanji, sourceUrl) {
-    const record = asRecord(raw);
-    if (!record) return void 0;
-    const kanjiAlive = asRecord(record.kanjialiveData);
-    const jisho = asRecord(record.jishoData);
-    const radical = readKanjiMapRadical(kanjiAlive, jisho);
-    const examples = readKanjiMapExamples(kanjiAlive, jisho);
-    const references = readKanjiMapReferences(kanjiAlive, jisho);
-    const metrics = readKanjiMapMetrics(kanjiAlive, jisho);
-    const readings2 = readKanjiMapReadings(kanjiAlive, jisho);
-    return {
-      kanji,
-      ...metrics,
-      ...readings2,
-      parts: readKanjiMapParts(jisho, kanji),
-      hint: stripHtml(stringValue(kanjiAlive?.mn_hint)),
-      radical,
-      examples,
-      references,
-      sourceUrl,
-      kanjiAliveUrl: `https://app.kanjialive.com/${encodeURIComponent(kanji)}`,
-      jishoUrl: stringValue(jisho?.uri)
-    };
-  }
-  function readKanjiMapMetrics(kanjiAlive, jisho) {
-    return {
-      meaning: kanjiMapMeaning(kanjiAlive, jisho),
-      grade: kanjiMapGrade(kanjiAlive, jisho),
-      jlpt: normalizeJlpt(stringValue(jisho?.jlptLevel)) ?? "",
-      strokeCount: kanjiMapStrokeCount(kanjiAlive, jisho),
-      frequencyRank: normalizeFrequency(stringValue(jisho?.newspaperFrequencyRank))
-    };
-  }
-  function kanjiMapMeaning(kanjiAlive, jisho) {
-    return stringValue(jisho?.meaning) || stringValue(kanjiAlive?.meaning);
-  }
-  function kanjiMapGrade(kanjiAlive, jisho) {
-    return normalizeGrade(stringValue(jisho?.taughtIn) || numberValue(kanjiAlive?.grade)) ?? "";
-  }
-  function kanjiMapStrokeCount(kanjiAlive, jisho) {
-    return numberValue(jisho?.strokeCount) ?? numberValue(kanjiAlive?.kstroke);
-  }
-  function readKanjiMapReadings(kanjiAlive, jisho) {
-    return {
-      kunyomi: stringArray(jisho?.kunyomi, stringValue(kanjiAlive?.kunyomi_ja) || stringValue(kanjiAlive?.kunyomi)),
-      onyomi: stringArray(jisho?.onyomi, stringValue(kanjiAlive?.onyomi_ja) || stringValue(kanjiAlive?.onyomi))
-    };
-  }
-  function readKanjiMapParts(jisho, kanji) {
-    return stringArray(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE.test(part)).slice(0, 10);
-  }
-  function stripHtml(value) {
-    return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-  }
-  function readKanjiMapRadical(kanjiAlive, jisho) {
-    const context = kanjiMapRadicalContext(kanjiAlive, jisho);
-    const basics = readKanjiMapRadicalBasics(context);
-    if (!hasKanjiMapRadical(basics)) return void 0;
-    return {
-      symbol: basics.symbol,
-      forms: stringArray(context.jishoRadical?.forms),
-      ...readKanjiMapRadicalNames(context),
-      meaning: basics.meaning,
-      strokes: readKanjiMapRadicalStrokes(context),
-      position: readKanjiMapRadicalPosition(context),
-      image: basics.image,
-      animation: basics.animation
-    };
-  }
-  function kanjiMapRadicalContext(kanjiAlive, jisho) {
-    return {
-      kanjiAlive,
-      aliveRadical: asRecord(kanjiAlive?.radical),
-      jishoRadical: asRecord(jisho?.radical)
-    };
-  }
-  function readKanjiMapRadicalNames(context) {
-    const name = asRecord(context.aliveRadical?.name);
-    return {
-      name: firstStringValue([name?.romaji, context.kanjiAlive?.rad_name]),
-      reading: firstStringValue([name?.hiragana, context.kanjiAlive?.rad_name_ja])
-    };
-  }
-  function readKanjiMapRadicalBasics(context) {
-    return {
-      symbol: readKanjiMapRadicalSymbol(context),
-      meaning: readKanjiMapRadicalMeaning(context),
-      image: safeMediaValue(context.aliveRadical?.image),
-      animation: safeMediaValues(context.aliveRadical?.animation).slice(0, 4)
-    };
-  }
-  function readKanjiMapRadicalSymbol(context) {
-    return firstStringValue([context.jishoRadical?.symbol, context.kanjiAlive?.rad_utf, context.aliveRadical?.character]);
-  }
-  function readKanjiMapRadicalMeaning(context) {
-    const meaning = asRecord(context.aliveRadical?.meaning);
-    return firstStringValue([meaning?.english, context.jishoRadical?.meaning, context.kanjiAlive?.rad_meaning]);
-  }
-  function readKanjiMapRadicalStrokes(context) {
-    return firstNormalizedNumber([context.aliveRadical?.strokes, context.kanjiAlive?.rad_stroke]);
-  }
-  function readKanjiMapRadicalPosition(context) {
-    const position = asRecord(context.aliveRadical?.position);
-    return firstStringValue([position?.hiragana, context.kanjiAlive?.rad_position_ja]);
-  }
-  function firstStringValue(values) {
-    for (const value of values) {
-      const text = stringValue(value);
-      if (text) return text;
-    }
-    return "";
-  }
-  function firstNormalizedNumber(values) {
-    for (const value of values) {
-      const number = normalizeNumber(value);
-      if (number !== void 0) return number;
-    }
-    return "";
-  }
-  function safeMediaValue(value) {
-    return safeMediaUrl(stringValue(value));
-  }
-  function safeMediaValues(value) {
-    return unknownArray(value).map(safeMediaValue).filter(Boolean);
-  }
-  function hasKanjiMapRadical(radical) {
-    return Boolean(radical.symbol || radical.meaning || radical.image);
-  }
-  function readKanjiMapExamples(kanjiAlive, jisho) {
-    const examples = [];
-    const add = (expression, reading, meaning) => {
-      const item = {
-        expression: stringValue(expression),
-        reading: stringValue(reading),
-        meaning: stringValue(meaning)
-      };
-      if (!item.expression || examples.some((existing) => existing.expression === item.expression)) return;
-      examples.push(item);
-    };
-    unknownArray(kanjiAlive?.examples).forEach((example) => {
-      const record = asRecord(example);
-      add(record?.japanese, "", asRecord(record?.meaning)?.english);
-    });
-    [...unknownArray(jisho?.onyomiExamples), ...unknownArray(jisho?.kunyomiExamples)].forEach((example) => {
-      const record = asRecord(example);
-      add(record?.example, record?.reading, record?.meaning);
-    });
-    return examples.slice(0, 6);
-  }
-  function readKanjiMapReferences(kanjiAlive, jisho) {
-    const references = asRecord(kanjiAlive?.references);
-    const facts = [];
-    const add = (label, value, source) => {
-      const text = stringValue(value);
-      if (text) facts.push({ label, value: text, source });
-    };
-    add("Kodansha", references?.kodansha, "Kanji Alive");
-    add("Classic Nelson", references?.classic_nelson, "Kanji Alive");
-    add("Jisho", jisho?.uri, "Jisho");
-    return facts.slice(0, 4);
-  }
-  function normalizeJlpt(value) {
-    if (value === void 0 || value === null || value === "") return void 0;
-    const match = String(value).match(/[nN]?([1-5])/);
-    return match ? `N${match[1]}` : void 0;
-  }
-  function normalizeGrade(value) {
-    if (value === void 0 || value === null || value === "") return "";
-    const text = String(value).trim();
-    const match = text.match(/(?:grade\s*)?([1-6])/i);
-    return match ? `Grade ${match[1]}` : text;
-  }
-  function normalizeNumber(value) {
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
-    const match = String(value ?? "").match(/\d{1,5}/);
-    return match?.[0];
-  }
-  function normalizeFrequency(value) {
-    const number = normalizeNumber(value);
-    return number ? `#${number}` : "";
-  }
-  function stringArray(value, fallback = "") {
-    const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
-    return values.map((item) => stringValue(item)).map((item) => item.trim()).filter(Boolean);
-  }
-  function unknownArray(value) {
-    return Array.isArray(value) ? value : [];
-  }
-  function stringValue(value) {
-    if (value === void 0 || value === null) return "";
-    if (typeof value === "string") return value.trim();
-    if (isFiniteNumber(value)) return String(value);
-    return "";
-  }
-  function isFiniteNumber(value) {
-    return typeof value === "number" && Number.isFinite(value);
-  }
-  function numberValue(value) {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    const match = String(value ?? "").match(/\d+/);
-    return match ? Number(match[0]) : void 0;
-  }
-  function safeMediaUrl(value) {
-    return /^https:\/\/media\.kanjialive\.com\//i.test(value) ? value : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
-  }
-  function parseJson(value) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-  function requestText$2(url) {
-    return requestText$4(url, {
-      timeoutMs: 1e4,
-      failureLabel: "Kanji origin request",
-      timeoutLabel: "Kanji origin request timed out."
-    }).catch((error) => {
-      log$2.warn("Kanji origin request failed", { host: safeHost(url), error });
-      throw error;
-    });
-  }
-  function safeHost(url) {
-    try {
-      return new URL(url, location.href).host;
-    } catch {
-      return "";
-    }
-  }
-  const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
-  const CURVE_STEPS = 10;
-  const PATH_COMMAND_READERS = {
-    M: (sampler, relative) => sampler.readMove(relative),
-    L: (sampler, relative) => sampler.readLines(relative),
-    H: (sampler, relative) => sampler.readHorizontalLines(relative),
-    V: (sampler, relative) => sampler.readVerticalLines(relative),
-    C: (sampler, relative) => sampler.readCubics(relative),
-    S: (sampler, relative) => sampler.readSmoothCubics(relative),
-    Q: (sampler, relative) => sampler.readQuadratics(relative),
-    T: (sampler, relative) => sampler.readSmoothQuadratics(relative),
-    A: (sampler, relative) => sampler.readArcs(relative),
-    Z: (sampler) => sampler.closePath()
-  };
-  function parseSvgPathPoints(pathData) {
-    return new SvgPathSampler(pathData).parse();
-  }
-  class SvgPathSampler {
-    tokens;
-    index = 0;
-    command = "";
-    current = { x: 0, y: 0 };
-    start = { x: 0, y: 0 };
-    lastCubicControl = null;
-    lastQuadraticControl = null;
-    points = [];
-    constructor(pathData) {
-      this.tokens = pathData.match(SVG_PATH_TOKEN) ?? [];
-    }
-    parse() {
-      while (this.index < this.tokens.length) {
-        if (isPathCommand(this.tokens[this.index])) this.command = this.tokens[this.index++] ?? "";
-        if (!this.command) break;
-        const before = this.index;
-        const reader = PATH_COMMAND_READERS[this.command.toUpperCase()];
-        if (!reader?.(this, this.command === this.command.toLowerCase())) return this.points;
-        if (this.index === before && !isPathCommand(this.tokens[this.index])) return this.points;
-      }
-      return this.points;
-    }
-    readMove(relative) {
-      if (!this.hasNumbers(2)) return false;
-      this.current = this.absolute(this.read(), this.read(), relative);
-      this.start = this.current;
-      this.push(this.current);
-      this.command = relative ? "l" : "L";
-      this.clearControls();
-      return true;
-    }
-    readLines(relative) {
-      while (this.hasNumbers(2)) this.lineTo(this.absolute(this.read(), this.read(), relative));
-      return true;
-    }
-    readHorizontalLines(relative) {
-      while (this.hasNumbers(1)) {
-        const x = this.read();
-        this.lineTo({ x: relative ? this.current.x + x : x, y: this.current.y });
-      }
-      return true;
-    }
-    readVerticalLines(relative) {
-      while (this.hasNumbers(1)) {
-        const y = this.read();
-        this.lineTo({ x: this.current.x, y: relative ? this.current.y + y : y });
-      }
-      return true;
-    }
-    readCubics(relative) {
-      return this.readCurve(6, () => {
-        this.sampleCubicTo(
-          this.readAbsolutePoint(relative),
-          this.readAbsolutePoint(relative),
-          this.readAbsolutePoint(relative)
-        );
-      });
-    }
-    readSmoothCubics(relative) {
-      return this.readCurve(4, () => {
-        const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
-        this.sampleCubicTo(c1, this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
-      });
-    }
-    readQuadratics(relative) {
-      return this.readCurve(4, () => {
-        this.sampleQuadraticTo(this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
-      });
-    }
-    readSmoothQuadratics(relative) {
-      return this.readCurve(2, () => {
-        const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
-        this.sampleQuadraticTo(control, this.readAbsolutePoint(relative));
-      });
-    }
-    readCurve(numberCount, readSegment) {
-      while (this.hasNumbers(numberCount)) readSegment();
-      return true;
-    }
-    setCubicControl(control) {
-      this.lastCubicControl = control;
-      this.lastQuadraticControl = null;
-    }
-    setQuadraticControl(control) {
-      this.lastQuadraticControl = control;
-      this.lastCubicControl = null;
-    }
-    readAbsolutePoint(relative) {
-      return this.absolute(this.read(), this.read(), relative);
-    }
-    sampleCubicTo(c1, c2, end) {
-      sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
-      this.current = end;
-      this.setCubicControl(c2);
-    }
-    sampleQuadraticTo(control, end) {
-      sampleQuadratic(this.current, control, end, (point) => this.push(point));
-      this.current = end;
-      this.setQuadraticControl(control);
-    }
-    readArcs(relative) {
-      while (this.hasNumbers(7)) {
-        this.read();
-        this.read();
-        this.read();
-        this.read();
-        this.read();
-        this.lineTo(this.absolute(this.read(), this.read(), relative));
-      }
-      return true;
-    }
-    closePath() {
-      this.lineTo(this.start);
-      this.command = "";
-      return true;
-    }
-    push(point) {
-      const previous = this.points.at(-1);
-      if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) > 1e-3) this.points.push(point);
-    }
-    hasNumbers(count) {
-      return this.index + count <= this.tokens.length && this.tokens.slice(this.index, this.index + count).every((token) => !isPathCommand(token));
-    }
-    read() {
-      return Number(this.tokens[this.index++]);
-    }
-    absolute(x, y, relative) {
-      return relative ? { x: this.current.x + x, y: this.current.y + y } : { x, y };
-    }
-    lineTo(point) {
-      this.current = point;
-      this.push(this.current);
-      this.clearControls();
-    }
-    clearControls() {
-      this.lastCubicControl = null;
-      this.lastQuadraticControl = null;
-    }
-  }
-  function isPathCommand(token) {
-    return Boolean(token && /^[A-Za-z]$/.test(token));
-  }
-  function reflect(origin, control) {
-    return {
-      x: origin.x * 2 - control.x,
-      y: origin.y * 2 - control.y
-    };
-  }
-  function sampleCubic(from, c1, c2, to, push) {
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      const mt = 1 - t;
-      push({
-        x: mt ** 3 * from.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * to.x,
-        y: mt ** 3 * from.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * to.y
-      });
-    }
-  }
-  function sampleQuadratic(from, c, to, push) {
-    for (let step = 1; step <= CURVE_STEPS; step += 1) {
-      const t = step / CURVE_STEPS;
-      const mt = 1 - t;
-      push({
-        x: mt ** 2 * from.x + 2 * mt * t * c.x + t ** 2 * to.x,
-        y: mt ** 2 * from.y + 2 * mt * t * c.y + t ** 2 * to.y
-      });
-    }
-  }
-  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
-  const KANJIVG_POSITION_THRESHOLD = 0.12;
-  const KANJIVG_HORIZONTAL_DOMINANCE = 1.12;
-  const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
-  const KANJIVG_STROKE_LABEL = /^[\d]+$/;
-  const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$1 = Logger.scope("KanjiVG");
-  const KANJIVG_AXIS_POSITIONS = {
-    x: { negative: "left", positive: "right" },
-    y: { negative: "top", positive: "bottom" }
-  };
-  class KanjiVGClient {
-    cache = /* @__PURE__ */ new Map();
-    lookup(kanji) {
-      const character = Array.from(kanji)[0] ?? "";
-      if (!character) return Promise.resolve(null);
-      let promise = this.cache.get(character);
-      if (!promise) {
-        promise = this.fetchSvg(character);
-        this.cache.set(character, promise);
-      }
-      return promise;
-    }
-    async fetchSvg(kanji) {
-      const url = kanjiVGUrl(kanji);
-      const svgText = await requestText$1(url).catch((error) => {
-        log$1.warn("Stroke-order request failed", { kanji }, error);
-        return "";
-      });
-      if (!svgText) return null;
-      const info = parseKanjiVGSvg(svgText, kanji);
-      return info;
-    }
-  }
-  function kanjiVGUrl(kanji) {
-    const codePoint = kanji.codePointAt(0) ?? 0;
-    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
-  }
-  function parseKanjiVGSvg(svgText, kanji) {
-    const doc = parseXmlDocument(svgText, "image/svg+xml");
-    const sourceSvg = doc.querySelector("svg");
-    if (!sourceSvg) return null;
-    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
-    const componentPositions = readKanjiVGComponentPositions(sourceSvg, kanji);
-    const parsedPaths = readKanjiVGPaths(sourceSvg, viewBox);
-    const paths = parsedPaths.map((path) => path.svg);
-    if (!paths.length) return null;
-    const strokeShapes = parsedPaths.map((path) => path.shape);
-    const numbers = readKanjiVGStrokeNumbers(sourceSvg);
-    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml(kanji)}">
-        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-    </svg>`;
-    return {
-      kanji,
-      svg,
-      strokeCount: paths.length,
-      strokeShapes: strokeShapes.every(Boolean) ? strokeShapes : void 0,
-      componentPositions
-    };
-  }
-  function readKanjiVGPaths(sourceSvg, viewBox) {
-    return Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => readKanjiVGPath(path, index, viewBox)).filter((path) => Boolean(path));
-  }
-  function readKanjiVGPath(path, index, viewBox) {
-    const d = path.getAttribute("d");
-    if (!isSafeKanjiVGPathData(d)) return null;
-    return {
-      svg: renderKanjiVGPath(d, index),
-      shape: readKanjiVGStrokeShape(d, viewBox)
-    };
-  }
-  function isSafeKanjiVGPathData(pathData) {
-    return Boolean(pathData && KANJIVG_SAFE_PATH_DATA.test(pathData));
-  }
-  function renderKanjiVGPath(pathData, index) {
-    return `<path d="${escapeHtml(pathData)}" style="--stroke-index:${index}" />`;
-  }
-  function readKanjiVGStrokeNumbers(sourceSvg) {
-    return Array.from(sourceSvg.querySelectorAll("text")).map(readKanjiVGStrokeNumber).filter(Boolean);
-  }
-  function readKanjiVGStrokeNumber(text) {
-    const transform = text.getAttribute("transform") ?? "";
-    const label = (text.textContent ?? "").trim();
-    if (!isSafeKanjiVGStrokeNumber(label, transform)) return "";
-    return renderKanjiVGStrokeNumber(transform, label);
-  }
-  function isSafeKanjiVGStrokeNumber(label, transform) {
-    return KANJIVG_STROKE_LABEL.test(label) && KANJIVG_TEXT_TRANSFORM.test(transform);
-  }
-  function renderKanjiVGStrokeNumber(transform, label) {
-    return `<text transform="${escapeHtml(transform)}">${escapeHtml(label)}</text>`;
-  }
-  function readKanjiVGStrokeShape(pathData, viewBox) {
-    const box = parseViewBox(viewBox);
-    const points = parseSvgPathPoints(pathData).map((point) => ({
-      x: (point.x - box.x) / box.width,
-      y: (point.y - box.y) / box.height
-    })).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
-    return points.length > 1 ? points : null;
-  }
-  function parseViewBox(viewBox) {
-    const values = viewBox.trim().split(/[\s,]+/).map(Number);
-    const [x, y, width, height] = values;
-    if (values.length === 4 && values.every(Number.isFinite) && width > 0 && height > 0) {
-      return { x, y, width, height };
-    }
-    return { x: 0, y: 0, width: 109, height: 109 };
-  }
-  function readKanjiVGComponentPositions(sourceSvg, kanji) {
-    const root = Array.from(sourceSvg.querySelectorAll("g")).find((group) => group.getAttribute("kvg:element") === kanji);
-    const viewBox = parseViewBox(sourceSvg.getAttribute("viewBox") || "0 0 109 109");
-    const context = { kanji, root, viewBox };
-    const positions = /* @__PURE__ */ new Map();
-    for (const group of sourceSvg.querySelectorAll("g")) {
-      for (const entry of readKanjiVGComponentPositionEntries(group, context)) {
-        addKanjiVGComponentPosition(positions, entry);
-      }
-    }
-    return Array.from(positions.values());
-  }
-  function readKanjiVGComponentPositionEntries(group, context) {
-    const component = cleanComponent(group.getAttribute("kvg:element") ?? "");
-    if (!isNestedKanjiVGComponent(component, context.kanji)) return [];
-    const entry = readKanjiVGComponentPositionEntry(group, component, context);
-    return entry ? expandKanjiVGOriginalComponent(entry) : [];
-  }
-  function isNestedKanjiVGComponent(component, kanji) {
-    return Boolean(component && component !== kanji);
-  }
-  function readKanjiVGComponentPositionEntry(group, component, context) {
-    const parentGroup = nearestKanjiVGComponentParent(group, context.root);
-    const position = readKanjiVGPosition(group, parentGroup, context);
-    if (!position) return null;
-    const original = cleanComponent(group.getAttribute("kvg:original") ?? "");
-    const direct = Boolean(context.root && parentGroup === context.root);
-    return {
-      component,
-      original: original || void 0,
-      ...readKanjiVGParent(parentGroup),
-      position,
-      direct,
-      depth: kanjiVGComponentDepth(group, context.root),
-      ...readKanjiVGVariant(group),
-      ...readKanjiVGComponentGeometry(group, context.viewBox)
-    };
-  }
-  function readKanjiVGPosition(group, parentGroup, context) {
-    return cleanComponent(group.getAttribute("kvg:position") ?? geometricKanjiVGPosition(group, parentGroup, context.viewBox) ?? inheritedKanjiVGPosition(group, context.root));
-  }
-  function readKanjiVGParent(parentGroup) {
-    const parent = cleanComponent(parentGroup?.getAttribute("kvg:element") ?? "");
-    if (!parent) return {};
-    return {
-      parent,
-      parentOriginal: cleanComponent(parentGroup?.getAttribute("kvg:original") ?? "") || void 0
-    };
-  }
-  function readKanjiVGVariant(group) {
-    return group.getAttribute("kvg:variant") === "true" ? { variant: true } : {};
-  }
-  function readKanjiVGComponentGeometry(group, viewBox) {
-    const bounds = normalizedKanjiVGElementBounds(group, viewBox);
-    if (!bounds) return {};
-    return {
-      bounds,
-      center: {
-        x: roundKanjiVGGeometry(bounds.x + bounds.width / 2),
-        y: roundKanjiVGGeometry(bounds.y + bounds.height / 2)
-      }
-    };
-  }
-  function expandKanjiVGOriginalComponent(entry) {
-    if (!entry.original || entry.original === entry.component) return [entry];
-    return [
-      entry,
-      {
-        ...entry,
-        component: entry.original,
-        original: entry.component
-      }
-    ];
-  }
-  function addKanjiVGComponentPosition(positions, entry) {
-    const key2 = kanjiVGComponentPositionKey(entry);
-    const existing = positions.get(key2);
-    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key2, entry);
-  }
-  function kanjiVGComponentPositionKey(entry) {
-    return `${entry.component}\0${entry.original ?? ""}\0${entry.parent ?? ""}\0${entry.position}`;
-  }
-  function shouldReplaceKanjiVGComponentPosition(existing, entry) {
-    if (!existing) return true;
-    if (!existing.direct && entry.direct) return true;
-    return Boolean(existing.variant && !entry.variant);
-  }
-  function nearestKanjiVGComponentParent(group, root) {
-    let parent = group.parentElement;
-    while (parent) {
-      if (parent === root || cleanComponent(parent.getAttribute("kvg:element") ?? "")) return parent;
-      parent = parent.parentElement;
-    }
-    return void 0;
-  }
-  function kanjiVGComponentDepth(group, root) {
-    let depth = 0;
-    let parent = group.parentElement;
-    while (parent && parent !== root) {
-      if (cleanComponent(parent.getAttribute("kvg:element") ?? "")) depth += 1;
-      parent = parent.parentElement;
-    }
-    return depth + 1;
-  }
-  function geometricKanjiVGPosition(group, parent, viewBox) {
-    const offset = relativeKanjiVGCenterOffset(group, parent, viewBox);
-    return offset ? kanjiVGOffsetPosition(offset) : "";
-  }
-  function relativeKanjiVGCenterOffset(group, parent, viewBox) {
-    if (!parent) return null;
-    const groupBox = positiveKanjiVGElementBox(group, viewBox);
-    const parentBox = positiveKanjiVGElementBox(parent, viewBox);
-    if (!groupBox || !parentBox) return null;
-    return {
-      x: (boxCenterX(groupBox) - boxCenterX(parentBox)) / parentBox.width,
-      y: (boxCenterY(groupBox) - boxCenterY(parentBox)) / parentBox.height
-    };
-  }
-  function positiveKanjiVGElementBox(element, viewBox) {
-    const box = kanjiVGElementBox(element, viewBox);
-    return box && hasPositiveArea(box) ? box : null;
-  }
-  function hasPositiveArea(box) {
-    return box.width > 0 && box.height > 0;
-  }
-  function boxCenterX(box) {
-    return box.x + box.width / 2;
-  }
-  function boxCenterY(box) {
-    return box.y + box.height / 2;
-  }
-  function kanjiVGOffsetPosition(offset) {
-    const axis = dominantKanjiVGOffsetAxis(offset);
-    if (axis === "center") return axis;
-    return KANJIVG_AXIS_POSITIONS[axis][kanjiVGOffsetDirection(offset[axis])];
-  }
-  function kanjiVGOffsetDirection(value) {
-    return value < 0 ? "negative" : "positive";
-  }
-  function dominantKanjiVGOffsetAxis(offset) {
-    const absX = Math.abs(offset.x);
-    const absY = Math.abs(offset.y);
-    if (absX > absY * KANJIVG_HORIZONTAL_DOMINANCE && absX > KANJIVG_POSITION_THRESHOLD) return "x";
-    if (absY > KANJIVG_POSITION_THRESHOLD) return "y";
-    return "center";
-  }
-  function kanjiVGElementBox(element, viewBox) {
-    const points = readKanjiVGElementPoints(element, viewBox);
-    if (!points.length) return null;
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const left = Math.min(...xs);
-    const right = Math.max(...xs);
-    const top = Math.min(...ys);
-    const bottom = Math.max(...ys);
-    return { x: left, y: top, width: right - left, height: bottom - top };
-  }
-  function readKanjiVGElementPoints(element, viewBox) {
-    return Array.from(element.querySelectorAll("path")).flatMap((path) => readKanjiVGElementPathPoints(path, viewBox));
-  }
-  function readKanjiVGElementPathPoints(path, viewBox) {
-    return parseSvgPathPoints(path.getAttribute("d") ?? "").filter((point) => isKanjiVGGeometryPoint(point, viewBox));
-  }
-  function isKanjiVGGeometryPoint(point, viewBox) {
-    return point.x >= viewBox.x - viewBox.width && point.y >= viewBox.y - viewBox.height;
-  }
-  function normalizedKanjiVGElementBounds(element, viewBox) {
-    const box = positiveKanjiVGElementBox(element, viewBox);
-    if (!box) return null;
-    const edges = normalizedKanjiVGBoxEdges(box, viewBox);
-    return edges ? roundedKanjiVGBounds(edges) : null;
-  }
-  function normalizedKanjiVGBoxEdges(box, viewBox) {
-    const left = clampUnit((box.x - viewBox.x) / viewBox.width);
-    const top = clampUnit((box.y - viewBox.y) / viewBox.height);
-    const right = clampUnit((box.x + box.width - viewBox.x) / viewBox.width);
-    const bottom = clampUnit((box.y + box.height - viewBox.y) / viewBox.height);
-    if (right <= left || bottom <= top) return null;
-    return { left, top, right, bottom };
-  }
-  function roundedKanjiVGBounds(edges) {
-    return {
-      x: roundKanjiVGGeometry(edges.left),
-      y: roundKanjiVGGeometry(edges.top),
-      width: roundKanjiVGGeometry(edges.right - edges.left),
-      height: roundKanjiVGGeometry(edges.bottom - edges.top)
-    };
-  }
-  function clampUnit(value) {
-    return Math.max(0, Math.min(1, value));
-  }
-  function roundKanjiVGGeometry(value) {
-    return Number(value.toFixed(4));
-  }
-  function inheritedKanjiVGPosition(group, root) {
-    let parent = group.parentElement;
-    while (parent && parent !== root) {
-      const position = parent.getAttribute("kvg:position");
-      if (position) return position;
-      parent = parent.parentElement;
-    }
-    return "";
-  }
-  function cleanComponent(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function requestText$1(url) {
-    return requestText$4(url, {
-      timeoutMs: 8e3,
-      failureLabel: "Stroke-order request",
-      timeoutLabel: "Stroke-order request timed out."
-    });
-  }
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -4605,6 +4119,164 @@ recommendedJiten	jiten.moe頻度データです。
   function uiText(language, key2) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY.en[key2];
   }
+  function splitRtkElements(value) {
+    const seen = /* @__PURE__ */ new Set();
+    const elements = [];
+    value.split(/[、,;＋+]/).map(cleanRtkElementKeyword).filter(Boolean).forEach((keyword) => {
+      const key2 = rtkElementKey(keyword);
+      if (seen.has(key2)) return;
+      seen.add(key2);
+      elements.push(keyword);
+    });
+    return elements.slice(0, 16);
+  }
+  function cleanRtkElementKeyword(value) {
+    return value.replace(/\s+/g, " ").trim().replace(/\d+$/u, "").trim();
+  }
+  function rtkElementKey(value) {
+    return cleanRtkElementKeyword(value).toLowerCase().replace(/[’']/g, "");
+  }
+  const RTK_ELEMENT_GLYPH_FALLBACKS = new Map(
+    "heart=心=心|fishhook=乙=乙|fishguts=乙=乙|fish guts=乙=乙|stick=丨|walking stick=丨|drop=丶|drops=丶|a drop of=丶|hook right=⺃|hook (right)=⺃|state of mind=⺖|valentine=⺗|animal legs=ハ|human legs=儿|wind=几|bound up=勹|bound up small=⺈|bound up (small)=⺈|horns=丷|saber=⺉|little=⺌|cliff=厂|water=⺡|fire=⺣|hood=冂|house=宀|flower=艹|pack of wild dogs=⺨|cow left=牜|cow top=⺧|umbrella=𠆢|road=⻌|walking legs=夂|crown=冖|top hat=亠|taskmaster=攵|fiesta=戈|stretch=廴|zoo=疋|zoo left=⺪|cloak=⻂|ice left=冫|ice bottom=⺀|reclining=𠂉|wings=羽=羽|feathers=羽=羽|person=⺅|finger=扌|two hands bottom=廾|elbow=厶|going=彳|altar=⺭|broom=彐|broom old=⺔|rake=⺺|shovel=凵|old man=耂|cocoon=幺|stamp=卩|chop seal=ㄗ|chop seal small=マ|silver=艮|sheaf=㐅|cornucopia=丩|key=ユ|sickness=疒|box=匚|shape=彡|row=业|city walls right=⻏".split("|").map((value) => {
+      const [key2, glyph, kanji] = value.split("=");
+      return [key2, kanji ? { glyph, kanji } : { glyph }];
+    })
+  );
+  function rtkElementFallbackGlyph(keyword) {
+    return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
+  }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  function isKanjiCharacter$1(value) {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 13312 && code <= 40959;
+  }
+  function sourceStateAttribute(sourceStateKey, initiallyExpanded) {
+    return sourceStateKey ? `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : "";
+  }
+  function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries) {
+    const elementKeywords = splitRtkElements(rtkInfo?.elements ?? "").filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(rtkInfo?.keyword ?? ""));
+    const jpdbByKanji = new Map((jpdbInfo?.components ?? []).map((component) => [component.kanji, component.keyword]));
+    const localByKanji = new Map(entries.map((entry) => [entry.character, entry.meanings.slice(0, 3).join(", ")]));
+    const summaries = [.../* @__PURE__ */ new Set([...rtkInfo?.componentKanji ?? [], ...jpdbInfo?.components.map((component) => component.kanji) ?? []])].filter(isKanjiCharacter$1).map((kanji, index) => ({
+      kanji,
+      keyword: jpdbByKanji.get(kanji) || elementKeywords[index] || "",
+      meaning: localByKanji.get(kanji) || ""
+    }));
+    return summaries;
+  }
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries, language = "en") {
+    const keywords = /* @__PURE__ */ new Map();
+    const addKeyword = (text, source) => {
+      const normalized = text?.trim();
+      if (!normalized) return;
+      const key2 = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key2) ?? { text: normalized, sources: [] };
+      if (!existing.sources.includes(source)) existing.sources.push(source);
+      keywords.set(key2, existing);
+    };
+    addKeyword(jpdbInfo?.keyword, "JPDB");
+    addKeyword(rtkInfo?.keyword, "RTK");
+    entries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
+    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml(keyword.sources.join(" · "))}"><small>${escapeHtml(keyword.sources.join("/"))}</small><span>${escapeHtml(keyword.text)}</span></span>`).join("");
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  }
+  function parseRtkElementChip(value) {
+    const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
+    if (!match) return { keyword: value, glyph: "", kanji: "" };
+    const glyph = match[1] ?? "";
+    return { glyph, kanji: isKanjiCharacter$1(glyph) ? glyph : "", keyword: match[2]?.trim() ?? "" };
+  }
+  function buildRtkElementChips(info, components2) {
+    const componentKanji = new Set(components2.map((component) => component.kanji).filter(Boolean));
+    const componentByKeyword = /* @__PURE__ */ new Map();
+    components2.forEach((component) => {
+      if (component.keyword) componentByKeyword.set(rtkElementKey(component.keyword), { glyph: component.kanji, kanji: component.kanji });
+    });
+    const chips = splitRtkElements(info.elements).map(parseRtkElementChip).filter((chip) => chip.keyword && rtkElementKey(chip.keyword) !== rtkElementKey(info.keyword)).map((chip) => rtkElementChipWithGlyph(chip, info, componentKanji, componentByKeyword));
+    const anchoredKanji = new Set(chips.map((chip) => chip.kanji).filter(Boolean));
+    const allKnownComponentsAnchored = componentKanji.size > 0 && [...componentKanji].every((kanji) => anchoredKanji.has(kanji));
+    return chips.map((chip, index) => fillRtkChipGlyph(chip, index, chips, allKnownComponentsAnchored));
+  }
+  function rtkElementChipWithGlyph(chip, info, componentKanji, componentByKeyword) {
+    const inferred = rtkElementInferredGlyph(chip, info, componentKanji, componentByKeyword);
+    return {
+      keyword: chip.keyword,
+      glyph: inferred?.glyph ?? "",
+      kanji: inferred?.kanji ?? ""
+    };
+  }
+  function rtkElementInferredGlyph(chip, info, componentKanji, componentByKeyword) {
+    return inlineRtkElementGlyph(chip, componentKanji) ?? componentByKeyword.get(rtkElementKey(chip.keyword)) ?? info.elementGlyphs?.[rtkElementKey(chip.keyword)] ?? rtkElementFallbackGlyph(chip.keyword);
+  }
+  function inlineRtkElementGlyph(chip, componentKanji) {
+    return chip.glyph && canUseInlineRtkGlyph(chip, componentKanji) ? { glyph: chip.glyph, kanji: chip.kanji } : void 0;
+  }
+  function canUseInlineRtkGlyph(chip, componentKanji) {
+    return !componentKanji.size || componentKanji.has(chip.kanji);
+  }
+  function fillRtkChipGlyph(chip, index, chips, allKnownComponentsAnchored) {
+    if (chip.glyph) return chip;
+    const previous = lastAnchoredRtkChip(chips, index);
+    if (!previous || !shouldFillRtkChipFromPrevious(chips, index, allKnownComponentsAnchored)) return chip;
+    return { ...chip, glyph: previous.glyph, kanji: previous.kanji };
+  }
+  function shouldFillRtkChipFromPrevious(chips, index, allKnownComponentsAnchored) {
+    return allKnownComponentsAnchored || Boolean(nextAnchoredRtkChip(chips, index));
+  }
+  function lastAnchoredRtkChip(chips, beforeIndex) {
+    for (let index = beforeIndex - 1; index >= 0; index -= 1) {
+      if (chips[index]?.kanji) return chips[index] ?? null;
+    }
+    return null;
+  }
+  function nextAnchoredRtkChip(chips, afterIndex) {
+    for (let index = afterIndex + 1; index < chips.length; index += 1) {
+      if (chips[index]?.kanji) return chips[index] ?? null;
+    }
+    return null;
+  }
+  function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey) {
+    if (!info) return "";
+    const elementChips = buildRtkElementChips(info, components2);
+    const readings2 = renderRtkReadings(info, language);
+    const elementSection = renderRtkElementSection(elementChips, language);
+    const stories = renderRtkStories(info, language);
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+            <summary class="jpdb-reader-local-title">RTK</summary>
+            <div class="jpdb-reader-local-entry">
+                <div class="jpdb-reader-rtk-head">
+                    <strong>${escapeHtml(info.keyword)}</strong>
+                    ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ""}
+                </div>
+                ${readings2}
+                ${elementSection}
+                ${stories}
+            </div>
+        </details>
+    `;
+  }
+  function renderRtkReadings(info, language) {
+    if (!info.onYomi && !info.kunYomi) return "";
+    return `<div class="jpdb-reader-kanji-readings">
+        ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml(info.onYomi)}</span>` : ""}
+        ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml(info.kunYomi)}</span>` : ""}
+    </div>`;
+  }
+  function renderRtkElementSection(elementChips, language) {
+    return elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">${elementChips.map((chip) => renderRtkElementChip(chip, language)).join("")}</div>` : "";
+  }
+  function renderRtkElementChip(chip, language) {
+    const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ""}<span>${escapeHtml(chip.keyword)}</span>`;
+    return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
+  }
+  function renderRtkStories(info, language) {
+    return [
+      info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : "",
+      info.heisigComment ? `<details open><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : "",
+      info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml(story)}</p>`).join("")}</details>` : ""
+    ].join("");
+  }
   function graphEllipseOffset(dx, dy, rx, ry) {
     const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
     return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
@@ -4676,6 +4348,1153 @@ recommendedJiten	jiten.moe頻度データです。
       x: x1 + (x2 - x1) * t,
       y: y1 + (y2 - y1) * t
     };
+  }
+  const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
+  const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
+  function installOriginGraphInteractions(root) {
+    root.querySelectorAll(".jpdb-reader-origin-graph-wrap").forEach((wrap) => {
+      if (wrap.dataset.graphDragInstalled === "true") {
+        refreshOriginGraphEdgesAfterLayout(wrap);
+        return;
+      }
+      wrap.dataset.graphDragInstalled = "true";
+      installOriginGraphDrag(wrap);
+      installOriginGraphRefreshHooks(wrap);
+      refreshOriginGraphEdgesAfterLayout(wrap);
+    });
+  }
+  function installOriginGraphDrag(wrap) {
+    let active = null;
+    let suppressClick = false;
+    wrap.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const node = target?.closest(".jpdb-reader-origin-graph-node");
+      if (!node || !wrap.contains(node)) return;
+      const pointer = originGraphPointerPercent(wrap, event);
+      const center = originGraphNodeCenter(node);
+      active = {
+        node,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        grabOffsetX: center.x - pointer.x,
+        grabOffsetY: center.y - pointer.y,
+        moved: false
+      };
+      node.classList.add("dragging");
+      node.setPointerCapture?.(event.pointerId);
+    });
+    wrap.addEventListener("pointermove", (event) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      if (!active.moved && pointerDistance(active, event) < ORIGIN_GRAPH_DRAG_THRESHOLD_PX) return;
+      event.preventDefault();
+      active.moved = true;
+      const pointer = originGraphPointerPercent(wrap, event);
+      const next = clampOriginGraphNodePosition(wrap, active.node, pointer.x + active.grabOffsetX, pointer.y + active.grabOffsetY);
+      moveOriginGraphNode(active.node, next.x, next.y);
+      refreshOriginGraphEdges(wrap);
+    });
+    const finish = (event) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      active.node.classList.remove("dragging");
+      active.node.releasePointerCapture?.(event.pointerId);
+      if (active.moved) {
+        suppressClick = true;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      active = null;
+    };
+    wrap.addEventListener("pointerup", finish);
+    wrap.addEventListener("pointercancel", finish);
+    wrap.addEventListener("click", (event) => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+  }
+  function installOriginGraphRefreshHooks(wrap) {
+    wrap.closest("details")?.addEventListener("toggle", () => refreshOriginGraphEdgesAfterLayout(wrap));
+    wrap.querySelectorAll(".jpdb-reader-origin-graph-toggle input").forEach((input) => {
+      input.addEventListener("change", () => refreshOriginGraphEdgesAfterLayout(wrap));
+    });
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => refreshOriginGraphEdgesAfterLayout(wrap));
+      observer.observe(wrap);
+      wrap.querySelectorAll(".jpdb-reader-origin-graph-node").forEach((node) => observer.observe(node));
+    }
+  }
+  function pointerDistance(active, event) {
+    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
+  }
+  function refreshOriginGraphEdgesAfterLayout(wrap) {
+    setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
+    requestOriginGraphFrame(() => {
+      setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
+    });
+  }
+  function requestOriginGraphFrame(callback) {
+    const requestFrame = typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : (frameCallback) => window.setTimeout(() => frameCallback(performance.now()), 0);
+    requestFrame(callback);
+  }
+  function setOriginGraphReady(wrap, ready) {
+    if (ready) {
+      wrap.dataset.graphReady = "true";
+    } else {
+      delete wrap.dataset.graphReady;
+    }
+  }
+  function originGraphPointerPercent(wrap, event) {
+    const rect = wrap.getBoundingClientRect();
+    if (!rect.width || !rect.height) return { x: 50, y: 50 };
+    return {
+      x: (event.clientX - rect.left) / rect.width * 100,
+      y: (event.clientY - rect.top) / rect.height * 100
+    };
+  }
+  function clampOriginGraphNodePosition(wrap, node, x, y) {
+    const measured = measuredOriginGraphNodeRadii(wrap, node);
+    const fallbackRx = Number(node.dataset.rx || 5);
+    const fallbackRy = Number(node.dataset.ry || 5);
+    const rx = measured.rx || fallbackRx;
+    const ry = measured.ry || fallbackRy;
+    return {
+      x: clampGraphPercent(x, rx + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - rx - ORIGIN_GRAPH_EDGE_PADDING_PERCENT),
+      y: clampGraphPercent(y, ry + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - ry - ORIGIN_GRAPH_EDGE_PADDING_PERCENT)
+    };
+  }
+  function moveOriginGraphNode(node, x, y) {
+    node.dataset.x = String(x);
+    node.dataset.y = String(y);
+    node.style.left = `${x}%`;
+    node.style.top = `${y}%`;
+  }
+  function refreshOriginGraphEdges(wrap) {
+    const wrapRect = wrap.getBoundingClientRect();
+    if (!wrapRect.width || !wrapRect.height) return false;
+    wrap.querySelectorAll(".jpdb-reader-origin-edge-group").forEach((group) => {
+      const from = originGraphNodeGeometry(wrap, group.dataset.from);
+      const to = originGraphNodeGeometry(wrap, group.dataset.to);
+      if (!from || !to) return;
+      const edgePath = graphEdgePath(from, to, originGraphTargetZone(group.dataset.targetZone));
+      const path = group.querySelector(".jpdb-reader-origin-edge");
+      path?.setAttribute("d", edgePath.d);
+    });
+    return true;
+  }
+  function originGraphNodeGeometry(wrap, id) {
+    if (!id) return null;
+    const node = Array.from(wrap.querySelectorAll(".jpdb-reader-origin-graph-node")).find((candidate) => candidate.dataset.graphNode === id);
+    if (!node) return null;
+    const measured = measuredOriginGraphNodeRadii(wrap, node);
+    return {
+      ...originGraphNodeCenter(node),
+      rx: measured.rx || Number(node.dataset.rx || 5),
+      ry: measured.ry || Number(node.dataset.ry || 5)
+    };
+  }
+  function originGraphNodeCenter(node) {
+    return {
+      x: Number(node.dataset.x || 0),
+      y: Number(node.dataset.y || 0)
+    };
+  }
+  function measuredOriginGraphNodeRadii(wrap, node) {
+    const wrapRect = wrap.getBoundingClientRect();
+    if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
+    const width = node.offsetWidth || node.getBoundingClientRect().width;
+    const height = node.offsetHeight || node.getBoundingClientRect().height;
+    return {
+      rx: width > 0 ? width / 2 / wrapRect.width * 100 : 0,
+      ry: height > 0 ? height / 2 / wrapRect.height * 100 : 0
+    };
+  }
+  function originGraphTargetZone(value) {
+    return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
+  }
+  function clampGraphPercent(value, min = 0, max = 100) {
+    return Math.max(min, Math.min(max, Number(value.toFixed(2))));
+  }
+  const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+  const JPDB_BASE_URL = "https://jpdb.io";
+  function cleanText$1(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function decodePathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function absoluteJpdbUrl(value, fallback = "") {
+    try {
+      return new URL(value || "/", JPDB_BASE_URL).toString();
+    } catch {
+      return fallback;
+    }
+  }
+  function parseJpdbVocabularyUrl(value) {
+    if (!value) return null;
+    try {
+      return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
+    } catch {
+      return null;
+    }
+  }
+  function parseJpdbVocabularyPath(pathname) {
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts[0] !== "vocabulary") return null;
+    const vid = Number.parseInt(parts[1] ?? "", 10);
+    const reading = decodePathPart(parts[3] ?? "");
+    return {
+      vid: Number.isFinite(vid) ? vid : 0,
+      expression: decodePathPart(parts[2] ?? ""),
+      reading: JAPANESE_RE.test(reading) ? reading : ""
+    };
+  }
+  const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
+  const log$2 = Logger.scope("JpdbKanji");
+  class JpdbKanjiClient {
+    constructor(getCorsProxyUrl = () => "") {
+      this.getCorsProxyUrl = getCorsProxyUrl;
+    }
+    cache = /* @__PURE__ */ new Map();
+    actions = /* @__PURE__ */ new Map();
+    lookup(kanji) {
+      const key2 = Array.from(kanji)[0] ?? kanji;
+      if (!key2) return Promise.resolve(null);
+      let promise = this.cache.get(key2);
+      if (!promise) {
+        promise = this.fetchInfo(key2);
+        this.cache.set(key2, promise);
+      }
+      return promise;
+    }
+    async performAction(actionId) {
+      const action = this.actions.get(actionId);
+      if (!action) throw new Error("JPDB kanji action is no longer available.");
+      if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
+      log$2.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      await requestText$2(action.url, "", {
+        method: action.method,
+        payload: action.payload,
+        allowProxyFallback: false,
+        allowConfiguredProxy: false,
+        credentials: "same-origin"
+      });
+      this.cache.delete(action.kanji);
+      return this.lookup(action.kanji);
+    }
+    async fetchInfo(kanji) {
+      const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
+        log$2.warn("Kanji page request failed", { kanji }, error);
+        return "";
+      });
+      const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
+      if (info) {
+        visibleJpdbKanjiActions(info).forEach((action) => this.actions.set(action.id, action));
+      }
+      return info;
+    }
+  }
+  function parseJpdbKanjiHtml(html, kanji) {
+    const doc = parseHtmlDocument(html);
+    const keyword = sectionText(doc, "Keyword") || metaKeyword(doc, kanji);
+    if (!keyword) return null;
+    const parsed = parsedJpdbKanjiPage(doc);
+    const actions = kanjiActions(doc, kanji);
+    const visibleActions = actions.filter(isVisibleKanjiAction);
+    return {
+      kanji,
+      keyword,
+      ...parsed,
+      mnemonic: sectionText(doc, "Mnemonic"),
+      actions,
+      loggedIn: isLoggedIn(doc),
+      kanjiReviewsEnabled: visibleActions.length > 0
+    };
+  }
+  function parsedJpdbKanjiPage(doc) {
+    const infoRows = infoTableRows(doc);
+    return {
+      frequency: infoRows.get("Frequency") ?? "",
+      type: infoRows.get("Type") ?? "",
+      kanken: infoRows.get("Kanken") ?? "",
+      heisig: infoRows.get("Heisig") ?? "",
+      oldForms: oldForms(doc),
+      readings: readings(doc),
+      components: components(doc),
+      usedInKanji: usedInKanji(doc),
+      vocabulary: vocabulary(doc).slice(0, 8)
+    };
+  }
+  function visibleJpdbKanjiActions(info) {
+    if (!info?.kanjiReviewsEnabled) return [];
+    return info.actions.filter(isVisibleKanjiAction).slice(0, 3);
+  }
+  function jpdbKanjiActionClass(action) {
+    return KANJI_ACTION_CLASS_BY_ROLE[action.role] ?? "";
+  }
+  const KANJI_ACTION_CLASS_BY_ROLE = {
+    mine: "add",
+    review: "add",
+    known: "nf",
+    neverforget: "nf",
+    blacklist: "blacklist",
+    forget: "nf danger",
+    other: ""
+  };
+  function isVisibleKanjiAction(action) {
+    return action.enabled && action.role !== "other";
+  }
+  function isLoggedIn(doc) {
+    return !doc.querySelector('a[href="/login"], a[href^="/login?"], form[action="/login"], form[action^="/login?"]');
+  }
+  function kanjiActions(doc, kanji) {
+    const menu = doc.querySelector(".result.kanji .menu, .kanji .menu, .menu");
+    if (!menu) return [];
+    const actions = [];
+    const push = (action) => {
+      const id = `jpdb-kanji:${encodeURIComponent(kanji)}:${actions.length}`;
+      actions.push({ ...action, id });
+    };
+    menu.querySelectorAll("form").forEach((form) => {
+      const method = (form.getAttribute("method") || "GET").toUpperCase() === "POST" ? "POST" : "GET";
+      const url = absoluteJpdbUrl(form.getAttribute("action") || `/kanji/${encodeURIComponent(kanji)}`, "https://jpdb.io/");
+      const submitters = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"]')).filter((submitter) => cleanText$1(labelForControl(submitter)) && submitter.getAttribute("type")?.toLowerCase() !== "button");
+      const controls = submitters.length ? submitters : [form];
+      controls.forEach((control) => {
+        const action = kanjiFormAction(form, control, kanji, method, url);
+        if (action) push(action);
+      });
+    });
+    menu.querySelectorAll("a[href]").forEach((link) => {
+      if (link.closest("form")) return;
+      const label = cleanText$1(labelForControl(link));
+      if (!label) return;
+      const url = absoluteJpdbUrl(link.getAttribute("href") ?? "", "https://jpdb.io/");
+      push({
+        kanji,
+        label,
+        role: classifyKanjiAction(label, url),
+        kind: "link",
+        method: "GET",
+        url,
+        payload: {},
+        enabled: !isDisabled(link)
+      });
+    });
+    return actions.filter((action) => action.role !== "other" || /kanji|review|deck|blacklist|known|forget/i.test(action.label));
+  }
+  function labelForControl(element) {
+    if (element instanceof HTMLInputElement) return inputControlLabel(element);
+    return element.getAttribute("aria-label") || element.title || element.textContent || "";
+  }
+  function kanjiFormAction(form, control, kanji, method, url) {
+    const label = cleanText$1(control instanceof HTMLFormElement ? form.textContent ?? "" : labelForControl(control));
+    if (!label) return null;
+    return {
+      kanji,
+      label,
+      role: classifyKanjiAction(label, `${url} ${kanjiFormActionContext(form, control)}`),
+      kind: "form",
+      method,
+      url,
+      payload: formPayload(form, control instanceof HTMLFormElement ? null : control),
+      enabled: kanjiFormActionEnabled(form, control)
+    };
+  }
+  function kanjiFormActionContext(form, control) {
+    return control instanceof HTMLFormElement ? form.textContent ?? "" : control.getAttribute("value") ?? "";
+  }
+  function kanjiFormActionEnabled(form, control) {
+    if (control instanceof HTMLFormElement) return !isDisabled(form);
+    return !isDisabled(control) && !isDisabled(form);
+  }
+  function classifyKanjiAction(label, context) {
+    const labelText = label.toLowerCase();
+    const text = `${label} ${context}`.toLowerCase();
+    if (KANJI_ACTION_OTHER_RE.test(labelText)) return "other";
+    return KANJI_ACTION_PATTERNS.find(({ pattern }) => pattern.test(text))?.role ?? "other";
+  }
+  function inputControlLabel(element) {
+    return element.getAttribute("aria-label") || element.title || element.value || element.name;
+  }
+  const KANJI_ACTION_OTHER_RE = /\b(enable|settings?|configure|preferences?|history|stats?|open|view)\b/;
+  const KANJI_ACTION_PATTERNS = [
+    { role: "blacklist", pattern: /\b(blacklist|unblacklist|block|ignore|suspend)\b/ },
+    { role: "neverforget", pattern: /\b(never[-\s]?forget|always\s+remember)\b/ },
+    { role: "forget", pattern: /\b(forget|remove|delete|unlearn)\b/ },
+    { role: "known", pattern: /\b(known|know|learned|mark\s+known|remember)\b/ },
+    { role: "review", pattern: /\b(review|due|study)\b/ },
+    { role: "mine", pattern: /\b(add|mine|mining|deck|prioriti[sz]e|learn)\b/ }
+  ];
+  function formPayload(form, submitter) {
+    const payload = {};
+    form.querySelectorAll("input, select, textarea").forEach((control) => {
+      addFormControlPayload(payload, control);
+    });
+    if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
+      const name = submitter.name;
+      if (name) payload[name] = submitter.value;
+    }
+    return payload;
+  }
+  function addFormControlPayload(payload, control) {
+    if (!control.name || !shouldIncludeFormControl(control)) return;
+    payload[control.name] = control.value;
+  }
+  function shouldIncludeFormControl(control) {
+    return !(control instanceof HTMLInputElement) || shouldIncludeInputControl(control);
+  }
+  function shouldIncludeInputControl(control) {
+    const type = control.type.toLowerCase();
+    if (IGNORED_FORM_INPUT_TYPES.has(type)) return false;
+    return !CHECKED_FORM_INPUT_TYPES.has(type) || control.checked;
+  }
+  const IGNORED_FORM_INPUT_TYPES = /* @__PURE__ */ new Set(["submit", "button", "image", "reset", "file"]);
+  const CHECKED_FORM_INPUT_TYPES = /* @__PURE__ */ new Set(["checkbox", "radio"]);
+  function isDisabled(element) {
+    return element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true" || element.classList.contains("disabled") || element.classList.contains("is-disabled");
+  }
+  function sectionText(doc, label) {
+    const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element) => cleanText$1(element.textContent ?? "") === label);
+    const section = heading?.parentElement?.querySelector(".subsection") ?? null;
+    const value = cleanText$1(section?.textContent ?? "");
+    return isMissingSectionValue(value, section) ? "" : value;
+  }
+  function infoTableRows(doc) {
+    const rows = /* @__PURE__ */ new Map();
+    doc.querySelectorAll(".cross-table tr").forEach((row) => {
+      const cells = Array.from(row.querySelectorAll("td"));
+      if (cells.length < 2) return;
+      const key2 = cleanText$1(cells[0].textContent ?? "");
+      const value = cleanInfoTableValue(cells[1]);
+      if (value) rows.set(key2, value);
+    });
+    return rows;
+  }
+  function oldForms(doc) {
+    const row = Array.from(doc.querySelectorAll(".cross-table tr")).find((item) => cleanText$1(item.querySelector("td")?.textContent ?? "") === "Old form");
+    return Array.from(row?.querySelectorAll('a[href^="/kanji/"]') ?? []).map((link) => cleanText$1(link.textContent ?? "")).filter(Boolean);
+  }
+  function readings(doc) {
+    const seen = /* @__PURE__ */ new Set();
+    const entries = [];
+    doc.querySelectorAll(".kanji-reading-list-common > div, .kanji-reading-list > div").forEach((row) => {
+      const link = row.querySelector("a");
+      const reading = cleanText$1(link?.textContent ?? "");
+      if (!reading || seen.has(reading)) return;
+      seen.add(reading);
+      entries.push({
+        reading,
+        share: cleanText$1(row.textContent ?? "").replace(reading, "").trim(),
+        common: row.closest(".kanji-reading-list-common") !== null
+      });
+    });
+    return entries;
+  }
+  function components(doc) {
+    return kanjiSectionEntries(doc, (label) => label.startsWith("Composed of"));
+  }
+  function usedInKanji(doc) {
+    return kanjiSectionEntries(doc, (label) => label.startsWith("Used in kanji"));
+  }
+  function kanjiSectionEntries(doc, matchesLabel) {
+    return Array.from(doc.querySelectorAll(".subsection-composed-of-kanji")).filter((section) => matchesLabel(cleanText$1(section.querySelector(".subsection-label")?.textContent ?? ""))).flatMap((section) => Array.from(section.querySelectorAll(".subsection > div"))).map((element) => ({
+      kanji: cleanText$1(element.querySelector(".spelling")?.textContent ?? ""),
+      keyword: cleanText$1(element.querySelector(".description")?.textContent ?? "")
+    })).filter((component) => component.kanji && component.keyword);
+  }
+  function vocabulary(doc) {
+    const entries = [];
+    doc.querySelectorAll(".subsection-used-in .used-in").forEach((element) => {
+      const entry = jpdbKanjiVocabularyEntry(element);
+      if (entry) entries.push(entry);
+    });
+    return entries;
+  }
+  function jpdbKanjiVocabularyEntry(element) {
+    const link = element.querySelector('.jp a[href^="/vocabulary/"]');
+    if (!link) return null;
+    const expression = jpdbKanjiVocabularyExpression(link);
+    const meaning = jpdbKanjiVocabularyMeaning(element);
+    if (!isJpdbKanjiVocabularyEntry(expression, meaning)) return null;
+    return {
+      expression,
+      reading: jpdbKanjiVocabularyReading(link),
+      meaning,
+      url: absoluteJpdbUrl(jpdbKanjiVocabularyHref(link))
+    };
+  }
+  function jpdbKanjiVocabularyExpression(link) {
+    const identity = parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link));
+    return identity?.expression || textWithoutRuby(link);
+  }
+  function jpdbKanjiVocabularyReading(link) {
+    return parseJpdbVocabularyUrl(jpdbKanjiVocabularyHref(link))?.reading ?? "";
+  }
+  function jpdbKanjiVocabularyMeaning(element) {
+    return cleanText$1(element.querySelector(".en")?.textContent ?? "");
+  }
+  function jpdbKanjiVocabularyHref(link) {
+    return link.getAttribute("href") ?? "";
+  }
+  function isJpdbKanjiVocabularyEntry(expression, meaning) {
+    return JAPANESE_RE.test(expression) && Boolean(meaning);
+  }
+  function textWithoutRuby(element) {
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
+    return cleanText$1(clone.textContent ?? "");
+  }
+  function metaKeyword(doc, kanji) {
+    const description = doc.querySelector('meta[name="description"]')?.content ?? "";
+    const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+    return cleanText$1(match?.[1] ?? "");
+  }
+  function cleanInfoTableValue(cell) {
+    return cleanText$1(cell.textContent ?? "").replace(/\s+\?$/, "");
+  }
+  function isMissingSectionValue(value, section) {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function requestText$2(url, proxyUrl = "", options = {}) {
+    const method = options.method ?? "GET";
+    const body = requestTextBody(options.payload);
+    const requestUrl = requestTextUrl(url, method, body);
+    const headers = requestTextHeaders(method);
+    return requestText$4(requestUrl, {
+      method,
+      headers,
+      data: method === "POST" ? body : void 0,
+      proxyUrl,
+      credentials: options.credentials ?? "omit",
+      redirect: "follow",
+      timeoutMs: 8e3,
+      allowPublicProxies: options.allowProxyFallback ?? method === "GET",
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      failureLabel: "JPDB kanji request",
+      timeoutLabel: "JPDB kanji request timed out."
+    });
+  }
+  function requestTextBody(payload) {
+    return payload && Object.keys(payload).length ? new URLSearchParams(payload).toString() : "";
+  }
+  function requestTextUrl(url, method, body) {
+    return method === "GET" && body ? `${url}${url.includes("?") ? "&" : "?"}${body}` : url;
+  }
+  function requestTextHeaders(method) {
+    return method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : void 0;
+  }
+  const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
+  const CURVE_STEPS = 10;
+  const PATH_COMMAND_READERS = {
+    M: (sampler, relative) => sampler.readMove(relative),
+    L: (sampler, relative) => sampler.readLines(relative),
+    H: (sampler, relative) => sampler.readHorizontalLines(relative),
+    V: (sampler, relative) => sampler.readVerticalLines(relative),
+    C: (sampler, relative) => sampler.readCubics(relative),
+    S: (sampler, relative) => sampler.readSmoothCubics(relative),
+    Q: (sampler, relative) => sampler.readQuadratics(relative),
+    T: (sampler, relative) => sampler.readSmoothQuadratics(relative),
+    A: (sampler, relative) => sampler.readArcs(relative),
+    Z: (sampler) => sampler.closePath()
+  };
+  function parseSvgPathPoints(pathData) {
+    return new SvgPathSampler(pathData).parse();
+  }
+  class SvgPathSampler {
+    tokens;
+    index = 0;
+    command = "";
+    current = { x: 0, y: 0 };
+    start = { x: 0, y: 0 };
+    lastCubicControl = null;
+    lastQuadraticControl = null;
+    points = [];
+    constructor(pathData) {
+      this.tokens = pathData.match(SVG_PATH_TOKEN) ?? [];
+    }
+    parse() {
+      while (this.index < this.tokens.length) {
+        if (isPathCommand(this.tokens[this.index])) this.command = this.tokens[this.index++] ?? "";
+        if (!this.command) break;
+        const before = this.index;
+        const reader = PATH_COMMAND_READERS[this.command.toUpperCase()];
+        if (!reader?.(this, this.command === this.command.toLowerCase())) return this.points;
+        if (this.index === before && !isPathCommand(this.tokens[this.index])) return this.points;
+      }
+      return this.points;
+    }
+    readMove(relative) {
+      if (!this.hasNumbers(2)) return false;
+      this.current = this.absolute(this.read(), this.read(), relative);
+      this.start = this.current;
+      this.push(this.current);
+      this.command = relative ? "l" : "L";
+      this.clearControls();
+      return true;
+    }
+    readLines(relative) {
+      while (this.hasNumbers(2)) this.lineTo(this.absolute(this.read(), this.read(), relative));
+      return true;
+    }
+    readHorizontalLines(relative) {
+      while (this.hasNumbers(1)) {
+        const x = this.read();
+        this.lineTo({ x: relative ? this.current.x + x : x, y: this.current.y });
+      }
+      return true;
+    }
+    readVerticalLines(relative) {
+      while (this.hasNumbers(1)) {
+        const y = this.read();
+        this.lineTo({ x: this.current.x, y: relative ? this.current.y + y : y });
+      }
+      return true;
+    }
+    readCubics(relative) {
+      return this.readCurve(6, () => {
+        this.sampleCubicTo(
+          this.readAbsolutePoint(relative),
+          this.readAbsolutePoint(relative),
+          this.readAbsolutePoint(relative)
+        );
+      });
+    }
+    readSmoothCubics(relative) {
+      return this.readCurve(4, () => {
+        const c1 = this.lastCubicControl ? reflect(this.current, this.lastCubicControl) : this.current;
+        this.sampleCubicTo(c1, this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
+      });
+    }
+    readQuadratics(relative) {
+      return this.readCurve(4, () => {
+        this.sampleQuadraticTo(this.readAbsolutePoint(relative), this.readAbsolutePoint(relative));
+      });
+    }
+    readSmoothQuadratics(relative) {
+      return this.readCurve(2, () => {
+        const control = this.lastQuadraticControl ? reflect(this.current, this.lastQuadraticControl) : { ...this.current };
+        this.sampleQuadraticTo(control, this.readAbsolutePoint(relative));
+      });
+    }
+    readCurve(numberCount, readSegment) {
+      while (this.hasNumbers(numberCount)) readSegment();
+      return true;
+    }
+    setCubicControl(control) {
+      this.lastCubicControl = control;
+      this.lastQuadraticControl = null;
+    }
+    setQuadraticControl(control) {
+      this.lastQuadraticControl = control;
+      this.lastCubicControl = null;
+    }
+    readAbsolutePoint(relative) {
+      return this.absolute(this.read(), this.read(), relative);
+    }
+    sampleCubicTo(c1, c2, end) {
+      sampleCubic(this.current, c1, c2, end, (point) => this.push(point));
+      this.current = end;
+      this.setCubicControl(c2);
+    }
+    sampleQuadraticTo(control, end) {
+      sampleQuadratic(this.current, control, end, (point) => this.push(point));
+      this.current = end;
+      this.setQuadraticControl(control);
+    }
+    readArcs(relative) {
+      while (this.hasNumbers(7)) {
+        this.read();
+        this.read();
+        this.read();
+        this.read();
+        this.read();
+        this.lineTo(this.absolute(this.read(), this.read(), relative));
+      }
+      return true;
+    }
+    closePath() {
+      this.lineTo(this.start);
+      this.command = "";
+      return true;
+    }
+    push(point) {
+      const previous = this.points.at(-1);
+      if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) > 1e-3) this.points.push(point);
+    }
+    hasNumbers(count) {
+      return this.index + count <= this.tokens.length && this.tokens.slice(this.index, this.index + count).every((token) => !isPathCommand(token));
+    }
+    read() {
+      return Number(this.tokens[this.index++]);
+    }
+    absolute(x, y, relative) {
+      return relative ? { x: this.current.x + x, y: this.current.y + y } : { x, y };
+    }
+    lineTo(point) {
+      this.current = point;
+      this.push(this.current);
+      this.clearControls();
+    }
+    clearControls() {
+      this.lastCubicControl = null;
+      this.lastQuadraticControl = null;
+    }
+  }
+  function isPathCommand(token) {
+    return Boolean(token && /^[A-Za-z]$/.test(token));
+  }
+  function reflect(origin, control) {
+    return {
+      x: origin.x * 2 - control.x,
+      y: origin.y * 2 - control.y
+    };
+  }
+  function sampleCubic(from, c1, c2, to, push) {
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
+      const mt = 1 - t;
+      push({
+        x: mt ** 3 * from.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * to.x,
+        y: mt ** 3 * from.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * to.y
+      });
+    }
+  }
+  function sampleQuadratic(from, c, to, push) {
+    for (let step = 1; step <= CURVE_STEPS; step += 1) {
+      const t = step / CURVE_STEPS;
+      const mt = 1 - t;
+      push({
+        x: mt ** 2 * from.x + 2 * mt * t * c.x + t ** 2 * to.x,
+        y: mt ** 2 * from.y + 2 * mt * t * c.y + t ** 2 * to.y
+      });
+    }
+  }
+  const KANJIVG_RAW_BASE = "https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji";
+  const KANJIVG_POSITION_THRESHOLD = 0.12;
+  const KANJIVG_HORIZONTAL_DOMINANCE = 1.12;
+  const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
+  const KANJIVG_STROKE_LABEL = /^[\d]+$/;
+  const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
+  const log$1 = Logger.scope("KanjiVG");
+  const KANJIVG_AXIS_POSITIONS = {
+    x: { negative: "left", positive: "right" },
+    y: { negative: "top", positive: "bottom" }
+  };
+  class KanjiVGClient {
+    cache = /* @__PURE__ */ new Map();
+    lookup(kanji) {
+      const character = Array.from(kanji)[0] ?? "";
+      if (!character) return Promise.resolve(null);
+      let promise = this.cache.get(character);
+      if (!promise) {
+        promise = this.fetchSvg(character);
+        this.cache.set(character, promise);
+      }
+      return promise;
+    }
+    async fetchSvg(kanji) {
+      const url = kanjiVGUrl(kanji);
+      const svgText = await requestText$1(url).catch((error) => {
+        log$1.warn("Stroke-order request failed", { kanji }, error);
+        return "";
+      });
+      if (!svgText) return null;
+      const info = parseKanjiVGSvg(svgText, kanji);
+      return info;
+    }
+  }
+  function kanjiVGUrl(kanji) {
+    const codePoint = kanji.codePointAt(0) ?? 0;
+    return `${KANJIVG_RAW_BASE}/${codePoint.toString(16).padStart(5, "0")}.svg`;
+  }
+  function parseKanjiVGSvg(svgText, kanji) {
+    const doc = parseXmlDocument(svgText, "image/svg+xml");
+    const sourceSvg = doc.querySelector("svg");
+    if (!sourceSvg) return null;
+    const viewBox = sourceSvg.getAttribute("viewBox") || "0 0 109 109";
+    const componentPositions = readKanjiVGComponentPositions(sourceSvg, kanji);
+    const parsedPaths = readKanjiVGPaths(sourceSvg, viewBox);
+    const paths = parsedPaths.map((path) => path.svg);
+    if (!paths.length) return null;
+    const strokeShapes = parsedPaths.map((path) => path.shape);
+    const numbers = readKanjiVGStrokeNumbers(sourceSvg);
+    const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml(kanji)}">
+        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+    </svg>`;
+    return {
+      kanji,
+      svg,
+      strokeCount: paths.length,
+      strokeShapes: strokeShapes.every(Boolean) ? strokeShapes : void 0,
+      componentPositions
+    };
+  }
+  function readKanjiVGPaths(sourceSvg, viewBox) {
+    return Array.from(sourceSvg.querySelectorAll("path")).map((path, index) => readKanjiVGPath(path, index, viewBox)).filter((path) => Boolean(path));
+  }
+  function readKanjiVGPath(path, index, viewBox) {
+    const d = path.getAttribute("d");
+    if (!isSafeKanjiVGPathData(d)) return null;
+    return {
+      svg: renderKanjiVGPath(d, index),
+      shape: readKanjiVGStrokeShape(d, viewBox)
+    };
+  }
+  function isSafeKanjiVGPathData(pathData) {
+    return Boolean(pathData && KANJIVG_SAFE_PATH_DATA.test(pathData));
+  }
+  function renderKanjiVGPath(pathData, index) {
+    return `<path d="${escapeHtml(pathData)}" style="--stroke-index:${index}" />`;
+  }
+  function readKanjiVGStrokeNumbers(sourceSvg) {
+    return Array.from(sourceSvg.querySelectorAll("text")).map(readKanjiVGStrokeNumber).filter(Boolean);
+  }
+  function readKanjiVGStrokeNumber(text) {
+    const transform = text.getAttribute("transform") ?? "";
+    const label = (text.textContent ?? "").trim();
+    if (!isSafeKanjiVGStrokeNumber(label, transform)) return "";
+    return renderKanjiVGStrokeNumber(transform, label);
+  }
+  function isSafeKanjiVGStrokeNumber(label, transform) {
+    return KANJIVG_STROKE_LABEL.test(label) && KANJIVG_TEXT_TRANSFORM.test(transform);
+  }
+  function renderKanjiVGStrokeNumber(transform, label) {
+    return `<text transform="${escapeHtml(transform)}">${escapeHtml(label)}</text>`;
+  }
+  function readKanjiVGStrokeShape(pathData, viewBox) {
+    const box = parseViewBox(viewBox);
+    const points = parseSvgPathPoints(pathData).map((point) => ({
+      x: (point.x - box.x) / box.width,
+      y: (point.y - box.y) / box.height
+    })).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+    return points.length > 1 ? points : null;
+  }
+  function parseViewBox(viewBox) {
+    const values = viewBox.trim().split(/[\s,]+/).map(Number);
+    const [x, y, width, height] = values;
+    if (values.length === 4 && values.every(Number.isFinite) && width > 0 && height > 0) {
+      return { x, y, width, height };
+    }
+    return { x: 0, y: 0, width: 109, height: 109 };
+  }
+  function readKanjiVGComponentPositions(sourceSvg, kanji) {
+    const root = Array.from(sourceSvg.querySelectorAll("g")).find((group) => group.getAttribute("kvg:element") === kanji);
+    const viewBox = parseViewBox(sourceSvg.getAttribute("viewBox") || "0 0 109 109");
+    const context = { kanji, root, viewBox };
+    const positions = /* @__PURE__ */ new Map();
+    for (const group of sourceSvg.querySelectorAll("g")) {
+      for (const entry of readKanjiVGComponentPositionEntries(group, context)) {
+        addKanjiVGComponentPosition(positions, entry);
+      }
+    }
+    return Array.from(positions.values());
+  }
+  function readKanjiVGComponentPositionEntries(group, context) {
+    const component = cleanComponent(group.getAttribute("kvg:element") ?? "");
+    if (!isNestedKanjiVGComponent(component, context.kanji)) return [];
+    const entry = readKanjiVGComponentPositionEntry(group, component, context);
+    return entry ? expandKanjiVGOriginalComponent(entry) : [];
+  }
+  function isNestedKanjiVGComponent(component, kanji) {
+    return Boolean(component && component !== kanji);
+  }
+  function readKanjiVGComponentPositionEntry(group, component, context) {
+    const parentGroup = nearestKanjiVGComponentParent(group, context.root);
+    const position = readKanjiVGPosition(group, parentGroup, context);
+    if (!position) return null;
+    const original = cleanComponent(group.getAttribute("kvg:original") ?? "");
+    const direct = Boolean(context.root && parentGroup === context.root);
+    return {
+      component,
+      original: original || void 0,
+      ...readKanjiVGParent(parentGroup),
+      position,
+      direct,
+      depth: kanjiVGComponentDepth(group, context.root),
+      ...readKanjiVGVariant(group),
+      ...readKanjiVGComponentGeometry(group, context.viewBox)
+    };
+  }
+  function readKanjiVGPosition(group, parentGroup, context) {
+    return cleanComponent(group.getAttribute("kvg:position") ?? geometricKanjiVGPosition(group, parentGroup, context.viewBox) ?? inheritedKanjiVGPosition(group, context.root));
+  }
+  function readKanjiVGParent(parentGroup) {
+    const parent = cleanComponent(parentGroup?.getAttribute("kvg:element") ?? "");
+    if (!parent) return {};
+    return {
+      parent,
+      parentOriginal: cleanComponent(parentGroup?.getAttribute("kvg:original") ?? "") || void 0
+    };
+  }
+  function readKanjiVGVariant(group) {
+    return group.getAttribute("kvg:variant") === "true" ? { variant: true } : {};
+  }
+  function readKanjiVGComponentGeometry(group, viewBox) {
+    const bounds = normalizedKanjiVGElementBounds(group, viewBox);
+    if (!bounds) return {};
+    return {
+      bounds,
+      center: {
+        x: roundKanjiVGGeometry(bounds.x + bounds.width / 2),
+        y: roundKanjiVGGeometry(bounds.y + bounds.height / 2)
+      }
+    };
+  }
+  function expandKanjiVGOriginalComponent(entry) {
+    if (!entry.original || entry.original === entry.component) return [entry];
+    return [
+      entry,
+      {
+        ...entry,
+        component: entry.original,
+        original: entry.component
+      }
+    ];
+  }
+  function addKanjiVGComponentPosition(positions, entry) {
+    const key2 = kanjiVGComponentPositionKey(entry);
+    const existing = positions.get(key2);
+    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key2, entry);
+  }
+  function kanjiVGComponentPositionKey(entry) {
+    return `${entry.component}\0${entry.original ?? ""}\0${entry.parent ?? ""}\0${entry.position}`;
+  }
+  function shouldReplaceKanjiVGComponentPosition(existing, entry) {
+    if (!existing) return true;
+    if (!existing.direct && entry.direct) return true;
+    return Boolean(existing.variant && !entry.variant);
+  }
+  function nearestKanjiVGComponentParent(group, root) {
+    let parent = group.parentElement;
+    while (parent) {
+      if (parent === root || cleanComponent(parent.getAttribute("kvg:element") ?? "")) return parent;
+      parent = parent.parentElement;
+    }
+    return void 0;
+  }
+  function kanjiVGComponentDepth(group, root) {
+    let depth = 0;
+    let parent = group.parentElement;
+    while (parent && parent !== root) {
+      if (cleanComponent(parent.getAttribute("kvg:element") ?? "")) depth += 1;
+      parent = parent.parentElement;
+    }
+    return depth + 1;
+  }
+  function geometricKanjiVGPosition(group, parent, viewBox) {
+    const offset = relativeKanjiVGCenterOffset(group, parent, viewBox);
+    return offset ? kanjiVGOffsetPosition(offset) : "";
+  }
+  function relativeKanjiVGCenterOffset(group, parent, viewBox) {
+    if (!parent) return null;
+    const groupBox = positiveKanjiVGElementBox(group, viewBox);
+    const parentBox = positiveKanjiVGElementBox(parent, viewBox);
+    if (!groupBox || !parentBox) return null;
+    return {
+      x: (boxCenterX(groupBox) - boxCenterX(parentBox)) / parentBox.width,
+      y: (boxCenterY(groupBox) - boxCenterY(parentBox)) / parentBox.height
+    };
+  }
+  function positiveKanjiVGElementBox(element, viewBox) {
+    const box = kanjiVGElementBox(element, viewBox);
+    return box && hasPositiveArea(box) ? box : null;
+  }
+  function hasPositiveArea(box) {
+    return box.width > 0 && box.height > 0;
+  }
+  function boxCenterX(box) {
+    return box.x + box.width / 2;
+  }
+  function boxCenterY(box) {
+    return box.y + box.height / 2;
+  }
+  function kanjiVGOffsetPosition(offset) {
+    const axis = dominantKanjiVGOffsetAxis(offset);
+    if (axis === "center") return axis;
+    return KANJIVG_AXIS_POSITIONS[axis][kanjiVGOffsetDirection(offset[axis])];
+  }
+  function kanjiVGOffsetDirection(value) {
+    return value < 0 ? "negative" : "positive";
+  }
+  function dominantKanjiVGOffsetAxis(offset) {
+    const absX = Math.abs(offset.x);
+    const absY = Math.abs(offset.y);
+    if (absX > absY * KANJIVG_HORIZONTAL_DOMINANCE && absX > KANJIVG_POSITION_THRESHOLD) return "x";
+    if (absY > KANJIVG_POSITION_THRESHOLD) return "y";
+    return "center";
+  }
+  function kanjiVGElementBox(element, viewBox) {
+    const points = readKanjiVGElementPoints(element, viewBox);
+    if (!points.length) return null;
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    const top = Math.min(...ys);
+    const bottom = Math.max(...ys);
+    return { x: left, y: top, width: right - left, height: bottom - top };
+  }
+  function readKanjiVGElementPoints(element, viewBox) {
+    return Array.from(element.querySelectorAll("path")).flatMap((path) => readKanjiVGElementPathPoints(path, viewBox));
+  }
+  function readKanjiVGElementPathPoints(path, viewBox) {
+    return parseSvgPathPoints(path.getAttribute("d") ?? "").filter((point) => isKanjiVGGeometryPoint(point, viewBox));
+  }
+  function isKanjiVGGeometryPoint(point, viewBox) {
+    return point.x >= viewBox.x - viewBox.width && point.y >= viewBox.y - viewBox.height;
+  }
+  function normalizedKanjiVGElementBounds(element, viewBox) {
+    const box = positiveKanjiVGElementBox(element, viewBox);
+    if (!box) return null;
+    const edges = normalizedKanjiVGBoxEdges(box, viewBox);
+    return edges ? roundedKanjiVGBounds(edges) : null;
+  }
+  function normalizedKanjiVGBoxEdges(box, viewBox) {
+    const left = clampUnit((box.x - viewBox.x) / viewBox.width);
+    const top = clampUnit((box.y - viewBox.y) / viewBox.height);
+    const right = clampUnit((box.x + box.width - viewBox.x) / viewBox.width);
+    const bottom = clampUnit((box.y + box.height - viewBox.y) / viewBox.height);
+    if (right <= left || bottom <= top) return null;
+    return { left, top, right, bottom };
+  }
+  function roundedKanjiVGBounds(edges) {
+    return {
+      x: roundKanjiVGGeometry(edges.left),
+      y: roundKanjiVGGeometry(edges.top),
+      width: roundKanjiVGGeometry(edges.right - edges.left),
+      height: roundKanjiVGGeometry(edges.bottom - edges.top)
+    };
+  }
+  function clampUnit(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+  function roundKanjiVGGeometry(value) {
+    return Number(value.toFixed(4));
+  }
+  function inheritedKanjiVGPosition(group, root) {
+    let parent = group.parentElement;
+    while (parent && parent !== root) {
+      const position = parent.getAttribute("kvg:position");
+      if (position) return position;
+      parent = parent.parentElement;
+    }
+    return "";
+  }
+  function cleanComponent(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function requestText$1(url) {
+    return requestText$4(url, {
+      timeoutMs: 8e3,
+      failureLabel: "Stroke-order request",
+      timeoutLabel: "Stroke-order request timed out."
+    });
+  }
+  function registerYomuCompanion(key2, value) {
+    const target = globalThis;
+    target.__yomuCompanions = {
+      ...target.__yomuCompanions ?? {},
+      [key2]: value
+    };
+  }
+  function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
+    if (!info) return "";
+    const facts = [
+      [uiText(language, "factKeyword"), info.keyword],
+      [uiText(language, "factType"), info.type],
+      [uiText(language, "factFrequency"), info.frequency],
+      [language === "ja" ? "漢検" : "Kanken", info.kanken],
+      ["Heisig", info.heisig],
+      [uiText(language, "factOldForms"), info.oldForms.join(", ")]
+    ].filter(([, value]) => Boolean(value?.trim()));
+    const factSection = renderJpdbKanjiFactSection(facts);
+    const readingsSection = renderJpdbKanjiReadings(info);
+    const componentSection = renderJpdbKanjiComponents(info, language);
+    const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <div class="jpdb-reader-local-entry">
+                ${factSection}
+                ${readingsSection}
+                ${componentSection}
+                ${mnemonicSection}
+            </div>
+        </details>
+    `;
+  }
+  function expandedAttribute(initiallyExpanded) {
+    return initiallyExpanded ? "open" : "";
+  }
+  function renderJpdbKanjiFactSection(facts) {
+    if (!facts.length) return "";
+    return `<div class="jpdb-reader-kanji-facts">
+        ${facts.map(([label, value]) => `<span title="${escapeHtml(`JPDB · ${label}: ${value}`)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(value)}</span></span>`).join("")}
+    </div>`;
+  }
+  function renderJpdbKanjiReadings(info) {
+    if (!info.readings.length) return "";
+    return `<div class="jpdb-reader-kanji-readings">
+        ${info.readings.slice(0, 8).map((reading) => `<span>${escapeHtml(reading.reading)}${reading.share ? ` ${escapeHtml(reading.share)}` : ""}</span>`).join("")}
+    </div>`;
+  }
+  function renderJpdbKanjiComponents(info, language) {
+    if (!info.components.length) return "";
+    return `<div class="jpdb-reader-component-grid">
+        ${info.components.map((component) => `<button class="jpdb-reader-component-card jpdb-reader-component-button" type="button" data-action="kanji" data-kanji="${escapeHtml(component.kanji)}" title="${escapeHtml(`${uiText(language, "showKanji")}: ${component.kanji}`)}">
+            <strong>${escapeHtml(component.kanji)}</strong>
+            <span>${escapeHtml(component.keyword)}</span>
+        </button>`).join("")}
+    </div>`;
+  }
+  function renderJpdbKanjiMnemonic(info, language) {
+    return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : "";
+  }
+  function renderJpdbKanjiMiningControls(info, language) {
+    const actions = visibleJpdbKanjiActions(info);
+    if (!actions.length) return "";
+    return `
+        <div class="jpdb-reader-mining-details jpdb-reader-kanji-mining" role="group" aria-label="${escapeHtml(uiText(language, "deckActions"))}">
+            <div class="jpdb-reader-row jpdb-reader-mining-action-row jpdb-reader-kanji-mining-row" style="--cols: ${actions.length}">
+                ${actions.map((action) => `<button
+                    class="jpdb-reader-btn ${escapeHtml(jpdbKanjiActionClass(action))}"
+                    type="button"
+                    data-action="jpdb-kanji-action"
+                    data-kanji-action-id="${escapeHtml(action.id)}"
+                    title="${escapeHtml(jpdbKanjiActionLabel(action, language))}">${escapeHtml(jpdbKanjiActionLabel(action, language))}</button>`).join("")}
+            </div>
+        </div>
+    `;
+  }
+  function jpdbKanjiActionLabel(action, language) {
+    switch (action.role) {
+      case "mine":
+        return uiText(language, "jpdbKanjiActionMine");
+      case "known":
+        return uiText(language, "jpdbKanjiActionKnown");
+      case "neverforget":
+        return uiText(language, "jpdbKanjiActionNeverForget");
+      case "forget":
+        return uiText(language, "jpdbKanjiActionForget");
+      case "blacklist":
+        return uiText(language, "jpdbKanjiActionBlacklist");
+      case "review":
+        return uiText(language, "jpdbKanjiActionReview");
+      default:
+        return action.label;
+    }
   }
   function renderKanjiOriginGraph(graph, language) {
     const model = buildKanjiOriginGraphRenderModel(graph);
@@ -5412,31 +6231,130 @@ recommendedJiten	jiten.moe頻度データです。
     }
     return Math.abs(hash).toString(36);
   }
-  function splitRtkElements(value) {
-    const seen = /* @__PURE__ */ new Set();
-    const elements = [];
-    value.split(/[、,;＋+]/).map(cleanRtkElementKeyword).filter(Boolean).forEach((keyword) => {
-      const key2 = rtkElementKey(keyword);
-      if (seen.has(key2)) return;
-      seen.add(key2);
-      elements.push(keyword);
-    });
-    return elements.slice(0, 16);
+  function renderKanjiOrigins(facts, graph, sourceInfo, settings, language, initiallyExpanded = settings.dictionarySourcesInitiallyExpanded, sourceStateKey, excludeFactLabels, title = uiText(language, "originStructure")) {
+    if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
+      return "";
+    }
+    const map = sourceInfo?.kanjiMap;
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            ${renderKanjiOriginDetail(map, settings, language)}
+            ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
+            ${renderKanjiFactPills(facts, language, excludeFactLabels)}
+        </details>
+    `;
   }
-  function cleanRtkElementKeyword(value) {
-    return value.replace(/\s+/g, " ").trim().replace(/\d+$/u, "").trim();
+  function hasKanjiOriginContent(facts, graph, sourceInfo) {
+    return Boolean(facts.length || graph && graph.nodes.length > 1 || sourceInfo?.kanjiMap);
   }
-  function rtkElementKey(value) {
-    return cleanRtkElementKeyword(value).toLowerCase().replace(/[’']/g, "");
+  function renderKanjiFactPills(facts, language, excludeFactLabels) {
+    if (!facts.length) return "";
+    const excludedFacts = excludeFactLabels ? normalizedFactLabelSet(excludeFactLabels, language) : null;
+    const visibleFacts = excludedFacts ? facts.filter((fact) => !excludedFacts.has(normalizedFactLabel(fact.label, language))) : facts;
+    if (!visibleFacts.length) return "";
+    return `<div class="jpdb-reader-kanji-facts">
+        ${visibleFacts.map((fact) => {
+      const label = kanjiFactLabel(fact.label, language);
+      const title = [fact.source, `${label}: ${fact.value}`].filter(Boolean).join(" · ");
+      return `<span title="${escapeHtml(title)}"><strong>${escapeHtml(label)}</strong><span class="jpdb-reader-kanji-fact-value">${escapeHtml(fact.value)}</span></span>`;
+    }).join("")}
+    </div>`;
   }
-  const RTK_ELEMENT_GLYPH_FALLBACKS = new Map(
-    "heart=心=心|fishhook=乙=乙|fishguts=乙=乙|fish guts=乙=乙|stick=丨|walking stick=丨|drop=丶|drops=丶|a drop of=丶|hook right=⺃|hook (right)=⺃|state of mind=⺖|valentine=⺗|animal legs=ハ|human legs=儿|wind=几|bound up=勹|bound up small=⺈|bound up (small)=⺈|horns=丷|saber=⺉|little=⺌|cliff=厂|water=⺡|fire=⺣|hood=冂|house=宀|flower=艹|pack of wild dogs=⺨|cow left=牜|cow top=⺧|umbrella=𠆢|road=⻌|walking legs=夂|crown=冖|top hat=亠|taskmaster=攵|fiesta=戈|stretch=廴|zoo=疋|zoo left=⺪|cloak=⻂|ice left=冫|ice bottom=⺀|reclining=𠂉|wings=羽=羽|feathers=羽=羽|person=⺅|finger=扌|two hands bottom=廾|elbow=厶|going=彳|altar=⺭|broom=彐|broom old=⺔|rake=⺺|shovel=凵|old man=耂|cocoon=幺|stamp=卩|chop seal=ㄗ|chop seal small=マ|silver=艮|sheaf=㐅|cornucopia=丩|key=ユ|sickness=疒|box=匚|shape=彡|row=业|city walls right=⻏".split("|").map((value) => {
-      const [key2, glyph, kanji] = value.split("=");
-      return [key2, kanji ? { glyph, kanji } : { glyph }];
-    })
-  );
-  function rtkElementFallbackGlyph(keyword) {
-    return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
+  function normalizedFactLabelSet(labels, language) {
+    return new Set(Array.from(labels, (label) => normalizedFactLabel(label, language)));
+  }
+  function normalizedFactLabel(label, language) {
+    const normalized = label.trim().toLocaleLowerCase();
+    const knownLabels = /* @__PURE__ */ new Map([
+      ["meaning", "meaning"],
+      [uiText(language, "factMeaning").toLocaleLowerCase(), "meaning"],
+      ["type", "type"],
+      [uiText(language, "factType").toLocaleLowerCase(), "type"],
+      ["frequency", "frequency"],
+      [uiText(language, "factFrequency").toLocaleLowerCase(), "frequency"],
+      ["grade", "grade"],
+      [uiText(language, "factGrade").toLocaleLowerCase(), "grade"],
+      ["strokes", "strokes"],
+      [uiText(language, "strokes").toLocaleLowerCase(), "strokes"],
+      ["jlpt", "jlpt"],
+      ["kanken", "kanken"],
+      ["wk", "wk"],
+      ["rtk", "rtk"],
+      ["klc", "klc"],
+      ["tmw", "tmw"]
+    ]);
+    return knownLabels.get(normalized) ?? normalized;
+  }
+  function kanjiFactLabel(label, language) {
+    switch (label) {
+      case "Meaning":
+        return uiText(language, "factMeaning");
+      case "Type":
+        return uiText(language, "factType");
+      case "Frequency":
+        return uiText(language, "factFrequency");
+      case "Grade":
+        return uiText(language, "factGrade");
+      case "Strokes":
+        return uiText(language, "strokes");
+      case "Radical":
+        return uiText(language, "radical");
+      default:
+        return label;
+    }
+  }
+  function renderKanjiOriginDetail(map, settings, language) {
+    if (!map) return "";
+    const radicalCard = renderKanjiRadicalCard(map, settings, language);
+    return radicalCard ? `<div class="jpdb-reader-origin-detail">${radicalCard}</div>` : '<div class="jpdb-reader-origin-detail"></div>';
+  }
+  function renderKanjiRadicalCard(map, settings, language) {
+    const radical = map.radical;
+    if (!radical && !map.hint) return "";
+    return `<div class="jpdb-reader-radical-card">
+        ${renderKanjiRadicalGlyph(radical, language)}
+        <div>
+            ${renderKanjiRadicalSummary(radical, language)}
+            ${map.hint ? `<span>${escapeHtml(map.hint)}</span>` : ""}
+            ${renderKanjiRadicalFrames(radicalFrameUrls(radical, settings))}
+        </div>
+    </div>`;
+  }
+  function renderKanjiRadicalGlyph(radical, language) {
+    return radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml(radical.symbol || uiText(language, "radical"))}</strong>` : "";
+  }
+  function renderKanjiRadicalSummary(radical, language) {
+    if (!radical) return "";
+    const values = [radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""];
+    return `<strong>${escapeHtml(values.filter(Boolean).join(" · "))}</strong>`;
+  }
+  function radicalFrameUrls(radical, settings) {
+    return settings.kanjiOriginRadicalImagesEnabled && radical ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4) : [];
+  }
+  function renderKanjiRadicalFrames(radicalFrames) {
+    if (!radicalFrames.length) return "";
+    return `<div class="jpdb-reader-radical-frames">
+        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml(url)}">`).join("")}
+    </div>`;
+  }
+  function renderKanjiPractice(info, kanji, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "strokePractice")) {
+    const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <span class="jpdb-reader-help">${info ? `${info.strokeCount} ${uiText(language, "strokes")}` : uiText(language, "textTrace")}</span>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${uiText(language, "hideTrace")}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${uiText(language, "clear")}</button>
+            </div>
+            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
+        </details>
+    `;
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
@@ -5658,18 +6576,21 @@ recommendedJiten	jiten.moe頻度データです。
       timeoutLabel: "RTK request timed out."
     });
   }
-  function registerYomuCompanion(key2, value) {
-    const target = globalThis;
-    target.__yomuCompanions = {
-      ...target.__yomuCompanions ?? {},
-      [key2]: value
-    };
-  }
   registerYomuCompanion("kanjiStudy", {
     KanjiOriginClient,
     KanjiVGClient,
     RtkClient,
     JpdbKanjiClient,
-    renderKanjiOriginGraph
+    renderKanjiOriginGraph,
+    renderJpdbKanjiInfo,
+    renderJpdbKanjiMiningControls,
+    renderKanjiPractice,
+    renderKanjiOrigins,
+    buildRtkComponentSummaries,
+    renderKanjiKeywordLine,
+    renderRtkInfo,
+    installOriginGraphInteractions,
+    buildKanjiFacts,
+    buildKanjiOriginGraph
   });
 })();

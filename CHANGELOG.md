@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.113] - 2026-06-11
+
+### Changed
+
+- ADR-0003 phase 2 complete: the kanji drilldown surface (origin graphs, KanjiVG stroke data, RTK keywords, JPDB kanji pages, practice doodle, and their render layer) now lives entirely in the Yomu Kanji/Study companion. The core userscript drops from 1,961,982 to 1,825,206 bytes — 136,776 freed, headroom up from 38 KB to 175 KB — via a single registry seam in popup/render.ts, so no call sites changed. Extension/self-contained builds and the study page register the companion modules at build time and behave identically; on Greasy Fork the companion is @require'd with an SRI hash, and if it ever fails to load, kanji drilldowns degrade to dictionary-only sections instead of breaking.
+
 ## [0.6.112] - 2026-06-11
 
 ### Changed
