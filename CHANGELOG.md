@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.87] - 2026-06-11
+
+### Added
+
+- New reading option: 'Hide styling on JPDB-redundant words' (Jiten Reader parity). When enabled, words JPDB marks redundant keep tap/hover lookup but render as plain page text — no state color, underline, or highlight. Off by default; localized.
+
 ## [0.6.86] - 2026-06-11
 
 ### Fixed

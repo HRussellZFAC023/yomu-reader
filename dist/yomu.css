@@ -1099,6 +1099,19 @@
   transform: translate3d(0, 6px, 0) scale(0.92);
 }
 
+/* Jiten Reader parity: with "Hide styling on JPDB-redundant words" enabled,
+   redundant words keep lookup behavior but render as plain page text — no
+   state color, underline, or highlight. */
+html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
+  --jpdb-reader-jpdb-color: transparent;
+  --jpdb-reader-jpdb-readable: inherit;
+  --jpdb-reader-jpdb-soft: transparent;
+  --jpdb-reader-jpdb-highlight: transparent;
+  background: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
 
 /* Source: src/reader/styles/popover-core.css */
 .jpdb-reader-backdrop {

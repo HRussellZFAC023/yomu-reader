@@ -35,6 +35,8 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     applyReaderFontSettings(settings, root);
     applyPopupFontSettings(settings, root);
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
+    // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.
+    root.classList.toggle('jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
     root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
