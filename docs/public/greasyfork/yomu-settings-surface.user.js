@@ -3210,6 +3210,7 @@
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
+      apiDeckMediaNotSupported: "Captured image/audio stays in Yomu — this service has no media API.",
       sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
       sentToAnkiWithContextImage: "Sent to Anki with context image.",
       sentToAnkiWithAudio: "Sent to Anki with audio.",
@@ -3784,6 +3785,7 @@ openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
 alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
+apiDeckMediaNotSupported	キャプチャした画像・音声はYomuに残ります（このサービスにはメディアAPIがありません）。
 sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。

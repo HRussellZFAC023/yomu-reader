@@ -300,8 +300,17 @@ export class CardActionController {
         const selectedDeckId = provider.selectedDeckId(deck.id, settings);
         if (!selectedDeckId) throw new Error(uiText(settings.interfaceLanguage, 'chooseJitenStudyDeck'));
         await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
-        if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
-        this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
+        const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
+        if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
+        // JPDB/Jiten deck APIs cannot store media: when the user captured an
+        // image or audio for this mine and no Anki note carries it, say so
+        // instead of silently dropping it.
+        const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
+        const droppedMedia = !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+        const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+        this.options.toast(droppedMedia
+            ? `${addedToast} ${uiText(settings.interfaceLanguage, 'apiDeckMediaNotSupported')}`
+            : addedToast);
         this.notifyApiCardStateChanged(card);
     }
 
