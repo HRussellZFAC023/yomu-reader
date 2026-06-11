@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.115] - 2026-06-11
+
+### Added
+
+- My Cards browser: Anki rows now show a due-in bucket (Due / ≤1d / ≤7d / ≤30d) answered by Anki's own scheduler search — the last open study-hub parity ticket. JPDB and Jiten rows stay blank rather than guessing: their APIs expose no per-card due timestamps.
+
 ## [0.6.114] - 2026-06-11
 
 ### Fixed

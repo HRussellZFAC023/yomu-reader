@@ -76,7 +76,7 @@ export function renderBrowseList(
     cards: JPDBCard[],
     page: number,
     language: ReaderSettings['interfaceLanguage'],
-    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string; bulk?: BrowseBulkCopy },
+    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string; bulk?: BrowseBulkCopy; dueIn?: (card: JPDBCard) => string },
 ): HTMLElement {
     if (!cards.length) {
         return el('div', { class: 'jpdb-reader-newtab-browse-empty' }, copy.empty);
@@ -89,7 +89,7 @@ export function renderBrowseList(
         el('p', { class: 'jpdb-reader-newtab-browse-meta' }, copy.showing(start + 1, start + visible.length, cards.length)),
         copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
         el('ol', { class: 'jpdb-reader-newtab-browse-rows' },
-            ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk))),
+            ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? '')),
         ),
         pageCount > 1
             ? el('div', { class: 'jpdb-reader-newtab-browse-pager' },
@@ -129,7 +129,7 @@ function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
     );
 }
 
-function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false): HTMLElement {
+function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false, dueIn = ''): HTMLElement {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = card.reading && card.reading !== card.spelling ? card.reading : '';
@@ -161,6 +161,9 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
             el('span', { class: `jpdb-reader-state-dot jpdb-${state}` }),
             cardStateLabel(state, language),
             card.frequencyRank ? ` · Top ${card.frequencyRank}` : '',
+            // Jiten Cards parity: due-in, where the provider's scheduler can
+            // answer exactly (Anki prop:due buckets).
+            dueIn ? ` · ${dueIn}` : '',
         )),
     );
 }

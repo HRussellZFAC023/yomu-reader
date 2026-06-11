@@ -6454,6 +6454,30 @@ export class NewTabController {
         this.renderBrowseResults(mount);
     }
 
+    // SH-3 due-in column: bucket the pool's Anki cards through Anki's own
+    // scheduler search (is:due, prop:due<=1/7/30) — exact answers, no due
+    // decoding. JPDB/Jiten cards stay blank (their APIs expose no per-card
+    // due timestamps).
+    private async loadBrowseAnkiDueBuckets(cards: JPDBCard[]): Promise<Map<number, string>> {
+        const ankiCardIds = new Set(cards.map(card => card.ankiCardId).filter((id): id is number => Number.isFinite(id) && (id as number) > 0));
+        const invoke = this.dependencies.anki.invoke;
+        const buckets = new Map<number, string>();
+        if (!ankiCardIds.size || typeof invoke !== 'function') return buckets;
+        const queries: Array<[string, string]> = [
+            ['is:due', this.text('statsDue')],
+            ['-is:suspended prop:due>0 prop:due<=1', '≤1d'],
+            ['-is:suspended prop:due>0 prop:due<=7', '≤7d'],
+            ['-is:suspended prop:due>0 prop:due<=30', '≤30d'],
+        ];
+        for (const [query, label] of queries) {
+            const ids = await invoke<number[]>('findCards', { query }).catch((): number[] => []);
+            for (const id of ids) {
+                if (ankiCardIds.has(id) && !buckets.has(id)) buckets.set(id, label);
+            }
+        }
+        return buckets;
+    }
+
     private renderBrowseResults(mount: HTMLElement): void {
         const cards = this.browsePool ?? [];
         const language = this.language();
@@ -6473,8 +6497,25 @@ export class NewTabController {
                         neverForget: this.text('stateNeverForget'),
                     },
                 } : {}),
+                ...(this.browseAnkiDueBuckets ? {
+                    dueIn: (card: JPDBCard) => (Number.isFinite(card.ankiCardId) ? this.browseAnkiDueBuckets?.get(card.ankiCardId as number) ?? '' : ''),
+                } : {}),
             }),
         );
+        void this.hydrateBrowseDueBuckets(mount, cards);
+    }
+
+    private browseAnkiDueBuckets?: Map<number, string>;
+    private browseDueBucketsKey = '';
+
+    private async hydrateBrowseDueBuckets(mount: HTMLElement, cards: JPDBCard[]): Promise<void> {
+        const key = this.browsePoolKey;
+        if (this.browseDueBucketsKey === key) return;
+        this.browseDueBucketsKey = key;
+        const buckets = await this.loadBrowseAnkiDueBuckets(cards);
+        if (this.browsePoolKey !== key) return;
+        this.browseAnkiDueBuckets = buckets;
+        if (buckets.size && mount.isConnected) this.renderBrowseResults(mount);
     }
 
     private syncBrowseBulkControls(root: HTMLElement): void {

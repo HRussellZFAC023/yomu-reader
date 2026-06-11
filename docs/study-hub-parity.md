@@ -100,11 +100,33 @@ Synthesis: the highest-leverage unshipped item is a **Today panel** (every perso
 referenced "what's due / what did I do today" before trusting the page as their one
 stop); second is SH-3 v2 bulk actions; third is composed-of on card backs.
 
+## Simulated user research, round 2 (2026-06-11, post-0.6.114 state)
+
+Same five personas walked the CURRENT study page (mobile pass 13/13 green):
+
+1. Mobile-first learner — "the Word tab finally feels like an app: filter, deck, due
+   split, swipe + key-free grading." Next want: session end-of-queue celebration is
+   abrupt (idea: show today's done/streak summary on queue completion — small, later).
+2. Anki power user — due-ins everywhere now ("12d/25d like Anki's buttons") + 7d/30d
+   forecast = trust established. Next want: post-mining `sync` button (AnkiConnect
+   `sync` action; small ticket for a future pass).
+3. JPDB loyalist — queue order via live bridge + sentence fronts + composed-of +
+   membership line = "same vibe" reached; verified impossibilities documented rather
+   than faked is itself trust-building.
+4. Jiten user — Cards-list parity complete incl. bulk actions and due-in on Anki rows;
+   their own intervals already on grade buttons. Satisfied.
+5. iPad user — landscape split + raised puck + 44px targets; no remaining asks.
+
+New ideas filed (small, non-blocking): queue-completion summary; AnkiConnect sync
+button after mining. Neither blocks the one-stop-shop story.
+
 ## Tickets (ranked)
 
-### SH-3 remainder: due-in column in the My Cards browser
-Per-adapter timestamps needed: Anki has nextReviews/prop:due bucketing, Jiten exposes
-interval labels only, JPDB none. Everything else of SH-3 shipped (see Shipped log).
+### SH-3 due-in column — SHIPPED 0.6.115 (Anki rows bucket through the scheduler's own
+search — Due / ≤1d / ≤7d / ≤30d, four findCards queries per pool, exact answers;
+JPDB/Jiten rows stay blank since their APIs expose no per-card due timestamps).
+**The ticket list is now empty — every SH item is shipped or recorded as a provider
+impossibility under Non-goals.**
 
 ### Journey re-run findings (0.6.114 pass)
 

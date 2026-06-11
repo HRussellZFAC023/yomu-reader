@@ -1676,6 +1676,44 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('shows due-in buckets on Anki rows in the My Cards browser (SH-3 due-in column)', async () => {
+        const listDeckCards = vi.fn(async () => []);
+        const listNewTabCards = vi.fn(async () => [
+            newTabTestCard({ vid: -1, sid: -1, rid: 301, ankiCardId: 301, spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' }),
+            newTabTestCard({ vid: -2, sid: -2, rid: 302, ankiCardId: 302, spelling: '勉強', reading: 'べんきょう', cardState: ['learning'], source: 'anki', reviewSource: 'anki' }),
+        ]);
+        const invoke = vi.fn(async (action: string, params?: Record<string, unknown>) => {
+            if (action !== 'findCards') throw new Error(`unexpected ${action}`);
+            const query = String(params?.query ?? '');
+            if (query === 'is:due') return [301];
+            if (query.includes('prop:due<=7')) return [302];
+            return [];
+        });
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+            anki: { listNewTabCards, invoke } as never,
+        });
+        try {
+            const root = renderBoundNewTabSearchRoot(controller);
+            for (let i = 0; i < 6; i += 1) await new Promise(resolve => setTimeout(resolve, 0));
+
+            const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-item')];
+            const rowText = (term: string) => rows.find(row => row.textContent?.includes(term))?.textContent ?? '';
+            await waitForExpect(() => {
+                expect(rowText('暗記')).toContain('Due');
+                expect(rowText('勉強')).toContain('≤7d');
+            });
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('includes Anki cards in the My Cards browser pool without touching the JPDB stats source (SH-3 v2)', async () => {
         const listDeckCards = vi.fn(async () => [
             newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 1, source: 'jpdb' }),
