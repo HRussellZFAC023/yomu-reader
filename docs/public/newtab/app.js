@@ -48851,7 +48851,7 @@ ${normalizedReading}`;
       el(
         "ol",
         { class: "jpdb-reader-newtab-browse-rows" },
-        ...visible.map((card) => renderBrowseRow(card, language, Boolean(copy.bulk)))
+        ...visible.map((card) => renderBrowseRow(card, language, Boolean(copy.bulk), copy.dueIn?.(card) ?? ""))
       ),
       pageCount > 1 ? el(
         "div",
@@ -48889,7 +48889,7 @@ ${normalizedReading}`;
       action("never-forget", copy.neverForget)
     );
   }
-  function renderBrowseRow(card, language, selectable = false) {
+  function renderBrowseRow(card, language, selectable = false, dueIn = "") {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = card.reading && card.reading !== card.spelling ? card.reading : "";
@@ -48926,7 +48926,10 @@ ${normalizedReading}`;
           { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state } },
           el("span", { class: `jpdb-reader-state-dot jpdb-${state}` }),
           cardStateLabel(state, language),
-          card.frequencyRank ? ` · Top ${card.frequencyRank}` : ""
+          card.frequencyRank ? ` · Top ${card.frequencyRank}` : "",
+          // Jiten Cards parity: due-in, where the provider's scheduler can
+          // answer exactly (Anki prop:due buckets).
+          dueIn ? ` · ${dueIn}` : ""
         )
       )
     );
@@ -57523,6 +57526,29 @@ ${newTabCardReading(card)}`;
       if (!mount || !mount.isConnected || this.state.mode !== "search" || normalizeSearchQuery(this.searchQuery)) return;
       this.renderBrowseResults(mount);
     }
+    // SH-3 due-in column: bucket the pool's Anki cards through Anki's own
+    // scheduler search (is:due, prop:due<=1/7/30) — exact answers, no due
+    // decoding. JPDB/Jiten cards stay blank (their APIs expose no per-card
+    // due timestamps).
+    async loadBrowseAnkiDueBuckets(cards) {
+      const ankiCardIds = new Set(cards.map((card) => card.ankiCardId).filter((id) => Number.isFinite(id) && id > 0));
+      const invoke = this.dependencies.anki.invoke;
+      const buckets = /* @__PURE__ */ new Map();
+      if (!ankiCardIds.size || typeof invoke !== "function") return buckets;
+      const queries = [
+        ["is:due", this.text("statsDue")],
+        ["-is:suspended prop:due>0 prop:due<=1", "≤1d"],
+        ["-is:suspended prop:due>0 prop:due<=7", "≤7d"],
+        ["-is:suspended prop:due>0 prop:due<=30", "≤30d"]
+      ];
+      for (const [query, label] of queries) {
+        const ids = await invoke("findCards", { query }).catch(() => []);
+        for (const id of ids) {
+          if (ankiCardIds.has(id) && !buckets.has(id)) buckets.set(id, label);
+        }
+      }
+      return buckets;
+    }
     renderBrowseResults(mount) {
       const cards = this.browsePool ?? [];
       const language = this.language();
@@ -57542,9 +57568,24 @@ ${newTabCardReading(card)}`;
               blacklist: this.text("blacklist"),
               neverForget: this.text("stateNeverForget")
             }
+          } : {},
+          ...this.browseAnkiDueBuckets ? {
+            dueIn: (card) => Number.isFinite(card.ankiCardId) ? this.browseAnkiDueBuckets?.get(card.ankiCardId) ?? "" : ""
           } : {}
         })
       );
+      void this.hydrateBrowseDueBuckets(mount, cards);
+    }
+    browseAnkiDueBuckets;
+    browseDueBucketsKey = "";
+    async hydrateBrowseDueBuckets(mount, cards) {
+      const key2 = this.browsePoolKey;
+      if (this.browseDueBucketsKey === key2) return;
+      this.browseDueBucketsKey = key2;
+      const buckets = await this.loadBrowseAnkiDueBuckets(cards);
+      if (this.browsePoolKey !== key2) return;
+      this.browseAnkiDueBuckets = buckets;
+      if (buckets.size && mount.isConnected) this.renderBrowseResults(mount);
     }
     syncBrowseBulkControls(root) {
       const selected = root.querySelectorAll("[data-browse-select]:checked").length;
