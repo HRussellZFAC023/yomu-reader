@@ -107,7 +107,18 @@ export function liveJpdbCardIdentity(card: JPDBCard): string {
 }
 
 export function shouldReplaceKanjiStudyCard(card: JPDBCard, existing: JPDBCard): boolean {
-    return kanjiStudyCardPriority(card) < kanjiStudyCardPriority(existing);
+    const cardPriority = kanjiStudyCardPriority(card);
+    const existingPriority = kanjiStudyCardPriority(existing);
+    if (cardPriority !== existingPriority) return cardPriority < existingPriority;
+    // JPDB locked kanji are scheduled SRS items (JPDB interleaves them into
+    // reviews): when two same-priority candidates collide on one kanji, keep
+    // the one carrying the real locked state instead of the first-seen
+    // duplicate, so the kanji tab reflects JPDB's own selection.
+    return hasLockedCardState(card) && !hasLockedCardState(existing);
+}
+
+function hasLockedCardState(card: JPDBCard): boolean {
+    return card.cardState.includes('locked');
 }
 
 export function jpdbReviewCardsForNewTab(cards: JPDBCard[], limit: number): JPDBCard[] {
