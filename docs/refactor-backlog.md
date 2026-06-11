@@ -41,7 +41,6 @@ Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per use
 - P0: Hosted AnkiConnect must be reliable on live Firefox and Chrome. Firefox can show "not connected" on the live site; Chrome can connect while clicked words still miss Anki status. The settings message should tell a non-technical user exactly which bridge, browser, or AnkiConnect step failed. (Hosted smoke covers Chromium+Firefox; remaining work is the diagnostic UX.)
 - P0: JPDB review flow exactness audit: with an API key, the queue must preserve JPDB's official review order incl. locked-kanji interleave as JPDB presents them (locked-kanji dedup fixed 0.6.80; full order audit against a live `Learn` session still open — compare against the captured Learn anatomy in `docs/study-hub-parity.md`).
 - P1: Anki kanji study extraction in the new tab (kanji from the user's Anki cards) is unverified/partial (`newtab/kanji-helpers.ts`).
-- P1: Jiten per-grade intervals: wiring verified end-to-end with tests; confirm live that Jiten's API returns interval fields during a real review.
 - P1: Popover should close on outside click unless interacting with an owned overlay or review control (verify current behavior, fix if stale).
 - P1: Jisho audio reproduction aligned with Yomitan's source-selection before changing fallback order.
 - P1: Defaults/migration audit: term audio + autoplay on by default, popover mode auto, Anki off by default, no stale pitch underline/highlight leakage from old installs, no stranded users.
