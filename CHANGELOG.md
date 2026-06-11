@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.107] - 2026-06-11
+
+### Fixed
+
+- jiten.moe/srs/study: Yomu's Immersion Kit and dictionary sections now appear inside the revealed study card — right after Jiten's own Kanji breakdown / Composed of — instead of detached at the top of the page. They also no longer mount during the question phase, where showing dictionary entries spoiled the answer. Live-verified on a signed-in study session.
+
 ## [0.6.106] - 2026-06-11
 
 ### Added
