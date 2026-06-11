@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.83
+// @version      0.6.84
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14662,7 +14662,8 @@ ${entry.reading || ""}`;
   }
   const ANKI_VERSION = 6;
   const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
-  const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;
+  const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
+  const ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY = 3;
   const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5e3;
   const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1500;
   const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15e3;
@@ -15606,13 +15607,15 @@ ${entry.reading || ""}`;
         }
       }
       const terms = [...keysByTerm.keys()];
-      const responses = [];
-      for (const chunk of chunkArray(terms, ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE)) {
-        responses.push(...await this.invokeMulti(chunk.map((term) => ({
+      const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
+      const chunkResponses = new Array(chunks.length);
+      await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
+        chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
           action: "findNotes",
           params: { query: quoteAnkiSearch(term) }
-        }))));
-      }
+        })));
+      });
+      const responses = chunkResponses.flat();
       if (this.isDestroyed) return noteIdsByKey;
       terms.forEach((term, index) => {
         const ids = responses[index] ?? [];
@@ -33791,6 +33794,7 @@ ${glossaryKey}`;
   const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
   const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
   const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
+  const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
   const SUBTITLE_SURFACE_SELECTOR = ".jpdb-subtitle-player, .jpdb-subtitle-list";
   const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
   const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
@@ -41568,7 +41572,7 @@ ${glossaryKey}`;
         return true;
       }).sort((first2, second) => pitchEnrichmentPriority(first2) - pitchEnrichmentPriority(second));
       if (options.publicLookup === false) {
-        await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
+        await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), LOCAL_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
         return;
       }
       if (options.urgent) {
@@ -41582,7 +41586,7 @@ ${glossaryKey}`;
         const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
         const localOnly = runLimited(
           deferredPublicTokens,
-          BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+          LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
           (token) => this.enrichPitchToken(token, { publicLookup: false })
         );
         if (!publicTokens.length) {

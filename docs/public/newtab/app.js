@@ -14558,7 +14558,8 @@ ${entry.reading || ""}`;
   }
   const ANKI_VERSION = 6;
   const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
-  const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;
+  const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
+  const ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY = 3;
   const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5e3;
   const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1500;
   const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15e3;
@@ -15502,13 +15503,15 @@ ${entry.reading || ""}`;
         }
       }
       const terms = [...keysByTerm.keys()];
-      const responses = [];
-      for (const chunk of chunkArray(terms, ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE)) {
-        responses.push(...await this.invokeMulti(chunk.map((term) => ({
+      const chunks2 = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
+      const chunkResponses = new Array(chunks2.length);
+      await runLimited(chunks2, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
+        chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
           action: "findNotes",
           params: { query: quoteAnkiSearch$1(term) }
-        }))));
-      }
+        })));
+      });
+      const responses = chunkResponses.flat();
       if (this.isDestroyed) return noteIdsByKey;
       terms.forEach((term, index) => {
         const ids = responses[index] ?? [];
