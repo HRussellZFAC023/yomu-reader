@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.100] - 2026-06-11
+
+### Added
+
+- The My Cards browser on the idle Search tab now includes your Anki cards alongside JPDB and Jiten — state chips, search, and rows span all three providers (study-hub parity SH-3 v2). Anki joins only the browser pool; the stats page keeps its dedicated Anki source so nothing double-counts.
+
 ## [0.6.99] - 2026-06-11
 
 ### Added
