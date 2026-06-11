@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.75
+// @version      0.6.76
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14648,7 +14648,15 @@ ${entry.reading || ""}`;
   function chunkArray$1(items, size) {
     return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
   }
+  const ANKI_SEARCH_SPECIALS_RE = /([\\"*_])/g;
+  function escapeAnkiSearchText(term) {
+    return term.replace(ANKI_SEARCH_SPECIALS_RE, "\\$1");
+  }
+  function quoteAnkiSearch(term) {
+    return `"${escapeAnkiSearchText(term)}"`;
+  }
   const ANKI_VERSION = 6;
+  const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
   const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;
   const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5e3;
   const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1500;
@@ -14721,6 +14729,7 @@ ${entry.reading || ""}`;
     availabilityProbe;
     availabilityCheckedAt = 0;
     unavailableUntil = 0;
+    fieldTargetPlanCache;
     isDestroyed = false;
     focusStatusRefreshListener;
     lastFocusStatusRefreshAt = 0;
@@ -14792,6 +14801,27 @@ ${entry.reading || ""}`;
     async modelNames() {
       const models = await this.invoke("modelNames");
       return models;
+    }
+    // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
+    // exactly which fields a mining write will target instead of silently
+    // retargeting into an existing non-Yomu model at write time.
+    async noteFieldTargetPlan() {
+      const settings = this.getSettings();
+      if (!settings.ankiEnabled) return null;
+      if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) return null;
+      const modelName = resolvedAnkiModelName(settings);
+      const key = `${settings.ankiConnectUrl}|${modelName}`;
+      const now = Date.now();
+      if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
+      const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch(() => null);
+      this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
+      return promise;
+    }
+    async loadNoteFieldTargetPlan(modelName, settings) {
+      const modelNames = await this.modelNames();
+      if (!modelNames.includes(modelName)) return { modelName, yomuManaged: true, fieldNames: [] };
+      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
+      return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
     }
     // Used by settings library scan through the Anki client dependency.
     async scanLibrary() {
@@ -16049,11 +16079,17 @@ ${entry.reading || ""}`;
       Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
   }
-  function buildYomuAnkiPreviewFields(card, sentence, settings, context = {}) {
+  function buildYomuAnkiPreviewFields(card, sentence, settings, context = {}, fieldTargetPlan) {
     const yomuFields = buildYomuAnkiFields(card, sentence, {
       ...context,
       interfaceLanguage: settings.interfaceLanguage
     });
+    if (fieldTargetPlan && !fieldTargetPlan.yomuManaged && fieldTargetPlan.fieldNames.length) {
+      const mapping2 = ankiFieldMappingForModel(settings, fieldTargetPlan.modelName, fieldTargetPlan.fieldNames);
+      const retargeted = retargetYomuFieldsToExistingModel(yomuFields, fieldTargetPlan.fieldNames, mapping2);
+      const written = Object.fromEntries(Object.entries(retargeted).filter(([, value]) => value.trim()));
+      if (Object.keys(written).length) return written;
+    }
     const mapping = settings.ankiFieldMappings?.[settings.ankiModel.trim() || "よむ Japanese"];
     if (!mapping || !Object.values(mapping).some((value) => value?.trim())) return yomuFields;
     const fields = {};
@@ -16437,9 +16473,6 @@ ${entry.reading || ""}`;
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
   }
-  function quoteAnkiSearch(term) {
-    return `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  }
   function unique$1(items) {
     return [...new Set(items)];
   }
@@ -16786,9 +16819,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         </details>
     `;
   }
-  function renderAnkiNewCardPreview(card, sentence, settings, context = {}) {
+  function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldTargetPlan) {
     if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return "";
-    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? "", settings, context);
+    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? "", settings, context, fieldTargetPlan);
     const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
     if (!fieldPreview) return "";
     return `
@@ -23173,7 +23206,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         dictionaryPreferences: settings.dictionaryPreferences,
         sourceTitle: view.storedContext?.sourceTitle,
         sourceUrl: view.storedContext?.sourceUrl
-      });
+      }, data.ankiFieldTargetPlan);
     }
     renderActions(view) {
       const hasMiningPanel = Boolean(view.miningActions);
@@ -23705,6 +23738,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return [];
       }), []);
     }
+    // Field-target plan for the new-card preview: shows which fields a mining
+    // write will actually target when the configured model is non-Yomu.
+    loadAnkiFieldTargetPlan(card) {
+      const settings = this.settings();
+      if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
+      if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
+      return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
+        log$h.warn("Anki field target plan failed", { term: card.spelling }, error);
+        return null;
+      }), null);
+    }
     loadJpdbDeckMembership(card) {
       const settings = this.settings();
       if (!cardNeedsJpdbDeckPoolLookup(card)) return Promise.resolve(false);
@@ -23718,6 +23762,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches) {
       const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
+      const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
       return Promise.all([
         localEntries,
         this.loadLocalKanjiEntries(card),
@@ -23729,10 +23774,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         jpdbDeckMembership,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
-        componentPitches.catch(() => [])
-      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, componentPitchesValue]) => {
+        componentPitches.catch(() => []),
+        ankiFieldTargetPlan
+      ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, componentPitchesValue, ankiFieldTargetPlanValue]) => {
         if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
-        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, componentPitches: componentPitchesValue };
+        return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
     // Expressions have no whole-word accent: when every pitch source for the
