@@ -3,6 +3,11 @@ import { cleanText, firstJapaneseRunOrEmpty } from './jpdb-text';
 import type { JPDBGrade } from '../app/types';
 
 const JPDB_REVIEW_BRIDGE_CHANNEL = 'yomu-jpdb-review-bridge';
+// The review page heartbeats faster than consumers' staleness clock, so an
+// idle-but-open review tab never reads as stale while a closed or frozen one
+// flips to disconnected within one staleness window.
+const JPDB_REVIEW_BRIDGE_HEARTBEAT_MS = 12_000;
+const JPDB_REVIEW_BRIDGE_STALE_MS = 30_000;
 
 export interface JpdbReviewBridgeCard {
     id: string;
@@ -24,6 +29,7 @@ export interface JpdbReviewBridgeStatus {
     loginRequired: boolean;
     card: JpdbReviewBridgeCard | null;
     message: string;
+    stale?: boolean;
 }
 
 type BridgeMessage =
@@ -76,24 +82,59 @@ export function createJpdbReviewBridgeClient(): JpdbReviewBridgeClient {
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
     const listeners = new Set<(status: JpdbReviewBridgeStatus) => void>();
     let latest = EMPTY_STATUS;
+    let staleTimer: number | undefined;
+
+    const notify = () => listeners.forEach(listener => listener(latest));
+    const markStale = () => {
+        if (!latest.connected) return;
+        latest = staleJpdbReviewBridgeStatus();
+        notify();
+    };
+    const scheduleStaleCheck = () => {
+        window.clearTimeout(staleTimer);
+        staleTimer = window.setTimeout(markStale, JPDB_REVIEW_BRIDGE_STALE_MS);
+    };
     channel.onmessage = event => {
         const message = event.data as Partial<BridgeMessage> | null;
         if (!message || message.source !== 'jpdb' || message.type !== 'status') return;
         latest = normalizeStatus(message.status);
-        listeners.forEach(listener => listener(latest));
+        scheduleStaleCheck();
+        notify();
     };
 
     const post = (message: BridgeMessage) => channel.postMessage(message);
+    const requestCurrent = () => post({ type: 'request-current', source: 'newtab' });
+    // Refresh on focus: returning to the study tab re-asks the review tab for
+    // its current card instead of trusting whatever was last broadcast.
+    const handleVisibility = () => {
+        if (document.visibilityState === 'visible') requestCurrent();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return {
         latestStatus: () => latest,
-        requestCurrent: () => post({ type: 'request-current', source: 'newtab' }),
+        requestCurrent,
         reveal: () => post({ type: 'command', source: 'newtab', command: 'reveal' }),
         grade: grade => post({ type: 'command', source: 'newtab', command: 'grade', grade }),
         onUpdate(listener) {
             listeners.add(listener);
             return () => listeners.delete(listener);
         },
-        close: () => channel.close(),
+        close: () => {
+            window.clearTimeout(staleTimer);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            channel.close();
+        },
+    };
+}
+
+function staleJpdbReviewBridgeStatus(): JpdbReviewBridgeStatus {
+    return {
+        connected: false,
+        loginRequired: false,
+        card: null,
+        stale: true,
+        message: 'JPDB review tab stopped responding. Reopen jpdb.io/review to continue live reviews.',
     };
 }
 
@@ -126,6 +167,24 @@ export function initJpdbReviewPageBridge(): void {
 
     new MutationObserver(schedulePublish).observe(document.body, { childList: true, subtree: true, attributes: true });
     publish();
+
+    // Heartbeat feeds consumers' staleness clock while the review tab idles;
+    // pagehide flips them to disconnected immediately instead of leaving the
+    // last card lingering as a live review target.
+    const heartbeat = window.setInterval(publish, JPDB_REVIEW_BRIDGE_HEARTBEAT_MS);
+    window.addEventListener('pagehide', () => {
+        window.clearInterval(heartbeat);
+        channel.postMessage({
+            type: 'status',
+            source: 'jpdb',
+            status: {
+                connected: false,
+                loginRequired: false,
+                card: null,
+                message: 'JPDB review tab closed. Reopen jpdb.io/review to continue live reviews.',
+            },
+        } satisfies BridgeMessage);
+    });
 }
 
 export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBridgeStatus {

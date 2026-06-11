@@ -260,7 +260,11 @@ export class YoutubeImmersionFilter {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['href', 'title', 'aria-label'],
+            // is-in-first-column: YouTube re-asserts its row-layout flags on
+            // its own layout passes (continuation loads, resizes) without any
+            // childList change; without watching it the grid rebalance never
+            // re-runs and stale flags misalign re-flowed rows (gap bug).
+            attributeFilter: ['href', 'title', 'aria-label', 'is-in-first-column'],
             characterData: true,
         });
         for (const eventName of YOUTUBE_NAVIGATION_EVENTS) {
@@ -1625,27 +1629,40 @@ function collectFilterableVideoShelves(root: ParentNode = document): HTMLElement
 // YouTube's flags and re-mark the first VISIBLE item of each row with our own
 // margin-compensation class, resetting the row counter at visible sections.
 export function rebalanceYouTubeGridRows(root: ParentNode = document): void {
-    root.querySelectorAll<HTMLElement>('ytd-rich-grid-renderer div#contents').forEach(contents => {
+    root.querySelectorAll<HTMLElement>('ytd-rich-grid-renderer').forEach(grid => {
+        const contents = grid.querySelector<HTMLElement>('div#contents');
+        if (!contents) return;
         const sample = contents.querySelector<HTMLElement>('ytd-rich-item-renderer');
-        const itemsPerRow = Number(sample?.getAttribute('items-per-row') ?? '');
+        const itemsPerRow = Number(sample?.getAttribute('items-per-row') ?? grid.getAttribute('elements-per-row') ?? '');
         if (!Number.isFinite(itemsPerRow) || itemsPerRow <= 0) return;
         let column = 0;
-        for (const child of Array.from(contents.children)) {
-            if (!(child instanceof HTMLElement)) continue;
+        const markGridChild = (child: Element): void => {
+            if (!(child instanceof HTMLElement)) return;
             const tag = child.tagName.toLowerCase();
             if (tag === 'ytd-rich-section-renderer') {
                 if (!child.classList.contains(YOUTUBE_FILTERED_CLASS)) column = 0;
-                continue;
+                return;
             }
-            if (tag !== 'ytd-rich-item-renderer') continue;
+            if (tag !== 'ytd-rich-item-renderer') return;
             if (child.classList.contains(YOUTUBE_FILTERED_CLASS) || child.classList.contains(YOUTUBE_PENDING_CLASS)) {
                 child.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS);
-                continue;
+                return;
             }
             child.removeAttribute('is-in-first-column');
             child.removeAttribute('is-first-in-column');
             child.classList.toggle(YOUTUBE_FIRST_IN_ROW_CLASS, column % itemsPerRow === 0);
             column += 1;
+        };
+        for (const child of Array.from(contents.children)) {
+            // Row wrappers are flattened into one flow by the display:contents
+            // rule, so visual rows span DOM rows after filtering: keep ONE
+            // column counter across every row instead of restarting per row.
+            if (child.tagName.toLowerCase() === 'ytd-rich-grid-row') {
+                const rowContents = child.querySelector(':scope > div#contents');
+                for (const rowChild of Array.from((rowContents ?? child).children)) markGridChild(rowChild);
+                continue;
+            }
+            markGridChild(child);
         }
     });
 }

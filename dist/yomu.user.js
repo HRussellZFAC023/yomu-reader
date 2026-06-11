@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.76
+// @version      0.6.77
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-JN9XCVBTjoZB5p3oMGn4nOlcVcwUAZb+bsKBQQAuLZE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-FRKnRsvlv4BGOd8co17p3t3kwkRFtJaaAHqFUyeGgyI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-r4D5FTxIUK22XMVp2cIvWchFk4wcC/XywZbISGxm7ew=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -35950,6 +35950,7 @@ ${glossaryKey}`;
     return value === "auto" || value === "dark" || value === "light" ? value : null;
   }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
+  const JPDB_REVIEW_BRIDGE_HEARTBEAT_MS = 12e3;
   function initJpdbReviewPageBridge() {
     if (typeof BroadcastChannel !== "function") return;
     if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return;
@@ -35977,6 +35978,20 @@ ${glossaryKey}`;
     };
     new MutationObserver(schedulePublish).observe(document.body, { childList: true, subtree: true, attributes: true });
     publish();
+    const heartbeat = window.setInterval(publish, JPDB_REVIEW_BRIDGE_HEARTBEAT_MS);
+    window.addEventListener("pagehide", () => {
+      window.clearInterval(heartbeat);
+      channel.postMessage({
+        type: "status",
+        source: "jpdb",
+        status: {
+          connected: false,
+          loginRequired: false,
+          card: null,
+          message: "JPDB review tab closed. Reopen jpdb.io/review to continue live reviews."
+        }
+      });
+    });
   }
   function parseJpdbReviewDocument(doc, href = "") {
     if (reviewLoginRequired(doc)) {

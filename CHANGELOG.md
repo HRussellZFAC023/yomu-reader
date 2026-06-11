@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.77] - 2026-06-11
+
+### Fixed
+
+- Live JPDB reviews no longer trust a vanished review tab: the jpdb.io/review page now heartbeats over the bridge and announces when it closes, and the study tab marks a silent bridge as stale within 30 seconds — clearing the lingering card so jpdb-live drops out of the source list instead of letting grades post into the void. Returning to the study tab re-requests the current card automatically.
+
 ## [0.6.76] - 2026-06-11
 
 ### Fixed

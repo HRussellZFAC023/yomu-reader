@@ -13150,7 +13150,11 @@ ${spelling}`);
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["href", "title", "aria-label"],
+        // is-in-first-column: YouTube re-asserts its row-layout flags on
+        // its own layout passes (continuation loads, resizes) without any
+        // childList change; without watching it the grid rebalance never
+        // re-runs and stale flags misalign re-flowed rows (gap bug).
+        attributeFilter: ["href", "title", "aria-label", "is-in-first-column"],
         characterData: true
       });
       for (const eventName of YOUTUBE_NAVIGATION_EVENTS) {
@@ -14265,27 +14269,37 @@ ${spelling}`);
     return Array.from(root.querySelectorAll(FILTERABLE_VIDEO_SHELF_SELECTOR)).filter(isFilterableVideoShelf);
   }
   function rebalanceYouTubeGridRows(root = document) {
-    root.querySelectorAll("ytd-rich-grid-renderer div#contents").forEach((contents) => {
+    root.querySelectorAll("ytd-rich-grid-renderer").forEach((grid) => {
+      const contents = grid.querySelector("div#contents");
+      if (!contents) return;
       const sample = contents.querySelector("ytd-rich-item-renderer");
-      const itemsPerRow = Number(sample?.getAttribute("items-per-row") ?? "");
+      const itemsPerRow = Number(sample?.getAttribute("items-per-row") ?? grid.getAttribute("elements-per-row") ?? "");
       if (!Number.isFinite(itemsPerRow) || itemsPerRow <= 0) return;
       let column = 0;
-      for (const child of Array.from(contents.children)) {
-        if (!(child instanceof HTMLElement)) continue;
+      const markGridChild = (child) => {
+        if (!(child instanceof HTMLElement)) return;
         const tag = child.tagName.toLowerCase();
         if (tag === "ytd-rich-section-renderer") {
           if (!child.classList.contains(YOUTUBE_FILTERED_CLASS)) column = 0;
-          continue;
+          return;
         }
-        if (tag !== "ytd-rich-item-renderer") continue;
+        if (tag !== "ytd-rich-item-renderer") return;
         if (child.classList.contains(YOUTUBE_FILTERED_CLASS) || child.classList.contains(YOUTUBE_PENDING_CLASS)) {
           child.classList.remove(YOUTUBE_FIRST_IN_ROW_CLASS);
-          continue;
+          return;
         }
         child.removeAttribute("is-in-first-column");
         child.removeAttribute("is-first-in-column");
         child.classList.toggle(YOUTUBE_FIRST_IN_ROW_CLASS, column % itemsPerRow === 0);
         column += 1;
+      };
+      for (const child of Array.from(contents.children)) {
+        if (child.tagName.toLowerCase() === "ytd-rich-grid-row") {
+          const rowContents = child.querySelector(":scope > div#contents");
+          for (const rowChild of Array.from((rowContents ?? child).children)) markGridChild(rowChild);
+          continue;
+        }
+        markGridChild(child);
       }
     });
   }
