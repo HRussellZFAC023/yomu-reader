@@ -2,6 +2,36 @@
 
 Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per user direction — full history lives in CHANGELOG.md and git. New companion doc: `docs/study-hub-parity.md` holds the study-hub gap analysis and SH-1…SH-8 tickets, which are the current feature focus.)
 
+## User Testing 2026-06-11 (critical batch — fix first, in order; ask for screenshots in follow-up notes for any non-repro)
+
+YouTube (mobile usability first):
+- UT-1 P0: Content shift while scrolling on mobile — scroll position jumps as videos load in ("making YouTube basically unusable"). Suspect: filter collapsing cards above the viewport without scroll anchoring compensation; reserve space or compensate scrollTop when culling above-fold items.
+- UT-2 P0: Channel-shelf Subscribe says "subscribed" but the channel is NOT subscribed on refresh/YouTube check. Suspect: the subscribe POST silently fails (missing innertube params/consent) while the UI optimistically flips.
+- UT-3 P0: ASB-style subtitle rerender loop — flicker + page lag; pitch-accent highlight appears then disappears. Suspect: cue re-render replacing enriched HTML with unenriched parse, then re-enriching (loop); pin enriched cue HTML by content hash.
+- UT-4: "Tracks detected" status text leaks into ASB-player translations.
+- UT-5: Home-feed description teaser ("…" ending) flashes to FULL description without subscribe panel; after collapse the added parsing is lost. Suspect: our scan expanding/collapsing yt-formatted-string snippets; preserve tokens through collapse.
+- UT-6: Non-Japanese channel community posts still show in the feed (post cards lack video links — extend filter to community-post cards).
+- UT-7: Arabic subtitles load first, then switch to Japanese. Default-track selection should prefer ja immediately.
+
+Reader/typography:
+- UT-8: Some text partially obstructed once furigana is added (line-height/overflow on ruby; need repro page — ask for screenshot).
+- UT-9: OCR sometimes missing ruby text (ask for screenshot/sample image if non-repro).
+- UT-10: Incorrect furigana e.g. としょ rendered with an extra しょ over an empty box (ruby segment alignment when a kanji slot is empty; repro via kanji-ruby-split tests).
+- UT-11: Keyless — colorised underlines don't appear until the sentence is tapped (visible-scan enrichment not running keyless until pointer parse; should colorize on scan).
+- UT-12: Keyless — hide the state-filter dropdown options that need an API key.
+
+New tab / study page:
+- UT-13: Session timer missing — show how long the user has studied this session relative to a daily goal (default 1h; configurable + can be turned off in settings).
+- UT-14 TRUST: With a JPDB key, default options show "No reviews ready — showing practice words", but picking a deck starts working; and the SRS queue does not match jpdb.io Learn (next jpdb word よくできました absent). JPDB Learn also MIXES kanji+vocab in one queue (kanji unlock words). Default review flow must mirror that: combined queue, kanji-first unlock semantics; same concept for Anki/Jiten where derivable.
+- UT-15: Kanji-cards-off option (JPDB has one): setting to skip kanji cards in the main study flow while keeping the Kanji tab for isolated study; toggling must not lose progression; surface on welcome splash (which should also mention the study page exists) + main settings.
+- UT-16: Front example-sentence furigana can give away the answer — hide furigana on the front (target word at minimum).
+- UT-17: Search tab — bring the deck/state filter dropdowns here; selecting a deck lists all its words scrollable in SRS order ("2D reviews"); typing filters within the selection (e.g. よ prefix); sort asc/desc + multi-filter; default jisho-style lookup stays when no filters active; refine pill spacing/accessibility; don't always be in "select" mode.
+- UT-18: Immersion Kit controls waste space: drop the "IMMERSION KIT" heading (clip title suffices), inline the [<] play [>] controls like the jpdb-injected frame pattern.
+- UT-19: Stats — final bar of the bar chart renders as "selected" by default.
+- UT-20: AnkiMobile handoff error: "no such note type id よむ+Japanese" — space in the model name is being '+'-encoded in the AnkiMobile URL; encode with %20 (and audit deck param).
+
+Community intel: `docs/community-intel-backlog.md` (captured 2026-06-11) seeds the long-tail items — treat as backlog source after the batch above.
+
 ## Remaining Large Lanes (next sessions)
 
 - Study-hub parity: work through `docs/study-hub-parity.md` SH-1…SH-8 (stats table, due summary, card browser with filters/search/bulk actions, review back fidelity, front audit, deck management, today panel/forecast, shortcut audit).
