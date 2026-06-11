@@ -3956,6 +3956,51 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('broadcasts the refreshed card state after a live-bridge grade when an API key exists (mutation-bus P0)', async () => {
+        vi.useFakeTimers();
+        const refreshCardState = vi.fn(async (card: JPDBCard) => { card.cardState = ['known']; });
+        const grade = vi.fn();
+        const requestCurrent = vi.fn();
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }, {
+            jpdb: { refreshCardState } as never,
+            jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: true }), grade, requestCurrent } as never,
+        });
+        try {
+            const internals = controller as unknown as {
+                submitLiveJpdbGrade(card: JPDBCard, grade: JPDBGrade): void;
+                publishGradedCardState(card: JPDBCard): void;
+            };
+            const published: string[] = [];
+            internals.publishGradedCardState = card => { published.push(card.cardState.join(',')); };
+            const card = newTabTestCard({ vid: 2850623, sid: 1446586255, spelling: '出来事', reading: 'できごと', cardState: ['due'], source: 'jpdb', reviewSource: 'jpdb-live' });
+
+            internals.submitLiveJpdbGrade(card, 'okay');
+            expect(grade).toHaveBeenCalledWith('okay');
+            await vi.advanceTimersByTimeAsync(1000);
+
+            expect(refreshCardState).toHaveBeenCalledWith(card);
+            // Broadcast carries the TRUE post-grade state read back from jpdb.
+            expect(published).toEqual(['known']);
+        } finally {
+            controller.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('extracts real vid/sid from the live bridge card id so the refresh can target it', () => {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+        try {
+            const internals = controller as unknown as { cardFromLiveJpdb(card: { kind: string; id: string; spelling: string; reading: string }): JPDBCard | null };
+            const card = internals.cardFromLiveJpdb({ kind: 'vocabulary', id: 'vf,2850623,1446586255', spelling: '出来事', reading: 'できごと' });
+            expect(card?.vid).toBe(2850623);
+            expect(card?.sid).toBe(1446586255);
+            const unparsable = internals.cardFromLiveJpdb({ kind: 'vocabulary', id: '出来事:できごと', spelling: '出来事', reading: 'できごと' });
+            expect(unparsable?.vid).toBe(0);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('derives kanji study cards from Anki source cards, keeping the Anki linkage (kanji-extraction verify)', () => {
         const controller = newTabPromptController(DEFAULT_SETTINGS, {});
         try {

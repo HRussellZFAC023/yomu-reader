@@ -45229,6 +45229,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         log$8.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
+    // Used by the new-tab live-bridge grade path through the client
+    // dependency: after grading on jpdb.io, read the card's true post-state
+    // back so other tabs can recolor from honest data.
+    // fallow-ignore-next-line unused-class-member
+    async refreshCardState(card) {
+      if (!(card.vid > 0)) return;
+      await this.refreshCard(card);
+    }
     async refreshCard(card) {
       const lookup = await this.api.request("lookup-vocabulary", {
         list: [[card.vid, card.sid]],
@@ -52415,6 +52423,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
   const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
   const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2500;
+  const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
   function newTabShortParseOptions() {
@@ -58119,6 +58128,22 @@ ${newTabCardReading(card)}`;
       this.rememberPendingLiveJpdbGrade(card);
       this.dependencies.jpdbReviewBridge.grade(grade);
       this.dependencies.jpdbReviewBridge.requestCurrent();
+      void this.publishLiveGradedCardState(card);
+    }
+    // P0 mutation-bus remainder: the graded card's new state lives on
+    // jpdb.io. With an API key and real ids we read the truth back and
+    // broadcast it so other tabs recolor; keyless live grading stays
+    // signal-less rather than guessing jpdb's state machine.
+    async publishLiveGradedCardState(card) {
+      if (!(card.vid > 0) || !hasJpdbApiCredential(this.dependencies.getSettings())) return;
+      const jpdb = this.dependencies.jpdb;
+      if (typeof jpdb.refreshCardState !== "function") return;
+      await new Promise((resolve) => window.setTimeout(resolve, NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS));
+      try {
+        await jpdb.refreshCardState(card);
+        this.publishGradedCardState(card);
+      } catch {
+      }
     }
     async submitJpdbApiGrade(card, grade) {
       if (card.source !== "jpdb" && card.reviewSource !== "jpdb-api") throw new Error(this.text("couldNotSubmitGrade"));
@@ -58857,10 +58882,16 @@ ${newTabCardReading(card)}`;
     if (sentence.includes(card.spelling)) return card.spelling;
     return reading && sentence.includes(reading) ? reading : "";
   }
+  function liveJpdbCardIds(card) {
+    const match = /^v[a-z]?,(\d+),(\d+)$/.exec(card.id ?? "");
+    if (!match) return { vid: 0, sid: 0 };
+    return { vid: Number(match[1]), sid: Number(match[2]) };
+  }
   function liveJpdbCardFromBridgeCard(card, spelling) {
+    const ids = liveJpdbCardIds(card);
     return {
-      vid: 0,
-      sid: 0,
+      vid: ids.vid,
+      sid: ids.sid,
       rid: 0,
       spelling,
       reading: liveJpdbCardReading(card, spelling),
