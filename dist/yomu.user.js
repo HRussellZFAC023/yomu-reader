@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.80
+// @version      0.6.81
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -14221,13 +14221,18 @@ ${entry.reading || ""}`;
   function ankiNotePrimaryCardId(note, noteCards) {
     return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
   }
+  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   function ankiCardDetailSummary(note, noteCards) {
     return {
       deckNames: ankiNoteDeckNames(noteCards),
       primaryCardId: ankiNotePrimaryCardId(note, noteCards),
-      state: stateFromAnkiCards(noteCards),
+      state: ankiNoteState(note, noteCards),
       ...ankiNoteReviewMetrics(noteCards)
     };
+  }
+  function ankiNoteState(note, noteCards) {
+    if ((note.tags ?? []).includes(ANKI_NEVER_FORGET_TAG)) return "never-forget";
+    return stateFromAnkiCards(noteCards);
   }
   function ankiNoteReviewMetrics(noteCards) {
     return {
@@ -19720,7 +19725,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
     if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
   }
-  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   class CardActionController {
     constructor(options) {
       this.options = options;

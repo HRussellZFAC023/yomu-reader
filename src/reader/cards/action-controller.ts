@@ -1,4 +1,5 @@
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
+import { ANKI_NEVER_FORGET_TAG } from '../anki/card-details';
 import { resolveAnkiWordAudio } from '../anki/audio';
 import { copyText } from '../ui/browser';
 import { normalizeCardStates } from './state';
@@ -85,8 +86,6 @@ function assertReviewableApiCardState(states: string[], settings: ReaderSettings
     if (states.includes('never-forget')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedNeverForget'));
     if (states.includes('redundant')) throw new Error(uiText(settings.interfaceLanguage, 'reviewBlockedRedundant'));
 }
-
-const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
 
 export class CardActionController {
     constructor(private options: CardActionControllerOptions) {}
