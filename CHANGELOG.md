@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.80] - 2026-06-11
+
+### Fixed
+
+- New-tab Kanji tab: when the same kanji appears both as a real JPDB locked kanji card and as a candidate derived from a word, the study queue now keeps the locked card instead of whichever duplicate was seen first — locked kanji are scheduled SRS items in JPDB's own review flow, so the Kanji tab now reflects JPDB's selection.
+
 ## [0.6.79] - 2026-06-11
 
 ### Fixed

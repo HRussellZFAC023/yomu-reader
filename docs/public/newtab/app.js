@@ -34843,7 +34843,13 @@ ${entry.url}`),
     return card.jpdbReviewId || cardKey(card);
   }
   function shouldReplaceKanjiStudyCard(card, existing) {
-    return kanjiStudyCardPriority(card) < kanjiStudyCardPriority(existing);
+    const cardPriority = kanjiStudyCardPriority(card);
+    const existingPriority = kanjiStudyCardPriority(existing);
+    if (cardPriority !== existingPriority) return cardPriority < existingPriority;
+    return hasLockedCardState(card) && !hasLockedCardState(existing);
+  }
+  function hasLockedCardState(card) {
+    return card.cardState.includes("locked");
   }
   function jpdbReviewCardsForNewTab(cards, limit) {
     return markJpdbApiReviewCards(cards).filter(isScheduledStudyCard).slice(0, Math.max(1, limit));
