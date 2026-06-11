@@ -159,6 +159,7 @@ import {
     searchKanjiInlineWordMeta,
     searchSuggestionFromCard,
     searchWordResultOrder,
+    newTabDueSummary,
     shouldReplaceKanjiStudyCard,
     type NewTabSearchSuggestion,
 } from './card-selection';
@@ -3238,6 +3239,7 @@ export class NewTabController {
         const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
         const labels = [
             this.fallbackStudyNotice ? this.text('reviewFallbackNotice') : '',
+            this.dueSummaryLabel(),
             baseLabel,
             snapshot ? formatNewTabSessionProgressLabel(snapshot, {
                 completed: this.text('sessionDone'),
@@ -3250,6 +3252,21 @@ export class NewTabController {
             return;
         }
         this.renderCount(slots.count, labels.join(' · '), snapshot);
+    }
+
+    // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
+    // count of unseen items — only shown when it adds information beyond the
+    // session snapshot's plain "Due N".
+    private dueSummaryLabel(): string {
+        if (!this.reviewCountMode) return '';
+        const summary = newTabDueSummary(this.allWords);
+        const fresh = summary.newWords + summary.newKanji;
+        const parts: string[] = [];
+        if (summary.dueKanji && summary.dueWords) {
+            parts.push(`${summary.dueWords} ${this.text('statsWordsRow').toLowerCase()} · ${summary.dueKanji} ${this.text('kanji').toLowerCase()}`);
+        }
+        if (fresh) parts.push(`${fresh} ${this.text('stateNew').toLowerCase()}`);
+        return parts.join(' · ');
     }
 
     private sessionProgressCards(): JPDBCard[] {

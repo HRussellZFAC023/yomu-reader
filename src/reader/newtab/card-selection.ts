@@ -106,6 +106,34 @@ export function liveJpdbCardIdentity(card: JPDBCard): string {
     return card.jpdbReviewId || cardKey(card);
 }
 
+
+export interface NewTabDueSummary {
+    dueWords: number;
+    dueKanji: number;
+    newWords: number;
+    newKanji: number;
+}
+
+// JPDB Learn parity: "You have N due items (X vocabulary and Y kanji) and M
+// new items…". Standalone single-kanji cards count as kanji; everything else
+// as vocabulary. "New" means unseen scheduled cards; "due" is every other
+// scheduled state (learning/due/failed/locked).
+export function newTabDueSummary(cards: JPDBCard[]): NewTabDueSummary {
+    const summary: NewTabDueSummary = { dueWords: 0, dueKanji: 0, newWords: 0, newKanji: 0 };
+    for (const card of cards) {
+        if (!isScheduledStudyCard(card)) continue;
+        const characters = Array.from(card.spelling.trim());
+        const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? '');
+        const isNew = card.cardState.includes('new') || card.cardState.includes('not-in-deck');
+        if (isNew) {
+            if (isKanjiCard) summary.newKanji += 1;
+            else summary.newWords += 1;
+        } else if (isKanjiCard) summary.dueKanji += 1;
+        else summary.dueWords += 1;
+    }
+    return summary;
+}
+
 export function shouldReplaceKanjiStudyCard(card: JPDBCard, existing: JPDBCard): boolean {
     const cardPriority = kanjiStudyCardPriority(card);
     const existingPriority = kanjiStudyCardPriority(existing);
