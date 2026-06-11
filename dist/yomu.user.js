@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.119
+// @version      0.6.120
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -31529,6 +31529,35 @@ ${glossaryKey}`;
   function isKanaOnlyLookupTerm(term) {
     return KANA_ONLY_LOOKUP_RUN_RE.test(term);
   }
+  function kanaRunRenderedWordsForSurface(anchor, surface) {
+    if (!surface) return [];
+    const run = [anchor];
+    for (let prev = anchor.previousElementSibling; isRenderedWordElement(prev); prev = prev.previousElementSibling) run.unshift(prev);
+    for (let next = anchor.nextElementSibling; isRenderedWordElement(next); next = next.nextElementSibling) run.push(next);
+    for (let start = 0; start < run.length; start += 1) {
+      let text2 = "";
+      for (let end = start; end < run.length; end += 1) {
+        text2 += renderedWordSurfaceText(run[end]);
+        if (text2.length > surface.length) break;
+        if (text2 === surface) {
+          const window2 = run.slice(start, end + 1);
+          if (window2.includes(anchor)) return window2;
+          break;
+        }
+      }
+    }
+    return [];
+  }
+  function isRenderedWordElement(node) {
+    return node instanceof HTMLElement && node.classList.contains("jpdb-reader-word");
+  }
+  function renderedWordSurfaceText(word) {
+    if (!word) return "";
+    if (!word.querySelector("rt, rp")) return word.textContent ?? "";
+    const clone = word.cloneNode(true);
+    clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
+    return clone.textContent ?? "";
+  }
   class PopupNavigationController {
     constructor(hasActiveKanjiPopover) {
       this.hasActiveKanjiPopover = hasActiveKanjiPopover;
@@ -37376,12 +37405,30 @@ ${glossaryKey}`;
         const token = this.parsedRenderedWordCandidateToken(tokens ?? [], lookup, word);
         if (!token) return false;
         this.parser.cacheCards?.([token.card]);
+        this.restampKanaRunRenderedWords(word, token, lookup.sentence);
         await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
         return true;
       } catch (error) {
         log.warn("Rendered JPDB parse failed", { expression: card.spelling }, error);
         return false;
       }
+    }
+    // P0 kana-run identity: re-stamp the rendered fragment run with the
+    // resolved word's identity so grades/mining/cross-tab signals recolor the
+    // WHOLE word, not just the tapped fragment.
+    restampKanaRunRenderedWords(word, token, sentence) {
+      const surface = sentence.slice(token.start, token.end);
+      const run = kanaRunRenderedWordsForSurface(word, surface);
+      if (run.length < 2) return;
+      const pitchClass = getPitchClass(token.card.pitchAccent, token.card.reading || token.card.spelling) || "unknown";
+      this.pauseAutoScanObserver(() => {
+        for (const fragment of run) {
+          fragment.dataset.vid = String(token.card.vid);
+          fragment.dataset.sid = String(token.card.sid);
+          this.applyPublicVocabularyToRenderedWord(fragment, token.card, pitchClass);
+        }
+        refreshReaderWordContrast(word.parentElement ?? word);
+      });
     }
     parsedRenderedWordCandidateToken(tokens, lookup, word) {
       const token = pointerTokenAtOffset(tokens, lookup.offset);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.120] - 2026-06-11
+
+### Added
+
+- Kana-run word identity (the last piece of the kana-run parity P0): when tapping part of a kana-only word like にほんご resolves the full word, every rendered fragment in the run now takes on the resolved word's identity — so grading, mining, or a cross-tab state change recolors the whole word everywhere, not just the fragment you tapped. Surface-mismatch fails closed; ruby annotations are handled.
+
 ## [0.6.119] - 2026-06-11
 
 ### Added
