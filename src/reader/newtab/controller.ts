@@ -3940,6 +3940,15 @@ export class NewTabController {
     }
 
     private async fetchFrontSentence(card: JPDBCard): Promise<string> {
+        // Provider fidelity (study-hub parity SH-5): a JPDB-backed card fronts
+        // JPDB's own example sentence — exactly what jpdb.io shows on its
+        // review front. Immersion Kit is the superset fallback for cards the
+        // provider gives no sentence, never a replacement.
+        if (card.source === 'jpdb' && !isJitenSrsCard(card)) {
+            const jpdbSentence = await this.loadJpdbFrontSentence(card);
+            if (jpdbSentence) return jpdbSentence;
+            return this.loadImmersionFrontSentence(card);
+        }
         const immersionSentence = await this.loadImmersionFrontSentence(card);
         if (immersionSentence) return immersionSentence;
         return this.loadJpdbFrontSentence(card);

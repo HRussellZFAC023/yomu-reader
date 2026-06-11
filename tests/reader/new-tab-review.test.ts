@@ -1654,6 +1654,26 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('fronts JPDB-backed cards with the JPDB example sentence, not Immersion Kit (SH-5)', async () => {
+        const jpdbLookup = vi.fn(async () => ({ examples: [{ sentence: '日本語を勉強します。' }] }));
+        const immersionSearch = vi.fn(async () => [{ sentence: '勉強の鬼になる。' } as ImmersionKitExample]);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: true, jpdbDefinitionsEnabled: true }, {
+            jpdbVocabulary: { lookup: jpdbLookup, search: vi.fn(async () => []) } as never,
+            immersionKit: { search: immersionSearch, mediaUrls: vi.fn(() => []) } as never,
+        });
+        try {
+            const internals = controller as unknown as { fetchFrontSentence(card: JPDBCard): Promise<string> };
+            const jpdbCard = newTabTestCard({ spelling: '勉強', reading: 'べんきょう', source: 'jpdb', cardState: ['due'] });
+            await expect(internals.fetchFrontSentence(jpdbCard)).resolves.toContain('日本語を勉強します');
+
+            // Non-JPDB cards keep the Immersion Kit-first superset behavior.
+            const localCard = newTabTestCard({ spelling: '勉強', reading: 'べんきょう', source: 'local' });
+            await expect(internals.fetchFrontSentence(localCard)).resolves.toContain('勉強の鬼になる');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('shows an error state on the stats page when the Jiten API fails instead of going blank', async () => {
         const listStudyBatchCards = vi.fn(async () => {
             throw new Error('Jiten API unreachable');
