@@ -995,6 +995,39 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps the rail in lockstep with the mobile player chrome, blurring sticky tapped buttons', () => {
+        let controller: SubtitlePlayerController | undefined;
+        try {
+            document.body.innerHTML = '<div id="player-control-overlay" class="fadein"><video></video></div>';
+            controller = createInstalledSubtitleController().controller;
+            const overlay = document.querySelector<HTMLElement>('#player-control-overlay')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 390, 220) });
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
+
+            // A mobile tap leaves the rail button focused; without the blur
+            // the sticky :focus-within would block idling forever.
+            const railButton = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail button')!;
+            railButton.focus();
+
+            overlay.classList.remove('fadein');
+            internals.syncPlayerChromeIdleState();
+            expect(document.activeElement).not.toBe(railButton);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            // Chrome fades back in (viewer tapped the video): the rail returns
+            // alongside the player's own controls.
+            overlay.classList.add('fadein');
+            internals.syncPlayerChromeIdleState();
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+        } finally {
+            controller?.destroy();
+        }
+    });
+
     it('lets video rail controls auto-hide while the transcript panel is open', async () => {
         vi.useFakeTimers();
         const { controller, root } = setupInstalledVideoController(new DOMRect(0, 72, 960, 540));
@@ -1134,19 +1167,25 @@ describe('SubtitlePlayerController', () => {
             .toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
     });
 
-    it('keeps auto-idle subtitle rails discoverable on coarse pointers', () => {
+    it('hides idle subtitle rails on touch screens instead of keeping them pinned at 72% opacity', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('@media (max-width: 768px), (pointer: coarse) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not( .jpdb-subtitle-panel-open ) .jpdb-subtitle-rail:not(:focus-within) { opacity: 0.72; pointer-events: auto; transform: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -5px; border-radius: 9px; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-rail button { padding: 0; font-size: 11px; touch-action: manipulation; }');
+        // The old coarse-pointer/compact "always discoverable" overrides kept
+        // the rail visible during playback even while the player chrome was
+        // hidden; the rail now follows the player chrome (lockstep tick) and
+        // idles to hidden everywhere.
+        expect(normalizedCss).not.toContain('opacity: 0.72; pointer-events: auto; transform: none;');
+        expect(normalizedCss).not.toContain('opacity: .72; pointer-events: auto; transform: none;');
     });
 
-    it('keeps compact auto-idle subtitle rails discoverable even when mobile media queries do not apply', () => {
+    it('ignores sticky tap hover/focus when hiding the idle rail on hoverless devices', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-subtitle-compact-video.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not( .jpdb-subtitle-panel-open ) .jpdb-subtitle-rail:not(:focus-within) { opacity: .72; pointer-events: auto; transform: none; }');
+        expect(normalizedCss).toContain('@media (hover: none) {');
+        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail { opacity: 0; pointer-events: none; transform: translateY(-4px); }');
     });
 
     it('hides the whole subtitle rail when subtitle controls are hidden', () => {

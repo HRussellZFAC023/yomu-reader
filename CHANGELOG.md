@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.78] - 2026-06-11
+
+### Fixed
+
+- The video subtitle rail (previous/next subtitle, panel toggle) now appears and disappears in lockstep with the video player's own controls: when YouTube's chrome fades out during playback the rail hides with it, and it returns when the controls come back. On touch screens the old "always discoverable" overrides kept the rail pinned at 72% opacity through playback — those are gone, and sticky tap hover/focus can no longer hold the rail open (the stuck button is blurred when the chrome hides). Verified live on a real watch page.
+- (Shipped in 0.6.77's artifacts, documenting here.) Logged-in YouTube home feed: filtered rows no longer leave gaps where videos could fit — the row-start margin compensation predated YouTube's 2026 lockup CSS (the gutter moved onto the grid container), so it overflowed and wrapped rows early; the grid rebalance also re-runs when YouTube re-asserts its row flags, and the loading skeleton (ghost cards) now takes a full-width row at true card size instead of squeezing into the leftover space of a partial row. Verified live on the signed-in feed.
+
 ## [0.6.77] - 2026-06-11
 
 ### Fixed

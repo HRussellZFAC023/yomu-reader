@@ -357,6 +357,7 @@ export class SubtitlePlayerController {
     private secondaryCue?: SubtitleCue;
     private observer?: MutationObserver;
     private videoResizeObserver?: ResizeObserver;
+    private lastPlayerChromeHidden = false;
     private discoverTimer?: number;
     private tickTimer?: number;
     private alignFrame?: number;
@@ -987,9 +988,35 @@ export class SubtitlePlayerController {
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
 
+    // The rail follows the player's own chrome: on phones there is no hover,
+    // so the player's fade state is the only "controls are visible" signal
+    // the viewer has — the rail must appear and disappear in lockstep.
     private syncPlayerChromeIdleState(): void {
-        if (!this.root || !this.shouldAutoIdleControls() || !this.videoPlayerChromeHidden()) return;
-        this.hideControlsImmediately();
+        if (!this.root || !this.hasAutoIdleMode(this.options.getSettings())) return;
+        const chromeHidden = this.videoPlayerChromeHidden();
+        if (chromeHidden) {
+            // Mobile taps leave the last rail button focused, which would
+            // otherwise block idling forever via :focus-within.
+            this.blurFocusedRailControl();
+            if (this.shouldAutoIdleControls()) this.hideControlsImmediately();
+        } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
+            // Chrome just re-appeared (e.g. the viewer tapped the video):
+            // re-reveal the rail alongside the player's own controls.
+            this.showControlsTemporarily();
+        }
+        this.lastPlayerChromeHidden = chromeHidden;
+    }
+
+    private blurFocusedRailControl(): void {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && this.root?.contains(active) && active.closest('.jpdb-subtitle-rail')) {
+            active.blur();
+        }
+    }
+
+    private isVideoPlayerChromeSurface(): boolean {
+        return Boolean(document.querySelector('#player-control-overlay')
+            || this.video?.closest('#movie_player, .html5-video-player'));
     }
 
     private refreshSubtitleSourcesForTick(): void {
