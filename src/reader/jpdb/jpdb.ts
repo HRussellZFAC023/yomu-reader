@@ -199,6 +199,15 @@ export class JpdbClient {
         });
     }
 
+    // Used by the new-tab live-bridge grade path through the client
+    // dependency: after grading on jpdb.io, read the card's true post-state
+    // back so other tabs can recolor from honest data.
+    // fallow-ignore-next-line unused-class-member
+    async refreshCardState(card: JPDBCard): Promise<void> {
+        if (!(card.vid > 0)) return;
+        await this.refreshCard(card);
+    }
+
     private async refreshCard(card: JPDBCard): Promise<void> {
         const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
             list: [[card.vid, card.sid]],

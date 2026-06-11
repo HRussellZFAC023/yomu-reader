@@ -286,6 +286,7 @@ const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
+const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
@@ -7066,6 +7067,24 @@ export class NewTabController {
         this.rememberPendingLiveJpdbGrade(card);
         this.dependencies.jpdbReviewBridge.grade(grade);
         this.dependencies.jpdbReviewBridge.requestCurrent();
+        void this.publishLiveGradedCardState(card);
+    }
+
+    // P0 mutation-bus remainder: the graded card's new state lives on
+    // jpdb.io. With an API key and real ids we read the truth back and
+    // broadcast it so other tabs recolor; keyless live grading stays
+    // signal-less rather than guessing jpdb's state machine.
+    private async publishLiveGradedCardState(card: JPDBCard): Promise<void> {
+        if (!(card.vid > 0) || !hasJpdbApiCredential(this.dependencies.getSettings())) return;
+        const jpdb = this.dependencies.jpdb as { refreshCardState?: (card: JPDBCard) => Promise<void> };
+        if (typeof jpdb.refreshCardState !== 'function') return;
+        await new Promise(resolve => window.setTimeout(resolve, NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS));
+        try {
+            await jpdb.refreshCardState(card);
+            this.publishGradedCardState(card);
+        } catch {
+            // Best-effort: the live grade itself already landed on jpdb.io.
+        }
     }
 
     private async submitJpdbApiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
@@ -7961,10 +7980,19 @@ function sentencePromptTarget(card: JPDBCard, sentence: string): string {
     return reading && sentence.includes(reading) ? reading : '';
 }
 
+// The review URL's c= parameter ('vf,<vid>,<sid>') rides on the bridge card
+// id; real ids let the API read the card's post-grade state back.
+function liveJpdbCardIds(card: JpdbReviewBridgeCard): { vid: number; sid: number } {
+    const match = /^v[a-z]?,(\d+),(\d+)$/.exec(card.id ?? '');
+    if (!match) return { vid: 0, sid: 0 };
+    return { vid: Number(match[1]), sid: Number(match[2]) };
+}
+
 function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string): JPDBCard {
+    const ids = liveJpdbCardIds(card);
     return {
-        vid: 0,
-        sid: 0,
+        vid: ids.vid,
+        sid: ids.sid,
         rid: 0,
         spelling,
         reading: liveJpdbCardReading(card, spelling),

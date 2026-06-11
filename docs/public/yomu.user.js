@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.118
+// @version      0.6.119
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -27696,6 +27696,14 @@ ${spelling}`);
       }).catch((error) => {
         log$8.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
+    }
+    // Used by the new-tab live-bridge grade path through the client
+    // dependency: after grading on jpdb.io, read the card's true post-state
+    // back so other tabs can recolor from honest data.
+    // fallow-ignore-next-line unused-class-member
+    async refreshCardState(card) {
+      if (!(card.vid > 0)) return;
+      await this.refreshCard(card);
     }
     async refreshCard(card) {
       const lookup = await this.api.request("lookup-vocabulary", {

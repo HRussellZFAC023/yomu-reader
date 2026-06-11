@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.119] - 2026-06-11
+
+### Added
+
+- Live JPDB reviews now complete the cross-tab card-state bus: after grading through the review bridge, Yomu reads the card's true post-grade state back via the API (the bridge card id carries the real vid/sid from the review URL) and broadcasts it, so the same word recolors in every open tab — exactly like API-graded and Anki-graded cards have since 0.6.82. Without an API key the live grade still lands; no state is guessed.
+
 ## [0.6.118] - 2026-06-11
 
 ### Changed
