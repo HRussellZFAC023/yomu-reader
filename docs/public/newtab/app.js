@@ -19367,6 +19367,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsActivityMinutes: "Minutes",
       statsActivityNewCards: "New cards",
       statsCardDistribution: "Card distribution",
+      browseAllChip: "All",
+      browsePreviousPage: "Previous page",
+      browseNextPage: "Next page",
+      browseNoCards: "No cards match this filter yet.",
       statsLearningProgress: "Learning progress",
       statsWordsRow: "Words",
       statsLearningColumn: "Learning",
@@ -19485,6 +19489,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsActivityMinutes: "分",
     statsActivityNewCards: "新規",
     statsCardDistribution: "カード分布",
+    browseAllChip: "すべて",
+    browsePreviousPage: "前のページ",
+    browseNextPage: "次のページ",
+    browseNoCards: "このフィルタに一致するカードはまだありません。",
     statsLearningProgress: "学習の進捗",
     statsWordsRow: "単語",
     statsLearningColumn: "学習中",
@@ -32436,201 +32444,6 @@ ${normalizedReading}`;
   function isSkippedChild(child) {
     return child === false || child === null || child === void 0;
   }
-  function eventTargetElement(target) {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Element) return closestHtmlAncestor(target);
-    if (target instanceof Text) return target.parentElement;
-    return null;
-  }
-  function closestHtmlAncestor(element) {
-    let current = element;
-    while (current) {
-      if (current instanceof HTMLElement) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-  function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
-    if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
-    return new Promise((resolve) => {
-      if (scheduleIdleCallback(() => resolve(), timeoutMs)) return;
-      window.setTimeout(resolve, Math.max(0, fallbackDelayMs));
-    });
-  }
-  function scheduleIdleCallback(callback, timeoutMs = 75) {
-    const requestIdleCallback = window.requestIdleCallback;
-    if (typeof requestIdleCallback !== "function") return false;
-    requestIdleCallback.call(window, callback, { timeout: timeoutMs });
-    return true;
-  }
-  const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
-  const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
-  function installOriginGraphInteractions(root) {
-    root.querySelectorAll(".jpdb-reader-origin-graph-wrap").forEach((wrap) => {
-      if (wrap.dataset.graphDragInstalled === "true") {
-        refreshOriginGraphEdgesAfterLayout(wrap);
-        return;
-      }
-      wrap.dataset.graphDragInstalled = "true";
-      installOriginGraphDrag(wrap);
-      installOriginGraphRefreshHooks(wrap);
-      refreshOriginGraphEdgesAfterLayout(wrap);
-    });
-  }
-  function installOriginGraphDrag(wrap) {
-    let active = null;
-    let suppressClick = false;
-    wrap.addEventListener("pointerdown", (event) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      const target = event.target instanceof Element ? event.target : null;
-      const node = target?.closest(".jpdb-reader-origin-graph-node");
-      if (!node || !wrap.contains(node)) return;
-      const pointer = originGraphPointerPercent(wrap, event);
-      const center = originGraphNodeCenter(node);
-      active = {
-        node,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        grabOffsetX: center.x - pointer.x,
-        grabOffsetY: center.y - pointer.y,
-        moved: false
-      };
-      node.classList.add("dragging");
-      node.setPointerCapture?.(event.pointerId);
-    });
-    wrap.addEventListener("pointermove", (event) => {
-      if (!active || active.pointerId !== event.pointerId) return;
-      if (!active.moved && pointerDistance(active, event) < ORIGIN_GRAPH_DRAG_THRESHOLD_PX) return;
-      event.preventDefault();
-      active.moved = true;
-      const pointer = originGraphPointerPercent(wrap, event);
-      const next = clampOriginGraphNodePosition(wrap, active.node, pointer.x + active.grabOffsetX, pointer.y + active.grabOffsetY);
-      moveOriginGraphNode(active.node, next.x, next.y);
-      refreshOriginGraphEdges(wrap);
-    });
-    const finish = (event) => {
-      if (!active || active.pointerId !== event.pointerId) return;
-      active.node.classList.remove("dragging");
-      active.node.releasePointerCapture?.(event.pointerId);
-      if (active.moved) {
-        suppressClick = true;
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      active = null;
-    };
-    wrap.addEventListener("pointerup", finish);
-    wrap.addEventListener("pointercancel", finish);
-    wrap.addEventListener("click", (event) => {
-      if (!suppressClick) return;
-      suppressClick = false;
-      event.preventDefault();
-      event.stopPropagation();
-    }, true);
-  }
-  function installOriginGraphRefreshHooks(wrap) {
-    wrap.closest("details")?.addEventListener("toggle", () => refreshOriginGraphEdgesAfterLayout(wrap));
-    wrap.querySelectorAll(".jpdb-reader-origin-graph-toggle input").forEach((input2) => {
-      input2.addEventListener("change", () => refreshOriginGraphEdgesAfterLayout(wrap));
-    });
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(() => refreshOriginGraphEdgesAfterLayout(wrap));
-      observer.observe(wrap);
-      wrap.querySelectorAll(".jpdb-reader-origin-graph-node").forEach((node) => observer.observe(node));
-    }
-  }
-  function pointerDistance(active, event) {
-    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
-  }
-  function refreshOriginGraphEdgesAfterLayout(wrap) {
-    setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
-    requestOriginGraphFrame(() => {
-      setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
-    });
-  }
-  function requestOriginGraphFrame(callback) {
-    const requestFrame2 = typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : (frameCallback) => window.setTimeout(() => frameCallback(performance.now()), 0);
-    requestFrame2(callback);
-  }
-  function setOriginGraphReady(wrap, ready) {
-    if (ready) {
-      wrap.dataset.graphReady = "true";
-    } else {
-      delete wrap.dataset.graphReady;
-    }
-  }
-  function originGraphPointerPercent(wrap, event) {
-    const rect = wrap.getBoundingClientRect();
-    if (!rect.width || !rect.height) return { x: 50, y: 50 };
-    return {
-      x: (event.clientX - rect.left) / rect.width * 100,
-      y: (event.clientY - rect.top) / rect.height * 100
-    };
-  }
-  function clampOriginGraphNodePosition(wrap, node, x2, y) {
-    const measured = measuredOriginGraphNodeRadii(wrap, node);
-    const fallbackRx = Number(node.dataset.rx || 5);
-    const fallbackRy = Number(node.dataset.ry || 5);
-    const rx = measured.rx || fallbackRx;
-    const ry = measured.ry || fallbackRy;
-    return {
-      x: clampGraphPercent(x2, rx + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - rx - ORIGIN_GRAPH_EDGE_PADDING_PERCENT),
-      y: clampGraphPercent(y, ry + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - ry - ORIGIN_GRAPH_EDGE_PADDING_PERCENT)
-    };
-  }
-  function moveOriginGraphNode(node, x2, y) {
-    node.dataset.x = String(x2);
-    node.dataset.y = String(y);
-    node.style.left = `${x2}%`;
-    node.style.top = `${y}%`;
-  }
-  function refreshOriginGraphEdges(wrap) {
-    const wrapRect = wrap.getBoundingClientRect();
-    if (!wrapRect.width || !wrapRect.height) return false;
-    wrap.querySelectorAll(".jpdb-reader-origin-edge-group").forEach((group) => {
-      const from = originGraphNodeGeometry(wrap, group.dataset.from);
-      const to = originGraphNodeGeometry(wrap, group.dataset.to);
-      if (!from || !to) return;
-      const edgePath = graphEdgePath(from, to, originGraphTargetZone(group.dataset.targetZone));
-      const path = group.querySelector(".jpdb-reader-origin-edge");
-      path?.setAttribute("d", edgePath.d);
-    });
-    return true;
-  }
-  function originGraphNodeGeometry(wrap, id) {
-    if (!id) return null;
-    const node = Array.from(wrap.querySelectorAll(".jpdb-reader-origin-graph-node")).find((candidate) => candidate.dataset.graphNode === id);
-    if (!node) return null;
-    const measured = measuredOriginGraphNodeRadii(wrap, node);
-    return {
-      ...originGraphNodeCenter(node),
-      rx: measured.rx || Number(node.dataset.rx || 5),
-      ry: measured.ry || Number(node.dataset.ry || 5)
-    };
-  }
-  function originGraphNodeCenter(node) {
-    return {
-      x: Number(node.dataset.x || 0),
-      y: Number(node.dataset.y || 0)
-    };
-  }
-  function measuredOriginGraphNodeRadii(wrap, node) {
-    const wrapRect = wrap.getBoundingClientRect();
-    if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
-    const width = node.offsetWidth || node.getBoundingClientRect().width;
-    const height = node.offsetHeight || node.getBoundingClientRect().height;
-    return {
-      rx: width > 0 ? width / 2 / wrapRect.width * 100 : 0,
-      ry: height > 0 ? height / 2 / wrapRect.height * 100 : 0
-    };
-  }
-  function originGraphTargetZone(value) {
-    return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
-  }
-  function clampGraphPercent(value, min = 0, max2 = 100) {
-    return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
-  }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -32854,6 +32667,314 @@ ${normalizedReading}`;
   }
   function trimSpaces(value) {
     return value.replace(/\s+/gu, " ").trim();
+  }
+  const BROWSE_PAGE_SIZE = 50;
+  const BROWSE_FILTER_ORDER = [
+    "new",
+    "learning",
+    "due",
+    "failed",
+    "known",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "locked",
+    "redundant"
+  ];
+  function browseStateCounts(cards) {
+    const counts = /* @__PURE__ */ new Map();
+    for (const card of cards) {
+      const state = primaryCardState(card.cardState);
+      counts.set(state, (counts.get(state) ?? 0) + 1);
+    }
+    return counts;
+  }
+  function filterBrowseCards(cards, filter, query) {
+    const trimmed = query.trim();
+    return cards.filter((card) => {
+      if (filter !== "all" && primaryCardState(card.cardState) !== filter) return false;
+      if (!trimmed) return true;
+      return card.spelling.includes(trimmed) || card.reading.includes(trimmed);
+    });
+  }
+  function renderBrowseChips(cards, active, language, allLabel) {
+    const counts = browseStateCounts(cards);
+    const chip = (filter, label, count) => el("button", {
+      type: "button",
+      class: "jpdb-reader-newtab-browse-chip",
+      dataset: { newtabAction: "browse-filter", browseFilter: filter },
+      "aria-pressed": String(filter === active)
+    }, `${label} ${count}`);
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-browse-chips", role: "group" },
+      chip("all", allLabel, cards.length),
+      ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0))
+    );
+  }
+  function renderBrowseList(cards, page, language, copy) {
+    if (!cards.length) {
+      return el("div", { class: "jpdb-reader-newtab-browse-empty" }, copy.empty);
+    }
+    const pageCount = Math.max(1, Math.ceil(cards.length / BROWSE_PAGE_SIZE));
+    const currentPage = Math.max(0, Math.min(page, pageCount - 1));
+    const start = currentPage * BROWSE_PAGE_SIZE;
+    const visible = cards.slice(start, start + BROWSE_PAGE_SIZE);
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-browse-list" },
+      el("p", { class: "jpdb-reader-newtab-browse-meta" }, copy.showing(start + 1, start + visible.length, cards.length)),
+      el(
+        "ol",
+        { class: "jpdb-reader-newtab-browse-rows" },
+        ...visible.map((card) => renderBrowseRow(card, language))
+      ),
+      pageCount > 1 ? el(
+        "div",
+        { class: "jpdb-reader-newtab-browse-pager" },
+        el("button", {
+          type: "button",
+          dataset: { newtabAction: "browse-page", browsePage: String(currentPage - 1) },
+          disabled: currentPage === 0
+        }, copy.previous),
+        el("button", {
+          type: "button",
+          dataset: { newtabAction: "browse-page", browsePage: String(currentPage + 1) },
+          disabled: currentPage >= pageCount - 1
+        }, copy.next)
+      ) : null
+    );
+  }
+  function renderBrowseRow(card, language) {
+    const state = primaryCardState(card.cardState);
+    const meaning = firstCardMeaning(card);
+    const reading = card.reading && card.reading !== card.spelling ? card.reading : "";
+    return el(
+      "li",
+      {},
+      el(
+        "button",
+        {
+          type: "button",
+          class: "jpdb-reader-newtab-browse-row",
+          dataset: {
+            newtabAction: "browse-card",
+            browseCardKey: cardKey(card),
+            expression: card.spelling,
+            reading: card.reading
+          }
+        },
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-browse-term", lang: "ja" },
+          el("span", { class: "jpdb-reader-newtab-browse-spelling" }, card.spelling),
+          reading ? el("span", { class: "jpdb-reader-newtab-browse-reading" }, reading) : null
+        ),
+        meaning ? el("span", { class: "jpdb-reader-newtab-browse-meaning" }, meaning) : null,
+        el(
+          "span",
+          { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state } },
+          el("span", { class: `jpdb-reader-state-dot jpdb-${state}` }),
+          cardStateLabel(state, language),
+          card.frequencyRank ? ` · Top ${card.frequencyRank}` : ""
+        )
+      )
+    );
+  }
+  function eventTargetElement(target) {
+    if (target instanceof HTMLElement) return target;
+    if (target instanceof Element) return closestHtmlAncestor(target);
+    if (target instanceof Text) return target.parentElement;
+    return null;
+  }
+  function closestHtmlAncestor(element) {
+    let current = element;
+    while (current) {
+      if (current instanceof HTMLElement) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
+    if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      if (scheduleIdleCallback(() => resolve(), timeoutMs)) return;
+      window.setTimeout(resolve, Math.max(0, fallbackDelayMs));
+    });
+  }
+  function scheduleIdleCallback(callback, timeoutMs = 75) {
+    const requestIdleCallback = window.requestIdleCallback;
+    if (typeof requestIdleCallback !== "function") return false;
+    requestIdleCallback.call(window, callback, { timeout: timeoutMs });
+    return true;
+  }
+  const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
+  const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
+  function installOriginGraphInteractions(root) {
+    root.querySelectorAll(".jpdb-reader-origin-graph-wrap").forEach((wrap) => {
+      if (wrap.dataset.graphDragInstalled === "true") {
+        refreshOriginGraphEdgesAfterLayout(wrap);
+        return;
+      }
+      wrap.dataset.graphDragInstalled = "true";
+      installOriginGraphDrag(wrap);
+      installOriginGraphRefreshHooks(wrap);
+      refreshOriginGraphEdgesAfterLayout(wrap);
+    });
+  }
+  function installOriginGraphDrag(wrap) {
+    let active = null;
+    let suppressClick = false;
+    wrap.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const node = target?.closest(".jpdb-reader-origin-graph-node");
+      if (!node || !wrap.contains(node)) return;
+      const pointer = originGraphPointerPercent(wrap, event);
+      const center = originGraphNodeCenter(node);
+      active = {
+        node,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        grabOffsetX: center.x - pointer.x,
+        grabOffsetY: center.y - pointer.y,
+        moved: false
+      };
+      node.classList.add("dragging");
+      node.setPointerCapture?.(event.pointerId);
+    });
+    wrap.addEventListener("pointermove", (event) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      if (!active.moved && pointerDistance(active, event) < ORIGIN_GRAPH_DRAG_THRESHOLD_PX) return;
+      event.preventDefault();
+      active.moved = true;
+      const pointer = originGraphPointerPercent(wrap, event);
+      const next = clampOriginGraphNodePosition(wrap, active.node, pointer.x + active.grabOffsetX, pointer.y + active.grabOffsetY);
+      moveOriginGraphNode(active.node, next.x, next.y);
+      refreshOriginGraphEdges(wrap);
+    });
+    const finish = (event) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      active.node.classList.remove("dragging");
+      active.node.releasePointerCapture?.(event.pointerId);
+      if (active.moved) {
+        suppressClick = true;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      active = null;
+    };
+    wrap.addEventListener("pointerup", finish);
+    wrap.addEventListener("pointercancel", finish);
+    wrap.addEventListener("click", (event) => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+  }
+  function installOriginGraphRefreshHooks(wrap) {
+    wrap.closest("details")?.addEventListener("toggle", () => refreshOriginGraphEdgesAfterLayout(wrap));
+    wrap.querySelectorAll(".jpdb-reader-origin-graph-toggle input").forEach((input2) => {
+      input2.addEventListener("change", () => refreshOriginGraphEdgesAfterLayout(wrap));
+    });
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => refreshOriginGraphEdgesAfterLayout(wrap));
+      observer.observe(wrap);
+      wrap.querySelectorAll(".jpdb-reader-origin-graph-node").forEach((node) => observer.observe(node));
+    }
+  }
+  function pointerDistance(active, event) {
+    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
+  }
+  function refreshOriginGraphEdgesAfterLayout(wrap) {
+    setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
+    requestOriginGraphFrame(() => {
+      setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
+    });
+  }
+  function requestOriginGraphFrame(callback) {
+    const requestFrame2 = typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : (frameCallback) => window.setTimeout(() => frameCallback(performance.now()), 0);
+    requestFrame2(callback);
+  }
+  function setOriginGraphReady(wrap, ready) {
+    if (ready) {
+      wrap.dataset.graphReady = "true";
+    } else {
+      delete wrap.dataset.graphReady;
+    }
+  }
+  function originGraphPointerPercent(wrap, event) {
+    const rect = wrap.getBoundingClientRect();
+    if (!rect.width || !rect.height) return { x: 50, y: 50 };
+    return {
+      x: (event.clientX - rect.left) / rect.width * 100,
+      y: (event.clientY - rect.top) / rect.height * 100
+    };
+  }
+  function clampOriginGraphNodePosition(wrap, node, x2, y) {
+    const measured = measuredOriginGraphNodeRadii(wrap, node);
+    const fallbackRx = Number(node.dataset.rx || 5);
+    const fallbackRy = Number(node.dataset.ry || 5);
+    const rx = measured.rx || fallbackRx;
+    const ry = measured.ry || fallbackRy;
+    return {
+      x: clampGraphPercent(x2, rx + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - rx - ORIGIN_GRAPH_EDGE_PADDING_PERCENT),
+      y: clampGraphPercent(y, ry + ORIGIN_GRAPH_EDGE_PADDING_PERCENT, 100 - ry - ORIGIN_GRAPH_EDGE_PADDING_PERCENT)
+    };
+  }
+  function moveOriginGraphNode(node, x2, y) {
+    node.dataset.x = String(x2);
+    node.dataset.y = String(y);
+    node.style.left = `${x2}%`;
+    node.style.top = `${y}%`;
+  }
+  function refreshOriginGraphEdges(wrap) {
+    const wrapRect = wrap.getBoundingClientRect();
+    if (!wrapRect.width || !wrapRect.height) return false;
+    wrap.querySelectorAll(".jpdb-reader-origin-edge-group").forEach((group) => {
+      const from = originGraphNodeGeometry(wrap, group.dataset.from);
+      const to = originGraphNodeGeometry(wrap, group.dataset.to);
+      if (!from || !to) return;
+      const edgePath = graphEdgePath(from, to, originGraphTargetZone(group.dataset.targetZone));
+      const path = group.querySelector(".jpdb-reader-origin-edge");
+      path?.setAttribute("d", edgePath.d);
+    });
+    return true;
+  }
+  function originGraphNodeGeometry(wrap, id) {
+    if (!id) return null;
+    const node = Array.from(wrap.querySelectorAll(".jpdb-reader-origin-graph-node")).find((candidate) => candidate.dataset.graphNode === id);
+    if (!node) return null;
+    const measured = measuredOriginGraphNodeRadii(wrap, node);
+    return {
+      ...originGraphNodeCenter(node),
+      rx: measured.rx || Number(node.dataset.rx || 5),
+      ry: measured.ry || Number(node.dataset.ry || 5)
+    };
+  }
+  function originGraphNodeCenter(node) {
+    return {
+      x: Number(node.dataset.x || 0),
+      y: Number(node.dataset.y || 0)
+    };
+  }
+  function measuredOriginGraphNodeRadii(wrap, node) {
+    const wrapRect = wrap.getBoundingClientRect();
+    if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
+    const width = node.offsetWidth || node.getBoundingClientRect().width;
+    const height = node.offsetHeight || node.getBoundingClientRect().height;
+    return {
+      rx: width > 0 ? width / 2 / wrapRect.width * 100 : 0,
+      ry: height > 0 ? height / 2 / wrapRect.height * 100 : 0
+    };
+  }
+  function originGraphTargetZone(value) {
+    return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
+  }
+  function clampGraphPercent(value, min = 0, max2 = 100) {
+    return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
   }
   function renderNewTabImmersionSentence(card, example, settings, tokens) {
     const sentence = document.createElement("div");
@@ -36445,6 +36566,10 @@ ${newTabCardReading(card)}`;
     navigationGeneration = 0;
     navigationSupplementPromise = null;
     statsSnapshot = emptyStatsDashboardSnapshot();
+    browsePool;
+    browsePoolKey = "";
+    browseFilter = "all";
+    browsePage = 0;
     statsSelectedSource = "combined";
     statsActivityMetric = "reviews";
     statsSelectedDate = "";
@@ -40364,6 +40489,30 @@ ${newTabCardReading(card)}`;
           event.preventDefault();
           this.copySearchActionQuery(target);
           return true;
+        case "browse-filter": {
+          event.preventDefault();
+          const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter;
+          this.browseFilter = filter ?? "all";
+          this.browsePage = 0;
+          const mount = this.searchResultsMount(root);
+          if (mount) this.renderBrowseResults(mount);
+          return true;
+        }
+        case "browse-page": {
+          event.preventDefault();
+          const page = Number(target.closest("[data-browse-page]")?.dataset.browsePage);
+          if (Number.isFinite(page) && page >= 0) this.browsePage = page;
+          const mount = this.searchResultsMount(root);
+          if (mount) this.renderBrowseResults(mount);
+          return true;
+        }
+        case "browse-card": {
+          event.preventDefault();
+          const row = target.closest("[data-expression]");
+          const expression = cleanNestedLookupValue(row?.dataset.expression);
+          if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(row?.dataset.reading) || expression, row ?? target);
+          return true;
+        }
         case "search-result-word":
           return this.handleSearchResultWordClick(root, target, event);
         case "search-result-kanji":
@@ -41195,7 +41344,46 @@ ${newTabCardReading(card)}`;
       delete results.dataset.searchQuery;
       this.searchWordCardCache.clear();
       this.renderSearchAutocomplete(root, "", []);
+      if (this.jpdbStatsApiProviders(this.dependencies.getSettings()).length) {
+        void this.renderBrowseInto(root);
+        return;
+      }
       replaceChildrenWith(results, el("div", { class: "jpdb-reader-newtab-search-empty" }));
+    }
+    async renderBrowseInto(root) {
+      const results = this.searchResultsMount(root);
+      if (!results) return;
+      if (!this.browsePool) replaceChildrenWith(results, el("div", { class: "jpdb-reader-newtab-search-empty" }, this.text("loading")));
+      await this.loadBrowsePool();
+      const mount = this.searchResultsMount(root);
+      if (!mount || !mount.isConnected || this.state.mode !== "search" || normalizeSearchQuery(this.searchQuery)) return;
+      this.renderBrowseResults(mount);
+    }
+    renderBrowseResults(mount) {
+      const cards = this.browsePool ?? [];
+      const language = this.language();
+      const filtered = filterBrowseCards(cards, this.browseFilter, "");
+      replaceChildrenWith(
+        mount,
+        renderBrowseChips(cards, this.browseFilter, language, this.text("browseAllChip")),
+        renderBrowseList(filtered, this.browsePage, language, {
+          empty: this.text("browseNoCards"),
+          previous: this.text("browsePreviousPage"),
+          next: this.text("browseNextPage"),
+          showing: (from, to, total) => `${from}–${to} / ${total}`
+        })
+      );
+    }
+    async loadBrowsePool() {
+      const settings = this.dependencies.getSettings();
+      const providers = this.jpdbStatsApiProviders(settings);
+      const key2 = providers.map((provider) => provider.label).join("+");
+      if (this.browsePool && this.browsePoolKey === key2) return this.browsePool;
+      const results = await Promise.all(providers.map((provider) => this.loadJpdbStatsApiProvider(provider)));
+      const cards = dedupeWords(results.filter((result) => result.error === null).flatMap((result) => result.cards));
+      this.browsePool = cards;
+      this.browsePoolKey = key2;
+      return cards;
     }
     renderSearchSuggestion(suggestion, index) {
       const detail = [suggestion.reading && suggestion.reading !== suggestion.query ? suggestion.reading : "", suggestion.meaning].filter(Boolean).join(" · ");

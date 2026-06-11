@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.92] - 2026-06-11
+
+### Added
+
+- The study page's Search tab now opens as a 'My Cards' browser when JPDB or Jiten is connected: your whole SRS pool with state filter chips in JPDB's Show-only order (All/New/Learning/Due/Failed/Known/Never forget/Blacklisted/…) including live counts, 50-per-page rows showing the word, reading, first meaning, state badge, and frequency rank — and tapping a row opens Yomu's full lookup (dictionaries, Immersion Kit, mining) for that card. Typing still searches dictionaries as before. Touch-sized rows; meanings column folds away on narrow screens. (Study-hub parity SH-3 v1.)
+
 ## [0.6.91] - 2026-06-11
 
 ### Fixed

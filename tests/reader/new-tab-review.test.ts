@@ -1674,6 +1674,45 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('shows the My Cards browser with state chips on the idle search tab (SH-3)', async () => {
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 1 }),
+            newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 2 }),
+            newTabTestCard({ spelling: '聞く', reading: 'きく', cardState: ['new'], vid: 3 }),
+        ]);
+        const lookupText = vi.fn();
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+            lookupText,
+        });
+        try {
+            const root = renderBoundNewTabSearchRoot(controller);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(listDeckCards).toHaveBeenCalled();
+            const chips = root.querySelectorAll('[data-newtab-action="browse-filter"]');
+            expect(chips.length).toBeGreaterThanOrEqual(4); // All + New + Due + Known
+            expect(root.querySelectorAll('.jpdb-reader-newtab-browse-row')).toHaveLength(3);
+
+            // Filtering by Due leaves one row.
+            const dueChip = [...chips].find(chip => (chip as HTMLElement).dataset.browseFilter === 'due') as HTMLButtonElement;
+            dueChip.click();
+            expect(root.querySelectorAll('.jpdb-reader-newtab-browse-row')).toHaveLength(1);
+            expect(root.textContent).toContain('書く');
+
+            // Clicking a row opens the lookup for that word.
+            root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-browse-row')!.click();
+            expect(lookupText).toHaveBeenCalledWith('書く', 'かく', expect.anything());
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('shows an error state on the stats page when the Jiten API fails instead of going blank', async () => {
         const listStudyBatchCards = vi.fn(async () => {
             throw new Error('Jiten API unreachable');
