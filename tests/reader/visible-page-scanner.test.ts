@@ -427,6 +427,38 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('drains the asbplayer offscreen cue cache in paced batches so cues are colorized before display', async () => {
+        vi.useFakeTimers();
+        // asbplayer pre-renders the whole track into its offscreen cache and
+        // moves the same node onscreen when current: 30 cues exceed the
+        // 12-target batch, so a single pass used to leave most cues
+        // uncolorized until after they were shown.
+        const offscreenCues = Array.from({ length: 30 }, (_, index) => `<div><span>日本語の台詞${index}</span></div>`).join('');
+        document.body.innerHTML = `
+            <div class="asbplayer-offscreen">${offscreenCues}</div>
+            <div class="asbplayer-subtitles-container-bottom"><span>現在の日本語字幕</span></div>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanAsbPlayerSubtitles();
+
+            // The visible cue is prioritized into the first batch even though
+            // the offscreen cache precedes it in document order.
+            expect(document.querySelector('.asbplayer-subtitles-container-bottom .jpdb-reader-word')).not.toBeNull();
+
+            // Paced drain finishes the remaining offscreen cues.
+            for (let i = 0; i < 6; i++) await vi.advanceTimersByTimeAsync(120);
+            const offscreen = document.querySelector('.asbplayer-offscreen')!;
+            expect(offscreen.querySelectorAll('.jpdb-reader-word').length).toBe(30);
+        } finally {
+            scanner.destroy();
+            vi.useRealTimers();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('prepares asbplayer subtitle tokens without Anki enrichment when Anki mining is disabled', async () => {
         document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>日本語を読む</span></div>';
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));

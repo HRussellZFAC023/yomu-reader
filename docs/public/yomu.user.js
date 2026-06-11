@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.78
+// @version      0.6.79
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -37417,6 +37417,8 @@ ${glossaryKey}`;
   const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
   const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+  const ASB_SCAN_BATCH_LIMIT = 12;
+  const ASB_SCAN_DRAIN_DELAY_MS = 80;
   class VisiblePageScanner {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -37425,9 +37427,13 @@ ${glossaryKey}`;
     scanPending = false;
     scanPendingSilent = true;
     destroyed = false;
+    asbScanInFlight = false;
+    asbDrainTimer;
     destroy() {
       this.destroyed = true;
       this.scanPending = false;
+      window.clearTimeout(this.asbDrainTimer);
+      this.asbDrainTimer = void 0;
     }
     async scanVisiblePage(options = {}) {
       const silent = Boolean(options.silent);
@@ -37442,20 +37448,43 @@ ${glossaryKey}`;
         done();
       }
     }
+    // asbplayer pre-renders the WHOLE track's cue HTML into its offscreen
+    // cache container and moves the same DOM node onscreen when the cue is
+    // current — so draining the offscreen cache in paced batches colorizes
+    // every cue BEFORE it is shown, instead of visibly recoloring the line
+    // ~120ms after it appears.
     async scanAsbPlayerSubtitles() {
+      if (this.destroyed || this.asbScanInFlight) return;
+      this.asbScanInFlight = true;
+      try {
+        const batchWasFull = await this.scanAsbPlayerSubtitleBatch();
+        if (batchWasFull) this.scheduleAsbPlayerDrain();
+      } finally {
+        this.asbScanInFlight = false;
+      }
+    }
+    scheduleAsbPlayerDrain() {
       if (this.destroyed) return;
+      window.clearTimeout(this.asbDrainTimer);
+      this.asbDrainTimer = window.setTimeout(() => {
+        this.asbDrainTimer = void 0;
+        void this.scanAsbPlayerSubtitles();
+      }, ASB_SCAN_DRAIN_DELAY_MS);
+    }
+    async scanAsbPlayerSubtitleBatch() {
       const roots = Array.from(document.querySelectorAll(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
-      if (!roots.length) return;
-      const targets = roots.flatMap((root) => collectTextTargetsIn(root, 12, false)).slice(0, 12);
-      if (!targets.length) return;
+      if (!roots.length) return false;
+      roots.sort((a, b) => Number(a.classList.contains("asbplayer-offscreen")) - Number(b.classList.contains("asbplayer-offscreen")));
+      const targets = roots.flatMap((root) => collectTextTargetsIn(root, ASB_SCAN_BATCH_LIMIT, false)).slice(0, ASB_SCAN_BATCH_LIMIT);
+      if (!targets.length) return false;
       try {
         const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
-        if (this.destroyed) return;
+        if (this.destroyed) return false;
         const tokens = parsed.flat();
         if (this.dependencies.prepareSubtitleTokensBeforeRender) {
           this.dependencies.preloadParsedTokens(tokens);
           await this.dependencies.prepareSubtitleTokensBeforeRender(tokens);
-          if (this.destroyed) return;
+          if (this.destroyed) return false;
         }
         const changedRoots = await this.applyTokens(targets, parsed);
         if (this.dependencies.prepareSubtitleTokensBeforeRender) {
@@ -37463,7 +37492,9 @@ ${glossaryKey}`;
         } else {
           this.preloadParsed(parsed, changedRoots);
         }
+        return targets.length === ASB_SCAN_BATCH_LIMIT;
       } catch {
+        return false;
       }
     }
     beginScan(silent) {
