@@ -19,6 +19,8 @@ export interface NewTabUiState {
     revealAnswer: boolean;
     // JPDB deck scope for the study queue ('' = follow the settings default).
     jpdbDeck: string;
+    // Anki deck scope ('' = all enabled decks).
+    ankiDeck: string;
 }
 
 // fallow-ignore-next-line unused-export
@@ -29,6 +31,7 @@ export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     source: 'auto',
     revealAnswer: false,
     jpdbDeck: '',
+    ankiDeck: '',
 };
 
 export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }> = [
@@ -55,6 +58,7 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
         source: normalizeNewTabSource(value?.source),
         revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
         jpdbDeck: typeof value?.jpdbDeck === 'string' ? value.jpdbDeck : '',
+        ankiDeck: typeof value?.ankiDeck === 'string' ? value.ankiDeck : '',
     };
 }
 

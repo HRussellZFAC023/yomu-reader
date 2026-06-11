@@ -3918,6 +3918,28 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('scopes the Anki queue to the deck chosen in the in-page deck selector (SH-6 Anki)', async () => {
+        resetNewTabReviewStorage();
+        const { listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('anki');
+        const internals = controller as unknown as { dependencies: { anki: { invoke?: (action: string) => Promise<string[]> } } };
+        internals.dependencies.anki.invoke = vi.fn(async () => ['Core', 'Mining']);
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-deck-select]')!;
+            await waitForExpect(() => {
+                expect(select.hidden).toBe(false);
+                expect([...select.options].map(option => option.value)).toContain('Core');
+            });
+            select.value = 'Core';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await waitForExpect(() => {
+                expect(listNewTabCards).toHaveBeenCalledWith(expect.anything(), 'Core');
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('scopes the study queue to the deck chosen in the in-page deck selector (SH-6)', async () => {
         resetNewTabReviewStorage();
         const { listDeckCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');
@@ -5222,8 +5244,8 @@ describe('new tab review helpers', () => {
             expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('例文');
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['暗記', '例文']);
         });
-        expect(listNewTabCards).toHaveBeenNthCalledWith(1, 180);
-        expect(listNewTabCards).toHaveBeenNthCalledWith(2, 181);
+        expect(listNewTabCards).toHaveBeenNthCalledWith(1, 180, undefined);
+        expect(listNewTabCards).toHaveBeenNthCalledWith(2, 181, undefined);
 
         document.body.replaceChildren();
         localStorage.removeItem('jpdb-reader-newtab-ui');
@@ -11948,7 +11970,7 @@ describe('new tab review helpers', () => {
             const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
 
             expect(listDeckCards).toHaveBeenCalledWith('deck', 180, { scheduledOnly: true });
-            expect(listNewTabCards).toHaveBeenCalledWith(180);
+            expect(listNewTabCards).toHaveBeenCalledWith(180, undefined);
             expect(result.cards.map(card => card.spelling)).toEqual(['余白']);
             expect(result.sourceLabel).toBe('Dictionary');
             expect(result.reviewCountMode).toBe(false);

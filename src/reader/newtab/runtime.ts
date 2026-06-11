@@ -461,7 +461,7 @@ export class NewTabRuntime {
         return new NewTabController({
             getSettings: () => this.settings,
             anki: {
-                listNewTabCards: limit => listNewTabAnkiCards(this.anki, this.settings, limit),
+                listNewTabCards: (limit, deckScope) => listNewTabAnkiCards(this.anki, this.settings, limit, deckScope),
                 answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
                 findExistingCards: card => this.anki.findExistingCards(card),
                 invoke: (action, params) => this.anki.invoke(action, params),

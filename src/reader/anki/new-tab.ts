@@ -123,14 +123,20 @@ const ANKI_KANA_FIELD_NAME_PATTERN = /^(?:katakana|hiragana|kana|mnemonic)$/;
 const ANKI_SENTENCE_FIELD_NAME_PATTERN = /^(?:sentence|sentkanji|sentencetext|japanesesentence|selectiontext|contextsentence)$/;
 const ANKI_KANJI_MODEL_PATTERN = /(?:rtk|heisig|kanji)/;
 
-export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit = 80): Promise<JPDBCard[]> {
+export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit = 80, deckScope = ''): Promise<JPDBCard[]> {
     if (!settings.newTabAnkiEnabled) return [];
     if (Date.now() < unavailableUntil) throw new AnkiNewTabUnavailableError('AnkiConnect is cooling down after a failed new-tab request.');
     if (!await client.isAvailableForBackground()) throw new AnkiNewTabUnavailableError();
 
     try {
         const done = log.time('listNewTabCards', { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-        const deckNames = await newTabAnkiDeckNames(client, settings);
+        const allDeckNames = await newTabAnkiDeckNames(client, settings);
+        // In-page deck selector scope (study-hub parity SH-6): one deck plus
+        // its subdecks, still honoring the disabled-deck toggles.
+        const scope = deckScope.trim();
+        const deckNames = scope
+            ? allDeckNames.filter(deck => deck === scope || deck.startsWith(`${scope}::`))
+            : allDeckNames;
         if (!deckNames.length) {
             done();
             return [];
