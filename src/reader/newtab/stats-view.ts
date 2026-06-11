@@ -98,12 +98,21 @@ function renderStatsMetrics(context: NewTabStatsRenderContext): HTMLElement {
     const speed = averageReviewSpeed(source);
     const dueEstimate = estimatedDueMinutes(source);
     return el('div', { class: 'jpdb-reader-stats-metrics' },
-        renderStatsMetric(text('statsReviewsToday'), formatCompactNumber(source.reviewsToday), text('statsDailyActivity')),
+        renderStatsMetric(text('statsReviewsToday'), formatCompactNumber(source.reviewsToday), reviewsTodayDetail(context)),
+        // Jiten Today-panel parity (SH-7): due-now with the time estimate.
+        renderStatsMetric(text('statsDueNow'), formatCompactNumber(source.cards.due), statsDueTimeDetail(dueEstimate, context)),
         renderStatsMetric(text('statsCurrentStreak'), formatCompactNumber(source.currentStreak), `${text('statsLongestStreak')}: ${formatCompactNumber(source.longestStreak)} ${text('statsDays')}`),
         renderStatsMetric(text('statsRetention'), formatPercent(source.retention), text('statsTotalReviews')),
-        renderStatsMetric(text('statsAverageSpeed'), formatStatsSpeed(speed), statsDueTimeDetail(dueEstimate, context)),
+        renderStatsMetric(text('statsAverageSpeed'), formatStatsSpeed(speed), text('statsCardsPerMinute')),
         renderStatsMetric(text('statsCards'), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text)),
     );
+}
+
+function reviewsTodayDetail(context: NewTabStatsRenderContext): string {
+    const { source, text } = context;
+    const today = recentDailyPoints(source.daily, 1)[0];
+    const newToday = today?.newCards ?? 0;
+    return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text('statsNewToday')}` : text('statsDailyActivity');
 }
 
 function renderStatsMetric(label: string, value: string, detail: string): HTMLElement {

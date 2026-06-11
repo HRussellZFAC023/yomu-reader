@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.95] - 2026-06-11
+
+### Added
+
+- Stats tab Today parity (Jiten shape): a 'Due now' tile with the estimated clear time, and the reviews-today tile now shows '+N new' for cards introduced today. (SH-7 core.)
+- My Cards browser: with a state chip active, typing in the search box now searches your own cards (spelling or reading) instead of the dictionaries — pick the All chip to return to dictionary search. (SH-3 v2.)
+
 ## [0.6.94] - 2026-06-11
 
 ### Added

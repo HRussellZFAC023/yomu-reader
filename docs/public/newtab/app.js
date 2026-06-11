@@ -19351,6 +19351,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsCombined: "Combined",
       statsConnections: "Connections",
       statsReviewsToday: "Reviews today",
+      statsDueNow: "Due now",
+      statsNewToday: "new",
       statsTotalReviews: "Total reviews",
       statsCurrentStreak: "Current streak",
       statsLongestStreak: "Longest streak",
@@ -19473,6 +19475,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsCombined: "合計",
     statsConnections: "接続",
     statsReviewsToday: "今日の復習",
+    statsDueNow: "現在の期限",
+    statsNewToday: "新規",
     statsTotalReviews: "総復習数",
     statsCurrentStreak: "現在の連続日数",
     statsLongestStreak: "最長連続日数",
@@ -33914,12 +33918,20 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     return el(
       "div",
       { class: "jpdb-reader-stats-metrics" },
-      renderStatsMetric(text2("statsReviewsToday"), formatCompactNumber(source.reviewsToday), text2("statsDailyActivity")),
+      renderStatsMetric(text2("statsReviewsToday"), formatCompactNumber(source.reviewsToday), reviewsTodayDetail(context)),
+      // Jiten Today-panel parity (SH-7): due-now with the time estimate.
+      renderStatsMetric(text2("statsDueNow"), formatCompactNumber(source.cards.due), statsDueTimeDetail(dueEstimate, context)),
       renderStatsMetric(text2("statsCurrentStreak"), formatCompactNumber(source.currentStreak), `${text2("statsLongestStreak")}: ${formatCompactNumber(source.longestStreak)} ${text2("statsDays")}`),
       renderStatsMetric(text2("statsRetention"), formatPercent(source.retention), text2("statsTotalReviews")),
-      renderStatsMetric(text2("statsAverageSpeed"), formatStatsSpeed(speed), statsDueTimeDetail(dueEstimate, context)),
+      renderStatsMetric(text2("statsAverageSpeed"), formatStatsSpeed(speed), text2("statsCardsPerMinute")),
       renderStatsMetric(text2("statsCards"), formatCompactNumber(source.cards.total), cardSummaryText(source.cards, text2))
     );
+  }
+  function reviewsTodayDetail(context) {
+    const { source, text: text2 } = context;
+    const today = recentDailyPoints(source.daily, 1)[0];
+    const newToday = today?.newCards ?? 0;
+    return newToday > 0 ? `+${formatCompactNumber(newToday)} ${text2("statsNewToday")}` : text2("statsDailyActivity");
   }
   function renderStatsMetric(label, value, detail) {
     return el(
@@ -40515,6 +40527,11 @@ ${newTabCardReading(card)}`;
           const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter;
           this.browseFilter = filter ?? "all";
           this.browsePage = 0;
+          const query = normalizeSearchQuery(this.searchQuery);
+          if (this.browseFilter === "all" && query) {
+            this.performSearch(root, query);
+            return true;
+          }
           const mount = this.searchResultsMount(root);
           if (mount) this.renderBrowseResults(mount);
           return true;
@@ -40634,6 +40651,9 @@ ${newTabCardReading(card)}`;
       const results = this.searchResultsMount(root);
       if (!query) {
         this.renderSearchIdle(root);
+      } else if (this.browseFilter !== "all" && this.browsePool && results) {
+        delete results.dataset.searchQuery;
+        this.renderBrowseResults(results);
       } else if (results?.dataset.searchQuery !== query) {
         this.performSearch(root, query);
       }
@@ -41383,7 +41403,8 @@ ${newTabCardReading(card)}`;
     renderBrowseResults(mount) {
       const cards = this.browsePool ?? [];
       const language = this.language();
-      const filtered = filterBrowseCards(cards, this.browseFilter, "");
+      const query = this.browseFilter !== "all" ? normalizeSearchQuery(this.searchQuery) : "";
+      const filtered = filterBrowseCards(cards, this.browseFilter, query);
       replaceChildrenWith(
         mount,
         renderBrowseChips(cards, this.browseFilter, language, this.text("browseAllChip")),
