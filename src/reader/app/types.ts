@@ -134,6 +134,9 @@ export interface JPDBCard {
     ankiNoteId?: number;
     ankiDeckNames?: string[];
     jpdbDeckMembership?: string;
+    // Raw owning-deck name from the provider (Jiten study-batch
+    // sourceDeckName today); rendered as the "Part of the X deck" line.
+    sourceDeckName?: string;
     ankiModelName?: string;
     ankiCardKind?: AnkiCardKind;
     ankiReps?: number;

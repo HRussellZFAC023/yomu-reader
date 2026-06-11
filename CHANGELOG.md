@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.106] - 2026-06-11
+
+### Added
+
+- Stats: the Anki Due-now metric now carries a real upcoming-review forecast — 'Next 7d / Next 30d' — answered by Anki's own scheduler (prop:due search), scoped to your enabled decks, suspended cards excluded. No client-side guessing at Anki's queue encodings.
+- Study card backs now show the 'Part of the X deck' line for every provider: JPDB (deck-scoped queues and the live bridge's scraped line), Anki (the card's owning deck), and Jiten (the study batch's source deck).
+
 ## [0.6.105] - 2026-06-11
 
 ### Added

@@ -547,6 +547,7 @@ function jitenCardFromStudyCard(card: JitenStudyCardDto): JPDBCard | null {
         jitenWordId: wordId,
         jitenReadingIndex: readingIndex,
         ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
+        ...(typeof card.sourceDeckName === 'string' && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}),
     };
 }
 

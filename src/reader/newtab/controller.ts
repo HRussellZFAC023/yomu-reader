@@ -3885,15 +3885,22 @@ export class NewTabController {
             meaning.replaceChildren();
             return;
         }
-        // SH-4 fidelity: live JPDB cards keep jpdb.io's own deck-membership
-        // line ("Part of the Persona 5 deck (3x)") on the back.
+        // SH-4 fidelity: every provider's cards carry the "Part of the X
+        // deck" line — live JPDB keeps jpdb.io's own scraped wording, Jiten
+        // uses the study-batch sourceDeckName, Anki its owning deck(s).
+        const membership = card.jpdbDeckMembership || this.providerDeckMembershipLine(card);
         replaceChildrenWith(meaning,
             el('div', {}, firstCardMeaning(card)),
-            card.jpdbDeckMembership
-                ? el('p', { class: 'jpdb-reader-newtab-deck-membership' }, card.jpdbDeckMembership)
+            membership
+                ? el('p', { class: 'jpdb-reader-newtab-deck-membership' }, membership)
                 : null,
         );
         this.appendComposedOfLine(meaning, card);
+    }
+
+    private providerDeckMembershipLine(card: JPDBCard): string {
+        const deck = card.sourceDeckName || (card.ankiDeckNames ?? []).join(', ');
+        return deck ? this.formatNewTabText('partOfDeck', { deck }) : '';
     }
 
     // SH-4 fidelity: jpdb.io's review back lists the word's component kanji

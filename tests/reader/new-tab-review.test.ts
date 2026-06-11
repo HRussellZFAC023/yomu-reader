@@ -79,6 +79,7 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jitenWordId,
         jitenReadingIndex,
         fallbackLookupTerms,
+        sourceDeckName,
     } = overrides;
     return {
         vid,
@@ -108,6 +109,7 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jitenWordId,
         jitenReadingIndex,
         fallbackLookupTerms,
+        sourceDeckName,
     };
 }
 
@@ -3862,6 +3864,21 @@ describe('new tab review helpers', () => {
             });
         } finally {
             resetNewTabReviewStorage();
+        }
+    });
+
+    it('renders the Part-of-deck line for Anki and Jiten cards from their own deck data', () => {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+        try {
+            const internals = controller as unknown as { providerDeckMembershipLine(card: JPDBCard): string };
+            const ankiCard = newTabTestCard({ spelling: '暗記', reading: 'あんき', source: 'anki', reviewSource: 'anki', ankiDeckNames: ['Core 2k'] });
+            expect(internals.providerDeckMembershipLine(ankiCard)).toBe('Part of the Core 2k deck');
+            const jitenCard = newTabTestCard({ spelling: '辞典', reading: 'じてん', source: 'jiten', reviewSource: 'jiten-api', sourceDeckName: 'ペルソナ5' });
+            expect(internals.providerDeckMembershipLine(jitenCard)).toBe('Part of the ペルソナ5 deck');
+            const plain = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
+            expect(internals.providerDeckMembershipLine(plain)).toBe('');
+        } finally {
+            controller.destroy();
         }
     });
 
