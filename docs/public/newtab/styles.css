@@ -3938,6 +3938,24 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font-size: 11px;
 }
 
+/* Keyboard hints on study controls (jpdb/Jiten advertise theirs the same
+   way); pointless on touch, so coarse pointers hide them. */
+.jpdb-reader-newtab-key-hint {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (pointer: coarse) {
+  .jpdb-reader-newtab-key-hint {
+    display: none;
+  }
+}
+
 
 /* Source: src/reader/styles/stats.css */
 .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study {

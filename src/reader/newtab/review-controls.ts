@@ -99,7 +99,7 @@ export function newTabMainGradeTargetOptions(
 
 export function renderNewTabGradeControlButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
     return [
-        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade])),
+        ...options.grades.map(([grade, label], index) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], index + 1)),
         renderNewTabGradeTargetControl(options),
     ];
 }
@@ -199,6 +199,7 @@ function renderNewTabGradeButton(
     label: string,
     targetLabel: string,
     interval?: { buttonLabel?: string; intervalLabel?: string; label?: string },
+    keyHint?: number,
 ): HTMLButtonElement {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || '';
     const aria = [label, intervalLabel].filter(Boolean).join(', ');
@@ -209,7 +210,11 @@ function renderNewTabGradeButton(
         title,
         'aria-label': `${aria}: ${targetLabel}`,
     },
-    el('span', { class: 'jpdb-reader-newtab-grade-label' }, label));
+    el('span', { class: 'jpdb-reader-newtab-grade-label' }, label),
+    // jpdb.io/Jiten parity: both advertise their grading keys on the
+    // controls; digits map to rendered order (handleGradeDigitKeydown).
+    // Hidden on touch via CSS.
+    keyHint ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, String(keyHint)) : null);
 }
 
 function mainGradeTargetShortLabel(option: HTMLOptionElement, fallback: string): string {

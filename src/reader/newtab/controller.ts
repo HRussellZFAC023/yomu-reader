@@ -6622,7 +6622,8 @@ export class NewTabController {
     private navigationControlButtons(revealLabel: string): HTMLElement[] {
         return [
             el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
-            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel),
+            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel,
+                el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, 'Space')),
             el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
         ];
     }

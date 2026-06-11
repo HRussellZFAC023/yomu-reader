@@ -140,6 +140,19 @@ label the limitation.
 JPDB: space=show answer, 1..5=grades; Jiten equivalents. Verify the new tab matches and
 documents them (some shortcuts exist; audit + align).
 
+## With-userscript journey findings (headless test accounts, 2026-06-11)
+
+- jiten.moe `/srs/study` with the built userscript: Yomu's study addons mount on the
+  real page (Immersion Kit panel, imported-dictionaries section, headword wrapped) —
+  the "enhance their pages" half of the superset promise holds on the current build.
+  Jiten's grade bar is Again/Hard/Good/Easy with a visible **"Show Answer — Space"**
+  key hint → adopted: the study page now advertises Space + digit keys on its own
+  controls (0.6.99); hidden on touch.
+- jpdb.io headless login bounces silently back to /login (bot protection suspected;
+  not retried to protect the test account) — JPDB with-userscript review capture
+  remains covered by the signed-in MCP session (grade ids #show-answer/#grade-1..5
+  captured live earlier; see Non-goals for the interval verdict).
+
 ## Non-goals / verified impossibilities
 - JPDB next-review intervals for live-bridge reviews: jpdb.io renders no interval data
   (verified live 2026-06-11).
