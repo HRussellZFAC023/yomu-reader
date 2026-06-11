@@ -13575,14 +13575,16 @@ ${spelling}`);
       this.channelShelf?.classList.toggle("is-expanded", this.channelShelfExpanded);
       elements.title.textContent = "Start your Japanese YouTube feed";
       elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+      const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
       elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
-      elements.subscribeAll.textContent = `Subscribe all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}`;
+      elements.subscribeVisible.hidden = !renderedRecommendations.length;
+      elements.subscribeAll.textContent = remainingChannels ? `Subscribe all ${remainingChannels}` : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
       elements.dismiss.textContent = "Dismiss";
       elements.never.textContent = "Hide";
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) {
-        elements.status.textContent = !renderedRecommendations.length ? "You are subscribed to all of these channels — nothing new to suggest right now." : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.";
+        elements.status.textContent = !renderedRecommendations.length ? remainingChannels ? "All shown channels are already subscribed — browse all channels for more." : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.";
       }
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
@@ -13823,8 +13825,9 @@ ${spelling}`);
       }, delayMs);
     }
     setChannelShelfBusy(busy) {
+      const allSubscribed = !this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
       this.channelShelf?.querySelectorAll('[data-yomu-youtube-channel-action^="subscribe"]').forEach((button) => {
-        button.disabled = busy;
+        button.disabled = busy || allSubscribed && button.dataset.yomuYoutubeChannelAction === "subscribe-all";
       });
       this.channelShelf?.setAttribute("aria-busy", String(busy));
     }
