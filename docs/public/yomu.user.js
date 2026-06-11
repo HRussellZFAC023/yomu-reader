@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.120
+// @version      0.6.121
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f2a4/EpATanH7yzd7WKoTajK58TmN2fKTynfFo50Kyo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-VJY+oeGozvLs+XBH7YE+Q5W0TjKWM5LK39RtAuWI8Jg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-quR8z1w2KdHXRZ+ub/iiamDOtutFpVXXAMe5UEpI+AY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Iwu2+kp5j1UUndEdGEsxqyXzvbmeu6C5KVdYO5und9Y=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XF02Bazus4LoyKGPqC5mAKZmUcW+ep9kBUko4jwA/aE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-wMZcQpa/kjx/MlEDpWHIz7HQs+fAfrtR4+dnIMcz6vg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5431,7 +5431,7 @@
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
       newTabLiveReview: "Live JPDB review session",
-      newTabApiVocabulary: "API vocabulary only",
+      newTabApiVocabulary: "API vocabulary only (deck order, not JPDB’s review order)",
       corsProxyUrl: "Cross-origin proxy URL",
       newTabKanjiKeywordSource: "Kanji keyword source",
       newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
@@ -6885,7 +6885,7 @@ dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ
+newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順

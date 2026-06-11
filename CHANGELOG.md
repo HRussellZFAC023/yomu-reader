@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.121] - 2026-06-11
+
+### Changed
+
+- JPDB review-order audit (last open P0): live-review mode mirrors jpdb.io's own session exactly — including locked-kanji interleave — and the default auto mode prefers it whenever a review tab is connected. The API cannot reproduce that order (it exposes deck order only, no due data), so the 'API vocabulary only' setting now says so in its label instead of implying parity.
+
 ## [0.6.120] - 2026-06-11
 
 ### Added
