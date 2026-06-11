@@ -2433,15 +2433,20 @@ function mobileAnkiHandoffPrompt(note: AnkiNote, appName: string): string {
 }
 
 function iosAnkiMobileUrl(note: AnkiNote): string {
-    const params = new URLSearchParams();
-    params.set('type', note.modelName);
-    params.set('deck', iosAnkiMobileDeckName(note.deckName));
-    if (note.tags?.length) params.set('tags', note.tags.join(' '));
+    // AnkiMobile's x-callback parser does NOT decode '+' as a space, so
+    // URLSearchParams encoding turned 'よむ Japanese' into the nonexistent
+    // note type 'よむ+Japanese' (user-reported AnkiMobile error). Encode with
+    // encodeURIComponent — spaces become %20, which AnkiMobile decodes.
+    const params: string[] = [];
+    const add = (key: string, value: string) => params.push(`${key}=${encodeURIComponent(value)}`);
+    add('type', note.modelName);
+    add('deck', iosAnkiMobileDeckName(note.deckName));
+    if (note.tags?.length) add('tags', note.tags.join(' '));
     Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
         const handoffValue = iosAnkiMobileFieldValue(field, value);
-        if (handoffValue !== null) params.set(`fld${field}`, handoffValue);
+        if (handoffValue !== null) add(`fld${field}`, handoffValue);
     });
-    return `anki://x-callback-url/addnote?${params.toString()}`;
+    return `anki://x-callback-url/addnote?${params.join('&')}`;
 }
 
 function iosAnkiMobileDeckName(deckName: string): string {

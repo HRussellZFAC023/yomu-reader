@@ -28,7 +28,7 @@ New tab / study page:
 - UT-17: Search tab — bring the deck/state filter dropdowns here; selecting a deck lists all its words scrollable in SRS order ("2D reviews"); typing filters within the selection (e.g. よ prefix); sort asc/desc + multi-filter; default jisho-style lookup stays when no filters active; refine pill spacing/accessibility; don't always be in "select" mode.
 - UT-18: Immersion Kit controls waste space: drop the "IMMERSION KIT" heading (clip title suffices), inline the [<] play [>] controls like the jpdb-injected frame pattern.
 - UT-19: Stats — final bar of the bar chart renders as "selected" by default.
-- UT-20: AnkiMobile handoff error: "no such note type id よむ+Japanese" — space in the model name is being '+'-encoded in the AnkiMobile URL; encode with %20 (and audit deck param).
+- DONE 0.6.124 — UT-20 AnkiMobile handoff: URLSearchParams '+'-encoded spaces broke the note type ('よむ+Japanese'); the x-callback URL is now %20-encoded throughout (model, deck, tags, fields — AnkiMobile decodes %20 but not '+'); AnkiDroid path audited, already encodeURIComponent. Regression pinned.
 
 Community intel: `docs/community-intel-backlog.md` (captured 2026-06-11) seeds the long-tail items — treat as backlog source after the batch above.
 

@@ -19685,6 +19685,10 @@ describe('reader helpers', () => {
             expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"? This creates a new note only.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
             expect(params.get('type')).toBe('Yomu Japanese');
+            // AnkiMobile does not decode '+' as space: spaces must be %20 or
+            // the note type arrives as 'Yomu+Japanese' (user-reported error).
+            expect(locationStub.href).toContain('type=Yomu%20Japanese');
+            expect(locationStub.href).not.toContain('type=Yomu+Japanese');
             expect(params.get('deck')).toBe('Mobile Deck');
             expect(params.get('tags')).toBe('yomu mobile');
             expect(params.get('dupes')).toBeNull();

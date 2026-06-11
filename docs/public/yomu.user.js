@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.123
+// @version      0.6.124
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16475,15 +16475,16 @@ ${entry.reading || ""}`;
     return `Open ${appName} to add "${title}"? This creates a new note only.`;
   }
   function iosAnkiMobileUrl(note) {
-    const params = new URLSearchParams();
-    params.set("type", note.modelName);
-    params.set("deck", iosAnkiMobileDeckName(note.deckName));
-    if (note.tags?.length) params.set("tags", note.tags.join(" "));
+    const params = [];
+    const add = (key, value) => params.push(`${key}=${encodeURIComponent(value)}`);
+    add("type", note.modelName);
+    add("deck", iosAnkiMobileDeckName(note.deckName));
+    if (note.tags?.length) add("tags", note.tags.join(" "));
     Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
       const handoffValue = iosAnkiMobileFieldValue(field, value);
-      if (handoffValue !== null) params.set(`fld${field}`, handoffValue);
+      if (handoffValue !== null) add(`fld${field}`, handoffValue);
     });
-    return `anki://x-callback-url/addnote?${params.toString()}`;
+    return `anki://x-callback-url/addnote?${params.join("&")}`;
   }
   function iosAnkiMobileDeckName(deckName) {
     const trimmed = deckName.trim();
