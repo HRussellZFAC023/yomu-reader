@@ -1,4 +1,4 @@
-import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult } from '../anki/index';
+import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult, type AnkiNoteFieldTargetPlan } from '../anki/index';
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './render-state';
 import { cardKey } from './utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
@@ -41,6 +41,7 @@ export interface CardRenderData {
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
     jitenVocabularyInfo?: JitenVocabularyInfo | null;
     componentPitches?: ExpressionComponentPitch[];
+    ankiFieldTargetPlan?: AnkiNoteFieldTargetPlan | null;
 }
 
 export interface CardRenderDataLoad {
@@ -265,6 +266,18 @@ export class CardRenderDataLoader {
         }), [] as ApiDeck[]);
     }
 
+    // Field-target plan for the new-card preview: shows which fields a mining
+    // write will actually target when the configured model is non-Yomu.
+    private loadAnkiFieldTargetPlan(card: JPDBCard): Promise<AnkiNoteFieldTargetPlan | null> {
+        const settings = this.settings();
+        if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
+        if (typeof this.dependencies.anki.noteFieldTargetPlan !== 'function') return Promise.resolve(null);
+        return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, 'Anki field target plan', this.dependencies.anki.noteFieldTargetPlan().catch(error => {
+            log.warn('Anki field target plan failed', { term: card.spelling }, error);
+            return null;
+        }), null as AnkiNoteFieldTargetPlan | null);
+    }
+
     private loadJpdbDeckMembership(card: JPDBCard): Promise<boolean> {
         const settings = this.settings();
         if (!cardNeedsJpdbDeckPoolLookup(card)) return Promise.resolve(false);
@@ -288,6 +301,7 @@ export class CardRenderDataLoader {
         componentPitches: Promise<ExpressionComponentPitch[]>,
     ): Promise<CardRenderData> {
         const ankiDecks = ankiLookup.then(lookup => lookup.primary ? [] : this.loadAnkiDecks(card));
+        const ankiFieldTargetPlan = ankiLookup.then(lookup => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
         return Promise.all([
             localEntries,
             this.loadLocalKanjiEntries(card),
@@ -300,9 +314,10 @@ export class CardRenderDataLoader {
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
             componentPitches.catch(() => [] as ExpressionComponentPitch[]),
-        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitchesValue]) => {
+            ankiFieldTargetPlan,
+        ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitchesValue, ankiFieldTargetPlanValue]) => {
             if (jpdbDeckMembership) applyPooledJpdbDeckState(card);
-            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches: componentPitchesValue };
+            return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup, jpdbDecks, jitenDecks, ankiDecks, jpdbVocabularyInfo, jitenVocabularyInfo, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
         });
     }
 

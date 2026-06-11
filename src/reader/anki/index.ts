@@ -101,6 +101,7 @@ import {
     statusIndexKeysForCard,
     touchAnkiStatusIndexRebuildLease,
 } from './status-index';
+import { quoteAnkiSearch } from './search-escape';
 
 export type {
     AnkiAudioMergeMode,
@@ -121,6 +122,7 @@ export {
 export { ankiMediaFilenameFromCardUrl, untrustedAnkiLookupResult } from './card-details';
 
 const ANKI_VERSION = 6;
+const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1000;
 const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;
 const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5_000;
 const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1_500;
@@ -240,6 +242,7 @@ export class AnkiConnectClient {
     private availabilityProbe?: Promise<boolean>;
     private availabilityCheckedAt = 0;
     private unavailableUntil = 0;
+    private fieldTargetPlanCache?: { key: string; expiresAt: number; promise: Promise<AnkiNoteFieldTargetPlan | null> };
     private isDestroyed = false;
     private focusStatusRefreshListener?: () => void;
     private lastFocusStatusRefreshAt = 0;
@@ -324,6 +327,30 @@ export class AnkiConnectClient {
     async modelNames(): Promise<string[]> {
         const models = await this.invoke<string[]>('modelNames');
         return models;
+    }
+
+    // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
+    // exactly which fields a mining write will target instead of silently
+    // retargeting into an existing non-Yomu model at write time.
+    async noteFieldTargetPlan(): Promise<AnkiNoteFieldTargetPlan | null> {
+        const settings = this.getSettings();
+        if (!settings.ankiEnabled) return null;
+        if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) return null;
+        const modelName = resolvedAnkiModelName(settings);
+        const key = `${settings.ankiConnectUrl}|${modelName}`;
+        const now = Date.now();
+        if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
+        const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch((): null => null);
+        this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
+        return promise;
+    }
+
+    private async loadNoteFieldTargetPlan(modelName: string, settings: ReaderSettings): Promise<AnkiNoteFieldTargetPlan | null> {
+        const modelNames = await this.modelNames();
+        // A missing model is created as a Yomu-managed model on first write.
+        if (!modelNames.includes(modelName)) return { modelName, yomuManaged: true, fieldNames: [] };
+        const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName }, []);
+        return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
     }
 
     // Used by settings library scan through the Anki client dependency.
@@ -1922,11 +1949,26 @@ export function buildYomuAnkiFields(card: JPDBCard, sentence = '', context: Anki
     };
 }
 
-export function buildYomuAnkiPreviewFields(card: JPDBCard, sentence: string, settings: ReaderSettings, context: AnkiCardContext = {}): Record<string, string> {
+export interface AnkiNoteFieldTargetPlan {
+    modelName: string;
+    yomuManaged: boolean;
+    fieldNames: string[];
+}
+
+export function buildYomuAnkiPreviewFields(card: JPDBCard, sentence: string, settings: ReaderSettings, context: AnkiCardContext = {}, fieldTargetPlan?: AnkiNoteFieldTargetPlan | null): Record<string, string> {
     const yomuFields = buildYomuAnkiFields(card, sentence, {
         ...context,
         interfaceLanguage: settings.interfaceLanguage,
     });
+    // When the configured model is an existing non-Yomu model, the write path
+    // retargets fields into that model; preview the retargeted fields so the
+    // user sees exactly what will be written.
+    if (fieldTargetPlan && !fieldTargetPlan.yomuManaged && fieldTargetPlan.fieldNames.length) {
+        const mapping = ankiFieldMappingForModel(settings, fieldTargetPlan.modelName, fieldTargetPlan.fieldNames);
+        const retargeted = retargetYomuFieldsToExistingModel(yomuFields, fieldTargetPlan.fieldNames, mapping);
+        const written = Object.fromEntries(Object.entries(retargeted).filter(([, value]) => value.trim()));
+        if (Object.keys(written).length) return written;
+    }
     const mapping = settings.ankiFieldMappings?.[settings.ankiModel.trim() || 'よむ Japanese'];
     if (!mapping || !Object.values(mapping).some(value => value?.trim())) return yomuFields;
 
@@ -2390,10 +2432,6 @@ function visibleArea(element: HTMLElement): number {
     const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
-}
-
-function quoteAnkiSearch(term: string): string {
-    return `"${term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 function unique<T>(items: T[]): T[] {

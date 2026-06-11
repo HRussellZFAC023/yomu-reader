@@ -1,4 +1,4 @@
-import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiRenderedCard } from './index';
+import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
@@ -88,9 +88,9 @@ export function renderAnkiExistingSection(
     `;
 }
 
-export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | undefined, settings: ReaderSettings, context: AnkiCardContext = {}): string {
+export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | undefined, settings: ReaderSettings, context: AnkiCardContext = {}, fieldTargetPlan?: AnkiNoteFieldTargetPlan | null): string {
     if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return '';
-    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? '', settings, context);
+    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? '', settings, context, fieldTargetPlan);
     const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
     if (!fieldPreview) return '';
     return `

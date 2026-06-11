@@ -7,6 +7,7 @@ import {
 } from './index';
 import { ankiCardTemplateLabel, pickPrimaryCard, reviewGradeIntervalsFromAnkiCards, stateFromAnkiCards } from './card-details';
 import { flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
+import { quoteAnkiSearch } from './search-escape';
 import { Logger } from '../app/logger';
 import { stablePositiveHashId } from '../core/stable-hash';
 import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '../app/types';
@@ -308,9 +309,6 @@ function newTabAnkiQuery(deckNames: string[], model: string, kind: AnkiNewTabQue
     ].filter(Boolean).join(' ');
 }
 
-function quoteAnkiSearch(term: string): string {
-    return `"${term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-}
 
 function ankiCandidateIds(ids: number[]): number[] {
     const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));

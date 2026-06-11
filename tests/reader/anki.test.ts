@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
+import { AnkiConnectClient, buildYomuAnkiPreviewFields, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
@@ -759,6 +759,55 @@ describe('Anki note creation', () => {
         } finally {
             vi.unstubAllGlobals();
         }
+    });
+
+    it('previews the retargeted fields a non-Yomu model write will actually use, before any write', async () => {
+        stubGmAnkiConnect({
+            modelNames: ['Kaishi 1.5k'],
+            modelFieldNames: ['Word', 'Kana', 'Definition', 'Example Sentence', 'Word Audio', 'Picture'],
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                ankiEnabled: true,
+                ankiDeck: 'Kaishi 1.5k',
+                ankiModel: 'Kaishi 1.5k',
+                ankiMobileHandoff: false,
+            };
+            const client = new AnkiConnectClient(() => settings);
+            const plan = await client.noteFieldTargetPlan();
+            expect(plan).toMatchObject({ modelName: 'Kaishi 1.5k', yomuManaged: false });
+            expect(plan?.fieldNames).toContain('Word');
+
+            const fields = buildYomuAnkiPreviewFields(jpdbCard({
+                spelling: '始める',
+                reading: 'はじめる',
+                meanings: [{ glosses: ['to start'], partOfSpeech: [] }],
+            }), '勉強を始める。', settings, {}, plan);
+            // The preview shows the same field targets the write path retargets
+            // into, not silent Yomu field names that will never be written.
+            expect(fields.Word).toBe('始める');
+            expect(fields.Kana).toBe('はじめる');
+            expect(fields.Definition).toContain('to start');
+            expect(fields['Example Sentence']).toContain('始める');
+            expect(fields.Expression).toBeUndefined();
+            expect(fields.Meaning).toBeUndefined();
+            client.destroy();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps Yomu preview fields for Yomu-managed models and when the field target plan is unavailable', () => {
+        const settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false };
+        const card = jpdbCard();
+
+        const withoutPlan = buildYomuAnkiPreviewFields(card, '', settings, {}, null);
+        expect(withoutPlan.Expression).toBe('日本語');
+
+        const managed = buildYomuAnkiPreviewFields(card, '', settings, {}, { modelName: 'よむ Japanese', yomuManaged: true, fieldNames: [] });
+        expect(managed.Expression).toBe('日本語');
     });
 
     it('merges missing RRTK Kanji and Keyword fields without writing Yomu kanji-definition HTML into the kanji slot', async () => {

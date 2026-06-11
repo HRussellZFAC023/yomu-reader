@@ -200,7 +200,7 @@ export class CardPopoverRenderer {
             dictionaryPreferences: settings.dictionaryPreferences,
             sourceTitle: view.storedContext?.sourceTitle,
             sourceUrl: view.storedContext?.sourceUrl,
-        });
+        }, data.ankiFieldTargetPlan);
     }
 
     private renderActions(view: CardPopoverRenderView): string {
