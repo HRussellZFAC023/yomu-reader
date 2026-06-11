@@ -1,3 +1,4 @@
+import { subscribeToCardStateSignals } from '../app/card-state-signal';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
 import { listNewTabAnkiCards } from '../anki/new-tab';
@@ -179,6 +180,7 @@ export function bootNewTabRuntime(): void {
 }
 
 export class NewTabRuntime {
+    private unsubscribeCardStateSignals?: () => void;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private isDestroyed = false;
     private activeDialog?: HTMLElement;
@@ -371,6 +373,18 @@ export class NewTabRuntime {
             }, 1500);
         }
         this.scheduleAnkiStatusWarmup();
+        this.installCardStateSignalSubscription();
+    }
+
+    // Cross-tab card-state mutation bus: grading or mining a card on a page
+    // popover in another tab recolors this study tab's rendered occurrences
+    // (current card, transcripts, search results) without a refresh.
+    private installCardStateSignalSubscription(): void {
+        this.unsubscribeCardStateSignals?.();
+        this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
+            if (this.isDestroyed) return;
+            this.applyPublicVocabularyToRenderedWords(card, card);
+        });
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -404,6 +418,8 @@ export class NewTabRuntime {
     destroy(): void {
         if (this.isDestroyed) return;
         this.isDestroyed = true;
+        this.unsubscribeCardStateSignals?.();
+        this.unsubscribeCardStateSignals = undefined;
         this.externalRefreshController?.abort();
         this.externalRefreshController = undefined;
         this.factoryReset.destroy();

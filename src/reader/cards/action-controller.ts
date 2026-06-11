@@ -1,5 +1,6 @@
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
 import { ANKI_NEVER_FORGET_TAG } from '../anki/card-details';
+import { publishCardStateSignal } from '../app/card-state-signal';
 import { resolveAnkiWordAudio } from '../anki/audio';
 import { copyText } from '../ui/browser';
 import { normalizeCardStates } from './state';
@@ -532,6 +533,9 @@ export class CardActionController {
     private notifyApiCardStateChanged(card: JPDBCard): void {
         this.options.invalidateCardData?.();
         this.options.onApiCardStateChanged?.(card);
+        // Cross-tab mutation bus: other tabs recolor their rendered
+        // occurrences of this card without a rescan.
+        publishCardStateSignal(card);
     }
 
     private async showExistingAnkiCard(card: JPDBCard, sentence?: string): Promise<void> {
