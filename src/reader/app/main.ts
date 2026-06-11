@@ -97,6 +97,7 @@ import { configureLogger, Logger } from './logger';
 import {
     cardMatchesRenderedLookupValue,
     publicJpdbRenderedWordLookup,
+    kanaRunRenderedWordsForSurface,
     renderedKanaFragmentExpansionLookup,
     renderedWordCacheMatches,
     renderedWordExpansionLookup,
@@ -3253,12 +3254,31 @@ export class ReaderApp {
             const token = this.parsedRenderedWordCandidateToken(tokens ?? [], lookup, word);
             if (!token) return false;
             this.parser.cacheCards?.([token.card]);
+            this.restampKanaRunRenderedWords(word, token, lookup.sentence);
             await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
             return true;
         } catch (error) {
             log.warn('Rendered JPDB parse failed', { expression: card.spelling }, error);
             return false;
         }
+    }
+
+    // P0 kana-run identity: re-stamp the rendered fragment run with the
+    // resolved word's identity so grades/mining/cross-tab signals recolor the
+    // WHOLE word, not just the tapped fragment.
+    private restampKanaRunRenderedWords(word: HTMLElement, token: JPDBToken, sentence: string): void {
+        const surface = sentence.slice(token.start, token.end);
+        const run = kanaRunRenderedWordsForSurface(word, surface);
+        if (run.length < 2) return;
+        const pitchClass = getPitchClass(token.card.pitchAccent, token.card.reading || token.card.spelling) || 'unknown';
+        this.pauseAutoScanObserver(() => {
+            for (const fragment of run) {
+                fragment.dataset.vid = String(token.card.vid);
+                fragment.dataset.sid = String(token.card.sid);
+                this.applyPublicVocabularyToRenderedWord(fragment, token.card, pitchClass);
+            }
+            refreshReaderWordContrast(word.parentElement ?? word);
+        });
     }
 
     private parsedRenderedWordCandidateToken(

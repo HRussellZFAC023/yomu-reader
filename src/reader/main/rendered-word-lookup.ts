@@ -174,3 +174,41 @@ function isKanaOnlyRenderedWordCorrection(sentence: string, offset: number): boo
 function isKanaOnlyLookupTerm(term: string): boolean {
     return KANA_ONLY_LOOKUP_RUN_RE.test(term);
 }
+
+// P0 kana-run identity: after a fragment tap resolves the full word, the
+// contiguous rendered-word run covering the resolved surface (に+ほん+ご for
+// にほんご) is re-stamped with the resolved identity, so card-state updates
+// recolor the whole word — Jiten Reader's wordId/readingIndex registration.
+export function kanaRunRenderedWordsForSurface(anchor: HTMLElement, surface: string): HTMLElement[] {
+    if (!surface) return [];
+    const run: HTMLElement[] = [anchor];
+    for (let prev = anchor.previousElementSibling; isRenderedWordElement(prev); prev = prev.previousElementSibling) run.unshift(prev);
+    for (let next = anchor.nextElementSibling; isRenderedWordElement(next); next = next.nextElementSibling) run.push(next);
+    for (let start = 0; start < run.length; start += 1) {
+        let text = '';
+        for (let end = start; end < run.length; end += 1) {
+            text += renderedWordSurfaceText(run[end]);
+            if (text.length > surface.length) break;
+            if (text === surface) {
+                const window = run.slice(start, end + 1);
+                if (window.includes(anchor)) return window;
+                break;
+            }
+        }
+    }
+    return [];
+}
+
+function isRenderedWordElement(node: Element | null): node is HTMLElement {
+    return node instanceof HTMLElement && node.classList.contains('jpdb-reader-word');
+}
+
+function renderedWordSurfaceText(word: HTMLElement | undefined): string {
+    if (!word) return '';
+    // Ruby annotations would pollute textContent; kana fragments rarely have
+    // them, but strip rt/rp defensively so a mismatch fails closed.
+    if (!word.querySelector('rt, rp')) return word.textContent ?? '';
+    const clone = word.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+    return clone.textContent ?? '';
+}
