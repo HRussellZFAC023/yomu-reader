@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "0.6.113",
+  "version": "0.6.114",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",

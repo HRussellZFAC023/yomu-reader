@@ -186,6 +186,16 @@ for the next pass. First two findings, from the user's own screenshots:
   blank rather than guessing deck step config. Jiten intervals were already wired;
   jpdb has none (verified live 0.6.85). Popover grade-row intervals SHIPPED 0.6.109 (renderReviewButtons takes the card's reviewGradeIntervals — Anki existing notes get the computed previews too via ankiExistingNoteFromInfo). Learning-step previews SHIPPED 0.6.110 (new cards derive Again/Hard/Good/Easy from the deck's getDeckConfig learning steps — Anki's own first-answer numbers; one config fetch per distinct deck; mid-learning cards stay blank since cardsInfo lacks step position). The due-in story is now COMPLETE across providers and surfaces.
 
+### Journey re-run findings (0.6.114 pass)
+
+- FIXED 0.6.114: the よむ puck overlapped Jiten's Blacklist/Master/More dock on mobile
+  /srs/study — hosts with a bottom action dock now raise the puck (live-verified,
+  150px clearance, iPhone 13 viewport, split build).
+- Re-captured evidence: desktop+mobile signed-in Jiten study journeys with the SPLIT
+  build — front spoiler-free (0 addons), addon in-card with Immersion Kit +
+  dictionaries, Jiten interval buttons visible, no horizontal overflow; jpdb
+  vocabulary page addon mounts with dictionaries + immersion.
+
 ## Undocumented-endpoint technique (user direction, 2026-06-11)
 
 Jiten's full API surface is browsable at https://api.jiten.moe/index.html, and features

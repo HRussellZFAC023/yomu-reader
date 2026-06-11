@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.113
+// @version      0.6.114
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -25802,6 +25802,9 @@ ${spelling}`);
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
+  function hostHasBottomActionDock() {
+    return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
+  }
   class FloatingButtonController {
     button;
     abortController;
@@ -25811,6 +25814,7 @@ ${spelling}`);
       if (!shouldShowFloatingButton(settings)) return;
       const button2 = document.createElement("button");
       button2.className = "jpdb-reader-fab";
+      if (hostHasBottomActionDock()) button2.classList.add("jpdb-reader-fab-raised");
       button2.type = "button";
       button2.textContent = APP_PUCK;
       button2.title = APP_NAME;

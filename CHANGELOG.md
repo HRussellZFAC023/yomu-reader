@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.114] - 2026-06-11
+
+### Fixed
+
+- Mobile: on sites with their own bottom action dock — Jiten's study page with its grade bar and Blacklist/Master/More row — the よむ puck no longer overlaps the native controls; it rises above the dock (live-verified on an iPhone-size viewport with the split build).
+
 ## [0.6.113] - 2026-06-11
 
 ### Changed

@@ -1,6 +1,10 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
 import type { ReaderSettings } from '../app/types';
 
+function hostHasBottomActionDock(): boolean {
+    return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
+}
+
 export class FloatingButtonController {
     private button?: HTMLButtonElement;
     private abortController?: AbortController;
@@ -16,6 +20,10 @@ export class FloatingButtonController {
 
         const button = document.createElement('button');
         button.className = 'jpdb-reader-fab';
+        // Sites with their own bottom action dock (Jiten's study grade bar +
+        // Blacklist/Master row) collide with the default bottom-right spot;
+        // raise the FAB above them (mobile UX finding, 2026-06-11).
+        if (hostHasBottomActionDock()) button.classList.add('jpdb-reader-fab-raised');
         button.type = 'button';
         button.textContent = APP_PUCK;
         button.title = APP_NAME;
