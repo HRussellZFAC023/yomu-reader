@@ -568,13 +568,17 @@
   height: 32px;
   max-height: 32px;
 }
-.jpdb-subtitle-compact-video.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(
-    .jpdb-subtitle-panel-open
-  )
-  .jpdb-subtitle-rail:not(:focus-within) {
-  opacity: .72;
-  pointer-events: auto;
-  transform: none;
+/* Touch screens keep :hover and :focus pinned on the last-tapped button, so
+   the desktop "stay visible while hovered/focused" exceptions would hold the
+   rail open forever during playback. On hoverless devices the idle state
+   always hides the rail; the chrome-lockstep tick re-reveals it whenever the
+   player's own controls fade back in. */
+@media (hover: none) {
+  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px);
+  }
 }
 .jpdb-subtitle-list[hidden] { display: none; }
 .jpdb-subtitle-track-row button[aria-pressed="true"] {
@@ -1166,14 +1170,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     right: max(8px, env(safe-area-inset-right));
     bottom: auto;
     gap: 3px;
-  }
-  .jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(
-      .jpdb-subtitle-panel-open
-    )
-    .jpdb-subtitle-rail:not(:focus-within) {
-    opacity: 0.72;
-    pointer-events: auto;
-    transform: none;
   }
   .jpdb-subtitle-rail button {
     padding: 0;

@@ -10084,6 +10084,7 @@ ${spelling}`);
     secondaryCue;
     observer;
     videoResizeObserver;
+    lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
     alignFrame;
@@ -10646,9 +10647,28 @@ ${spelling}`);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
+    // The rail follows the player's own chrome: on phones there is no hover,
+    // so the player's fade state is the only "controls are visible" signal
+    // the viewer has — the rail must appear and disappear in lockstep.
     syncPlayerChromeIdleState() {
-      if (!this.root || !this.shouldAutoIdleControls() || !this.videoPlayerChromeHidden()) return;
-      this.hideControlsImmediately();
+      if (!this.root || !this.hasAutoIdleMode(this.options.getSettings())) return;
+      const chromeHidden = this.videoPlayerChromeHidden();
+      if (chromeHidden) {
+        this.blurFocusedRailControl();
+        if (this.shouldAutoIdleControls()) this.hideControlsImmediately();
+      } else if (this.lastPlayerChromeHidden && this.isVideoPlayerChromeSurface()) {
+        this.showControlsTemporarily();
+      }
+      this.lastPlayerChromeHidden = chromeHidden;
+    }
+    blurFocusedRailControl() {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && this.root?.contains(active) && active.closest(".jpdb-subtitle-rail")) {
+        active.blur();
+      }
+    }
+    isVideoPlayerChromeSurface() {
+      return Boolean(document.querySelector("#player-control-overlay") || this.video?.closest("#movie_player, .html5-video-player"));
     }
     refreshSubtitleSourcesForTick() {
       if (this.syncSubtitleSourceContext(this.video)) this.refreshDiscoveredSubtitleTracks();
