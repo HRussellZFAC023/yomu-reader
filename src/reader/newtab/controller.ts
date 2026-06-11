@@ -4261,7 +4261,9 @@ export class NewTabController {
             this.parsedSentenceCache,
             key,
             NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT,
-            () => this.dependencies.parser.parse([key], jpdbFirstParseOptions({ allowSegmentedFallback: true })).then(([tokens]) => tokens ?? []),
+            // includeLocalPitch is fallback-only in the parser; without it, keyed
+            // parses left sentence words bare when the API had no pitch.
+            () => this.dependencies.parser.parse([key], jpdbFirstParseOptions({ allowSegmentedFallback: true, includeLocalPitch: true })).then(([tokens]) => tokens ?? []),
             shouldCacheParsedNewTabSentenceTokens,
         );
     }

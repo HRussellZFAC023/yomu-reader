@@ -50,3 +50,14 @@ function testToken(sentence: string, card: JPDBCard, start: number, end: number)
         sentence,
     };
 }
+
+describe('example-sentence pitch enrichment', () => {
+    it('keeps includeLocalPitch on for keyed parses (fallback-only; bare-pitch gap fix)', () => {
+        const { readFileSync } = require('node:fs') as typeof import('node:fs');
+        const { resolve } = require('node:path') as typeof import('node:path');
+        const popover = readFileSync(resolve(__dirname, '../../src/reader/immersion/popover-controller.ts'), 'utf8');
+        expect(popover).toContain('? { includeLocalPitch: true }');
+        const controller = readFileSync(resolve(__dirname, '../../src/reader/newtab/controller.ts'), 'utf8');
+        expect(controller).toContain("jpdbFirstParseOptions({ allowSegmentedFallback: true, includeLocalPitch: true })");
+    });
+});

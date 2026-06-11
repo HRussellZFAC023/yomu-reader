@@ -870,8 +870,12 @@ export class ImmersionPopoverController {
 
     private exampleSentenceParseOptions(): ReaderParserParseOptions {
         const settings = this.options.getSettings();
+        // Local pitch is fallback-only in the parser (never overrides API
+        // pitch), so include it in BOTH paths: with a key, example words the
+        // API returns no pitch for previously rendered bare (the
+        // example-sentence pitch-gap ticket).
         return jpdbFirstParseOptions(hasJpdbApiCredential(settings)
-            ? {}
+            ? { includeLocalPitch: true }
             : { allowSegmentedFallback: true, includeLocalPitch: true });
     }
 
