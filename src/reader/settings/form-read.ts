@@ -294,6 +294,7 @@ function readReadingDisplayFormSettings(
         showFurigana: furiganaMode !== 'off',
         furiganaMode,
         showPitchAccent: has('showPitchAccent'),
+        suppressRedundantWordUi: has('suppressRedundantWordUi'),
         hideKnownFurigana: furiganaMode === 'known-status',
     };
 }

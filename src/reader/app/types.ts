@@ -308,6 +308,7 @@ export interface ReaderSettings {
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
     showPitchAccent: boolean;
+    suppressRedundantWordUi: boolean;
     hideKnownFurigana: boolean;
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;

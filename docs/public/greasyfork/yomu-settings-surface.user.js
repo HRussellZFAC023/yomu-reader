@@ -1434,6 +1434,7 @@
     showFurigana: true,
     furiganaMode: "all",
     showPitchAccent: true,
+    suppressRedundantWordUi: false,
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -2576,6 +2577,7 @@
       furiganaHideKnown: "Hide known words",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
+      suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Set a hover key. Blank means plain hover.",
       hoverLookupSettings: "Hover lookup",
@@ -4009,6 +4011,7 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
+suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 hideKnownFurigana	既知カードのみふりがなを非表示
 readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索
@@ -5884,6 +5887,7 @@ recommendedJiten	jiten.moe頻度データです。
       showFurigana: furiganaMode !== "off",
       furiganaMode,
       showPitchAccent: has("showPitchAccent"),
+      suppressRedundantWordUi: has("suppressRedundantWordUi"),
       hideKnownFurigana: furiganaMode === "known-status"
     };
   }
@@ -7587,6 +7591,7 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
                     ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide known words"], ["all", "All parsed words"], ["off", "Off"]])}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
+                    ${checkbox("suppressRedundantWordUi", "Hide styling on JPDB-redundant words", settings.suppressRedundantWordUi)}
                 </div>
                 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, "settingsPuckHelp")}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
@@ -8529,6 +8534,7 @@ recommendedJiten	jiten.moe頻度データです。
     "showFloatingButton",
     "furiganaMode",
     "showPitchAccent",
+    "suppressRedundantWordUi",
     "audioEnabled",
     "autoPlayAudio",
     "suppressAutoAudioOnVideo",

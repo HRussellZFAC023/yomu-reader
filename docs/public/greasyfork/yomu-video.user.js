@@ -2195,6 +2195,7 @@
       furiganaHideKnown: "Hide known words",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
+      suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Set a hover key. Blank means plain hover.",
       hoverLookupSettings: "Hover lookup",
@@ -3628,6 +3629,7 @@ furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
+suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 hideKnownFurigana	既知カードのみふりがなを非表示
 readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索

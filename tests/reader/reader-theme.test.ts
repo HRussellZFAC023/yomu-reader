@@ -728,3 +728,17 @@ describe('reader theme', () => {
         expect(stored.wordUnderlineColorSource).toBe('pitch');
     });
 });
+
+describe('redundant word UI suppression', () => {
+    it('toggles the root class from settings and pins the plain-text CSS', () => {
+        const root = document.createElement('div');
+        applyReaderTheme({ ...DEFAULT_SETTINGS, suppressRedundantWordUi: true }, root as unknown as HTMLElement);
+        expect(root.classList.contains('jpdb-reader-suppress-redundant')).toBe(true);
+        applyReaderTheme({ ...DEFAULT_SETTINGS, suppressRedundantWordUi: false }, root as unknown as HTMLElement);
+        expect(root.classList.contains('jpdb-reader-suppress-redundant')).toBe(false);
+
+        const normalized = READER_WORD_CSS.replace(/\s+/g, ' ');
+        expect(normalized).toContain('html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant');
+        expect(normalized).toContain('text-decoration: none !important;');
+    });
+});

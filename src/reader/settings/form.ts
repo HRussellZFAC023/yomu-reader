@@ -540,6 +540,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
                     ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
+                    ${checkbox('suppressRedundantWordUi', 'Hide styling on JPDB-redundant words', settings.suppressRedundantWordUi)}
                 </div>
                 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, 'settingsPuckHelp')}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
@@ -1524,7 +1525,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'showPitchAccent',
+    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'showPitchAccent', 'suppressRedundantWordUi',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
