@@ -741,4 +741,13 @@ describe('redundant word UI suppression', () => {
         expect(normalized).toContain('html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant');
         expect(normalized).toContain('text-decoration: none !important;');
     });
+
+    it('parks the mobile sheet close button on the left when enabled', () => {
+        const root = document.createElement('div');
+        applyReaderTheme({ ...DEFAULT_SETTINGS, sheetCloseButtonOnLeft: true }, root as unknown as HTMLElement);
+        expect(root.classList.contains('jpdb-reader-sheet-close-left')).toBe(true);
+
+        const popoverCss = readFileSync('src/reader/styles/popover-core.css', 'utf8').replace(/\s+/g, ' ');
+        expect(popoverCss).toContain('html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close { right: auto; left: max(12px, env(safe-area-inset-left)); }');
+    });
 });

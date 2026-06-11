@@ -1145,3 +1145,10 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
 .jpdb-reader-state-dot.jiten-unparsed {
   background: var(--jpdb-reader-state-unparsed);
 }
+
+/* Jiten Reader parity: one-handed reach — optionally park the mobile sheet
+   close button on the left edge instead of the right. */
+html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
+  right: auto;
+  left: max(12px, env(safe-area-inset-left));
+}

@@ -2103,6 +2103,7 @@
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
+      sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Set a hover key. Blank means plain hover.",
       hoverLookupSettings: "Hover lookup",
@@ -3556,6 +3557,7 @@ furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
+sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
 hideKnownFurigana	既知カードのみふりがなを非表示
 readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索
@@ -6868,6 +6870,7 @@ recommendedJiten	jiten.moe頻度データです。
     furiganaMode: "all",
     showPitchAccent: true,
     suppressRedundantWordUi: false,
+    sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -42757,6 +42760,7 @@ ${newTabCardReading(card)}`;
     applyPopupFontSettings(settings, root);
     root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status");
     root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
+    root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
     root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
     applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
     applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);
@@ -43537,6 +43541,7 @@ ${newTabCardReading(card)}`;
       furiganaMode,
       showPitchAccent: has("showPitchAccent"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
+      sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
       hideKnownFurigana: furiganaMode === "known-status"
     };
   }
@@ -45034,6 +45039,7 @@ ${newTabCardReading(card)}`;
                     ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide known words"], ["all", "All parsed words"], ["off", "Off"]])}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
                     ${checkbox("suppressRedundantWordUi", "Hide styling on JPDB-redundant words", settings.suppressRedundantWordUi)}
+                    ${checkbox("sheetCloseButtonOnLeft", "Mobile sheet: close button on the left", settings.sheetCloseButtonOnLeft)}
                 </div>
                 <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, "settingsPuckHelp")}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
@@ -45977,6 +45983,7 @@ ${newTabCardReading(card)}`;
     "furiganaMode",
     "showPitchAccent",
     "suppressRedundantWordUi",
+    "sheetCloseButtonOnLeft",
     "audioEnabled",
     "autoPlayAudio",
     "suppressAutoAudioOnVideo",

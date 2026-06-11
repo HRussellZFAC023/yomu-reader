@@ -309,6 +309,7 @@ export interface ReaderSettings {
     furiganaMode: FuriganaMode;
     showPitchAccent: boolean;
     suppressRedundantWordUi: boolean;
+    sheetCloseButtonOnLeft: boolean;
     hideKnownFurigana: boolean;
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;

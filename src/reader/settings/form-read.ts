@@ -295,6 +295,7 @@ function readReadingDisplayFormSettings(
         furiganaMode,
         showPitchAccent: has('showPitchAccent'),
         suppressRedundantWordUi: has('suppressRedundantWordUi'),
+        sheetCloseButtonOnLeft: has('sheetCloseButtonOnLeft'),
         hideKnownFurigana: furiganaMode === 'known-status',
     };
 }
