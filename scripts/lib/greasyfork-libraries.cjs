@@ -5,6 +5,13 @@ const greasyForkLibraryDir = 'greasyfork';
 
 const GREASY_FORK_LIBRARIES = [
   {
+    id: 'kanji-study',
+    label: 'Yomu Kanji/Study',
+    entry: 'src/reader/companions/kanji-study.ts',
+    fileName: 'yomu-kanji-study.user.js',
+    globalName: 'YomuKanjiStudyLibrary',
+  },
+  {
     id: 'settings-surface',
     label: 'Yomu Settings Surface',
     entry: 'src/reader/companions/settings-surface.ts',
