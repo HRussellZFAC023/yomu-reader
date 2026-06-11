@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.89] - 2026-06-11
+
+### Added
+
+- Stats tab now opens with a JPDB-style learning-progress table — 'Learning | You know' columns with the Words row (total, learning count, known count and percentage) and a 'Total known vocabulary' line — for whichever provider is selected (JPDB, Jiten, Anki, or combined). First slice of the study-hub parity plan (docs/study-hub-parity.md).
+
 ## [0.6.88] - 2026-06-11
 
 ### Added

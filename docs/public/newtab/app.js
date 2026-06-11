@@ -19367,6 +19367,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsActivityMinutes: "Minutes",
       statsActivityNewCards: "New cards",
       statsCardDistribution: "Card distribution",
+      statsLearningProgress: "Learning progress",
+      statsWordsRow: "Words",
+      statsLearningColumn: "Learning",
+      statsKnownColumn: "You know",
+      statsTotalKnownVocabulary: "Total known vocabulary",
       statsStudyTroubleCards: "Study due/failed",
       statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
       statsChooseJpdbFile: "Choose reviews.json",
@@ -19480,6 +19485,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsActivityMinutes: "分",
     statsActivityNewCards: "新規",
     statsCardDistribution: "カード分布",
+    statsLearningProgress: "学習の進捗",
+    statsWordsRow: "単語",
+    statsLearningColumn: "学習中",
+    statsKnownColumn: "習得済み",
+    statsTotalKnownVocabulary: "習得済み語彙の合計",
     statsStudyTroubleCards: "期限/失敗を学習",
     statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
     statsChooseJpdbFile: "reviews.jsonを選択",
@@ -33744,6 +33754,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       ),
       renderStatsSourceTabs(context),
       renderStatsMetrics(context),
+      renderStatsLearningProgress(context),
       renderStatsActivity(context),
       renderStatsDistribution(context),
       renderStatsConnections(context)
@@ -33919,6 +33930,53 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
         today: point.date === todayStatsDate()
       }
     });
+  }
+  function renderStatsLearningProgress(context) {
+    const { source, text: text2 } = context;
+    const cards = source.cards;
+    const knownPct = cards.total > 0 ? formatPercent(cards.known / cards.total) : "";
+    return el(
+      "section",
+      { class: "jpdb-reader-stats-panel jpdb-reader-stats-progress" },
+      el(
+        "div",
+        { class: "jpdb-reader-stats-panel-heading" },
+        el("h2", {}, text2("statsLearningProgress"))
+      ),
+      el(
+        "table",
+        { class: "jpdb-reader-stats-progress-table" },
+        el(
+          "thead",
+          {},
+          el(
+            "tr",
+            {},
+            el("th", {}, ""),
+            el("th", {}, ""),
+            el("th", {}, text2("statsLearningColumn")),
+            el("th", {}, text2("statsKnownColumn"))
+          )
+        ),
+        el(
+          "tbody",
+          {},
+          el(
+            "tr",
+            {},
+            el("th", { scope: "row" }, text2("statsWordsRow")),
+            el("td", {}, formatCompactNumber(cards.total)),
+            el("td", {}, formatCompactNumber(cards.learning + cards.failed)),
+            el("td", {}, knownPct ? `${formatCompactNumber(cards.known)} (${knownPct})` : formatCompactNumber(cards.known))
+          )
+        )
+      ),
+      el(
+        "p",
+        { class: "jpdb-reader-stats-progress-total" },
+        `${text2("statsTotalKnownVocabulary")}: ${formatCompactNumber(cards.known)}`
+      )
+    );
   }
   function renderStatsDistribution(context) {
     const { source, text: text2 } = context;
