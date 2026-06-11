@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.85] - 2026-06-11
+
+### Fixed
+
+- Live JPDB review bridge: reveal and grade clicks now target jpdb.io's stable control ids (#show-answer, #grade-1…#grade-5) first, falling back to text matching — verified against a signed-in jpdb.io/review session, whose buttons carry ✘/✔ prefixes that pure text matching could trip over. Investigated next-review intervals for the live bridge and closed it as not possible: jpdb.io renders no interval data on the review page and has no setting to enable it.
+
 ## [0.6.84] - 2026-06-11
 
 ### Fixed
