@@ -102,89 +102,9 @@ stop); second is SH-3 v2 bulk actions; third is composed-of on card backs.
 
 ## Tickets (ranked)
 
-### SH-1: Learning-progress table in Stats (JPDB shape) — SHIPPED 0.6.89 (Words row + total-known line per provider; kanji/indirect rows remain provider-side data gaps, see Non-goals)
-Render the `Learning | You know` table — `Words (direct)`, `Kanji (direct)` rows first —
-plus **Total known non-redundant vocabulary**, for each connected provider.
-Feasibility: JPDB API `list user decks` + `global` deck card states give direct word
-counts by state (known = young/mature/known/mastered/never-forget; non-redundant
-excludes `redundant`); kanji via locked/known kanji states from deck cards. Indirect
-rows need jpdb-only data — render the rows we can compute and label the table with the
-provider; do NOT fake indirect numbers. Anki: counts from status index by queue. Jiten:
-counts from study-batch/cards API.
-
-### SH-2: Due summary sentence — SHIPPED 0.6.90 (session label now adds the due words/kanji split and unseen-new count when they add information beyond the snapshot's Due N; start-button copy unchanged by design)
-"You have N due items (X vocabulary and Y kanji) and M new items…" above the queue,
-computed from the active source's queue metadata; one primary button starts the session
-(already exists implicitly — make the copy/shape match).
-
-### SH-3: Card browser ("My Cards") — v1 SHIPPED 0.6.92 (idle Search tab shows the SRS pool with JPDB Show-only-order state chips + counts, 50-row pages, state badge + Top-N frequency per row, row click opens the full superset lookup; JPDB+Jiten pools). v2 search-within-pool SHIPPED 0.6.95 (typing with a state chip active searches MY cards; the All chip returns to dictionary search). Anki pool rows SHIPPED 0.6.100 (browser spans JPDB+Jiten+Anki; Anki joins the browse pool only, never the JPDB stats source). Show-only state filters on the Word tab itself SHIPPED 0.6.101 (the user's explicit ask: Study/All/New/Learning/Due/Failed/Known/Never-forget/Suspended/Locked/Blacklisted/Redundant select beside the deck scope; non-study filters merge the full browse pool in since the scheduled loader drops settled states). Select-page bulk actions SHIPPED 0.6.102 (Jiten parity: select-page checkbox + Blacklist/Never-forget fan through the shared performCardAction path — provider mapping stays in one place — then the pool reloads to recolor; exact-parity 'Total known non-redundant vocabulary' label also landed). Still remaining: due-in column (per-adapter timestamps: Anki nextReviews exists, Jiten interval labels only, JPDB none)
-New "Browse" surface (or extend Search mode): chips with live counts (All/New/Learning/
-Due/Known/Failed/Suspended·Blacklisted/Never-forget/Locked/Redundant — union of JPDB and
-Jiten vocab), search by spelling, paginated rows (furigana spelling, first meaning,
-state badge with level/interval when known, frequency rank, due-in), per-row actions
-(grade-independent: open popover, deck add/remove, blacklist, never-forget), select-page
-bulk actions (Jiten parity). Backed by: jpdb `list deck cards` (global), Jiten cards
-API, Anki status index.
-
-### SH-4: Review back fidelity — deck-membership line SHIPPED 0.6.93 (the live JPDB bridge scrapes jpdb.io's own 'Part of the X deck (3x)' line and the study card back renders it). Composed-of SHIPPED 0.6.98 (component-kanji chips with RTK/JPDB keywords on revealed word backs, kanji-popover drilldown, kana-only words skip it). jpdb-api membership SHIPPED 0.6.105 (deck-scoped queues stamp 'Part of the X deck' on every card; live-bridge scrape still wins). Anki+Jiten membership SHIPPED 0.6.106 (Anki: owning ankiDeckNames; Jiten: study-batch sourceDeckName)
-Back of vocabulary cards should show the composed-of component glosses (we already
-segment expressions for pitch — reuse for component glosses from local dictionaries /
-JPDB), and the "Part of the X deck (3x)" line (jpdb deck membership already loadable;
-occurrences from deck data when available; Jiten deck names from study deck list).
-
-### SH-5: Review front fidelity — AUDITED + FIXED 0.6.91 (front-sentence default on ✓; provider-fidelity inversion fixed: JPDB-backed cards now front JPDB's own example sentence with Immersion Kit as fallback, not replacement; kind label covered by the mode tabs)
-JPDB fronts show the sentence with the target highlighted (when the card has one).
-`newTabFrontSentenceEnabled` exists — verify it defaults to match JPDB behavior for
-jpdb-sourced cards, that the highlight styling matches (target blue, rest plain), and
-the kind label ("Vocabulary" / "Kanji") is present like JPDB's.
-
-### SH-6: Deck management parity — v1 SHIPPED 0.6.97 (in-page JPDB deck selector on the Word tab: All vocabulary + user decks via the API, selection persists in new-tab state and rescopes the queue through the existing scheduled-only deck loader; mobile-safe 16px select). Per-deck progress SHIPPED 0.6.103 (deck entries show vocabulary count + known coverage from list-user-decks, jpdb Learn shape). Jiten deck scoping PROBED 2026-06-11 and parked: srs/study-batch silently accepts deckId/userStudyDeckId/studyDeckId params (200, same payload) but both the test account and the user's account have zero study decks (srs/study-decks returns []), so scoping is unverifiable until one exists — revisit when the user enrolls a Jiten study deck. Anki deck scoping SHIPPED 0.6.111 (the in-page deck selector now serves the Anki source too: one deck + its subdecks, disabled-deck toggles still honored). Deck creation remains; JPDB priority reorder stays page-only (no API endpoint)
-List the user's decks (JPDB: listDecks; Jiten: study decks; Anki: deck names) inside the
-study page with per-deck progress, reorder (JPDB API permitting — page uses
-`change_deck_priority`; API has no priority endpoint → JPDB reorder is OUT of scope,
-note it), create-empty/add-from-search where the API allows, and per-deck "study only
-this deck" filtering of the queue.
-
-### SH-7: Today panel — core SHIPPED 0.6.95 (Due-now tile with time estimate + reviews-today '+N new' detail beside the existing streak metrics). Remaining: 7d/30d forecast (only honest for Anki — needs due timestamps from the status index; JPDB API exposes none)
-"Done today (reviews/new), due now, next review countdown, streak, next 7d/30d
-forecast." Anki: `getNumCardsReviewedByDay` + due forecast from status index;
-Jiten: study-batch metadata + daily cache; JPDB API: no forecast — show due-now only and
-label the limitation.
-
-### SH-8: Keyboard/grade-shortcut parity — AUDITED + SHIPPED 0.6.94 (Space/Enter reveal and arrow navigation already existed; added jpdb's 1..5 digit grading on revealed cards, mapped to the rendered grade-button order so two-button bars get 1=Fail 2=Pass; inputs/selects keep capture immunity)
-JPDB: space=show answer, 1..5=grades; Jiten equivalents. Verify the new tab matches and
-documents them (some shortcuts exist; audit + align).
-
-## With-userscript journey findings (headless test accounts, 2026-06-11)
-
-- jiten.moe `/srs/study` with the built userscript: Yomu's study addons mount on the
-  real page (Immersion Kit panel, imported-dictionaries section, headword wrapped) —
-  the "enhance their pages" half of the superset promise holds on the current build.
-  Jiten's grade bar is Again/Hard/Good/Easy with a visible **"Show Answer — Space"**
-  key hint → adopted: the study page now advertises Space + digit keys on its own
-  controls (0.6.99); hidden on touch.
-- jpdb.io headless login bounces silently back to /login (bot protection suspected;
-  not retried to protect the test account) — JPDB with-userscript review capture
-  remains covered by the signed-in MCP session (grade ids #show-answer/#grade-1..5
-  captured live earlier; see Non-goals for the interval verdict).
-
-## UX-evaluation directive (user, 2026-06-11)
-
-When evaluating journeys in Playwright, always ask "what is this from a user
-experience?" / "how would a user feel about this screen?" and file the findings here
-for the next pass. First two findings, from the user's own screenshots:
-
-- FIXED 0.6.107: on jiten.moe/srs/study the addon (Immersion Kit + the user's
-  dictionaries) mounted detached at the top of the page — and during the question
-  phase, where dictionary entries spoil the answer. It now mounts INSIDE the revealed
-  card after Jiten's own sections, and produces no target at all until reveal
-  (live-verified on the signed-in study page: front addonCount 0, back addonCount 1
-  insideCard true).
-- PARTIAL 0.6.108: Anki review cards now show Hard/Good/Easy due-ins on the study grade
-  bar, computed exactly like Anki's own answer buttons (interval x 1.2 / x ease / x1.3 —
-  cardsInfo never sends the GUI's nextReviews strings); learning/new cards and Again stay
-  blank rather than guessing deck step config. Jiten intervals were already wired;
-  jpdb has none (verified live 0.6.85). Popover grade-row intervals SHIPPED 0.6.109 (renderReviewButtons takes the card's reviewGradeIntervals — Anki existing notes get the computed previews too via ankiExistingNoteFromInfo). Learning-step previews SHIPPED 0.6.110 (new cards derive Again/Hard/Good/Easy from the deck's getDeckConfig learning steps — Anki's own first-answer numbers; one config fetch per distinct deck; mid-learning cards stay blank since cardsInfo lacks step position). The due-in story is now COMPLETE across providers and surfaces.
+### SH-3 remainder: due-in column in the My Cards browser
+Per-adapter timestamps needed: Anki has nextReviews/prop:due bucketing, Jiten exposes
+interval labels only, JPDB none. Everything else of SH-3 shipped (see Shipped log).
 
 ### Journey re-run findings (0.6.114 pass)
 
