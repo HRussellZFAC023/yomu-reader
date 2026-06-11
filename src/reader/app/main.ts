@@ -129,6 +129,7 @@ import {
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
     FALLBACK_LOOKUP_INITIAL_WAIT_MS,
     FIVE_BUTTON_REVIEW_SHORTCUTS,
     HOVER_ANKI_HYDRATION_DELAY_MS,
@@ -4982,7 +4983,7 @@ export class ReaderApp {
         }).sort((first, second) => pitchEnrichmentPriority(first) - pitchEnrichmentPriority(second));
 
         if (options.publicLookup === false) {
-            await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), LOCAL_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
             return;
         }
 
@@ -4998,7 +4999,7 @@ export class ReaderApp {
             const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
             const localOnly = runLimited(
                 deferredPublicTokens,
-                BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+                LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             );
             if (!publicTokens.length) {

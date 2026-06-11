@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.84] - 2026-06-11
+
+### Fixed
+
+- Faster first colorization on busy pages: local pitch-accent lookups (IndexedDB, no network) now run 8 at a time instead of 2 during the cold-start backlog, and the first Anki status scan sends its findNotes batches as 50-term requests with three in flight instead of one big 120-term request — Anki stays responsive and page words color sooner.
+
 ## [0.6.83] - 2026-06-11
 
 ### Fixed

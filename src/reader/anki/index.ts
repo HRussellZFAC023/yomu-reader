@@ -123,7 +123,11 @@ export { ankiMediaFilenameFromCardUrl, untrustedAnkiLookupResult } from './card-
 
 const ANKI_VERSION = 6;
 const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1000;
-const ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE = 120;
+// First-scan status lookups: smaller multi requests processed a few at a
+// time keep AnkiConnect responsive instead of one thundering-herd request
+// that blocks Anki's UI thread while the whole page resolves.
+const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
+const ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY = 3;
 const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5_000;
 const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1_500;
 const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15_000;
@@ -1393,13 +1397,15 @@ export class AnkiConnectClient {
             }
         }
         const terms = [...keysByTerm.keys()];
-        const responses: Array<number[] | undefined> = [];
-        for (const chunk of chunkArray(terms, ANKI_DETAIL_LOOKUP_TERM_CHUNK_SIZE)) {
-            responses.push(...await this.invokeMulti<number[]>(chunk.map(term => ({
+        const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
+        const chunkResponses: Array<Array<number[] | undefined>> = new Array(chunks.length);
+        await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
+            chunkResponses[index] = await this.invokeMulti<number[]>(chunk.map(term => ({
                 action: 'findNotes',
                 params: { query: quoteAnkiSearch(term) },
-            }))));
-        }
+            })));
+        });
+        const responses: Array<number[] | undefined> = chunkResponses.flat();
         if (this.isDestroyed) return noteIdsByKey;
         terms.forEach((term, index) => {
             const ids = responses[index] ?? [];

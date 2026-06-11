@@ -35,6 +35,9 @@ export const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 // This is not an Anki cache/card cap.
 export const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
 export const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
+// Local-only pitch lookups are IndexedDB-bound (no network): a wider lane
+// clears the cold-start backlog quickly instead of trickling 2 at a time.
+export const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
 export const SUBTITLE_SURFACE_SELECTOR = '.jpdb-subtitle-player, .jpdb-subtitle-list';
 export const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
 export const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
