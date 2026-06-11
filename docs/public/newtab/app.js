@@ -5960,6 +5960,7 @@
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
       ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
+      ankiCorsBlocked: 'AnkiConnect is running but refuses this site. In Anki: Tools → Add-ons → AnkiConnect → Config, add "{origin}" to webCorsOriginList, then restart Anki.',
       ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
       ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
@@ -7386,6 +7387,7 @@ ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiCorsBlocked	AnkiConnectは起動していますが、このサイトを拒否しています。Ankiの「ツール → アドオン → AnkiConnect → 設定」で webCorsOriginList に「{origin}」を追加し、Ankiを再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
@@ -14890,6 +14892,15 @@ ${entry.reading || ""}`;
     }).finally(() => {
       window.clearTimeout(timeoutId);
     });
+  }
+  async function diagnoseAnkiConnectFailure(url) {
+    if (typeof fetch !== "function") return "unreachable";
+    try {
+      await fetch(url, { method: "GET", mode: "no-cors" });
+      return "cors-blocked";
+    } catch {
+      return "unreachable";
+    }
   }
   function hasUserscriptAnkiBridge() {
     return Boolean(getUserscriptHttpRequest());
@@ -23827,11 +23838,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           this.queueAutomaticAnkiLibraryScan(form, language);
         } else {
           this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
+          void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
         log$o.warn("Anki settings probe failed", error);
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
+        void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
         this.settings = previous;
       }
@@ -24364,6 +24377,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     ankiUnreachableMessage(language) {
       return uiText(language, "ankiSettingsUnreachable");
+    }
+    // Diagnostic-UX ticket: when the direct probe fails, tell the user WHICH
+    // step failed. A no-cors probe that resolves means AnkiConnect is up but
+    // rejected this origin (webCorsOriginList) — name the origin to add; only
+    // a true network failure keeps the generic 'open Anki' guidance.
+    async refineAnkiUnavailableStatus(form, requestId, settings, language) {
+      if (canUseMobileAnkiHandoff(settings) || hasUserscriptAnkiBridge()) return;
+      const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
+      const verdict = await diagnoseAnkiConnectFailure(url).catch(() => "unreachable");
+      if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+      if (verdict !== "cors-blocked") return;
+      const origin = typeof location !== "undefined" ? location.origin : "";
+      this.setAnkiStatus(form, uiText(language, "ankiCorsBlocked").replace("{origin}", origin), "pending");
     }
     ankiSetupUnavailableStatus(settings, language) {
       if (canUseMobileAnkiHandoff(settings)) {

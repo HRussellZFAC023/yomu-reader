@@ -31,6 +31,21 @@ export async function postAnkiJson<T>(url: string, body: string, timeoutMs: numb
     });
 }
 
+// Distinguishes the two ways a direct (non-bridge) AnkiConnect probe fails:
+// a no-cors fetch resolving opaquely means the server IS up but rejected this
+// page's origin (webCorsOriginList) — the classic 'Firefox shows not
+// connected' case — while a network error means Anki/AnkiConnect isn't
+// reachable at that URL at all.
+export async function diagnoseAnkiConnectFailure(url: string): Promise<'cors-blocked' | 'unreachable'> {
+    if (typeof fetch !== 'function') return 'unreachable';
+    try {
+        await fetch(url, { method: 'GET', mode: 'no-cors' });
+        return 'cors-blocked';
+    } catch {
+        return 'unreachable';
+    }
+}
+
 export function hasUserscriptAnkiBridge(): boolean {
     return Boolean(getUserscriptHttpRequest());
 }
