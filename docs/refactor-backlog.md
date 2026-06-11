@@ -1,214 +1,84 @@
 # Yomu Refactor Backlog
 
-Last updated: 2026-06-11 (post-0.6.88; thirteen releases 0.6.76→0.6.88 shipped this day across two parallel sessions, every release gated by `npm run check`; live e2e now runs against the user's signed-in MCP Chrome — see `.playwright-mcp/inject-youtube.mjs`).
+Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per user direction — full history lives in CHANGELOG.md and git. New companion doc: `docs/study-hub-parity.md` holds the study-hub gap analysis and SH-1…SH-8 tickets, which are the current feature focus.)
 
 ## Remaining Large Lanes (next sessions)
 
-- P1 engineering: incremental Anki status-index refresh by mod-time; field-scoped Anki lookup with strict query escaping; adapter state machine for nonstandard decks; Anki media manifest/card-audio cache; abortable visible-work scheduler.
-- Jiten v1.2.x larges: mass-review visible words (button + keybind), simplified custom-domain allowlist, redundant-word UI suppression option, mobile close-button position, toast redesign, deck/word-list membership checkmark in popover, deck-based word styling.
-- P0 single card-state mutation bus: popover-driven API changes propagate to page words (0.6.74); DONE 0.6.82 — cross-tab propagation via `app/card-state-signal.ts` (GM value-change + BroadcastChannel, dedup by signal id, remote-only): new-tab grade submits (jpdb-api/jiten-api/anki) and the page action-controller publish, both runtimes subscribe and recolor via applyPublicVocabularyToRenderedWords. Remaining: jpdb-live bridge grades (state lives on jpdb.io), kana-run token identity parity (P0 ticket above).
-- Live-debug with the user's environment: missing ruby on real Google Maps/claude.ai (smoke:late-content is the regression net). PARTIAL 2026-06-11 (live MCP retest): real Google Maps ja place page with the 0.6.86 build wraps 100 words and boots the FAB — the 'no colorisation at all' shape does NOT reproduce under late injection; rubies were 0 but the test env was keyless with no local dictionaries (inconclusive — retest with a real API key). claude.ai retest blocked: logged out in the test browser. DONE 0.6.77/0.6.78: logged-in YouTube feed gaps + wrong-size ghost skeletons root-caused against the user's saved DOM + 2026 lockup CSS (gutter moved to the grid container; continuation flex-basis ~0 squeezed the ghost grid) and live-verified on the signed-in feed via Playwright MCP injection (`.playwright-mcp/inject-youtube.mjs` pattern: GM shim init script + CDP Runtime.evaluate with allowUnsafeEvalBlockedByCSP + companions before core).
-- Userscript size headroom is down to ~55 KB (1,945,187 bytes at 0.6.75): the next feature lane should revisit ADR 0003 companion extraction before adding large code.
+- Study-hub parity: work through `docs/study-hub-parity.md` SH-1…SH-8 (stats table, due summary, card browser with filters/search/bulk actions, review back fidelity, front audit, deck management, today panel/forecast, shortcut audit).
+- P1 engineering: incremental Anki status-index refresh by mod-time; adapter state machine for nonstandard decks; Anki media manifest/card-audio cache; abortable visible-work scheduler.
+- P0 kana-run token identity parity (see Reference Parity ticket below).
+- Userscript size: ADR 0003 extraction is now urgent — 43,331 bytes of Greasy Fork headroom left at 0.6.88 (headroom nearly halved in one day). Run `npm run size:greasyfork-plan` before the next feature batch; recommended first extractions: Yomu Settings Surface, Yomu Video, Yomu Kanji/Study.
+- "Snow Leopard" quality release (user, 2026-06-10): no new features; sweep latent bugs and battery-drain re-render loops (rAF chains, MutationObserver feedback loops, timers that never idle — audit subtitles/controller.ts tick paths, youtube.ts observers, visible-page scanner); subtitle polish; YouTube reflow seamlessness; drive Fallow complexity/CRAP to 0; idle CPU target: zero timers/rAF when idle and no video playing.
 
 ## JIT Subtitle Parse Contract (pinned 0.6.67)
 
-- Playback-simulation regression tests now pin the just-in-time guarantees in `tests/reader/subtitles-controller.test.ts`: continuous playback never reaches a cue that is not already parsed/cached (40-cue walk with realistic 30ms batch latency), and a long seek re-warms the active cue plus the 10-cue lookahead within one warmup turn.
-- DOM-caption fallback (YouTube native captions) now parses during the 180ms stability window instead of after it, so captions render colorized the moment they count as stable.
-- Known by-design behavior: cues whose parse yields no annotatable words live in a TTL'd empty cache and re-parse periodically (transient-failure self-healing); token-bearing cues cache permanently until pruned.
+- Playback-simulation regression tests pin the just-in-time guarantees in `tests/reader/subtitles-controller.test.ts`: continuous playback never reaches a cue that is not already parsed/cached (40-cue walk with realistic 30ms batch latency), and a long seek re-warms the active cue plus the 10-cue lookahead within one warmup turn.
+- DOM-caption fallback (YouTube native captions) parses during the 180ms stability window instead of after it.
+- By design: cues whose parse yields no annotatable words live in a TTL'd empty cache and re-parse periodically; token-bearing cues cache permanently until pruned.
 
 ## Current Scoreboard
 
-- `npm run typecheck`: passing.
-- Focused Vitest batch: passing for new-tab review, stats, settings dialog, settings form, Jiten, YouTube filter, and subtitle YouTube.
-- Fallow dead-code: 0 issues.
-- Fallow health complexity: 0 functions above threshold.
-- Fallow health score: 78.2 B.
-- Fallow remaining penalties: hotspots 10, unit size 6.8, coupling 1.6, duplication 3.4.
-- Fallow duplication: 30 top reported clone groups, 13,462 duplicated lines, 8.37% in the current no-cache top-30 run.
-- Readable `npm run build`: passing.
-- `npm run verify`: passing, with a non-blocking 90% size warning.
-- Current user direction: do not let file size block the current product-fix pass. Keep builds policy-readable and offline-capable, but prioritize parsing, Anki stability, new-tab UX, settings defaults, and browser verification until the behavioral regressions are closed.
-- Current userscript size: `dist/yomu.user.js` is 1,956,669 bytes at 0.6.88, 43,331 bytes below the Greasy Fork hard limit — headroom nearly halved since 0.6.75; the ADR 0003 extraction lane is becoming urgent before the next feature batch.
-- Release-size status: the current product-fix batch is verified without minification/compaction; size remains tight but is not blocking this pass per user direction.
-- Most recent top rendered source modules: `src/reader/main.ts` 213,643 bytes, `src/reader/subtitles/controller.ts` 119,635, `src/reader/settings-form.ts` 106,202, `src/reader/anki/index.ts` 89,611, `src/reader/dictionaries/yomitan/index.ts` 87,195, `src/reader/i18n.ts` 81,324, `src/reader/dom.ts` 74,134.
-- Current exact generated sizes: `dist/yomu.user.js` 1,930,737 bytes, `docs/public/yomu.user.js` 1,930,737 bytes, `dist/newtab/app.js` 2,192,792 bytes, `docs/public/newtab/app.js` 2,192,792 bytes.
-- Current `npm run size:greasyfork-plan` recommendation: extract Yomu Settings Surface, Yomu Video, and Yomu Kanji/Study first. Conservative estimate leaves the core at 1,671,428 bytes, under the 1,850,000-byte target with 150 KB Greasy Fork headroom.
+- `npm run typecheck`, `npm run test:ci`, `npm run build`, `npm run docs:build`, `npm run verify`: all green at 0.6.88 (every release today gated by `npm run check`).
+- `dist/yomu.user.js`: 1,956,669 bytes (43,331 below the 2 MB Greasy Fork limit) — size lane urgent, see above.
+- Live e2e: the user's signed-in Playwright MCP Chrome is available (YouTube, jpdb.io, jiten.moe, claude.ai as of 2026-06-11); injection recipe in `.playwright-mcp/inject-youtube.mjs` / `inject-generic.mjs` (serve dist on :8742, GM shim init script, CDP `Runtime.evaluate` with `allowUnsafeEvalBlockedByCSP`, companions before core).
+- Current user direction: verify journeys live, fix real bugs, groom this backlog (delete verified-done), then study-hub parity (`docs/study-hub-parity.md`); keep mobile/iPad users in mind.
 
-## Completed Manager Lanes
+## Reference Parity Tickets (open)
 
-- Removed generated whitespace/syntax compaction from the build path so the Greasy Fork gate measures policy-readable output.
-- Added `npm run size:greasyfork-plan`, which builds the readable userscript, refreshes rendered module sizes, and writes `dist/greasyfork-size-plan.json` with companion-script/data-pack byte budgets.
-- Removed `src/shared`; no source imports remain.
-- Moved generic helpers into `src/reader/core`.
-- Moved feature helpers into clearer folders: Anki, audio, dictionaries, OCR, subtitles, settings, DOM, and new-tab stats.
-- Split `src/reader/dom/html.ts` out of `dom.ts`.
-- Split Anki mining/settings helpers into `src/reader/settings/anki-mining-panel.ts`.
-- Split settings status-line helpers into `src/reader/settings/status-lines.ts`.
-- Split rendered-word lookup helpers into `src/reader/main/rendered-word-lookup.ts`.
-- Split text lookup orchestration into `src/reader/main/text-lookup.ts`; `src/reader/main.ts` is now under 6,000 lines.
-- Split cached Anki status lookup context helpers in `src/reader/anki/index.ts`; production Anki CRAP findings are now 0.
-- Split the large Anki IndexedDB test request dispatcher in `tests/reader/jpdb.test.ts`; JPDB test CRAP findings are now 0.
-- Split new-tab review-control helpers and JPDB stats/source loading helpers out of the hottest controller paths, reducing reader-controller CRAP pressure.
-- Removed stale YouTube channel-recommendation runtime copy after the channel-guide cleanup lane left no live source imports.
-- Refactored script complexity in `scripts/format-userscript-css.cjs`, `scripts/run-ci-tests.mjs`, `scripts/run-ci-suite.mjs`, and `scripts/jiten-newtab-smoke.mjs`; script-side Fallow complexity findings are now 0.
-- Added cached remote CSS fallback support in `src/reader/styles.ts`: packaged/resource CSS remains first, fetched full CSS is cached locally, and offline/no-fetch paths can reuse validated cached CSS.
-- Added `docs/adr/0003-multi-surface-userscript-strategy.md`.
-- Audited third-party bundle weight: `fflate` is about 13 KB rendered and is not the main size problem.
+- P0: Token identity and kana-run lookup parity. Jiten Reader (`../../resources/JitenReader`) carries a stable `wordId/readingIndex` identity through parsing, DOM registration, and card-state updates. Expected UX: tapping any character inside a kana-only word such as `にほんご` opens the full `日本語/にほんご` lookup, not fragment lookups like `ほん`, identical on mobile YouTube, Mokuro, docs, and normal pages. Surfaces: `src/reader/jpdb/jpdb-parser-tokens.ts`, `src/reader/main/rendered-word-lookup.ts`, pointer lookup handlers, mobile Playwright coverage for kana runs. (Partial: kana-run pointer lookup accepts parser-backed multi-char kana tokens since the 0.6.65–0.6.75 train; identity-through-updates remains.)
+- P0 mutation-bus remainder: jpdb-live bridge grades don't publish cross-tab card-state signals (state lives on jpdb.io; the bridge only mirrors the current card). Everything else of the bus shipped 0.6.74/0.6.82.
+- P1: Componentized Anki setup / adapter state machine (merged ticket): expose the existing automatic library scan as explicit adapter states (`disabled → probing → connected → scanning → suggested → stale/partial → ready`) with confidence chips and stale-mapping labels instead of hidden mapping JSON; keep Prepare limited to creating the Yomu default deck/note type. Surfaces: `src/reader/settings/anki-mining-panel.ts`, `src/reader/settings/dialog-controller.ts`, field mapping, migrations.
+- P1: Incremental Anki status-index refresh by card/note mod-time (asbplayer pattern: `cardsModTime`/`notesModTime`): refresh only changed cards/notes after review/edit/add/sync; catch same-count edits; dirty-marker fallback when the incremental query fails. Surfaces: `src/reader/anki/index.ts`, `src/reader/anki/status-index.ts`, IndexedDB metadata.
+- P1: Rendered Anki media manifest and card-audio cache: parse rendered fields into a media manifest, lazy retrieval on speaker click/visible render, cache by sanitized filename, support `[sound:…]` + rendered `<audio src>`; card audio never reorders dictionary lookup sources. Surfaces: `src/reader/anki/card-details.ts`, `src/reader/anki/render.ts`, new-tab card audio.
+- P1: Abortable visible-work scheduler + persistent IntersectionObserver (merged): register visible nodes with a batch controller (sequence IDs, cancel-on-removal/exit, byte-size-capped chunks) so fast scrolls never parse stale regions first and settings saves never freeze the page. Surfaces: visible-page scanner, rendered-word registry, parser batch cache, Anki refresh queue; add a settings-save/mobile-scroll smoke asserting stale updates are ignored.
+- P1: Parity matrix smoke coverage: one matrix covering Yomu↔Anki↔JPDB for status colors, pitch/furigana, card bodies, card vs lookup audio, grading, duplicates, locked-kanji order, and keyless fallback. Surfaces: `scripts/anki-mining-smoke.mjs`, `tests/reader/new-tab-review.test.ts`, `tests/reader/anki.test.ts`, small mobile smoke.
+- P1 small remainder (field-scoped lookup, rest shipped 0.6.76): treat the raw-term findNotes probe as an explicitly low-confidence final pass.
 
-## Active Worker Lanes
+## Open Product Tickets
 
-- Worker P: kana-run pointer lookup, with `にほんご`/mobile-token tests and no Anki/settings edits. Done in dirty tree and covered by focused tests.
-- Worker N: mobile new-tab layout, deterministic JPDB/Anki source switching, and new-tab card-audio affordances. Done in dirty tree and covered by focused tests plus browser viewport check.
-- Worker M: settings defaults, migrations, mobile ergonomics, tags/swatches, and drawer copy. Done in dirty tree and covered by focused tests.
-- Worker C: hosted/local AnkiConnect transport and clicked-word details hydration. Done in dirty tree and covered by Anki tests.
-- Explorer R: Jiten Reader and anki-jpdb.reader reference patterns for parser identity, request batching, and state updates. Reference repos are at `../../resources/JitenReader` and `../../references/anki-jpdb.reader`.
-- Next local lane: keep this backlog current, review remaining worker patches, and add broader browser/live smoke only after the current source/test integration stays green.
-
-## Current Batch Status
-
-- Done: kana-run pointer lookup now accepts parser-backed multi-character kana tokens and public JPDB kana-run identity repairs even when JPDB definition and pitch display are off.
-- Done: mobile new-tab header puts brand/controls on the first row and Word/Kanji/Search/Stats on a full-width second row; source-toggle clicks recompute the next source instead of trusting stale DOM data.
-- Done: legacy-default-looking Anki settings are quieted again, while custom legacy decks, LAN/Tailscale URLs, and field mappings are preserved.
-- Done: successful AnkiConnect checks now silently warm the Anki status index through the existing automatic library scan path, so normal users do not need a manual scan to start seeing deck/status matches.
-- Done: automatic Anki library scans now preserve saved custom field mappings when the live model still contains the field, and only replace stale role mappings with scanned suggestions.
-- Done: hosted clicked-word Anki status smoke now covers Chromium and Firefox on the live origin, including userscript-bridge AnkiConnect lookup, `ankiState="due"` coloring, and existing-card details in the popover.
-- Verified: in-app browser at `390x844` mobile viewport measured zero overlap between new-tab mode tabs and brand/theme controls, and no horizontal overflow.
-- Verified: `npm run smoke:live-browser` passed with live hosted assets, Jisho audio mock playback, real local AnkiConnect version 6, Chromium/Firefox hosted bridge checks, and clicked-word Anki status/card-detail checks.
-- Done: duplicate/mixed grading UX in the popover now uses one compact target-aware grade row, not one JPDB row plus one Anki row per duplicate. `Both` means JPDB plus the primary/due Anki card only; duplicate Anki entries are selected by exact card id/deck/template, while full meanings/front/back stay in the collapsible Anki details.
-- Verified: focused popover tests cover JPDB-only, JPDB+Anki, JPDB-not-in-deck+Anki, multiple Anki notes, and the controller path that submits one grade to both JPDB and the selected Anki card.
-- Verified: `npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build && npm run verify` passed for this integrated product-fix batch.
-
-## Worker 6 Release Readiness Notes
-
-- Added focused new-tab review coverage for SRS interval-label rendering, queue progress/timer labels, progress datasets, left/right button navigation, and left/right swipe grading on revealed review cards.
-- Extended the Jiten new-tab smoke to assert visible SRS queue progress for Jiten-only and combined JPDB + Jiten queues while preserving the existing review-submission checks.
-- Blocker: the main new-tab grade bar still needs controller pass-through from `card.reviewGradeIntervals` into `renderNewTabGradeControlButtons`; metadata extraction and renderer coverage are in place.
-
-## Reference Parity Tickets
-
-- P0: Token identity and kana-run lookup parity. The local Jiten Reader reference lives at `../../resources/JitenReader`; its parser carries a stable `wordId/readingIndex` card identity through parsing, DOM registration, and card-state updates. Expected UX: tapping any character inside a kana-only word such as `にほんご` opens the full `日本語/にほんご` lookup, not fragment lookups like `ほん`, and works the same on mobile YouTube, Mokuro, docs, and normal pages. Suggested surfaces: `src/reader/jpdb/jpdb-parser-tokens.ts`, `src/reader/main/rendered-word-lookup.ts`, pointer lookup handlers, and mobile Playwright coverage for kana-only runs.
-- P0: Single card-state mutation bus for Anki and JPDB. Jiten Reader broadcasts a card-state update and lets every registered word element refresh from the same card identity. Expected UX: after grading, adding, or updating a card in the popover or new tab, chips, colors, underline/highlight styles, and card bodies update immediately across the page, popover, and new tab without a rescan or refresh. Suggested surfaces: Anki status-index dirtying in `src/reader/anki/index.ts`, the rendered-word registry, JPDB review handlers, and new-tab grade handlers.
-- P1: Unified review target selector for mixed ecosystems and duplicate Anki notes. Expected UX: if a word has JPDB status plus one or more Anki notes, the grade bar names the exact target, lets the user switch target without clutter, and makes duplicate notes collapsible with clear deck/card labels. JPDB and Anki can both be graded when settings allow it, but the user always sees what will be changed. Suggested surfaces: popover Anki section rendering, new-tab review controls, duplicate-note tests, and smoke fixtures with same-reading different-meaning cards.
-- P1: Componentized Anki setup and template mapping. Jiten Reader's mining input separates deck/model/field/template selection and refreshes available decks, models, and fields from AnkiConnect. Expected UX: no confusing free-text deck or note-type boxes; after AnkiConnect is available, Yomu discovers decks and note types automatically, suggests mappings with confidence, shows tags as chips, and keeps RTK/Core/nonstandard decks understandable. Suggested surfaces: settings mining panel, settings dialog controller, Anki field mapping, and template customization docs.
-- P1: Background work queue for parsing and Anki status refreshes. Jiten Reader serializes parser work in a queue and batches long paragraphs. Expected UX: opening settings, saving settings, and scanning visible text never freezes the page; stale scans are cancelled or ignored; Anki status lookups are lazy, coalesced, and bounded by cached note/card indexes. Suggested surfaces: visible-page scanner, Anki status refresh scheduling, JPDB parse batching, and regression tests for settings-save responsiveness.
-- P1: Parity matrix smoke coverage. Expected UX: one test matrix covers Yomu-to-Anki, Yomu-to-JPDB, and Anki-to-JPDB behavior for status colors, pitch/furigana, card bodies, card audio vs lookup audio, grading, duplicate entries, JPDB locked kanji order, and no-API/no-Anki random-word fallback. Suggested surfaces: `scripts/anki-mining-smoke.mjs`, `tests/reader/new-tab-review.test.ts`, `tests/reader/anki.test.ts`, and a small mobile browser smoke.
-
-## Reference Follow-Up Tickets
-
-These came from inspecting `../../references/anki-jpdb.reader`, `../../references/asbplayer`, `../../references/yomitan`, and `../../resources/JitenReader` for concrete Anki stability and performance ideas. Worker D also rechecked the live Yomu settings path: `src/reader/settings-dialog-controller.ts` already probes AnkiConnect, queues automatic library scans, warms the status index, stores scanned fields/confidence in hidden controls, and re-renders the field mapping editor; the remaining adapter work should extend that state machine rather than add a manual scan affordance.
-
-- P1: Incremental Anki status-index refresh by card/note modification time. `asbplayer` uses `cardsModTime` and `notesModTime` in large batches, while Yomu currently relies heavily on card-count freshness plus full `deck:*` rebuilds. Expected UX: after review, edit, add, or sync, Yomu refreshes only changed cards/notes, avoids long full-library rescans for large decks, and catches same-count edits that would otherwise leave stale status or card contents. Implementation notes: store the last observed card/note mod times in IndexedDB metadata, query modified IDs in chunks, merge changed `notesInfo`/`cardsInfo` into the status-index entries, and use a dirty-marker fallback only when the incremental query fails or the index version changes. Suggested surfaces: `src/reader/anki/index.ts`, `src/reader/anki/status-index.ts`, IndexedDB metadata, and tests that mutate one note/card without changing total card count.
-- P1 MOSTLY DONE 0.6.76: Field-scoped Anki candidate lookup with strict query escaping. Shipped: one shared escaping helper (`anki/search-escape.ts` — escapes `\`, `"`, `*`, `_` so quoted terms/deck names match literally; `::` deliberately kept live for subdeck inclusion) replaces both divergent quoteAnkiSearch copies, applied to findNotes term probes, note:-model queries, and new-tab deck queries (tested incl. Core_2k underscore and nested-deck cases). Already present on re-audit: lookup keys compile from field mapping (`lookupKeyTermsForCard`), equivalent queries dedupe via keysByTerm, and term chunks batch through one `multi` request per 120 terms. Remaining (small): treat the raw-term probe as an explicitly low-confidence final pass.
-- P1: Validated nonstandard-deck adapter state machine. `JitenReader`/`anki-jpdb.reader` mining inputs fetch decks, models, and fields from AnkiConnect, then drop stale field/template selections when the live model no longer contains them. Yomu now preserves saved custom field mappings during scan when the live model still contains the field, and replaces stale role mappings with scanned suggestions; the remaining work is exposing that result as explicit adapter states instead of only changing hidden mapping JSON and select options. Expected UX: "scan existing decks" becomes an automatic adapter state with confidence and stale-mapping labels, rather than a manual scan button or free-text deck/note fields. Implementation notes: model the adapter as `disabled -> probing -> connected -> scanning -> suggested -> stale/partial -> ready`; mark missing expression/meaning fields as blocking, audio/image as optional, and sentence/reading as partial; show confidence chips beside each role; keep stale mapping labels visible until the user accepts or edits the suggestion; and keep the existing Prepare action limited to creating the Yomu default deck/note type. Suggested surfaces: `src/reader/settings/anki-mining-panel.ts`, `src/reader/settings-dialog-controller.ts`, Anki field mapping, library scan scheduling after AnkiConnect availability, and migrations for saved mappings.
-- P1: Rendered Anki media manifest and card-audio cache. `asbplayer` and `yomitan` keep media attachment, filename sanitization, and `[sound:...]` handling explicit, while Yomu currently hydrates rendered-card image media eagerly and treats Anki audio as separate click-time retrieval. Expected UX: rendered Anki card audio uses the same speaker affordance as dictionary audio, plays from Anki media rather than lookup sources, caches retrieved media by filename, supports `[sound:...]` plus rendered `<audio src>`/`source src`, and keeps lookup speaker audio independent from card speaker audio. Implementation notes: parse rendered fields into a media manifest first, lazily retrieve media on speaker click/visible card render, cache by sanitized filename plus Anki media modified marker where available, and never let card audio reorder dictionary lookup sources. Suggested surfaces: `src/reader/anki/card-details.ts`, `src/reader/anki/render.ts`, new-tab card audio rendering, and media tests with long filenames and multiple card templates.
-- P1: Abortable visible-work scheduler for parser and status updates. `anki-jpdb.reader`/`JitenReader` register visible nodes with a batch controller, dismiss nodes on removal/visibility exit, chunk parser requests by byte size, and serialize worker batches with a short delay to avoid DOM flooding. Expected UX: settings saves, mobile scroll, subtitle changes, and docs-page scans do not freeze or apply stale colors; offscreen/removed work is cancelled; repeated scans coalesce into one parse/status pass per node. Implementation notes: give each visible node/status lookup an abortable sequence ID, cancel stale sequence IDs before applying parsed tokens or Anki colors, cap each request by encoded byte length rather than paragraph count, and add a settings-save/mobile-scroll smoke that asserts stale status updates are ignored. Suggested surfaces: visible-page scanner, rendered-word registry cleanup, parser batch cache, Anki status refresh queue, and responsiveness smoke tests around settings save and dynamic pages.
-
-## Recovered Chat Tickets
-
-These came from the running product feedback thread and should stay visible until verified or intentionally closed.
-
-- P0 (2026-06-10): Trust-audit findings (code-level audit done 2026-06-10; live AnkiConnect+JPDB verification still required). Fix in this order:
-  1. DONE 0.6.51 — Silent fallback now announces itself: `fallbackNotice` flows through the load accumulator and renders "No reviews ready — showing practice words" in the new-tab status line when configured review sources return empty.
-  2. PARTIAL 0.6.51 — Focus-triggered status refresh added (`installFocusStatusRefresh` in anki/index.ts, throttled 2min): returning to the tab expires the count-validated index so externally-reviewed cards recolor. Full mod-time incremental refresh remains (see incremental-refresh ticket below).
-  3. VERIFIED EXISTING — the new-tab grade control already has an explicit target selector with a "Both" option whose label propagates onto the grade buttons (`newtab/review-controls.ts:100-130`); no silent dual-grade.
-  4. Mining field retargeting is silent (`anki/index.ts:1937-1950`); preview mapped fields before write.
-  5. DONE 0.6.77 — jpdb-review-bridge staleness: the review page heartbeats every 12s and broadcasts an explicit disconnect on pagehide; the study-tab client flips silent bridges to a stale disconnected status (card cleared, so jpdb-live drops out of the source list instead of grading into the void) after 30s and re-requests the current card on visibilitychange (tested).
-  6. DONE 0.6.80 — kanji-tab dedup now keeps the JPDB locked kanji card when same-priority candidates collide (`shouldReplaceKanjiStudyCard` locked tie-break, tested); per-card source badges re-audited: already shipped as `.jpdb-reader-newtab-status-light[data-source]` per-card lights incl. mixed/auto queues (tested at new-tab-review.test.ts:905,3134-3144); DONE 0.6.69 — dedup key normalizes katakana/hiragana (`autoReviewMergeKey` kanaInsensitiveKey, tested).
-- P1 (2026-06-10): Provider parity (Anki/JPDB/Jiten same abilities; audited 2026-06-10, corrected against passing smokes — Jiten new-tab queue and Jiten stats ARE supported). Real gaps, ranked:
-  1. DONE 0.6.59 — Anki blacklist→suspend/unsuspend toggle + never-forget→`yomu-never-forget` tag (anki/index.ts setCardsSuspended/setNotesTag, action-controller changeAnkiDeckState). Polish DONE 0.6.81 — notes tagged `yomu-never-forget` rank as 'never-forget' in lookups and the status index regardless of queue state (card-details ankiNoteState, tag constant shared with the action controller, tested).
-  1b. DONE + LIVE-VERIFIED 2026-06-10: Jiten study-page addon mounts (immersion kit + imported dictionaries + headword detection) confirmed on jiten.moe/srs/study with the corrected test credentials. Per-card refresh after grading shipped 0.6.75 (new-tab submitJitenApiGrade pulls post-review state via refreshCardState).
-  1c. Jiten per-grade intervals: verified already wired end-to-end (study-batch → card.reviewGradeIntervals → grade buttons, controller.ts:6494); converted the it.todo into a real test in new-tab-review.test.ts. Confirm live that Jiten's API returns interval fields.
-  1d. DONE 0.6.59 — jiten-stats-cache records daily snapshots on every study-batch load and applyJitenDailyStats merges them into the stats activity (tested).
-  2. DONE 0.6.74 — Jiten page-word state refresh parity: JitenApiClient.refreshCardState (self-parse copies fresh knownState, JPDB refreshCard parity) runs after review/mine/deck-state in the adapter, and the action controller's new onApiCardStateChanged hook recolors rendered page words via applyPublicVocabularyToRenderedWords for ALL API providers (also partial progress on the "single card-state mutation bus" P0 — popover-driven API changes now propagate to page words without rescan; new-tab grade handlers still pending).
-  3. Anki kanji study extraction in the new tab (kanji from the user's Anki cards) is unverified/partial (`newtab/kanji-helpers.ts`).
-  4. DONE 0.6.86 — mining into a JPDB/Jiten deck with captured image/audio (and no Anki co-mine carrying it) now appends a localized toast note: 'Captured image/audio stays in Yomu — this service has no media API.' (tested).
-  5. CLOSED 0.6.85 (not possible): live inspection of a signed-in jpdb.io/review back phase (2026-06-11) shows the page renders NO interval data on or near the grade buttons and jpdb has no display setting for it — there is nothing to scrape, and the API exposes no review-state intervals. Captured value instead: stable grade control ids (#show-answer, #grade-1..5, #grade-blacklist, #grade-permaknown) now used id-first by the bridge so ✘/✔ prefixes or copy changes cannot break reveal/grading.
-- P1 (2026-06-10): Service stats & unintegrated-API opportunities (researched against references/anki-jpdb.reader and resources/JitenReader; workarounds chosen where the service lacks an API):
-  - Stats: AnkiConnect already gives real history (`getNumCardsReviewedByDay`, `getReviewsOfCards` — partially used in app/stats.ts). JPDB has NO history API → keep the existing review-export import (stats.ts parseJpdbReviewExportText) and document it in the stats UI. Jiten exposes only `newCardsToday`/`reviewsToday` per study-batch → build a local daily stats cache (new jiten-stats-cache: store snapshots in GM storage keyed by date, aggregate into heatmap/streaks like the Anki source).
-  - Jiten intervals are parsed but unused (`reviewGradeIntervals`/`nextIntervals` in study-batch) → surface them on new-tab grade buttons like JPDB/Anki intervals.
-  - Anki deck-state parity: blacklist → `suspend` (or `addTags 'yomu-blacklist'` + filter), never-forget → dedicated deck/tag treated as known in the status index; also unintegrated AnkiConnect actions worth adopting: `forgetCards`/`relearnCards` (reset/relearn affordances), `getIntervals` (due-time prediction), `sync` (post-mining sync button).
-  - Jiten blacklist workaround: local stored word-id set filtered at parse time (jiten.ts parse handler).
-  - DONE 0.6.86 — Jiten media: no audio/image API → degraded gracefully with a visible toast note instead of silence (TTS sentence fallback already existed).
-  - DONE 0.6.71 — JPDB `ping` adopted for live settings connection status (JpdbClient.ping + refreshJpdbConnectionStatus on dialog open and key change, tested).
-- P1 (2026-06-10): Jiten Reader v1.2.x parity gaps (matrix from reference analysis). Quick wins: VERIFIED EXISTING — mining with no usable deck already throws `chooseJitenStudyDeck` (`cards/action-controller.ts` addToSelectedDeck; JPDB falls back to forq by design); remaining: toast redesign (mobile close-button position DONE 0.6.88 — `sheetCloseButtonOnLeft` setting + `jpdb-reader-sheet-close-left` root class, tested; redundant-word UI suppression DONE 0.6.87 — `suppressRedundantWordUi` setting + `jpdb-reader-suppress-redundant` root class, plain-text CSS for `.jpdb-redundant`, localized, tested). Medium: popup deck/word-list membership with checkmark (`jpdb.ts` isInUserDeckPool exists; needs popover UI), deck-based word styling (media deck / frequency deck / word list); DONE — auto-mine on review shipped (autoMineReviewedCard, off by default). Large: mass-review visible words (button + keybind, settings group), simplified custom-domain allowlist syntax.
-- P0: Hosted AnkiConnect must be reliable on live Firefox and Chrome. Firefox currently shows "not connected" on the live site, and Chrome can connect while clicked words such as よむ still fail to show Anki status. The settings message should tell a non-technical user exactly which bridge, browser, or AnkiConnect step failed.
-- P0: New-tab fallback must not regress. When neither JPDB nor Anki has ready review cards, the Word tab should fall back to the random/local study words from earlier versions instead of showing "No review cards ready."
-- P0: New-tab source switching must be deterministic. The JPDB/Anki pill currently can go JPDB to JPDB on the second press; the control should cycle through only available sources, explain disabled sources, and never appear inert.
-- P0: JPDB review flow must follow JPDB's SRS order exactly. When a JPDB API key is present, the new-tab queue should preserve JPDB's official review order, including locked-kanji items interleaved with vocabulary when JPDB presents them that way; without a key, JPDB status/review controls should stay hidden and the study page should fall back to public/local words.
-- P0: Mobile new-tab layout must be usable. Tabs should not overlap the logo/theme/language controls, the current card should be aligned with the viewport, the audio control should use the same speaker pattern as the dictionary, and card audio must come from Anki media rather than lookup audio.
-- P0: Anki should be opt-in on fresh installs and factory reset. This includes the mobile "send to Anki" button, Anki mining/status scans, and loud default handoff behavior.
-- P0: Kana-run lookup must work on mobile YouTube and Mokuro. Tapping any part of にほんご should recover the full word, preferably from JPDB parse/public lookup, not per-character fragments like に, ほん, or ご.
-- P0 paused by user direction: Greasy Fork publishability must remain policy-safe, but file size is not part of the current critical path. The userscript must remain readable, unminified, extension-packaged offline, and free of unapproved remote executed code; revisit the 2 MB plan after the product regressions are closed.
-- P1: Existing Anki library discovery should be automatic after AnkiConnect becomes reachable. The user should not need a "Scan" button for normal deck toggles, status indexing, field choices, or Core/RTK/nonstandard deck adaptation.
-- P1: Duplicate Anki entries and mixed JPDB/Anki grading need a calm target selector. Multiple same-spelling or same-reading entries should be collapsible, clearly labeled by deck/card, and gradeable without overloading the main bar.
-- P1: Anki card rendering should preserve the spirit of the original card. Avoid all-caps field labels, cap runaway font sizes, divide definitions clearly, support multiple cards, and keep lookup audio separate from Anki card audio.
-- P1: The popover should close on outside click unless the user is interacting with an owned overlay or review control.
-- P1: Jisho audio should be reproduced and aligned with Yomitan's source-selection behavior before changing fallback order.
-- P1: Settings on mobile should keep 16px inputs, show the settings puck by default, wrap color swatches full-width, show tags as chips with an add affordance, make the donate action use the accent color, and keep mobile/Tailscale guidance in docs instead of crowding the drawer.
-- P1: Default/migration handling needs an audit. Term audio and autoplay should be on by default, popover mode should be auto, Anki should be off by default, stale pitch underline/highlight settings should not leak from old installs or subtitle styles, and changes should not strand existing users.
-- P1: Settings save and scanning should never freeze the page. Expensive refreshes should be queued, cancellable, and observable in logs or smoke tests.
-
-- P1 (2026-06-10): Instant-colorisation audit remainders (head fixes shipped 0.6.58 — warmup head unpaced, 1s enrichment retry, 48-wide apply chunks, single contrast pass). Remaining root causes with evidence: (1) DONE 0.6.59 — beginAnkiWordEnrichment overlaps the cached status lookup with the DOM apply; (2) no persistent IntersectionObserver — fast scrolls parse stale regions first (dom/index.ts collectVisibleTextTargets); (3) VERIFIED FIXED (re-audited 2026-06-11) — local pitch lookups now run inside the parallel Promise.all token map with promise-cached dedupe (parseLocalDictionaryText/localPitchCache); the sequential note was 0.6.58-era; (4) VERIFIED NOT AN ISSUE — observer pauses only wrap the short synchronous per-chunk applies, not whole cycles; (5) VERIFIED FIXED (re-audited 2026-06-11) — status lookups dedupe terms and batch through invokeMulti in 120-term chunks (one HTTP request per chunk, sequential), so no per-word request herd remains.
-- P0 (2026-06-10, user critical batch — screenshots/console logs in session):
-  1. Audio playback blocked on CSP-strict sites (claude.ai): our audio blobs are created without a MIME type ("HTTP Content-Type of application/octet-stream is not supported", "No decoders"); also page CSP media-src blocks blob: URLs entirely → DONE: blob types fixed (0.6.62) and Web Audio playback fallback added (0.6.63).
-  2. Many sites missing ruby+colorisation entirely (google maps, claude.ai): INVESTIGATED 2026-06-10 — extension matches *://*/* (not manifest gating) and the late-streamed-SPA-text pattern parses correctly in the new `smoke:late-content` harness (auto-scan observer works). Remaining suspects need LIVE debugging on the real sites: shadow-DOM content (claude.ai message roots?), MV3/Firefox content-script world timing, or viewport-intersection failures in their nested scroll layouts. Use the smoke as the regression net once reproduced.
-  3. DONE 0.6.62 — subtitle pitch underlines default to transparent text-decoration-color until the pitch class arrives (regression test re-pinned 0.6.65 after assertion drift).
-  4. DONE 0.6.63 — local pitch included at subtitle parse time (subtitle-parse-policy includeLocalPitch: true), colors baked into cue HTML pre-display.
-  5. DONE 0.6.62/0.6.73 — multi-word expression pitch: underline side resolved by transparent-unknown default (0.6.62); per-component multi-graph shipped 0.6.73 (CardRenderDataLoader segments the expression against local dictionaries with greedy longest-match + particle skipping, looks up each component's pitch meta, popover renders labelled mini graphs; never presents one component's pitch as the whole expression).
-  6. DONE 0.6.65 — per-kanji ruby segmentation on all-kanji compounds when the user's kanji dictionaries yield exactly one greedy alignment (琉球藍 → りゅう/きゅう/あい, rendaku + sokuon surface forms included); ambiguous readings keep the whole-word ruby.
-  7. DONE 0.6.62 — punctuation-only cues are merged into the preceding line or dropped (sentence splitting keeps trailing punctuation attached).
-  8. DONE 0.6.63 — fallback-anchored addon mounts are tagged and re-anchored automatically once the hydrated anchor exists (jitenAddonStrandedOnFallbackAnchor).
-  9. PARTIAL 0.6.67 — ALL-CAPS translations fixed (text-transform: none scoped onto example sentences/translations so host-page transforms cannot leak in). Remaining: some example words still missing pitch/furigana or unparsed.
-  10. DONE 0.6.64/0.6.70 — adopted NihongoTube's offscreen-absolute hiding (0.6.64), then completed the technique after live gaps were reported (0.6.70): stale is-in-first-column flags stripped + first-visible-item-per-row re-marked with margin compensation, emptied rich sections hidden with their wrapper, /feed/channels channel shelves exempted from non-video culling. User-saved DOM (Downloads/(2) YouTube.html) was the diagnostic source. Remaining watch: stuck ghost-card placeholders during heavy backfill ("loading doesn't work good") — monitor after 0.6.70; suspect continuation loop pacing.
-  11. DONE 0.6.83 — channel shelf all-subscribed state is explicit: subscribe-all reads "All 100 subscribed ✓" and disables, subscribe-visible hides when the view is empty, status distinguishes "all shown subscribed (browse for more)" from "all 100 subscribed" (tested).
-- P1 (2026-06-10, user): "Snow Leopard" quality release — no new features; sweep for latent bugs and quality-of-life polish. Scope: (a) subtle re-render loops that drain battery (rAF chains, MutationObserver feedback loops, timers that never idle — audit subtitles/controller.ts tick paths, youtube.ts observers, visible-page scanner); (b) subtitle experience polish (colorisation timing, cue transitions, panel resize smoothness); (c) YouTube seamlessness (filter reflow, shelf jank); (d) fallow health: drive complexity/CRAP findings to 0 (`npm run fallow:audit`), keep dead-code at 0; (e) idle CPU profile target: zero timers/rAF when the page is idle and no video is playing.
+- P0: Hosted AnkiConnect must be reliable on live Firefox and Chrome. Firefox can show "not connected" on the live site; Chrome can connect while clicked words still miss Anki status. The settings message should tell a non-technical user exactly which bridge, browser, or AnkiConnect step failed. (Hosted smoke covers Chromium+Firefox; remaining work is the diagnostic UX.)
+- P0: JPDB review flow exactness audit: with an API key, the queue must preserve JPDB's official review order incl. locked-kanji interleave as JPDB presents them (locked-kanji dedup fixed 0.6.80; full order audit against a live `Learn` session still open — compare against the captured Learn anatomy in `docs/study-hub-parity.md`).
+- P1: Anki kanji study extraction in the new tab (kanji from the user's Anki cards) is unverified/partial (`newtab/kanji-helpers.ts`).
+- P1: Jiten per-grade intervals: wiring verified end-to-end with tests; confirm live that Jiten's API returns interval fields during a real review.
+- P1: Popover should close on outside click unless interacting with an owned overlay or review control (verify current behavior, fix if stale).
+- P1: Jisho audio reproduction aligned with Yomitan's source-selection before changing fallback order.
+- P1: Defaults/migration audit: term audio + autoplay on by default, popover mode auto, Anki off by default, no stale pitch underline/highlight leakage from old installs, no stranded users.
+- P1 Jiten v1.2.x remaining: toast redesign; popover deck/word-list membership checkmark UI (`isInUserDeckPool` data exists, shown today via the provider state pill — decide whether an explicit ✓ is still wanted); deck-based word styling (media deck / frequency deck / word list); mass-review visible words (button + keybind, settings group); simplified custom-domain allowlist syntax.
+- P1 example sentences: some example words still missing pitch/furigana or unparsed (rest of that ticket shipped through 0.6.67).
+- Live-debug remainder: claude.ai missing ruby/colorisation — claude.ai is signed in in the MCP browser as of 2026-06-11; retest with `inject-generic.mjs`. Google Maps retest passed (100 words wrapped on 0.6.86); keyless-ruby inconclusive — retest with a real API key. `smoke:late-content` is the regression net.
+- Watch (post-0.6.70/0.6.77): YouTube ghost-card placeholders during heavy backfill — continuation pacing; grid fixes shipped 0.6.77 and live-verified, keep an eye on backfill stalls.
 
 ## P0: Current Product Gate
 
 - Keep `npm run typecheck` green after every refactor batch.
-- Keep Fallow dead-code at 0.
-- Drive Fallow health complexity findings back to 0 before calling the Fallow pass perfect.
-- Keep the build reviewable: no identifier minification, no obfuscation, no whitespace compactor, and no remote executable loader.
-- Do not claim Greasy Fork readiness until `npm run build && node scripts/sync-docs-userscript.cjs && npm run verify` passes, but do not block the current product-fix pass only on size.
+- Keep Fallow dead-code at 0; drive complexity findings back to 0 before calling a Fallow pass done.
+- Keep the build reviewable: no identifier minification, no obfuscation, no whitespace compactor, no remote executable loader.
+- Do not claim Greasy Fork readiness until `npm run build && node scripts/sync-docs-userscript.cjs && npm run verify` passes.
 
-## P1: Greasy Fork Size Strategy
+## P1: Greasy Fork Size Strategy (ADR 0003)
 
-- Implement ADR 0003: split Greasy Fork into readable first-party library scripts plus a reviewable core script.
-- Use `npm run size:greasyfork-plan` after each build-affecting change. It estimates how much each planned surface removes from the core bundle and keeps the first extraction batch measurable.
-- Smallest real first split: extract the Settings Surface into a separate readable Greasy Fork library while keeping core settings defaults/storage in the main script. Core should dispatch a `yomu:settings-open` event, show a tiny install/help fallback if the library is absent, and continue to work offline for lookup/mining basics. The library URL must be added to `package.json` `yomu.allowedRequireUrls` before the verifier accepts its `@require`.
-- Add policy-safe remote JSON data packs for inert data that currently bloats the userscript:
-  - Localization: move non-critical `src/reader/i18n.ts` copy into versioned JSON packs with packaged fallback strings.
-  - Config/default metadata: move large option labels, help copy, recommended/default lists, and feature metadata when they do not encode executable behavior.
-  - CSS/style packs: move non-critical style surfaces into versioned remote CSS packs while keeping critical popup/reader styles packaged locally.
-  - Cache contract: load packaged defaults/critical CSS first, read cached JSON/CSS from local storage/IndexedDB, refresh in the background, and ignore remote assets on schema/version/digest/content-type failure.
-  - Distribution contract: remote JSON is data only and remote CSS is style only; no remote executable chunks, rule interpreters, `eval`, remote `@import`, or compressed code strings.
-- Start with the largest optional domains:
-  - Video/subtitles: `src/reader/subtitles/controller.ts`, `src/reader/subtitles/youtube.ts`, subtitle CSS.
-  - Settings surface: `src/reader/settings-form.ts`, `src/reader/settings-dialog-controller.ts`, settings CSS.
-  - Anki: `src/reader/anki/index.ts`, `src/reader/anki/render.ts`, Anki settings panel.
-  - OCR/manga: `src/reader/ocr/controller.ts`, OCR settings and overlays.
-  - Kanji/study: `src/reader/kanji/origin.ts`, popup origin graph, study tools.
-- Define browser-event/storage contracts before physically splitting scripts.
-- Add bundle-size reports by planned userscript entry point.
+- Use `npm run size:greasyfork-plan` after each build-affecting change; `dist/greasyfork-size-plan.json` holds companion budgets.
+- First extraction batch: Settings Surface, Video, Kanji/Study (conservative estimate leaves core ~1.67 MB).
+- Policy-safe remote JSON/CSS data packs for i18n copy, config metadata, non-critical styles; packaged fallbacks first, cached, digest-checked; remote JSON is data only, remote CSS is style only.
+- Library URLs must be in `package.json` `yomu.allowedRequireUrls` before the verifier accepts an `@require`.
 
 ## P2: Hotspot / File-Length Work
 
-- `src/reader/main.ts`: continue extracting cohesive slices; next candidate is text lookup/token orchestration around `lookupRenderedSelection`, `showTextLookupResult`, and parsed lookup options.
-- `src/reader/newtab/controller.ts`: continue moving pure rendering and review-target helpers out; file is still over 7k lines. Next candidate is search-result rendering into `src/reader/newtab/search-view.ts`.
-- `src/reader/dom.ts`: continue extracting text-target discovery, sentence/context extraction, token application, and typography heuristics.
-- `src/reader/settings-form.ts`: next candidate is localization/help-link DOM relabeling helpers around `localizeSettingsForm`.
-- `src/reader/settings-dialog-controller.ts`: split remaining panel event wiring and async refresh helpers.
+- `src/reader/app/main.ts`: extract text lookup/token orchestration around `lookupRenderedSelection` / `showTextLookupResult`.
+- `src/reader/newtab/controller.ts` (7k+ lines): move search-result rendering into `src/reader/newtab/search-view.ts`; continue review-target helper extraction.
+- `src/reader/dom.ts`: extract text-target discovery, sentence/context extraction, token application, typography heuristics.
+- `src/reader/settings/form.ts`: localization/help-link DOM relabeling helpers around `localizeSettingsForm`.
+- `src/reader/settings/dialog-controller.ts`: split panel event wiring and async refresh helpers.
 
 ## P3: Duplication
 
-- `scripts/feedback-smoke.mjs` vs `tests/reader/hover-lookup.test.ts`: share text-selection fixture setup or intentionally suppress if cross-surface extraction is not worth it.
-- `scripts/uchisen-bulk-publish.mjs` vs `src/reader/dictionaries/uchisen.ts`: share or intentionally separate repeated normalization logic.
+- `scripts/feedback-smoke.mjs` vs `tests/reader/hover-lookup.test.ts`: share text-selection fixture setup or suppress intentionally.
+- `scripts/uchisen-bulk-publish.mjs` vs `src/reader/dictionaries/uchisen.ts`: share or intentionally separate normalization.
 - `src/reader/dictionaries/groups-core.ts` vs `src/reader/newtab/index.ts`: extract learner-glossary cleanup helpers.
-- `tests/reader/jpdb.test.ts`: large safe-looking clone group remains; extract test fixtures carefully.
+- `tests/reader/jpdb.test.ts`: large clone group; extract fixtures carefully.
 - Avoid broad edits to `tests/reader/new-tab-review.test.ts` until the new-tab controller settles.
 
 ## P4: Library Replacement
 
-- Keep `fflate` for now. Native `DecompressionStream` is already attempted first, and a local DEFLATE fallback would be risky while saving only about 13 KB.
-- Optional tiny cleanup: replace `vite-plugin-monkey/dist/client` runtime import if desired, but expected savings are only about 76 bytes.
-- Focus size effort on first-party feature boundaries instead of local rewrites of maintained libraries.
+- Keep `fflate` (native `DecompressionStream` tried first; ~13 KB rendered isn't the problem).
+- Focus size effort on first-party feature boundaries, not rewrites of maintained libraries.
