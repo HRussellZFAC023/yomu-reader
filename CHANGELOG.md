@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.124] - 2026-06-11
+
+### Fixed
+
+- AnkiMobile handoff (user-reported): adding a card from iOS failed with 'no such note type id よむ+Japanese' — the handoff URL encoded spaces as '+', which AnkiMobile does not decode. The x-callback URL now uses %20 encoding for the note type, deck, tags, and every field. AnkiDroid was unaffected.
+
 ## [0.6.123] - 2026-06-11
 
 ### Added
