@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.117
+// @version      0.6.118
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-+mwrMz+iWnrfMhYfgapNeyUzWHwF9yGA2MeP5ND9/MY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TDevRViuA0KXphcBft9l1KrQualebWu18YOV6vpilQ8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-h/JqdnbD2VBMy7Pet397/h2NBamegP2+kJyGPaHVI1M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f2a4/EpATanH7yzd7WKoTajK58TmN2fKTynfFo50Kyo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-VJY+oeGozvLs+XBH7YE+Q5W0TjKWM5LK39RtAuWI8Jg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-quR8z1w2KdHXRZ+ub/iiamDOtutFpVXXAMe5UEpI+AY=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -4890,7 +4890,6 @@
     const value = safeReadProperty(source, key);
     return typeof value === "number" ? value : void 0;
   }
-  var _monkeyWindow = /* @__PURE__ */ (() => window)();
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -4929,7 +4928,6 @@
       sources.push(value);
     };
     for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(_monkeyWindow);
     add(globalThis);
     if (typeof window !== "undefined") add(window);
     return sources;

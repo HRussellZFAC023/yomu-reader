@@ -1,6 +1,5 @@
 (function() {
   "use strict";
-  var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
   const CORE_COLOR_TOKENS = {
     white: "#ffffff"
   };
@@ -13,85 +12,85 @@
     error: "#b91c1c"
   };
   const MISSING = { missing: true };
-  function gmStorageGetSync(key2, fallback) {
+  function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
-      const read = gmStorageSyncRead(key2, getValue);
+      const read = gmStorageSyncRead(key, getValue);
       if (read.kind === "found") return read.value;
     }
-    return localStorageGet(key2, fallback);
+    return localStorageGet(key, fallback);
   }
-  function gmStorageSyncRead(key2, getValue) {
+  function gmStorageSyncRead(key, getValue) {
     try {
-      const value = getValue(key2, MISSING);
+      const value = getValue(key, MISSING);
       if (isPromiseLike(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key2);
+      return migratedLocalStorageSyncValue(key);
     } catch (error) {
-      debugStorageError("GM storage sync read failed", key2, error);
+      debugStorageError("GM storage sync read failed", key, error);
       return { kind: "fallback" };
     }
   }
-  function migratedLocalStorageSyncValue(key2) {
-    const migrated = localStorageGet(key2, MISSING);
+  function migratedLocalStorageSyncValue(key) {
+    const migrated = localStorageGet(key, MISSING);
     if (migrated === MISSING) return { kind: "fallback" };
-    void gmStorageSet(key2, migrated);
+    void gmStorageSet(key, migrated);
     return { kind: "found", value: migrated };
   }
-  async function gmStorageSet(key2, value) {
+  async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
     if (setValue) {
-      await setValue(key2, value);
+      await setValue(key, value);
       return;
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  function gmStorageSetSync(key2, value) {
+  function gmStorageSetSync(key, value) {
     if (typeof GM_setValue === "function") {
       try {
-        const result = GM_setValue(key2, value);
+        const result = GM_setValue(key, value);
         if (!isPromiseLike(result)) return;
       } catch (error) {
-        debugStorageError("GM storage sync write failed", key2, error);
+        debugStorageError("GM storage sync write failed", key, error);
       }
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  function gmStorageDeleteSync(key2) {
+  function gmStorageDeleteSync(key) {
     if (typeof GM_deleteValue === "function") {
       try {
-        const result = GM_deleteValue(key2);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        const result = GM_deleteValue(key);
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
-        debugStorageError("GM storage sync delete failed", key2, error);
+        debugStorageError("GM storage sync delete failed", key, error);
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
-  function localStorageGet(key2, fallback) {
+  function localStorageGet(key, fallback) {
     try {
-      const value = localStorage.getItem(key2);
+      const value = localStorage.getItem(key);
       return value == null ? fallback : JSON.parse(value);
     } catch {
       return fallback;
     }
   }
-  function localStorageSet(key2, value) {
+  function localStorageSet(key, value) {
     try {
-      localStorage.setItem(key2, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
     } catch {
     }
   }
-  function removeLocalStorageKey(key2) {
+  function removeLocalStorageKey(key) {
     try {
-      localStorage.removeItem(key2);
+      localStorage.removeItem(key);
     } catch {
     }
   }
-  function removeSessionStorageKey(key2) {
+  function removeSessionStorageKey(key) {
     try {
-      sessionStorage.removeItem(key2);
+      sessionStorage.removeItem(key);
     } catch {
     }
   }
@@ -103,8 +102,8 @@
     const modern = globalThis.GM?.setValue;
     return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
   }
-  function debugStorageError(message, key2, error) {
-    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  function debugStorageError(message, key, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
   const __vite_import_meta_env__ = { "DEV": false };
   const LOG_PREFIX = "[Yomu]";
@@ -136,8 +135,8 @@
     error(message, ...args) {
       this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
     }
-    warnOnce(key2, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key2}`, this.scopeName, message, args);
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
     }
     time(label, ...args) {
       if (!this.parent.isEnabled()) return () => void 0;
@@ -182,9 +181,9 @@
     reset() {
       this.onceKeys.clear();
     }
-    warnOnce(key2, scope, message, args) {
-      if (this.onceKeys.has(key2)) return;
-      this.onceKeys.add(key2);
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
       this.write(scope, message, args, console.warn, WARN_STYLE);
     }
     write(scope, message, args, writer, levelStyle) {
@@ -239,9 +238,9 @@
     (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
   ];
   function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key2, value]) => [
-      key2,
-      shouldRedactEntry(key2, value) ? REDACTED : sanitizeFlatValue(value)
+    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
     ]));
   }
   function sanitizeFlatValue(value) {
@@ -249,9 +248,9 @@
     if (value instanceof Error) return { name: value.name, message: value.message };
     return value;
   }
-  function shouldRedactEntry(key2, value) {
-    if (!SECRET_KEY_PATTERN.test(key2)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key2)) return false;
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
     return true;
   }
   function redactString(value) {
@@ -489,7 +488,7 @@
   function hasSensitiveUrlParams(targetUrl) {
     try {
       const url = new URL(targetUrl, location.href);
-      return Array.from(url.searchParams.keys()).some((key2) => SENSITIVE_REQUEST_KEY_RE.test(key2));
+      return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
     } catch {
       return false;
     }
@@ -543,8 +542,8 @@
     if (!headers) return headers;
     const excluded = new Set(names.map((name) => name.toLowerCase()));
     const sanitized = {};
-    new Headers(headers).forEach((value, key2) => {
-      if (!excluded.has(key2.toLowerCase())) sanitized[key2] = value;
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
     });
     return Object.keys(sanitized).length ? sanitized : void 0;
   }
@@ -681,20 +680,18 @@
       return void 0;
     }
   }
-  function safeReadProperty(source, key2) {
+  function safeReadProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
   }
-  function safeReadString(source, key2) {
-    const value = safeReadProperty(source, key2);
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
     return typeof value === "string" ? value : void 0;
   }
-  var key = `__monkeyWindow-` + new URL(_documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("yomu-kanji-study.user.js", document.baseURI).href || location.href).origin;
-  var monkeyWindow = document[key] ?? window;
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -730,22 +727,21 @@
       sources.push(value);
     };
     for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(monkeyWindow);
     add(globalThis);
     if (typeof window !== "undefined") add(window);
     return sources;
   }
   function mountedMonkeyWindows() {
     if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key2) => key2.startsWith("__monkeyWindow-")).map((key2) => readSourceProperty(document, key2)).filter(isRequestSource);
+    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
   }
   function isRequestSource(value) {
     return Boolean(value) && (typeof value === "object" || typeof value === "function");
   }
-  function readSourceProperty(source, key2) {
+  function readSourceProperty(source, key) {
     if (!isRequestSource(source)) return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
@@ -815,9 +811,9 @@
     if (unshadowedResult.called) return true;
     return false;
   }
-  function initialWindowMethod(key2) {
+  function initialWindowMethod(key) {
     if (typeof window === "undefined") return void 0;
-    return readMethod(window, key2);
+    return readMethod(window, key);
   }
   function dispatchWithPrototypeMethod(target, directDispatch, event) {
     for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
@@ -843,8 +839,8 @@
     }
     return { called: false };
   }
-  function eventConstructor(source, key2) {
-    const value = readProperty(source, key2);
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
   }
   function createDocumentCustomEvent(type, init) {
@@ -857,34 +853,34 @@
       return void 0;
     }
   }
-  function eventTargetPrototypeMethods(target, key2) {
+  function eventTargetPrototypeMethods(target, key) {
     const methods = [];
     const add = (method) => {
       if (method && !methods.includes(method)) methods.push(method);
     };
     let prototype = Object.getPrototypeOf(target);
     while (prototype) {
-      add(readOwnMethod(prototype, key2));
+      add(readOwnMethod(prototype, key));
       prototype = Object.getPrototypeOf(prototype);
     }
     const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key2));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key2));
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
     return methods;
   }
-  function readMethod(source, key2) {
-    const value = readProperty(source, key2);
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
   }
-  function readOwnMethod(source, key2) {
+  function readOwnMethod(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key2)) return void 0;
-    return readMethod(source, key2);
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
   }
-  function readProperty(source, key2) {
+  function readProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
@@ -954,10 +950,10 @@
       restoreWindowProperty("removeEventListener", descriptor);
     }
   }
-  function restoreWindowProperty(key2, descriptor) {
+  function restoreWindowProperty(key, descriptor) {
     try {
       const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key2, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
     } catch {
     }
   }
@@ -970,10 +966,10 @@
       return descriptor;
     }
   }
-  function safeWindowPropertyDescriptor(key2) {
+  function safeWindowPropertyDescriptor(key) {
     try {
       const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key2);
+      return Object.getOwnPropertyDescriptor(target, key);
     } catch {
       return void 0;
     }
@@ -1285,14 +1281,14 @@
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     lookup(kanji, settings) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2 || !settings.kanjiOriginsEnabled) {
+      const key = Array.from(kanji)[0] ?? kanji;
+      if (!key || !settings.kanjiOriginsEnabled) {
         return Promise.resolve(null);
       }
-      const cacheKey = kanjiOriginCacheKey(key2, settings);
+      const cacheKey = kanjiOriginCacheKey(key, settings);
       let promise = this.cache.get(cacheKey);
       if (!promise) {
-        promise = this.fetchInfo(key2, settings);
+        promise = this.fetchInfo(key, settings);
         this.cache.set(cacheKey, promise);
       }
       return promise;
@@ -1599,12 +1595,12 @@
       const position = normalizeKanjiVGPosition(component.position);
       if (!position) return;
       const geometry = kanjiVGComponentGeometry(component);
-      kanjiVGPositionKeys(component).forEach((key2) => {
-        const existing = positions.get(key2);
+      kanjiVGPositionKeys(component).forEach((key) => {
+        const existing = positions.get(key);
         if (!existing || !existing.direct && component.direct) {
-          positions.set(key2, { position, direct: component.direct, geometry });
+          positions.set(key, { position, direct: component.direct, geometry });
         } else if (!existing.geometry && geometry) {
-          positions.set(key2, { ...existing, geometry });
+          positions.set(key, { ...existing, geometry });
         }
       });
     });
@@ -1813,17 +1809,17 @@
     setFact(facts, "strokes", normalizeNumber(firstValue(values, ["strokes", "strokeCount", "stroke_count"])), source);
     setFact(facts, "frequency", normalizeFrequency(firstValue(values, ["frequency", "freq", "frequencyRank"])), source);
   }
-  function setFact(facts, key2, value, source) {
-    if (!value || facts[key2]) return;
-    facts[key2] = value;
-    facts[`${key2}Source`] = source;
+  function setFact(facts, key, value, source) {
+    if (!value || facts[key]) return;
+    facts[key] = value;
+    facts[`${key}Source`] = source;
   }
   function flattenStats(stats, prefix = "") {
     const values = /* @__PURE__ */ new Map();
     if (!isPlainStatsRecord(stats)) return values;
-    for (const [key2, value] of Object.entries(stats)) {
-      const fullKey = prefix ? `${prefix}.${key2}` : key2;
-      values.set(key2, value);
+    for (const [key, value] of Object.entries(stats)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      values.set(key, value);
       values.set(fullKey, value);
       if (isPlainStatsRecord(value)) flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
     }
@@ -1833,8 +1829,8 @@
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function firstValue(values, keys) {
-    for (const key2 of keys) {
-      if (values.has(key2)) return values.get(key2);
+    for (const key of keys) {
+      if (values.has(key)) return values.get(key);
     }
     return void 0;
   }
@@ -4116,16 +4112,16 @@ recommendedJiten	jiten.moe頻度データです。
   function isJapaneseLocale(value) {
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
-  function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY.en[key2];
+  function uiText(language, key) {
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
   function splitRtkElements(value) {
     const seen = /* @__PURE__ */ new Set();
     const elements = [];
     value.split(/[、,;＋+]/).map(cleanRtkElementKeyword).filter(Boolean).forEach((keyword) => {
-      const key2 = rtkElementKey(keyword);
-      if (seen.has(key2)) return;
-      seen.add(key2);
+      const key = rtkElementKey(keyword);
+      if (seen.has(key)) return;
+      seen.add(key);
       elements.push(keyword);
     });
     return elements.slice(0, 16);
@@ -4138,8 +4134,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   const RTK_ELEMENT_GLYPH_FALLBACKS = new Map(
     "heart=心=心|fishhook=乙=乙|fishguts=乙=乙|fish guts=乙=乙|stick=丨|walking stick=丨|drop=丶|drops=丶|a drop of=丶|hook right=⺃|hook (right)=⺃|state of mind=⺖|valentine=⺗|animal legs=ハ|human legs=儿|wind=几|bound up=勹|bound up small=⺈|bound up (small)=⺈|horns=丷|saber=⺉|little=⺌|cliff=厂|water=⺡|fire=⺣|hood=冂|house=宀|flower=艹|pack of wild dogs=⺨|cow left=牜|cow top=⺧|umbrella=𠆢|road=⻌|walking legs=夂|crown=冖|top hat=亠|taskmaster=攵|fiesta=戈|stretch=廴|zoo=疋|zoo left=⺪|cloak=⻂|ice left=冫|ice bottom=⺀|reclining=𠂉|wings=羽=羽|feathers=羽=羽|person=⺅|finger=扌|two hands bottom=廾|elbow=厶|going=彳|altar=⺭|broom=彐|broom old=⺔|rake=⺺|shovel=凵|old man=耂|cocoon=幺|stamp=卩|chop seal=ㄗ|chop seal small=マ|silver=艮|sheaf=㐅|cornucopia=丩|key=ユ|sickness=疒|box=匚|shape=彡|row=业|city walls right=⻏".split("|").map((value) => {
-      const [key2, glyph, kanji] = value.split("=");
-      return [key2, kanji ? { glyph, kanji } : { glyph }];
+      const [key, glyph, kanji] = value.split("=");
+      return [key, kanji ? { glyph, kanji } : { glyph }];
     })
   );
   function rtkElementFallbackGlyph(keyword) {
@@ -4169,10 +4165,10 @@ recommendedJiten	jiten.moe頻度データです。
     const addKeyword = (text, source) => {
       const normalized = text?.trim();
       if (!normalized) return;
-      const key2 = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key2) ?? { text: normalized, sources: [] };
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
       if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key2, existing);
+      keywords.set(key, existing);
     };
     addKeyword(jpdbInfo?.keyword, "JPDB");
     addKeyword(rtkInfo?.keyword, "RTK");
@@ -4564,12 +4560,12 @@ recommendedJiten	jiten.moe頻度データです。
     cache = /* @__PURE__ */ new Map();
     actions = /* @__PURE__ */ new Map();
     lookup(kanji) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2) return Promise.resolve(null);
-      let promise = this.cache.get(key2);
+      const key = Array.from(kanji)[0] ?? kanji;
+      if (!key) return Promise.resolve(null);
+      let promise = this.cache.get(key);
       if (!promise) {
-        promise = this.fetchInfo(key2);
-        this.cache.set(key2, promise);
+        promise = this.fetchInfo(key);
+        this.cache.set(key, promise);
       }
       return promise;
     }
@@ -4771,9 +4767,9 @@ recommendedJiten	jiten.moe頻度データです。
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key2 = cleanText$1(cells[0].textContent ?? "");
+      const key = cleanText$1(cells[0].textContent ?? "");
       const value = cleanInfoTableValue(cells[1]);
-      if (value) rows.set(key2, value);
+      if (value) rows.set(key, value);
     });
     return rows;
   }
@@ -5264,9 +5260,9 @@ recommendedJiten	jiten.moe頻度データです。
     ];
   }
   function addKanjiVGComponentPosition(positions, entry) {
-    const key2 = kanjiVGComponentPositionKey(entry);
-    const existing = positions.get(key2);
-    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key2, entry);
+    const key = kanjiVGComponentPositionKey(entry);
+    const existing = positions.get(key);
+    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key, entry);
   }
   function kanjiVGComponentPositionKey(entry) {
     return `${entry.component}\0${entry.original ?? ""}\0${entry.parent ?? ""}\0${entry.position}`;
@@ -5402,11 +5398,11 @@ recommendedJiten	jiten.moe頻度データです。
       timeoutLabel: "Stroke-order request timed out."
     });
   }
-  function registerYomuCompanion(key2, value) {
+  function registerYomuCompanion(key, value) {
     const target = globalThis;
     target.__yomuCompanions = {
       ...target.__yomuCompanions ?? {},
-      [key2]: value
+      [key]: value
     };
   }
   function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
@@ -5789,10 +5785,10 @@ recommendedJiten	jiten.moe頻度データです。
   function groupOriginEdges(edges) {
     const groups = /* @__PURE__ */ new Map();
     for (const edge of edges) {
-      const key2 = `${edge.from}\0${edge.to}`;
-      const group = groups.get(key2) ?? { from: edge.from, to: edge.to, labels: [] };
+      const key = `${edge.from}\0${edge.to}`;
+      const group = groups.get(key) ?? { from: edge.from, to: edge.to, labels: [] };
       if (edge.label && !group.labels.includes(edge.label)) group.labels.push(edge.label);
-      groups.set(key2, group);
+      groups.set(key, group);
     }
     return Array.from(groups.values());
   }
@@ -6365,11 +6361,11 @@ recommendedJiten	jiten.moe頻度データです。
     keywordIndex;
     lookup(kanji) {
       if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      let promise = this.cache.get(key2);
+      const key = Array.from(kanji)[0] ?? kanji;
+      let promise = this.cache.get(key);
       if (!promise) {
-        promise = this.fetchInfo(key2);
-        this.cache.set(key2, promise);
+        promise = this.fetchInfo(key);
+        this.cache.set(key, promise);
       }
       return promise;
     }
@@ -6388,11 +6384,11 @@ recommendedJiten	jiten.moe頻度データです。
       });
       const elementGlyphs = {};
       splitRtkElements(info.elements).filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(info.keyword)).forEach((keyword) => {
-        const key2 = rtkElementKey(keyword);
+        const key = rtkElementKey(keyword);
         const fallback = rtkElementFallbackGlyph(keyword);
-        const indexedKanji = index.get(key2) ?? index.get(compactRtkElementKey(key2));
+        const indexedKanji = index.get(key) ?? index.get(compactRtkElementKey(key));
         const glyph = fallback ?? (indexedKanji ? { glyph: indexedKanji, kanji: indexedKanji } : void 0);
-        if (glyph) elementGlyphs[key2] = glyph;
+        if (glyph) elementGlyphs[key] = glyph;
       });
       return Object.keys(elementGlyphs).length ? { ...info, elementGlyphs } : info;
     }
@@ -6448,9 +6444,9 @@ recommendedJiten	jiten.moe頻度データです。
     const collisions = /* @__PURE__ */ new Set();
     const canonicalKeys = /* @__PURE__ */ new Set();
     searchEntries.forEach((entry) => {
-      rtkIndexKeys(entry.keyword).forEach((key2) => {
-        canonicalKeys.add(key2);
-        addRtkKeywordIndexEntry(entries, collisions, key2, entry.kanji);
+      rtkIndexKeys(entry.keyword).forEach((key) => {
+        canonicalKeys.add(key);
+        addRtkKeywordIndexEntry(entries, collisions, key, entry.kanji);
       });
     });
     addRtkElementAliasEntries(entries, collisions, canonicalKeys, searchEntries);
@@ -6491,21 +6487,21 @@ recommendedJiten	jiten.moe頻度データです。
   function isKanjiCharacter(character) {
     return KANJI_RE.test(character);
   }
-  function addRtkKeywordIndexEntry(entries, collisions, key2, kanji) {
-    if (!key2 || collisions.has(key2)) return;
-    const existing = entries.get(key2);
+  function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
+    if (!key || collisions.has(key)) return;
+    const existing = entries.get(key);
     if (existing && existing !== kanji) {
-      entries.delete(key2);
-      collisions.add(key2);
+      entries.delete(key);
+      collisions.add(key);
       return;
     }
-    entries.set(key2, kanji);
+    entries.set(key, kanji);
   }
   function addRtkElementAliasEntries(entries, collisions, canonicalKeys, searchEntries) {
     const introduced = /* @__PURE__ */ new Map();
     const introducedCollisions = /* @__PURE__ */ new Set();
     searchEntries.forEach((entry) => {
-      rtkIndexKeys(entry.keyword).forEach((key2) => addRtkKeywordIndexEntry(introduced, introducedCollisions, key2, entry.kanji));
+      rtkIndexKeys(entry.keyword).forEach((key) => addRtkKeywordIndexEntry(introduced, introducedCollisions, key, entry.kanji));
       const elements = splitRtkElements(entry.elements);
       addLeadingRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, entry, elements);
       addGroupedRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, elements);
@@ -6513,7 +6509,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function addLeadingRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, entry, elements) {
     const keywordKeys = rtkIndexKeys(entry.keyword);
-    const keywordIndex = elements.findIndex((element) => rtkIndexKeys(element).some((key2) => keywordKeys.includes(key2)));
+    const keywordIndex = elements.findIndex((element) => rtkIndexKeys(element).some((key) => keywordKeys.includes(key)));
     if (keywordIndex <= 0) return;
     elements.slice(0, keywordIndex).forEach((element) => {
       addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, entry.kanji);
@@ -6532,14 +6528,14 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, kanji) {
     if (rtkElementFallbackGlyph(element)) return;
-    rtkIndexKeys(element).filter((key2) => !canonicalKeys.has(key2)).forEach((key2) => {
-      addRtkKeywordIndexEntry(entries, collisions, key2, kanji);
-      addRtkKeywordIndexEntry(introduced, introducedCollisions, key2, kanji);
+    rtkIndexKeys(element).filter((key) => !canonicalKeys.has(key)).forEach((key) => {
+      addRtkKeywordIndexEntry(entries, collisions, key, kanji);
+      addRtkKeywordIndexEntry(introduced, introducedCollisions, key, kanji);
     });
   }
   function rtkIntroducedElementOwner(introduced, element) {
-    for (const key2 of rtkIndexKeys(element)) {
-      const owner = introduced.get(key2);
+    for (const key of rtkIndexKeys(element)) {
+      const owner = introduced.get(key);
       if (owner) return owner;
     }
     return "";

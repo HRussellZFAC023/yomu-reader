@@ -1,5 +1,3 @@
-import { monkeyWindow } from 'vite-plugin-monkey/dist/client';
-
 type UserscriptRequestSource = {
     GM_xmlhttpRequest?: UserscriptHttpRequest;
     GM?: {
@@ -57,8 +55,11 @@ function userscriptRequestSources(): UserscriptRequestSource[] {
         sources.push(value);
     };
 
+    // The vite-plugin-monkey client's monkeyWindow accessor used to be added
+    // here too; mountedMonkeyWindows() reads the same '__monkeyWindow-'
+    // mounts the plugin creates, so the runtime import was redundant (P4
+    // backlog cleanup).
     for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(monkeyWindow);
     add(globalThis);
     if (typeof window !== 'undefined') add(window);
     return sources;

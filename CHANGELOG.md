@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.118] - 2026-06-11
+
+### Changed
+
+- Kanji study mode's extraction from Anki cards is now pinned by tests (word cards contribute their kanji with the Anki note linkage but stay ungradeable as kanji; standalone RTK-style kanji notes win dedup and keep their keyword) — closing the 'unverified/partial' backlog ticket.
+- Removed the vite-plugin-monkey client runtime import: the document-mounted monkey windows it exposed are already discovered by the existing scan (P4 backlog cleanup).
+
 ## [0.6.117] - 2026-06-11
 
 ### Fixed
