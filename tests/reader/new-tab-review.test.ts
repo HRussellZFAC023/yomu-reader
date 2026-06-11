@@ -1798,6 +1798,20 @@ describe('new tab review helpers', () => {
         expect(status.card?.prompt).toContain('record');
     });
 
+    it('carries the jpdb.io deck-membership line through the review bridge (SH-4)', () => {
+        const doc = new DOMParser().parseFromString(`
+            <main>
+                <div class="kind">Vocabulary</div>
+                <div class="card-sentence"><div class="sentence">はい、<span class="highlight">よくできました</span>。</div></div>
+                <div>Part of the <a href="/deck?id=92">Persona 5</a> deck (3x)</div>
+            </main>
+        `, 'text/html');
+
+        const status = parseJpdbReviewDocument(doc, 'https://jpdb.io/review#a');
+
+        expect(status.card?.deckMembership).toBe('Part of the Persona 5 deck (3x)');
+    });
+
     it('parses JPDB vocabulary review sentences and highlighted targets', () => {
         const doc = new DOMParser().parseFromString(`
             <main>

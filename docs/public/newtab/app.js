@@ -39227,8 +39227,15 @@ ${newTabCardReading(card)}`;
     }
     renderWordMeaning(meaning, card) {
       if (!meaning) return;
-      if (this.state.revealAnswer) replaceChildrenWith(meaning, el("div", {}, firstCardMeaning(card)));
-      else meaning.replaceChildren();
+      if (!this.state.revealAnswer) {
+        meaning.replaceChildren();
+        return;
+      }
+      replaceChildrenWith(
+        meaning,
+        el("div", {}, firstCardMeaning(card)),
+        card.jpdbDeckMembership ? el("p", { class: "jpdb-reader-newtab-deck-membership" }, card.jpdbDeckMembership) : null
+      );
     }
     renderAnkiRenderedWordPrompt(slots, card) {
       if (card.source !== "anki" && card.reviewSource !== "anki") return false;
@@ -42533,7 +42540,8 @@ ${newTabCardReading(card)}`;
       sentence: liveJpdbCardSentence(card),
       reviewSource: "jpdb-live",
       jpdbReviewId: card.id,
-      kanjiKeyword: liveJpdbCardKeyword(card)
+      kanjiKeyword: liveJpdbCardKeyword(card),
+      jpdbDeckMembership: card.deckMembership
     };
   }
   function liveJpdbCardReading(card, spelling) {

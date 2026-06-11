@@ -133,6 +133,7 @@ export interface JPDBCard {
     ankiCardId?: number;
     ankiNoteId?: number;
     ankiDeckNames?: string[];
+    jpdbDeckMembership?: string;
     ankiModelName?: string;
     ankiCardKind?: AnkiCardKind;
     ankiReps?: number;

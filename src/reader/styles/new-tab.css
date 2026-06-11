@@ -3578,3 +3578,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 @media (max-width: 640px) {
   .jpdb-reader-newtab-browse-meaning { display: none; }
 }
+
+/* SH-4: jpdb.io's deck-membership line on live review backs. */
+.jpdb-reader-newtab-deck-membership {
+  margin: 8px 0 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}

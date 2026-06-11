@@ -3763,8 +3763,18 @@ export class NewTabController {
 
     private renderWordMeaning(meaning: HTMLElement | null, card: JPDBCard): void {
         if (!meaning) return;
-        if (this.state.revealAnswer) replaceChildrenWith(meaning, el('div', {}, firstCardMeaning(card)));
-        else meaning.replaceChildren();
+        if (!this.state.revealAnswer) {
+            meaning.replaceChildren();
+            return;
+        }
+        // SH-4 fidelity: live JPDB cards keep jpdb.io's own deck-membership
+        // line ("Part of the Persona 5 deck (3x)") on the back.
+        replaceChildrenWith(meaning,
+            el('div', {}, firstCardMeaning(card)),
+            card.jpdbDeckMembership
+                ? el('p', { class: 'jpdb-reader-newtab-deck-membership' }, card.jpdbDeckMembership)
+                : null,
+        );
     }
 
     private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
@@ -7609,6 +7619,7 @@ function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string
         reviewSource: 'jpdb-live',
         jpdbReviewId: card.id,
         kanjiKeyword: liveJpdbCardKeyword(card),
+        jpdbDeckMembership: card.deckMembership,
     };
 }
 
