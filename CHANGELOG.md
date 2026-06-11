@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.103] - 2026-06-11
+
+### Added
+
+- The study-deck selector now shows each JPDB deck's progress like jpdb.io's Learn page: vocabulary count and known-coverage percentage ('誕生日 · 39 · 65%'), fetched through the same list-user-decks call (no extra requests).
+
 ## [0.6.102] - 2026-06-11
 
 ### Added

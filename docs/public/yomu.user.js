@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.102
+// @version      0.6.103
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -29039,7 +29039,7 @@ ${spelling}`);
     "card_state",
     "pitch_accent"
   ];
-  const DECK_FIELDS = ["id", "name"];
+  const DECK_FIELDS = ["id", "name", "vocabulary_count", "vocabulary_known_coverage"];
   const PARSE_CACHE_SIZE = 250;
   const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const PARSE_BATCH_BYTE_LIMIT = 16384;
@@ -29412,13 +29412,21 @@ ${spelling}`);
     if (value && typeof value === "object") return normalizeDeckRecord(value);
     return null;
   }
-  function normalizeDeckTuple([id, name]) {
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+  function normalizeDeckTuple([id, name, vocabularyCount, knownCoverage]) {
+    if (!isDeckId(id) || typeof name !== "string") return null;
+    return { id: String(id), name, ...deckProgressFields(vocabularyCount, knownCoverage) };
   }
   function normalizeDeckRecord(record) {
     const id = record.id;
     const name = record.name ?? record.title;
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+    if (!isDeckId(id) || typeof name !== "string") return null;
+    return { id: String(id), name, ...deckProgressFields(record.vocabulary_count, record.vocabulary_known_coverage) };
+  }
+  function deckProgressFields(vocabularyCount, knownCoverage) {
+    const fields = {};
+    if (typeof vocabularyCount === "number" && Number.isFinite(vocabularyCount)) fields.vocabularyCount = vocabularyCount;
+    if (typeof knownCoverage === "number" && Number.isFinite(knownCoverage)) fields.knownCoverage = knownCoverage;
+    return fields;
   }
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";

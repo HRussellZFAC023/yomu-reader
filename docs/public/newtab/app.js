@@ -28075,7 +28075,7 @@ ${spelling}`);
     "card_state",
     "pitch_accent"
   ];
-  const DECK_FIELDS = ["id", "name"];
+  const DECK_FIELDS = ["id", "name", "vocabulary_count", "vocabulary_known_coverage"];
   const PARSE_CACHE_SIZE = 250;
   const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const PARSE_BATCH_BYTE_LIMIT = 16384;
@@ -28448,13 +28448,21 @@ ${spelling}`);
     if (value && typeof value === "object") return normalizeDeckRecord(value);
     return null;
   }
-  function normalizeDeckTuple([id, name]) {
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+  function normalizeDeckTuple([id, name, vocabularyCount, knownCoverage]) {
+    if (!isDeckId(id) || typeof name !== "string") return null;
+    return { id: String(id), name, ...deckProgressFields(vocabularyCount, knownCoverage) };
   }
   function normalizeDeckRecord(record) {
     const id = record.id;
     const name = record.name ?? record.title;
-    return isDeckId(id) && typeof name === "string" ? { id: String(id), name } : null;
+    if (!isDeckId(id) || typeof name !== "string") return null;
+    return { id: String(id), name, ...deckProgressFields(record.vocabulary_count, record.vocabulary_known_coverage) };
+  }
+  function deckProgressFields(vocabularyCount, knownCoverage) {
+    const fields = {};
+    if (typeof vocabularyCount === "number" && Number.isFinite(vocabularyCount)) fields.vocabularyCount = vocabularyCount;
+    if (typeof knownCoverage === "number" && Number.isFinite(knownCoverage)) fields.knownCoverage = knownCoverage;
+    return fields;
   }
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";
@@ -42569,7 +42577,10 @@ ${newTabCardReading(card)}`;
         ...decks.filter((deck) => deck.id !== "all")
       ];
       if (!options.some((option) => option.id === selected)) options.push({ id: selected, name: selected });
-      replaceChildrenWith(select2, options.map((option) => el("option", { value: option.id, selected: option.id === selected }, option.name)));
+      replaceChildrenWith(select2, options.map((option) => el("option", {
+        value: option.id,
+        selected: option.id === selected
+      }, deckOptionLabel(option))));
       select2.value = selected;
     }
     async toggleTheme(root) {
@@ -42781,6 +42792,12 @@ ${newTabCardReading(card)}`;
   }
   function normalizedPromptSentenceText(value) {
     return value.replace(/\s+/g, "").trim();
+  }
+  function deckOptionLabel(deck) {
+    const parts = [];
+    if (typeof deck.vocabularyCount === "number") parts.push(`${deck.vocabularyCount}`);
+    if (typeof deck.knownCoverage === "number") parts.push(`${Math.round(deck.knownCoverage)}%`);
+    return parts.length ? `${deck.name} · ${parts.join(" · ")}` : deck.name;
   }
   function jpdbExampleSentenceForPrompt(info, card) {
     const examples = info?.examples ?? [];

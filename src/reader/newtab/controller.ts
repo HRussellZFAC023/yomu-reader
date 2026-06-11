@@ -7535,7 +7535,10 @@ export class NewTabController {
             ...decks.filter(deck => deck.id !== 'all'),
         ];
         if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
-        replaceChildrenWith(select, options.map(option => el('option', { value: option.id, selected: option.id === selected }, option.name)));
+        replaceChildrenWith(select, options.map(option => el('option', {
+            value: option.id,
+            selected: option.id === selected,
+        }, deckOptionLabel(option))));
         select.value = selected;
     }
 
@@ -7811,6 +7814,15 @@ function isPromptContextSentence(sentence: string, card: JPDBCard): boolean {
 
 function normalizedPromptSentenceText(value: string): string {
     return value.replace(/\s+/g, '').trim();
+}
+
+// jpdb.io Learn parity: deck entries show progress ("961 / 2302 · 40%" known
+// coverage) when the API provides it.
+function deckOptionLabel(deck: { name: string; vocabularyCount?: number; knownCoverage?: number }): string {
+    const parts: string[] = [];
+    if (typeof deck.vocabularyCount === 'number') parts.push(`${deck.vocabularyCount}`);
+    if (typeof deck.knownCoverage === 'number') parts.push(`${Math.round(deck.knownCoverage)}%`);
+    return parts.length ? `${deck.name} · ${parts.join(' · ')}` : deck.name;
 }
 
 function jpdbExampleSentenceForPrompt(info: JpdbVocabularyInfo | null, card: JPDBCard): string {

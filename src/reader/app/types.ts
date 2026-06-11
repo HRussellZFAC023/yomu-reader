@@ -159,7 +159,10 @@ export interface ApiDeck {
     name: string;
 }
 
-export interface JPDBDeck extends ApiDeck {}
+export interface JPDBDeck extends ApiDeck {
+    vocabularyCount?: number;
+    knownCoverage?: number;
+}
 
 export interface JPDBRuby {
     text: string;

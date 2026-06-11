@@ -3878,7 +3878,7 @@ describe('new tab review helpers', () => {
         resetNewTabReviewStorage();
         const { listDeckCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');
         const internals = controller as unknown as { dependencies: { jpdb: { listDecks?: () => Promise<Array<{ id: string; name: string }>> } } };
-        internals.dependencies.jpdb.listDecks = vi.fn(async () => [{ id: '89', name: '誕生日' }]);
+        internals.dependencies.jpdb.listDecks = vi.fn(async () => [{ id: '89', name: '誕生日', vocabularyCount: 39, knownCoverage: 65.12 }]);
 
         try {
             await controller.renderPage();
@@ -3887,7 +3887,8 @@ describe('new tab review helpers', () => {
                 expect(select.hidden).toBe(false);
                 const labels = [...select.options].map(option => option.textContent);
                 expect(labels).toContain('All vocabulary');
-                expect(labels).toContain('誕生日');
+                // jpdb Learn parity: deck entries carry their progress.
+                expect(labels).toContain('誕生日 · 39 · 65%');
             });
             // Initial load used the settings deck.
             expect(listDeckCards).toHaveBeenCalledWith('deck', expect.anything(), expect.anything());
