@@ -3585,3 +3585,23 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   color: var(--jpdb-reader-muted);
   font-size: 12px;
 }
+
+/* Study-hub parity SH-6: in-page JPDB deck scope for the study queue. */
+.jpdb-reader-newtab-deck {
+  max-width: min(320px, 80vw);
+  margin: 6px auto 0;
+  padding: 4px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-bg);
+  color: var(--jpdb-reader-muted);
+  font: 600 13px/1.3 system-ui, -apple-system, sans-serif;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  /* 16px keeps iOS from zooming the page when the select opens. */
+  .jpdb-reader-newtab-deck {
+    font-size: 16px;
+    min-height: 40px;
+  }
+}

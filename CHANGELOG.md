@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.97] - 2026-06-11
+
+### Added
+
+- Word tab now has an in-page JPDB study-deck selector (study-hub parity SH-6): pick All vocabulary or any of your JPDB decks right where you study — mirroring jpdb.io's per-deck Learn — and the review queue rescopes immediately through the same scheduled-cards loader. The choice persists per device alongside the other study-page state; the settings default still applies until you pick something. Mobile-safe (16px select, no iOS zoom).
+
 ## [0.6.96] - 2026-06-11
 
 ### Fixed

@@ -19373,6 +19373,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browsePreviousPage: "Previous page",
       browseNextPage: "Next page",
       browseNoCards: "No cards match this filter yet.",
+      studyDeckSelector: "Study deck",
+      allVocabularyDeck: "All vocabulary",
       statsLearningProgress: "Learning progress",
       statsWordsRow: "Words",
       statsLearningColumn: "Learning",
@@ -19497,6 +19499,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browsePreviousPage: "前のページ",
     browseNextPage: "次のページ",
     browseNoCards: "このフィルタに一致するカードはまだありません。",
+    studyDeckSelector: "学習デッキ",
+    allVocabularyDeck: "すべての語彙",
     statsLearningProgress: "学習の進捗",
     statsWordsRow: "単語",
     statsLearningColumn: "学習中",
@@ -32514,7 +32518,8 @@ ${normalizedReading}`;
     sort: "random",
     filter: "study",
     source: "auto",
-    revealAnswer: false
+    revealAnswer: false,
+    jpdbDeck: ""
   };
   const NEW_TAB_FILTERS = [
     { value: "study", labelKey: "filterStudy" },
@@ -32537,7 +32542,8 @@ ${normalizedReading}`;
       sort: normalizeNewTabSort(value?.sort),
       filter: normalizeNewTabFilter(value?.filter),
       source: normalizeNewTabSource(value?.source),
-      revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer)
+      revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
+      jpdbDeck: typeof value?.jpdbDeck === "string" ? value.jpdbDeck : ""
     };
   }
   function loadNewTabUiState() {
@@ -36528,6 +36534,7 @@ ${newTabCardReading(card)}`;
     sessionProgress = new NewTabSessionProgressTracker();
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
+    deckSelectorDecks;
     loadGeneration = 0;
     sourceSwitchGeneration = 0;
     searchGeneration = 0;
@@ -36841,6 +36848,12 @@ ${newTabCardReading(card)}`;
               el("div", { class: "jpdb-reader-newtab-meaning", dataset: { newtabMeaning: true } })
             ),
             el("button", { class: "jpdb-reader-newtab-status", type: "button", dataset: { newtabStatus: true }, disabled: true }, uiText(language, "loading")),
+            el("select", {
+              class: "jpdb-reader-newtab-deck",
+              dataset: { newtabDeckSelect: true },
+              hidden: true,
+              "aria-label": newTabText(language, "studyDeckSelector")
+            }),
             el(
               "form",
               { class: "jpdb-reader-newtab-search", dataset: { newtabSearch: true }, role: "search", hidden: true },
@@ -36924,6 +36937,19 @@ ${newTabCardReading(card)}`;
         if (targetSelect && root.contains(targetSelect)) {
           this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
           targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
+          return;
+        }
+        const deckSelect2 = target?.closest("[data-newtab-deck-select]");
+        if (deckSelect2 && root.contains(deckSelect2)) {
+          this.state = { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
+          this.persistState();
+          this.invalidateSourceResultCache("jpdb");
+          this.allWords = [];
+          this.visibleWords = [];
+          this.visiblePoolSignature = "";
+          this.index = 0;
+          this.setStatus(root, this.text("loading"));
+          void this.loadWordsInto(root, false, { useOfflineCache: false });
           return;
         }
         const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
@@ -38232,7 +38258,7 @@ ${newTabCardReading(card)}`;
       const hasJpdbKey = hasJpdbApiCredential(settings);
       const apiResults = [];
       if (hasJpdbKey) {
-        const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
+        const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, options.timeoutMs, options.limit);
         if (selectedDeckCards) apiResults.push(selectedDeckCards);
       }
@@ -42318,6 +42344,37 @@ ${newTabCardReading(card)}`;
         button.dataset.active = String(active);
         button.setAttribute("aria-pressed", String(active));
       });
+      this.syncDeckSelector(root);
+    }
+    // Study-hub parity SH-6: an in-page JPDB deck scope for the study queue,
+    // mirroring jpdb.io's per-deck Learn entry. Visible only when a JPDB API
+    // key is configured and the Word tab can include jpdb-api cards.
+    syncDeckSelector(root) {
+      const select2 = root.querySelector("[data-newtab-deck-select]");
+      if (!select2) return;
+      const settings = this.dependencies.getSettings();
+      const sourceAllowsJpdb = this.state.source === "auto" || this.state.source === "jpdb";
+      const show = this.state.mode === "word" && sourceAllowsJpdb && hasJpdbApiCredential(settings);
+      select2.hidden = !show;
+      if (!show) return;
+      void this.populateDeckSelector(select2, settings);
+    }
+    async populateDeckSelector(select2, settings) {
+      const key2 = effectiveJpdbApiKey(settings);
+      if (this.deckSelectorDecks?.key !== key2) {
+        const listDecks = typeof this.dependencies.jpdb.listDecks === "function" ? this.dependencies.jpdb.listDecks() : Promise.resolve([]);
+        this.deckSelectorDecks = { key: key2, promise: listDecks.catch(() => []) };
+      }
+      const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([]));
+      if (!select2.isConnected) return;
+      const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || "all";
+      const options = [
+        { id: "all", name: this.text("allVocabularyDeck") },
+        ...decks.filter((deck) => deck.id !== "all")
+      ];
+      if (!options.some((option) => option.id === selected)) options.push({ id: selected, name: selected });
+      replaceChildrenWith(select2, options.map((option) => el("option", { value: option.id, selected: option.id === selected }, option.name)));
+      select2.value = selected;
     }
     async toggleTheme(root) {
       const settings = this.dependencies.getSettings();
