@@ -929,6 +929,37 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('compensates the scroll position when a card above the viewport collapses (iOS has no scroll anchoring)', async () => {
+        renderYouTubeCards();
+        const englishCard = card('english');
+        const anchorCard = card('jp');
+        // Anchor element sits lower on screen while the english card above it
+        // collapses: its viewport top moves from 400 to 100.
+        anchorCard.getBoundingClientRect = () => ({
+            top: englishCard.classList.contains('jpdb-youtube-filtered') ? 100 : 400,
+            bottom: 0, left: 0, right: 0, width: 320, height: 180, x: 0, y: 0, toJSON: () => ({}),
+        } as DOMRect);
+        const scrollBy = vi.fn();
+        vi.stubGlobal('scrollY', 600);
+        vi.stubGlobal('scrollBy', scrollBy);
+        document.elementFromPoint = vi.fn(() => anchorCard);
+
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        expect(englishCard.classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(scrollBy).toHaveBeenCalledWith(0, -300);
+
+        filter.destroy();
+    });
+
     it('refuses to fake a subscription when no signed-in YouTube session cookie exists', async () => {
         document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         vi.stubGlobal('location', {

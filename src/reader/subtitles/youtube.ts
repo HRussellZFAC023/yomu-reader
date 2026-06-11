@@ -472,8 +472,10 @@ export class YoutubeImmersionFilter {
         if (alreadyFiltered) return;
 
         this.prepareFilteredCard(card);
-        card.classList.add(YOUTUBE_FILTERED_CLASS);
-        card.dataset.yomuYoutubeFiltered = 'true';
+        withFeedScrollAnchor(card, () => {
+            card.classList.add(YOUTUBE_FILTERED_CLASS);
+            card.dataset.yomuYoutubeFiltered = 'true';
+        });
         if (!card.hasAttribute('aria-hidden')) card.dataset.yomuYoutubeAriaHidden = 'true';
         card.setAttribute('aria-hidden', 'true');
         this.queueFilteredCardCollapse(card, this.filteredCardCollapseDelay());
@@ -482,7 +484,9 @@ export class YoutubeImmersionFilter {
     private showCard(card: HTMLElement): void {
         this.clearCardTimers(card);
         this.clearPendingCard(card);
-        card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
+        withFeedScrollAnchor(card, () => {
+            card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
+        });
         card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
         if (card.dataset.yomuYoutubeAriaHidden === 'true') {
             card.removeAttribute('aria-hidden');
@@ -1698,6 +1702,35 @@ function cleanYouTubeAriaTitle(title: string): string {
         .split(/\s+·\s*/)[0]
         .split(/\s*,\s*/)[0]
         .trim();
+}
+
+// iOS Safari has no CSS scroll anchoring, so collapsing a card that sits at
+// or above the viewport shifts everything the user is reading. Keep whatever
+// element is currently in view stationary by measuring its viewport offset
+// across the layout mutation and compensating the scroll position.
+function withFeedScrollAnchor(mutated: HTMLElement, mutate: () => void): void {
+    const anchor = feedScrollAnchorElement(mutated);
+    const before = anchor?.getBoundingClientRect().top;
+    mutate();
+    if (!anchor || before === undefined || !anchor.isConnected) return;
+    const delta = anchor.getBoundingClientRect().top - before;
+    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+}
+
+function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
+    if (!(window.scrollY > 0) || typeof document.elementFromPoint !== 'function') return null;
+    for (const ratio of [0.35, 0.55, 0.8]) {
+        const probe = document.elementFromPoint(
+            Math.floor(window.innerWidth / 2),
+            Math.floor(window.innerHeight * ratio),
+        );
+        if (!(probe instanceof HTMLElement) || !probe.isConnected) continue;
+        // The mutated card itself (or its ancestors) cannot anchor: its rect
+        // is what the mutation changes.
+        if (probe === mutated || mutated.contains(probe) || probe.contains(mutated)) continue;
+        return probe;
+    }
+    return null;
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {

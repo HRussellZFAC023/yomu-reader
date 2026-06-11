@@ -31288,6 +31288,7 @@ ${spelling}`);
     lastRenderedPrimaryText = "";
     lastRenderedPrimaryHtml = "";
     lastRenderedPrimaryKey = "";
+    lastAppliedSubtitleHtml = "";
     parseWarmupSerial = 0;
     transcriptHydrationCursor = 0;
     effectiveTranscriptPlacement = "right";
@@ -31575,6 +31576,7 @@ ${spelling}`);
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
+      this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
     }
@@ -32036,14 +32038,25 @@ ${spelling}`);
     }
     renderEmptySubtitle(settings) {
       if (!this.subtitleEl) return;
-      setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : "");
+      this.applySubtitleHtml(this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : "");
     }
     renderActiveSubtitle(text2, settings) {
       if (!this.subtitleEl) return;
       const primary = this.renderPrimarySubtitle(text2, settings);
-      setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
+      const changed = this.applySubtitleHtml(`<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
       this.applyRenderedPrimarySubtitle(primary, text2);
-      this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
+      if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
+    }
+    // render() runs on every cue/time/settings tick; rebuilding identical DOM
+    // each tick wiped the async-applied word-state coloring and caused a
+    // visible rerender flicker plus constant layout work (user-reported).
+    applySubtitleHtml(html) {
+      if (!this.subtitleEl) return false;
+      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" || this.subtitleEl.firstChild !== null);
+      if (unchanged) return false;
+      setInnerHtml(this.subtitleEl, html);
+      this.lastAppliedSubtitleHtml = html;
+      return true;
     }
     // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
     // DOM, so JPDB/Anki state colors must be re-applied to the new nodes even
@@ -32124,7 +32137,9 @@ ${spelling}`);
       if (primary) {
         const currentCue = this.currentCue ?? null;
         const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html) && this.shouldRenderKaraokePrimary(primary, currentCue);
-        setInnerHtml(primary, this.primaryReplacementHtml(html, currentCue, shouldKaraoke));
+        const replacement = this.primaryReplacementHtml(html, currentCue, shouldKaraoke);
+        setInnerHtml(primary, replacement);
+        this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
         this.syncKaraokePrimary(currentCue, shouldKaraoke);
         this.fitSubtitleTextToVideo();
         return primary;
@@ -33713,6 +33728,7 @@ ${spelling}`);
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
+      this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
     }
@@ -34513,8 +34529,10 @@ ${spelling}`);
       this.clearPendingCard(card);
       if (alreadyFiltered) return;
       this.prepareFilteredCard(card);
-      card.classList.add(YOUTUBE_FILTERED_CLASS);
-      card.dataset.yomuYoutubeFiltered = "true";
+      withFeedScrollAnchor(card, () => {
+        card.classList.add(YOUTUBE_FILTERED_CLASS);
+        card.dataset.yomuYoutubeFiltered = "true";
+      });
       if (!card.hasAttribute("aria-hidden")) card.dataset.yomuYoutubeAriaHidden = "true";
       card.setAttribute("aria-hidden", "true");
       this.queueFilteredCardCollapse(card, this.filteredCardCollapseDelay());
@@ -34522,7 +34540,9 @@ ${spelling}`);
     showCard(card) {
       this.clearCardTimers(card);
       this.clearPendingCard(card);
-      card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
+      withFeedScrollAnchor(card, () => {
+        card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
+      });
       card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
       if (card.dataset.yomuYoutubeAriaHidden === "true") {
         card.removeAttribute("aria-hidden");
@@ -35505,6 +35525,27 @@ ${spelling}`);
   }
   function cleanYouTubeAriaTitle(title) {
     return title.split(/\s+by\s+/i)[0].split(/\s+視聴回数\s*/)[0].split(/\s+再生回数\s*/)[0].split(/\s+回視聴\s*/)[0].split(/\s+views?\s*/i)[0].split(/\s+•\s*/)[0].split(/\s+·\s*/)[0].split(/\s*,\s*/)[0].trim();
+  }
+  function withFeedScrollAnchor(mutated, mutate) {
+    const anchor = feedScrollAnchorElement(mutated);
+    const before = anchor?.getBoundingClientRect().top;
+    mutate();
+    if (!anchor || before === void 0 || !anchor.isConnected) return;
+    const delta = anchor.getBoundingClientRect().top - before;
+    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+  }
+  function feedScrollAnchorElement(mutated) {
+    if (!(window.scrollY > 0) || typeof document.elementFromPoint !== "function") return null;
+    for (const ratio of [0.35, 0.55, 0.8]) {
+      const probe = document.elementFromPoint(
+        Math.floor(window.innerWidth / 2),
+        Math.floor(window.innerHeight * ratio)
+      );
+      if (!(probe instanceof HTMLElement) || !probe.isConnected) continue;
+      if (probe === mutated || mutated.contains(probe) || probe.contains(mutated)) continue;
+      return probe;
+    }
+    return null;
   }
   function collectYouTubeFilterItems(root = document) {
     const items = new Set(collectYouTubeVideoCards(root));

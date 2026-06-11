@@ -2107,6 +2107,28 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('does not rebuild the subtitle DOM when a render tick produces identical html', () => {
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const { internals } = setupTranscriptCueController<typeof cue, {
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            provisionalParsedHtmlCache: Map<string, string>;
+            render: () => void;
+        }>([cue], {
+            selectedTrackId: 'youtube-0',
+            settings: { apiKey: 'test-key', subtitleKaraokeMode: false },
+        });
+
+        internals.render();
+        const firstPrimary = document.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        expect(firstPrimary).not.toBeNull();
+        // Time-driven ticks re-render the same cue: the DOM nodes must be
+        // reused, otherwise async word-state/pitch coloring is wiped each
+        // tick (user-reported flicker).
+        internals.render();
+        const secondPrimary = document.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        expect(secondPrimary).toBe(firstPrimary);
+    });
+
     it('updates the active transcript line without replacing existing rows', () => {
         const cues = [
             { start: 0, end: 1, text: '一番', transcriptEligible: true },
