@@ -4000,6 +4000,38 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
+/* iPad landscape (study-hub research persona 5): the revealed card wastes a
+   short, wide viewport as one tall column. On coarse-pointer landscape
+   tablets, split the study surface — prompt left, revealed answer right —
+   while the session/status/control rows keep spanning the full width. */
+@media (pointer: coarse) and (orientation: landscape) and (min-width: 1000px) {
+  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
+    .jpdb-reader-newtab-study {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 36px;
+    align-items: start;
+  }
+
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-count,
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-status,
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-deck,
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-search,
+  .jpdb-reader-newtab-study > [data-newtab-controls] {
+    grid-column: 1 / -1;
+  }
+
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt {
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .jpdb-reader-newtab-study > .jpdb-reader-newtab-answer {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
 
 /* Source: src/reader/styles/stats.css */
 .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study {
