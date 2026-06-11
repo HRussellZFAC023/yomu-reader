@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.102] - 2026-06-11
+
+### Added
+
+- My Cards browser now has Jiten-style bulk actions: a select-page checkbox plus per-row checkboxes, with Blacklist and Never forget acting on everything selected. Each card goes through the same action path as the popover buttons, so provider behavior is identical (JPDB deck moves, Jiten local workaround, Anki suspend/tag) and the list reloads with the new states afterwards.
+
+### Fixed
+
+- Stats learning-progress total now reads 'Total known non-redundant vocabulary', matching jpdb.io's Learn page word for word (the count already excluded redundant/blacklisted cards).
+
 ## [0.6.101] - 2026-06-11
 
 ### Added

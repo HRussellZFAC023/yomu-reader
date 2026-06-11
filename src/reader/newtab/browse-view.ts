@@ -66,11 +66,17 @@ export function renderBrowseChips(
     );
 }
 
+export interface BrowseBulkCopy {
+    selectPage: string;
+    blacklist: string;
+    neverForget: string;
+}
+
 export function renderBrowseList(
     cards: JPDBCard[],
     page: number,
     language: ReaderSettings['interfaceLanguage'],
-    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string },
+    copy: { empty: string; previous: string; next: string; showing: (from: number, to: number, total: number) => string; bulk?: BrowseBulkCopy },
 ): HTMLElement {
     if (!cards.length) {
         return el('div', { class: 'jpdb-reader-newtab-browse-empty' }, copy.empty);
@@ -81,8 +87,9 @@ export function renderBrowseList(
     const visible = cards.slice(start, start + BROWSE_PAGE_SIZE);
     return el('div', { class: 'jpdb-reader-newtab-browse-list' },
         el('p', { class: 'jpdb-reader-newtab-browse-meta' }, copy.showing(start + 1, start + visible.length, cards.length)),
+        copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
         el('ol', { class: 'jpdb-reader-newtab-browse-rows' },
-            ...visible.map(card => renderBrowseRow(card, language)),
+            ...visible.map(card => renderBrowseRow(card, language, Boolean(copy.bulk))),
         ),
         pageCount > 1
             ? el('div', { class: 'jpdb-reader-newtab-browse-pager' },
@@ -101,11 +108,40 @@ export function renderBrowseList(
     );
 }
 
-function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): HTMLElement {
+// Jiten Cards parity: select-page checkbox plus bulk state actions; the
+// controller fans each selected card through the shared performCardAction
+// path, so provider mapping (JPDB deck / Jiten workaround / Anki suspend)
+// stays in one place.
+function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
+    const action = (bulkAction: string, label: string): HTMLElement => el('button', {
+        type: 'button',
+        dataset: { newtabAction: 'browse-bulk', bulkAction },
+        disabled: true,
+    }, label);
+    return el('div', { class: 'jpdb-reader-newtab-browse-bulk' },
+        el('label', { class: 'jpdb-reader-newtab-browse-bulk-select' },
+            el('input', { type: 'checkbox', dataset: { browseSelectPage: true }, 'aria-label': copy.selectPage }),
+            copy.selectPage,
+        ),
+        el('span', { class: 'jpdb-reader-newtab-browse-bulk-count', dataset: { browseBulkCount: true } }, ''),
+        action('blacklist', copy.blacklist),
+        action('never-forget', copy.neverForget),
+    );
+}
+
+function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false): HTMLElement {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = card.reading && card.reading !== card.spelling ? card.reading : '';
-    return el('li', {},
+    return el('li', { class: 'jpdb-reader-newtab-browse-item' },
+        selectable
+            ? el('input', {
+                type: 'checkbox',
+                class: 'jpdb-reader-newtab-browse-select',
+                dataset: { browseSelect: true, browseCardKey: cardKey(card) },
+                'aria-label': card.spelling,
+            })
+            : null,
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-browse-row',

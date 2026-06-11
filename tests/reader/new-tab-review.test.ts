@@ -1647,7 +1647,7 @@ describe('new tab review helpers', () => {
             expect(cells[1]).toBe('1');
             expect(cells[2]).toContain('2');
             expect(cells[2]).toMatch(/50/);
-            expect(root.textContent).toContain('Total known vocabulary: 2');
+            expect(root.textContent).toContain('Total known non-redundant vocabulary: 2');
         } finally {
             controller.destroy();
             document.body.replaceChildren();
@@ -1704,6 +1704,51 @@ describe('new tab review helpers', () => {
             const internals = controller as unknown as { jpdbStatsApiProviders(settings: unknown): Array<{ label: string }> };
             const labels = internals.jpdbStatsApiProviders({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: true, newTabAnkiEnabled: true }).map(provider => provider.label);
             expect(labels).toEqual(['JPDB']);
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('bulk-blacklists the selected page of My Cards through the shared card-action path (SH-3 v2)', async () => {
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 21, source: 'jpdb' }),
+            newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 22, source: 'jpdb' }),
+        ]);
+        const performCardAction = vi.fn(async (..._args: [HTMLButtonElement, JPDBCard, string?, HTMLElement?]) => {});
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+            performCardAction,
+        });
+        try {
+            const root = renderBoundNewTabSearchRoot(controller);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            const selectPage = root.querySelector<HTMLInputElement>('[data-browse-select-page]')!;
+            expect(selectPage).not.toBeNull();
+            const bulkButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-bulk"][data-bulk-action="blacklist"]')!;
+            expect(bulkButton.disabled).toBe(true);
+
+            selectPage.checked = true;
+            selectPage.dispatchEvent(new Event('change', { bubbles: true }));
+            expect(bulkButton.disabled).toBe(false);
+            expect([...root.querySelectorAll<HTMLInputElement>('[data-browse-select]')].every(box => box.checked)).toBe(true);
+
+            bulkButton.click();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(performCardAction).toHaveBeenCalledTimes(2);
+            const actions = performCardAction.mock.calls.map(call => call[0].dataset.action);
+            expect(actions).toEqual(['blacklist', 'blacklist']);
+            const spellings = performCardAction.mock.calls.map(call => call[1].spelling).sort();
+            expect(spellings).toEqual(['書く', '読む']);
+            // The pool reloads so the rows recolor with post-action states.
+            expect(listDeckCards.mock.calls.length).toBeGreaterThanOrEqual(2);
         } finally {
             controller.destroy();
             document.body.replaceChildren();
