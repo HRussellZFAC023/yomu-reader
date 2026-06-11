@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.104] - 2026-06-11
+
+### Added
+
+- iPad/tablet landscape: the study card now uses the width — word and sentence on the left, revealed answer (reading, meanings, Composed-of, Immersion Kit) on the right, with session and grade controls spanning below. Applies on coarse-pointer landscape viewports 1000px and wider; verified against a real 1180x820 render.
+
 ## [0.6.103] - 2026-06-11
 
 ### Added

@@ -79,7 +79,7 @@ Five personas walked the captured journeys; their asks, mapped to tickets:
    upcoming-reviews list; day streak labelled like Jiten ("Longest / Days studied").
    Ask → SH-3 v2 bulk actions, SH-7 streak labels.
 5. **iPad split-view user** — keyboard digit grading (0.6.94), trackpad hover lookups
-   (existing), two-column landscape cards. Ask → landscape audit ticket (small, CSS).
+   (existing), two-column landscape cards. Ask → SHIPPED 0.6.104: coarse-pointer landscape tablets split the study card into prompt-left / answer-right columns (verified with a real 1180x820 screenshot, qa-artifacts/ipad-landscape-study.png).
 
 Synthesis: the highest-leverage unshipped item is a **Today panel** (every persona
 referenced "what's due / what did I do today" before trusting the page as their one
