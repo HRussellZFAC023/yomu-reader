@@ -3796,6 +3796,39 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('filters the Word-tab pool with the JPDB-style Show-only state filter', async () => {
+        resetNewTabReviewStorage();
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 11, source: 'jpdb', reviewSource: 'jpdb-api' }),
+            newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 12, source: 'jpdb', reviewSource: 'jpdb-api' }),
+        ]);
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+        });
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-filter-select]')!;
+            await waitForExpect(() => {
+                expect(select.hidden).toBe(false);
+                expect([...select.options].map(option => option.value)).toContain('known');
+            });
+            // The default scheduled queue hides the known card.
+            expectNewTabPromptText('書く');
+
+            select.value = 'known';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            const internals = controller as unknown as { visibleWords: Array<{ spelling: string }> };
+            await waitForExpect(() => {
+                expect(internals.visibleWords.map(card => card.spelling)).toEqual(['読む']);
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('scopes the study queue to the deck chosen in the in-page deck selector (SH-6)', async () => {
         resetNewTabReviewStorage();
         const { listDeckCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');

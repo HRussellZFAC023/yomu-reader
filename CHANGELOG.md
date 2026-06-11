@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.101] - 2026-06-11
+
+### Added
+
+- The Word tab now has jpdb.io's 'Show only' filter controls as a compact select beside the study-deck scope: Study (the scheduled queue), All, or any single state — New, Learning, Due, Failed, Known, Never forget, Suspended, Locked, Blacklisted, Redundant. Picking a settled state merges the full card pool in (the scheduled loader intentionally drops known/blacklisted cards), so filters like Known and Blacklisted really browse everything — matching the deck-browse filters on jpdb.io. The choice persists per device.
+
 ## [0.6.100] - 2026-06-11
 
 ### Added

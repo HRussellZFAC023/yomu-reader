@@ -19374,6 +19374,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseNextPage: "Next page",
       browseNoCards: "No cards match this filter yet.",
       studyDeckSelector: "Study deck",
+      showOnlyFilter: "Show only",
       composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
       statsLearningProgress: "Learning progress",
@@ -19501,6 +19502,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseNextPage: "次のページ",
     browseNoCards: "このフィルタに一致するカードはまだありません。",
     studyDeckSelector: "学習デッキ",
+    showOnlyFilter: "表示対象",
     composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
     statsLearningProgress: "学習の進捗",
@@ -36860,6 +36862,12 @@ ${newTabCardReading(card)}`;
               hidden: true,
               "aria-label": newTabText(language, "studyDeckSelector")
             }),
+            el("select", {
+              class: "jpdb-reader-newtab-deck jpdb-reader-newtab-state-filter",
+              dataset: { newtabFilterSelect: true },
+              hidden: true,
+              "aria-label": newTabText(language, "showOnlyFilter")
+            }),
             el(
               "form",
               { class: "jpdb-reader-newtab-search", dataset: { newtabSearch: true }, role: "search", hidden: true },
@@ -36943,6 +36951,19 @@ ${newTabCardReading(card)}`;
         if (targetSelect && root.contains(targetSelect)) {
           this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
           targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
+          return;
+        }
+        const filterSelect = target?.closest("[data-newtab-filter-select]");
+        if (filterSelect && root.contains(filterSelect)) {
+          const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value }).filter;
+          if (filter === "study") {
+            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+            return;
+          }
+          void this.loadBrowsePool().then((cards) => {
+            this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+          });
           return;
         }
         const deckSelect2 = target?.closest("[data-newtab-deck-select]");
@@ -38585,7 +38606,12 @@ ${newTabCardReading(card)}`;
       this.syncMode(root);
     }
     studyPoolForCurrentMode() {
-      return selectNewTabStudyPool(this.cardsForCurrentMode(this.allWords));
+      const cards = this.cardsForCurrentMode(this.allWords);
+      const filter = this.state.filter;
+      if (filter === "all") return cards;
+      if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
+      if (filter !== "study") return cards.filter((card) => card.cardState.includes(filter));
+      return selectNewTabStudyPool(cards);
     }
     cardsForCurrentMode(cards) {
       return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
@@ -42413,6 +42439,21 @@ ${newTabCardReading(card)}`;
         button.setAttribute("aria-pressed", String(active));
       });
       this.syncDeckSelector(root);
+      this.syncStateFilterSelector(root);
+    }
+    // JPDB deck-browse "Show only" parity: the persisted state filter for the
+    // Word tab pool, rendered as a compact select beside the deck scope.
+    syncStateFilterSelector(root) {
+      const select2 = root.querySelector("[data-newtab-filter-select]");
+      if (!select2) return;
+      const show = this.state.mode === "word";
+      select2.hidden = !show;
+      if (!show) return;
+      replaceChildrenWith(select2, NEW_TAB_FILTERS.map((filter) => el("option", {
+        value: filter.value,
+        selected: filter.value === this.state.filter
+      }, uiText(this.language(), filter.labelKey))));
+      select2.value = this.state.filter;
     }
     // Study-hub parity SH-6: an in-page JPDB deck scope for the study queue,
     // mirroring jpdb.io's per-deck Learn entry. Visible only when a JPDB API

@@ -72,6 +72,7 @@ import {
     type NewTabMode,
     type NewTabUiState,
 } from './index';
+import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
 import {
     decodeNewTabImmersionImage,
     newTabImmersionAudioUrls,
@@ -947,6 +948,12 @@ export class NewTabController {
                         hidden: true,
                         'aria-label': newTabText(language, 'studyDeckSelector'),
                     }),
+                    el('select', {
+                        class: 'jpdb-reader-newtab-deck jpdb-reader-newtab-state-filter',
+                        dataset: { newtabFilterSelect: true },
+                        hidden: true,
+                        'aria-label': newTabText(language, 'showOnlyFilter'),
+                    }),
                     el('form', { class: 'jpdb-reader-newtab-search', dataset: { newtabSearch: true }, role: 'search', hidden: true },
                         el('div', { class: 'jpdb-reader-newtab-searchbox' },
                             el('input', {
@@ -1031,6 +1038,22 @@ export class NewTabController {
             if (targetSelect && root.contains(targetSelect)) {
                 this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
                 targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
+                return;
+            }
+            const filterSelect = target?.closest<HTMLSelectElement>('[data-newtab-filter-select]');
+            if (filterSelect && root.contains(filterSelect)) {
+                const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value as NewTabUiState['filter'] }).filter;
+                if (filter === 'study') {
+                    this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+                    return;
+                }
+                // Non-study filters browse the FULL pool (the scheduled-queue
+                // loader drops known/blacklisted cards), so merge the browse
+                // pool in before applying — same data the My Cards browser uses.
+                void this.loadBrowsePool().then(cards => {
+                    this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+                    this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+                });
                 return;
             }
             const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
@@ -2970,7 +2993,16 @@ export class NewTabController {
     }
 
     private studyPoolForCurrentMode(): JPDBCard[] {
-        return selectNewTabStudyPool(this.cardsForCurrentMode(this.allWords));
+        const cards = this.cardsForCurrentMode(this.allWords);
+        const filter = this.state.filter;
+        // JPDB deck-browse "Show only" parity: a state filter narrows the
+        // pool by card state; 'all' bypasses the study-queue selection so
+        // known/blacklisted cards become browsable; 'study' is the default
+        // scheduled queue.
+        if (filter === 'all') return cards;
+        if (filter === 'local') return cards.filter(card => card.source === 'local' || card.source === 'fallback');
+        if (filter !== 'study') return cards.filter(card => card.cardState.includes(filter));
+        return selectNewTabStudyPool(cards);
     }
 
     private cardsForCurrentMode(cards: JPDBCard[]): JPDBCard[] {
@@ -7398,6 +7430,22 @@ export class NewTabController {
             button.setAttribute('aria-pressed', String(active));
         });
         this.syncDeckSelector(root);
+        this.syncStateFilterSelector(root);
+    }
+
+    // JPDB deck-browse "Show only" parity: the persisted state filter for the
+    // Word tab pool, rendered as a compact select beside the deck scope.
+    private syncStateFilterSelector(root: HTMLElement): void {
+        const select = root.querySelector<HTMLSelectElement>('[data-newtab-filter-select]');
+        if (!select) return;
+        const show = this.state.mode === 'word';
+        select.hidden = !show;
+        if (!show) return;
+        replaceChildrenWith(select, NEW_TAB_FILTERS.map(filter => el('option', {
+            value: filter.value,
+            selected: filter.value === this.state.filter,
+        }, uiText(this.language(), filter.labelKey))));
+        select.value = this.state.filter;
     }
 
     // Study-hub parity SH-6: an in-page JPDB deck scope for the study queue,
