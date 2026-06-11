@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.91] - 2026-06-11
+
+### Fixed
+
+- Study cards backed by JPDB now front JPDB's own example sentence — exactly what jpdb.io shows on its review front — with Immersion Kit sentences as the fallback for cards the provider gives no sentence, instead of replacing JPDB's content. Non-JPDB cards keep the Immersion-Kit-first behavior. (Study-hub parity SH-5.)
+
 ## [0.6.90] - 2026-06-11
 
 ### Added

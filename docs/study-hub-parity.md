@@ -92,7 +92,7 @@ segment expressions for pitch — reuse for component glosses from local diction
 JPDB), and the "Part of the X deck (3x)" line (jpdb deck membership already loadable;
 occurrences from deck data when available; Jiten deck names from study deck list).
 
-### SH-5: Review front fidelity audit — sentence-first front
+### SH-5: Review front fidelity — AUDITED + FIXED 0.6.91 (front-sentence default on ✓; provider-fidelity inversion fixed: JPDB-backed cards now front JPDB's own example sentence with Immersion Kit as fallback, not replacement; kind label covered by the mode tabs)
 JPDB fronts show the sentence with the target highlighted (when the card has one).
 `newTabFrontSentenceEnabled` exists — verify it defaults to match JPDB behavior for
 jpdb-sourced cards, that the highlight styling matches (target blue, rest plain), and

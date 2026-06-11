@@ -39243,6 +39243,11 @@ ${newTabCardReading(card)}`;
       return promise;
     }
     async fetchFrontSentence(card) {
+      if (card.source === "jpdb" && !isJitenSrsCard(card)) {
+        const jpdbSentence = await this.loadJpdbFrontSentence(card);
+        if (jpdbSentence) return jpdbSentence;
+        return this.loadImmersionFrontSentence(card);
+      }
       const immersionSentence = await this.loadImmersionFrontSentence(card);
       if (immersionSentence) return immersionSentence;
       return this.loadJpdbFrontSentence(card);
