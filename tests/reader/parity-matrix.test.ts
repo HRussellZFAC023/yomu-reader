@@ -38,20 +38,22 @@ type GradeRoutingRow = {
     spy: (deps: MatrixAdapters) => { calls: unknown[][] };
 };
 
+type MatrixSpy = { mock: { calls: unknown[][] } } & ((...args: never[]) => unknown);
+
 type MatrixAdapters = {
-    bridgeGrade: ReturnType<typeof vi.fn>;
-    ankiGrade: ReturnType<typeof vi.fn>;
-    jitenReview: ReturnType<typeof vi.fn>;
-    jpdbReview: ReturnType<typeof vi.fn>;
+    bridgeGrade: MatrixSpy;
+    ankiGrade: MatrixSpy;
+    jitenReview: MatrixSpy;
+    jpdbReview: MatrixSpy;
 };
 
 function matrixController(settings: ReaderSettings) {
-    const adapters: MatrixAdapters = {
+    const adapters = {
         bridgeGrade: vi.fn(),
         ankiGrade: vi.fn(async () => null),
         jitenReview: vi.fn(async () => undefined),
         jpdbReview: vi.fn(async () => undefined),
-    };
+    } as unknown as MatrixAdapters;
     const controller = new NewTabController({
         getSettings: () => settings,
         anki: { gradeCard: adapters.ankiGrade, answerCards: adapters.ankiGrade } as never,
