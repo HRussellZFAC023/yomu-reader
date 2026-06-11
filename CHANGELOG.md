@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.93] - 2026-06-11
+
+### Added
+
+- Live JPDB review cards in the study tab now show jpdb.io's own deck-membership line ('Part of the Persona 5 deck (3x)') on the back, scraped from the review page through the bridge — the back of the card reads the same as on jpdb.io. (Study-hub parity SH-4, first slice.)
+
 ## [0.6.92] - 2026-06-11
 
 ### Added

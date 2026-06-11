@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.92
+// @version      0.6.93
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -36201,6 +36201,7 @@ ${glossaryKey}`;
   function reviewBridgeCard(parsed, doc, href) {
     return {
       id: parsed.cardValue || `${parsed.spelling}:${parsed.reading}`,
+      deckMembership: reviewDeckMembership(doc),
       kind: parsed.kind,
       phase: parsed.phase,
       prompt: parsed.prompt,
@@ -36238,6 +36239,15 @@ ${glossaryKey}`;
   }
   function hasDetectedReviewCard(spelling, kanji, cardValue) {
     return Boolean(spelling || kanji || cardValue);
+  }
+  function reviewDeckMembership(doc) {
+    const lines = [];
+    doc.querySelectorAll('a[href*="/deck?"], a[href*="/deck/"]').forEach((link) => {
+      const container = link.parentElement;
+      const text2 = cleanText$1(container?.textContent ?? "");
+      if (/part of/i.test(text2) && !lines.includes(text2)) lines.push(text2);
+    });
+    return lines.join(" · ");
   }
   function clickRevealControl() {
     const showAnswer = document.querySelector("#show-answer");

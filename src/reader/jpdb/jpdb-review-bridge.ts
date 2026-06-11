@@ -11,6 +11,7 @@ const JPDB_REVIEW_BRIDGE_STALE_MS = 30_000;
 
 export interface JpdbReviewBridgeCard {
     id: string;
+    deckMembership?: string;
     kind: 'vocabulary' | 'kanji';
     phase: 'front' | 'back';
     prompt: string;
@@ -268,6 +269,7 @@ function reviewCardPrompt(isKanji: boolean, keyword: string, plain: string, kanj
 function reviewBridgeCard(parsed: ParsedReviewDocument, doc: Document, href: string): JpdbReviewBridgeCard {
     return {
         id: parsed.cardValue || `${parsed.spelling}:${parsed.reading}`,
+        deckMembership: reviewDeckMembership(doc),
         kind: parsed.kind,
         phase: parsed.phase,
         prompt: parsed.prompt,
@@ -322,6 +324,18 @@ function reviewPhase(doc: Document, url: URL | null, phase: ReturnType<typeof pa
 
 function hasDetectedReviewCard(spelling: string, kanji: string, cardValue: string): boolean {
     return Boolean(spelling || kanji || cardValue);
+}
+
+// The review back shows "Part of the Persona 5 deck (3x)" — carry it to the
+// study tab so the live card keeps JPDB's own deck-membership line (SH-4).
+function reviewDeckMembership(doc: Document): string {
+    const lines: string[] = [];
+    doc.querySelectorAll<HTMLElement>('a[href*="/deck?"], a[href*="/deck/"]').forEach(link => {
+        const container = link.parentElement;
+        const text = cleanText(container?.textContent ?? '');
+        if (/part of/i.test(text) && !lines.includes(text)) lines.push(text);
+    });
+    return lines.join(' · ');
 }
 
 function clickRevealControl(): void {
