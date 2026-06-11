@@ -1148,7 +1148,22 @@ export class NewTabController {
         if (isNewTabSpaceRevealKey(event.key) || (isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target))) {
             event.preventDefault();
             this.toggleReveal(root);
+            return;
         }
+        this.handleGradeDigitKeydown(root, event);
+    }
+
+    // jpdb.io parity (SH-8): on a revealed card, digits 1..5 press the grade
+    // buttons in their rendered order — 1=Nothing … 5=Easy on JPDB-shaped
+    // bars, 1=Fail 2=Pass on two-button bars.
+    private handleGradeDigitKeydown(root: HTMLElement, event: KeyboardEvent): void {
+        if (!this.state.revealAnswer || event.metaKey || event.ctrlKey || event.altKey) return;
+        if (!/^[1-9]$/.test(event.key)) return;
+        const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-study] [data-newtab-action="grade"]:not([disabled])'));
+        const button = buttons[Number(event.key) - 1];
+        if (!button) return;
+        event.preventDefault();
+        button.click();
     }
 
     private canRevealFromEnterTarget(root: HTMLElement, target: HTMLElement | null): boolean {

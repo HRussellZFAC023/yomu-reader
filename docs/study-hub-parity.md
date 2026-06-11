@@ -111,7 +111,7 @@ forecast." Anki: `getNumCardsReviewedByDay` + due forecast from status index;
 Jiten: study-batch metadata + daily cache; JPDB API: no forecast — show due-now only and
 label the limitation.
 
-### SH-8: Keyboard/grade-shortcut parity audit
+### SH-8: Keyboard/grade-shortcut parity — AUDITED + SHIPPED 0.6.94 (Space/Enter reveal and arrow navigation already existed; added jpdb's 1..5 digit grading on revealed cards, mapped to the rendered grade-button order so two-button bars get 1=Fail 2=Pass; inputs/selects keep capture immunity)
 JPDB: space=show answer, 1..5=grades; Jiten equivalents. Verify the new tab matches and
 documents them (some shortcuts exist; audit + align).
 

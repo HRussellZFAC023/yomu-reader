@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.94] - 2026-06-11
+
+### Added
+
+- jpdb.io keyboard parity in the study tab: with the answer revealed, the 1–5 digit keys press the grade buttons in order (1=Nothing … 5=Easy on JPDB-style bars; 1=Fail 2=Pass on two-button bars). Space/Enter reveal and arrow-key navigation were already there. Digits never fire on the card front or while typing in a field. (Study-hub parity SH-8.)
+
 ## [0.6.93] - 2026-06-11
 
 ### Added

@@ -8650,6 +8650,42 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('grades revealed cards with the 1..5 digit keys in button order (SH-8, jpdb parity)', () => {
+        const controller = newTabPromptController();
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        const study = document.createElement('div');
+        study.dataset.newtabStudy = 'true';
+        const clicks: string[] = [];
+        for (const grade of ['nothing', 'something', 'hard', 'okay', 'easy']) {
+            const button = document.createElement('button');
+            button.dataset.newtabAction = 'grade';
+            button.dataset.grade = grade;
+            button.addEventListener('click', () => clicks.push(grade));
+            study.append(button);
+        }
+        root.append(study);
+        Object.assign(controller as unknown as { state: { mode: string; revealAnswer: boolean } }, {
+            state: { mode: 'word', revealAnswer: true },
+        });
+        (controller as unknown as { allWords: unknown[] }).allWords = [{}];
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+
+        try {
+            expect(dispatchNewTabKeyboard(root, '4').defaultPrevented).toBe(true);
+            expect(dispatchNewTabKeyboard(root, '1').defaultPrevented).toBe(true);
+            expect(clicks).toEqual(['okay', 'nothing']);
+
+            // Hidden card front: digits do nothing.
+            (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state.revealAnswer = false;
+            expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(false);
+            expect(clicks).toHaveLength(2);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('does not hijack study shortcuts from text inputs or selects', () => {
         const controller = newTabPromptController();
         const cards = [
