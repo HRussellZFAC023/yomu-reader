@@ -44368,7 +44368,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     exampleSentenceParseOptions() {
       const settings = this.options.getSettings();
-      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? {} : { allowSegmentedFallback: true, includeLocalPitch: true });
+      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
     }
     cachedParsedExampleSentenceTokens(sentence) {
       return this.parsedSentenceCache.get(sentence.trim())?.tokens;
@@ -55644,7 +55644,9 @@ ${newTabCardReading(card)}`;
         this.parsedSentenceCache,
         key2,
         NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT,
-        () => this.dependencies.parser.parse([key2], jpdbFirstParseOptions({ allowSegmentedFallback: true })).then(([tokens]) => tokens ?? []),
+        // includeLocalPitch is fallback-only in the parser; without it, keyed
+        // parses left sentence words bare when the API had no pitch.
+        () => this.dependencies.parser.parse([key2], jpdbFirstParseOptions({ allowSegmentedFallback: true, includeLocalPitch: true })).then(([tokens]) => tokens ?? []),
         shouldCacheParsedNewTabSentenceTokens
       );
     }

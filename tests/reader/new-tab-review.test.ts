@@ -7778,8 +7778,8 @@ describe('new tab review helpers', () => {
             });
             expect(root.querySelector('.jpdb-reader-newtab-immersion')).toBeNull();
             expect(fetchBlobUrl).toHaveBeenCalled();
-            expect(parse).toHaveBeenCalledWith(['一番を見た。'], { includeLocalPitch: false, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
-            expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: false, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenCalledWith(['一番を見た。'], { includeLocalPitch: true, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: true, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
         } finally {
             root.remove();
         }
@@ -7832,7 +7832,7 @@ describe('new tab review helpers', () => {
             secondExamples.resolve([newTabImmersionExample('二番')]);
             await waitForExpect(() => {
                 expect(fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]).join('\n')).toContain('ik-二番');
-                expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: false, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
+                expect(parse).toHaveBeenCalledWith(['二番を見た。'], { includeLocalPitch: true, requireApi: true, requireJpdb: true, allowSegmentedFallback: true });
             });
         } finally {
             root.remove();
@@ -11320,7 +11320,7 @@ describe('new tab review helpers', () => {
 
         try {
             (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
-            await waitForExpect(() => expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({ includeLocalPitch: false })));
+            await waitForExpect(() => expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({ includeLocalPitch: true })));
             (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]')?.click();

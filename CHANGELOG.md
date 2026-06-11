@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.117] - 2026-06-11
+
+### Fixed
+
+- Example sentences (Immersion Kit examples in popovers and study-card sentences) no longer leave words without pitch accent when you have a JPDB API key: local-dictionary pitch now fills in wherever the API returns none, in both surfaces — it was already fallback-only, so API pitch is never overridden. Closes the example-sentence pitch-gap ticket.
+
 ## [0.6.116] - 2026-06-11
 
 ### Changed

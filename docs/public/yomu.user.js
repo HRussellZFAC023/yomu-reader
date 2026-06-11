@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.116
+// @version      0.6.117
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -25482,7 +25482,7 @@ ${spelling}`);
     }
     exampleSentenceParseOptions() {
       const settings = this.options.getSettings();
-      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? {} : { allowSegmentedFallback: true, includeLocalPitch: true });
+      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
     }
     cachedParsedExampleSentenceTokens(sentence) {
       return this.parsedSentenceCache.get(sentence.trim())?.tokens;
