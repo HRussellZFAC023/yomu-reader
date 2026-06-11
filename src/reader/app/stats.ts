@@ -50,6 +50,14 @@ export interface StatsSourceSnapshot {
     currentStreak: number;
     longestStreak: number;
     updatedAt: number | null;
+    // Upcoming scheduled reviews (Jiten Today-panel parity). Only providers
+    // whose scheduler can answer exactly populate it (Anki via prop:due).
+    dueForecast?: StatsDueForecast;
+}
+
+export interface StatsDueForecast {
+    in7: number;
+    in30: number;
 }
 
 export interface StatsCombinedSnapshot extends Omit<StatsSourceSnapshot, 'id'> {
@@ -209,7 +217,22 @@ export function combineStatsSources(jpdb: StatsSourceSnapshot, anki: StatsSource
         currentStreak: 0,
         longestStreak: 0,
         updatedAt: Math.max(jpdb.updatedAt ?? 0, anki.updatedAt ?? 0) || null,
+        ...(anki.dueForecast ? { dueForecast: anki.dueForecast } : {}),
     });
+}
+
+// Anki's own scheduler answers "due within N days" exactly through its
+// search syntax — `prop:due>0 prop:due<=N` counts upcoming learn+review
+// cards — so no client-side decoding of the queue-dependent `due` encodings
+// is needed (those mix day offsets and epoch timestamps).
+async function loadAnkiDueForecast(api: StatsAnkiApi, decks: string[]): Promise<StatsDueForecast> {
+    const scope = decks.length ? `(${decks.map(deck => `deck:${quoteAnkiSearch(deck)}`).join(' OR ')}) ` : '';
+    const count = async (horizon: number): Promise<number> => {
+        const ids = await api.invoke<number[]>('findCards', { query: `${scope}-is:suspended prop:due>0 prop:due<=${horizon}` });
+        return Array.isArray(ids) ? ids.length : 0;
+    };
+    const [in7, in30] = await Promise.all([count(7), count(30)]);
+    return { in7, in30 };
 }
 
 export function parseJpdbReviewExportText(text: string): JpdbReviewImport {
@@ -255,6 +278,7 @@ export async function loadAnkiConnectStats(api: StatsAnkiApi, options: LoadAnkiC
         loadAnkiRetentionDaily(api, allDecksSelected ? null : decks).catch(() => []),
     ]);
     const daily = allDecksSelected ? mergeDailyPoints(ankiReviewedByDayToDaily(reviewedByDay), retentionDaily) : retentionDaily;
+    const dueForecast = await loadAnkiDueForecast(api, allDecksSelected ? [] : decks).catch((): StatsDueForecast | undefined => undefined);
     const source = finalizeStatsSource({
         id: 'anki',
         label: 'Anki',
@@ -270,6 +294,7 @@ export async function loadAnkiConnectStats(api: StatsAnkiApi, options: LoadAnkiC
         currentStreak: 0,
         longestStreak: 0,
         updatedAt: Date.now(),
+        ...(dueForecast ? { dueForecast } : {}),
     });
     return {
         ...source,

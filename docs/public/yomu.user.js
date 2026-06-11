@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.105
+// @version      0.6.106
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19633,6 +19633,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       studyDeckSelector: "Study deck",
       showOnlyFilter: "Show only",
       browseSelectPage: "Select page",
+      statsNext7d: "Next 7d",
+      statsNext30d: "Next 30d",
       partOfDeck: "Part of the {deck} deck",
       composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
@@ -19763,6 +19765,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     studyDeckSelector: "学習デッキ",
     showOnlyFilter: "表示対象",
     browseSelectPage: "ページを選択",
+    statsNext7d: "今後7日",
+    statsNext30d: "今後30日",
     partOfDeck: "デッキ「{deck}」に含まれています",
     composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
@@ -27824,7 +27828,8 @@ ${spelling}`);
       reviewSource: "jiten-api",
       jitenWordId: wordId,
       jitenReadingIndex: readingIndex,
-      ...reviewGradeIntervals ? { reviewGradeIntervals } : {}
+      ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
+      ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}
     };
   }
   function jitenStudyCardPitchAccent(card, reading) {

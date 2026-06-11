@@ -19376,6 +19376,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       studyDeckSelector: "Study deck",
       showOnlyFilter: "Show only",
       browseSelectPage: "Select page",
+      statsNext7d: "Next 7d",
+      statsNext30d: "Next 30d",
       partOfDeck: "Part of the {deck} deck",
       composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
@@ -19506,6 +19508,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     studyDeckSelector: "学習デッキ",
     showOnlyFilter: "表示対象",
     browseSelectPage: "ページを選択",
+    statsNext7d: "今後7日",
+    statsNext30d: "今後30日",
     partOfDeck: "デッキ「{deck}」に含まれています",
     composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
@@ -28780,7 +28784,8 @@ ${spelling}`);
       reviewSource: "jiten-api",
       jitenWordId: wordId,
       jitenReadingIndex: readingIndex,
-      ...reviewGradeIntervals ? { reviewGradeIntervals } : {}
+      ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
+      ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}
     };
   }
   function jitenStudyCardPitchAccent(card, reading) {
@@ -33442,8 +33447,18 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       retention: null,
       currentStreak: 0,
       longestStreak: 0,
-      updatedAt: Math.max(jpdb.updatedAt ?? 0, anki.updatedAt ?? 0) || null
+      updatedAt: Math.max(jpdb.updatedAt ?? 0, anki.updatedAt ?? 0) || null,
+      ...anki.dueForecast ? { dueForecast: anki.dueForecast } : {}
     });
+  }
+  async function loadAnkiDueForecast(api, decks) {
+    const scope = decks.length ? `(${decks.map((deck) => `deck:${quoteAnkiSearch(deck)}`).join(" OR ")}) ` : "";
+    const count = async (horizon) => {
+      const ids = await api.invoke("findCards", { query: `${scope}-is:suspended prop:due>0 prop:due<=${horizon}` });
+      return Array.isArray(ids) ? ids.length : 0;
+    };
+    const [in7, in30] = await Promise.all([count(7), count(30)]);
+    return { in7, in30 };
   }
   function parseJpdbReviewExportText(text2) {
     const parsed = JSON.parse(text2);
@@ -33484,6 +33499,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       loadAnkiRetentionDaily(api, allDecksSelected ? null : decks).catch(() => [])
     ]);
     const daily = allDecksSelected ? mergeDailyPoints(ankiReviewedByDayToDaily(reviewedByDay), retentionDaily) : retentionDaily;
+    const dueForecast = await loadAnkiDueForecast(api, allDecksSelected ? [] : decks).catch(() => void 0);
     const source = finalizeStatsSource({
       id: "anki",
       label: "Anki",
@@ -33498,7 +33514,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       retention: null,
       currentStreak: 0,
       longestStreak: 0,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      ...dueForecast ? { dueForecast } : {}
     });
     return {
       ...source,
@@ -34378,9 +34395,12 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     return speed === null ? "n/a" : `${speed.toFixed(speed >= 10 ? 0 : 1)}`;
   }
   function statsDueTimeDetail(minutes, context) {
-    const { text: text2 } = context;
-    if (minutes === null) return text2("statsCardsPerMinute");
-    return `${text2("statsCardsPerMinute")} · ${text2("statsEstimatedDueTime")}: ${formatStatsDuration(minutes)}`;
+    const { source, text: text2 } = context;
+    const parts = [];
+    if (minutes !== null) parts.push(`${text2("statsEstimatedDueTime")}: ${formatStatsDuration(minutes)}`);
+    const forecast = source.dueForecast;
+    if (forecast) parts.push(`${text2("statsNext7d")}: ${formatCompactNumber(forecast.in7)} · ${text2("statsNext30d")}: ${formatCompactNumber(forecast.in30)}`);
+    return parts.length ? parts.join(" · ") : text2("statsCardsPerMinute");
   }
   function formatStatsDuration(minutes) {
     if (!Number.isFinite(minutes) || minutes <= 0) return "0m";
@@ -39397,12 +39417,17 @@ ${newTabCardReading(card)}`;
         meaning.replaceChildren();
         return;
       }
+      const membership = card.jpdbDeckMembership || this.providerDeckMembershipLine(card);
       replaceChildrenWith(
         meaning,
         el("div", {}, firstCardMeaning(card)),
-        card.jpdbDeckMembership ? el("p", { class: "jpdb-reader-newtab-deck-membership" }, card.jpdbDeckMembership) : null
+        membership ? el("p", { class: "jpdb-reader-newtab-deck-membership" }, membership) : null
       );
       this.appendComposedOfLine(meaning, card);
+    }
+    providerDeckMembershipLine(card) {
+      const deck = card.sourceDeckName || (card.ankiDeckNames ?? []).join(", ");
+      return deck ? this.formatNewTabText("partOfDeck", { deck }) : "";
     }
     // SH-4 fidelity: jpdb.io's review back lists the word's component kanji
     // with their keywords ("Composed of"). Chips reuse the existing kanji

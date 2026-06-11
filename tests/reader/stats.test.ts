@@ -59,6 +59,35 @@ function createStatsApiMock(options: {
 }
 
 describe('stats aggregation', () => {
+    it('loads the Anki due forecast through prop:due scheduler queries (SH-7)', async () => {
+        const calls: Array<{ action: string; params?: Record<string, unknown> }> = [];
+        const api = {
+            invoke: async <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
+                calls.push({ action, params });
+                if (action === 'deckNames') return ['Core'] as T;
+                if (action === 'getNumCardsReviewedToday') return 0 as T;
+                if (action === 'getNumCardsReviewedByDay') return [] as T;
+                if (action === 'getDeckStats') return {} as T;
+                if (action === 'findCards') {
+                    const query = String(params?.query ?? '');
+                    if (query.includes('prop:due<=7')) return [1, 2] as T;
+                    if (query.includes('prop:due<=30')) return [1, 2, 3, 4, 5] as T;
+                    return [] as T;
+                }
+                throw new Error(`unexpected action ${action}`);
+            },
+        } as Parameters<typeof loadAnkiConnectStats>[0];
+
+        const source = await loadAnkiConnectStats(api);
+
+        expect(source.dueForecast).toEqual({ in7: 2, in30: 5 });
+        const forecastQueries = calls.filter(call => String(call.params?.query ?? '').includes('prop:due')).map(call => String(call.params?.query));
+        // Anki's own scheduler answers the window; suspended cards excluded,
+        // today's due pile excluded (prop:due>0).
+        expect(forecastQueries.every(query => query.includes('-is:suspended') && query.includes('prop:due>0'))).toBe(true);
+    });
+
+
     afterEach(() => {
         vi.useRealTimers();
     });
@@ -239,9 +268,14 @@ describe('stats aggregation', () => {
         expect(calls.find(call => call.action === 'getDeckStats')?.params).toEqual({
             decks: ['Core', 'Anime::Subs'],
         });
-        expect(calls.filter(call => call.action === 'findCards').map(call => call.params)).toEqual([
-            { query: 'deck:"Core" rated:30' },
-            { query: 'deck:"Anime::Subs" rated:30' },
+        const findCardsQueries = calls.filter(call => call.action === 'findCards').map(call => String(call.params?.query));
+        expect(findCardsQueries.filter(query => query.includes('rated:'))).toEqual([
+            'deck:"Core" rated:30',
+            'deck:"Anime::Subs" rated:30',
         ]);
+        // The due forecast respects the deck toggle scope too.
+        const forecastQueries = findCardsQueries.filter(query => query.includes('prop:due'));
+        expect(forecastQueries).toHaveLength(2);
+        expect(forecastQueries.every(query => query.includes('deck:"Core"') && query.includes('deck:"Anime::Subs"') && !query.includes('deck:"Mining"'))).toBe(true);
     });
 });

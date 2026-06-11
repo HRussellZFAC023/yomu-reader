@@ -493,9 +493,14 @@ function formatStatsSpeed(speed: number | null): string {
 }
 
 function statsDueTimeDetail(minutes: number | null, context: NewTabStatsRenderContext): string {
-    const { text } = context;
-    if (minutes === null) return text('statsCardsPerMinute');
-    return `${text('statsCardsPerMinute')} · ${text('statsEstimatedDueTime')}: ${formatStatsDuration(minutes)}`;
+    const { source, text } = context;
+    const parts: string[] = [];
+    if (minutes !== null) parts.push(`${text('statsEstimatedDueTime')}: ${formatStatsDuration(minutes)}`);
+    // Jiten Today-panel parity: upcoming-review forecast where the provider's
+    // scheduler can answer exactly (Anki).
+    const forecast = source.dueForecast;
+    if (forecast) parts.push(`${text('statsNext7d')}: ${formatCompactNumber(forecast.in7)} · ${text('statsNext30d')}: ${formatCompactNumber(forecast.in30)}`);
+    return parts.length ? parts.join(' · ') : text('statsCardsPerMinute');
 }
 
 function formatStatsDuration(minutes: number): string {
