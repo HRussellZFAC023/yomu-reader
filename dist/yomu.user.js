@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.87
+// @version      0.6.88
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-5eLMsCoY0G1oJvA8i3GbrBIT/8KA6KM++dKxjFJ/is0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-ubIERFou8IAFqJ6ZKD/pyFZEj7mYGwwAvSRHkxmVJRA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TDevRViuA0KXphcBft9l1KrQualebWu18YOV6vpilQ8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-lkDZRBZnG0yWOF28tH66QwwrRcK6PKl2/FLMosJ3XYI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2043,6 +2043,7 @@
     furiganaMode: "all",
     showPitchAccent: true,
     suppressRedundantWordUi: false,
+    sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
@@ -5496,6 +5497,7 @@
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
+      sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Set a hover key. Blank means plain hover.",
       hoverLookupSettings: "Hover lookup",
@@ -6949,6 +6951,7 @@ furiganaHideKnown	既知語を非表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
+sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
 hideKnownFurigana	既知カードのみふりがなを非表示
 readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
 hoverLookupSettings	ホバー検索
@@ -37031,6 +37034,7 @@ ${glossaryKey}`;
     applyPopupFontSettings(settings, root);
     root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status");
     root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
+    root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
     root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
     applyReaderColorSourceClasses(root, "word", theme.wordColorSources);
     applyReaderColorSourceClasses(root, "subtitle", theme.subtitleColorSources);

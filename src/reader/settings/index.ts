@@ -286,6 +286,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     furiganaMode: 'all',
     showPitchAccent: true,
     suppressRedundantWordUi: false,
+    sheetCloseButtonOnLeft: false,
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,

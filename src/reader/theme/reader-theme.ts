@@ -37,6 +37,8 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
     // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.
     root.classList.toggle('jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
+    // Jiten Reader parity: one-handed reach option for the mobile sheet.
+    root.classList.toggle('jpdb-reader-sheet-close-left', Boolean(settings.sheetCloseButtonOnLeft));
     root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);

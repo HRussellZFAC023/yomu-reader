@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.88] - 2026-06-11
+
+### Added
+
+- New mobile option: 'Mobile sheet: close button on the left' — parks the lookup sheet's close button on the left edge for one-handed reach (Jiten Reader parity). Off by default; localized.
+
 ## [0.6.87] - 2026-06-11
 
 ### Added
