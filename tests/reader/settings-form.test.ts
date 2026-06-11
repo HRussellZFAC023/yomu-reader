@@ -1268,7 +1268,7 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki、その後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（JPDB / Jiten）');
-        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ');
+        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順・JPDBの復習順とは異なります）');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB漢字情報、ローカルの順');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（JPDB / Jiten）');

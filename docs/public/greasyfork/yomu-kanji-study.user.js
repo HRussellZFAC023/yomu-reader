@@ -2229,7 +2229,7 @@
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
       newTabLiveReview: "Live JPDB review session",
-      newTabApiVocabulary: "API vocabulary only",
+      newTabApiVocabulary: "API vocabulary only (deck order, not JPDB’s review order)",
       corsProxyUrl: "Cross-origin proxy URL",
       newTabKanjiKeywordSource: "Kanji keyword source",
       newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
@@ -3664,7 +3664,7 @@ dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ
+newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
