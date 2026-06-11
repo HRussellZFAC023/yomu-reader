@@ -3841,6 +3841,30 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('stamps deck-scoped jpdb-api cards with the Part-of-deck membership line (SH-4)', async () => {
+        resetNewTabReviewStorage();
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '世界', reading: 'せかい', cardState: ['due'], vid: 31, source: 'jpdb', reviewSource: 'jpdb-api' }),
+        ]);
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            newTabJpdbDeck: '92',
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => [{ id: '92', name: 'Persona 5' }]) } as never,
+        });
+        try {
+            await controller.renderPage();
+            const internals = controller as unknown as { allWords: Array<{ spelling: string; jpdbDeckMembership?: string }> };
+            await waitForExpect(() => {
+                const card = internals.allWords.find(word => word.spelling === '世界');
+                expect(card?.jpdbDeckMembership).toBe('Part of the Persona 5 deck');
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('filters the Word-tab pool with the JPDB-style Show-only state filter', async () => {
         resetNewTabReviewStorage();
         const listDeckCards = vi.fn(async () => [

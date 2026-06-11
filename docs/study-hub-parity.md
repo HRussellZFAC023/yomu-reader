@@ -111,7 +111,7 @@ state badge with level/interval when known, frequency rank, due-in), per-row act
 bulk actions (Jiten parity). Backed by: jpdb `list deck cards` (global), Jiten cards
 API, Anki status index.
 
-### SH-4: Review back fidelity — deck-membership line SHIPPED 0.6.93 (the live JPDB bridge scrapes jpdb.io's own 'Part of the X deck (3x)' line and the study card back renders it). Composed-of SHIPPED 0.6.98 (component-kanji chips with RTK/JPDB keywords on revealed word backs, kanji-popover drilldown, kana-only words skip it). Remaining: membership line for jpdb-api/Jiten cards (deck name from study deck list)
+### SH-4: Review back fidelity — deck-membership line SHIPPED 0.6.93 (the live JPDB bridge scrapes jpdb.io's own 'Part of the X deck (3x)' line and the study card back renders it). Composed-of SHIPPED 0.6.98 (component-kanji chips with RTK/JPDB keywords on revealed word backs, kanji-popover drilldown, kana-only words skip it). jpdb-api membership SHIPPED 0.6.105 (deck-scoped queues stamp 'Part of the X deck' on every card; live-bridge scrape still wins). Remaining: Jiten membership (single study pool — no per-deck card attribution in the API)
 Back of vocabulary cards should show the composed-of component glosses (we already
 segment expressions for pitch — reuse for component glosses from local dictionaries /
 JPDB), and the "Part of the X deck (3x)" line (jpdb deck membership already loadable;

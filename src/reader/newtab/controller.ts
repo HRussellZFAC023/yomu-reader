@@ -2789,6 +2789,15 @@ export class NewTabController {
                 timeoutMs,
             );
             const cards = jpdbReviewCardsForNewTab(loaded.value, cardLimit);
+            // SH-4 fidelity: when the queue is scoped to a named deck, every
+            // card's back can honestly carry jpdb.io's "Part of the X deck"
+            // line (the live bridge's scraped line still wins when present).
+            const deckName = await this.jpdbDeckNameForMembership(selectedDeck);
+            if (deckName) {
+                for (const card of cards) {
+                    if (!card.jpdbDeckMembership) card.jpdbDeckMembership = this.formatNewTabText('partOfDeck', { deck: deckName });
+                }
+            }
             return {
                 cards,
                 sourceLabel: 'JPDB',
@@ -2798,6 +2807,21 @@ export class NewTabController {
         } catch {
             return null;
         }
+    }
+
+    private async jpdbDeckNameForMembership(deckId: string): Promise<string> {
+        const normalized = deckId.trim();
+        if (!normalized || normalized === 'all' || normalized === JPDB_ALL_DECKS) return '';
+        const settings = this.dependencies.getSettings();
+        const key = effectiveJpdbApiKey(settings);
+        if (this.deckSelectorDecks?.key !== key) {
+            const listDecks = typeof this.dependencies.jpdb.listDecks === 'function'
+                ? this.dependencies.jpdb.listDecks()
+                : Promise.resolve([] as JPDBDeck[]);
+            this.deckSelectorDecks = { key, promise: listDecks.catch((): JPDBDeck[] => []) };
+        }
+        const decks = await this.deckSelectorDecks.promise;
+        return decks.find(deck => deck.id === normalized)?.name ?? '';
     }
 
     private async remoteSourceWithFallback<T>(label: string, promise: Promise<T>, fallback: T, timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS): Promise<T> {
