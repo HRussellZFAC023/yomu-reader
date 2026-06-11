@@ -60,6 +60,31 @@ stats heatmap/streak via Anki history, Jiten daily cache, JPDB export import.
 
 Missing vs the references — the tickets below.
 
+## Simulated user research (2026-06-11)
+
+Five personas walked the captured journeys; their asks, mapped to tickets:
+
+1. **Mobile-first learner (iPhone, YouTube + study page)** — wants an at-a-glance
+   "what's left today" before committing on a commute; big touch targets; one-handed
+   deck switch (shipped 0.6.97); swipe grading (shipped). Ask → SH-7 Today panel.
+2. **Anki power user (1k+ cards)** — wants a due forecast before starting ("is tonight
+   heavy?"), trustworthy due counts, post-mining sync affordance. Ask → SH-7 forecast
+   (only Anki exposes due timestamps — keep other providers honest), backlog
+   `forgetCards`/`sync` adoption ticket.
+3. **JPDB loyalist (trust-focused)** — wants the exact Learn anatomy: stats table
+   (0.6.89), due split (0.6.90), JPDB-first card content (0.6.91), deck entry points
+   (0.6.97), JPDB grade copy (existing). Remaining ask → SH-4 composed-of + queue-order
+   exactness audit.
+4. **Jiten user** — wants the Cards browser select-page bulk actions and the
+   upcoming-reviews list; day streak labelled like Jiten ("Longest / Days studied").
+   Ask → SH-3 v2 bulk actions, SH-7 streak labels.
+5. **iPad split-view user** — keyboard digit grading (0.6.94), trackpad hover lookups
+   (existing), two-column landscape cards. Ask → landscape audit ticket (small, CSS).
+
+Synthesis: the highest-leverage unshipped item is a **Today panel** (every persona
+referenced "what's due / what did I do today" before trusting the page as their one
+stop); second is SH-3 v2 bulk actions; third is composed-of on card backs.
+
 ## Tickets (ranked)
 
 ### SH-1: Learning-progress table in Stats (JPDB shape) — SHIPPED 0.6.89 (Words row + total-known line per provider; kanji/indirect rows remain provider-side data gaps, see Non-goals)
