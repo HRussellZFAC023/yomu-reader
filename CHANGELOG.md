@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.79] - 2026-06-11
+
+### Fixed
+
+- asbplayer subtitle lines now appear already colorized instead of visibly recoloring after display: asbplayer pre-renders the whole track's cue HTML into its offscreen cache and moves the same DOM node onscreen when the cue is current, so Yomu now drains that cache in paced 12-cue batches (80ms apart) the moment it appears — every cue is parsed and colorized before it is shown, with or without a JPDB API key. The currently visible cue is prioritized into the first batch so it can never be starved by a long unprocessed backlog.
+
 ## [0.6.78] - 2026-06-11
 
 ### Fixed
