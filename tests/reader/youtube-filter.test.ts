@@ -1082,6 +1082,55 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('advances the m.youtube.com carousel reel past a non-Japanese active short via the hidden a11y next button', async () => {
+        const mwebReelHtml = (title: string) => `
+            <shorts-page>
+                <shorts-carousel class="ytShortsCarouselHost">
+                    <div class="hidden-a11y-nav ytShortsCarouselShortsA11yNav">
+                        <button class="ytShortsCarouselShortsA11yNavButton" disabled aria-label="前の動画"></button>
+                        <button class="ytShortsCarouselShortsA11yNavButton" aria-label="次の動画"></button>
+                    </div>
+                    <div id="carousel-scrollable-wrapper"><shorts-video></shorts-video></div>
+                </shorts-carousel>
+                <ytm-reel-player-overlay-renderer>
+                    <yt-shorts-video-title-view-model>${title}</yt-shorts-video-title-view-model>
+                </ytm-reel-player-overlay-renderer>
+            </shorts-page>`;
+        const mwebShortsLocation = (videoId: string) => ({
+            href: `https://m.youtube.com/shorts/${videoId}`,
+            origin: 'https://m.youtube.com',
+            hostname: 'm.youtube.com',
+            pathname: `/shorts/${videoId}`,
+            search: '',
+        });
+        const nextButton = () => document.querySelector<HTMLButtonElement>('.ytShortsCarouselShortsA11yNavButton:not([disabled])')!;
+        const runMwebReel = async (videoId: string, title: string): Promise<{ clicks: number; filter: YoutubeImmersionFilter }> => {
+            vi.useFakeTimers();
+            stubOEmbedTitles({ [videoId]: title });
+            vi.stubGlobal('location', mwebShortsLocation(videoId));
+            document.body.innerHTML = mwebReelHtml(title);
+            let clicks = 0;
+            nextButton().addEventListener('click', () => { clicks += 1; });
+            const filter = createYoutubeFilter(() => youtubeFilterSettings());
+            filter.init();
+            await flushPendingFilterWork();
+            return { clicks, filter };
+        };
+
+        // English active short: the reel advances via the a11y next button.
+        const english = await runMwebReel('mwebActive', 'Crazy gym fail compilation');
+        expect(english.clicks).toBeGreaterThan(0);
+        // The mweb player itself must never be offscreen-hidden.
+        expect(document.querySelector('shorts-page')!.classList.contains('jpdb-youtube-filtered')).toBe(false);
+        english.filter.destroy();
+        document.body.replaceChildren();
+
+        // Japanese active short: no advance.
+        const japanese = await runMwebReel('mwebJp', '大阪で食べ歩きラーメン');
+        expect(japanese.clicks).toBe(0);
+        japanese.filter.destroy();
+    });
+
     it('unwraps reader words from the YouTube watch title so SPA navigation can replace it cleanly', async () => {
         const { filter } = await startYoutubeFilter({
             location: {

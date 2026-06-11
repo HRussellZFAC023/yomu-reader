@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.96] - 2026-06-11
+
+### Fixed
+
+- Mobile (m.youtube.com) Shorts: swiping no longer lands on non-Japanese shorts. The 2026 mobile player is a JS carousel (shorts-page > shorts-carousel) with no per-item card elements, so the card filter could never classify the active reel — the active short's title is now read from the player overlay, classified through the same rules as feed cards, and non-Japanese actives are skipped by clicking the carousel's hidden accessibility 'next video' button (locale-independent, verified against the live mobile player).
+
 ## [0.6.95] - 2026-06-11
 
 ### Added

@@ -13244,6 +13244,7 @@ ${spelling}`);
       });
       unwrapYouTubeWatchTitleReaderWords();
       this.restoreCurrentShortsWatchItem();
+      this.advancePastFilteredMobileShortsReel();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
@@ -13312,12 +13313,37 @@ ${spelling}`);
       const now = performance.now();
       if (now - this.lastShortAdvanceAt < YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS) return;
       const next = document.querySelector(
-        'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"]'
+        'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"], shorts-carousel .ytShortsCarouselShortsA11yNavButton:not([disabled]):last-child'
       );
       if (!next) return;
       this.lastAdvancedShortPath = shortPath;
       this.lastShortAdvanceAt = now;
       next.click();
+    }
+    // m.youtube.com shorts player (2026): the active reel lives in a JS
+    // carousel (shorts-page > shorts-carousel) with no per-item card elements,
+    // so the card scan can never classify it and swiping lands on unfiltered
+    // English shorts. Classify the ACTIVE short from the player overlay title
+    // through the same decision rules as cards, and step past it when it
+    // would have been hidden.
+    advancePastFilteredMobileShortsReel() {
+      if (!isYouTubeShortsWatchPage()) return;
+      if (document.querySelector("ytd-shorts")) return;
+      const overlay = document.querySelector("shorts-page, shorts-carousel, shorts-video");
+      if (!overlay) return;
+      const videoId = currentYouTubeShortsVideoId();
+      const title = mobileShortsActiveTitle();
+      if (!videoId || !title) return;
+      const resolvedTitle = this.resolveTitleForFiltering({ card: overlay, title, videoId });
+      const candidate = {
+        card: overlay,
+        title: resolvedTitle,
+        videoId,
+        filterText: resolvedTitle,
+        alwaysHidden: false
+      };
+      const decision = classifyYouTubeFilterCandidates([candidate], { revealed: this.revealed }).decisions[0];
+      if (decision?.kind === "hide") this.advancePastFilteredShort();
     }
     restoreCurrentShortsWatchItem() {
       if (!isYouTubeShortsWatchPage()) return;
@@ -14455,6 +14481,11 @@ ${spelling}`);
     if (rect.width <= 0 || rect.height <= 0) return false;
     const viewportCenter = window.innerHeight / 2;
     return rect.top <= viewportCenter && rect.bottom >= viewportCenter;
+  }
+  function mobileShortsActiveTitle() {
+    const overlayTitle = document.querySelector("yt-shorts-video-title-view-model")?.textContent?.trim() ?? "";
+    if (overlayTitle) return overlayTitle;
+    return document.title.replace(/\s*-\s*YouTube\s*$/i, "").trim();
   }
   function currentYouTubeShortsVideoId() {
     return location.pathname.match(/^\/shorts\/([^/?#]+)/)?.[1] ?? "";
