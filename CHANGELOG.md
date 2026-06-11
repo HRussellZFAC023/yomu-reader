@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.83] - 2026-06-11
+
+### Fixed
+
+- YouTube channel suggestions shelf: being subscribed to every curated channel is now an explicit, celebratory state — the subscribe-all button reads "All 100 subscribed ✓" and disables, the subscribe-visible button hides when the compact view is empty, and the status line distinguishes "all shown channels subscribed — browse all for more" from "subscribed to all 100". The shelf no longer offers Subscribe all 100 against an empty list.
+
 ## [0.6.82] - 2026-06-11
 
 ### Added

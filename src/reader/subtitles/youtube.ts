@@ -746,15 +746,24 @@ export class YoutubeImmersionFilter {
         elements.copy.textContent = this.channelShelfExpanded
             ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
             : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+        // Explicit all-subscribed state: the buttons and status must say what
+        // is left rather than offering "Subscribe all 100" against an empty
+        // list — the shelf never disappears or goes inert ambiguously.
+        const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
         elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
-        elements.subscribeAll.textContent = `Subscribe all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}`;
+        elements.subscribeVisible.hidden = !renderedRecommendations.length;
+        elements.subscribeAll.textContent = remainingChannels
+            ? `Subscribe all ${remainingChannels}`
+            : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
         elements.dismiss.textContent = 'Dismiss';
         elements.never.textContent = 'Hide';
         elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
         if (!this.subscriptionBusy) {
             elements.status.textContent = !renderedRecommendations.length
-                ? 'You are subscribed to all of these channels — nothing new to suggest right now.'
+                ? (remainingChannels
+                    ? 'All shown channels are already subscribed — browse all channels for more.'
+                    : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.`)
                 : readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.';
         }
 
@@ -1034,8 +1043,10 @@ export class YoutubeImmersionFilter {
     }
 
     private setChannelShelfBusy(busy: boolean): void {
+        const allSubscribed = !this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
         this.channelShelf?.querySelectorAll<HTMLButtonElement>('[data-yomu-youtube-channel-action^="subscribe"]').forEach(button => {
-            button.disabled = busy;
+            button.disabled = busy
+                || (allSubscribed && button.dataset.yomuYoutubeChannelAction === 'subscribe-all');
         });
         this.channelShelf?.setAttribute('aria-busy', String(busy));
     }

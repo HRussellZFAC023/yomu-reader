@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
-import { YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/subtitles/youtube-channel-recommendations';
+import { allYouTubeChannelRecommendations, YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/subtitles/youtube-channel-recommendations';
 import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
@@ -748,6 +748,39 @@ describe('YouTube immersion filter', () => {
         const filtered = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
         expect(filtered.textContent).toContain('しまじろうチャンネル');
         expect(filtered.querySelector<HTMLButtonElement>('[data-filter="kids"]')?.getAttribute('aria-pressed')).toBe('true');
+
+        filter.destroy();
+    });
+
+    it('shows an explicit all-subscribed state instead of an ambiguous empty shelf', async () => {
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        // Simulate every curated channel being subscribed already.
+        const handles = allYouTubeChannelRecommendations().map(channel => channel.handle);
+        const subscribed = (filter as unknown as { subscribedChannelHandles: Set<string> }).subscribedChannelHandles;
+        handles.forEach(handle => subscribed.add(handle));
+        (filter as unknown as { renderChannelShelf: (elements: unknown) => void; channelShelfElements: (shelf: HTMLElement) => unknown; channelShelf?: HTMLElement }).renderChannelShelf(
+            (filter as unknown as { channelShelfElements: (shelf: HTMLElement) => unknown }).channelShelfElements(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!),
+        );
+
+        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
+        expect(shelf).not.toBeNull();
+        const subscribeAll = shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!;
+        expect(subscribeAll.textContent).toContain('All 100 subscribed');
+        expect(subscribeAll.disabled).toBe(true);
+        const subscribeVisible = shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')!;
+        expect(subscribeVisible.hidden).toBe(true);
+        expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent)
+            .toContain('subscribed to all 100 curated channels');
 
         filter.destroy();
     });
