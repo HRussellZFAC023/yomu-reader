@@ -3513,7 +3513,7 @@ describe('new tab review helpers', () => {
         const buttons = Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]'));
         expect(buttons.map(button => button.dataset.grade)).toEqual(['nothing', 'hard', 'okay']);
         expect(buttons.map(button => button.dataset.gradeInterval)).toEqual(['1m', '10m', '4.1y']);
-        expect(buttons.map(button => button.textContent)).toEqual(['Again', 'Hard', 'Good']);
+        expect(buttons.map(button => button.querySelector('.jpdb-reader-newtab-grade-label')?.textContent)).toEqual(['Again', 'Hard', 'Good']);
         expect(mount.querySelector('.jpdb-reader-newtab-grade-interval')).toBeNull();
         expect(buttons[0]?.getAttribute('aria-label')).toBe('Again, 1m: Grades Anki');
         expect(buttons[0]?.title).toBe('Grades Anki · 1m');
@@ -3554,7 +3554,7 @@ describe('new tab review helpers', () => {
         expect(mount.querySelector('[data-newtab-grade-target]')?.classList.contains('jpdb-reader-newtab-grade-target-context')).toBe(true);
         expect(select?.selectedOptions[0]?.textContent).toBe('Both');
         expect(select?.selectedOptions[0]?.dataset.newtabGradeTargetLabel).toBe('Grades JPDB + Anki card: Core #404');
-        expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.textContent)).toEqual(['Fail', 'Pass']);
+        expect(Array.from(mount.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]')).map(button => button.querySelector('.jpdb-reader-newtab-grade-label')?.textContent)).toEqual(['Fail', 'Pass']);
     });
 
     it('wires card.reviewGradeIntervals into the main new-tab grade bar', () => {
@@ -3785,6 +3785,38 @@ describe('new tab review helpers', () => {
             });
         } finally {
             resetNewTabReviewStorage();
+        }
+    });
+
+    it('advertises grading keys on the study controls like jpdb.io and Jiten (SH-8)', () => {
+        const buttons = renderNewTabGradeControlButtons({
+            apiShortLabel: 'JPDB',
+            bothLabel: 'Both',
+            grades: [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']],
+            selectorLabel: 'Grade target',
+            selectedOption: undefined,
+            summary: '',
+            targetLabel: 'Grades JPDB',
+            targetOptions: [],
+        } as never);
+        const gradeButtons = buttons.filter(node => node.matches?.('[data-newtab-action="grade"]')) as HTMLButtonElement[];
+        // Digits map to rendered order, matching handleGradeDigitKeydown.
+        expect(gradeButtons.map(button => button.querySelector('.jpdb-reader-newtab-key-hint')?.textContent)).toEqual(['1', '2', '3', '4', '5']);
+        // Hints stay out of the accessible name (digit order is positional).
+        expect(gradeButtons[0]?.querySelector('.jpdb-reader-newtab-key-hint')?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('advertises Space on the reveal control', () => {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'local' });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Dictionaries',
+            state: { source: 'dictionary', revealAnswer: false },
+        });
+        try {
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('Space');
+        } finally {
+            controller.destroy();
         }
     });
 
@@ -5766,7 +5798,7 @@ describe('new tab review helpers', () => {
 
         expect(root.querySelector('[data-grade]')).toBeNull();
         expect(root.querySelector('[data-newtab-action="previous"]')).not.toBeNull();
-        expect(root.querySelector('[data-newtab-action="reveal"]')?.textContent).toBe('Hide');
+        expect(root.querySelector('[data-newtab-action="reveal"]')?.firstChild?.textContent).toBe('Hide');
         expect(root.querySelector('[data-newtab-action="next"]')).not.toBeNull();
     });
 

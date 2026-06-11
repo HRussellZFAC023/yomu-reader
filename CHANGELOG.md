@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.99] - 2026-06-11
+
+### Added
+
+- Study controls now advertise their keyboard shortcuts the way jpdb.io and Jiten do: the reveal button shows Space and each grade button shows its digit (1..5 in rendered order). Hints are decorative (aria-hidden) and disappear on touch devices. Discovered by running the live Jiten study journey with the userscript injected — Jiten's own 'Show Answer — Space' hint set the bar.
+
 ## [0.6.98] - 2026-06-11
 
 ### Added

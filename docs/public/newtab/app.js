@@ -34386,7 +34386,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function renderNewTabGradeControlButtons(options) {
     return [
-      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade])),
+      ...options.grades.map(([grade, label], index) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], index + 1)),
       renderNewTabGradeTargetControl(options)
     ];
   }
@@ -34479,7 +34479,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       }
     }, option.shortLabel)));
   }
-  function renderNewTabGradeButton(grade, label, targetLabel, interval) {
+  function renderNewTabGradeButton(grade, label, targetLabel, interval, keyHint) {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || "";
     const aria = [label, intervalLabel].filter(Boolean).join(", ");
     const title = [targetLabel, interval?.label || intervalLabel].filter(Boolean).join(" · ");
@@ -34491,7 +34491,11 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
         title,
         "aria-label": `${aria}: ${targetLabel}`
       },
-      el("span", { class: "jpdb-reader-newtab-grade-label" }, label)
+      el("span", { class: "jpdb-reader-newtab-grade-label" }, label),
+      // jpdb.io/Jiten parity: both advertise their grading keys on the
+      // controls; digits map to rendered order (handleGradeDigitKeydown).
+      // Hidden on touch via CSS.
+      keyHint ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, String(keyHint)) : null
     );
   }
   function mainGradeTargetShortLabel(option, fallback) {
@@ -41733,7 +41737,12 @@ ${newTabCardReading(card)}`;
     navigationControlButtons(revealLabel) {
       return [
         el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
-        el("button", { type: "button", dataset: { newtabAction: "reveal" } }, revealLabel),
+        el(
+          "button",
+          { type: "button", dataset: { newtabAction: "reveal" } },
+          revealLabel,
+          el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, "Space")
+        ),
         el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
     }
