@@ -3956,6 +3956,32 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('derives kanji study cards from Anki source cards, keeping the Anki linkage (kanji-extraction verify)', () => {
+        const controller = newTabPromptController(DEFAULT_SETTINGS, {});
+        try {
+            const internals = controller as unknown as { kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[] };
+            const wordCard = newTabTestCard({ vid: -1, sid: -1, rid: 401, ankiCardId: 401, spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' });
+            // RTK-style standalone kanji note stays a standalone kanji card.
+            const rtkCard = newTabTestCard({ vid: -2, sid: -2, rid: 402, ankiCardId: 402, spelling: '記', reading: 'き', cardState: ['known'], source: 'anki', reviewSource: 'anki', kanjiKeyword: 'scribe' });
+            const kanjiCards = internals.kanjiStudyCardsFromSourceCards([wordCard, rtkCard]);
+
+            expect(kanjiCards.map(card => card.spelling).sort()).toEqual(['暗', '記']);
+            const dark = kanjiCards.find(card => card.spelling === '暗')!;
+            // Word-derived kanji keep the Anki linkage for details/back-nav…
+            expect(dark.ankiCardId).toBe(401);
+            expect(dark.source).toBe('anki');
+            // …but are not themselves gradeable review cards (the Anki card
+            // is the word, not the kanji).
+            expect(dark.reviewSource).toBeUndefined();
+            // The standalone RTK note wins the dedup for 記 and keeps its keyword.
+            const scribe = kanjiCards.find(card => card.spelling === '記')!;
+            expect(scribe.ankiCardId).toBe(402);
+            expect(scribe.kanjiKeyword).toBe('scribe');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('scopes the Anki queue to the deck chosen in the in-page deck selector (SH-6 Anki)', async () => {
         resetNewTabReviewStorage();
         const { listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('anki');

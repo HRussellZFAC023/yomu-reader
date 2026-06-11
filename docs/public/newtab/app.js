@@ -1,6 +1,5 @@
 (function() {
   "use strict";
-  var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
   const CORE_COLOR_TOKENS = {
     black: "#000000",
     white: "#ffffff",
@@ -123,95 +122,95 @@
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
     FACTORY_RESET_SIGNAL_KEY
   ]);
-  async function gmStorageGet(key2, fallback) {
+  async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
-        const value = await getValue(key2, MISSING);
+        const value = await getValue(key, MISSING);
         if (value !== MISSING) return value;
-        const migrated = localStorageGet(key2, MISSING);
+        const migrated = localStorageGet(key, MISSING);
         if (migrated !== MISSING) {
-          await gmStorageSet(key2, migrated);
+          await gmStorageSet(key, migrated);
           return migrated;
         }
         return fallback;
       } catch (error) {
-        debugStorageError("GM storage read failed", key2, error);
+        debugStorageError("GM storage read failed", key, error);
       }
     }
-    return localStorageGet(key2, fallback);
+    return localStorageGet(key, fallback);
   }
-  function gmStorageGetSync(key2, fallback) {
+  function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
-      const read = gmStorageSyncRead(key2, getValue);
+      const read = gmStorageSyncRead(key, getValue);
       if (read.kind === "found") return read.value;
     }
-    return localStorageGet(key2, fallback);
+    return localStorageGet(key, fallback);
   }
-  function gmStorageSyncRead(key2, getValue) {
+  function gmStorageSyncRead(key, getValue) {
     try {
-      const value = getValue(key2, MISSING);
+      const value = getValue(key, MISSING);
       if (isPromiseLike(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key2);
+      return migratedLocalStorageSyncValue(key);
     } catch (error) {
-      debugStorageError("GM storage sync read failed", key2, error);
+      debugStorageError("GM storage sync read failed", key, error);
       return { kind: "fallback" };
     }
   }
-  function migratedLocalStorageSyncValue(key2) {
-    const migrated = localStorageGet(key2, MISSING);
+  function migratedLocalStorageSyncValue(key) {
+    const migrated = localStorageGet(key, MISSING);
     if (migrated === MISSING) return { kind: "fallback" };
-    void gmStorageSet(key2, migrated);
+    void gmStorageSet(key, migrated);
     return { kind: "found", value: migrated };
   }
-  async function gmStorageSet(key2, value) {
+  async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
     if (setValue) {
-      await setValue(key2, value);
+      await setValue(key, value);
       return;
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  function gmStorageSetSync(key2, value) {
+  function gmStorageSetSync(key, value) {
     if (typeof GM_setValue === "function") {
       try {
-        const result = GM_setValue(key2, value);
+        const result = GM_setValue(key, value);
         if (!isPromiseLike(result)) return;
       } catch (error) {
-        debugStorageError("GM storage sync write failed", key2, error);
+        debugStorageError("GM storage sync write failed", key, error);
       }
     }
-    localStorageSet(key2, value);
+    localStorageSet(key, value);
   }
-  async function gmStorageDelete(key2) {
+  async function gmStorageDelete(key) {
     const deleteValue = asyncGmDeleteValue();
     if (deleteValue) {
       try {
-        await deleteValue(key2);
+        await deleteValue(key);
       } catch (error) {
-        debugStorageError("GM storage delete failed", key2, error);
+        debugStorageError("GM storage delete failed", key, error);
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
-  function gmStorageDeleteSync(key2) {
+  function gmStorageDeleteSync(key) {
     if (typeof GM_deleteValue === "function") {
       try {
-        const result = GM_deleteValue(key2);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        const result = GM_deleteValue(key);
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
-        debugStorageError("GM storage sync delete failed", key2, error);
+        debugStorageError("GM storage sync delete failed", key, error);
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
   }
   async function exportStoredValues(prefixes) {
     const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
-    const entries = await Promise.all(keys.map(async (key2) => [key2, await gmStorageGet(key2, void 0)]));
+    const entries = await Promise.all(keys.map(async (key) => [key, await gmStorageGet(key, void 0)]));
     return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
   }
   async function exportManagedStoredValues() {
@@ -219,15 +218,15 @@
   }
   async function importStoredValues(values) {
     let count = 0;
-    for (const [key2, value] of managedStoredValueEntries(values)) {
-      await gmStorageSet(key2, value);
-      localStorageSet(key2, value);
+    for (const [key, value] of managedStoredValueEntries(values)) {
+      await gmStorageSet(key, value);
+      localStorageSet(key, value);
       count++;
     }
     return count;
   }
   function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isBackupStorageKey(key)) : [];
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
@@ -235,10 +234,10 @@
   async function clearManagedStoredValues() {
     const keys = await allStorageKeys();
     let count = 0;
-    for (const key2 of keys) {
-      await gmStorageDelete(key2);
-      removeLocalStorageKey(key2);
-      removeSessionStorageKey(key2);
+    for (const key of keys) {
+      await gmStorageDelete(key);
+      removeLocalStorageKey(key);
+      removeSessionStorageKey(key);
       count++;
     }
     await clearManagedIndexedDatabases();
@@ -324,24 +323,24 @@
   function addLocalStorageKeys(keys, prefixes) {
     try {
       for (let index = 0; index < localStorage.length; index++) {
-        const key2 = localStorage.key(index);
-        if (key2 && storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+        const key = localStorage.key(index);
+        if (key && storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
       }
     } catch {
     }
   }
   async function addKnownManagedStorageKeys(keys, prefixes) {
-    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
-      if (storageKeyMatchesPrefix(key2, prefixes) && await storedValueExists(key2)) keys.add(key2);
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
     }
   }
   function addMatchingStorageKeys(keys, candidates, prefixes) {
-    for (const key2 of candidates) {
-      if (storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+    for (const key of candidates) {
+      if (storageKeyMatchesPrefix(key, prefixes)) keys.add(key);
     }
   }
-  function storageKeyMatchesPrefix(key2, prefixes) {
-    return prefixes.some((prefix) => key2.startsWith(prefix));
+  function storageKeyMatchesPrefix(key, prefixes) {
+    return prefixes.some((prefix) => key.startsWith(prefix));
   }
   async function allStorageKeys() {
     const keys = /* @__PURE__ */ new Set();
@@ -355,65 +354,65 @@
     const listValues = asyncGmListValues();
     if (!listValues) return;
     try {
-      for (const key2 of await listValues()) keys.add(key2);
+      for (const key of await listValues()) keys.add(key);
     } catch (error) {
       debugStorageError("GM storage list failed", "GM_listValues", error);
     }
   }
   async function addKnownStoredKeys(keys) {
-    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
-      if (await storedValueExists(key2)) keys.add(key2);
+    for (const key of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (await storedValueExists(key)) keys.add(key);
     }
   }
   function collectWebStorageKeys(storage, keys) {
     try {
       for (let index = 0; index < storage.length; index++) {
-        const key2 = storage.key(index);
-        if (key2 && isManagedStorageKey(key2)) keys.add(key2);
+        const key = storage.key(index);
+        if (key && isManagedStorageKey(key)) keys.add(key);
       }
     } catch {
     }
   }
-  function localStorageGet(key2, fallback) {
+  function localStorageGet(key, fallback) {
     try {
-      const value = localStorage.getItem(key2);
+      const value = localStorage.getItem(key);
       return value == null ? fallback : JSON.parse(value);
     } catch {
       return fallback;
     }
   }
-  function localStorageSet(key2, value) {
+  function localStorageSet(key, value) {
     try {
-      localStorage.setItem(key2, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
     } catch {
     }
   }
-  function removeLocalStorageKey(key2) {
+  function removeLocalStorageKey(key) {
     try {
-      localStorage.removeItem(key2);
+      localStorage.removeItem(key);
     } catch {
     }
   }
-  function removeSessionStorageKey(key2) {
+  function removeSessionStorageKey(key) {
     try {
-      sessionStorage.removeItem(key2);
+      sessionStorage.removeItem(key);
     } catch {
     }
   }
-  async function storedValueExists(key2) {
+  async function storedValueExists(key) {
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
-        if (await getValue(key2, MISSING) !== MISSING) return true;
+        if (await getValue(key, MISSING) !== MISSING) return true;
       } catch (error) {
-        debugStorageError("GM storage existence check failed", key2, error);
+        debugStorageError("GM storage existence check failed", key, error);
       }
     }
-    return webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2);
+    return webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key);
   }
-  function webStorageHasKey(storage, key2) {
+  function webStorageHasKey(storage, key) {
     try {
-      return storage.getItem(key2) !== null;
+      return storage.getItem(key) !== null;
     } catch {
       return false;
     }
@@ -529,14 +528,14 @@
   function createFactoryResetId() {
     return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   }
-  function isManagedStorageKey(key2) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
-  function isBackupStorageKey(key2) {
-    return isManagedStorageKey(key2) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+  function isBackupStorageKey(key) {
+    return isManagedStorageKey(key) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
   }
-  function debugStorageError(message, key2, error) {
-    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  function debugStorageError(message, key, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
   const JITEN_API_KEY_PREFIX = "ak_";
   function singleApiCredentialValue(settings) {
@@ -609,8 +608,8 @@
     error(message, ...args) {
       this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
     }
-    warnOnce(key2, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key2}`, this.scopeName, message, args);
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
     }
     time(label, ...args) {
       if (!this.parent.isEnabled()) return () => void 0;
@@ -655,9 +654,9 @@
     reset() {
       this.onceKeys.clear();
     }
-    warnOnce(key2, scope, message, args) {
-      if (this.onceKeys.has(key2)) return;
-      this.onceKeys.add(key2);
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
       this.write(scope, message, args, console.warn, WARN_STYLE);
     }
     write(scope, message, args, writer, levelStyle) {
@@ -730,9 +729,9 @@
     (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
   ];
   function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key2, value]) => [
-      key2,
-      shouldRedactEntry(key2, value) ? REDACTED : sanitizeFlatValue(value)
+    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
     ]));
   }
   function sanitizeFlatValue(value) {
@@ -740,9 +739,9 @@
     if (value instanceof Error) return { name: value.name, message: value.message };
     return value;
   }
-  function shouldRedactEntry(key2, value) {
-    if (!SECRET_KEY_PATTERN.test(key2)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key2)) return false;
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
     return true;
   }
   function redactString(value) {
@@ -999,7 +998,7 @@
   function hasSensitiveUrlParams(targetUrl) {
     try {
       const url = new URL(targetUrl, location.href);
-      return Array.from(url.searchParams.keys()).some((key2) => SENSITIVE_REQUEST_KEY_RE.test(key2));
+      return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
     } catch {
       return false;
     }
@@ -1053,8 +1052,8 @@
     if (!headers) return headers;
     const excluded = new Set(names.map((name) => name.toLowerCase()));
     const sanitized = {};
-    new Headers(headers).forEach((value, key2) => {
-      if (!excluded.has(key2.toLowerCase())) sanitized[key2] = value;
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
     });
     return Object.keys(sanitized).length ? sanitized : void 0;
   }
@@ -1218,20 +1217,18 @@
       return void 0;
     }
   }
-  function safeReadProperty(source, key2) {
+  function safeReadProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
   }
-  function safeReadString(source, key2) {
-    const value = safeReadProperty(source, key2);
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
     return typeof value === "string" ? value : void 0;
   }
-  var key = `__monkeyWindow-` + new URL(_documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("app.js", document.baseURI).href || location.href).origin;
-  var monkeyWindow = document[key] ?? window;
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -1267,22 +1264,21 @@
       sources.push(value);
     };
     for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(monkeyWindow);
     add(globalThis);
     if (typeof window !== "undefined") add(window);
     return sources;
   }
   function mountedMonkeyWindows() {
     if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key2) => key2.startsWith("__monkeyWindow-")).map((key2) => readSourceProperty(document, key2)).filter(isRequestSource);
+    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
   }
   function isRequestSource(value) {
     return Boolean(value) && (typeof value === "object" || typeof value === "function");
   }
-  function readSourceProperty(source, key2) {
+  function readSourceProperty(source, key) {
     if (!isRequestSource(source)) return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
@@ -1364,9 +1360,9 @@
     if (unshadowedResult.called) return true;
     return false;
   }
-  function initialWindowMethod(key2) {
+  function initialWindowMethod(key) {
     if (typeof window === "undefined") return void 0;
-    return readMethod(window, key2);
+    return readMethod(window, key);
   }
   function dispatchWithPrototypeMethod(target, directDispatch, event) {
     for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
@@ -1392,8 +1388,8 @@
     }
     return { called: false };
   }
-  function eventConstructor(source, key2) {
-    const value = readProperty(source, key2);
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
   }
   function createDocumentEvent(type, init) {
@@ -1416,34 +1412,34 @@
       return void 0;
     }
   }
-  function eventTargetPrototypeMethods(target, key2) {
+  function eventTargetPrototypeMethods(target, key) {
     const methods = [];
     const add = (method) => {
       if (method && !methods.includes(method)) methods.push(method);
     };
     let prototype = Object.getPrototypeOf(target);
     while (prototype) {
-      add(readOwnMethod(prototype, key2));
+      add(readOwnMethod(prototype, key));
       prototype = Object.getPrototypeOf(prototype);
     }
     const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key2));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key2));
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
     return methods;
   }
-  function readMethod(source, key2) {
-    const value = readProperty(source, key2);
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
   }
-  function readOwnMethod(source, key2) {
+  function readOwnMethod(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key2)) return void 0;
-    return readMethod(source, key2);
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
   }
-  function readProperty(source, key2) {
+  function readProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
     try {
-      return source[key2];
+      return source[key];
     } catch {
       return void 0;
     }
@@ -1513,10 +1509,10 @@
       restoreWindowProperty("removeEventListener", descriptor);
     }
   }
-  function restoreWindowProperty(key2, descriptor) {
+  function restoreWindowProperty(key, descriptor) {
     try {
       const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key2, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
     } catch {
     }
   }
@@ -1529,10 +1525,10 @@
       return descriptor;
     }
   }
-  function safeWindowPropertyDescriptor(key2) {
+  function safeWindowPropertyDescriptor(key) {
     try {
       const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key2);
+      return Object.getOwnPropertyDescriptor(target, key);
     } catch {
       return void 0;
     }
@@ -1860,14 +1856,14 @@
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     lookup(kanji, settings) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2 || !settings.kanjiOriginsEnabled) {
+      const key = Array.from(kanji)[0] ?? kanji;
+      if (!key || !settings.kanjiOriginsEnabled) {
         return Promise.resolve(null);
       }
-      const cacheKey = kanjiOriginCacheKey(key2, settings);
+      const cacheKey = kanjiOriginCacheKey(key, settings);
       let promise = this.cache.get(cacheKey);
       if (!promise) {
-        promise = this.fetchInfo(key2, settings);
+        promise = this.fetchInfo(key, settings);
         this.cache.set(cacheKey, promise);
       }
       return promise;
@@ -2174,12 +2170,12 @@
       const position = normalizeKanjiVGPosition(component.position);
       if (!position) return;
       const geometry = kanjiVGComponentGeometry(component);
-      kanjiVGPositionKeys(component).forEach((key2) => {
-        const existing = positions.get(key2);
+      kanjiVGPositionKeys(component).forEach((key) => {
+        const existing = positions.get(key);
         if (!existing || !existing.direct && component.direct) {
-          positions.set(key2, { position, direct: component.direct, geometry });
+          positions.set(key, { position, direct: component.direct, geometry });
         } else if (!existing.geometry && geometry) {
-          positions.set(key2, { ...existing, geometry });
+          positions.set(key, { ...existing, geometry });
         }
       });
     });
@@ -2388,17 +2384,17 @@
     setFact(facts, "strokes", normalizeNumber(firstValue(values, ["strokes", "strokeCount", "stroke_count"])), source);
     setFact(facts, "frequency", normalizeFrequency(firstValue(values, ["frequency", "freq", "frequencyRank"])), source);
   }
-  function setFact(facts, key2, value, source) {
-    if (!value || facts[key2]) return;
-    facts[key2] = value;
-    facts[`${key2}Source`] = source;
+  function setFact(facts, key, value, source) {
+    if (!value || facts[key]) return;
+    facts[key] = value;
+    facts[`${key}Source`] = source;
   }
   function flattenStats(stats, prefix = "") {
     const values = /* @__PURE__ */ new Map();
     if (!isPlainStatsRecord(stats)) return values;
-    for (const [key2, value] of Object.entries(stats)) {
-      const fullKey = prefix ? `${prefix}.${key2}` : key2;
-      values.set(key2, value);
+    for (const [key, value] of Object.entries(stats)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      values.set(key, value);
       values.set(fullKey, value);
       if (isPlainStatsRecord(value)) flattenStats(value, fullKey).forEach((nestedValue, nestedKey) => values.set(nestedKey, nestedValue));
     }
@@ -2408,8 +2404,8 @@
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function firstValue(values, keys) {
-    for (const key2 of keys) {
-      if (values.has(key2)) return values.get(key2);
+    for (const key of keys) {
+      if (values.has(key)) return values.get(key);
     }
     return void 0;
   }
@@ -2552,7 +2548,7 @@
     };
   }
   function aliasedCardState(...keys) {
-    return keys.map((key2) => CARD_STATE_ALIASES[key2]).find(Boolean);
+    return keys.map((key) => CARD_STATE_ALIASES[key]).find(Boolean);
   }
   function knownCardState(value) {
     if (CARD_STATES$1.has(value)) return value;
@@ -2843,8 +2839,8 @@
     });
     return out;
   }
-  function hasOwn(value, key2) {
-    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
+  function hasOwn(value, key) {
+    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
   }
   function objectRecord$2(value) {
     return value && typeof value === "object" ? value : null;
@@ -3114,10 +3110,10 @@
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
     const parts = parseShortcut(shortcut);
-    const key2 = parts.key?.toLowerCase();
-    if (!key2) return false;
+    const key = parts.key?.toLowerCase();
+    if (!key) return false;
     const eventKey = normalizeEventKey(event.key).toLowerCase();
-    return eventKey === key2 && shortcutModifiersMatch(event, parts.modifiers);
+    return eventKey === key && shortcutModifiersMatch(event, parts.modifiers);
   }
   function shortcutModifiersMatch(event, modifiers) {
     return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
@@ -3134,14 +3130,14 @@
     if (event.shiftKey) parts.push("Shift");
     if (event.metaKey) parts.push("Meta");
   }
-  function addShortcutKeyPart(parts, key2) {
-    if (!isModifierKey(key2)) parts.push(key2);
+  function addShortcutKeyPart(parts, key) {
+    if (!isModifierKey(key)) parts.push(key);
   }
   function parseShortcut(shortcut) {
     const parts = shortcut.split("+").map((part) => normalizeShortcutPart(part)).filter(Boolean);
     const modifiers = new Set(parts.filter(isModifierKey).map((part) => part.toLowerCase()));
-    const key2 = [...parts].reverse().find((part) => !isModifierKey(part)) ?? "";
-    return { key: key2.toLowerCase(), modifiers };
+    const key = [...parts].reverse().find((part) => !isModifierKey(part)) ?? "";
+    return { key: key.toLowerCase(), modifiers };
   }
   function normalizeShortcutPart(part) {
     const value = typeof part === "string" ? part.trim() : "";
@@ -3166,12 +3162,12 @@
     ["spacebar", "Space"],
     [" ", "Space"]
   ]);
-  function normalizeEventKey(key2) {
-    if (key2 === " ") return "Space";
-    return normalizeShortcutPart(key2);
+  function normalizeEventKey(key) {
+    if (key === " ") return "Space";
+    return normalizeShortcutPart(key);
   }
-  function isModifierKey(key2) {
-    return key2 === "Alt" || key2 === "Ctrl" || key2 === "Meta" || key2 === "Shift";
+  function isModifierKey(key) {
+    return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
   }
   function dedupeShortcutParts(parts) {
     return parts.filter((part, index) => parts.indexOf(part) === index);
@@ -3589,7 +3585,7 @@
     if (!value) return null;
     const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
     return Object.fromEntries(
-      Object.entries(value).filter(([key2]) => supportedKeys.has(key2))
+      Object.entries(value).filter(([key]) => supportedKeys.has(key))
     );
   }
   function migrateLegacyDefaultMobileSettings(value) {
@@ -3612,10 +3608,10 @@
     return legacyAnkiBooleanSettingsAreDefault(value) && legacyAnkiStringSettingsAreDefault(value) && legacyStringSettingIn(value, "ankiDeck", LEGACY_DEFAULT_ANKI_DECK_NAMES) && legacyStringSettingIn(value, "ankiModel", LEGACY_DEFAULT_ANKI_MODEL_NAMES) && legacyAnkiFieldMappingsAreDefault(value);
   }
   function legacyAnkiBooleanSettingsAreDefault(value) {
-    return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key2) => legacyBooleanSettingMatches(value, key2, true));
+    return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key) => legacyBooleanSettingMatches(value, key, true));
   }
   function legacyAnkiStringSettingsAreDefault(value) {
-    return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key2, expected]) => legacyStringSettingMatches(value, key2, expected));
+    return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
   }
   function isLegacyDefaultNewTabAnkiSettings(value) {
     if (!isPreCurrentSavedSettingsPayload(value)) return false;
@@ -3624,20 +3620,20 @@
   function isPreCurrentSavedSettingsPayload(value) {
     return !hasOwn(value, "jitenApiKey");
   }
-  function legacyBooleanSettingMatches(value, key2, expected) {
-    return hasOwn(value, key2) && value[key2] === expected;
+  function legacyBooleanSettingMatches(value, key, expected) {
+    return hasOwn(value, key) && value[key] === expected;
   }
-  function legacyStringSettingMatches(value, key2, expected) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && typeof raw === "string" && raw.trim() === expected;
+  function legacyStringSettingMatches(value, key, expected) {
+    const raw = value[key];
+    return hasOwn(value, key) && typeof raw === "string" && raw.trim() === expected;
   }
-  function legacyStringSettingIn(value, key2, expected) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && typeof raw === "string" && expected.has(raw.trim());
+  function legacyStringSettingIn(value, key, expected) {
+    const raw = value[key];
+    return hasOwn(value, key) && typeof raw === "string" && expected.has(raw.trim());
   }
-  function legacyStringListSettingIsEmpty(value, key2) {
-    const raw = value[key2];
-    return hasOwn(value, key2) && Array.isArray(raw) && raw.length === 0;
+  function legacyStringListSettingIsEmpty(value, key) {
+    const raw = value[key];
+    return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
   }
   function legacyAnkiFieldMappingsAreDefault(value) {
     const raw = value.ankiFieldMappings;
@@ -3715,8 +3711,8 @@
   }
   function normalizeAccentColorSettings(settings, keys) {
     const normalized = {};
-    for (const key2 of keys) {
-      normalized[key2] = sanitizeAccentColor(settings[key2], String(DEFAULT_SETTINGS[key2]));
+    for (const key of keys) {
+      normalized[key] = sanitizeAccentColor(settings[key], String(DEFAULT_SETTINGS[key]));
     }
     return normalized;
   }
@@ -3878,32 +3874,32 @@
   }
   function normalizeBooleanSettingGroup(value, keys) {
     const normalized = {};
-    for (const key2 of keys) {
-      normalized[key2] = booleanSetting(value, key2);
+    for (const key of keys) {
+      normalized[key] = booleanSetting(value, key);
     }
     return normalized;
   }
   function normalizeNumberSettingGroup(value, ranges) {
     const normalized = {};
-    for (const key2 of Object.keys(ranges)) {
-      const { min, max: max2 } = ranges[key2];
-      const fallback = DEFAULT_SETTINGS[key2];
-      normalized[key2] = clampNumber$3(value?.[key2], min, max2, typeof fallback === "number" ? fallback : 0);
+    for (const key of Object.keys(ranges)) {
+      const { min, max: max2 } = ranges[key];
+      const fallback = DEFAULT_SETTINGS[key];
+      normalized[key] = clampNumber$3(value?.[key], min, max2, typeof fallback === "number" ? fallback : 0);
     }
     return normalized;
   }
-  function booleanSetting(value, key2) {
-    const rawValue = value?.[key2];
-    const fallback = DEFAULT_SETTINGS[key2];
+  function booleanSetting(value, key) {
+    const rawValue = value?.[key];
+    const fallback = DEFAULT_SETTINGS[key];
     if (typeof rawValue === "boolean") return rawValue;
     return typeof fallback === "boolean" ? fallback : false;
   }
-  function booleanSettingWithFallback(value, key2, fallback) {
-    const rawValue = value?.[key2];
+  function booleanSettingWithFallback(value, key, fallback) {
+    const rawValue = value?.[key];
     return typeof rawValue === "boolean" ? rawValue : fallback;
   }
-  function trimmedStringSetting(value, key2, fallback) {
-    const rawValue = value?.[key2];
+  function trimmedStringSetting(value, key, fallback) {
+    const rawValue = value?.[key];
     return typeof rawValue === "string" ? rawValue.trim() : fallback;
   }
   function normalizeSubtitleControlsMode(value) {
@@ -3946,7 +3942,7 @@
   }
   function isLegacyDefaultColorChannelSettings(value) {
     if (!value) return false;
-    return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key2) => hasOwn(value, key2) && value[key2] === LEGACY_COLOR_CHANNEL_DEFAULTS[key2]);
+    return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
   }
   function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
     const source = value === "auto" ? autoFallback : value;
@@ -4014,8 +4010,8 @@
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "off";
   }
-  function legacyBooleanSettingIs(settings, key2, expected) {
-    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key2) && settings[key2] === expected);
+  function legacyBooleanSettingIs(settings, key, expected) {
+    return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
   }
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -4074,8 +4070,8 @@
     return Boolean(settings.ankiEnabled);
   }
   function hasRequestedAnkiColorSource(settings) {
-    return COLOR_STATUS_CHANNEL_KEYS.some((key2) => {
-      const source = settings[key2];
+    return COLOR_STATUS_CHANNEL_KEYS.some((key) => {
+      const source = settings[key];
       return source === "anki" || source === "status";
     });
   }
@@ -4175,12 +4171,12 @@
     settingsResetInProgress = false;
   }
   async function deleteSettingsStorage() {
-    for (const key2 of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key2);
+    for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
   }
   async function settingsStorageKeysStillPresent() {
     const keys = [];
-    for (const key2 of SETTINGS_STORAGE_KEYS) {
-      if (await storedValueExists(key2)) keys.push(key2);
+    for (const key of SETTINGS_STORAGE_KEYS) {
+      if (await storedValueExists(key)) keys.push(key);
     }
     return keys;
   }
@@ -7574,20 +7570,20 @@ recommendedJiten	jiten.moe頻度データです。
     const copy = await loadJaGrammarRuleCopy();
     return copy[ruleId];
   }
-  function uiText(language, key2) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY.en[key2];
+  function uiText(language, key) {
+    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
   function cardStateLabel(state, language, fallback = state) {
-    const key2 = CARD_STATE_LABEL_KEYS[state];
-    return key2 ? uiText(language, key2) : fallback;
+    const key = CARD_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : fallback;
   }
   function audioSourceLabel(language, type) {
     return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
   }
-  function formatUiText(language, key2, values) {
+  function formatUiText(language, key, values) {
     return Object.entries(values).reduce(
       (text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
-      uiText(language, key2)
+      uiText(language, key)
     );
   }
   function uiList(language, parts) {
@@ -7647,9 +7643,9 @@ recommendedJiten	jiten.moe頻度データです。
     const seen = /* @__PURE__ */ new Set();
     const elements = [];
     value.split(/[、,;＋+]/).map(cleanRtkElementKeyword).filter(Boolean).forEach((keyword) => {
-      const key2 = rtkElementKey(keyword);
-      if (seen.has(key2)) return;
-      seen.add(key2);
+      const key = rtkElementKey(keyword);
+      if (seen.has(key)) return;
+      seen.add(key);
       elements.push(keyword);
     });
     return elements.slice(0, 16);
@@ -7662,8 +7658,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   const RTK_ELEMENT_GLYPH_FALLBACKS = new Map(
     "heart=心=心|fishhook=乙=乙|fishguts=乙=乙|fish guts=乙=乙|stick=丨|walking stick=丨|drop=丶|drops=丶|a drop of=丶|hook right=⺃|hook (right)=⺃|state of mind=⺖|valentine=⺗|animal legs=ハ|human legs=儿|wind=几|bound up=勹|bound up small=⺈|bound up (small)=⺈|horns=丷|saber=⺉|little=⺌|cliff=厂|water=⺡|fire=⺣|hood=冂|house=宀|flower=艹|pack of wild dogs=⺨|cow left=牜|cow top=⺧|umbrella=𠆢|road=⻌|walking legs=夂|crown=冖|top hat=亠|taskmaster=攵|fiesta=戈|stretch=廴|zoo=疋|zoo left=⺪|cloak=⻂|ice left=冫|ice bottom=⺀|reclining=𠂉|wings=羽=羽|feathers=羽=羽|person=⺅|finger=扌|two hands bottom=廾|elbow=厶|going=彳|altar=⺭|broom=彐|broom old=⺔|rake=⺺|shovel=凵|old man=耂|cocoon=幺|stamp=卩|chop seal=ㄗ|chop seal small=マ|silver=艮|sheaf=㐅|cornucopia=丩|key=ユ|sickness=疒|box=匚|shape=彡|row=业|city walls right=⻏".split("|").map((value) => {
-      const [key2, glyph, kanji] = value.split("=");
-      return [key2, kanji ? { glyph, kanji } : { glyph }];
+      const [key, glyph, kanji] = value.split("=");
+      return [key, kanji ? { glyph, kanji } : { glyph }];
     })
   );
   function rtkElementFallbackGlyph(keyword) {
@@ -7917,10 +7913,10 @@ recommendedJiten	jiten.moe頻度データです。
     const addKeyword = (text2, source) => {
       const normalized = text2?.trim();
       if (!normalized) return;
-      const key2 = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key2) ?? { text: normalized, sources: [] };
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
       if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key2, existing);
+      keywords.set(key, existing);
     };
     addKeyword(jpdbInfo?.keyword, "JPDB");
     addKeyword(rtkInfo?.keyword, "RTK");
@@ -8334,12 +8330,12 @@ recommendedJiten	jiten.moe頻度データです。
     cache = /* @__PURE__ */ new Map();
     actions = /* @__PURE__ */ new Map();
     lookup(kanji) {
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      if (!key2) return Promise.resolve(null);
-      let promise = this.cache.get(key2);
+      const key = Array.from(kanji)[0] ?? kanji;
+      if (!key) return Promise.resolve(null);
+      let promise = this.cache.get(key);
       if (!promise) {
-        promise = this.fetchInfo(key2);
-        this.cache.set(key2, promise);
+        promise = this.fetchInfo(key);
+        this.cache.set(key, promise);
       }
       return promise;
     }
@@ -8541,9 +8537,9 @@ recommendedJiten	jiten.moe頻度データです。
     doc.querySelectorAll(".cross-table tr").forEach((row) => {
       const cells = Array.from(row.querySelectorAll("td"));
       if (cells.length < 2) return;
-      const key2 = cleanText$1(cells[0].textContent ?? "");
+      const key = cleanText$1(cells[0].textContent ?? "");
       const value = cleanInfoTableValue(cells[1]);
-      if (value) rows.set(key2, value);
+      if (value) rows.set(key, value);
     });
     return rows;
   }
@@ -9034,9 +9030,9 @@ recommendedJiten	jiten.moe頻度データです。
     ];
   }
   function addKanjiVGComponentPosition(positions, entry) {
-    const key2 = kanjiVGComponentPositionKey(entry);
-    const existing = positions.get(key2);
-    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key2, entry);
+    const key = kanjiVGComponentPositionKey(entry);
+    const existing = positions.get(key);
+    if (shouldReplaceKanjiVGComponentPosition(existing, entry)) positions.set(key, entry);
   }
   function kanjiVGComponentPositionKey(entry) {
     return `${entry.component}\0${entry.original ?? ""}\0${entry.parent ?? ""}\0${entry.position}`;
@@ -9172,11 +9168,11 @@ recommendedJiten	jiten.moe頻度データです。
       timeoutLabel: "Stroke-order request timed out."
     });
   }
-  function registerYomuCompanion(key2, value) {
+  function registerYomuCompanion(key, value) {
     const target = globalThis;
     target.__yomuCompanions = {
       ...target.__yomuCompanions ?? {},
-      [key2]: value
+      [key]: value
     };
   }
   function yomuKanjiStudyCompanion() {
@@ -9565,10 +9561,10 @@ recommendedJiten	jiten.moe頻度データです。
   function groupOriginEdges(edges) {
     const groups = /* @__PURE__ */ new Map();
     for (const edge of edges) {
-      const key2 = `${edge.from}\0${edge.to}`;
-      const group = groups.get(key2) ?? { from: edge.from, to: edge.to, labels: [] };
+      const key = `${edge.from}\0${edge.to}`;
+      const group = groups.get(key) ?? { from: edge.from, to: edge.to, labels: [] };
       if (edge.label && !group.labels.includes(edge.label)) group.labels.push(edge.label);
-      groups.set(key2, group);
+      groups.set(key, group);
     }
     return Array.from(groups.values());
   }
@@ -10141,11 +10137,11 @@ recommendedJiten	jiten.moe頻度データです。
     keywordIndex;
     lookup(kanji) {
       if (!KANJI_RE$1.test(kanji)) return Promise.resolve(null);
-      const key2 = Array.from(kanji)[0] ?? kanji;
-      let promise = this.cache.get(key2);
+      const key = Array.from(kanji)[0] ?? kanji;
+      let promise = this.cache.get(key);
       if (!promise) {
-        promise = this.fetchInfo(key2);
-        this.cache.set(key2, promise);
+        promise = this.fetchInfo(key);
+        this.cache.set(key, promise);
       }
       return promise;
     }
@@ -10164,11 +10160,11 @@ recommendedJiten	jiten.moe頻度データです。
       });
       const elementGlyphs = {};
       splitRtkElements(info.elements).filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(info.keyword)).forEach((keyword) => {
-        const key2 = rtkElementKey(keyword);
+        const key = rtkElementKey(keyword);
         const fallback = rtkElementFallbackGlyph(keyword);
-        const indexedKanji = index.get(key2) ?? index.get(compactRtkElementKey(key2));
+        const indexedKanji = index.get(key) ?? index.get(compactRtkElementKey(key));
         const glyph = fallback ?? (indexedKanji ? { glyph: indexedKanji, kanji: indexedKanji } : void 0);
-        if (glyph) elementGlyphs[key2] = glyph;
+        if (glyph) elementGlyphs[key] = glyph;
       });
       return Object.keys(elementGlyphs).length ? { ...info, elementGlyphs } : info;
     }
@@ -10224,9 +10220,9 @@ recommendedJiten	jiten.moe頻度データです。
     const collisions = /* @__PURE__ */ new Set();
     const canonicalKeys = /* @__PURE__ */ new Set();
     searchEntries.forEach((entry) => {
-      rtkIndexKeys(entry.keyword).forEach((key2) => {
-        canonicalKeys.add(key2);
-        addRtkKeywordIndexEntry(entries, collisions, key2, entry.kanji);
+      rtkIndexKeys(entry.keyword).forEach((key) => {
+        canonicalKeys.add(key);
+        addRtkKeywordIndexEntry(entries, collisions, key, entry.kanji);
       });
     });
     addRtkElementAliasEntries(entries, collisions, canonicalKeys, searchEntries);
@@ -10267,21 +10263,21 @@ recommendedJiten	jiten.moe頻度データです。
   function isKanjiCharacter(character) {
     return KANJI_RE$1.test(character);
   }
-  function addRtkKeywordIndexEntry(entries, collisions, key2, kanji) {
-    if (!key2 || collisions.has(key2)) return;
-    const existing = entries.get(key2);
+  function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
+    if (!key || collisions.has(key)) return;
+    const existing = entries.get(key);
     if (existing && existing !== kanji) {
-      entries.delete(key2);
-      collisions.add(key2);
+      entries.delete(key);
+      collisions.add(key);
       return;
     }
-    entries.set(key2, kanji);
+    entries.set(key, kanji);
   }
   function addRtkElementAliasEntries(entries, collisions, canonicalKeys, searchEntries) {
     const introduced = /* @__PURE__ */ new Map();
     const introducedCollisions = /* @__PURE__ */ new Set();
     searchEntries.forEach((entry) => {
-      rtkIndexKeys(entry.keyword).forEach((key2) => addRtkKeywordIndexEntry(introduced, introducedCollisions, key2, entry.kanji));
+      rtkIndexKeys(entry.keyword).forEach((key) => addRtkKeywordIndexEntry(introduced, introducedCollisions, key, entry.kanji));
       const elements = splitRtkElements(entry.elements);
       addLeadingRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, entry, elements);
       addGroupedRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, elements);
@@ -10289,7 +10285,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function addLeadingRtkElementAliases(entries, collisions, canonicalKeys, introduced, introducedCollisions, entry, elements) {
     const keywordKeys = rtkIndexKeys(entry.keyword);
-    const keywordIndex = elements.findIndex((element) => rtkIndexKeys(element).some((key2) => keywordKeys.includes(key2)));
+    const keywordIndex = elements.findIndex((element) => rtkIndexKeys(element).some((key) => keywordKeys.includes(key)));
     if (keywordIndex <= 0) return;
     elements.slice(0, keywordIndex).forEach((element) => {
       addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, entry.kanji);
@@ -10308,14 +10304,14 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function addRtkElementAliasEntry(entries, collisions, canonicalKeys, introduced, introducedCollisions, element, kanji) {
     if (rtkElementFallbackGlyph(element)) return;
-    rtkIndexKeys(element).filter((key2) => !canonicalKeys.has(key2)).forEach((key2) => {
-      addRtkKeywordIndexEntry(entries, collisions, key2, kanji);
-      addRtkKeywordIndexEntry(introduced, introducedCollisions, key2, kanji);
+    rtkIndexKeys(element).filter((key) => !canonicalKeys.has(key)).forEach((key) => {
+      addRtkKeywordIndexEntry(entries, collisions, key, kanji);
+      addRtkKeywordIndexEntry(introduced, introducedCollisions, key, kanji);
     });
   }
   function rtkIntroducedElementOwner(introduced, element) {
-    for (const key2 of rtkIndexKeys(element)) {
-      const owner = introduced.get(key2);
+    for (const key of rtkIndexKeys(element)) {
+      const owner = introduced.get(key);
       if (owner) return owner;
     }
     return "";
@@ -10681,9 +10677,9 @@ recommendedJiten	jiten.moe頻度データです。
     return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
   }
   function rememberDeinflectedCandidate(candidate, seen) {
-    const key2 = candidateKey(candidate);
-    if (seen.has(key2)) return false;
-    seen.add(key2);
+    const key = candidateKey(candidate);
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   }
   function termRulesMatch(entryRules, candidateRules) {
@@ -11391,15 +11387,15 @@ ${candidate.depth}`;
   }
   function glossaryRecordTextValues(record, options) {
     const values = [];
-    for (const [key2, childValue] of Object.entries(record)) {
-      if (!shouldReadRecordTextKey(key2, options)) continue;
+    for (const [key, childValue] of Object.entries(record)) {
+      if (!shouldReadRecordTextKey(key, options)) continue;
       const childText = glossaryValueToProfileText(childValue, options);
       if (childText) values.push(childText);
     }
     return values;
   }
-  function shouldReadRecordTextKey(key2, options) {
-    return options.fallbackTextKeys.has(key2) || options.includeDirectDataAttributes && key2.startsWith("data-");
+  function shouldReadRecordTextKey(key, options) {
+    return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
   function isRecord$4(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -11570,8 +11566,8 @@ ${candidate.depth}`;
       tableCellSpanAttribute(record, tag, "rowSpan", "rowspan")
     ];
   }
-  function tableCellSpanAttribute(record, tag, key2, attr) {
-    const value = Number(record[key2]);
+  function tableCellSpanAttribute(record, tag, key, attr) {
+    const value = Number(record[key]);
     return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
   }
   function isTableCellTag(tag) {
@@ -11579,10 +11575,10 @@ ${candidate.depth}`;
   }
   function renderStructuredDataAttributes(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-    return Object.entries(value).map(([key2, rawValue]) => renderStructuredDataAttribute(key2, rawValue)).filter(Boolean).join("");
+    return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
   }
-  function renderStructuredDataAttribute(key2, rawValue) {
-    return key2 && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key2)}="${escapeHtml(String(rawValue))}"` : "";
+  function renderStructuredDataAttribute(key, rawValue) {
+    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
   }
   function isStructuredAttributeValue(value) {
     return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
@@ -11590,11 +11586,11 @@ ${candidate.depth}`;
   function renderDirectDataAttributes(record) {
     return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
   }
-  function renderDirectDataAttribute([key2, value]) {
-    return isDirectDataAttribute(key2, value) ? ` ${key2}="${escapeHtml(String(value))}"` : "";
+  function renderDirectDataAttribute([key, value]) {
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
   }
-  function isDirectDataAttribute(key2, value) {
-    return key2.startsWith("data-") && isStructuredAttributeValue(value);
+  function isDirectDataAttribute(key, value) {
+    return key.startsWith("data-") && isStructuredAttributeValue(value);
   }
   function renderStructuredStyle(value) {
     const style = structuredStyleRecord(value);
@@ -11602,8 +11598,8 @@ ${candidate.depth}`;
     const declarations = [];
     const decoration = structuredTextDecoration(style.textDecorationLine);
     if (decoration) declarations.push(decoration);
-    for (const [key2, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
-      const declaration = structuredStyleDeclaration(key2, property, style[key2]);
+    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
+      const declaration = structuredStyleDeclaration(key, property, style[key]);
       if (declaration) declarations.push(declaration);
     }
     return declarations.join("");
@@ -11616,9 +11612,9 @@ ${candidate.depth}`;
     if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
     return "";
   }
-  function structuredStyleDeclaration(key2, property, rawValue) {
+  function structuredStyleDeclaration(key, property, rawValue) {
     if (typeof rawValue === "string") return `${property}:${rawValue};`;
-    if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key2)) return `${property}:${rawValue}em;`;
+    if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
     return "";
   }
   function renderStructuredLink(record, context) {
@@ -11726,9 +11722,9 @@ ${candidate.depth}`;
       typeof record.sizeUnits === "string" ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : ""
     ];
   }
-  function structuredImageBooleanAttribute(record, key2, fallback) {
-    const value = typeof record[key2] === "boolean" ? record[key2] : fallback;
-    return ` data-${kebabCase(key2)}="${value}"`;
+  function structuredImageBooleanAttribute(record, key, fallback) {
+    const value = typeof record[key] === "boolean" ? record[key] : fallback;
+    return ` data-${kebabCase(key)}="${value}"`;
   }
   function kebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
@@ -11824,8 +11820,8 @@ ${candidate.depth}`;
       return "";
     }
   }
-  function numericRecordValue(record, key2) {
-    const value = record[key2];
+  function numericRecordValue(record, key) {
+    const value = record[key];
     return typeof value === "number" && Number.isFinite(value) ? value : void 0;
   }
   function formatCssNumber(value) {
@@ -12522,8 +12518,8 @@ ${scopedInner}
     const trimmed = value.trim();
     if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
   }
-  function assignImportedSetting(settings, key2, value) {
-    settings[key2] = value;
+  function assignImportedSetting(settings, key, value) {
+    settings[key] = value;
   }
   function applyAudioFallbackChimeSetting(settings, value) {
     if (typeof value === "string") settings.audioFallbackChimeEnabled = value !== "none";
@@ -12622,11 +12618,11 @@ ${scopedInner}
   function applyYomitanShortcut(settings, inputs, action, target) {
     const hotkey = inputs?.hotkeys?.find((item) => item.action === action && item.enabled !== false);
     if (!hotkey) return;
-    const key2 = String(hotkey.key || "").replace(/^Key/, "");
+    const key = String(hotkey.key || "").replace(/^Key/, "");
     const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
     settings.shortcuts = {
       ...settings.shortcuts,
-      [target]: [...modifiers.map(capitalize), key2].filter(Boolean).join("+")
+      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
     };
   }
   function readDictionaryPreferences$1(profileOptions) {
@@ -12647,7 +12643,7 @@ ${scopedInner}
     const scanInput = firstScanInput(scanning);
     if (!scanInput) return;
     const include = String(scanInput.include ?? "").toLowerCase();
-    const modifier = ["shift", "alt", "ctrl", "meta"].find((key2) => include.includes(key2));
+    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
     if (modifier) {
       settings.lookupOnHover = true;
       settings.popupActivationMode = "modifier";
@@ -12753,8 +12749,8 @@ ${scopedInner}
     termKanjiIndexReady = false;
     termIndexGeneration = 0;
     hotLookupCache = /* @__PURE__ */ new Map();
-    text(key2) {
-      return uiText(this.getInterfaceLanguage(), key2);
+    text(key) {
+      return uiText(this.getInterfaceLanguage(), key);
     }
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
@@ -12769,9 +12765,9 @@ ${scopedInner}
     hotLookupCacheKey(kind, values, preferences) {
       return JSON.stringify([kind, ...values, normalizeDictionaryPreferences(preferences)]);
     }
-    getHotLookup(key2, factory) {
+    getHotLookup(key, factory) {
       const now = performance.now();
-      const cached = this.hotLookupCache.get(key2);
+      const cached = this.hotLookupCache.get(key);
       if (cached && cached.expiresAt > now) return cached.promise;
       const entry = {
         expiresAt: Number.POSITIVE_INFINITY,
@@ -12781,12 +12777,12 @@ ${scopedInner}
             return value;
           },
           (error) => {
-            if (this.hotLookupCache.get(key2) === entry) this.hotLookupCache.delete(key2);
+            if (this.hotLookupCache.get(key) === entry) this.hotLookupCache.delete(key);
             throw error;
           }
         )
       };
-      this.hotLookupCache.set(key2, entry);
+      this.hotLookupCache.set(key, entry);
       return entry.promise;
     }
     async lookup(expression, reading, limit, preferences = []) {
@@ -12811,9 +12807,9 @@ ${scopedInner}
               void 0,
               (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
             ).filter((entry) => {
-              const key2 = termLookupDedupKey(entry);
-              if (seen.has(key2)) return false;
-              seen.add(key2);
+              const key = termLookupDedupKey(entry);
+              if (seen.has(key)) return false;
+              seen.add(key);
               return true;
             }).slice(0, limit);
             return results;
@@ -13669,10 +13665,10 @@ ${scopedInner}
           const row = cursor.value;
           if (dictionaryEnabled(row.dictionary, rank)) {
             const entry = termEntryFromKanjiEntry(row);
-            const key2 = `${entry.expression}
+            const key = `${entry.expression}
 ${entry.reading}`;
-            if (!seen.has(key2)) {
-              seen.add(key2);
+            if (!seen.has(key)) {
+              seen.add(key);
               entries.push(entry);
             }
           }
@@ -14115,13 +14111,13 @@ ${entry.reading}`;
   function deduplicateTermMatchEntries(entries) {
     const seen = /* @__PURE__ */ new Set();
     return entries.filter((item) => {
-      const key2 = `${item.id ?? ""}
+      const key = `${item.id ?? ""}
 ${item.dictionary}
 ${item.expression}
 ${item.reading}
 ${item.sequence ?? ""}`;
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -14155,7 +14151,7 @@ ${item.sequence ?? ""}`;
     };
   }
   function dictionaryTypeFromCounts(counts = {}) {
-    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key: key2 }) => Number(counts[key2] ?? 0) > 0)?.type ?? "terms";
+    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
   }
   const DICTIONARY_TYPE_COUNT_PRIORITY = [
     { key: "terms", type: "terms" },
@@ -14225,7 +14221,7 @@ ${item.sequence ?? ""}`;
     return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
   }
   function formatUiTemplate$1(template, values) {
-    return Object.entries(values).reduce((value, [key2, replacement]) => value.replaceAll(`{${key2}}`, replacement), template);
+    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
   }
   function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
     return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
@@ -14267,9 +14263,9 @@ ${item.sequence ?? ""}`;
     return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
   }
   function addUniqueTermToReservoir(entry, seen, reservoir, limit, count) {
-    const key2 = termExpressionReadingKey(entry);
-    if (seen.has(key2)) return count;
-    seen.add(key2);
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return count;
+    seen.add(key);
     const nextCount = count + 1;
     if (reservoir.length < limit) {
       reservoir.push(entry);
@@ -14300,9 +14296,9 @@ ${item.sequence ?? ""}`;
     addUniqueTermEntry(entries, seen, entry);
   }
   function addUniqueTermEntry(entries, seen, entry) {
-    const key2 = termExpressionReadingKey(entry);
-    if (seen.has(key2)) return;
-    seen.add(key2);
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
     entries.push(entry);
   }
   function termExpressionReadingKey(entry) {
@@ -14440,16 +14436,16 @@ ${entry.reading}`;
       dictionary: record.dictionary
     };
   }
-  function dexieStringField(record, key2, fallback = "") {
-    const value = record[key2];
+  function dexieStringField(record, key, fallback = "") {
+    const value = record[key];
     return typeof value === "string" && value ? value : fallback;
   }
-  function dexieNumberField(record, key2, fallback) {
-    const value = record[key2];
+  function dexieNumberField(record, key, fallback) {
+    const value = record[key];
     return typeof value === "number" ? value : fallback;
   }
-  function dexieOptionalNumberField(record, key2) {
-    const value = record[key2];
+  function dexieOptionalNumberField(record, key) {
+    const value = record[key];
     return typeof value === "number" ? value : void 0;
   }
   function dexieGlossaryField(record) {
@@ -14468,9 +14464,9 @@ ${glossaryKey}`;
     const seen = /* @__PURE__ */ new Set();
     for (const entry of [...entries].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
       if (!dictionaryEnabled(entry.dictionary, rank)) continue;
-      const key2 = termLookupDedupKey(entry);
-      if (seen.has(key2)) continue;
-      seen.add(key2);
+      const key = termLookupDedupKey(entry);
+      if (seen.has(key)) continue;
+      seen.add(key);
       return entry;
     }
     return null;
@@ -14493,9 +14489,9 @@ ${glossaryKey}`;
   function rankedTermSearchResults(candidates, query, limit, rank) {
     const seen = /* @__PURE__ */ new Set();
     return candidates.filter((candidate) => dictionaryEnabled(candidate.entry.dictionary, rank)).sort((a, b) => compareTermSearchCandidates(a, b, query, rank)).filter((candidate) => {
-      const key2 = termLookupDedupKey(candidate.entry);
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = termLookupDedupKey(candidate.entry);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     }).map((candidate) => candidate.entry).slice(0, limit);
   }
@@ -14835,12 +14831,12 @@ ${glossaryKey}`;
     const grouped = /* @__PURE__ */ new Map();
     const meaningKeys = /* @__PURE__ */ new Map();
     for (const entry of entries) {
-      const key2 = termHeadwordKey(entry);
-      const group = grouped.get(key2) ?? createLearnerTermGroup(entry);
+      const key = termHeadwordKey(entry);
+      const group = grouped.get(key) ?? createLearnerTermGroup(entry);
       group.entries.push(entry);
       updateLearnerTermFrequency(group, entry);
-      addLearnerTermMeaning(group, entry, key2, meaningKeys);
-      grouped.set(key2, group);
+      addLearnerTermMeaning(group, entry, key, meaningKeys);
+      grouped.set(key, group);
     }
     return [...grouped.values()];
   }
@@ -14856,16 +14852,16 @@ ${entry.reading || ""}`;
       group.frequency = entry.jpdbFrequency;
     }
   }
-  function addLearnerTermMeaning(group, entry, key2, meaningKeys) {
+  function addLearnerTermMeaning(group, entry, key, meaningKeys) {
     const meaning = summarizeLearnerGlossary(entry);
     if (!meaning) return;
-    const seen = meaningKeys.get(key2) ?? /* @__PURE__ */ new Set();
+    const seen = meaningKeys.get(key) ?? /* @__PURE__ */ new Set();
     const meaningKey = meaning.toLocaleLowerCase();
     if (!seen.has(meaningKey)) {
       seen.add(meaningKey);
       group.meanings.push(meaning);
     }
-    meaningKeys.set(key2, seen);
+    meaningKeys.set(key, seen);
   }
   function summarizeLearnerGlossary(entry) {
     const candidates = entry.glossary.flatMap((item) => splitLearnerGlossaryText(glossaryToText(item))).map(cleanLearnerGlossaryText).filter(Boolean);
@@ -15326,9 +15322,9 @@ ${entry.reading || ""}`;
     if (generic) candidates.push({ value: generic, generic: true });
     const seen = /* @__PURE__ */ new Set();
     return candidates.filter((candidate) => {
-      const key2 = normalizeFieldValue(candidate.value);
-      if (!key2 || seen.has(key2)) return false;
-      seen.add(key2);
+      const key = normalizeFieldValue(candidate.value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -15723,11 +15719,11 @@ ${entry.reading || ""}`;
       for (const chunk of chunkArray$1(unique$3(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
         const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
         const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-        const chunkRecords = await Promise.all(chunk.map((key2) => idbRequest(store.get(key2)).then((record) => [key2, record])));
+        const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
         await idbTransactionDone(tx);
         records.push(...chunkRecords);
       }
-      return new Map(records.filter((record) => Boolean(record[1])).map(([key2, record]) => [key2, record.entry]));
+      return new Map(records.filter((record) => Boolean(record[1])).map(([key, record]) => [key, record.entry]));
     } finally {
       db.close();
     }
@@ -15737,7 +15733,7 @@ ${entry.reading || ""}`;
     const db = await openAnkiStatusIndexDb();
     try {
       await clearAnkiStatusIndexStores(db);
-      const entries = Object.entries(index.entries).map(([key2, entry]) => ({ key: key2, entry }));
+      const entries = Object.entries(index.entries).map(([key, entry]) => ({ key, entry }));
       for (const chunk of chunkArray$1(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
         await putAnkiStatusIndexEntries(db, chunk);
       }
@@ -15822,12 +15818,12 @@ ${entry.reading || ""}`;
     const entries = /* @__PURE__ */ new Map();
     for (const note of notes) {
       const candidate = statusIndexEntryFromStatusData(note, cardData, updatedAt);
-      for (const key2 of statusIndexKeysForNote(note, settings)) {
-        const current = entries.get(key2);
-        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key2, candidate);
+      for (const key of statusIndexKeysForNote(note, settings)) {
+        const current = entries.get(key);
+        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
       }
     }
-    return [...entries].map(([key2, entry]) => ({ key: key2, entry }));
+    return [...entries].map(([key, entry]) => ({ key, entry }));
   }
   function statusIndexKeysForCard(card) {
     const keys = noteCardExpressionTargets(card).map(statusIndexKey);
@@ -15835,8 +15831,8 @@ ${entry.reading || ""}`;
     return unique$3(keys);
   }
   function statusIndexEntryForCard(index, card, entries) {
-    for (const key2 of statusIndexKeysForCard(card)) {
-      const entry = entries?.get(key2) ?? index.entries[key2];
+    for (const key of statusIndexKeysForCard(card)) {
+      const entry = entries?.get(key) ?? index.entries[key];
       if (entry && isAnkiStatusIndexEntryFreshForIndex(index, entry)) return entry;
     }
     return null;
@@ -15915,7 +15911,7 @@ ${entry.reading || ""}`;
   function addStatusIndexKeys(keys, values, keyForValue, minPartKeyLength) {
     for (const value of values) {
       if (value.length <= 80) keys.add(keyForValue(value));
-      value.split(ANKI_STATUS_INDEX_KEY_PART_SEPARATOR).map(keyForValue).filter((key2) => key2.length >= minPartKeyLength).forEach((key2) => keys.add(key2));
+      value.split(ANKI_STATUS_INDEX_KEY_PART_SEPARATOR).map(keyForValue).filter((key) => key.length >= minPartKeyLength).forEach((key) => keys.add(key));
     }
   }
   function statusIndexFieldValues(fields, mapping) {
@@ -16138,11 +16134,11 @@ ${entry.reading || ""}`;
       if (!settings.ankiEnabled) return null;
       if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) return null;
       const modelName = resolvedAnkiModelName(settings);
-      const key2 = `${settings.ankiConnectUrl}|${modelName}`;
+      const key = `${settings.ankiConnectUrl}|${modelName}`;
       const now = Date.now();
-      if (this.fieldTargetPlanCache?.key === key2 && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
+      if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
       const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch(() => null);
-      this.fieldTargetPlanCache = { key: key2, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
+      this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
       return promise;
     }
     async loadNoteFieldTargetPlan(modelName, settings) {
@@ -16629,7 +16625,7 @@ ${entry.reading || ""}`;
       const notes = notesByChunk.flat();
       if (this.isDestroyed) return null;
       const entries = {};
-      for (const { key: key2, entry } of statusIndexEntriesForNotes(notes, cardData, settings, now)) entries[key2] = entry;
+      for (const { key, entry } of statusIndexEntriesForNotes(notes, cardData, settings, now)) entries[key] = entry;
       const index = {
         version: ANKI_STATUS_INDEX_VERSION,
         settingsKey,
@@ -17335,8 +17331,8 @@ ${entry.reading || ""}`;
         ));
       }
     }
-    text(key2) {
-      return uiText(this.getSettings().interfaceLanguage, key2);
+    text(key) {
+      return uiText(this.getSettings().interfaceLanguage, key);
     }
     localizedConnectError(error) {
       const language = this.getSettings().interfaceLanguage;
@@ -17654,9 +17650,9 @@ ${entry.reading || ""}`;
   function uniqueAnkiAudioFiles(files) {
     const seen = /* @__PURE__ */ new Set();
     return files.filter((file) => {
-      const key2 = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -19289,10 +19285,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }[panel] ?? "jpdb-reader-settings-panel-api";
   }
   function attributeHtml(attributes) {
-    return Object.entries(attributes).map(([key2, attributeValue]) => ` ${key2}="${escapeHtml$1(String(attributeValue))}"`).join("");
+    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$1(String(attributeValue))}"`).join("");
   }
   function booleanAttributeHtml(attributes) {
-    return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
+    return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
   }
   function updateSourceRowEditor(action, control) {
     const row = control?.closest("[data-source-row]");
@@ -19425,13 +19421,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
   function createSettingsFormReader(data, colorSource) {
-    const get = (key2) => String(data.get(key2) ?? "");
-    const number = (key2, fallback) => readNumber(get(key2), fallback);
+    const get = (key) => String(data.get(key) ?? "");
+    const number = (key, fallback) => readNumber(get(key), fallback);
     return {
       get,
-      has: (key2) => data.has(key2),
+      has: (key) => data.has(key),
       number,
-      clamped: (key2, min, max2, fallback) => Math.max(min, Math.min(max2, number(key2, fallback))),
+      clamped: (key, min, max2, fallback) => Math.max(min, Math.min(max2, number(key, fallback))),
       colorSource
     };
   }
@@ -19523,7 +19519,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ]);
   }
   function readFormSettings(data, current) {
-    const colorSource = (key2, fallback) => readOption(String(data.get(key2) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key2, fallback));
+    const colorSource = (key, fallback) => readOption(String(data.get(key) ?? ""), COLOR_SOURCE_VALUES, colorSourceFallback(key, fallback));
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
@@ -19569,9 +19565,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
     return normalized;
   }
-  function colorSourceFallback(key2, fallback) {
+  function colorSourceFallback(key, fallback) {
     if (fallback !== "auto") return fallback;
-    return isColorSourceSettingName(key2) ? DEFAULT_COLOR_SOURCE_VALUES[key2] : "jpdb";
+    return isColorSourceSettingName(key) ? DEFAULT_COLOR_SOURCE_VALUES[key] : "jpdb";
   }
   function isColorSourceSettingName(value) {
     return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
@@ -19882,15 +19878,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function readShortcutFormSettings(reader, current) {
     return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
-      const key2 = `shortcuts.${name}`;
-      return [name, reader.has(key2) ? reader.get(key2) : current.shortcuts[name]];
+      const key = `shortcuts.${name}`;
+      return [name, reader.has(key) ? reader.get(key) : current.shortcuts[name]];
     }));
   }
   function readOption(value, allowed, fallback) {
     return allowed.includes(value) ? value : fallback;
   }
   function readDictionaryPreferences(data, current, reader) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
     if (!count) return current;
     return Array.from({ length: count }, (_, index) => ({
@@ -19905,7 +19901,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return value === "kanji" || value === "frequency" || value === "metadata" ? value : "terms";
   }
   function readAudioSources(data) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("audioSourceCount")) || 0);
     const sources = [];
     const builtInTypes = new Set(DEFAULT_AUDIO_SOURCES.map((source) => source.type));
@@ -19928,7 +19924,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
   }
   function readDictionaryLookupLinks(data) {
-    const get = (key2) => String(data.get(key2) ?? "");
+    const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get("dictionaryLookupLinkCount")) || 0));
     const links = [];
     for (let index = 0; index < count; index++) {
@@ -20103,8 +20099,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["m1", "Male 1"],
     ["m2", "Male 2"]
   ];
-  function escapedUiText$3(language, key2) {
-    return escapeHtml$1(uiText(language, key2));
+  function escapedUiText$3(language, key) {
+    return escapeHtml$1(uiText(language, key));
   }
   function renderAudioSourceEditor(sources, language = "en") {
     return `
@@ -20239,7 +20235,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function syncBrowserTtsVoiceOptions(form) {
     const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
     const language = form.lang === "ja" ? "ja" : "en";
-    const text2 = (key2) => uiText(language, key2);
+    const text2 = (key) => uiText(language, key);
     const sortedVoices = voices.slice().sort((a, b) => {
       const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
@@ -20434,8 +20430,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
-  function escapedUiText$2(language, key2) {
-    return escapeHtml$1(uiText(language, key2));
+  function escapedUiText$2(language, key) {
+    return escapeHtml$1(uiText(language, key));
   }
   function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
     return `
@@ -20540,8 +20536,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     `;
   }
   function renderAnkiMappingConfidence(confidence, language) {
-    const key2 = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
-    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language, key2)}</span>`;
+    const key = confidence === "high" ? "ankiMappingHighConfidence" : confidence === "medium" ? "ankiMappingMediumConfidence" : "ankiMappingLowConfidence";
+    return `<span class="jpdb-reader-anki-confidence" data-confidence="${confidence}">${escapedUiText$2(language, key)}</span>`;
   }
   function ankiFieldMappingRoleLabel(role, language) {
     return {
@@ -20609,15 +20605,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     `;
   }
   const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
-  function escapedUiText$1(language, key2) {
-    return escapeHtml$1(uiText(language, key2));
+  function escapedUiText$1(language, key) {
+    return escapeHtml$1(uiText(language, key));
   }
   function renderJpdbStatusLine(settings) {
     const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
     return `<div class="jpdb-reader-help jpdb-reader-status-line" data-jpdb-status data-status-tone="${tone}" role="status" aria-live="polite">${formatSettingsStatusLine({ message, tone }, settings.interfaceLanguage)}</div>`;
   }
   function formatStatusTemplate(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_, key2) => values[key2] ?? "");
+    return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
   }
   function jpdbStatusLineForSettings(settings, language) {
     return jpdbStatusLineFromValues(hasJpdbApiCredential(settings), hasJitenApiCredential(settings), language);
@@ -20990,8 +20986,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizedSourceRowLabel(row, language) {
     if (!row) return "";
     if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, "readingsComponents")) return row.alias || row.name;
-    const key2 = builtInSourceNameKey(row.id);
-    return key2 ? uiText(language, key2) : row.alias || row.name;
+    const key = builtInSourceNameKey(row.id);
+    return key ? uiText(language, key) : row.alias || row.name;
   }
   function builtInSourceNameKey(sourceId) {
     return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
@@ -21069,8 +21065,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["subtitleUnderlineColorSource", "Subtitle underline color"],
     ["subtitleTextColorSource", "Subtitle text color"]
   ];
-  function escapedUiText(language, key2) {
-    return escapeHtml$1(uiText(language, key2));
+  function escapedUiText(language, key) {
+    return escapeHtml$1(uiText(language, key));
   }
   function renderHelpLinksPanel() {
     return `
@@ -21727,7 +21723,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeSettingsForm(form, language) {
     unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup]" });
-    const text2 = (key2) => uiText(language, key2);
+    const text2 = (key) => uiText(language, key);
     localizeSettingsShell(form, language, text2);
     localizeSettingsLabels(form, text2);
     localizeSettingsSectionTitles(form, text2);
@@ -21851,8 +21847,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeSettingsTabs(form, text2) {
     SETTINGS_TABS.forEach(({ panel, labelKey }) => {
-      const key2 = labelKey ?? panel;
-      form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)?.replaceChildren(text2(key2));
+      const key = labelKey ?? panel;
+      form.querySelector(`[data-action="settings-panel"][data-panel="${panel}"]`)?.replaceChildren(text2(key));
     });
   }
   function localizeSettingsSearch(form, text2) {
@@ -21867,9 +21863,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeSettingsLegends(form, text2) {
     getSettingsPanelFieldsets(form).forEach((fieldset) => {
-      const key2 = fieldset.dataset.legendKey;
-      if (!isSettingsTextKey(key2)) return;
-      directFieldsetLegend(fieldset)?.replaceChildren(text2(key2));
+      const key = fieldset.dataset.legendKey;
+      if (!isSettingsTextKey(key)) return;
+      directFieldsetLegend(fieldset)?.replaceChildren(text2(key));
     });
   }
   function apiCredentialSettingsFromForm(form) {
@@ -21884,7 +21880,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
   }
   function localizeSettingsLabels(form, text2) {
-    SETTINGS_CONTROL_LABELS.forEach(([name, key2]) => setControlLabel(form, name, text2(key2)));
+    SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
     const apiLabel = apiCredentialLabelFromForm(form);
     setControlLabel(form, "jpdbDefinitionsEnabled", text2("jpdbDefinitionsEnabled").replace("JPDB", apiLabel));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
@@ -21907,9 +21903,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function localizeSettingsSectionTitles(form, text2) {
-    LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key2]) => replaceLocalTitle(form, pattern, text2(key2)));
-    SELECTOR_TEXT_KEYS.forEach(([selector, key2]) => {
-      form.querySelector(selector)?.replaceChildren(text2(key2));
+    LOCAL_TITLE_TEXT_KEYS.forEach(([pattern, key]) => replaceLocalTitle(form, pattern, text2(key)));
+    SELECTOR_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelector(selector)?.replaceChildren(text2(key));
     });
   }
   function replaceLocalTitle(form, pattern, value) {
@@ -22104,13 +22100,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeKeyedHelpText(form, text2) {
     form.querySelectorAll("[data-help-key]").forEach((help) => {
-      const key2 = help.dataset.helpKey;
-      if (!isSettingsTextKey(key2)) return;
-      if (key2 === "audioHelp") {
+      const key = help.dataset.helpKey;
+      if (!isSettingsTextKey(key)) return;
+      if (key === "audioHelp") {
         setInnerHtml(help, audioHelpHtml(resolveUiLanguageFromText(text2)));
         return;
       }
-      help.replaceChildren(text2(key2));
+      help.replaceChildren(text2(key));
     });
   }
   function isSettingsTextKey(value) {
@@ -22125,8 +22121,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (importStatus && /Import Yomitan|Yomitan設定/.test(importStatus.textContent ?? "")) importStatus.textContent = text2("dictionaryImportHelp");
   }
   function localizeSettingsActions(form, text2) {
-    SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key2]) => {
-      form.querySelectorAll(selector).forEach((button) => button.replaceChildren(text2(key2)));
+    SETTINGS_ACTION_TEXT_KEYS.forEach(([selector, key]) => {
+      form.querySelectorAll(selector).forEach((button) => button.replaceChildren(text2(key)));
     });
     form.querySelector('button[type="submit"]')?.replaceChildren(text2("save"));
     localizePreviewAudioButtons(form, text2);
@@ -22206,18 +22202,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ]);
     const deckHelp = form.querySelector("[data-jpdb-decks] .jpdb-reader-help");
     if (!deckHelp) return;
-    const key2 = textKeyForPattern(deckHelp.textContent ?? "", DECK_HELP_TEXT_KEYS);
-    if (key2) deckHelp.replaceChildren(text2(key2));
+    const key = textKeyForPattern(deckHelp.textContent ?? "", DECK_HELP_TEXT_KEYS);
+    if (key) deckHelp.replaceChildren(text2(key));
   }
   function localizeSourceRows(form, text2) {
     form.querySelectorAll(".jpdb-reader-dictionary-head").forEach((head) => localizeSourceHead(head, text2));
     form.querySelectorAll("[data-source-name-key]").forEach((element) => {
-      const key2 = element.dataset.sourceNameKey;
-      if (isSettingsTextKey(key2)) element.replaceChildren(text2(key2));
+      const key = element.dataset.sourceNameKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text2(key));
     });
     form.querySelectorAll("[data-source-help-key]").forEach((element) => {
-      const key2 = element.dataset.sourceHelpKey;
-      if (isSettingsTextKey(key2)) element.replaceChildren(text2(key2));
+      const key = element.dataset.sourceHelpKey;
+      if (isSettingsTextKey(key)) element.replaceChildren(text2(key));
     });
     replaceSourceHelp(form, /Import Yomitan dictionaries|Yomitan辞書をインポート/, text2("importLocalDefinitionsHelp"));
     replaceSourceHelp(form, /Frequency, pitch, and kanji metadata|頻度、ピッチ、漢字メタデータ/, text2("frequencyMetadataHelp"));
@@ -22292,8 +22288,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     headings[1]?.replaceChildren(text2("back"));
     preview.querySelector(".jpdb-reader-template-meaning")?.replaceChildren(text2("exampleMeaning"));
     preview.querySelectorAll("small").forEach((small) => {
-      const key2 = textKeyForPattern(small.textContent ?? "", ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS);
-      if (key2) small.replaceChildren(text2(key2));
+      const key = textKeyForPattern(small.textContent ?? "", ANKI_TEMPLATE_PREVIEW_SMALL_TEXT_KEYS);
+      if (key) small.replaceChildren(text2(key));
     });
   }
   function textKeyForPattern(value, options) {
@@ -22515,7 +22511,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["shortcuts.gradePass", "gradePass"]
   ];
   const SETTINGS_CONTROL_LABELS = [
-    ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key2) => [key2, key2]),
+    ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key) => [key, key]),
     ...SETTINGS_CONTROL_LABEL_ALIASES
   ];
   function getNamedControl(form, name) {
@@ -22676,12 +22672,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizeHelpLinksPanel(form, language) {
     const panel = form.querySelector(".jpdb-reader-help-links-card");
     if (!panel) return;
-    const text2 = (key2) => uiText(language, key2);
-    HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key2]) => {
-      panel.querySelector(selector)?.replaceChildren(text2(key2));
+    const text2 = (key) => uiText(language, key);
+    HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
+      panel.querySelector(selector)?.replaceChildren(text2(key));
     });
-    HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key2]) => {
-      setExternalButtonLabel(panel.querySelector(`[data-help-link="${link}"]`), text2(key2));
+    HELP_LINK_BUTTON_TEXT_KEYS.forEach(([link, key]) => {
+      setExternalButtonLabel(panel.querySelector(`[data-help-link="${link}"]`), text2(key));
     });
   }
   function externalButtonLabel(label) {
@@ -23236,12 +23232,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function hasMeasuredRect(rect) {
     return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
   }
-  function nextSettingsTabIndex(key2, currentIndex, tabCount) {
+  function nextSettingsTabIndex(key, currentIndex, tabCount) {
     if (currentIndex < 0 || tabCount <= 0) return -1;
-    if (key2 === "ArrowRight" || key2 === "ArrowDown") return (currentIndex + 1) % tabCount;
-    if (key2 === "ArrowLeft" || key2 === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
-    if (key2 === "Home") return 0;
-    if (key2 === "End") return tabCount - 1;
+    if (key === "ArrowRight" || key === "ArrowDown") return (currentIndex + 1) % tabCount;
+    if (key === "ArrowLeft" || key === "ArrowUp") return (currentIndex - 1 + tabCount) % tabCount;
+    if (key === "Home") return 0;
+    if (key === "End") return tabCount - 1;
     return -1;
   }
   function handleSettingsActionError(action, control, setStatus, error, language) {
@@ -24555,7 +24551,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return details.length ? formatUiTemplate(uiText(language, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language, "settingsImported");
   }
   function formatUiTemplate(template, values) {
-    return template.replace(/\{([a-z]+)\}/gi, (_, key2) => values[key2] ?? "");
+    return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");
   }
   function importedYomitanSettings(json, current) {
     const imported = parseYomitanSettingsExport(json, current.interfaceLanguage);
@@ -24761,7 +24757,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["0", "\0"],
     ["\n", ""]
   ]);
-  function googleLensUploadCallbackLiteral(html, key2) {
+  function googleLensUploadCallbackLiteral(html, key) {
     const marker = "AF_initDataCallback(";
     let searchIndex = 0;
     while (searchIndex < html.length) {
@@ -24769,13 +24765,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (markerIndex < 0) return null;
       const literalStart = markerIndex + marker.length;
       const literal = readBalancedLiteral(html, literalStart);
-      if (literal && callbackLiteralHasKey(literal, key2)) return literal;
+      if (literal && callbackLiteralHasKey(literal, key)) return literal;
       searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
     }
     return null;
   }
-  function callbackLiteralHasKey(literal, key2) {
-    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key2)}['"]`).test(literal);
+  function callbackLiteralHasKey(literal, key) {
+    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
   }
   function escapeRegex(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24844,10 +24840,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       index += 1;
       skipWhitespace();
       while (source[index] !== "}") {
-        const key2 = parseObjectKey();
+        const key = parseObjectKey();
         skipWhitespace();
         expect(":");
-        record[key2] = parseValue();
+        record[key] = parseValue();
         skipWhitespace();
         if (source[index] === ",") {
           index += 1;
@@ -25321,7 +25317,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
   }
   function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key2) => asRecord(record[key2])).filter((point) => Boolean(point));
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
     if (points.length < 2) return null;
     const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
     const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
@@ -25922,18 +25918,18 @@ ${spelling}`);
     }
     async parseLocalOrSegmentedText(text2, options) {
       const settings = this.dependencies.getSettings();
-      const key2 = localParseCacheKey(text2, options, settings);
-      const cached = this.localParseCache.get(key2);
+      const key = localParseCacheKey(text2, options, settings);
+      const cached = this.localParseCache.get(key);
       if (cached) {
-        this.localParseCache.delete(key2);
-        this.localParseCache.set(key2, cached);
+        this.localParseCache.delete(key);
+        this.localParseCache.set(key, cached);
         return cached;
       }
       const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
-        if (this.localParseCache.get(key2) === promise) this.localParseCache.delete(key2);
+        if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
         throw error;
       });
-      this.rememberLocalParseCacheEntry(key2, promise);
+      this.rememberLocalParseCacheEntry(key, promise);
       return promise;
     }
     async parseLocalOrSegmentedTextUncached(text2, options) {
@@ -25945,8 +25941,8 @@ ${spelling}`);
       }
       return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
     }
-    rememberLocalParseCacheEntry(key2, promise) {
-      this.localParseCache.set(key2, promise);
+    rememberLocalParseCacheEntry(key, promise) {
+      this.localParseCache.set(key, promise);
       while (this.localParseCache.size > LOCAL_PARSE_CACHE_LIMIT) {
         const oldest = this.localParseCache.keys().next().value;
         if (typeof oldest !== "string") break;
@@ -26041,8 +26037,8 @@ ${spelling}`);
       if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return "";
       const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
       if (typeof lookupTermMeta !== "function") return "";
-      const key2 = localPitchCacheKey(card, settings);
-      const cached = this.localPitchCache.get(key2);
+      const key = localPitchCacheKey(card, settings);
+      const cached = this.localPitchCache.get(key);
       if (cached) return cached;
       const promise = lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).then((metaEntries) => {
         return localPitchPatternFromMeta(card.reading, metaEntries);
@@ -26050,11 +26046,11 @@ ${spelling}`);
         log$n.warn("Local pitch parse failed", { term: card.spelling }, error);
         return "";
       });
-      this.rememberLocalPitchCacheEntry(key2, promise);
+      this.rememberLocalPitchCacheEntry(key, promise);
       return promise;
     }
-    rememberLocalPitchCacheEntry(key2, promise) {
-      this.localPitchCache.set(key2, promise);
+    rememberLocalPitchCacheEntry(key, promise) {
+      this.localPitchCache.set(key, promise);
       while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
         const oldest = this.localPitchCache.keys().next().value;
         if (typeof oldest !== "string") break;
@@ -26575,13 +26571,13 @@ ${spelling}`);
     async scanImage(image) {
       const state = this.states.get(image) ?? this.ensureState(image);
       const settings = this.options.getSettings();
-      const key2 = imageCacheKey(image);
+      const key = imageCacheKey(image);
       const manualRequested = state.manualRequested;
       this.resetStateIfImageChanged(state);
-      if (await this.renderCachedOcrResult(state, key2)) return;
+      if (await this.renderCachedOcrResult(state, key)) return;
       const scan = beginOcrScan(state, image, settings, manualRequested);
       try {
-        await this.scanUncachedImage(state, image, key2, settings, scan.provider, manualRequested);
+        await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
         await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
       } finally {
@@ -26589,14 +26585,14 @@ ${spelling}`);
         scan.done();
       }
     }
-    async renderCachedOcrResult(state, key2) {
-      const cached = this.cache.get(key2);
+    async renderCachedOcrResult(state, key) {
+      const cached = this.cache.get(key);
       if (!cached) return false;
       await this.renderResult(state, cached);
       state.manualRequested = false;
       return true;
     }
-    async scanUncachedImage(state, image, key2, settings, provider, manualRequested) {
+    async scanUncachedImage(state, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
       const result = inlineFallback ?? providerResult;
@@ -26604,8 +26600,8 @@ ${spelling}`);
         renderNoOcrLines(state);
         return;
       }
-      this.remember(key2, result);
-      state.key = key2;
+      this.remember(key, result);
+      state.key = key;
       await this.renderResult(state, result);
       log$m.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
@@ -26726,9 +26722,9 @@ ${spelling}`);
       return 1;
     }
     resetStateIfImageChanged(state) {
-      const key2 = imageCacheKey(state.image);
-      if (key2 === state.key) return;
-      state.key = key2;
+      const key = imageCacheKey(state.image);
+      if (key === state.key) return;
+      state.key = key;
       state.result = void 0;
       state.loading = false;
       state.overlayRequested = false;
@@ -26736,8 +26732,8 @@ ${spelling}`);
       state.autoSkipped = false;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
     }
-    remember(key2, result) {
-      this.cache.set(key2, result);
+    remember(key, result) {
+      this.cache.set(key, result);
       while (this.cache.size > MAX_CACHE_ITEMS) {
         const oldest = this.cache.keys().next().value;
         if (!oldest) break;
@@ -28674,9 +28670,9 @@ ${spelling}`);
   function dedupeSubtitleSources(sources) {
     const seen = /* @__PURE__ */ new Set();
     return sources.filter((source) => {
-      const key2 = source.sourceKey;
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = source.sourceKey;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -29416,9 +29412,9 @@ ${spelling}`);
   function uniqueYouTubeCaptionTrackCandidates(candidates) {
     const tracks = /* @__PURE__ */ new Map();
     for (const parsed of candidates) {
-      const key2 = youtubeCaptionTrackIdentity(parsed);
-      const existing = tracks.get(key2);
-      if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key2, parsed);
+      const key = youtubeCaptionTrackIdentity(parsed);
+      const existing = tracks.get(key);
+      if (!existing || shouldRefreshYouTubeTrackUrl(parsed.url, existing.url)) tracks.set(key, parsed);
     }
     return [...tracks.values()];
   }
@@ -29785,14 +29781,14 @@ ${spelling}`);
   function readYouTubeClientName() {
     return readYouTubeConfigString$1("INNERTUBE_CLIENT_NAME");
   }
-  function readYouTubeConfigString$1(key2) {
+  function readYouTubeConfigString$1(key) {
     const ytcfg = window.ytcfg;
-    const value = ytcfg?.get?.(key2) ?? ytcfg?.data_?.[key2];
+    const value = ytcfg?.get?.(key) ?? ytcfg?.data_?.[key];
     if (typeof value === "string" && value) return value;
-    return readYouTubeConfigStringFromScripts(key2);
+    return readYouTubeConfigStringFromScripts(key);
   }
-  function readYouTubeConfigStringFromScripts(key2) {
-    const escapedKey = escapeRegExp$3(key2);
+  function readYouTubeConfigStringFromScripts(key) {
+    const escapedKey = escapeRegExp$3(key);
     const patterns = [
       new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
       new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
@@ -30610,9 +30606,9 @@ ${spelling}`);
   }
   function addDeckChoiceOption(options, source, value, label) {
     const normalizedValue = value.trim();
-    const key2 = `${source}:${normalizedValue}`;
-    if (!normalizedValue || options.some(([existing]) => existing === key2)) return;
-    options.push([key2, label]);
+    const key = `${source}:${normalizedValue}`;
+    if (!normalizedValue || options.some(([existing]) => existing === key)) return;
+    options.push([key, label]);
   }
   function renderDeckChoiceOption([value, label]) {
     const [source, ...idParts] = value.split(":");
@@ -30758,13 +30754,13 @@ ${spelling}`);
   function canParseSubtitleTranscriptRows(settings) {
     return hasSubtitleParserSource();
   }
-  function shouldApplyParsedTranscriptHtml(target, key2, provisional = false) {
-    if (target.dataset.parseKey !== key2) return false;
-    if (target.dataset.parsedKey !== key2) return true;
+  function shouldApplyParsedTranscriptHtml(target, key, provisional = false) {
+    if (target.dataset.parseKey !== key) return false;
+    if (target.dataset.parsedKey !== key) return true;
     return !provisional && target.dataset.parsedProvisional === "true";
   }
-  function hasAttemptedTranscriptParse(target, key2) {
-    return target.dataset.parsedKey === key2 || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key2) || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key2);
+  function hasAttemptedTranscriptParse(target, key) {
+    return target.dataset.parsedKey === key || hasRecentTranscriptParseAttempt(target.dataset.parseEmptyKey, target.dataset.parseEmptyAt, key) || hasRecentTranscriptParseAttempt(target.dataset.parseFailedKey, target.dataset.parseFailedAt, key);
   }
   function parsedSubtitleHtmlHasReaderWords(html) {
     return html.includes("jpdb-reader-word");
@@ -30809,8 +30805,8 @@ ${spelling}`);
   function hasSubtitleParserSource(_settings) {
     return true;
   }
-  function hasRecentTranscriptParseAttempt(markerKey, markerAt, key2) {
-    if (markerKey !== key2) return false;
+  function hasRecentTranscriptParseAttempt(markerKey, markerAt, key) {
+    if (markerKey !== key) return false;
     const markedAt = Number(markerAt || 0);
     return Number.isFinite(markedAt) && Date.now() - markedAt < SUBTITLE_EMPTY_PARSE_RETRY_MS;
   }
@@ -30959,9 +30955,9 @@ ${spelling}`);
       maxSideWidth: Math.max(TRANSCRIPT_PANEL_MIN_SIDE_WIDTH, viewportWidth - TRANSCRIPT_PANEL_MARGIN * 3)
     };
   }
-  function transcriptResizeKeyboardDirection(placement, key2) {
-    if (key2 === transcriptResizeIncreaseKey(placement)) return 1;
-    if (key2 === transcriptResizeDecreaseKey(placement)) return -1;
+  function transcriptResizeKeyboardDirection(placement, key) {
+    if (key === transcriptResizeIncreaseKey(placement)) return 1;
+    if (key === transcriptResizeDecreaseKey(placement)) return -1;
     return 0;
   }
   function transcriptResizeHandleMetrics(options) {
@@ -31503,14 +31499,14 @@ ${spelling}`);
       }, this.eventOptions());
     }
     syncSubtitleSourceContext(video = this.video) {
-      const key2 = subtitleSourceContextKey(video);
-      if (!key2) return false;
+      const key = subtitleSourceContextKey(video);
+      if (!key) return false;
       if (!this.subtitleSourceContextKey) {
-        this.subtitleSourceContextKey = key2;
+        this.subtitleSourceContextKey = key;
         return false;
       }
-      if (this.subtitleSourceContextKey === key2) return false;
-      this.subtitleSourceContextKey = key2;
+      if (this.subtitleSourceContextKey === key) return false;
+      this.subtitleSourceContextKey = key;
       this.youtubeAutoSelectSuppressedVideoId = "";
       this.lastYouTubeTrackDiscoveryAt = 0;
       this.clearTransientSubtitleState();
@@ -32021,12 +32017,12 @@ ${spelling}`);
         time: this.video?.currentTime ?? activeCue?.start ?? 0
       });
     }
-    primaryParsedHtmlForRender(text2, settings, key2) {
-      const cached = this.parsedHtmlCache.get(key2);
+    primaryParsedHtmlForRender(text2, settings, key) {
+      const cached = this.parsedHtmlCache.get(key);
       if (cached !== void 0) return cached;
-      const provisional = this.provisionalParsedHtmlCache.get(key2);
+      const provisional = this.provisionalParsedHtmlCache.get(key);
       if (provisional !== void 0) {
-        if (this.shouldUseProvisionalSubtitleParse(settings)) this.ensureAuthoritativeParsedCueHtml(text2, settings, key2);
+        if (this.shouldUseProvisionalSubtitleParse(settings)) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return provisional;
       }
       return void 0;
@@ -32054,17 +32050,17 @@ ${spelling}`);
     }
     async renderParsedPrimary(text2) {
       const settings = this.options.getSettings();
-      const key2 = this.parseCacheKey(text2, settings);
+      const key = this.parseCacheKey(text2, settings);
       const serial = ++this.renderSerial;
-      const cached = this.parsedHtmlCache.get(key2);
+      const cached = this.parsedHtmlCache.get(key);
       if (cached) {
         const root = this.replacePrimaryHtml(cached, serial);
-        if (root) this.notifyParsedTokensForKey(key2, true, [root]);
+        if (root) this.notifyParsedTokensForKey(key, true, [root]);
         return;
       }
       try {
         const html = await this.parseCueHtml(text2, settings);
-        this.applyParsedPrimaryHtml(key2, text2, html, serial);
+        this.applyParsedPrimaryHtml(key, text2, html, serial);
       } catch {
       }
     }
@@ -32110,52 +32106,52 @@ ${spelling}`);
       ].join(":");
     }
     async parseCueHtml(text2, settings = this.options.getSettings(), options = {}) {
-      const key2 = this.parseCacheKey(text2, settings);
-      const cached = this.parsedHtmlCache.get(key2);
+      const key = this.parseCacheKey(text2, settings);
+      const cached = this.parsedHtmlCache.get(key);
       if (cached) {
         return cached;
       }
-      const emptyCached = this.freshEmptyParsedHtml(key2);
+      const emptyCached = this.freshEmptyParsedHtml(key);
       if (emptyCached) return emptyCached;
-      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text2, settings, key2);
-      const pending = this.pendingParsedHtml.get(key2);
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text2, settings, key);
+      const pending = this.pendingParsedHtml.get(key);
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2, subtitleParseOptions());
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key2, html, tokens);
+        this.rememberParsedCueHtml(key, html, tokens);
         return html;
       })();
-      this.pendingParsedHtml.set(key2, promise);
+      this.pendingParsedHtml.set(key, promise);
       try {
         return await promise;
       } finally {
-        this.pendingParsedHtml.delete(key2);
+        this.pendingParsedHtml.delete(key);
       }
     }
-    async parseProvisionalCueHtml(text2, settings, key2) {
-      this.ensureAuthoritativeParsedCueHtml(text2, settings, key2);
-      const cached = this.provisionalParsedHtmlCache.get(key2);
+    async parseProvisionalCueHtml(text2, settings, key) {
+      this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
+      const cached = this.provisionalParsedHtmlCache.get(key);
       if (cached) {
         return cached;
       }
-      const pending = this.pendingProvisionalParsedHtml.get(key2);
+      const pending = this.pendingProvisionalParsedHtml.get(key);
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2, provisionalSubtitleParseOptions());
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key2, html, tokens, { provisional: true });
+        this.rememberParsedCueHtml(key, html, tokens, { provisional: true });
         return html;
       })();
-      this.pendingProvisionalParsedHtml.set(key2, promise);
+      this.pendingProvisionalParsedHtml.set(key, promise);
       try {
         return await promise;
       } finally {
-        this.pendingProvisionalParsedHtml.delete(key2);
+        this.pendingProvisionalParsedHtml.delete(key);
       }
     }
-    ensureAuthoritativeParsedCueHtml(text2, settings, key2) {
-      this.ensureAuthoritativeParsedCueHtmlBatch([{ text: text2, key: key2 }], settings);
+    ensureAuthoritativeParsedCueHtml(text2, settings, key) {
+      this.ensureAuthoritativeParsedCueHtmlBatch([{ text: text2, key }], settings);
     }
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
       if (!hasJpdbApiCredential(settings) && !hasJitenApiCredential(settings)) return;
@@ -32176,17 +32172,17 @@ ${spelling}`);
         });
       });
     }
-    applyAuthoritativeParsedCueHtml(key2, text2, html) {
-      this.updateTranscriptRowsForParseKey(key2, html);
-      if (this.currentPrimaryParseCacheKey() !== key2) return;
-      this.applyParsedPrimaryHtml(key2, text2, html, ++this.renderSerial);
+    applyAuthoritativeParsedCueHtml(key, text2, html) {
+      this.updateTranscriptRowsForParseKey(key, html);
+      if (this.currentPrimaryParseCacheKey() !== key) return;
+      this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
     }
-    applyParsedPrimaryHtml(key2, text2, html, serial) {
+    applyParsedPrimaryHtml(key, text2, html, serial) {
       const root = this.replacePrimaryHtml(html, serial);
-      this.lastRenderedPrimaryKey = key2;
+      this.lastRenderedPrimaryKey = key;
       this.lastRenderedPrimaryText = text2;
       this.lastRenderedPrimaryHtml = html;
-      if (root) this.notifyParsedTokensForKey(key2, true, [root]);
+      if (root) this.notifyParsedTokensForKey(key, true, [root]);
     }
     currentPrimaryParseCacheKey() {
       const text2 = this.currentCue?.text.trim() ?? "";
@@ -32197,8 +32193,8 @@ ${spelling}`);
       if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings);
       const { ready, batch } = planSubtitleParseBatch(
         items,
-        (key2) => this.parsedHtmlCache.get(key2) ?? this.freshEmptyParsedHtml(key2),
-        (key2) => this.pendingParsedHtml.get(key2)
+        (key) => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key),
+        (key) => this.pendingParsedHtml.get(key)
       );
       if (!batch.length) return Promise.all(ready);
       if (!this.options.parseJapaneseBatch) {
@@ -32243,19 +32239,19 @@ ${spelling}`);
         });
       }
     }
-    rememberParsedCueHtml(key2, html, tokens = [], options = {}) {
+    rememberParsedCueHtml(key, html, tokens = [], options = {}) {
       if (parsedSubtitleHtmlHasReaderWords(html)) {
-        if (options.provisional) this.provisionalParsedHtmlCache.set(key2, html);
+        if (options.provisional) this.provisionalParsedHtmlCache.set(key, html);
         else {
-          this.parsedHtmlCache.set(key2, html);
-          this.provisionalParsedHtmlCache.delete(key2);
+          this.parsedHtmlCache.set(key, html);
+          this.provisionalParsedHtmlCache.delete(key);
         }
-        this.emptyParsedHtmlCache.delete(key2);
-        if (tokens.length) this.parsedTokenCache.set(key2, tokens);
+        this.emptyParsedHtmlCache.delete(key);
+        if (tokens.length) this.parsedTokenCache.set(key, tokens);
         this.pruneParsedSubtitleCaches();
       } else {
         if (!options.provisional) {
-          this.emptyParsedHtmlCache.set(key2, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+          this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
           this.pruneParsedSubtitleCaches();
         }
       }
@@ -32269,37 +32265,37 @@ ${spelling}`);
     pruneParsedSubtitleCache(cache) {
       while (cache.size > 180) this.deleteParsedSubtitleKey(cache.keys().next().value ?? "");
     }
-    deleteParsedSubtitleKey(key2) {
-      if (!key2) return;
-      this.parsedHtmlCache.delete(key2);
-      this.provisionalParsedHtmlCache.delete(key2);
-      this.emptyParsedHtmlCache.delete(key2);
-      this.pendingParsedHtml.delete(key2);
-      this.pendingProvisionalParsedHtml.delete(key2);
-      this.parsedTokenCache.delete(key2);
-      this.parsedTokenNotifiedAt.delete(key2);
+    deleteParsedSubtitleKey(key) {
+      if (!key) return;
+      this.parsedHtmlCache.delete(key);
+      this.provisionalParsedHtmlCache.delete(key);
+      this.emptyParsedHtmlCache.delete(key);
+      this.pendingParsedHtml.delete(key);
+      this.pendingProvisionalParsedHtml.delete(key);
+      this.parsedTokenCache.delete(key);
+      this.parsedTokenNotifiedAt.delete(key);
     }
-    notifyParsedTokensForKey(key2, force = false, roots) {
+    notifyParsedTokensForKey(key, force = false, roots) {
       if (!this.options.afterParseTokens) return;
-      const tokens = this.parsedTokenCache.get(key2);
+      const tokens = this.parsedTokenCache.get(key);
       if (!tokens?.length) return;
       const now = Date.now();
-      const lastNotifiedAt = this.parsedTokenNotifiedAt.get(key2) ?? 0;
+      const lastNotifiedAt = this.parsedTokenNotifiedAt.get(key) ?? 0;
       if (!force && now - lastNotifiedAt < SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS) return;
-      this.parsedTokenNotifiedAt.set(key2, now);
+      this.parsedTokenNotifiedAt.set(key, now);
       this.options.afterParseTokens(tokens, roots);
     }
     shouldUseProvisionalSubtitleParse(_settings) {
       return isYouTubePage();
     }
-    hasFreshEmptyParsedHtml(key2) {
-      return Boolean(this.freshEmptyParsedHtml(key2));
+    hasFreshEmptyParsedHtml(key) {
+      return Boolean(this.freshEmptyParsedHtml(key));
     }
-    freshEmptyParsedHtml(key2) {
-      const cached = this.emptyParsedHtmlCache.get(key2);
+    freshEmptyParsedHtml(key) {
+      const cached = this.emptyParsedHtmlCache.get(key);
       if (!cached) return void 0;
       if (cached.expiresAt > Date.now()) return cached.html;
-      this.emptyParsedHtmlCache.delete(key2);
+      this.emptyParsedHtmlCache.delete(key);
       return void 0;
     }
     warmParseAroundActiveCue() {
@@ -32329,9 +32325,9 @@ ${spelling}`);
       for (let index = start; index < end; index++) {
         const text2 = this.cues[index]?.text.trim();
         if (!text2) continue;
-        const key2 = this.parseCacheKey(text2, settings);
-        if (seen.has(key2) || this.parsedHtmlCache.has(key2) || this.hasFreshEmptyParsedHtml(key2)) continue;
-        seen.add(key2);
+        const key = this.parseCacheKey(text2, settings);
+        if (seen.has(key) || this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) continue;
+        seen.add(key);
         texts.push(text2);
       }
       return texts;
@@ -32840,8 +32836,8 @@ ${spelling}`);
       return { added, updatedSelectedTrack };
     }
     findExistingYouTubeTrack(track) {
-      const key2 = youtubeCaptionTrackIdentity(track);
-      return this.tracks.find((option) => option.kind === "youtube" && youtubeCaptionTrackIdentity(option) === key2);
+      const key = youtubeCaptionTrackIdentity(track);
+      return this.tracks.find((option) => option.kind === "youtube" && youtubeCaptionTrackIdentity(option) === key);
     }
     updateExistingYouTubeTrack(existing, track) {
       let updatedSelectedTrack = false;
@@ -33476,8 +33472,8 @@ ${spelling}`);
       const cue = rows[index]?.cue;
       const target = this.transcriptPanel?.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return null;
-      const key2 = this.parseCacheKey(cue.text, settings);
-      return hasAttemptedTranscriptParse(target, key2) ? null : { cue, target, key: key2 };
+      const key = this.parseCacheKey(cue.text, settings);
+      return hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }
     applyCachedTranscriptRowHtml(hydration, html) {
       hydration.target.dataset.parsedKey = hydration.key;
@@ -33562,23 +33558,23 @@ ${spelling}`);
     addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings) {
       const text2 = rows[rowIndex]?.cue.text.trim();
       if (!text2) return;
-      const key2 = this.parseCacheKey(text2, settings);
-      if (seen.has(key2) || this.parsedHtmlCache.has(key2)) return;
-      seen.add(key2);
-      plan.push({ rowIndex, text: text2, key: key2 });
+      const key = this.parseCacheKey(text2, settings);
+      if (seen.has(key) || this.parsedHtmlCache.has(key)) return;
+      seen.add(key);
+      plan.push({ rowIndex, text: text2, key });
     }
     transcriptBackgroundParsePauseMs() {
       return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
     }
-    updateTranscriptRowsForParseKey(key2, html, options = {}) {
+    updateTranscriptRowsForParseKey(key, html, options = {}) {
       const panel = this.updatableTranscriptPanel();
       if (!panel) return;
       const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
       const updatedRoots = [];
-      for (const target of this.transcriptTextTargetsForParseKey(panel, key2)) {
-        if (!shouldApplyParsedTranscriptHtml(target, key2, options.provisional === true)) continue;
+      for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
+        if (!shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
         if (hasReaderWords) {
-          target.dataset.parsedKey = key2;
+          target.dataset.parsedKey = key;
           if (options.provisional) target.dataset.parsedProvisional = "true";
           else delete target.dataset.parsedProvisional;
           delete target.dataset.parseEmptyKey;
@@ -33588,7 +33584,7 @@ ${spelling}`);
           setInnerHtml(target, html);
           updatedRoots.push(target);
         } else {
-          target.dataset.parseEmptyKey = key2;
+          target.dataset.parseEmptyKey = key;
           target.dataset.parseEmptyAt = String(Date.now());
           delete target.dataset.parsedKey;
           delete target.dataset.parsedProvisional;
@@ -33596,22 +33592,22 @@ ${spelling}`);
           delete target.dataset.parseFailedAt;
         }
       }
-      if (updatedRoots.length) this.notifyParsedTokensForKey(key2, true, updatedRoots);
+      if (updatedRoots.length) this.notifyParsedTokensForKey(key, true, updatedRoots);
     }
     indexTranscriptTextTargets(panel = this.updatableTranscriptPanel()) {
       this.transcriptTextTargetsByParseKey.clear();
       if (!panel) return;
       for (const target of Array.from(panel.querySelectorAll("[data-transcript-text][data-parse-key]"))) {
-        const key2 = target.dataset.parseKey;
-        if (!key2) continue;
-        const targets = this.transcriptTextTargetsByParseKey.get(key2);
+        const key = target.dataset.parseKey;
+        if (!key) continue;
+        const targets = this.transcriptTextTargetsByParseKey.get(key);
         if (targets) targets.push(target);
-        else this.transcriptTextTargetsByParseKey.set(key2, [target]);
+        else this.transcriptTextTargetsByParseKey.set(key, [target]);
       }
     }
-    transcriptTextTargetsForParseKey(panel, key2) {
+    transcriptTextTargetsForParseKey(panel, key) {
       if (!this.transcriptTextTargetsByParseKey.size) this.indexTranscriptTextTargets(panel);
-      const targets = this.transcriptTextTargetsByParseKey.get(key2) ?? [];
+      const targets = this.transcriptTextTargetsByParseKey.get(key) ?? [];
       return targets.filter((target) => target.isConnected && panel.contains(target));
     }
     updatableTranscriptPanel() {
@@ -34615,8 +34611,8 @@ ${spelling}`);
     }
     noticeSummaryText(filteredCount, settings) {
       const plural = filteredCount === 1 ? "" : "s";
-      const key2 = this.revealed ? "youtubeFilterShowing" : "youtubeFilterHid";
-      return formatYoutubeText(uiText(settings.interfaceLanguage, key2), {
+      const key = this.revealed ? "youtubeFilterShowing" : "youtubeFilterHid";
+      return formatYoutubeText(uiText(settings.interfaceLanguage, key), {
         appName: APP_NAME,
         count: String(filteredCount),
         plural
@@ -35095,7 +35091,7 @@ ${spelling}`);
     }
   }
   function formatYoutubeText(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_match, key2) => values[key2] ?? "");
+    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
   }
   function noticeButton(action) {
     const button = document.createElement("button");
@@ -35148,28 +35144,28 @@ ${spelling}`);
   function readYouTubeConfigSource() {
     return window.ytcfg ?? readYouTubeConfigSourceFromScripts();
   }
-  function readYouTubeConfigString(ytcfg, key2) {
-    return stringValue(readYouTubeConfigValue(ytcfg, key2));
+  function readYouTubeConfigString(ytcfg, key) {
+    return stringValue(readYouTubeConfigValue(ytcfg, key));
   }
-  function readYouTubeConfigValue(ytcfg, key2) {
+  function readYouTubeConfigValue(ytcfg, key) {
     try {
-      if (typeof ytcfg?.get === "function") return ytcfg.get(key2);
+      if (typeof ytcfg?.get === "function") return ytcfg.get(key);
     } catch {
     }
-    return ytcfg?.data_?.[key2];
+    return ytcfg?.data_?.[key];
   }
   function readYouTubeConfigSourceFromScripts() {
     const data = {};
-    for (const key2 of ["INNERTUBE_API_KEY", "INNERTUBE_CLIENT_NAME", "INNERTUBE_CLIENT_VERSION", "VISITOR_DATA"]) {
-      const value = readYouTubeConfigScriptValue(key2);
-      if (value) data[key2] = value;
+    for (const key of ["INNERTUBE_API_KEY", "INNERTUBE_CLIENT_NAME", "INNERTUBE_CLIENT_VERSION", "VISITOR_DATA"]) {
+      const value = readYouTubeConfigScriptValue(key);
+      if (value) data[key] = value;
     }
     const context = readYouTubeConfigScriptObject("INNERTUBE_CONTEXT");
     if (context) data.INNERTUBE_CONTEXT = context;
     return Object.keys(data).length ? { data_: data } : void 0;
   }
-  function readYouTubeConfigScriptValue(key2) {
-    const escapedKey = escapeRegExp$2(key2);
+  function readYouTubeConfigScriptValue(key) {
+    const escapedKey = escapeRegExp$2(key);
     const patterns = [
       new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
       new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
@@ -35181,8 +35177,8 @@ ${spelling}`);
     }
     return "";
   }
-  function readYouTubeConfigScriptObject(key2) {
-    const escapedKey = escapeRegExp$2(key2);
+  function readYouTubeConfigScriptObject(key) {
+    const escapedKey = escapeRegExp$2(key);
     const pattern = new RegExp(`"${escapedKey}"\\s*:\\s*(\\{.+?\\})\\s*,\\s*"`, "su");
     for (const script of Array.from(document.scripts)) {
       const text2 = script.textContent ?? "";
@@ -35308,8 +35304,8 @@ ${spelling}`);
     if (config.visitorId) headers["X-Goog-Visitor-Id"] = config.visitorId;
     return headers;
   }
-  function findNestedString(value, key2, predicate = Boolean) {
-    return findNestedYouTubeValue(value, (candidate) => nestedYouTubeText(candidate, key2, predicate));
+  function findNestedString(value, key, predicate = Boolean) {
+    return findNestedYouTubeValue(value, (candidate) => nestedYouTubeText(candidate, key, predicate));
   }
   function findNestedThumbnailUrl(value) {
     return findNestedYouTubeValue(value, nestedYouTubeThumbnailUrl);
@@ -35324,10 +35320,10 @@ ${spelling}`);
     }
     return "";
   }
-  function nestedYouTubeText(value, key2, predicate) {
+  function nestedYouTubeText(value, key, predicate) {
     const record = recordValue(value);
     if (!record) return "";
-    const text2 = textFromYouTubeValue(record[key2]);
+    const text2 = textFromYouTubeValue(record[key]);
     return text2 && predicate(text2) ? text2 : "";
   }
   function nestedYouTubeThumbnailUrl(value) {
@@ -35825,13 +35821,13 @@ ${spelling}`);
       this.random = random;
     }
     bags = /* @__PURE__ */ new Map();
-    order(key2, ids) {
+    order(key, ids) {
       if (ids.length < 2) return ids;
       const signature = ids.join("\0");
-      const current = this.bags.get(key2);
+      const current = this.bags.get(key);
       if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
       const next = this.buildAudioBag(ids, signature, current);
-      this.bags.set(key2, next);
+      this.bags.set(key, next);
       return audioDeckOrderWithFallbacks(next.remaining, ids);
     }
     buildAudioBag(ids, signature, current) {
@@ -35840,14 +35836,14 @@ ${spelling}`);
       rotateRepeatedAudioLead(remaining, lastPlayed);
       return { signature, remaining, lastPlayed };
     }
-    markPlayed(key2, id) {
-      const current = this.bags.get(key2);
+    markPlayed(key, id) {
+      const current = this.bags.get(key);
       if (!current) return;
       removeAudioDeckId(current.remaining, id);
       current.lastPlayed = id;
     }
-    markSkipped(key2, id) {
-      const current = this.bags.get(key2);
+    markSkipped(key, id) {
+      const current = this.bags.get(key);
       if (!current) return;
       removeAudioDeckId(current.remaining, id);
     }
@@ -36167,9 +36163,9 @@ ${spelling}`);
   function uniqueJpdbAudioValues(values) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
-      const key2 = normalizeAttemptedAudioUrl(value);
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = normalizeAttemptedAudioUrl(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -36247,7 +36243,7 @@ ${spelling}`);
     };
     return template.replace(
       /\{(term|reading|language)\}/g,
-      (_, key2) => encodeURIComponent(replacements[key2] ?? "")
+      (_, key) => encodeURIComponent(replacements[key] ?? "")
     );
   }
   function findAudioUrl(value, sourceUrl, mode = "first") {
@@ -36301,14 +36297,14 @@ ${spelling}`);
     return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
   }
   function preferredAudioRecordUrls(record, sourceUrl) {
-    return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key2) => findAudioUrls(record[key2], sourceUrl));
+    return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record[key], sourceUrl));
   }
   function directAudioRecordUrls(record, sourceUrl) {
     return typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
   }
   function nestedAudioRecordUrls(record, sourceUrl) {
     const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
-    return uniqueAudioUrls(Object.entries(record).filter(([key2]) => !knownKeys.has(key2)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+    return uniqueAudioUrls(Object.entries(record).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
   }
   async function isUnavailableJapanesePod101Audio(blob) {
     if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
@@ -36915,9 +36911,9 @@ ${spelling}`);
   function uniqueAudioUrls(urls) {
     const seen = /* @__PURE__ */ new Set();
     return urls.filter((url) => {
-      const key2 = normalizeAttemptedAudioUrl(url);
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = normalizeAttemptedAudioUrl(url);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -37007,49 +37003,49 @@ ${spelling}`);
       this.ttlMs = ttlMs;
     }
     entries = /* @__PURE__ */ new Map();
-    getOrCreate(key2, createUrl) {
+    getOrCreate(key, createUrl) {
       const now = Date.now();
-      const cached = this.entries.get(key2);
+      const cached = this.entries.get(key);
       if (cached && cached.expiresAt > now) {
         return cached.promise;
       }
-      if (cached) this.delete(key2);
+      if (cached) this.delete(key);
       const entry = {
         expiresAt: now + this.ttlMs,
         promise: Promise.resolve().then(createUrl).then((url) => {
           entry.url = url;
-          entry.timeoutId = window.setTimeout(() => this.expire(key2, entry), this.ttlMs);
+          entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
           return url;
         }).catch((error) => {
-          if (this.entries.get(key2) === entry) this.entries.delete(key2);
+          if (this.entries.get(key) === entry) this.entries.delete(key);
           throw error;
         })
       };
-      this.entries.set(key2, entry);
+      this.entries.set(key, entry);
       return entry.promise;
     }
     clear() {
-      for (const key2 of this.entries.keys()) {
-        this.delete(key2);
+      for (const key of this.entries.keys()) {
+        this.delete(key);
       }
     }
-    expire(key2, entry) {
-      if (this.entries.get(key2) !== entry) return;
-      this.delete(key2);
+    expire(key, entry) {
+      if (this.entries.get(key) !== entry) return;
+      this.delete(key);
     }
-    delete(key2) {
-      const entry = this.entries.get(key2);
+    delete(key) {
+      const entry = this.entries.get(key);
       if (!entry) return;
       if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
-      this.entries.delete(key2);
+      this.entries.delete(key);
       if (entry.url?.startsWith("blob:") && typeof URL.revokeObjectURL === "function") {
         URL.revokeObjectURL(entry.url);
       }
     }
   }
   function pruneExpiringMapEntries(cache, limit, now = Date.now()) {
-    for (const [key2, entry] of cache) {
-      if (entry.expiresAt <= now) cache.delete(key2);
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now) cache.delete(key);
     }
     while (cache.size > limit) {
       const oldest = cache.keys().next().value;
@@ -37486,25 +37482,25 @@ ${spelling}`);
       const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
       if (!fetchAsBlob) return Promise.resolve(candidate.url);
       preconnectAudioUrl(candidate.url);
-      const key2 = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
-      return this.blobUrlCache.getOrCreate(key2, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
+      const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
+      return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
     }
     preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob, reservedAudio) {
       const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
-      const key2 = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
+      const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
       if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
       const now = Date.now();
-      const cached = this.readyAudioCache.get(key2);
+      const cached = this.readyAudioCache.get(key);
       if (cached && cached.expiresAt > now) {
         return cached.promise.then((audio) => this.createReadyAudio(audio.src));
       }
-      if (cached) this.readyAudioCache.delete(key2);
+      if (cached) this.readyAudioCache.delete(key);
       let promise;
       promise = this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl)).catch((error) => {
-        if (this.readyAudioCache.get(key2)?.promise === promise) this.readyAudioCache.delete(key2);
+        if (this.readyAudioCache.get(key)?.promise === promise) this.readyAudioCache.delete(key);
         throw error;
       });
-      this.readyAudioCache.set(key2, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
+      this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
       pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
       return promise;
     }
@@ -37564,23 +37560,23 @@ ${spelling}`);
       }
     }
     getCachedAudioCandidates(source, card, timeoutMs, proxyUrl) {
-      const key2 = getAudioCandidateCacheKey(source, card);
+      const key = getAudioCandidateCacheKey(source, card);
       const now = Date.now();
-      const cached = this.candidateCache.get(key2);
+      const cached = this.candidateCache.get(key);
       if (cached && cached.expiresAt > now) {
         return cached.promise.then(cloneAudioCandidates);
       }
       let promise;
       promise = getAudioCandidates(source, card, timeoutMs, proxyUrl).then((candidates) => {
-        if (!shouldCacheAudioCandidates(source, candidates) && this.candidateCache.get(key2)?.promise === promise) {
-          this.candidateCache.delete(key2);
+        if (!shouldCacheAudioCandidates(source, candidates) && this.candidateCache.get(key)?.promise === promise) {
+          this.candidateCache.delete(key);
         }
         return cloneAudioCandidates(candidates);
       }).catch((error) => {
-        if (this.candidateCache.get(key2)?.promise === promise) this.candidateCache.delete(key2);
+        if (this.candidateCache.get(key)?.promise === promise) this.candidateCache.delete(key);
         throw error;
       });
-      this.candidateCache.set(key2, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
+      this.candidateCache.set(key, { expiresAt: now + AUDIO_CANDIDATE_CACHE_TTL_MS, promise });
       pruneExpiringMapEntries(this.candidateCache, AUDIO_CANDIDATE_CACHE_LIMIT, now);
       return promise.then(cloneAudioCandidates);
     }
@@ -38634,12 +38630,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const selected = [];
     const ranked = GRAMMAR_PATTERNS.flatMap((item) => grammarMatches(item, normalized)).sort(compareRankedGrammarHints);
     for (const item of ranked) {
-      const key2 = `${item.ruleId}:${item.match}:${item.index}`;
-      if (seenMatches.has(key2)) continue;
+      const key = `${item.ruleId}:${item.match}:${item.index}`;
+      if (seenMatches.has(key)) continue;
       const count = seenNames.get(item.ruleId) ?? 0;
       if (count >= 2) continue;
       if (selected.some((existing) => shouldSuppressOverlappingGrammarHint(existing, item))) continue;
-      seenMatches.add(key2);
+      seenMatches.add(key);
       seenNames.set(item.ruleId, count + 1);
       selected.push(item);
       if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
@@ -38659,9 +38655,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function preloadJapaneseSentenceTranslation(sentence, language = "en") {
     void translateJapaneseSentence(sentence, language).catch(() => void 0);
   }
-  function cacheGrammarHints(key2, hints) {
-    if (!key2) return;
-    grammarHintCache.set(key2, hints);
+  function cacheGrammarHints(key, hints) {
+    if (!key) return;
+    grammarHintCache.set(key, hints);
     if (grammarHintCache.size <= GRAMMAR_HINT_CACHE_LIMIT) return;
     const oldest = grammarHintCache.keys().next().value;
     if (typeof oldest === "string") grammarHintCache.delete(oldest);
@@ -38911,8 +38907,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function japaneseGrammarText(value) {
     return (value.match(/[ぁ-んァ-ヶ一-龯々〆ヵヶー〜]+/gu) ?? []).join(" / ");
   }
-  function interpolateUiText(language, key2, values) {
-    return uiText(language, key2).replace(/\{(\w+)}/g, (_, name) => values[name] ?? "");
+  function interpolateUiText(language, key, values) {
+    return uiText(language, key).replace(/\{(\w+)}/g, (_, name) => values[name] ?? "");
   }
   function renderGrammarHintExamples(examples, language, audioEnabled) {
     const visibleExamples = examples.slice(0, 2);
@@ -39458,11 +39454,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ja: { ...NEW_TAB_COPY.en, ...JA_NEW_TAB_COPY }
   };
   const NEW_TAB_COPY_KEYS = new Set(Object.keys(NEW_TAB_COPY.en));
-  function isNewTabCopyKey(key2) {
-    return NEW_TAB_COPY_KEYS.has(key2);
+  function isNewTabCopyKey(key) {
+    return NEW_TAB_COPY_KEYS.has(key);
   }
-  function newTabText(language, key2) {
-    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key2] ?? NEW_TAB_COPY.en[key2];
+  function newTabText(language, key) {
+    return NEW_TAB_COPY_BY_LANGUAGE[resolveNewTabLanguage(language)][key] ?? NEW_TAB_COPY.en[key];
   }
   function resolveNewTabLanguage(language) {
     return language === "ja" ? "ja" : "en";
@@ -40055,8 +40051,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const template = cardName.trim();
     candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
   }
-  function ankiDetailsStateAttributes(options, key2, initiallyOpen) {
-    return options.sourceAttributes ? options.sourceAttributes(key2, initiallyOpen) : initiallyOpen ? "open" : "";
+  function ankiDetailsStateAttributes(options, key, initiallyOpen) {
+    return options.sourceAttributes ? options.sourceAttributes(key, initiallyOpen) : initiallyOpen ? "open" : "";
   }
   function ankiDeckSourceStateKey(note) {
     return `${ANKI_SOURCE_ID}:deck:${note.deckNames.join("/") || note.modelName}`;
@@ -40136,9 +40132,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function appendUniqueAnkiNote(notes, seen, note) {
     if (!note) return;
-    const key2 = ankiNoteKey(note);
-    if (seen.has(key2)) return;
-    seen.add(key2);
+    const key = ankiNoteKey(note);
+    if (seen.has(key)) return;
+    seen.add(key);
     notes.push(note);
   }
   function ankiNoteKey(note) {
@@ -40200,8 +40196,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function renderAnkiDetailsStatus(note, language) {
-    const key2 = note.detailsUnavailable ? "ankiCardDetailsUnavailable" : "ankiCardDetailsPending";
-    return `<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$1(uiText(language, key2))}</div>`;
+    const key = note.detailsUnavailable ? "ankiCardDetailsUnavailable" : "ankiCardDetailsPending";
+    return `<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$1(uiText(language, key))}</div>`;
   }
   function renderAnkiStoredFieldsFallback(note, language) {
     const fields = renderAnkiFields(note, language);
@@ -40814,8 +40810,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
     return record.type === "image" || "path" in record || tag === "img" || tag === "table";
   }
-  function pillStyle(key2) {
-    const hue = stableHue(key2);
+  function pillStyle(key) {
+    const hue = stableHue(key);
     return `--chip-bg:hsl(${hue} 70% 36%);--chip-border:hsl(${hue} 72% 50%);--chip-text:#fff;`;
   }
   function lookupPillStyle(id) {
@@ -40871,7 +40867,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       vid: values.vid,
       sid: values.sid
     };
-    const url = template.replace(/\{([a-z]+)\}/gi, (_, key2) => encodeURIComponent(replacements[key2.toLowerCase()] ?? values.query));
+    const url = template.replace(/\{([a-z]+)\}/gi, (_, key) => encodeURIComponent(replacements[key.toLowerCase()] ?? values.query));
     try {
       const parsed = new URL(url);
       return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
@@ -41535,7 +41531,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                 ${definitionSources}
                 ${fallbackAnkiSection}
                 ${view.loadingDetails}
-                ${renderKanjiDefinitions(data.kanjiEntries, (key2, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key2, initiallyExpanded), (name) => this.dependencies.dictionaryLabel(name), void 0, uiText(view.language, "kanjiDictionaries"), view.language)}
+                ${renderKanjiDefinitions(data.kanjiEntries, (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded), (name) => this.dependencies.dictionaryLabel(name), void 0, uiText(view.language, "kanjiDictionaries"), view.language)}
             </div>
             ${this.renderActions(view)}
         `;
@@ -41606,7 +41602,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     renderAnkiExistingSection(data, view) {
       return data.loading ? "" : renderAnkiExistingSection(data.ankiLookup, view.storedContext, this.settings(), {
         suppressReviewButtons: Boolean(view.reviewButtons),
-        sourceAttributes: (key2, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key2, initiallyExpanded)
+        sourceAttributes: (key, initiallyExpanded) => this.dependencies.dictionarySourceAttributes(key, initiallyExpanded)
       });
     }
     renderAnkiSourceSection(card, sentence, data, view) {
@@ -42009,15 +42005,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.ankiDecksCache = void 0;
     }
     load(card) {
-      const key2 = this.cacheKey(card);
+      const key = this.cacheKey(card);
       const now = Date.now();
-      const cached = this.cache.get(key2);
+      const cached = this.cache.get(key);
       if (cached && cached.expiresAt > now) return cached.load;
       const load = this.fetch(card);
       void load.all.catch(() => {
-        if (this.cache.get(key2)?.load === load) this.cache.delete(key2);
+        if (this.cache.get(key)?.load === load) this.cache.delete(key);
       });
-      this.cache.set(key2, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+      this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
       pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
       return load;
     }
@@ -42252,37 +42248,37 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (pitch) card.pitchAccent = [pitch];
     }
     cachedJpdbDecks(settings) {
-      const key2 = `jpdb:${effectiveJpdbApiKey(settings)}`;
+      const key = `jpdb:${effectiveJpdbApiKey(settings)}`;
       const now = Date.now();
-      if (this.jpdbDecksCache?.key === key2 && this.jpdbDecksCache.expiresAt > now) return this.jpdbDecksCache.promise;
+      if (this.jpdbDecksCache?.key === key && this.jpdbDecksCache.expiresAt > now) return this.jpdbDecksCache.promise;
       const promise = this.dependencies.jpdb.listDecks().catch((error) => {
         if (this.jpdbDecksCache?.promise === promise) this.jpdbDecksCache = void 0;
         throw error;
       });
-      this.jpdbDecksCache = { key: key2, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+      this.jpdbDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
       return promise;
     }
     cachedJitenDecks(settings) {
       if (!this.dependencies.jiten) return Promise.resolve([]);
-      const key2 = `jiten:${effectiveJitenApiKey(settings)}`;
+      const key = `jiten:${effectiveJitenApiKey(settings)}`;
       const now = Date.now();
-      if (this.jitenDecksCache?.key === key2 && this.jitenDecksCache.expiresAt > now) return this.jitenDecksCache.promise;
+      if (this.jitenDecksCache?.key === key && this.jitenDecksCache.expiresAt > now) return this.jitenDecksCache.promise;
       const promise = this.dependencies.jiten.listReaderStudyDecks().then((decks) => decks.map((deck) => ({ id: String(deck.userStudyDeckId), name: deck.name }))).catch((error) => {
         if (this.jitenDecksCache?.promise === promise) this.jitenDecksCache = void 0;
         throw error;
       });
-      this.jitenDecksCache = { key: key2, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+      this.jitenDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
       return promise;
     }
     cachedAnkiDecks(settings) {
-      const key2 = `anki:${settings.ankiConnectUrl}`;
+      const key = `anki:${settings.ankiConnectUrl}`;
       const now = Date.now();
-      if (this.ankiDecksCache?.key === key2 && this.ankiDecksCache.expiresAt > now) return this.ankiDecksCache.promise;
+      if (this.ankiDecksCache?.key === key && this.ankiDecksCache.expiresAt > now) return this.ankiDecksCache.promise;
       const promise = this.dependencies.anki.deckNames().catch((error) => {
         if (this.ankiDecksCache?.promise === promise) this.ankiDecksCache = void 0;
         throw error;
       });
-      this.ankiDecksCache = { key: key2, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
+      this.ankiDecksCache = { key, expiresAt: now + CARD_RENDER_SHARED_DECK_CACHE_TTL_MS, promise };
       return promise;
     }
     cacheKey(card) {
@@ -42363,10 +42359,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const meaning = definition.meaning.trim();
       if (!meaning) continue;
       const partsOfSpeech = dedupeText(definition.partsOfSpeech);
-      const key2 = partsOfSpeech.map(normalizedMeaningPartOfSpeech).join("");
-      const group = groups.get(key2) ?? { partsOfSpeech, meanings: [] };
+      const key = partsOfSpeech.map(normalizedMeaningPartOfSpeech).join("");
+      const group = groups.get(key) ?? { partsOfSpeech, meanings: [] };
       if (!group.meanings.includes(meaning)) group.meanings.push(meaning);
-      groups.set(key2, group);
+      groups.set(key, group);
     }
     return Array.from(groups.values()).filter((group) => group.meanings.length).slice(0, 6);
   }
@@ -42385,9 +42381,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const result = [];
     for (const value of values) {
       const text2 = value.trim();
-      const key2 = normalizedMeaningPartOfSpeech(text2);
-      if (!text2 || seen.has(key2)) continue;
-      seen.add(key2);
+      const key = normalizedMeaningPartOfSpeech(text2);
+      if (!text2 || seen.has(key)) continue;
+      seen.add(key);
       result.push(text2);
     }
     return result;
@@ -42649,7 +42645,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { options: {}, extraSections: rawOptions };
   }
   function isDefinitionSourceStackOptions(value, optionKeys) {
-    return optionKeys.some((key2) => key2 in value);
+    return optionKeys.some((key) => key in value);
   }
   function renderDefinitionSourceSections(context, params) {
     let renderedDictionaries = false;
@@ -42911,8 +42907,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       log$c.warn("Settings keys remained after reset", { settingsKeysStillPresent });
       throw new Error(this.text("factoryResetDeleteSettingsFailed"));
     }
-    text(key2, values = {}) {
-      return uiText(this.dependencies.getLanguage(), key2).replace(/\{(\w+)\}/g, (_match, name) => values[name] ?? "");
+    text(key, values = {}) {
+      return uiText(this.dependencies.getLanguage(), key).replace(/\{(\w+)\}/g, (_match, name) => values[name] ?? "");
     }
     scheduleRemoteGuardRelease() {
       this.clearRemoteGuardReleaseTimer();
@@ -43223,8 +43219,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
       const urls = urlCandidates(url);
-      const key2 = urls.join("");
-      return this.mediaBlobUrlCache.getOrCreate(key2, async () => {
+      const key = urls.join("");
+      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
         const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
         const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
         return blobUrl;
@@ -43250,7 +43246,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return firstArrayField(record, ["examples", "results", "data"]);
   }
   function firstArrayField(record, keys) {
-    return keys.map((key2) => record[key2]).find(Array.isArray) ?? [];
+    return keys.map((key) => record[key]).find(Array.isArray) ?? [];
   }
   function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
     return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
@@ -43390,8 +43386,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
     return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
   }
-  function nestedText(record, key2, fields) {
-    const value = record[key2];
+  function nestedText(record, key, fields) {
+    const value = record[key];
     return isRecord$1(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
@@ -43421,8 +43417,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return text(record.category) || categoryFromId(id);
   }
   function firstText(record, keys) {
-    for (const key2 of keys) {
-      const value = text(record[key2]);
+    for (const key of keys) {
+      const value = text(record[key]);
       if (value) return value;
     }
     return "";
@@ -43617,19 +43613,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const cleanPath = path.startsWith("/") ? path : `/${path}`;
     return API_BASES.map((base) => `${base}${cleanPath}`);
   }
-  function loadCachedParsedTokens(cache, key2, limit, parse, shouldCache) {
-    const cached = cache.get(key2);
+  function loadCachedParsedTokens(cache, key, limit, parse, shouldCache) {
+    const cached = cache.get(key);
     if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
     const entry = { promise: Promise.resolve([]) };
     entry.promise = parse().then((tokens) => {
       if (shouldCache(tokens)) entry.tokens = tokens;
-      else if (cache.get(key2) === entry) cache.delete(key2);
+      else if (cache.get(key) === entry) cache.delete(key);
       return tokens;
     }).catch((error) => {
-      if (cache.get(key2) === entry) cache.delete(key2);
+      if (cache.get(key) === entry) cache.delete(key);
       throw error;
     });
-    cache.set(key2, entry);
+    cache.set(key, entry);
     pruneOldestCacheEntries(cache, limit);
     return entry.promise;
   }
@@ -43682,9 +43678,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const result = [];
     for (const value of values) {
       const query = normalizeImmersionSearchQuery(value);
-      const key2 = queryKey(query);
-      if (!query || seen.has(key2)) continue;
-      seen.add(key2);
+      const key = queryKey(query);
+      if (!query || seen.has(key)) continue;
+      seen.add(key);
       result.push(query);
     }
     return result;
@@ -44014,27 +44010,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.renderEmpty(container);
     }
     async searchExamples(card, options = {}) {
-      const key2 = this.searchCacheKey(card, options);
+      const key = this.searchCacheKey(card, options);
       const now = Date.now();
-      const cached = this.searchResultCache.get(key2);
+      const cached = this.searchResultCache.get(key);
       if (cached && cached.expiresAt > now) return cached.promise;
       if (options.signal) {
         return this.fetchExamples(card, options).then((result) => {
-          if (!options.signal?.aborted) this.rememberSearchResult(key2, result);
+          if (!options.signal?.aborted) this.rememberSearchResult(key, result);
           return result;
         });
       }
       const promise = this.fetchExamples(card, options).catch((error) => {
-        if (this.searchResultCache.get(key2)?.promise === promise) this.searchResultCache.delete(key2);
+        if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
         throw error;
       });
-      this.searchResultCache.set(key2, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
+      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
       pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
       return promise;
     }
-    rememberSearchResult(key2, result) {
+    rememberSearchResult(key, result) {
       const now = Date.now();
-      this.searchResultCache.set(key2, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
+      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
       pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
     }
     stopAudio() {
@@ -44354,11 +44350,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.options.repositionPopover();
     }
     parsedExampleSentenceTokens(sentence) {
-      const key2 = sentence.trim();
-      if (!key2) return Promise.resolve([]);
+      const key = sentence.trim();
+      if (!key) return Promise.resolve([]);
       return loadCachedParsedTokens(
         this.parsedSentenceCache,
-        key2,
+        key,
         IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
         () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions()).then(([tokens]) => {
           return tokens ?? [];
@@ -44430,25 +44426,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     exampleAudioSource(example, quiet) {
       const urls = this.mediaUrls(example, "sound");
-      const key2 = urls[0] ?? "";
-      if (key2) return { urls, key: key2 };
+      const key = urls[0] ?? "";
+      if (key) return { urls, key };
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
       return null;
     }
-    startExampleAudioRequest(key2) {
-      if (this.isAudioBusy(key2)) return 0;
+    startExampleAudioRequest(key) {
+      if (this.isAudioBusy(key)) return 0;
       const requestId = ++this.audioRequestId;
       this.clearAudio();
-      this.audioKey = key2;
-      this.audioLoadingKey = key2;
+      this.audioKey = key;
+      this.audioLoadingKey = key;
       this.options.audio.stop();
       return requestId;
     }
-    isExampleAudioRequestCurrent(requestId, key2, isCurrent) {
-      return requestId === this.audioRequestId && this.audioKey === key2 && isCurrent();
+    isExampleAudioRequestCurrent(requestId, key, isCurrent) {
+      return requestId === this.audioRequestId && this.audioKey === key && isCurrent();
     }
-    clearAudioRequestIfCurrent(requestId, key2) {
-      if (requestId === this.audioRequestId && this.audioKey === key2) this.clearAudio();
+    clearAudioRequestIfCurrent(requestId, key) {
+      if (requestId === this.audioRequestId && this.audioKey === key) this.clearAudio();
     }
     attachExampleAudio(src) {
       const audio = new Audio(src);
@@ -44474,9 +44470,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.audioKey = "";
       this.audioLoadingKey = "";
     }
-    isAudioBusy(key2) {
-      if (this.audioLoadingKey === key2) return true;
-      return Boolean(this.audioElement && this.audioKey === key2 && !this.audioElement.ended);
+    isAudioBusy(key) {
+      if (this.audioLoadingKey === key) return true;
+      return Boolean(this.audioElement && this.audioKey === key && !this.audioElement.ended);
     }
   }
   function immersionExampleSourceLabel(card, example, searchQuery, language) {
@@ -44666,8 +44662,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return rect.width > 0 || rect.height > 0;
   }
   function pruneImmersionSearchCache(cache, now, limit) {
-    for (const [key2, value] of cache) {
-      if (value.expiresAt <= now) cache.delete(key2);
+    for (const [key, value] of cache) {
+      if (value.expiresAt <= now) cache.delete(key);
     }
     pruneOldestCacheEntries(cache, limit);
   }
@@ -44679,15 +44675,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
   }
-  function setTranslationBlurAttributes(element, blurred, key2, language) {
+  function setTranslationBlurAttributes(element, blurred, key, language) {
     if (blurred) {
-      element.dataset[key2] = "true";
+      element.dataset[key] = "true";
       element.setAttribute("role", "button");
       element.setAttribute("tabindex", "0");
       element.setAttribute("aria-label", uiText(language, "revealTranslation"));
       return;
     }
-    delete element.dataset[key2];
+    delete element.dataset[key];
     element.removeAttribute("tabindex");
     element.removeAttribute("role");
     element.removeAttribute("aria-label");
@@ -45052,17 +45048,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.maxSize = maxSize;
     }
     map = /* @__PURE__ */ new Map();
-    get(key2) {
-      const value = this.map.get(key2);
+    get(key) {
+      const value = this.map.get(key);
       if (value !== void 0) {
-        this.map.delete(key2);
-        this.map.set(key2, value);
+        this.map.delete(key);
+        this.map.set(key, value);
       }
       return value;
     }
-    set(key2, value) {
-      this.map.delete(key2);
-      this.map.set(key2, value);
+    set(key, value) {
+      this.map.delete(key);
+      this.map.set(key, value);
       if (this.map.size > this.maxSize) {
         const oldest = this.map.keys().next().value;
         if (oldest !== void 0) {
@@ -45274,13 +45270,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     cachedUserDeckPool() {
       const now = Date.now();
-      const key2 = this.getApiKey().trim();
-      if (this.userDeckPoolCache?.key === key2 && this.userDeckPoolCache.expiresAt > now) return this.userDeckPoolCache.promise;
+      const key = this.getApiKey().trim();
+      if (this.userDeckPoolCache?.key === key && this.userDeckPoolCache.expiresAt > now) return this.userDeckPoolCache.promise;
       const promise = this.loadUserDeckPool().catch((error) => {
         if (this.userDeckPoolCache?.promise === promise) this.userDeckPoolCache = void 0;
         throw error;
       });
-      this.userDeckPoolCache = { key: key2, expiresAt: now + USER_DECK_POOL_CACHE_TTL_MS, promise };
+      this.userDeckPoolCache = { key, expiresAt: now + USER_DECK_POOL_CACHE_TTL_MS, promise };
       return promise;
     }
     async loadUserDeckPool() {
@@ -45312,9 +45308,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         });
         const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
         for (const card of deckCards) {
-          const key2 = vocabularyPairKey(card.vid, card.sid);
-          if (seen.has(key2)) continue;
-          seen.add(key2);
+          const key = vocabularyPairKey(card.vid, card.sid);
+          if (seen.has(key)) continue;
+          seen.add(key);
           cards.push(card);
           if (cards.length >= limit) break;
         }
@@ -45488,9 +45484,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (newCardsToday === void 0 && reviewsToday === void 0) return;
     try {
       const stored = loadJitenDailyStats();
-      const key2 = jitenStatsDateKey(now);
-      const previous = stored[key2];
-      stored[key2] = {
+      const key = jitenStatsDateKey(now);
+      const previous = stored[key];
+      stored[key] = {
         // Counters reset at Jiten's day boundary; keep the daily maximum
         // so a late small batch never shrinks an earlier snapshot.
         newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
@@ -46072,15 +46068,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return finiteJitenNumber(value) ?? null;
   }
   function firstRecordString(record, keys) {
-    for (const key2 of keys) {
-      const value = record[key2];
+    for (const key of keys) {
+      const value = record[key];
       if (typeof value === "string" && value.trim()) return value.trim();
     }
     return null;
   }
   function firstRecordFiniteNumber(record, keys) {
-    for (const key2 of keys) {
-      const value = finiteJitenNumber(record[key2]);
+    for (const key of keys) {
+      const value = finiteJitenNumber(record[key]);
       if (value !== void 0) return value;
     }
     return null;
@@ -46160,8 +46156,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function jitenReviewGradeIntervals(payload) {
     const record = payload;
-    for (const key2 of JITEN_REVIEW_INTERVAL_KEYS) {
-      const parsed = jitenReviewGradeIntervalsFromValue(record[key2]);
+    for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
+      const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
       if (parsed) return parsed;
     }
     return void 0;
@@ -46182,7 +46178,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function jitenReviewGradeIntervalsFromRecord(record) {
     const intervals = {};
     for (const meta of JITEN_REVIEW_RATINGS) {
-      const value = meta.keys.map((key2) => record[key2]).find((candidate) => candidate !== void 0);
+      const value = meta.keys.map((key) => record[key]).find((candidate) => candidate !== void 0);
       addJitenReviewInterval(intervals, meta, value);
     }
     return Object.keys(intervals).length ? intervals : void 0;
@@ -46227,8 +46223,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function jitenReviewIntervalNumberLabel(record) {
     if (!record) return null;
-    for (const [key2, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
-      const value = finiteJitenNumber(record[key2]);
+    for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
+      const value = finiteJitenNumber(record[key]);
       if (value !== void 0) return formatJitenInterval(value, unit);
     }
     return null;
@@ -46241,8 +46237,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function firstString$1(record, keys) {
     if (!record) return null;
-    for (const key2 of keys) {
-      const value = record[key2];
+    for (const key of keys) {
+      const value = record[key];
       if (typeof value === "string" && value.trim()) return value.trim();
     }
     return null;
@@ -46402,9 +46398,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const base = (baseUrl?.trim() || JITEN_API_BASE_URL).replace(/\/+$/, "");
     const url = `${base}/${endpoint}`;
     const params = new URLSearchParams();
-    Object.entries(query ?? {}).forEach(([key2, value]) => {
+    Object.entries(query ?? {}).forEach(([key, value]) => {
       if (value === void 0 || value === null || value === "") return;
-      params.set(key2, String(value));
+      params.set(key, String(value));
     });
     const queryString = params.toString();
     return queryString ? `${url}?${queryString}` : url;
@@ -46490,9 +46486,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function jitenVocabularyFromWordSummaries(sources) {
     const seen = /* @__PURE__ */ new Set();
     return sources.filter((source) => {
-      const key2 = `${source.word.wordId}:${source.word.readingIndex}`;
-      if (seen.has(key2)) return false;
-      seen.add(key2);
+      const key = `${source.word.wordId}:${source.word.readingIndex}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     }).map(({ word, kanjiReading }) => ({
       expression: cleanJitenWordSurface(word),
@@ -46516,10 +46512,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const addKeyword = (text2, source) => {
       const normalized = text2?.trim();
       if (!normalized) return;
-      const key2 = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key2) ?? { text: normalized, sources: [] };
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
       if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key2, existing);
+      keywords.set(key, existing);
     };
     addKeyword(jitenKanjiKeyword(info), "Jiten");
     addKeyword(rtkInfo?.keyword, "RTK");
@@ -46614,9 +46610,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return words.map((word) => renderJitenKanjiVocabularyWord(word, language)).join("");
   }
   function renderJitenKanjiVocabularyWord(word, language) {
-    const key2 = `${word.expression}:${word.reading}`;
+    const key = `${word.expression}:${word.reading}`;
     const meta = renderJitenKanjiWordMeta(word, language);
-    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(word.expression)}" data-reading="${escapeHtml$1(word.reading)}" data-jiten-kanji-word-key="${escapeHtml$1(key2)}" data-jiten-kanji-reading="${escapeHtml$1(word.kanjiReading)}" title="${escapeHtml$1(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml$1(jitenKanjiWordAriaLabel(word))}" role="listitem">
+    return `<button class="jpdb-reader-similar-word jpdb-reader-jiten-kanji-word" type="button" data-action="similar-word" data-expression="${escapeHtml$1(word.expression)}" data-reading="${escapeHtml$1(word.reading)}" data-jiten-kanji-word-key="${escapeHtml$1(key)}" data-jiten-kanji-reading="${escapeHtml$1(word.kanjiReading)}" title="${escapeHtml$1(jitenKanjiWordTitle(word))}" aria-label="${escapeHtml$1(jitenKanjiWordAriaLabel(word))}" role="listitem">
         <span class="jpdb-reader-similar-word-head jpdb-reader-jiten-kanji-word-main">
             <span class="jpdb-reader-jiten-kanji-word-term">${word.termHtml || escapeHtml$1(word.expression)}</span>
             ${meta}
@@ -46773,9 +46769,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function removeDuplicateJitenKanjiWords(grid) {
     const seen = /* @__PURE__ */ new Set();
     grid.querySelectorAll("[data-jiten-kanji-word-key]").forEach((word) => {
-      const key2 = word.dataset.jitenKanjiWordKey ?? "";
-      if (!key2 || !seen.has(key2)) {
-        if (key2) seen.add(key2);
+      const key = word.dataset.jitenKanjiWordKey ?? "";
+      if (!key || !seen.has(key)) {
+        if (key) seen.add(key);
         return;
       }
       word.remove();
@@ -46909,24 +46905,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const normalizedSpelling = compactJpdbText(spelling);
       const normalizedReading = compactJpdbText(reading);
       if (!normalizedSpelling && !normalizedReading) return Promise.resolve([]);
-      const key2 = `${normalizedSpelling}
+      const key = `${normalizedSpelling}
 ${normalizedReading}`;
       const now = Date.now();
-      const cached = this.cache.get(key2);
+      const cached = this.cache.get(key);
       if (cached && cached.expiresAt > now) {
-        this.cache.delete(key2);
-        this.cache.set(key2, cached);
+        this.cache.delete(key);
+        this.cache.set(key, cached);
         return cached.promise;
       }
-      if (cached) this.cache.delete(key2);
+      if (cached) this.cache.delete(key);
       const promise = this.fetchPitch(normalizedSpelling, normalizedReading);
-      this.cache.set(key2, { expiresAt: now + CACHE_TTL_MS, promise });
+      this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
       this.pruneCache(now);
       return promise;
     }
     pruneCache(now) {
-      for (const [key2, entry] of this.cache) {
-        if (entry.expiresAt <= now) this.cache.delete(key2);
+      for (const [key, entry] of this.cache) {
+        if (entry.expiresAt <= now) this.cache.delete(key);
       }
       while (this.cache.size > CACHE_LIMIT) {
         const oldest = this.cache.keys().next().value;
@@ -47159,9 +47155,9 @@ ${normalizedReading}`;
     if (element.tagName === "RUBY") return rubyReadingText(element, baseText);
     return Array.from(element.childNodes).map(readingText).join("");
   }
-  function optionalRichHtml(key2, root, options = {}) {
+  function optionalRichHtml(key, root, options = {}) {
     const html = jpdbRichTextHtml(root, options);
-    return html ? { [key2]: html } : {};
+    return html ? { [key]: html } : {};
   }
   function jpdbRichTextHtml(root, options) {
     if (!root || !hasReadableRuby(root)) return "";
@@ -47218,17 +47214,17 @@ ${normalizedReading}`;
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function uniqueBy(values, key2) {
+  function uniqueBy(values, key) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
-      const current = key2(value);
+      const current = key(value);
       if (seen.has(current)) return false;
       seen.add(current);
       return true;
     });
   }
-  function mergeBy(primary, supplemental, key2, limit) {
-    return uniqueBy([...primary, ...supplemental], key2).slice(0, limit);
+  function mergeBy(primary, supplemental, key, limit) {
+    return uniqueBy([...primary, ...supplemental], key).slice(0, limit);
   }
   function vocabularyLookupUrls(vid, spelling, reading) {
     const urls = [];
@@ -47311,22 +47307,22 @@ ${normalizedReading}`;
     }
     lookup(vid, spelling, reading) {
       if (!spelling) return Promise.resolve(null);
-      const key2 = `${vid}:${spelling}:${reading}`;
-      let promise = this.cache.get(key2);
+      const key = `${vid}:${spelling}:${reading}`;
+      let promise = this.cache.get(key);
       if (!promise) {
         promise = this.fetchInfo(vid, spelling, reading);
-        this.cache.set(key2, promise);
+        this.cache.set(key, promise);
       }
       return promise;
     }
     search(query, limit = 10) {
       const normalized = cleanText$1(query);
       if (!normalized) return Promise.resolve([]);
-      const key2 = `${normalized}:${limit}`;
-      let promise = this.searchCache.get(key2);
+      const key = `${normalized}:${limit}`;
+      let promise = this.searchCache.get(key);
       if (!promise) {
         promise = this.fetchSearch(normalized, limit);
-        this.searchCache.set(key2, promise);
+        this.searchCache.set(key, promise);
       }
       return promise;
     }
@@ -48522,17 +48518,17 @@ ${normalizedReading}`;
   }
   function applyDatasetAttr(element, name, value) {
     if (name !== "dataset") return false;
-    for (const [key2, dataValue] of Object.entries(datasetAttrValues(value))) {
-      applyDatasetValue(element, key2, dataValue);
+    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
+      applyDatasetValue(element, key, dataValue);
     }
     return true;
   }
   function datasetAttrValues(value) {
     return value ?? {};
   }
-  function applyDatasetValue(element, key2, value) {
+  function applyDatasetValue(element, key, value) {
     if (isSkippedAttrValue(value)) return;
-    element.dataset[key2] = String(value);
+    element.dataset[key] = String(value);
   }
   function applyTextAttr(element, name, value) {
     if (name !== "text") return false;
@@ -49137,9 +49133,9 @@ ${normalizedReading}`;
     if (withReading && withReading.includes(card.spelling)) return withReading;
     return card.spelling;
   }
-  function promoteCardByKey(cards, key2) {
-    if (!key2) return cards;
-    const index = cards.findIndex((card2) => cardKey(card2) === key2);
+  function promoteCardByKey(cards, key) {
+    if (!key) return cards;
+    const index = cards.findIndex((card2) => cardKey(card2) === key);
     if (index <= 0) return cards;
     const promoted = [...cards];
     const [card] = promoted.splice(index, 1);
@@ -49182,16 +49178,16 @@ ${normalizedReading}`;
     if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
     const ankiByKey = /* @__PURE__ */ new Map();
     for (const card of ankiResult.cards) {
-      const key2 = autoReviewMergeKey(card);
-      if (key2 && !ankiByKey.has(key2)) ankiByKey.set(key2, card);
+      const key = autoReviewMergeKey(card);
+      if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
     }
     if (!ankiByKey.size) return [jpdbResult, ankiResult];
     const matchedAnkiKeys = /* @__PURE__ */ new Set();
     const cards = jpdbResult.cards.map((card) => {
-      const key2 = autoReviewMergeKey(card);
-      const ankiCard = key2 ? ankiByKey.get(key2) : void 0;
+      const key = autoReviewMergeKey(card);
+      const ankiCard = key ? ankiByKey.get(key) : void 0;
       if (!ankiCard) return card;
-      matchedAnkiKeys.add(key2);
+      matchedAnkiKeys.add(key);
       return mergeDedupeCardMetadata(card, ankiCard);
     });
     if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
@@ -49720,7 +49716,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
     if (!isRecord(value)) return [];
-    const cards = Object.entries(value).filter(([key2, item]) => key2.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
+    const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
@@ -50250,8 +50246,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       Suspended: "stateSuspended",
       Ignored: "wordColorIgnored"
     };
-    const key2 = keyByLabel[label];
-    return key2 ? text2(key2) : label;
+    const key = keyByLabel[label];
+    return key ? text2(key) : label;
   }
   function selectedStatsDayPoint(points, fallbackPoints, context) {
     const fallback = fallbackPoints[fallbackPoints.length - 1] ?? emptyStatsDailyPoint(todayStatsDate());
@@ -50734,9 +50730,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     card.style.setProperty(SWIPE_PROGRESS_PROPERTY, String(progress.progress));
     card.style.setProperty(SWIPE_X_PROPERTY, `${progress.deltaX}px`);
   }
-  function setOptionalData(element, key2, value) {
-    if (value) element.dataset[key2] = value;
-    else delete element.dataset[key2];
+  function setOptionalData(element, key, value) {
+    if (value) element.dataset[key] = value;
+    else delete element.dataset[key];
   }
   function snapshotSwipeStyles(root, card) {
     return {
@@ -51122,15 +51118,15 @@ ${entry.url}`),
   function dedupeWords(cards) {
     const seen = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const key2 = dedupeWordKey(card);
-      const existing = seen.get(key2);
+      const key = dedupeWordKey(card);
+      const existing = seen.get(key);
       if (!existing) {
-        seen.set(key2, card);
+        seen.set(key, card);
         continue;
       }
       const primary = shouldReplaceDedupeWord(card, existing) ? card : existing;
       const secondary = primary === card ? existing : card;
-      seen.set(key2, mergeDedupeCardMetadata(primary, secondary));
+      seen.set(key, mergeDedupeCardMetadata(primary, secondary));
     }
     return [...seen.values()];
   }
@@ -51774,9 +51770,9 @@ ${newTabCardReading(card)}`;
   function orderedUchisenImages(images) {
     const seen = /* @__PURE__ */ new Set();
     const deduped = images.filter((item) => {
-      const key2 = uchisenImageDedupeKey(item);
-      if (!item.url || seen.has(key2)) return false;
-      seen.add(key2);
+      const key = uchisenImageDedupeKey(item);
+      if (!item.url || seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
     return [
@@ -52189,9 +52185,9 @@ ${newTabCardReading(card)}`;
     const components2 = [];
     for (const group of groups) {
       for (const component of group.components) {
-        const key2 = component.name || component.symbol;
-        if (!key2 || seen.has(key2)) continue;
-        seen.add(key2);
+        const key = component.name || component.symbol;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
         components2.push(component);
       }
     }
@@ -52316,7 +52312,7 @@ ${newTabCardReading(card)}`;
     return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
   }
   function formatUchisenTemplate(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_match, key2) => values[key2] ?? "");
+    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
   }
   function renderUchisenComponentChip(component) {
     const label = [component.name, component.symbol].filter(Boolean).join(": ");
@@ -52398,7 +52394,7 @@ ${newTabCardReading(card)}`;
   }
   function encodedForm(fields) {
     const params = new URLSearchParams();
-    for (const [key2, value] of Object.entries(fields)) params.set(key2, value);
+    for (const [key, value] of Object.entries(fields)) params.set(key, value);
     return params.toString();
   }
   function requestBlobUrl(url, timeout, proxyUrl) {
@@ -52428,8 +52424,8 @@ ${newTabCardReading(card)}`;
     return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
   }
   function searchCardStateLabel(state, language) {
-    const key2 = CARD_STATE_LABEL_KEYS[state];
-    return key2 ? uiText(language, key2) : state.replace(/-/g, " ");
+    const key = CARD_STATE_LABEL_KEYS[state];
+    return key ? uiText(language, key) : state.replace(/-/g, " ");
   }
   function renderSearchHandwritingPanel(language) {
     return el(
@@ -52687,8 +52683,8 @@ ${newTabCardReading(card)}`;
     language() {
       return this.dependencies.getSettings().interfaceLanguage;
     }
-    text(key2) {
-      return isNewTabCopyKey(key2) ? newTabText(this.language(), key2) : uiText(this.language(), key2);
+    text(key) {
+      return isNewTabCopyKey(key) ? newTabText(this.language(), key) : uiText(this.language(), key);
     }
     resolvedLanguage() {
       return resolveUiLanguage(this.language());
@@ -53469,16 +53465,16 @@ ${newTabCardReading(card)}`;
       return true;
     }
     nestedCardActionCard(target) {
-      const key2 = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
-      if (key2) {
-        return this.searchWordCardCache.get(key2) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key2)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key2));
+      const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
+      if (key) {
+        return this.searchWordCardCache.get(key) ?? this.visibleWords.find((card) => this.cardMatchesSelectionKey(card, key)) ?? this.allWords.find((card) => this.cardMatchesSelectionKey(card, key));
       }
       return this.visibleWords[this.index];
     }
     handleSearchWordAudioAction(actionTarget, event) {
       const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
-      const key2 = button?.dataset.newtabCard ?? "";
-      const card = key2 ? this.searchWordCardCache.get(key2) : void 0;
+      const key = button?.dataset.newtabCard ?? "";
+      const card = key ? this.searchWordCardCache.get(key) : void 0;
       if (!button || !card) return false;
       consumeNestedLookupEvent(event);
       void this.dependencies.playWordAudio?.(card);
@@ -53701,7 +53697,7 @@ ${newTabCardReading(card)}`;
         selectedDate: this.statsSelectedDate,
         selectedSource: this.statsSelectedSource,
         snapshot: this.statsSnapshot,
-        text: (key2) => this.text(key2)
+        text: (key) => this.text(key)
       }));
       this.renderInstallCta(root);
     }
@@ -54442,10 +54438,10 @@ ${newTabCardReading(card)}`;
       const normalized = deckId.trim();
       if (!normalized || normalized === "all" || normalized === JPDB_ALL_DECKS) return "";
       const settings = this.dependencies.getSettings();
-      const key2 = effectiveJpdbApiKey(settings);
-      if (this.deckSelectorDecks?.key !== key2) {
+      const key = effectiveJpdbApiKey(settings);
+      if (this.deckSelectorDecks?.key !== key) {
         const listDecks = typeof this.dependencies.jpdb.listDecks === "function" ? this.dependencies.jpdb.listDecks() : Promise.resolve([]);
-        this.deckSelectorDecks = { key: key2, promise: listDecks.catch(() => []) };
+        this.deckSelectorDecks = { key, promise: listDecks.catch(() => []) };
       }
       const decks = await this.deckSelectorDecks.promise;
       return decks.find((deck) => deck.id === normalized)?.name ?? "";
@@ -54708,23 +54704,23 @@ ${newTabCardReading(card)}`;
       const current = this.visibleWords[this.index];
       return current ? this.cardSelectionKey(current) : "";
     }
-    cardMatchesSelectionKey(card, key2) {
-      return cardKey(card) === key2 || this.cardSelectionKey(card) === key2;
+    cardMatchesSelectionKey(card, key) {
+      return cardKey(card) === key || this.cardSelectionKey(card) === key;
     }
     cardSelectionKey(card) {
       return card.sourceCardKey || cardKey(card);
     }
     isReviewHistoryCard(card) {
       if (!card) return false;
-      const key2 = cardKey(card);
-      return this.reviewHistoryCards.some((historyCard) => cardKey(historyCard) === key2);
+      const key = cardKey(card);
+      return this.reviewHistoryCards.some((historyCard) => cardKey(historyCard) === key);
     }
     rememberReviewHistoryCard(card) {
       if (!this.reviewCountMode || !this.isReviewCard(card)) return;
-      const key2 = cardKey(card);
+      const key = cardKey(card);
       this.reviewHistoryCards = [
         normalizeNewTabCard(card),
-        ...this.reviewHistoryCards.filter((historyCard) => cardKey(historyCard) !== key2)
+        ...this.reviewHistoryCards.filter((historyCard) => cardKey(historyCard) !== key)
       ].slice(0, NEW_TAB_REVIEW_HISTORY_LIMIT);
     }
     clearReviewHistory() {
@@ -55481,26 +55477,26 @@ ${newTabCardReading(card)}`;
     }
     async parseNewTabPromptSentence(prompt, card) {
       if (!this.shouldParseSentencePrompt()) return;
-      const key2 = cardKey(card);
-      const requestId = `${key2}:${performance.now()}:${Math.random()}`;
+      const key = cardKey(card);
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabPromptParseRequest = requestId;
       const sentence = prompt.querySelector("[data-newtab-sentence-render]");
       const sentenceText = this.newTabSentenceText(sentence);
-      if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabPromptParse(prompt, key2, requestId))) return;
+      if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabPromptParse(prompt, key, requestId))) return;
       await this.dependencies.parseContent?.(prompt, newTabShortParseOptions())?.catch(() => void 0);
-      if (!this.canApplyNewTabPromptParse(prompt, key2, requestId)) return;
+      if (!this.canApplyNewTabPromptParse(prompt, key, requestId)) return;
       this.highlightNewTabParsedTarget(prompt, "[data-newtab-sentence-render]", card);
     }
-    canApplyNewTabPromptParse(prompt, key2, requestId) {
-      return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key2 && this.state.mode === "word";
+    canApplyNewTabPromptParse(prompt, key, requestId) {
+      return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
     }
     async enrichWordPromptSentence(prompt, card, state, currentSentence) {
       if (currentSentence || !this.shouldShowFrontSentence()) return;
-      const key2 = cardKey(card);
-      const requestId = `${key2}:${performance.now()}:${Math.random()}`;
+      const key = cardKey(card);
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabSentenceRequest = requestId;
       const sentence = await this.loadFrontSentence(card);
-      if (!sentence || !this.canApplyFrontSentence(prompt, key2, requestId)) return;
+      if (!sentence || !this.canApplyFrontSentence(prompt, key, requestId)) return;
       this.applyFrontSentence(prompt, card, state, sentence);
     }
     applyFrontSentence(prompt, card, state, sentence) {
@@ -55520,8 +55516,8 @@ ${newTabCardReading(card)}`;
         word.dataset.sentence = sentence;
       });
     }
-    canApplyFrontSentence(prompt, key2, requestId) {
-      return prompt.isConnected && prompt.dataset.newtabSentenceRequest === requestId && cardKey(this.visibleWords[this.index]) === key2 && this.state.mode === "word";
+    canApplyFrontSentence(prompt, key, requestId) {
+      return prompt.isConnected && prompt.dataset.newtabSentenceRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
     }
     shouldShowFrontSentence() {
       return this.dependencies.getSettings().newTabFrontSentenceEnabled;
@@ -55530,11 +55526,11 @@ ${newTabCardReading(card)}`;
       return this.shouldShowFrontSentence() ? normalizePromptContextSentence(card.sentence, card) : "";
     }
     loadFrontSentence(card) {
-      const key2 = this.frontSentenceCacheKey(card);
-      const existing = this.frontSentenceCache.get(key2);
+      const key = this.frontSentenceCacheKey(card);
+      const existing = this.frontSentenceCache.get(key);
       if (existing) return existing;
       const promise = this.fetchFrontSentence(card).catch(() => "");
-      this.frontSentenceCache.set(key2, promise);
+      this.frontSentenceCache.set(key, promise);
       return promise;
     }
     async fetchFrontSentence(card) {
@@ -55574,24 +55570,24 @@ ${newTabCardReading(card)}`;
     async renderImmersionExample(slots, card) {
       const meaning = slots.meaning;
       if (!this.canRenderImmersionExample(meaning)) return;
-      const key2 = cardKey(card);
-      const requestId = `${key2}:${performance.now()}:${Math.random()}`;
+      const key = cardKey(card);
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
       meaning.dataset.newtabImmersionRequest = requestId;
       const examples = await this.loadImmersionExamples(card);
       if (meaning.dataset.newtabImmersionRequest !== requestId) return;
-      if (!this.canAppendImmersionExample(meaning, key2, examples)) return;
-      const index = this.normalizedImmersionExampleIndex(key2, examples);
+      if (!this.canAppendImmersionExample(meaning, key, examples)) return;
+      const index = this.normalizedImmersionExampleIndex(key, examples);
       const immersion = this.renderNewTabImmersionCard(card, examples, index);
       meaning.querySelectorAll(":scope > .jpdb-reader-newtab-immersion").forEach((element) => element.remove());
       meaning.append(immersion);
       this.loadNewTabImmersionImage(immersion, examples[index]);
-      await this.parseNewTabImmersionExample(immersion, card, key2);
+      await this.parseNewTabImmersionExample(immersion, card, key);
     }
     canRenderImmersionExample(meaning) {
       return this.state.revealAnswer && Boolean(meaning) && this.dependencies.getSettings().immersionKitEnabled;
     }
-    canAppendImmersionExample(meaning, key2, examples) {
-      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key2 && meaning.isConnected && this.state.mode === "word" && this.state.revealAnswer;
+    canAppendImmersionExample(meaning, key, examples) {
+      return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.state.mode === "word" && this.state.revealAnswer;
     }
     renderNewTabImmersionCard(card, examples, index) {
       const settings = this.dependencies.getSettings();
@@ -55607,16 +55603,16 @@ ${newTabCardReading(card)}`;
       this.highlightNewTabImmersionTarget(node, card);
       return node;
     }
-    async parseNewTabImmersionExample(root, card, key2) {
+    async parseNewTabImmersionExample(root, card, key) {
       const sentence = root.querySelector("[data-immersion-sentence-render]");
       const sentenceText = this.newTabSentenceText(sentence);
-      if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabImmersionParse(root, key2))) return;
+      if (sentence && await this.parseNewTabSentenceElement(sentence, sentenceText, card, () => this.canApplyNewTabImmersionParse(root, key))) return;
       await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => void 0);
-      if (!this.canApplyNewTabImmersionParse(root, key2)) return;
+      if (!this.canApplyNewTabImmersionParse(root, key)) return;
       this.highlightNewTabImmersionTarget(root, card);
     }
-    canApplyNewTabImmersionParse(root, key2) {
-      return root.isConnected && cardKey(this.visibleWords[this.index]) === key2 && this.state.mode === "word" && this.state.revealAnswer;
+    canApplyNewTabImmersionParse(root, key) {
+      return root.isConnected && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word" && this.state.revealAnswer;
     }
     async parseNewTabSentenceElement(sentence, sentenceText, card, isCurrent) {
       const cached = this.cachedParsedNewTabSentenceTokens(sentenceText);
@@ -55638,15 +55634,15 @@ ${newTabCardReading(card)}`;
       return (sentence?.dataset.newtabSentenceText || sentence?.closest("[data-immersion-sentence]")?.dataset.immersionSentence || sentence?.textContent || "").trim();
     }
     parsedNewTabSentenceTokens(sentence) {
-      const key2 = sentence.trim();
-      if (!key2 || !this.canParseNewTabSentence(key2)) return Promise.resolve([]);
+      const key = sentence.trim();
+      if (!key || !this.canParseNewTabSentence(key)) return Promise.resolve([]);
       return loadCachedParsedTokens(
         this.parsedSentenceCache,
-        key2,
+        key,
         NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT,
         // includeLocalPitch is fallback-only in the parser; without it, keyed
         // parses left sentence words bare when the API had no pitch.
-        () => this.dependencies.parser.parse([key2], jpdbFirstParseOptions({ allowSegmentedFallback: true, includeLocalPitch: true })).then(([tokens]) => tokens ?? []),
+        () => this.dependencies.parser.parse([key], jpdbFirstParseOptions({ allowSegmentedFallback: true, includeLocalPitch: true })).then(([tokens]) => tokens ?? []),
         shouldCacheParsedNewTabSentenceTokens
       );
     }
@@ -55769,14 +55765,14 @@ ${newTabCardReading(card)}`;
         return;
       }
       if (action !== "previous" && action !== "next") return;
-      const key2 = cardKey(current);
+      const key = cardKey(current);
       const cached = this.immersionCache.get(this.immersionCacheKey(current));
       void cached?.then(async (examples) => {
-        if (!examples.length || cardKey(this.visibleWords[this.index]) !== key2) return;
-        const currentIndex = this.normalizedImmersionExampleIndex(key2, examples);
+        if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
+        const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
         const delta = action === "next" ? 1 : -1;
         const nextIndex = (currentIndex + delta + examples.length) % examples.length;
-        this.immersionExampleIndex.set(key2, nextIndex);
+        this.immersionExampleIndex.set(key, nextIndex);
         const replaced = await this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
         if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentImmersionAudio(current);
       });
@@ -55788,26 +55784,26 @@ ${newTabCardReading(card)}`;
     async replaceNewTabImmersionExample(root, card, examples, index) {
       const slots = this.studySlots(root);
       const meaning = slots.meaning;
-      const key2 = cardKey(card);
-      if (!meaning || !this.canAppendImmersionExample(meaning, key2, examples)) return false;
-      const requestId = `${key2}:${performance.now()}:${Math.random()}`;
+      const key = cardKey(card);
+      if (!meaning || !this.canAppendImmersionExample(meaning, key, examples)) return false;
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
       meaning.dataset.newtabImmersionRequest = requestId;
       const immersion = this.renderNewTabImmersionCard(card, examples, index);
       const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
       if (meaning.dataset.newtabImmersionRequest !== requestId) return false;
-      if (!this.canAppendImmersionExample(meaning, key2, examples)) return false;
+      if (!this.canAppendImmersionExample(meaning, key, examples)) return false;
       const existing = meaning.querySelector(":scope > .jpdb-reader-newtab-immersion");
       if (existing) existing.replaceWith(immersion);
       else meaning.append(immersion);
       if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
       else this.loadNewTabImmersionImage(immersion, examples[index]);
-      await this.parseNewTabImmersionExample(immersion, card, key2);
+      await this.parseNewTabImmersionExample(immersion, card, key);
       return true;
     }
-    normalizedImmersionExampleIndex(key2, examples) {
-      const index = this.immersionExampleIndex.get(key2) ?? 0;
+    normalizedImmersionExampleIndex(key, examples) {
+      const index = this.immersionExampleIndex.get(key) ?? 0;
       if (index >= 0 && index < examples.length) return index;
-      this.immersionExampleIndex.set(key2, 0);
+      this.immersionExampleIndex.set(key, 0);
       return 0;
     }
     async prepareNewTabImmersionImage(root, example) {
@@ -55867,46 +55863,46 @@ ${newTabCardReading(card)}`;
     }
     async playCurrentImmersionAudio(card) {
       if (!this.dependencies.getSettings().audioEnabled) return;
-      const key2 = cardKey(card);
+      const key = cardKey(card);
       const examples = await this.loadImmersionExamples(card);
-      if (!this.isCurrentRevealedWordCard(key2)) return;
-      const example = examples[this.normalizedImmersionExampleIndex(key2, examples)];
+      if (!this.isCurrentRevealedWordCard(key)) return;
+      const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
       if (!example) return;
       const source = this.newTabImmersionAudioSource(example);
       if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
       const requestId = this.beginNewTabImmersionAudio(source.key);
       const src = await this.fetchNewTabImmersionAudio(source.urls);
-      if (!this.isCurrentImmersionAudioRequest(requestId, source.key, src) || !this.isCurrentRevealedWordCard(key2)) return;
+      if (!this.isCurrentImmersionAudioRequest(requestId, source.key, src) || !this.isCurrentRevealedWordCard(key)) return;
       const audio = this.attachNewTabImmersionAudio(src);
       const cleanup = () => this.clearNewTabImmersionAudio(audio);
       audio.addEventListener("ended", cleanup, { once: true });
       audio.addEventListener("error", cleanup, { once: true });
       await audio.play().catch(cleanup);
     }
-    isCurrentRevealedWordCard(key2) {
-      return this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key2;
+    isCurrentRevealedWordCard(key) {
+      return this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
     }
     newTabImmersionAudioSource(example) {
       const urls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-      const key2 = urls[0] ?? "";
-      return key2 ? { urls, key: key2 } : null;
+      const key = urls[0] ?? "";
+      return key ? { urls, key } : null;
     }
-    isCurrentImmersionAudioPlaying(key2) {
-      return Boolean(this.immersionAudioKey === key2 && this.immersionAudio && !this.immersionAudio.ended);
+    isCurrentImmersionAudioPlaying(key) {
+      return Boolean(this.immersionAudioKey === key && this.immersionAudio && !this.immersionAudio.ended);
     }
-    beginNewTabImmersionAudio(key2) {
+    beginNewTabImmersionAudio(key) {
       const requestId = ++this.immersionAudioRequestId;
       this.immersionAudio?.pause();
       this.immersionAudio = void 0;
-      this.immersionAudioKey = key2;
+      this.immersionAudioKey = key;
       return requestId;
     }
     fetchNewTabImmersionAudio(urls) {
       const settings = this.dependencies.getSettings();
       return this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
     }
-    isCurrentImmersionAudioRequest(requestId, key2, src) {
-      return Boolean(src && requestId === this.immersionAudioRequestId && this.immersionAudioKey === key2);
+    isCurrentImmersionAudioRequest(requestId, key, src) {
+      return Boolean(src && requestId === this.immersionAudioRequestId && this.immersionAudioKey === key);
     }
     attachNewTabImmersionAudio(src) {
       const audio = new Audio(src);
@@ -55920,8 +55916,8 @@ ${newTabCardReading(card)}`;
       this.immersionAudioKey = "";
     }
     loadImmersionExamples(card) {
-      const key2 = this.immersionCacheKey(card);
-      const existing = this.immersionCache.get(key2);
+      const key = this.immersionCacheKey(card);
+      const existing = this.immersionCache.get(key);
       if (existing) return existing;
       const settings = this.dependencies.getSettings();
       const promise = promiseWithTimeout(
@@ -55929,7 +55925,7 @@ ${newTabCardReading(card)}`;
         settings.audioTimeoutMs + NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS,
         "Immersion Kit examples timed out."
       ).catch(() => []);
-      this.immersionCache.set(key2, promise);
+      this.immersionCache.set(key, promise);
       return promise;
     }
     async fetchNewTabImmersionExamples(card) {
@@ -56017,8 +56013,8 @@ ${newTabCardReading(card)}`;
     }
     prefetchNewTabImmersionSentences(card, examples, includeAdjacent) {
       if (!examples.length) return;
-      const key2 = cardKey(card);
-      const index = this.normalizedImmersionExampleIndex(key2, examples);
+      const key = cardKey(card);
+      const index = this.normalizedImmersionExampleIndex(key, examples);
       const indexes = includeAdjacent && examples.length > 1 ? [index, (index + 1) % examples.length] : [index];
       uniqueNumbers(indexes).forEach((exampleIndex) => {
         const sentence = normalizePromptContextSentence(examples[exampleIndex]?.sentence, card);
@@ -56105,9 +56101,9 @@ ${newTabCardReading(card)}`;
       for (const keyword of keywords) {
         const text2 = keyword.text.trim();
         if (!text2) continue;
-        const key2 = text2.toLocaleLowerCase();
-        if (seen.has(key2)) continue;
-        seen.add(key2);
+        const key = text2.toLocaleLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
         unique2.push({ ...keyword, text: text2 });
         if (unique2.length >= NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT) break;
       }
@@ -56347,11 +56343,11 @@ ${newTabCardReading(card)}`;
           return htmlToFirstElement(renderJitenKanjiInfoWithAttributes(
             context.jitenInfo,
             context.settings.interfaceLanguage,
-            (key2, initiallyExpanded) => this.sourceAttributes(key2, initiallyExpanded),
+            (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
             this.kanjiSourceTitle(sourceId)
           ));
         }
-        return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, (key2) => this.sourceAttributes(key2), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
+        return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, (key) => this.sourceAttributes(key), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
       }
       if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
       if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
@@ -56405,7 +56401,7 @@ ${newTabCardReading(card)}`;
     renderNewTabKanjiDictionarySection(entries, sourceId, title) {
       return htmlToFirstElement(renderKanjiDefinitions(
         entries,
-        (key2, initiallyExpanded) => this.sourceAttributes(key2, initiallyExpanded),
+        (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
         (name) => this.dictionaryLabel(name),
         sourceId,
         title
@@ -56714,8 +56710,8 @@ ${newTabCardReading(card)}`;
     handleSearchResultWordClick(root, target, event) {
       event.preventDefault();
       const button = target.closest("[data-expression]");
-      const key2 = cleanNestedLookupValue(button?.dataset.newtabCard);
-      const card = key2 ? this.searchWordCardCache.get(key2) : void 0;
+      const key = cleanNestedLookupValue(button?.dataset.newtabCard);
+      const card = key ? this.searchWordCardCache.get(key) : void 0;
       if (card && button) {
         this.toggleSearchWordResult(root, button, card);
         return true;
@@ -57423,7 +57419,7 @@ ${newTabCardReading(card)}`;
     renderSearchLocalKanjiDefinitions(detail) {
       return htmlToFirstElement(renderKanjiDefinitions(
         detail.kanjiEntries,
-        (key2, initiallyExpanded) => this.sourceAttributes(key2, initiallyExpanded),
+        (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
         (name) => this.dictionaryLabel(name),
         KANJI_DICTIONARIES_SOURCE_ID,
         this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID),
@@ -57486,7 +57482,7 @@ ${newTabCardReading(card)}`;
       let renderedDictionaries = false;
       const definitionSections = sourceIds.map((sourceId) => {
         if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
-          return renderJpdbDefinitionSource(card, (key2, initiallyExpanded) => this.sourceAttributes(key2, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
+          return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
         }
         if (sourceId === ANKI_SOURCE_ID) {
           return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : "";
@@ -57498,7 +57494,7 @@ ${newTabCardReading(card)}`;
             dictionarySourceIds,
             grouped,
             settings,
-            (key2, initiallyExpanded) => this.sourceAttributes(key2, initiallyExpanded),
+            (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
             (name) => this.dictionaryLabel(name),
             card
           );
@@ -57598,11 +57594,11 @@ ${newTabCardReading(card)}`;
     browseAnkiDueBuckets;
     browseDueBucketsKey = "";
     async hydrateBrowseDueBuckets(mount, cards) {
-      const key2 = this.browsePoolKey;
-      if (this.browseDueBucketsKey === key2) return;
-      this.browseDueBucketsKey = key2;
+      const key = this.browsePoolKey;
+      if (this.browseDueBucketsKey === key) return;
+      this.browseDueBucketsKey = key;
       const buckets = await this.loadBrowseAnkiDueBuckets(cards);
-      if (this.browsePoolKey !== key2) return;
+      if (this.browsePoolKey !== key) return;
       this.browseAnkiDueBuckets = buckets;
       if (buckets.size && mount.isConnected) this.renderBrowseResults(mount);
     }
@@ -57642,12 +57638,12 @@ ${newTabCardReading(card)}`;
     async loadBrowsePool() {
       const settings = this.dependencies.getSettings();
       const providers = this.browsePoolProviders(settings);
-      const key2 = providers.map((provider) => provider.label).join("+");
-      if (this.browsePool && this.browsePoolKey === key2) return this.browsePool;
+      const key = providers.map((provider) => provider.label).join("+");
+      if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
       const results = await Promise.all(providers.map((provider) => this.loadJpdbStatsApiProvider(provider)));
       const cards = dedupeWords(results.filter((result) => result.error === null).flatMap((result) => result.cards));
       this.browsePool = cards;
-      this.browsePoolKey = key2;
+      this.browsePoolKey = key;
       return cards;
     }
     renderSearchSuggestion(suggestion, index) {
@@ -57726,10 +57722,10 @@ ${newTabCardReading(card)}`;
       }));
     }
     updateSearchWordStatusRow(root, card, ankiLookup) {
-      const key2 = cardKey(card);
+      const key = cardKey(card);
       const meta = this.searchWordSummaryMeta(card, ankiLookup).join(" · ");
       root.querySelectorAll("[data-search-word-meta]").forEach((element) => {
-        if (element.dataset.searchWordMeta !== key2) return;
+        if (element.dataset.searchWordMeta !== key) return;
         element.hidden = !meta;
         element.textContent = meta;
       });
@@ -57973,8 +57969,8 @@ ${newTabCardReading(card)}`;
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    formatNewTabText(key2, values) {
-      return Object.entries(values).reduce((text2, [name, value]) => text2.replaceAll(`{${name}}`, value), this.text(key2));
+    formatNewTabText(key, values) {
+      return Object.entries(values).reduce((text2, [name, value]) => text2.replaceAll(`{${name}}`, value), this.text(key));
     }
     renderInstallCta(root) {
       const install = root.querySelector("[data-newtab-install]");
@@ -58281,11 +58277,11 @@ ${newTabCardReading(card)}`;
       return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
     }
     advanceAfterGrade(root, card) {
-      const key2 = cardKey(card);
+      const key = cardKey(card);
       const previousIndex = this.index;
-      const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key2, previousIndex);
+      const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
       this.rememberReviewHistoryCard(card);
-      this.allWords = this.allWords.filter((item) => cardKey(item) !== key2);
+      this.allWords = this.allWords.filter((item) => cardKey(item) !== key);
       this.visibleWords = this.studyPoolForCurrentMode();
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
       this.state.revealAnswer = false;
@@ -58303,7 +58299,7 @@ ${newTabCardReading(card)}`;
       if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
         useOfflineCache: false,
         quiet: true,
-        excludeCardKeys: [key2],
+        excludeCardKeys: [key],
         preserveVisibleOrder: true
       });
     }
@@ -58444,8 +58440,8 @@ ${newTabCardReading(card)}`;
     }
     async enrichWordPitch(root, card) {
       if (!this.shouldEnrichWordPitch(card)) return;
-      const key2 = this.wordPitchCacheKey(card);
-      const requestId = `${key2}:${performance.now()}:${Math.random()}`;
+      const key = this.wordPitchCacheKey(card);
+      const requestId = `${key}:${performance.now()}:${Math.random()}`;
       root.dataset.newtabPitchRequest = requestId;
       const pitchAccent = await this.loadWordPitch(card);
       if (root.dataset.newtabPitchRequest !== requestId || !pitchAccent.length) return;
@@ -58472,11 +58468,11 @@ ${newTabCardReading(card)}`;
       return this.dependencies.getSettings().showPitchAccent && !card.pitchAccent.length && Boolean(card.spelling.trim());
     }
     loadWordPitch(card) {
-      const key2 = this.wordPitchCacheKey(card);
-      const cached = this.wordPitchCache.get(key2);
+      const key = this.wordPitchCacheKey(card);
+      const cached = this.wordPitchCache.get(key);
       if (cached) return cached;
       const promise = this.fetchWordPitch(card).catch(() => []);
-      this.wordPitchCache.set(key2, promise);
+      this.wordPitchCache.set(key, promise);
       return promise;
     }
     async fetchWordPitch(card) {
@@ -58600,10 +58596,10 @@ ${newTabCardReading(card)}`;
       select2.value = selected;
     }
     async populateDeckSelector(select2, settings) {
-      const key2 = effectiveJpdbApiKey(settings);
-      if (this.deckSelectorDecks?.key !== key2) {
+      const key = effectiveJpdbApiKey(settings);
+      if (this.deckSelectorDecks?.key !== key) {
         const listDecks = typeof this.dependencies.jpdb.listDecks === "function" ? this.dependencies.jpdb.listDecks() : Promise.resolve([]);
-        this.deckSelectorDecks = { key: key2, promise: listDecks.catch(() => []) };
+        this.deckSelectorDecks = { key, promise: listDecks.catch(() => []) };
       }
       const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([]));
       if (!select2.isConnected) return;
@@ -58701,18 +58697,18 @@ ${newTabCardReading(card)}`;
     if (value === "jpdb" || value === "anki" || value === "combined") return value;
     return "combined";
   }
-  function isNewTabRevealKey(key2) {
-    return isNewTabSpaceRevealKey(key2) || isNewTabEnterRevealKey(key2);
+  function isNewTabRevealKey(key) {
+    return isNewTabSpaceRevealKey(key) || isNewTabEnterRevealKey(key);
   }
-  function isNewTabSpaceRevealKey(key2) {
-    return key2 === " ";
+  function isNewTabSpaceRevealKey(key) {
+    return key === " ";
   }
-  function isNewTabEnterRevealKey(key2) {
-    return key2 === "Enter";
+  function isNewTabEnterRevealKey(key) {
+    return key === "Enter";
   }
-  function newTabKeyNavigationDirection(key2) {
-    if (key2 === "ArrowRight" || key2 === "n") return "next";
-    if (key2 === "ArrowLeft" || key2 === "p") return "previous";
+  function newTabKeyNavigationDirection(key) {
+    if (key === "ArrowRight" || key === "n") return "next";
+    if (key === "ArrowLeft" || key === "p") return "previous";
     return null;
   }
   function pointerPointFromEvent(event) {
@@ -58926,8 +58922,8 @@ ${newTabCardReading(card)}`;
     return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
   }
   function clearSessionProgressDataset(dataset) {
-    for (const key2 of Object.keys(dataset)) {
-      if (key2.startsWith("session")) delete dataset[key2];
+    for (const key of Object.keys(dataset)) {
+      if (key.startsWith("session")) delete dataset[key];
     }
   }
   function capitalizedSessionSource(source) {
@@ -59685,23 +59681,23 @@ ${newTabCardReading(card)}`;
       return { tokens, translated };
     }
     cachedGrammarHints(sentence) {
-      const key2 = this.studyCacheKey(sentence);
-      const cached = this.grammarHintCache.get(key2);
+      const key = this.studyCacheKey(sentence);
+      const cached = this.grammarHintCache.get(key);
       if (cached) return cached;
       const promise = Promise.resolve(detectGrammarHints(sentence));
-      this.grammarHintCache.set(key2, promise);
+      this.grammarHintCache.set(key, promise);
       pruneOldestCacheEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
       return promise;
     }
     cachedTranslationContent(sentence) {
-      const key2 = this.studyCacheKey(sentence);
-      const cached = this.translationContentCache.get(key2);
+      const key = this.studyCacheKey(sentence);
+      const cached = this.translationContentCache.get(key);
       if (cached) return cached;
       const promise = this.loadTranslationContent(sentence).catch((error) => {
-        if (this.translationContentCache.get(key2) === promise) this.translationContentCache.delete(key2);
+        if (this.translationContentCache.get(key) === promise) this.translationContentCache.delete(key);
         throw error;
       });
-      this.translationContentCache.set(key2, promise);
+      this.translationContentCache.set(key, promise);
       pruneOldestCacheEntries(this.translationContentCache, STUDY_TRANSLATION_CACHE_LIMIT);
       return promise;
     }
@@ -59864,7 +59860,7 @@ ${newTabCardReading(card)}`;
         dictionaryLabel: (name) => this.dictionaryLabel(name)
       }),
       renderDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, extraSections),
-      dictionarySourceAttributes: (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
+      dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
       dictionaryLabel: (name) => this.dictionaryLabel(name),
       renderReviewButtonsFallback: (card, data) => this.renderNewTabLookupReviewButtons(card, data)
     });
@@ -59883,7 +59879,7 @@ ${newTabCardReading(card)}`;
     });
     studySources = new StudySourceController({
       getSettings: () => this.settings,
-      dictionarySourceAttributes: (key2) => this.dictionarySourceState.attributes(key2),
+      dictionarySourceAttributes: (key) => this.dictionarySourceState.attributes(key),
       parseJapanese: (paragraphs, options) => this.parser.parse(paragraphs, options),
       parsePopoverJapanese: (popover) => this.parseNewTabContent(popover),
       enrichPitchWords: (tokens) => this.enrichPitchWords(tokens),
@@ -60146,8 +60142,8 @@ ${newTabCardReading(card)}`;
         playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
         performCardAction: (button, card, sentence, anchor) => this.handleCardAction(button, card, sentence, anchor),
         setImmersionTranslationBlurred: (blurred) => this.setImmersionTranslationBlurred(blurred),
-        dictionarySourceAttributes: (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
-        isDictionarySourceOpen: (key2, initiallyExpanded) => this.dictionarySourceState.isOpen(key2, initiallyExpanded),
+        dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+        isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),
         installDictionarySourceTracking: (root) => this.dictionarySourceState.installTracking(root),
         onSettingsChange: () => saveSettings(this.settings),
         applyTheme: () => this.applyTheme(),
@@ -60219,8 +60215,8 @@ ${newTabCardReading(card)}`;
       this.restoreSettingsPreviewState();
       if (hadSettingsDialog) this.settingsDialog.releaseModalBackground();
     }
-    text(key2) {
-      return isNewTabCopyKey(key2) ? newTabText(this.settings.interfaceLanguage, key2) : uiText(this.settings.interfaceLanguage, key2);
+    text(key) {
+      return isNewTabCopyKey(key) ? newTabText(this.settings.interfaceLanguage, key) : uiText(this.settings.interfaceLanguage, key);
     }
     localizeLookupPopoverChrome(popover) {
       popover.setAttribute("aria-label", this.text("lookupDialog"));
@@ -60463,14 +60459,14 @@ ${newTabCardReading(card)}`;
         settings: this.settings,
         kanji,
         language,
-        isSourceOpen: (key2) => this.dictionarySourceState.isOpen(key2),
-        sourceAttributes: (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
+        isSourceOpen: (key) => this.dictionarySourceState.isOpen(key),
+        sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         sourceTitle: (sourceId) => this.kanjiSourceTitle(sourceId),
         renderImmersionMount: () => this.renderKanjiLookupImmersionMount()
       });
     }
     renderKanjiLookupImmersionMount() {
-      return renderKanjiImmersionKitMount(this.settings, (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded));
+      return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));
     }
     renderKanjiLookupActionBar(card) {
       const reviewButtons = this.renderKanjiLookupReviewButtons(card);
@@ -60640,7 +60636,7 @@ ${newTabCardReading(card)}`;
           const visibleEntries = dictionaryName ? kanjiEntries.filter((entry) => entry.dictionary === dictionaryName) : kanjiEntries;
           setInnerHtml(mount, renderKanjiDefinitions(
             visibleEntries,
-            (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
+            (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             (name) => this.dictionaryLabel(name),
             sourceId,
             dictionaryName ? this.dictionaryLabel(dictionaryName) : this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID)
@@ -61025,10 +61021,10 @@ ${newTabCardReading(card)}`;
       if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return false;
       if (!this.shouldAutoPlayForTrigger("modal")) return false;
       if (!canAttemptAudiblePlayback()) return false;
-      const key2 = `${card.vid}:${card.sid}`;
+      const key = `${card.vid}:${card.sid}`;
       const now = Date.now();
-      if (key2 === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
-      this.lastAutoAudioKey = key2;
+      if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+      this.lastAutoAudioKey = key;
       this.lastAutoAudioAt = now;
       return true;
     }
@@ -61202,7 +61198,7 @@ ${newTabCardReading(card)}`;
         card,
         entries,
         settings: this.settings,
-        sourceAttributes: (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
+        sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         dictionaryLabel: (name) => this.dictionaryLabel(name),
         noDefinitionsHtml: () => `<div class="jpdb-reader-help jpdb-reader-no-definitions">${escapeHtml$1(this.text("noDefinitionsFound"))}</div>`,
         sentence,
@@ -61278,9 +61274,9 @@ ${newTabCardReading(card)}`;
       const seen = /* @__PURE__ */ new Set();
       return tokens.filter((token) => {
         if (!include(token)) return false;
-        const key2 = cardKey(token.card);
-        if (seen.has(key2)) return false;
-        seen.add(key2);
+        const key = cardKey(token.card);
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       }).slice(0, limit);
     }
@@ -61339,8 +61335,8 @@ ${newTabCardReading(card)}`;
         "in-deck": "stateInDeck",
         "not-in-deck": "stateNotInDeck"
       };
-      const key2 = keys[state];
-      return key2 ? this.text(key2) : state.replace(/-/g, " ");
+      const key = keys[state];
+      return key ? this.text(key) : state.replace(/-/g, " ");
     }
     restoreSettingsPreviewState() {
       if (this.settingsPreviewOriginalAccent !== void 0) {
@@ -61398,26 +61394,26 @@ ${newTabCardReading(card)}`;
         includeLocalPitch: false,
         allowSegmentedFallback: true
       };
-      const key2 = parseContentCacheKey(texts, parseOptions, this.settings);
+      const key = parseContentCacheKey(texts, parseOptions, this.settings);
       const now = Date.now();
-      const cached = this.parseContentCache.get(key2);
+      const cached = this.parseContentCache.get(key);
       if (cached && cached.expiresAt > now) {
-        this.parseContentCache.delete(key2);
-        this.parseContentCache.set(key2, cached);
+        this.parseContentCache.delete(key);
+        this.parseContentCache.set(key, cached);
         return cached.promise;
       }
-      if (cached) this.parseContentCache.delete(key2);
+      if (cached) this.parseContentCache.delete(key);
       const promise = this.parser.parse(texts, parseOptions).catch((error) => {
-        if (this.parseContentCache.get(key2)?.promise === promise) this.parseContentCache.delete(key2);
+        if (this.parseContentCache.get(key)?.promise === promise) this.parseContentCache.delete(key);
         throw error;
       });
-      this.parseContentCache.set(key2, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
+      this.parseContentCache.set(key, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
       this.pruneParseContentCache(now);
       return promise;
     }
     pruneParseContentCache(now) {
-      for (const [key2, entry] of this.parseContentCache) {
-        if (entry.expiresAt <= now) this.parseContentCache.delete(key2);
+      for (const [key, entry] of this.parseContentCache) {
+        if (entry.expiresAt <= now) this.parseContentCache.delete(key);
       }
       while (this.parseContentCache.size > NEW_TAB_PARSE_CONTENT_CACHE_LIMIT) {
         const oldest = this.parseContentCache.keys().next().value;
