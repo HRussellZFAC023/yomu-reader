@@ -2057,3 +2057,61 @@ describe('Anki new-card step previews', () => {
         expect((review as { nextReviews?: string[] }).nextReviews).toEqual(['12d']);
     });
 });
+
+describe('field-scoped Anki candidate lookup', () => {
+    function lookupClient(mapping: Record<string, string> | undefined, findNotesByQuery: (query: string) => number[]) {
+        const queries: string[] = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: { actions?: Array<{ action: string; params: { query: string } }> } };
+                let result: unknown = null;
+                if (request.action === 'multi') {
+                    result = (request.params.actions ?? []).map(action => {
+                        queries.push(action.params.query);
+                        return { result: findNotesByQuery(action.params.query), error: null };
+                    });
+                }
+                return Promise.resolve({ status: 200, response: { result, error: null } });
+            },
+        });
+        const client = new AnkiConnectClient(() => ({
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: true,
+            ankiModel: 'Kaishi 1.5k',
+            ankiMobileHandoff: false,
+            ...(mapping ? { ankiFieldMappings: { 'Kaishi 1.5k': mapping } } : {}),
+        }));
+        return { client, queries };
+    }
+
+    it('searches mapped expression/reading fields first and skips the raw probe on a hit', async () => {
+        const { client, queries } = lookupClient({ expression: 'Word', reading: 'Kana' }, query => query.includes('Word:') ? [11] : [99]);
+        const internals = client as unknown as { findCandidateNoteIdsByLookupKey(groups: Array<{ cacheKey: string; card: JPDBCard }>): Promise<Map<string, Set<number>>> };
+        const result = await internals.findCandidateNoteIdsByLookupKey([{ cacheKey: 'k1', card: jpdbCard({ spelling: '読む', reading: 'よむ' }) }]);
+        expect([...result.get('k1')!]).toEqual([11]);
+        expect(queries.every(query => query.includes('Word:') || query.includes('Kana:'))).toBe(true);
+        client.destroy();
+        vi.unstubAllGlobals();
+    });
+
+    it('falls back to the raw-term probe only when field-scoped search finds nothing', async () => {
+        const { client, queries } = lookupClient({ expression: 'Word', reading: 'Kana' }, query => query.includes(':') ? [] : [42]);
+        const internals = client as unknown as { findCandidateNoteIdsByLookupKey(groups: Array<{ cacheKey: string; card: JPDBCard }>): Promise<Map<string, Set<number>>> };
+        const result = await internals.findCandidateNoteIdsByLookupKey([{ cacheKey: 'k1', card: jpdbCard({ spelling: '読む', reading: 'よむ' }) }]);
+        expect([...result.get('k1')!]).toEqual([42]);
+        // raw probes ran after the scoped ones
+        expect(queries.some(query => !query.includes(':'))).toBe(true);
+        client.destroy();
+        vi.unstubAllGlobals();
+    });
+
+    it('keeps the raw probe as the only pass when no mapping exists', async () => {
+        const { client, queries } = lookupClient(undefined, () => [7]);
+        const internals = client as unknown as { findCandidateNoteIdsByLookupKey(groups: Array<{ cacheKey: string; card: JPDBCard }>): Promise<Map<string, Set<number>>> };
+        const result = await internals.findCandidateNoteIdsByLookupKey([{ cacheKey: 'k1', card: jpdbCard({ spelling: '読む', reading: 'よむ' }) }]);
+        expect([...result.get('k1')!]).toEqual([7]);
+        expect(queries.every(query => !query.includes('Word:'))).toBe(true);
+        client.destroy();
+        vi.unstubAllGlobals();
+    });
+});

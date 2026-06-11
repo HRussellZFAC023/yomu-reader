@@ -34,7 +34,6 @@ Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per use
 - P1: Rendered Anki media manifest and card-audio cache: parse rendered fields into a media manifest, lazy retrieval on speaker click/visible render, cache by sanitized filename, support `[sound:…]` + rendered `<audio src>`; card audio never reorders dictionary lookup sources. Surfaces: `src/reader/anki/card-details.ts`, `src/reader/anki/render.ts`, new-tab card audio.
 - P1: Abortable visible-work scheduler + persistent IntersectionObserver (merged): register visible nodes with a batch controller (sequence IDs, cancel-on-removal/exit, byte-size-capped chunks) so fast scrolls never parse stale regions first and settings saves never freeze the page. Surfaces: visible-page scanner, rendered-word registry, parser batch cache, Anki refresh queue; add a settings-save/mobile-scroll smoke asserting stale updates are ignored.
 - P1: Parity matrix smoke coverage: one matrix covering Yomu↔Anki↔JPDB for status colors, pitch/furigana, card bodies, card vs lookup audio, grading, duplicates, locked-kanji order, and keyless fallback. Surfaces: `scripts/anki-mining-smoke.mjs`, `tests/reader/new-tab-review.test.ts`, `tests/reader/anki.test.ts`, small mobile smoke.
-- P1 small remainder (field-scoped lookup, rest shipped 0.6.76): treat the raw-term findNotes probe as an explicitly low-confidence final pass.
 
 ## Open Product Tickets
 

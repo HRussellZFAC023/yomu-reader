@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.115
+// @version      0.6.116
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -15624,16 +15624,34 @@ ${entry.reading || ""}`;
         }
       }
       const terms = [...keysByTerm.keys()];
+      const lookupFields = this.statusLookupFieldNames();
+      if (lookupFields.length) {
+        const fieldQuery = (term) => lookupFields.map((field) => quoteAnkiSearch(`${field}:${term}`)).join(" OR ");
+        await this.collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, fieldQuery);
+        if (this.isDestroyed) return noteIdsByKey;
+      }
+      const unresolvedTerms = lookupFields.length ? terms.filter((term) => [...keysByTerm.get(term) ?? []].some((cacheKey) => (noteIdsByKey.get(cacheKey)?.size ?? 0) === 0)) : terms;
+      if (unresolvedTerms.length) {
+        await this.collectCandidateNoteIds(unresolvedTerms, keysByTerm, noteIdsByKey, (term) => quoteAnkiSearch(term));
+      }
+      return noteIdsByKey;
+    }
+    statusLookupFieldNames() {
+      const settings = this.getSettings();
+      const mapping = settings.ankiFieldMappings?.[resolvedAnkiModelName(settings)];
+      return [...new Set([mapping?.expression, mapping?.reading].map((value) => value?.trim()).filter((value) => Boolean(value)))];
+    }
+    async collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, buildQuery) {
       const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
       const chunkResponses = new Array(chunks.length);
       await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
         chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
           action: "findNotes",
-          params: { query: quoteAnkiSearch(term) }
+          params: { query: buildQuery(term) }
         })));
       });
+      if (this.isDestroyed) return;
       const responses = chunkResponses.flat();
-      if (this.isDestroyed) return noteIdsByKey;
       terms.forEach((term, index) => {
         const ids = responses[index] ?? [];
         for (const cacheKey of keysByTerm.get(term) ?? []) {
@@ -15641,7 +15659,6 @@ ${entry.reading || ""}`;
           ids.forEach((id) => noteIds?.add(id));
         }
       });
-      return noteIdsByKey;
     }
     async loadExistingNotes(card, noteIds) {
       if (this.isDestroyed) return { existing: [], candidateNotes: 0 };
