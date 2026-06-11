@@ -5283,6 +5283,40 @@ describe('reader helpers', () => {
         expect(toast).toHaveBeenCalledWith('Added to Jiten.');
     });
 
+    it('says when captured media cannot follow a mine into a Jiten deck (no media API)', async () => {
+        const addToStudyDeck = vi.fn(async () => undefined);
+        const toast = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                ankiEnabled: false,
+                jpdbMiningEnabled: true,
+            }),
+            jiten: { addToStudyDeck } as unknown as JitenApiClient,
+            isJpdbBackedCard: () => false,
+            resolveMiningContext: vi.fn(async () => ({
+                sentence: '本を読みます。',
+                imageDataUrl: 'data:image/png;base64,abc',
+                sourceTitle: 'Example Page',
+                sourceUrl: 'https://example.com',
+            })) as never,
+            toast,
+        });
+        const button = document.createElement('button');
+        button.dataset.action = 'add';
+        button.dataset.deckSource = 'jiten';
+        button.dataset.deckId = '12';
+
+        await expect(controller.perform('add', button, jitenTestCard(), '本を読みます。')).resolves.toBe(true);
+
+        const message = String(toast.mock.calls.at(-1)?.[0] ?? '');
+        expect(message).toContain('Added to Jiten.');
+        // The captured image is NOT silently dropped: Jiten has no media API.
+        expect(message).toContain('no media API');
+    });
+
     it('opens and closes mining controls from the drawer bar by click or drag', () => {
         const popover = document.createElement('div');
         popover.innerHTML = `

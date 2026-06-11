@@ -2736,6 +2736,7 @@
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
+      apiDeckMediaNotSupported: "Captured image/audio stays in Yomu — this service has no media API.",
       sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
       sentToAnkiWithContextImage: "Sent to Anki with context image.",
       sentToAnkiWithAudio: "Sent to Anki with audio.",
@@ -3329,6 +3330,7 @@ openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
 alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
+apiDeckMediaNotSupported	キャプチャした画像・音声はYomuに残ります（このサービスにはメディアAPIがありません）。
 sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
@@ -19759,8 +19761,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const selectedDeckId2 = provider.selectedDeckId(deck.id, settings);
       if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, "chooseJitenStudyDeck"));
       await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title });
-      if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
-      this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
+      const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
+      if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
+      const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
+      const droppedMedia = !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+      const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+      this.options.toast(droppedMedia ? `${addedToast} ${uiText(settings.interfaceLanguage, "apiDeckMediaNotSupported")}` : addedToast);
       this.notifyApiCardStateChanged(card);
     }
     async openAnkiNote(button) {

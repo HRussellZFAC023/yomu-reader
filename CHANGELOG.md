@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.86] - 2026-06-11
+
+### Fixed
+
+- Mining a card with a captured context image or audio into a JPDB or Jiten deck no longer drops the media silently: when no Anki note is created alongside (Anki co-mining off), the success toast now adds 'Captured image/audio stays in Yomu — this service has no media API.' (localized). Jiten and JPDB deck APIs cannot store media; now the UI says so.
+
 ## [0.6.85] - 2026-06-11
 
 ### Fixed

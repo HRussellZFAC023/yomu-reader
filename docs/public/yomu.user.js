@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.85
+// @version      0.6.86
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,8 +13,8 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-JN9XCVBTjoZB5p3oMGn4nOlcVcwUAZb+bsKBQQAuLZE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-q7+eSAuEIaj1slSmxYFsJ8So4dJ6HHCXPjx2jqGvs4M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-/jYFlL94OXzoYmuHtoFNl9dBiurd/hz7NVtWStJf13Y=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-X0iNtLu18gQSwxRWpuBvP44gqthX62HazQdCS3n5VPs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6128,6 +6128,7 @@
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
+      apiDeckMediaNotSupported: "Captured image/audio stays in Yomu — this service has no media API.",
       sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
       sentToAnkiWithContextImage: "Sent to Anki with context image.",
       sentToAnkiWithAudio: "Sent to Anki with audio.",
@@ -6721,6 +6722,7 @@ openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
 alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
+apiDeckMediaNotSupported	キャプチャした画像・音声はYomuに残ります（このサービスにはメディアAPIがありません）。
 sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
@@ -20013,8 +20015,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const selectedDeckId2 = provider.selectedDeckId(deck.id, settings);
       if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, "chooseJitenStudyDeck"));
       await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title });
-      if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnki(card, sentence, settings.ankiDeck, context);
-      this.options.toast(uiText(settings.interfaceLanguage, provider.addedToastKey));
+      const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
+      if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
+      const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);
+      const droppedMedia = !minedToAnkiToo && Boolean(miningContext?.imageDataUrl || miningContext?.audioDataUrl);
+      const addedToast = uiText(settings.interfaceLanguage, provider.addedToastKey);
+      this.options.toast(droppedMedia ? `${addedToast} ${uiText(settings.interfaceLanguage, "apiDeckMediaNotSupported")}` : addedToast);
       this.notifyApiCardStateChanged(card);
     }
     async openAnkiNote(button2) {
