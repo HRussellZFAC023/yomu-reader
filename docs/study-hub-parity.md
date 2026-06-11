@@ -60,6 +60,21 @@ stats heatmap/streak via Anki history, Jiten daily cache, JPDB export import.
 
 Missing vs the references — the tickets below.
 
+## Shipped log (verified; details in CHANGELOG)
+
+- SH-1 stats table 0.6.89 + exact 'Total known non-redundant vocabulary' label 0.6.102
+- SH-2 due summary 0.6.90 + words/kanji split
+- SH-3 My Cards browser: v1 0.6.92, search-within-pool 0.6.95, Anki pool 0.6.100, bulk actions 0.6.102
+- SH-4 card backs: membership line (live 0.6.93, jpdb-api 0.6.105, Anki/Jiten 0.6.106), composed-of 0.6.98
+- SH-5 front fidelity 0.6.91 (JPDB sentence before Immersion Kit)
+- SH-6 deck management: JPDB selector 0.6.97 (+progress 0.6.103), Anki scoping 0.6.111; Show-only filters 0.6.101
+- SH-7 today metrics + Anki 7d/30d forecast 0.6.106
+- SH-8 shortcuts: digit grading 0.6.94, visible hints 0.6.99
+- Due-ins: Anki computed review previews 0.6.108, popover row 0.6.109, new-card learning steps 0.6.110
+- UX bugs from user screenshots: Jiten in-card addon + spoiler fix 0.6.107 (live-verified)
+- Mobile/iPad: Shorts reel fix 0.6.96, landscape two-column card 0.6.104 (screenshot-verified)
+- ADR-0003 phase 1 scaffolding 0.6.112
+
 ## Simulated user research (2026-06-11)
 
 Five personas walked the captured journeys; their asks, mapped to tickets:
