@@ -19,7 +19,7 @@ const VOCABULARY_FIELDS = [
     'card_state',
     'pitch_accent',
 ];
-const DECK_FIELDS = ['id', 'name'];
+const DECK_FIELDS = ['id', 'name', 'vocabulary_count', 'vocabulary_known_coverage'];
 const PARSE_CACHE_SIZE = 250;
 const PARAGRAPH_PARSE_CACHE_SIZE = 800;
 const PARSE_BATCH_BYTE_LIMIT = 16_384;
@@ -474,14 +474,23 @@ function normalizeDeck(value: unknown): JPDBDeck | null {
     return null;
 }
 
-function normalizeDeckTuple([id, name]: unknown[]): JPDBDeck | null {
-    return isDeckId(id) && typeof name === 'string' ? { id: String(id), name } : null;
+function normalizeDeckTuple([id, name, vocabularyCount, knownCoverage]: unknown[]): JPDBDeck | null {
+    if (!isDeckId(id) || typeof name !== 'string') return null;
+    return { id: String(id), name, ...deckProgressFields(vocabularyCount, knownCoverage) };
 }
 
 function normalizeDeckRecord(record: Record<string, unknown>): JPDBDeck | null {
     const id = record.id;
     const name = record.name ?? record.title;
-    return isDeckId(id) && typeof name === 'string' ? { id: String(id), name } : null;
+    if (!isDeckId(id) || typeof name !== 'string') return null;
+    return { id: String(id), name, ...deckProgressFields(record.vocabulary_count, record.vocabulary_known_coverage) };
+}
+
+function deckProgressFields(vocabularyCount: unknown, knownCoverage: unknown): Partial<JPDBDeck> {
+    const fields: Partial<JPDBDeck> = {};
+    if (typeof vocabularyCount === 'number' && Number.isFinite(vocabularyCount)) fields.vocabularyCount = vocabularyCount;
+    if (typeof knownCoverage === 'number' && Number.isFinite(knownCoverage)) fields.knownCoverage = knownCoverage;
+    return fields;
 }
 
 function isDeckId(value: unknown): value is number | string {
