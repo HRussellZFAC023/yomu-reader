@@ -19375,13 +19375,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseNoCards: "No cards match this filter yet.",
       studyDeckSelector: "Study deck",
       showOnlyFilter: "Show only",
+      browseSelectPage: "Select page",
       composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
       statsLearningProgress: "Learning progress",
       statsWordsRow: "Words",
       statsLearningColumn: "Learning",
       statsKnownColumn: "You know",
-      statsTotalKnownVocabulary: "Total known vocabulary",
+      statsTotalKnownVocabulary: "Total known non-redundant vocabulary",
       statsStudyTroubleCards: "Study due/failed",
       statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
       statsChooseJpdbFile: "Choose reviews.json",
@@ -19503,13 +19504,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseNoCards: "このフィルタに一致するカードはまだありません。",
     studyDeckSelector: "学習デッキ",
     showOnlyFilter: "表示対象",
+    browseSelectPage: "ページを選択",
     composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
     statsLearningProgress: "学習の進捗",
     statsWordsRow: "単語",
     statsLearningColumn: "学習中",
     statsKnownColumn: "習得済み",
-    statsTotalKnownVocabulary: "習得済み語彙の合計",
+    statsTotalKnownVocabulary: "習得済み語彙の合計（重複除く）",
     statsStudyTroubleCards: "期限/失敗を学習",
     statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
     statsChooseJpdbFile: "reviews.jsonを選択",
@@ -32738,10 +32740,11 @@ ${normalizedReading}`;
       "div",
       { class: "jpdb-reader-newtab-browse-list" },
       el("p", { class: "jpdb-reader-newtab-browse-meta" }, copy.showing(start + 1, start + visible.length, cards.length)),
+      copy.bulk ? renderBrowseBulkBar(copy.bulk) : null,
       el(
         "ol",
         { class: "jpdb-reader-newtab-browse-rows" },
-        ...visible.map((card) => renderBrowseRow(card, language))
+        ...visible.map((card) => renderBrowseRow(card, language, Boolean(copy.bulk)))
       ),
       pageCount > 1 ? el(
         "div",
@@ -32759,13 +32762,39 @@ ${normalizedReading}`;
       ) : null
     );
   }
-  function renderBrowseRow(card, language) {
+  function renderBrowseBulkBar(copy) {
+    const action = (bulkAction, label) => el("button", {
+      type: "button",
+      dataset: { newtabAction: "browse-bulk", bulkAction },
+      disabled: true
+    }, label);
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-browse-bulk" },
+      el(
+        "label",
+        { class: "jpdb-reader-newtab-browse-bulk-select" },
+        el("input", { type: "checkbox", dataset: { browseSelectPage: true }, "aria-label": copy.selectPage }),
+        copy.selectPage
+      ),
+      el("span", { class: "jpdb-reader-newtab-browse-bulk-count", dataset: { browseBulkCount: true } }, ""),
+      action("blacklist", copy.blacklist),
+      action("never-forget", copy.neverForget)
+    );
+  }
+  function renderBrowseRow(card, language, selectable = false) {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = card.reading && card.reading !== card.spelling ? card.reading : "";
     return el(
       "li",
-      {},
+      { class: "jpdb-reader-newtab-browse-item" },
+      selectable ? el("input", {
+        type: "checkbox",
+        class: "jpdb-reader-newtab-browse-select",
+        dataset: { browseSelect: true, browseCardKey: cardKey(card) },
+        "aria-label": card.spelling
+      }) : null,
       el(
         "button",
         {
@@ -36953,6 +36982,18 @@ ${newTabCardReading(card)}`;
           targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
           return;
         }
+        const selectPage = target?.closest("[data-browse-select-page]");
+        if (selectPage && root.contains(selectPage)) {
+          root.querySelectorAll("[data-browse-select]").forEach((box) => {
+            box.checked = selectPage.checked;
+          });
+          this.syncBrowseBulkControls(root);
+          return;
+        }
+        if (target?.closest("[data-browse-select]")) {
+          this.syncBrowseBulkControls(root);
+          return;
+        }
         const filterSelect = target?.closest("[data-newtab-filter-select]");
         if (filterSelect && root.contains(filterSelect)) {
           const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value }).filter;
@@ -40659,6 +40700,12 @@ ${newTabCardReading(card)}`;
           if (mount) this.renderBrowseResults(mount);
           return true;
         }
+        case "browse-bulk": {
+          event.preventDefault();
+          const bulkAction = target.closest("[data-bulk-action]")?.dataset.bulkAction ?? "";
+          if (bulkAction) void this.performBrowseBulkAction(root, bulkAction);
+          return true;
+        }
         case "browse-card": {
           event.preventDefault();
           const row = target.closest("[data-expression]");
@@ -41527,9 +41574,49 @@ ${newTabCardReading(card)}`;
           empty: this.text("browseNoCards"),
           previous: this.text("browsePreviousPage"),
           next: this.text("browseNextPage"),
-          showing: (from, to, total) => `${from}–${to} / ${total}`
+          showing: (from, to, total) => `${from}–${to} / ${total}`,
+          ...this.dependencies.performCardAction ? {
+            bulk: {
+              selectPage: this.text("browseSelectPage"),
+              blacklist: this.text("blacklist"),
+              neverForget: this.text("stateNeverForget")
+            }
+          } : {}
         })
       );
+    }
+    syncBrowseBulkControls(root) {
+      const selected = root.querySelectorAll("[data-browse-select]:checked").length;
+      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button) => {
+        button.disabled = selected === 0;
+      });
+      const count = root.querySelector("[data-browse-bulk-count]");
+      if (count) count.textContent = selected ? String(selected) : "";
+    }
+    // Jiten Cards parity (SH-3 v2): fan the selected rows through the shared
+    // card-action path so blacklist/never-forget keep their provider mapping
+    // (JPDB deck, Jiten local workaround, Anki suspend/tag), then reload the
+    // pool so the rows recolor with their post-action states.
+    async performBrowseBulkAction(root, action) {
+      const performCardAction = this.dependencies.performCardAction;
+      if (!performCardAction) return;
+      const pool = this.browsePool ?? [];
+      const cardsByKey = new Map(pool.map((card) => [cardKey(card), card]));
+      const selected = [...root.querySelectorAll("[data-browse-select]:checked")].map((box) => cardsByKey.get(box.dataset.browseCardKey ?? "")).filter((card) => Boolean(card));
+      if (!selected.length) return;
+      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button) => {
+        button.disabled = true;
+      });
+      for (const card of selected) {
+        const button = el("button", { type: "button", dataset: { action } });
+        try {
+          await performCardAction(button, card, sentenceForCard(card), button);
+        } catch {
+        }
+      }
+      this.browsePool = void 0;
+      this.browsePoolKey = "";
+      await this.renderBrowseInto(root);
     }
     async loadBrowsePool() {
       const settings = this.dependencies.getSettings();

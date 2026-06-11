@@ -3956,6 +3956,50 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
+/* SH-3 v2: select-page bulk bar in the My Cards browser (Jiten parity). */
+.jpdb-reader-newtab-browse-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--jpdb-reader-muted);
+}
+
+.jpdb-reader-newtab-browse-bulk button {
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-text);
+  cursor: pointer;
+}
+
+.jpdb-reader-newtab-browse-bulk button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.jpdb-reader-newtab-browse-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-browse-item .jpdb-reader-newtab-browse-row {
+  flex: 1;
+}
+
+@media (pointer: coarse) {
+  .jpdb-reader-newtab-browse-select,
+  .jpdb-reader-newtab-browse-bulk input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+}
+
 
 /* Source: src/reader/styles/stats.css */
 .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study {
