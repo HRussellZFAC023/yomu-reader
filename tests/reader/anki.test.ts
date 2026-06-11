@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, buildYomuAnkiPreviewFields, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
+import { applyComputedAnkiNextReviews } from '../../src/reader/anki/new-tab';
+import { reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -1981,3 +1983,32 @@ function jpdbCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         ...overrides,
     };
 }
+
+describe('Anki computed next-review previews', () => {
+    it('computes Hard/Good/Easy previews for review cards the way Anki answer buttons do', () => {
+        const card = { cardId: 1, queue: 2, type: 2, interval: 10, factor: 2500 } as never as Parameters<typeof applyComputedAnkiNextReviews>[0];
+        applyComputedAnkiNextReviews(card);
+        // Hard 10x1.2=12d, Good 10x2.5=25d, Easy 25x1.3=32.5d -> ~1.1mo
+        expect(card.buttons).toEqual([2, 3, 4]);
+        expect(card.nextReviews).toEqual(['12d', '25d', '1.1mo']);
+        // ...and the grade-bar extraction maps them onto grades.
+        const intervals = reviewGradeIntervalsFromAnkiCards([card as never]);
+        expect(intervals?.okay?.buttonLabel ?? intervals?.okay?.intervalLabel ?? JSON.stringify(intervals)).toBeTruthy();
+    });
+
+    it('never invents intervals for learning or new cards', () => {
+        const learning = { cardId: 2, queue: 1, type: 1, interval: 0, factor: 0 } as never as Parameters<typeof applyComputedAnkiNextReviews>[0];
+        applyComputedAnkiNextReviews(learning);
+        expect(learning.nextReviews).toBeUndefined();
+        const fresh = { cardId: 3, queue: 0, type: 0 } as never as Parameters<typeof applyComputedAnkiNextReviews>[0];
+        applyComputedAnkiNextReviews(fresh);
+        expect(fresh.nextReviews).toBeUndefined();
+    });
+
+    it('keeps provider-sent nextReviews untouched', () => {
+        const card = { cardId: 4, queue: 2, type: 2, interval: 10, factor: 2500, nextReviews: ['<10m', '12d', '25d', '1.2mo'] } as never as Parameters<typeof applyComputedAnkiNextReviews>[0];
+        applyComputedAnkiNextReviews(card);
+        expect(card.nextReviews).toEqual(['<10m', '12d', '25d', '1.2mo']);
+        expect(card.buttons).toBeUndefined();
+    });
+});

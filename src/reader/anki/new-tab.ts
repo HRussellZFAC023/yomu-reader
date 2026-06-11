@@ -83,6 +83,8 @@ interface AnkiCardInfo {
     answer?: string;
     buttons?: number[];
     nextReviews?: string[];
+    interval?: number;
+    factor?: number;
     note?: number;
     isDue?: boolean;
 }
@@ -278,7 +280,9 @@ async function loadCardInfoChunks(client: AnkiConnectClient, cardChunks: number[
     await Promise.all(Array.from({ length: workerCount }, async () => {
         while (nextIndex < cardChunks.length) {
             const chunk = cardChunks[nextIndex++] ?? [];
-            results.push(...await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []));
+            const infos = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []);
+            for (const info of infos) applyComputedAnkiNextReviews(info);
+            results.push(...infos);
         }
     }));
     return results;
@@ -346,6 +350,32 @@ function newTabAnkiQueueRank(card: AnkiCardInfo): number {
     if (card.queue === 1 || card.type === 1) return 2;
     if (card.queue === 0 || card.type === 0) return 3;
     return 4;
+}
+
+// Per-ease next-interval preview for REVIEW cards, computed the way Anki's
+// own answer buttons do — Hard = interval x 1.2, Good = interval x ease,
+// Easy = Good x 1.3 (day-rounded, fuzz ignored). AnkiConnect exposes the
+// real per-ease strings only inside the GUI reviewer (guiCurrentCard), so
+// cardsInfo-loaded queue cards would otherwise never show intervals.
+// Learning/new cards are left blank rather than guessing deck step config,
+// and Again is omitted for the same reason (its relearn step is config).
+export function applyComputedAnkiNextReviews(card: AnkiCardInfo): void {
+    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
+    if (card.type !== 2) return;
+    const interval = Number(card.interval);
+    const ease = Number(card.factor) / 1000;
+    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
+    const hard = Math.max(interval * 1.2, interval + 1);
+    const good = Math.max(hard + 1, interval * ease);
+    const easy = Math.max(good + 1, good * 1.3);
+    card.buttons = [2, 3, 4];
+    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
+}
+
+function formatAnkiIntervalDays(days: number): string {
+    if (days < 30) return `${Math.round(days)}d`;
+    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, '')}mo`;
+    return `${(days / 365.25).toFixed(1).replace(/\.0$/, '')}y`;
 }
 
 function ankiDueValue(card: AnkiCardInfo): number {

@@ -16817,7 +16817,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (nextIndex < cardChunks.length) {
         const chunk = cardChunks[nextIndex++] ?? [];
-        results.push(...await client.invoke("cardsInfo", { cards: chunk }).catch(() => []));
+        const infos = await client.invoke("cardsInfo", { cards: chunk }).catch(() => []);
+        for (const info of infos) applyComputedAnkiNextReviews(info);
+        results.push(...infos);
       }
     }));
     return results;
@@ -16873,6 +16875,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (card.queue === 1 || card.type === 1) return 2;
     if (card.queue === 0 || card.type === 0) return 3;
     return 4;
+  }
+  function applyComputedAnkiNextReviews(card) {
+    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
+    if (card.type !== 2) return;
+    const interval = Number(card.interval);
+    const ease = Number(card.factor) / 1e3;
+    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
+    const hard = Math.max(interval * 1.2, interval + 1);
+    const good = Math.max(hard + 1, interval * ease);
+    const easy = Math.max(good + 1, good * 1.3);
+    card.buttons = [2, 3, 4];
+    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
+  }
+  function formatAnkiIntervalDays(days) {
+    if (days < 30) return `${Math.round(days)}d`;
+    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, "")}mo`;
+    return `${(days / 365.25).toFixed(1).replace(/\.0$/, "")}y`;
   }
   function ankiDueValue(card) {
     const due = Number(card.due);
