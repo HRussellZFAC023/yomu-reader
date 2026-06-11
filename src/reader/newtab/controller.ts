@@ -1997,6 +1997,20 @@ export class NewTabController {
         return providers;
     }
 
+    // SH-3 v2: the My-Cards browser spans all three providers. Anki joins
+    // only here — NOT in jpdbStatsApiProviders — because the stats page has
+    // its own dedicated Anki source and must not double-count cards.
+    private browsePoolProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
+        const providers = this.jpdbStatsApiProviders(settings);
+        if (settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === 'function') {
+            providers.push({
+                label: 'Anki',
+                load: () => this.dependencies.anki.listNewTabCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
+            });
+        }
+        return providers;
+    }
+
     private async loadJpdbStatsApiProvider(provider: NewTabStatsApiProvider): Promise<NewTabStatsApiProviderResult> {
         try {
             return { provider, cards: await provider.load(), error: null };
@@ -6341,7 +6355,7 @@ export class NewTabController {
         // Study-hub parity SH-3: the idle Search tab is the "My Cards"
         // browser (JPDB deck-browse filters / Jiten Cards list) when an SRS
         // provider is connected.
-        if (this.jpdbStatsApiProviders(this.dependencies.getSettings()).length) {
+        if (this.browsePoolProviders(this.dependencies.getSettings()).length) {
             void this.renderBrowseInto(root);
             return;
         }
@@ -6376,7 +6390,7 @@ export class NewTabController {
 
     private async loadBrowsePool(): Promise<JPDBCard[]> {
         const settings = this.dependencies.getSettings();
-        const providers = this.jpdbStatsApiProviders(settings);
+        const providers = this.browsePoolProviders(settings);
         const key = providers.map(provider => provider.label).join('+');
         if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
         const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));

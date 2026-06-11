@@ -37753,6 +37753,19 @@ ${newTabCardReading(card)}`;
       }
       return providers;
     }
+    // SH-3 v2: the My-Cards browser spans all three providers. Anki joins
+    // only here — NOT in jpdbStatsApiProviders — because the stats page has
+    // its own dedicated Anki source and must not double-count cards.
+    browsePoolProviders(settings) {
+      const providers = this.jpdbStatsApiProviders(settings);
+      if (settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === "function") {
+        providers.push({
+          label: "Anki",
+          load: () => this.dependencies.anki.listNewTabCards(NEW_TAB_STATS_JPDB_CARD_LIMIT)
+        });
+      }
+      return providers;
+    }
     async loadJpdbStatsApiProvider(provider) {
       try {
         return { provider, cards: await provider.load(), error: null };
@@ -41461,7 +41474,7 @@ ${newTabCardReading(card)}`;
       delete results.dataset.searchQuery;
       this.searchWordCardCache.clear();
       this.renderSearchAutocomplete(root, "", []);
-      if (this.jpdbStatsApiProviders(this.dependencies.getSettings()).length) {
+      if (this.browsePoolProviders(this.dependencies.getSettings()).length) {
         void this.renderBrowseInto(root);
         return;
       }
@@ -41494,7 +41507,7 @@ ${newTabCardReading(card)}`;
     }
     async loadBrowsePool() {
       const settings = this.dependencies.getSettings();
-      const providers = this.jpdbStatsApiProviders(settings);
+      const providers = this.browsePoolProviders(settings);
       const key2 = providers.map((provider) => provider.label).join("+");
       if (this.browsePool && this.browsePoolKey === key2) return this.browsePool;
       const results = await Promise.all(providers.map((provider) => this.loadJpdbStatsApiProvider(provider)));

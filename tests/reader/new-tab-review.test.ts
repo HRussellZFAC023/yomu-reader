@@ -1674,6 +1674,42 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('includes Anki cards in the My Cards browser pool without touching the JPDB stats source (SH-3 v2)', async () => {
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 1, source: 'jpdb' }),
+        ]);
+        const listNewTabCards = vi.fn(async () => [
+            newTabTestCard({ vid: -1, sid: -1, rid: 201, spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' }),
+        ]);
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+            anki: { listNewTabCards } as never,
+        });
+        try {
+            const root = renderBoundNewTabSearchRoot(controller);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(listNewTabCards).toHaveBeenCalled();
+            const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
+            expect(rows.some(row => row.textContent?.includes('暗記'))).toBe(true);
+            expect(rows.some(row => row.textContent?.includes('読む'))).toBe(true);
+
+            // The JPDB stats source keeps its own provider list (no Anki).
+            const internals = controller as unknown as { jpdbStatsApiProviders(settings: unknown): Array<{ label: string }> };
+            const labels = internals.jpdbStatsApiProviders({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: true, newTabAnkiEnabled: true }).map(provider => provider.label);
+            expect(labels).toEqual(['JPDB']);
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('shows the My Cards browser with state chips on the idle search tab (SH-3)', async () => {
         const listDeckCards = vi.fn(async () => [
             newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 1 }),
