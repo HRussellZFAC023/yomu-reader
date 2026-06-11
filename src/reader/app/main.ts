@@ -52,7 +52,8 @@ import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '.
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import { JpdbClient } from '../jpdb/jpdb';
-import { JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import { yomuKanjiStudyCompanion } from '../companions/registry';
+import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
@@ -74,10 +75,10 @@ import {
     isPageEnhancementReady,
 } from './page-enhancement-targets';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient, type KanjiSourceInfo } from '../kanji/origin';
+import type { KanjiSourceInfo } from '../kanji/origin';
 import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
-import { KanjiVGClient, type KanjiVGInfo } from '../kanji/vg';
+import type { KanjiVGInfo } from '../kanji/vg';
 import {
     canExpandLocalPointerRange,
     isLookupableJapaneseText,
@@ -219,7 +220,7 @@ import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumen
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
-import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
+
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import { contextPitchPattern } from '../lookup/pitch-accent';
@@ -241,6 +242,9 @@ import { PopupNavigationController, renderModalNavigation, type CardNavigationMo
 import {
     buildRtkComponentSummaries,
     isKanjiCharacter,
+    buildKanjiFacts,
+    buildKanjiOriginGraph,
+    installOriginGraphInteractions,
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
     renderKanjiKeywordLine,
@@ -248,7 +252,7 @@ import {
     renderRtkInfo,
     uniqueKanji,
 } from '../popup/render';
-import { RtkClient, type RtkInfo } from '../kanji/rtk';
+import type { RtkInfo } from '../kanji/rtk';
 import { ReaderAudioActions } from '../audio/actions';
 import { canAttemptReaderAutoAudio } from '../audio/activation';
 import { registerReaderMenuCommands } from './menu-commands';
@@ -362,15 +366,18 @@ export class ReaderApp {
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-    private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    // ADR-0003 phase 2: kanji clients come from the Kanji/Study companion;
+    // absent companion degrades kanji drilldowns to dictionary-only sections.
+    private kanjiCompanion = yomuKanjiStudyCompanion();
+    private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    private kanjiVG = new KanjiVGClient();
-    private kanjiOrigin = new KanjiOriginClient();
+    private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
+    private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
-    private rtk = new RtkClient();
+    private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
@@ -4163,12 +4170,12 @@ export class ReaderApp {
             jitenInfo: this.jitenKanjiDetailPromise(kanji),
             kanjiEntries: this.localKanjiEntriesPromise(kanji),
             rtkInfo: this.rtkDetailPromise(kanji),
-            kanjiVGInfo: needsKanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null),
+            kanjiVGInfo: needsKanjiVG && this.kanjiVG ? this.kanjiVG.lookup(kanji).catch(() => null) : Promise.resolve(null),
         };
     }
 
     private jpdbKanjiDetailPromise(kanji: string): Promise<JpdbKanjiInfo | null> {
-        return this.settings.jpdbKanjiEnabled ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null);
+        return this.settings.jpdbKanjiEnabled && this.jpdbKanji ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null);
     }
 
     private jitenKanjiDetailPromise(kanji: string): Promise<JitenKanjiInfo | null> {
@@ -4188,7 +4195,7 @@ export class ReaderApp {
     }
 
     private rtkDetailPromise(kanji: string): Promise<RtkInfo | null> {
-        return this.settings.rtkEnabled ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
+        return this.settings.rtkEnabled && this.rtk ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
     }
 
     private renderKanjiCardShell(popover: HTMLElement, card: JPDBCard, kanji: string, kanjiCharacters: string[], jpdbUrl: string, language: InterfaceLanguage): void {
@@ -4306,7 +4313,7 @@ export class ReaderApp {
     private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
         if (!actionId) return;
         try {
-            await this.jpdbKanji.performAction(actionId);
+            await this.jpdbKanji?.performAction(actionId);
             this.toast(uiText(this.settings.interfaceLanguage, 'jpdbKanjiUpdated'));
             await this.showKanjiCard(card, kanji, sentence, anchor, { preservePosition: true });
         } catch (error) {
@@ -4513,6 +4520,7 @@ export class ReaderApp {
     }
 
     private async lookupKanjiOriginSourceInfo(kanji: string): Promise<KanjiSourceInfo | null> {
+        if (!this.kanjiOrigin) return null;
         return await this.kanjiOrigin.lookup(kanji, this.settings).catch(error => {
             log.warn('Kanji origin lookup failed', { kanji }, error);
             return null;
