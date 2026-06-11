@@ -77,7 +77,7 @@ counts from study-batch/cards API.
 computed from the active source's queue metadata; one primary button starts the session
 (already exists implicitly — make the copy/shape match).
 
-### SH-3: Card browser with state filter chips + search + bulk actions ("My Cards")
+### SH-3: Card browser ("My Cards") — v1 SHIPPED 0.6.92 (idle Search tab shows the SRS pool with JPDB Show-only-order state chips + counts, 50-row pages, state badge + Top-N frequency per row, row click opens the full superset lookup; JPDB+Jiten pools). v2 remaining: search-within-pool while a chip is active, Anki pool rows, select-page bulk actions (Jiten parity), due-in column
 New "Browse" surface (or extend Search mode): chips with live counts (All/New/Learning/
 Due/Known/Failed/Suspended·Blacklisted/Never-forget/Locked/Redundant — union of JPDB and
 Jiten vocab), search by spelling, paginated rows (furigana spelling, first meaning,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.91
+// @version      0.6.92
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19624,6 +19624,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsActivityMinutes: "Minutes",
       statsActivityNewCards: "New cards",
       statsCardDistribution: "Card distribution",
+      browseAllChip: "All",
+      browsePreviousPage: "Previous page",
+      browseNextPage: "Next page",
+      browseNoCards: "No cards match this filter yet.",
       statsLearningProgress: "Learning progress",
       statsWordsRow: "Words",
       statsLearningColumn: "Learning",
@@ -19742,6 +19746,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsActivityMinutes: "分",
     statsActivityNewCards: "新規",
     statsCardDistribution: "カード分布",
+    browseAllChip: "すべて",
+    browsePreviousPage: "前のページ",
+    browseNextPage: "次のページ",
+    browseNoCards: "このフィルタに一致するカードはまだありません。",
     statsLearningProgress: "学習の進捗",
     statsWordsRow: "単語",
     statsLearningColumn: "学習中",

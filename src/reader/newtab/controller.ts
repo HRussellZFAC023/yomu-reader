@@ -1,3 +1,4 @@
+import { filterBrowseCards, renderBrowseChips, renderBrowseList, type BrowseFilter } from './browse-view';
 import { primaryCardState } from '../cards/state';
 import { copyText } from '../ui/browser';
 import type { CardRenderData } from '../cards/render-data';
@@ -662,6 +663,10 @@ export class NewTabController {
     private navigationGeneration = 0;
     private navigationSupplementPromise: Promise<void> | null = null;
     private statsSnapshot: StatsDashboardSnapshot = emptyStatsDashboardSnapshot();
+    private browsePool?: JPDBCard[];
+    private browsePoolKey = '';
+    private browseFilter: BrowseFilter = 'all';
+    private browsePage = 0;
     private statsSelectedSource: StatsSourceId = 'combined';
     private statsActivityMetric: StatsActivityMetric = 'reviews';
     private statsSelectedDate = '';
@@ -5266,6 +5271,30 @@ export class NewTabController {
                 event.preventDefault();
                 this.copySearchActionQuery(target);
                 return true;
+            case 'browse-filter': {
+                event.preventDefault();
+                const filter = target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter;
+                this.browseFilter = (filter ?? 'all') as BrowseFilter;
+                this.browsePage = 0;
+                const mount = this.searchResultsMount(root);
+                if (mount) this.renderBrowseResults(mount);
+                return true;
+            }
+            case 'browse-page': {
+                event.preventDefault();
+                const page = Number(target.closest<HTMLElement>('[data-browse-page]')?.dataset.browsePage);
+                if (Number.isFinite(page) && page >= 0) this.browsePage = page;
+                const mount = this.searchResultsMount(root);
+                if (mount) this.renderBrowseResults(mount);
+                return true;
+            }
+            case 'browse-card': {
+                event.preventDefault();
+                const row = target.closest<HTMLElement>('[data-expression]');
+                const expression = cleanNestedLookupValue(row?.dataset.expression);
+                if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(row?.dataset.reading) || expression, row ?? target);
+                return true;
+            }
             case 'search-result-word':
                 return this.handleSearchResultWordClick(root, target, event);
             case 'search-result-kanji':
@@ -6208,7 +6237,51 @@ export class NewTabController {
         delete results.dataset.searchQuery;
         this.searchWordCardCache.clear();
         this.renderSearchAutocomplete(root, '', []);
+        // Study-hub parity SH-3: the idle Search tab is the "My Cards"
+        // browser (JPDB deck-browse filters / Jiten Cards list) when an SRS
+        // provider is connected.
+        if (this.jpdbStatsApiProviders(this.dependencies.getSettings()).length) {
+            void this.renderBrowseInto(root);
+            return;
+        }
         replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }));
+    }
+
+    private async renderBrowseInto(root: HTMLElement): Promise<void> {
+        const results = this.searchResultsMount(root);
+        if (!results) return;
+        if (!this.browsePool) replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }, this.text('loading')));
+        await this.loadBrowsePool();
+        const mount = this.searchResultsMount(root);
+        if (!mount || !mount.isConnected || this.state.mode !== 'search' || normalizeSearchQuery(this.searchQuery)) return;
+        this.renderBrowseResults(mount);
+    }
+
+    private renderBrowseResults(mount: HTMLElement): void {
+        const cards = this.browsePool ?? [];
+        const language = this.language();
+        const filtered = filterBrowseCards(cards, this.browseFilter, '');
+        replaceChildrenWith(mount,
+            renderBrowseChips(cards, this.browseFilter, language, this.text('browseAllChip')),
+            renderBrowseList(filtered, this.browsePage, language, {
+                empty: this.text('browseNoCards'),
+                previous: this.text('browsePreviousPage'),
+                next: this.text('browseNextPage'),
+                showing: (from, to, total) => `${from}–${to} / ${total}`,
+            }),
+        );
+    }
+
+    private async loadBrowsePool(): Promise<JPDBCard[]> {
+        const settings = this.dependencies.getSettings();
+        const providers = this.jpdbStatsApiProviders(settings);
+        const key = providers.map(provider => provider.label).join('+');
+        if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
+        const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));
+        const cards = dedupeWords(results.filter(result => result.error === null).flatMap(result => result.cards));
+        this.browsePool = cards;
+        this.browsePoolKey = key;
+        return cards;
     }
 
     private renderSearchSuggestion(suggestion: NewTabSearchSuggestion, index: number): HTMLButtonElement {

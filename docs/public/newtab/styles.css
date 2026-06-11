@@ -3787,6 +3787,96 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
+/* Study-hub parity SH-3: "My Cards" browser on the idle Search tab. */
+.jpdb-reader-newtab-browse-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+.jpdb-reader-newtab-browse-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-muted);
+  font: 600 12px/1 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-browse-chip[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
+}
+.jpdb-reader-newtab-browse-meta {
+  margin: 4px 0 8px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}
+.jpdb-reader-newtab-browse-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jpdb-reader-newtab-browse-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--jpdb-reader-border);
+  background: none;
+  color: var(--jpdb-reader-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.jpdb-reader-newtab-browse-row:hover,
+.jpdb-reader-newtab-browse-row:focus-visible {
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 8%, transparent);
+}
+.jpdb-reader-newtab-browse-spelling {
+  font-size: 17px;
+  font-weight: 600;
+}
+.jpdb-reader-newtab-browse-reading {
+  margin-left: 6px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}
+.jpdb-reader-newtab-browse-meaning {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-newtab-browse-state {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}
+.jpdb-reader-newtab-browse-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.jpdb-reader-newtab-browse-empty {
+  margin: 16px 0;
+  color: var(--jpdb-reader-muted);
+}
+@media (max-width: 640px) {
+  .jpdb-reader-newtab-browse-meaning { display: none; }
+}
+
 
 /* Source: src/reader/styles/stats.css */
 .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study {
