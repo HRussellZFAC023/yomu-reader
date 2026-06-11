@@ -5,6 +5,7 @@
 ### Fixed
 
 - The popover's new-card Anki preview now shows the exact fields a mining write will target when the configured note type is an existing non-Yomu model (e.g. Kaishi/Core decks): the preview runs the same field retargeting as the write path (saved mappings, then field-name aliases against the live model), so values are listed under the real field names — Word/Kana/Definition — instead of Yomu field names that would have been silently remapped at write time.
+- Anki searches now match literally: deck names and lookup terms are escaped through one shared helper (`*` and `_` act as wildcards even inside Anki's double quotes, so decks like Core_2k previously single-char-wildcard-matched and terms containing `*` over-matched). Nested-deck `::` stays unescaped so subdecks remain included. This replaces two divergent escaping copies used by status probes, model queries, and new-tab deck queries.
 
 ## [0.6.75] - 2026-06-10
 
