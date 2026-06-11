@@ -29827,6 +29827,7 @@ ${normalizedReading}`;
     };
   }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
+  const JPDB_REVIEW_BRIDGE_STALE_MS = 3e4;
   const EMPTY_STATUS = {
     connected: false,
     loginRequired: false,
@@ -29847,23 +29848,53 @@ ${normalizedReading}`;
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
     const listeners = /* @__PURE__ */ new Set();
     let latest = EMPTY_STATUS;
+    let staleTimer;
+    const notify = () => listeners.forEach((listener) => listener(latest));
+    const markStale = () => {
+      if (!latest.connected) return;
+      latest = staleJpdbReviewBridgeStatus();
+      notify();
+    };
+    const scheduleStaleCheck = () => {
+      window.clearTimeout(staleTimer);
+      staleTimer = window.setTimeout(markStale, JPDB_REVIEW_BRIDGE_STALE_MS);
+    };
     channel.onmessage = (event) => {
       const message = event.data;
       if (!message || message.source !== "jpdb" || message.type !== "status") return;
       latest = normalizeStatus(message.status);
-      listeners.forEach((listener) => listener(latest));
+      scheduleStaleCheck();
+      notify();
     };
     const post = (message) => channel.postMessage(message);
+    const requestCurrent = () => post({ type: "request-current", source: "newtab" });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") requestCurrent();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     return {
       latestStatus: () => latest,
-      requestCurrent: () => post({ type: "request-current", source: "newtab" }),
+      requestCurrent,
       reveal: () => post({ type: "command", source: "newtab", command: "reveal" }),
       grade: (grade) => post({ type: "command", source: "newtab", command: "grade", grade }),
       onUpdate(listener) {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
-      close: () => channel.close()
+      close: () => {
+        window.clearTimeout(staleTimer);
+        document.removeEventListener("visibilitychange", handleVisibility);
+        channel.close();
+      }
+    };
+  }
+  function staleJpdbReviewBridgeStatus() {
+    return {
+      connected: false,
+      loginRequired: false,
+      card: null,
+      stale: true,
+      message: "JPDB review tab stopped responding. Reopen jpdb.io/review to continue live reviews."
     };
   }
   function normalizeStatus(value) {

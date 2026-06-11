@@ -9225,12 +9225,24 @@ html.jpdb-youtube-filter-active ytd-rich-grid-row > #contents {
     display: contents !important;
 }
 
-/* The rowless lockup grid keys row-start margins off is-in-first-column,
-   computed by YouTube for the unfiltered feed. After filtering, the scan
-   strips the stale flags from visible items and re-marks each visual row's
-   first item with this class (the NihongoTube margin compensation). */
+/* The scan strips stale is-in-first-column flags from visible items and
+   re-marks each visual row's first item with this class. On the 2026 lockup
+   feed the row gutter lives on the #contents container (margin-left on the
+   container itself) and [is-in-first-column] no longer changes item margins,
+   so the marker must pin the DEFAULT item margin: adding the gutter here
+   (the pre-lockup compensation) overflowed every marked row and wrapped its
+   last card into a gap. */
 html.jpdb-youtube-filter-active ytd-rich-item-renderer.jpdb-youtube-first-in-row {
-    margin-left: calc(var(--ytd-rich-grid-item-margin) / 2 + var(--ytd-rich-grid-gutter-margin));
+    margin-left: calc(var(--ytd-rich-grid-item-margin) / 2);
+}
+
+/* The grid continuation (spinner + ghost skeleton cards) ships flex:1 with a
+   near-zero flex-basis, so it squeezes into whatever partial row filtering
+   leaves behind and its 3-up ghost grid renders at the wrong card size.
+   Forcing a full-width basis wraps it onto its own row, where the ghost
+   cards take the same width as real feed cards. */
+html.jpdb-youtube-filter-active ytd-rich-grid-renderer ytd-continuation-item-renderer {
+    flex-basis: 100% !important;
 }
 
 .jpdb-youtube-filter-bar {
