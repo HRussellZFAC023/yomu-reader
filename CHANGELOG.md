@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.98] - 2026-06-11
+
+### Added
+
+- Revealed word cards in the study page now show a 'Composed of' line — the word's component kanji as chips with their RTK/JPDB keywords, tappable to open the full kanji drilldown — matching the back of jpdb.io's review cards (study-hub parity SH-4). Kana-only words skip the line.
+
 ## [0.6.97] - 2026-06-11
 
 ### Added

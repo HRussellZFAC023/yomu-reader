@@ -19374,6 +19374,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseNextPage: "Next page",
       browseNoCards: "No cards match this filter yet.",
       studyDeckSelector: "Study deck",
+      composedOf: "Composed of",
       allVocabularyDeck: "All vocabulary",
       statsLearningProgress: "Learning progress",
       statsWordsRow: "Words",
@@ -19500,6 +19501,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseNextPage: "次のページ",
     browseNoCards: "このフィルタに一致するカードはまだありません。",
     studyDeckSelector: "学習デッキ",
+    composedOf: "構成漢字",
     allVocabularyDeck: "すべての語彙",
     statsLearningProgress: "学習の進捗",
     statsWordsRow: "単語",
@@ -39288,6 +39290,50 @@ ${newTabCardReading(card)}`;
         el("div", {}, firstCardMeaning(card)),
         card.jpdbDeckMembership ? el("p", { class: "jpdb-reader-newtab-deck-membership" }, card.jpdbDeckMembership) : null
       );
+      this.appendComposedOfLine(meaning, card);
+    }
+    // SH-4 fidelity: jpdb.io's review back lists the word's component kanji
+    // with their keywords ("Composed of"). Chips reuse the existing kanji
+    // popover action for drilldown; keywords hydrate from RTK/JPDB lazily.
+    async composedOfKeywordLookup(client, character) {
+      if (typeof client?.lookup !== "function") return "";
+      const result = await client.lookup(character).catch(() => null);
+      return result?.keyword ?? "";
+    }
+    appendComposedOfLine(meaning, card) {
+      const kanjiCharacters2 = [...new Set(Array.from(card.spelling).filter(isKanjiCharacter$1))];
+      if (kanjiCharacters2.length === 0) return;
+      const row = el(
+        "div",
+        { class: "jpdb-reader-newtab-composed-of", dataset: { newtabComposedOf: true } },
+        el("span", { class: "jpdb-reader-newtab-composed-of-label" }, this.text("composedOf")),
+        ...kanjiCharacters2.map((character) => el(
+          "button",
+          {
+            type: "button",
+            class: "jpdb-reader-newtab-composed-of-kanji",
+            dataset: { action: "kanji", kanji: character },
+            title: `${this.text("showKanji")}: ${character}`
+          },
+          el("span", { lang: "ja" }, character),
+          el("small", {}, this.keywordCache.get(character) ?? "")
+        ))
+      );
+      meaning.append(row);
+      void this.hydrateComposedOfKeywords(row, kanjiCharacters2);
+    }
+    async hydrateComposedOfKeywords(row, kanjiCharacters2) {
+      await Promise.all(kanjiCharacters2.map(async (character) => {
+        if (this.keywordCache.has(character)) return;
+        const keyword = await this.composedOfKeywordLookup(this.dependencies.rtk, character) || await this.composedOfKeywordLookup(this.dependencies.jpdbKanji, character);
+        if (keyword) this.keywordCache.set(character, keyword);
+      }));
+      if (!row.isConnected) return;
+      row.querySelectorAll("[data-kanji]").forEach((chip) => {
+        const small = chip.querySelector("small");
+        const keyword = this.keywordCache.get(chip.dataset.kanji ?? "");
+        if (small && keyword) small.textContent = keyword;
+      });
     }
     renderAnkiRenderedWordPrompt(slots, card) {
       if (card.source !== "anki" && card.reviewSource !== "anki") return false;
