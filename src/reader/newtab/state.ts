@@ -31,7 +31,6 @@ export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     jpdbDeck: '',
 };
 
-// fallow-ignore-next-line unused-export
 export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }> = [
     { value: 'study', labelKey: 'filterStudy' },
     { value: 'all', labelKey: 'filterAll' },
@@ -48,7 +47,6 @@ export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }
     { value: 'local', labelKey: 'dictionary' },
 ];
 
-// fallow-ignore-next-line unused-export
 export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | undefined): NewTabUiState {
     return {
         mode: normalizeNewTabMode(value?.mode),
