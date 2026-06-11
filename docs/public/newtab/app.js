@@ -1,6 +1,861 @@
 (function() {
   "use strict";
   var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
+  const MISSING = { missing: true };
+  const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+  const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
+  const MANAGED_STORAGE_KEY_PREFIXES = [
+    "yomu-",
+    "yomu:",
+    "yomu.",
+    "jpdb-reader-",
+    "jpdb-popup-reader-"
+  ];
+  const KNOWN_MANAGED_STORAGE_KEYS = [
+    "jpdb-popup-reader-settings",
+    "jpdb-reader-settings",
+    "yomu-reader-settings",
+    "yomu-settings",
+    "jpdb-reader-newtab-card-cache",
+    "jpdb-reader-newtab-grade-queue",
+    "jpdb-reader-newtab-current-word",
+    "jpdb-reader-newtab-ui",
+    "jpdb-reader-newtab-jpdb-stats-history",
+    "jpdb-reader-newtab-disabled-anki-decks",
+    "jpdb-reader-source-open-state",
+    "jpdb-reader-settings-drawer-height-ratio",
+    "jpdb-reader-sheet-height-ratio",
+    "jpdb-reader-transcript-panel-size",
+    "yomu:anki-status-index:v1",
+    "yomu:anki-status-index-rebuild:v1",
+    "yomu.grammarPreferences.v1",
+    "yomu:enable-logs",
+    "yomu:prefer-japanese-site-language",
+    FACTORY_RESET_SIGNAL_KEY
+  ];
+  const MANAGED_INDEXED_DB_NAMES = [
+    "yomu-anki-status-index"
+  ];
+  const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+    FACTORY_RESET_SIGNAL_KEY
+  ]);
+  async function gmStorageGet(key2, fallback) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      try {
+        const value = await getValue(key2, MISSING);
+        if (value !== MISSING) return value;
+        const migrated = localStorageGet(key2, MISSING);
+        if (migrated !== MISSING) {
+          await gmStorageSet(key2, migrated);
+          return migrated;
+        }
+        return fallback;
+      } catch (error) {
+        debugStorageError("GM storage read failed", key2, error);
+      }
+    }
+    return localStorageGet(key2, fallback);
+  }
+  function gmStorageGetSync(key2, fallback) {
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    if (getValue) {
+      const read = gmStorageSyncRead(key2, getValue);
+      if (read.kind === "found") return read.value;
+    }
+    return localStorageGet(key2, fallback);
+  }
+  function gmStorageSyncRead(key2, getValue) {
+    try {
+      const value = getValue(key2, MISSING);
+      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (value !== MISSING) return { kind: "found", value };
+      return migratedLocalStorageSyncValue(key2);
+    } catch (error) {
+      debugStorageError("GM storage sync read failed", key2, error);
+      return { kind: "fallback" };
+    }
+  }
+  function migratedLocalStorageSyncValue(key2) {
+    const migrated = localStorageGet(key2, MISSING);
+    if (migrated === MISSING) return { kind: "fallback" };
+    void gmStorageSet(key2, migrated);
+    return { kind: "found", value: migrated };
+  }
+  async function gmStorageSet(key2, value) {
+    const setValue = asyncGmSetValue();
+    if (setValue) {
+      await setValue(key2, value);
+      return;
+    }
+    localStorageSet(key2, value);
+  }
+  function gmStorageSetSync(key2, value) {
+    if (typeof GM_setValue === "function") {
+      try {
+        const result = GM_setValue(key2, value);
+        if (!isPromiseLike(result)) return;
+      } catch (error) {
+        debugStorageError("GM storage sync write failed", key2, error);
+      }
+    }
+    localStorageSet(key2, value);
+  }
+  async function gmStorageDelete(key2) {
+    const deleteValue = asyncGmDeleteValue();
+    if (deleteValue) {
+      try {
+        await deleteValue(key2);
+      } catch (error) {
+        debugStorageError("GM storage delete failed", key2, error);
+      }
+    }
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+  }
+  function gmStorageDeleteSync(key2) {
+    if (typeof GM_deleteValue === "function") {
+      try {
+        const result = GM_deleteValue(key2);
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+      } catch (error) {
+        debugStorageError("GM storage sync delete failed", key2, error);
+      }
+    }
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+  }
+  async function exportStoredValues(prefixes) {
+    const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
+    const entries = await Promise.all(keys.map(async (key2) => [key2, await gmStorageGet(key2, void 0)]));
+    return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
+  }
+  async function exportManagedStoredValues() {
+    return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
+  }
+  async function importStoredValues(values) {
+    let count = 0;
+    for (const [key2, value] of managedStoredValueEntries(values)) {
+      await gmStorageSet(key2, value);
+      localStorageSet(key2, value);
+      count++;
+    }
+    return count;
+  }
+  function managedStoredValueEntries(values) {
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
+  }
+  function isStorageImportRecord(values) {
+    return Boolean(values && typeof values === "object" && !Array.isArray(values));
+  }
+  async function clearManagedStoredValues() {
+    const keys = await allStorageKeys();
+    let count = 0;
+    for (const key2 of keys) {
+      await gmStorageDelete(key2);
+      removeLocalStorageKey(key2);
+      removeSessionStorageKey(key2);
+      count++;
+    }
+    await clearManagedIndexedDatabases();
+    return count;
+  }
+  async function clearFactoryResetSignal() {
+    await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
+  }
+  function createFactoryResetSignal(phase, id = createFactoryResetId()) {
+    return {
+      id,
+      phase,
+      at: Date.now(),
+      href: location.href
+    };
+  }
+  async function publishFactoryResetSignal(signal) {
+    const normalized = normalizeFactoryResetSignal(signal);
+    await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized);
+    publishBroadcastFactoryResetSignal(normalized);
+  }
+  function subscribeToFactoryResetSignals(onSignal) {
+    const cleanups = [];
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      try {
+        const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+          const signal = parseFactoryResetSignal(newValue);
+          if (signal) onSignal(signal, { remote, transport: "gm-storage" });
+        });
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        debugStorageError("GM factory reset listener failed", FACTORY_RESET_SIGNAL_KEY, error);
+      }
+    }
+    if (typeof BroadcastChannel === "function") {
+      try {
+        const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+        channel.onmessage = (event) => {
+          const signal = parseFactoryResetSignal(event.data);
+          if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
+        };
+        cleanups.push(() => channel.close());
+      } catch (error) {
+        debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
+      }
+    }
+    const onStorage = (event) => {
+      if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+      const signal = parseFactoryResetSignal(event.newValue);
+      if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
+    };
+    window.addEventListener("storage", onStorage);
+    cleanups.push(() => window.removeEventListener("storage", onStorage));
+    return () => {
+      while (cleanups.length) {
+        try {
+          cleanups.pop()?.();
+        } catch {
+        }
+      }
+    };
+  }
+  async function storageKeys(prefixes) {
+    const keys = /* @__PURE__ */ new Set();
+    await addPrefixedGmStorageKeys(keys, prefixes);
+    addLocalStorageKeys(keys, prefixes);
+    await addKnownManagedStorageKeys(keys, prefixes);
+    return [...keys].sort();
+  }
+  async function addPrefixedGmStorageKeys(keys, prefixes) {
+    const listValues = asyncGmListValues();
+    if (!listValues) return;
+    try {
+      addMatchingStorageKeys(keys, await listValues(), prefixes);
+    } catch (error) {
+      debugStorageError("GM storage list failed", "GM_listValues", error);
+    }
+  }
+  function addLocalStorageKeys(keys, prefixes) {
+    try {
+      for (let index = 0; index < localStorage.length; index++) {
+        const key2 = localStorage.key(index);
+        if (key2 && storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+      }
+    } catch {
+    }
+  }
+  async function addKnownManagedStorageKeys(keys, prefixes) {
+    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (storageKeyMatchesPrefix(key2, prefixes) && await storedValueExists(key2)) keys.add(key2);
+    }
+  }
+  function addMatchingStorageKeys(keys, candidates, prefixes) {
+    for (const key2 of candidates) {
+      if (storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+    }
+  }
+  function storageKeyMatchesPrefix(key2, prefixes) {
+    return prefixes.some((prefix) => key2.startsWith(prefix));
+  }
+  async function allStorageKeys() {
+    const keys = /* @__PURE__ */ new Set();
+    await addGmStorageKeys(keys);
+    collectWebStorageKeys(localStorage, keys);
+    collectWebStorageKeys(sessionStorage, keys);
+    await addKnownStoredKeys(keys);
+    return [...keys].sort();
+  }
+  async function addGmStorageKeys(keys) {
+    const listValues = asyncGmListValues();
+    if (!listValues) return;
+    try {
+      for (const key2 of await listValues()) keys.add(key2);
+    } catch (error) {
+      debugStorageError("GM storage list failed", "GM_listValues", error);
+    }
+  }
+  async function addKnownStoredKeys(keys) {
+    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
+      if (await storedValueExists(key2)) keys.add(key2);
+    }
+  }
+  function collectWebStorageKeys(storage, keys) {
+    try {
+      for (let index = 0; index < storage.length; index++) {
+        const key2 = storage.key(index);
+        if (key2 && isManagedStorageKey(key2)) keys.add(key2);
+      }
+    } catch {
+    }
+  }
+  function localStorageGet(key2, fallback) {
+    try {
+      const value = localStorage.getItem(key2);
+      return value == null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  function localStorageSet(key2, value) {
+    try {
+      localStorage.setItem(key2, JSON.stringify(value));
+    } catch {
+    }
+  }
+  function removeLocalStorageKey(key2) {
+    try {
+      localStorage.removeItem(key2);
+    } catch {
+    }
+  }
+  function removeSessionStorageKey(key2) {
+    try {
+      sessionStorage.removeItem(key2);
+    } catch {
+    }
+  }
+  async function storedValueExists(key2) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      try {
+        if (await getValue(key2, MISSING) !== MISSING) return true;
+      } catch (error) {
+        debugStorageError("GM storage existence check failed", key2, error);
+      }
+    }
+    return webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2);
+  }
+  function webStorageHasKey(storage, key2) {
+    try {
+      return storage.getItem(key2) !== null;
+    } catch {
+      return false;
+    }
+  }
+  async function clearManagedIndexedDatabases() {
+    await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
+  }
+  function deleteIndexedDbDatabase(name) {
+    if (typeof indexedDB === "undefined") return Promise.resolve();
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = () => resolve();
+        request.onerror = (error) => {
+          debugStorageError("IndexedDB delete failed", name, error);
+          resolve();
+        };
+        request.onblocked = (error) => {
+          debugStorageError("IndexedDB delete blocked", name, error);
+          resolve();
+        };
+      } catch (error) {
+        debugStorageError("IndexedDB delete threw", name, error);
+        resolve();
+      }
+    });
+  }
+  function isPromiseLike(value) {
+    return Boolean(value) && typeof value.then === "function";
+  }
+  function asyncGmGetValue() {
+    if (typeof GM_getValue === "function") return GM_getValue;
+    const modern = globalThis.GM?.getValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function asyncGmSetValue() {
+    if (typeof GM_setValue === "function") return GM_setValue;
+    const modern = globalThis.GM?.setValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function asyncGmDeleteValue() {
+    if (typeof GM_deleteValue === "function") return GM_deleteValue;
+    const modern = globalThis.GM?.deleteValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function asyncGmListValues() {
+    const directListValues = globalThis.GM_listValues;
+    if (typeof directListValues === "function") return directListValues;
+    const modern = globalThis.GM?.listValues;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function normalizeFactoryResetSignal(signal) {
+    return {
+      id: normalizedFactoryResetId(signal.id),
+      phase: normalizedFactoryResetPhase(signal.phase),
+      at: normalizedFactoryResetAt(signal.at),
+      href: normalizedFactoryResetHref(signal.href)
+    };
+  }
+  function normalizedFactoryResetId(id) {
+    return String(id || createFactoryResetId());
+  }
+  function normalizedFactoryResetPhase(phase) {
+    return phase === "complete" ? "complete" : "prepare";
+  }
+  function normalizedFactoryResetAt(at) {
+    return typeof at === "number" && Number.isFinite(at) ? at : Date.now();
+  }
+  function normalizedFactoryResetHref(href) {
+    return typeof href === "string" ? href : location.href;
+  }
+  function parseFactoryResetSignal(value) {
+    const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
+    if (!isFactoryResetSignalRecord(parsed)) return null;
+    const record = parsed;
+    if (!isValidFactoryResetPhase(record.phase)) return null;
+    return {
+      id: record.id,
+      phase: record.phase,
+      at: factoryResetSignalTime(record.at),
+      href: factoryResetSignalHref(record.href)
+    };
+  }
+  function factoryResetSignalTime(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
+  }
+  function factoryResetSignalHref(value) {
+    return typeof value === "string" ? value : "";
+  }
+  function isFactoryResetSignalRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
+  }
+  function isValidFactoryResetPhase(value) {
+    return value === "prepare" || value === "complete";
+  }
+  function parseJsonRecord(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  function publishBroadcastFactoryResetSignal(signal) {
+    if (typeof BroadcastChannel !== "function") return;
+    try {
+      const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+      channel.postMessage(signal);
+      channel.close();
+    } catch (error) {
+      debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
+    }
+  }
+  function createFactoryResetId() {
+    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+  function isManagedStorageKey(key2) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
+  }
+  function isBackupStorageKey(key2) {
+    return isManagedStorageKey(key2) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+  }
+  function debugStorageError(message, key2, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  }
+  const CORE_COLOR_TOKENS = {
+    black: "#000000",
+    white: "#ffffff",
+    transparentBlack: "rgba(0, 0, 0, 0)"
+  };
+  const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
+    consoleAccent: "#247a58"
+  };
+  const READER_THEME_COLOR_TOKENS = {
+    dark: {
+      bg: "#181b20",
+      surface: "#20242b",
+      surface2: "#282e37",
+      accentText: "#11161d"
+    },
+    light: {
+      bg: "#fbfcfe",
+      surface: "#f4f7fa",
+      surface2: "#e8edf3",
+      accentText: CORE_COLOR_TOKENS.white
+    }
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white,
+    outline: CORE_COLOR_TOKENS.black,
+    background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const DEFAULT_WORD_COLOR_TOKENS = {
+    new: "#58a6ff",
+    learning: "#ffd166",
+    known: "#7bd88f",
+    due: "#5fb3b3",
+    failed: "#ff6b6b",
+    ignored: "#b8a7ff"
+  };
+  const DEFAULT_PITCH_COLOR_TOKENS = {
+    heiban: "#359eff",
+    atamadaka: "#fe4b74",
+    nakadaka: "#fba840",
+    odaka: "#57ccb7",
+    kifuku: "#9050f6",
+    unknown: "#94a3b8"
+  };
+  const LOOKUP_PILL_COLOR_TOKENS = {
+    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
+    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
+    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
+    goo: { bg: "#b45309", border: "#f59e0b", text: CORE_COLOR_TOKENS.white },
+    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
+    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
+    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
+    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
+  };
+  const DOODLE_COLOR_TOKENS = {
+    ink: "#141820"
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
+  const ANKI_CARD_COLOR_TOKENS = {
+    text: "#f4f7fb",
+    background: "#15181e",
+    muted: "#bac3d0",
+    sentenceBorder: "#323843",
+    sentenceBackground: "#1e232b",
+    sentenceText: "#d8dee8",
+    highlight: "#7ad119",
+    sectionBorder: "#303641",
+    sectionBackground: "#1b2028",
+    headingText: "#c2cad7",
+    labelText: "#92a0b3",
+    expressionText: CORE_COLOR_TOKENS.white,
+    readingText: "#aab4c2",
+    chipBorder: "#4b5565",
+    chipText: "#cdd5e1",
+    metaLabelText: "#8f9aaa",
+    tableBorder: "#353c47"
+  };
+  const JITEN_API_KEY_PREFIX = "ak_";
+  function singleApiCredentialValue(settings) {
+    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
+  }
+  function activeApiCredentialLabel(settings) {
+    return effectiveJitenApiKey(settings) ? "Jiten" : "JPDB";
+  }
+  function apiCredentialLabelFromValue(value) {
+    return isJitenApiCredential(value) ? "Jiten" : "JPDB";
+  }
+  function effectiveJpdbApiKey(settings) {
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? "" : apiKey;
+  }
+  function effectiveJitenApiKey(settings) {
+    const explicit = settings.jitenApiKey.trim();
+    if (explicit) return explicit;
+    const apiKey = settings.apiKey.trim();
+    return isJitenApiCredential(apiKey) ? apiKey : "";
+  }
+  function hasJpdbApiCredential(settings) {
+    return Boolean(effectiveJpdbApiKey(settings));
+  }
+  function hasJitenApiCredential(settings) {
+    return Boolean(effectiveJitenApiKey(settings));
+  }
+  function splitApiCredential(value) {
+    const credential = value.trim();
+    if (!credential) return { apiKey: "", jitenApiKey: "" };
+    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
+  }
+  function readApiCredentialsFromFormData(data) {
+    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
+    return {
+      apiKey: String(data.get("apiKey") ?? "").trim(),
+      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
+    };
+  }
+  function isJitenApiCredential(value) {
+    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+  }
+  const __vite_import_meta_env__ = { "DEV": false };
+  const LOG_PREFIX = "[Yomu]";
+  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+  const RUNTIME_LOG_KEY = "yomu:enable-logs";
+  const REDACTED = "[redacted]";
+  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+  const env = __vite_import_meta_env__;
+  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+  class ScopedLogger {
+    constructor(parent, scopeName) {
+      this.parent = parent;
+      this.scopeName = scopeName;
+    }
+    debug(message, ...args) {
+      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+    }
+    info(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.info, "");
+    }
+    warn(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+    }
+    error(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+    }
+    warnOnce(key2, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key2}`, this.scopeName, message, args);
+    }
+    time(label, ...args) {
+      if (!this.parent.isEnabled()) return () => void 0;
+      const start = nowMs();
+      this.debug(`${label} started`, ...args);
+      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+    }
+  }
+  class LoggerImpl {
+    settingsProvider;
+    forceEnabled = false;
+    onceKeys = /* @__PURE__ */ new Set();
+    configure(options) {
+      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+    }
+    scope(scopeName) {
+      return new ScopedLogger(this, scopeName);
+    }
+    isEnabled() {
+      if (BUILD_LOGGING_ENABLED) return true;
+      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+      try {
+        return this.settingsProvider?.().enableLogging === true;
+      } catch {
+        return false;
+      }
+    }
+    isDevMode() {
+      return isDevMode();
+    }
+    enable(persist = false) {
+      this.forceEnabled = true;
+      if (persist) setRuntimeLoggingOverride(true);
+      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+    }
+    disable(persist = false) {
+      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+      this.forceEnabled = false;
+      if (persist) setRuntimeLoggingOverride(false);
+    }
+    reset() {
+      this.onceKeys.clear();
+    }
+    warnOnce(key2, scope, message, args) {
+      if (this.onceKeys.has(key2)) return;
+      this.onceKeys.add(key2);
+      this.write(scope, message, args, console.warn, WARN_STYLE);
+    }
+    write(scope, message, args, writer, levelStyle) {
+      if (!this.isEnabled()) return;
+      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+    }
+  }
+  const Logger = new LoggerImpl();
+  function configureLogger(options) {
+    Logger.configure(options);
+  }
+  function loggingSettingsSummary(settings) {
+    return {
+      enableLogging: settings.enableLogging,
+      hasApiKey: hasJpdbApiCredential(settings),
+      hasJitenApiKey: hasJitenApiCredential(settings),
+      localDictionariesEnabled: settings.localDictionariesEnabled,
+      localDictionarySources: settings.dictionaryPreferences.length,
+      ankiEnabled: settings.ankiEnabled,
+      newTabEnabled: settings.newTabEnabled,
+      newTabSource: settings.newTabSource,
+      ocrEnabled: settings.ocrEnabled,
+      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
+    };
+  }
+  function isDevMode() {
+    return BUILD_IS_DEV_MODE;
+  }
+  function writeDebugToConsole(...args) {
+    if (isDevMode()) console.log(...args);
+    else console.debug(...args);
+  }
+  function getRuntimeLoggingOverride() {
+    try {
+      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+    } catch {
+      return false;
+    }
+  }
+  function setRuntimeLoggingOverride(enabled) {
+    try {
+      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+    } catch {
+    }
+  }
+  function nowMs() {
+    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }
+  function sanitizeForConsole(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value === null || value === void 0 || typeof value !== "object") return value;
+    const sanitized = sanitizeSpecialConsoleValue(value);
+    if (sanitized.handled) return sanitized.value;
+    if (Array.isArray(value)) return value.map(sanitizeForConsole);
+    return sanitizeRecordForConsole(value);
+  }
+  function sanitizeSpecialConsoleValue(value) {
+    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+      const sanitized = sanitizer(value);
+      if (sanitized.handled) return sanitized;
+    }
+    return { handled: false };
+  }
+  const CONSOLE_VALUE_SANITIZERS = [
+    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+  ];
+  function sanitizeRecordForConsole(record) {
+    return Object.fromEntries(Object.entries(record).map(([key2, value]) => [
+      key2,
+      shouldRedactEntry(key2, value) ? REDACTED : sanitizeFlatValue(value)
+    ]));
+  }
+  function sanitizeFlatValue(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value instanceof Error) return { name: value.name, message: value.message };
+    return value;
+  }
+  function shouldRedactEntry(key2, value) {
+    if (!SECRET_KEY_PATTERN.test(key2)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key2)) return false;
+    return true;
+  }
+  function redactString(value) {
+    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+  }
+  if (typeof window !== "undefined") {
+    window.__YOMU_LOGGER__ = Logger;
+    window.YomuLogger = Logger;
+  }
+  const log$w = Logger.scope("CardStateSignal");
+  const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
+  const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
+  const SEEN_SIGNAL_LIMIT = 32;
+  function cardStateSignalCard(card) {
+    return {
+      vid: card.vid,
+      sid: card.sid,
+      rid: card.rid,
+      spelling: card.spelling,
+      reading: card.reading,
+      cardState: [...card.cardState],
+      pitchAccent: [...card.pitchAccent],
+      source: card.source
+    };
+  }
+  function cardFromCardStateSignal(card) {
+    return {
+      ...card,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      wordWithReading: null
+    };
+  }
+  function publishCardStateSignal(card) {
+    const signal = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+      at: Date.now(),
+      card: cardStateSignalCard(card)
+    };
+    try {
+      gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
+    } catch (error) {
+      log$w.debug("GM card-state publish failed", error);
+    }
+    publishBroadcastCardStateSignal(signal);
+  }
+  function publishBroadcastCardStateSignal(signal) {
+    if (typeof BroadcastChannel !== "function") return;
+    try {
+      const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+      channel.postMessage(signal);
+      channel.close();
+    } catch (error) {
+      log$w.debug("Broadcast card-state publish failed", error);
+    }
+  }
+  function subscribeToCardStateSignals(onCard) {
+    const cleanups = [];
+    const seenIds = [];
+    const handle = (value) => {
+      const signal = parseCardStateSignal(value);
+      if (!signal || seenIds.includes(signal.id)) return;
+      seenIds.push(signal.id);
+      if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
+      onCard(cardFromCardStateSignal(signal.card));
+    };
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      try {
+        const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+          if (remote) handle(newValue);
+        });
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        log$w.debug("GM card-state listener failed", error);
+      }
+    }
+    if (typeof BroadcastChannel === "function") {
+      try {
+        const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+        channel.onmessage = (event) => handle(event.data);
+        cleanups.push(() => channel.close());
+      } catch (error) {
+        log$w.debug("Broadcast card-state listener failed", error);
+      }
+    }
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }
+  function parseCardStateSignal(value) {
+    if (!value || typeof value !== "object") return null;
+    const signal = value;
+    const card = signal.card;
+    if (typeof signal.id !== "string" || !card || typeof card.spelling !== "string" || !card.spelling) return null;
+    if (!Array.isArray(card.cardState)) return null;
+    return {
+      id: signal.id,
+      at: Number(signal.at) || Date.now(),
+      card: {
+        vid: Number(card.vid) || 0,
+        sid: Number(card.sid) || 0,
+        rid: Number(card.rid) || 0,
+        spelling: card.spelling,
+        reading: typeof card.reading === "string" ? card.reading : "",
+        cardState: card.cardState,
+        pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
+        source: card.source ?? "jpdb"
+      }
+    };
+  }
   const APP_NAME = "よむ";
   const APP_SLUG = "yomu";
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
@@ -3164,757 +4019,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function isGrammarRuleCopyRecord(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-  }
-  const CORE_COLOR_TOKENS = {
-    black: "#000000",
-    white: "#ffffff",
-    transparentBlack: "rgba(0, 0, 0, 0)"
-  };
-  const BRAND_COLOR_TOKENS = {
-    accent: "#5ea780",
-    consoleAccent: "#247a58"
-  };
-  const READER_THEME_COLOR_TOKENS = {
-    dark: {
-      bg: "#181b20",
-      surface: "#20242b",
-      surface2: "#282e37",
-      accentText: "#11161d"
-    },
-    light: {
-      bg: "#fbfcfe",
-      surface: "#f4f7fa",
-      surface2: "#e8edf3",
-      accentText: CORE_COLOR_TOKENS.white
-    }
-  };
-  const OVERLAY_COLOR_TOKENS = {
-    text: CORE_COLOR_TOKENS.white,
-    outline: CORE_COLOR_TOKENS.black,
-    background: READER_THEME_COLOR_TOKENS.dark.bg
-  };
-  const DEFAULT_WORD_COLOR_TOKENS = {
-    new: "#58a6ff",
-    learning: "#ffd166",
-    known: "#7bd88f",
-    due: "#5fb3b3",
-    failed: "#ff6b6b",
-    ignored: "#b8a7ff"
-  };
-  const DEFAULT_PITCH_COLOR_TOKENS = {
-    heiban: "#359eff",
-    atamadaka: "#fe4b74",
-    nakadaka: "#fba840",
-    odaka: "#57ccb7",
-    kifuku: "#9050f6",
-    unknown: "#94a3b8"
-  };
-  const LOOKUP_PILL_COLOR_TOKENS = {
-    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
-    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
-    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
-    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-    goo: { bg: "#b45309", border: "#f59e0b", text: CORE_COLOR_TOKENS.white },
-    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
-    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
-    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
-    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
-    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
-  };
-  const DOODLE_COLOR_TOKENS = {
-    ink: "#141820"
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const ANKI_CARD_COLOR_TOKENS = {
-    text: "#f4f7fb",
-    background: "#15181e",
-    muted: "#bac3d0",
-    sentenceBorder: "#323843",
-    sentenceBackground: "#1e232b",
-    sentenceText: "#d8dee8",
-    highlight: "#7ad119",
-    sectionBorder: "#303641",
-    sectionBackground: "#1b2028",
-    headingText: "#c2cad7",
-    labelText: "#92a0b3",
-    expressionText: CORE_COLOR_TOKENS.white,
-    readingText: "#aab4c2",
-    chipBorder: "#4b5565",
-    chipText: "#cdd5e1",
-    metaLabelText: "#8f9aaa",
-    tableBorder: "#353c47"
-  };
-  const MISSING = { missing: true };
-  const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
-  const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
-  const MANAGED_STORAGE_KEY_PREFIXES = [
-    "yomu-",
-    "yomu:",
-    "yomu.",
-    "jpdb-reader-",
-    "jpdb-popup-reader-"
-  ];
-  const KNOWN_MANAGED_STORAGE_KEYS = [
-    "jpdb-popup-reader-settings",
-    "jpdb-reader-settings",
-    "yomu-reader-settings",
-    "yomu-settings",
-    "jpdb-reader-newtab-card-cache",
-    "jpdb-reader-newtab-grade-queue",
-    "jpdb-reader-newtab-current-word",
-    "jpdb-reader-newtab-ui",
-    "jpdb-reader-newtab-jpdb-stats-history",
-    "jpdb-reader-newtab-disabled-anki-decks",
-    "jpdb-reader-source-open-state",
-    "jpdb-reader-settings-drawer-height-ratio",
-    "jpdb-reader-sheet-height-ratio",
-    "jpdb-reader-transcript-panel-size",
-    "yomu:anki-status-index:v1",
-    "yomu:anki-status-index-rebuild:v1",
-    "yomu.grammarPreferences.v1",
-    "yomu:enable-logs",
-    "yomu:prefer-japanese-site-language",
-    FACTORY_RESET_SIGNAL_KEY
-  ];
-  const MANAGED_INDEXED_DB_NAMES = [
-    "yomu-anki-status-index"
-  ];
-  const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
-    FACTORY_RESET_SIGNAL_KEY
-  ]);
-  async function gmStorageGet(key2, fallback) {
-    const getValue = asyncGmGetValue();
-    if (getValue) {
-      try {
-        const value = await getValue(key2, MISSING);
-        if (value !== MISSING) return value;
-        const migrated = localStorageGet(key2, MISSING);
-        if (migrated !== MISSING) {
-          await gmStorageSet(key2, migrated);
-          return migrated;
-        }
-        return fallback;
-      } catch (error) {
-        debugStorageError("GM storage read failed", key2, error);
-      }
-    }
-    return localStorageGet(key2, fallback);
-  }
-  function gmStorageGetSync(key2, fallback) {
-    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
-    if (getValue) {
-      const read = gmStorageSyncRead(key2, getValue);
-      if (read.kind === "found") return read.value;
-    }
-    return localStorageGet(key2, fallback);
-  }
-  function gmStorageSyncRead(key2, getValue) {
-    try {
-      const value = getValue(key2, MISSING);
-      if (isPromiseLike(value)) return { kind: "fallback" };
-      if (value !== MISSING) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key2);
-    } catch (error) {
-      debugStorageError("GM storage sync read failed", key2, error);
-      return { kind: "fallback" };
-    }
-  }
-  function migratedLocalStorageSyncValue(key2) {
-    const migrated = localStorageGet(key2, MISSING);
-    if (migrated === MISSING) return { kind: "fallback" };
-    void gmStorageSet(key2, migrated);
-    return { kind: "found", value: migrated };
-  }
-  async function gmStorageSet(key2, value) {
-    const setValue = asyncGmSetValue();
-    if (setValue) {
-      await setValue(key2, value);
-      return;
-    }
-    localStorageSet(key2, value);
-  }
-  function gmStorageSetSync(key2, value) {
-    if (typeof GM_setValue === "function") {
-      try {
-        const result = GM_setValue(key2, value);
-        if (!isPromiseLike(result)) return;
-      } catch (error) {
-        debugStorageError("GM storage sync write failed", key2, error);
-      }
-    }
-    localStorageSet(key2, value);
-  }
-  async function gmStorageDelete(key2) {
-    const deleteValue = asyncGmDeleteValue();
-    if (deleteValue) {
-      try {
-        await deleteValue(key2);
-      } catch (error) {
-        debugStorageError("GM storage delete failed", key2, error);
-      }
-    }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
-  }
-  function gmStorageDeleteSync(key2) {
-    if (typeof GM_deleteValue === "function") {
-      try {
-        const result = GM_deleteValue(key2);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
-      } catch (error) {
-        debugStorageError("GM storage sync delete failed", key2, error);
-      }
-    }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
-  }
-  async function exportStoredValues(prefixes) {
-    const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
-    const entries = await Promise.all(keys.map(async (key2) => [key2, await gmStorageGet(key2, void 0)]));
-    return Object.fromEntries(entries.filter(([, value]) => value !== void 0));
-  }
-  async function exportManagedStoredValues() {
-    return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
-  }
-  async function importStoredValues(values) {
-    let count = 0;
-    for (const [key2, value] of managedStoredValueEntries(values)) {
-      await gmStorageSet(key2, value);
-      localStorageSet(key2, value);
-      count++;
-    }
-    return count;
-  }
-  function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
-  }
-  function isStorageImportRecord(values) {
-    return Boolean(values && typeof values === "object" && !Array.isArray(values));
-  }
-  async function clearManagedStoredValues() {
-    const keys = await allStorageKeys();
-    let count = 0;
-    for (const key2 of keys) {
-      await gmStorageDelete(key2);
-      removeLocalStorageKey(key2);
-      removeSessionStorageKey(key2);
-      count++;
-    }
-    await clearManagedIndexedDatabases();
-    return count;
-  }
-  async function clearFactoryResetSignal() {
-    await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
-  }
-  function createFactoryResetSignal(phase, id = createFactoryResetId()) {
-    return {
-      id,
-      phase,
-      at: Date.now(),
-      href: location.href
-    };
-  }
-  async function publishFactoryResetSignal(signal) {
-    const normalized = normalizeFactoryResetSignal(signal);
-    await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized);
-    publishBroadcastFactoryResetSignal(normalized);
-  }
-  function subscribeToFactoryResetSignals(onSignal) {
-    const cleanups = [];
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-          const signal = parseFactoryResetSignal(newValue);
-          if (signal) onSignal(signal, { remote, transport: "gm-storage" });
-        });
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        debugStorageError("GM factory reset listener failed", FACTORY_RESET_SIGNAL_KEY, error);
-      }
-    }
-    if (typeof BroadcastChannel === "function") {
-      try {
-        const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-        channel.onmessage = (event) => {
-          const signal = parseFactoryResetSignal(event.data);
-          if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
-        };
-        cleanups.push(() => channel.close());
-      } catch (error) {
-        debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
-      }
-    }
-    const onStorage = (event) => {
-      if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
-      const signal = parseFactoryResetSignal(event.newValue);
-      if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
-    };
-    window.addEventListener("storage", onStorage);
-    cleanups.push(() => window.removeEventListener("storage", onStorage));
-    return () => {
-      while (cleanups.length) {
-        try {
-          cleanups.pop()?.();
-        } catch {
-        }
-      }
-    };
-  }
-  async function storageKeys(prefixes) {
-    const keys = /* @__PURE__ */ new Set();
-    await addPrefixedGmStorageKeys(keys, prefixes);
-    addLocalStorageKeys(keys, prefixes);
-    await addKnownManagedStorageKeys(keys, prefixes);
-    return [...keys].sort();
-  }
-  async function addPrefixedGmStorageKeys(keys, prefixes) {
-    const listValues = asyncGmListValues();
-    if (!listValues) return;
-    try {
-      addMatchingStorageKeys(keys, await listValues(), prefixes);
-    } catch (error) {
-      debugStorageError("GM storage list failed", "GM_listValues", error);
-    }
-  }
-  function addLocalStorageKeys(keys, prefixes) {
-    try {
-      for (let index = 0; index < localStorage.length; index++) {
-        const key2 = localStorage.key(index);
-        if (key2 && storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
-      }
-    } catch {
-    }
-  }
-  async function addKnownManagedStorageKeys(keys, prefixes) {
-    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
-      if (storageKeyMatchesPrefix(key2, prefixes) && await storedValueExists(key2)) keys.add(key2);
-    }
-  }
-  function addMatchingStorageKeys(keys, candidates, prefixes) {
-    for (const key2 of candidates) {
-      if (storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
-    }
-  }
-  function storageKeyMatchesPrefix(key2, prefixes) {
-    return prefixes.some((prefix) => key2.startsWith(prefix));
-  }
-  async function allStorageKeys() {
-    const keys = /* @__PURE__ */ new Set();
-    await addGmStorageKeys(keys);
-    collectWebStorageKeys(localStorage, keys);
-    collectWebStorageKeys(sessionStorage, keys);
-    await addKnownStoredKeys(keys);
-    return [...keys].sort();
-  }
-  async function addGmStorageKeys(keys) {
-    const listValues = asyncGmListValues();
-    if (!listValues) return;
-    try {
-      for (const key2 of await listValues()) keys.add(key2);
-    } catch (error) {
-      debugStorageError("GM storage list failed", "GM_listValues", error);
-    }
-  }
-  async function addKnownStoredKeys(keys) {
-    for (const key2 of KNOWN_MANAGED_STORAGE_KEYS) {
-      if (await storedValueExists(key2)) keys.add(key2);
-    }
-  }
-  function collectWebStorageKeys(storage, keys) {
-    try {
-      for (let index = 0; index < storage.length; index++) {
-        const key2 = storage.key(index);
-        if (key2 && isManagedStorageKey(key2)) keys.add(key2);
-      }
-    } catch {
-    }
-  }
-  function localStorageGet(key2, fallback) {
-    try {
-      const value = localStorage.getItem(key2);
-      return value == null ? fallback : JSON.parse(value);
-    } catch {
-      return fallback;
-    }
-  }
-  function localStorageSet(key2, value) {
-    try {
-      localStorage.setItem(key2, JSON.stringify(value));
-    } catch {
-    }
-  }
-  function removeLocalStorageKey(key2) {
-    try {
-      localStorage.removeItem(key2);
-    } catch {
-    }
-  }
-  function removeSessionStorageKey(key2) {
-    try {
-      sessionStorage.removeItem(key2);
-    } catch {
-    }
-  }
-  async function storedValueExists(key2) {
-    const getValue = asyncGmGetValue();
-    if (getValue) {
-      try {
-        if (await getValue(key2, MISSING) !== MISSING) return true;
-      } catch (error) {
-        debugStorageError("GM storage existence check failed", key2, error);
-      }
-    }
-    return webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2);
-  }
-  function webStorageHasKey(storage, key2) {
-    try {
-      return storage.getItem(key2) !== null;
-    } catch {
-      return false;
-    }
-  }
-  async function clearManagedIndexedDatabases() {
-    await Promise.all(MANAGED_INDEXED_DB_NAMES.map(deleteIndexedDbDatabase));
-  }
-  function deleteIndexedDbDatabase(name) {
-    if (typeof indexedDB === "undefined") return Promise.resolve();
-    return new Promise((resolve) => {
-      try {
-        const request = indexedDB.deleteDatabase(name);
-        request.onsuccess = () => resolve();
-        request.onerror = (error) => {
-          debugStorageError("IndexedDB delete failed", name, error);
-          resolve();
-        };
-        request.onblocked = (error) => {
-          debugStorageError("IndexedDB delete blocked", name, error);
-          resolve();
-        };
-      } catch (error) {
-        debugStorageError("IndexedDB delete threw", name, error);
-        resolve();
-      }
-    });
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
-  }
-  function asyncGmGetValue() {
-    if (typeof GM_getValue === "function") return GM_getValue;
-    const modern = globalThis.GM?.getValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function asyncGmSetValue() {
-    if (typeof GM_setValue === "function") return GM_setValue;
-    const modern = globalThis.GM?.setValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function asyncGmDeleteValue() {
-    if (typeof GM_deleteValue === "function") return GM_deleteValue;
-    const modern = globalThis.GM?.deleteValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function asyncGmListValues() {
-    const directListValues = globalThis.GM_listValues;
-    if (typeof directListValues === "function") return directListValues;
-    const modern = globalThis.GM?.listValues;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function normalizeFactoryResetSignal(signal) {
-    return {
-      id: normalizedFactoryResetId(signal.id),
-      phase: normalizedFactoryResetPhase(signal.phase),
-      at: normalizedFactoryResetAt(signal.at),
-      href: normalizedFactoryResetHref(signal.href)
-    };
-  }
-  function normalizedFactoryResetId(id) {
-    return String(id || createFactoryResetId());
-  }
-  function normalizedFactoryResetPhase(phase) {
-    return phase === "complete" ? "complete" : "prepare";
-  }
-  function normalizedFactoryResetAt(at) {
-    return typeof at === "number" && Number.isFinite(at) ? at : Date.now();
-  }
-  function normalizedFactoryResetHref(href) {
-    return typeof href === "string" ? href : location.href;
-  }
-  function parseFactoryResetSignal(value) {
-    const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
-    if (!isFactoryResetSignalRecord(parsed)) return null;
-    const record = parsed;
-    if (!isValidFactoryResetPhase(record.phase)) return null;
-    return {
-      id: record.id,
-      phase: record.phase,
-      at: factoryResetSignalTime(record.at),
-      href: factoryResetSignalHref(record.href)
-    };
-  }
-  function factoryResetSignalTime(value) {
-    return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
-  }
-  function factoryResetSignalHref(value) {
-    return typeof value === "string" ? value : "";
-  }
-  function isFactoryResetSignalRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
-  }
-  function isValidFactoryResetPhase(value) {
-    return value === "prepare" || value === "complete";
-  }
-  function parseJsonRecord(value) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-  function publishBroadcastFactoryResetSignal(signal) {
-    if (typeof BroadcastChannel !== "function") return;
-    try {
-      const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-      channel.postMessage(signal);
-      channel.close();
-    } catch (error) {
-      debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
-    }
-  }
-  function createFactoryResetId() {
-    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  }
-  function isManagedStorageKey(key2) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
-  }
-  function isBackupStorageKey(key2) {
-    return isManagedStorageKey(key2) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
-  }
-  function debugStorageError(message, key2, error) {
-    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
-  }
-  const JITEN_API_KEY_PREFIX = "ak_";
-  function singleApiCredentialValue(settings) {
-    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
-  }
-  function activeApiCredentialLabel(settings) {
-    return effectiveJitenApiKey(settings) ? "Jiten" : "JPDB";
-  }
-  function apiCredentialLabelFromValue(value) {
-    return isJitenApiCredential(value) ? "Jiten" : "JPDB";
-  }
-  function effectiveJpdbApiKey(settings) {
-    const apiKey = settings.apiKey.trim();
-    return isJitenApiCredential(apiKey) ? "" : apiKey;
-  }
-  function effectiveJitenApiKey(settings) {
-    const explicit = settings.jitenApiKey.trim();
-    if (explicit) return explicit;
-    const apiKey = settings.apiKey.trim();
-    return isJitenApiCredential(apiKey) ? apiKey : "";
-  }
-  function hasJpdbApiCredential(settings) {
-    return Boolean(effectiveJpdbApiKey(settings));
-  }
-  function hasJitenApiCredential(settings) {
-    return Boolean(effectiveJitenApiKey(settings));
-  }
-  function splitApiCredential(value) {
-    const credential = value.trim();
-    if (!credential) return { apiKey: "", jitenApiKey: "" };
-    return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
-  }
-  function readApiCredentialsFromFormData(data) {
-    if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
-    return {
-      apiKey: String(data.get("apiKey") ?? "").trim(),
-      jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
-    };
-  }
-  function isJitenApiCredential(value) {
-    return value.trim().startsWith(JITEN_API_KEY_PREFIX);
-  }
-  const __vite_import_meta_env__ = { "DEV": false };
-  const LOG_PREFIX = "[Yomu]";
-  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-  const RUNTIME_LOG_KEY = "yomu:enable-logs";
-  const REDACTED = "[redacted]";
-  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-  const env = __vite_import_meta_env__;
-  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-  class ScopedLogger {
-    constructor(parent, scopeName) {
-      this.parent = parent;
-      this.scopeName = scopeName;
-    }
-    debug(message, ...args) {
-      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-    }
-    info(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.info, "");
-    }
-    warn(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
-    }
-    error(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-    }
-    warnOnce(key2, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key2}`, this.scopeName, message, args);
-    }
-    time(label, ...args) {
-      if (!this.parent.isEnabled()) return () => void 0;
-      const start = nowMs();
-      this.debug(`${label} started`, ...args);
-      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-    }
-  }
-  class LoggerImpl {
-    settingsProvider;
-    forceEnabled = false;
-    onceKeys = /* @__PURE__ */ new Set();
-    configure(options) {
-      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-    }
-    scope(scopeName) {
-      return new ScopedLogger(this, scopeName);
-    }
-    isEnabled() {
-      if (BUILD_LOGGING_ENABLED) return true;
-      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-      try {
-        return this.settingsProvider?.().enableLogging === true;
-      } catch {
-        return false;
-      }
-    }
-    isDevMode() {
-      return isDevMode();
-    }
-    enable(persist = false) {
-      this.forceEnabled = true;
-      if (persist) setRuntimeLoggingOverride(true);
-      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-    }
-    disable(persist = false) {
-      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-      this.forceEnabled = false;
-      if (persist) setRuntimeLoggingOverride(false);
-    }
-    reset() {
-      this.onceKeys.clear();
-    }
-    warnOnce(key2, scope, message, args) {
-      if (this.onceKeys.has(key2)) return;
-      this.onceKeys.add(key2);
-      this.write(scope, message, args, console.warn, WARN_STYLE);
-    }
-    write(scope, message, args, writer, levelStyle) {
-      if (!this.isEnabled()) return;
-      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-    }
-  }
-  const Logger = new LoggerImpl();
-  function configureLogger(options) {
-    Logger.configure(options);
-  }
-  function loggingSettingsSummary(settings) {
-    return {
-      enableLogging: settings.enableLogging,
-      hasApiKey: hasJpdbApiCredential(settings),
-      hasJitenApiKey: hasJitenApiCredential(settings),
-      localDictionariesEnabled: settings.localDictionariesEnabled,
-      localDictionarySources: settings.dictionaryPreferences.length,
-      ankiEnabled: settings.ankiEnabled,
-      newTabEnabled: settings.newTabEnabled,
-      newTabSource: settings.newTabSource,
-      ocrEnabled: settings.ocrEnabled,
-      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
-    };
-  }
-  function isDevMode() {
-    return BUILD_IS_DEV_MODE;
-  }
-  function writeDebugToConsole(...args) {
-    if (isDevMode()) console.log(...args);
-    else console.debug(...args);
-  }
-  function getRuntimeLoggingOverride() {
-    try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-    } catch {
-      return false;
-    }
-  }
-  function setRuntimeLoggingOverride(enabled) {
-    try {
-      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-    } catch {
-    }
-  }
-  function nowMs() {
-    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-  }
-  function sanitizeForConsole(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value === null || value === void 0 || typeof value !== "object") return value;
-    const sanitized = sanitizeSpecialConsoleValue(value);
-    if (sanitized.handled) return sanitized.value;
-    if (Array.isArray(value)) return value.map(sanitizeForConsole);
-    return sanitizeRecordForConsole(value);
-  }
-  function sanitizeSpecialConsoleValue(value) {
-    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-      const sanitized = sanitizer(value);
-      if (sanitized.handled) return sanitized;
-    }
-    return { handled: false };
-  }
-  const CONSOLE_VALUE_SANITIZERS = [
-    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-  ];
-  function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key2, value]) => [
-      key2,
-      shouldRedactEntry(key2, value) ? REDACTED : sanitizeFlatValue(value)
-    ]));
-  }
-  function sanitizeFlatValue(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value instanceof Error) return { name: value.name, message: value.message };
-    return value;
-  }
-  function shouldRedactEntry(key2, value) {
-    if (!SECRET_KEY_PATTERN.test(key2)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key2)) return false;
-    return true;
-  }
-  function redactString(value) {
-    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-  }
-  if (typeof window !== "undefined") {
-    window.__YOMU_LOGGER__ = Logger;
-    window.YomuLogger = Logger;
   }
   class ShuffledAudioDeck {
     constructor(random = Math.random) {
@@ -19857,6 +19961,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     notifyApiCardStateChanged(card) {
       this.options.invalidateCardData?.();
       this.options.onApiCardStateChanged?.(card);
+      publishCardStateSignal(card);
     }
     async showExistingAnkiCard(card, sentence) {
       const settings = this.options.getSettings();
@@ -41438,6 +41543,15 @@ ${newTabCardReading(card)}`;
       }
       await this.submitJpdbApiGrade(card, grade);
     }
+    // New-tab side of the cross-tab card-state mutation bus: after a grade
+    // lands (and the provider refresh updated this card object), pages with
+    // the same word recolor immediately instead of waiting for a rescan.
+    publishGradedCardState(card) {
+      try {
+        publishCardStateSignal(card);
+      } catch {
+      }
+    }
     submitLiveJpdbGrade(card, grade) {
       if (card.reviewSource !== "jpdb-live") throw new Error(this.text("couldNotSubmitGrade"));
       this.rememberPendingLiveJpdbGrade(card);
@@ -41450,6 +41564,7 @@ ${newTabCardReading(card)}`;
       if (!settings.jpdbMiningEnabled) throw new Error(this.text("apiSrsActionsDisabled"));
       if (!hasJpdbApiCredential(settings)) throw new Error(this.text("addJpdbApiKeyReview"));
       await this.dependencies.jpdb.reviewCard(card, grade);
+      this.publishGradedCardState(card);
     }
     async submitJitenApiGrade(card, grade) {
       if (!isJitenSrsCard(card)) throw new Error(this.text("couldNotSubmitGrade"));
@@ -41461,6 +41576,7 @@ ${newTabCardReading(card)}`;
       if (typeof this.dependencies.jiten.refreshCardState === "function") {
         await this.dependencies.jiten.refreshCardState(card).catch(() => void 0);
       }
+      this.publishGradedCardState(card);
     }
     async submitAnkiGrade(card, grade, explicitCardId) {
       const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
@@ -41470,6 +41586,7 @@ ${newTabCardReading(card)}`;
         return await this.refreshAnkiReviewCardState(card, cardId);
       } finally {
         this.dependencies.onAnkiStatusChanged?.(card);
+        this.publishGradedCardState(card);
       }
     }
     async refreshAnkiReviewCardState(card, preferredCardId) {
@@ -48378,6 +48495,7 @@ ${newTabCardReading(card)}`;
     addWindowEventListener("pagehide", () => app.destroy(), { once: true });
   }
   class NewTabRuntime {
+    unsubscribeCardStateSignals;
     settings = DEFAULT_SETTINGS;
     isDestroyed = false;
     activeDialog;
@@ -48567,6 +48685,17 @@ ${newTabCardReading(card)}`;
         }, 1500);
       }
       this.scheduleAnkiStatusWarmup();
+      this.installCardStateSignalSubscription();
+    }
+    // Cross-tab card-state mutation bus: grading or mining a card on a page
+    // popover in another tab recolors this study tab's rendered occurrences
+    // (current card, transcripts, search results) without a refresh.
+    installCardStateSignalSubscription() {
+      this.unsubscribeCardStateSignals?.();
+      this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
+        if (this.isDestroyed) return;
+        this.applyPublicVocabularyToRenderedWords(card, card);
+      });
     }
     scheduleAnkiStatusWarmup() {
       scheduleReaderAnkiStatusWarmup({
@@ -48596,6 +48725,8 @@ ${newTabCardReading(card)}`;
     destroy() {
       if (this.isDestroyed) return;
       this.isDestroyed = true;
+      this.unsubscribeCardStateSignals?.();
+      this.unsubscribeCardStateSignals = void 0;
       this.externalRefreshController?.abort();
       this.externalRefreshController = void 0;
       this.factoryReset.destroy();

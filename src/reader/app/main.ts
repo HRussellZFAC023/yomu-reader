@@ -91,6 +91,7 @@ import {
     pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
+import { subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
 import {
     cardMatchesRenderedLookupValue,
@@ -494,6 +495,7 @@ export class ReaderApp {
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });
+    private unsubscribeCardStateSignals?: () => void;
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
@@ -671,6 +673,7 @@ export class ReaderApp {
         this.youtube.init();
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
+        this.installCardStateSignalSubscription();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
         if (this.shouldScanInitialPage()) {
             void this.pageScanner.scanVisiblePage({ silent: true })
@@ -678,6 +681,17 @@ export class ReaderApp {
         } else {
             this.scheduleAnkiStatusWarmup();
         }
+    }
+
+    // Cross-tab card-state mutation bus: grading or mining a card in another
+    // tab (e.g. the new tab) recolors this page's rendered occurrences of the
+    // same card immediately, without a rescan.
+    private installCardStateSignalSubscription(): void {
+        this.unsubscribeCardStateSignals?.();
+        this.unsubscribeCardStateSignals = subscribeToCardStateSignals(card => {
+            if (this.isDestroyed) return;
+            this.applyPublicVocabularyToRenderedWords(card, card);
+        });
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -1129,6 +1143,8 @@ export class ReaderApp {
 
     destroy(options: ReaderAppDestroyOptions = {}): void {
         this.isDestroyed = true;
+        this.unsubscribeCardStateSignals?.();
+        this.unsubscribeCardStateSignals = undefined;
         this.pageScanner.destroy?.();
         this.factoryReset.destroy();
         this.abortController.abort();

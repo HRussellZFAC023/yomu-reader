@@ -43,6 +43,7 @@ import { assessKanjiStrokes, rankKanjiStrokeCandidates, type KanjiShapeCandidate
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import { formatLookupUrl } from '../dictionaries/display';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
+import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
@@ -6667,6 +6668,17 @@ export class NewTabController {
         await this.submitJpdbApiGrade(card, grade);
     }
 
+    // New-tab side of the cross-tab card-state mutation bus: after a grade
+    // lands (and the provider refresh updated this card object), pages with
+    // the same word recolor immediately instead of waiting for a rescan.
+    private publishGradedCardState(card: JPDBCard): void {
+        try {
+            publishCardStateSignal(card);
+        } catch {
+            // The signal is best-effort; grading already succeeded.
+        }
+    }
+
     private submitLiveJpdbGrade(card: JPDBCard, grade: JPDBGrade): void {
         if (card.reviewSource !== 'jpdb-live') throw new Error(this.text('couldNotSubmitGrade'));
         this.rememberPendingLiveJpdbGrade(card);
@@ -6680,6 +6692,7 @@ export class NewTabController {
         if (!settings.jpdbMiningEnabled) throw new Error(this.text('apiSrsActionsDisabled'));
         if (!hasJpdbApiCredential(settings)) throw new Error(this.text('addJpdbApiKeyReview'));
         await this.dependencies.jpdb.reviewCard(card, grade);
+        this.publishGradedCardState(card);
     }
 
     private async submitJitenApiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
@@ -6694,6 +6707,7 @@ export class NewTabController {
         if (typeof this.dependencies.jiten.refreshCardState === 'function') {
             await this.dependencies.jiten.refreshCardState(card).catch(() => undefined);
         }
+        this.publishGradedCardState(card);
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {
@@ -6704,6 +6718,7 @@ export class NewTabController {
             return await this.refreshAnkiReviewCardState(card, cardId);
         } finally {
             this.dependencies.onAnkiStatusChanged?.(card);
+            this.publishGradedCardState(card);
         }
     }
 

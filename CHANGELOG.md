@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.82] - 2026-06-11
+
+### Added
+
+- Cross-tab card-state propagation: grading, mining, or changing a card's deck state in any Yomu surface — the study new tab or a page popover — now recolors the same word in every other open tab immediately (GM storage change signals across origins, BroadcastChannel within an origin). Previously only the acting tab updated and other tabs waited for a rescan.
+
 ## [0.6.81] - 2026-06-11
 
 ### Fixed

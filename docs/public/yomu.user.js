@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.81
+// @version      0.6.82
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -1808,7 +1808,7 @@
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$r = Logger.scope("Settings");
+  const log$s = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -2729,7 +2729,7 @@
     const params = new URLSearchParams(search);
     const bootstrap = urlBootstrapSettings(params);
     if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-    log$r.info("Applying URL bootstrap settings", {
+    log$s.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(bootstrap.apiKey),
       hasAudio: Boolean(bootstrap.audio),
       hasOcr: Boolean(bootstrap.ocr)
@@ -2791,13 +2791,13 @@
       const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       return settings;
     } catch (error) {
-      log$r.warn("Settings load failed", { error });
+      log$s.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$r.warn("Skipped save during reset");
+      log$s.warn("Skipped save during reset");
       return;
     }
     try {
@@ -2806,7 +2806,7 @@
       await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
       dispatchSettingsChange(storedSettings);
     } catch (error) {
-      log$r.warn("Settings save failed", { error });
+      log$s.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -8696,7 +8696,7 @@ recommendedJiten	jiten.moe頻度データです。
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$q = Logger.scope("Audio");
+  const log$r = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -8732,7 +8732,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.stopCurrent();
       const reservedAudio = this.reserveGestureAudioElement(request);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$q.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$r.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
@@ -8760,14 +8760,14 @@ recommendedJiten	jiten.moe頻度データです。
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$q.warn("No audio sources configured", { term: card.spelling });
+      log$r.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$q.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$r.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
@@ -8984,7 +8984,7 @@ recommendedJiten	jiten.moe頻度データです。
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$q.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$r.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -10011,7 +10011,7 @@ ${candidate.depth}`;
     }
     return -1;
   }
-  const log$p = Logger.scope("Yomitan");
+  const log$q = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -10059,7 +10059,7 @@ ${candidate.depth}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$1(url, proxyUrl, onProgress, language = "en") {
-    const done = log$p.time("Dictionary download", { host: safeHost$1(url) });
+    const done = log$q.time("Dictionary download", { host: safeHost$1(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -10068,18 +10068,18 @@ ${candidate.depth}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$p.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: response.response.size });
+          log$q.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$p.warn("Dictionary download HTTP error", { host: safeHost$1(url), status: response.status });
+          log$q.warn("Dictionary download HTTP error", { host: safeHost$1(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$p.warn("Dictionary download payload failed", { host: safeHost$1(url), status: response.status });
+        log$q.warn("Dictionary download payload failed", { host: safeHost$1(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -10096,19 +10096,19 @@ ${candidate.depth}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$p.warn("Dictionary download failed", { host: safeHost$1(url) });
+          log$q.warn("Dictionary download failed", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$p.warn("Dictionary download timed out", { host: safeHost$1(url) });
+          log$q.warn("Dictionary download timed out", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$p.warn("Dictionary download failed", { host: safeHost$1(url) });
+          log$q.warn("Dictionary download failed", { host: safeHost$1(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -10132,7 +10132,7 @@ ${candidate.depth}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$p.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: blob.size });
+    log$q.info("Dictionary download completed", { host: safeHost$1(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -10164,17 +10164,17 @@ ${candidate.depth}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$p.warn("Dictionary download HTTP error", { host: safeHost$1(url), status });
+    log$q.warn("Dictionary download HTTP error", { host: safeHost$1(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host = safeHost$1(url);
     if (isDictionaryCorsError(error)) {
-      log$p.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$q.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$p.warn("Dictionary download fetch failed", { host, error });
+    log$q.warn("Dictionary download fetch failed", { host, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -11434,7 +11434,7 @@ ${scopedInner}
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$o = Logger.scope("Yomitan");
+  const log$p = Logger.scope("Yomitan");
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -11455,7 +11455,7 @@ ${scopedInner}
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$o.warn("Term search index preparation failed", { error });
+        log$p.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -11489,7 +11489,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$o.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$p.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries = await this.getTermLookupEntries(
@@ -11514,7 +11514,7 @@ ${scopedInner}
             }).slice(0, limit);
             return results;
           } catch (error) {
-            log$o.warn("Term lookup failed", { expression, reading, error });
+            log$p.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -11524,7 +11524,7 @@ ${scopedInner}
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$o.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$p.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -11543,7 +11543,7 @@ ${scopedInner}
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$o.warn("Term search failed", { query: normalizedQuery, error });
+        log$p.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -11553,7 +11553,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$o.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$p.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11562,7 +11562,7 @@ ${scopedInner}
             const results = rankedDictionaryEntries(entries, rank, limit);
             return results;
           } catch (error) {
-            log$o.warn("Kanji lookup failed", { length: text2.length, error });
+            log$p.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -11573,14 +11573,14 @@ ${scopedInner}
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$o.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$p.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$o.warn("Kanji character list failed", { error });
+        log$p.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -11590,7 +11590,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$o.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$p.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11598,7 +11598,7 @@ ${scopedInner}
             const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$o.warn("Term metadata lookup failed", { expression, error });
+            log$p.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -11610,7 +11610,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$o.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$p.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -11620,7 +11620,7 @@ ${scopedInner}
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$o.warn("Similar terms by kanji lookup failed", { character, error });
+            log$p.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -11629,7 +11629,7 @@ ${scopedInner}
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$o.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$p.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -11645,7 +11645,7 @@ ${scopedInner}
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$o.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$p.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -11700,7 +11700,7 @@ ${scopedInner}
       });
     }
     async summary() {
-      const done = log$o.time("Dictionary summary");
+      const done = log$p.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -11720,7 +11720,7 @@ ${scopedInner}
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$o.warn("Dictionary summary failed", { error });
+        log$p.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -11733,32 +11733,32 @@ ${scopedInner}
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$o.time("Dictionary presence check");
+      const done = log$p.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$o.warn("Dictionary presence check failed", { error });
+        log$p.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$o.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$p.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$o.warn("Random term listing failed", { limit, error });
+        log$p.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$o.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$p.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -11775,7 +11775,7 @@ ${scopedInner}
         }
         return results;
       } catch (error) {
-        log$o.warn("Random top term listing failed", { limit, error });
+        log$p.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -11857,26 +11857,26 @@ ${scopedInner}
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$o.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$p.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$o.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$p.info("Dictionary file import started", fileSummary(file, sourceUrl));
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$o.info("Dictionary file import completed", summary);
+        log$p.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$o.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$p.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$o.info("Dictionary URL import started", { filename, host: safeHost$1(url) });
+      log$p.info("Dictionary URL import started", { filename, host: safeHost$1(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$1(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$o.info("Dictionary URL import completed", { filename, host: safeHost$1(url), ...summary });
+      log$p.info("Dictionary URL import completed", { filename, host: safeHost$1(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -11960,7 +11960,7 @@ ${scopedInner}
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$o.info("ZIP dictionary import parsed", summary);
+      log$p.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -11988,7 +11988,7 @@ ${scopedInner}
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$o.info("JSON dictionary import parsed", summary);
+      log$p.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -12087,13 +12087,13 @@ ${scopedInner}
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$o.info("Dexie dictionary import parsed", summary);
+      log$p.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$o.time("Dictionary export");
+      const done = log$p.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -12103,7 +12103,7 @@ ${scopedInner}
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$o.info("Dictionary export prepared", {
+        log$p.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -12121,7 +12121,7 @@ ${scopedInner}
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$o.warn("Dictionary export failed", { error });
+        log$p.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -12140,26 +12140,26 @@ ${scopedInner}
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$o.warn("Dictionary stylesheet render failed", { error });
+        log$p.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$o.time("Dictionary store clear");
+      const done = log$p.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$o.info("Dictionary store cleared");
+        log$p.info("Dictionary store cleared");
       } catch (error) {
-        log$o.warn("Dictionary store clear failed", { error });
+        log$p.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$o.time("Dictionary database factory reset");
+      const done = log$p.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -12168,10 +12168,10 @@ ${scopedInner}
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$o.warn("Dictionary reset pre-clear failed", { error });
+          log$p.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$o.warn("Dictionary delete incomplete after clear", { error });
+        log$p.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -12185,12 +12185,12 @@ ${scopedInner}
       try {
         const db = await dbPromise;
         db.close();
-        log$o.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$p.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$o.time("Dictionary database delete");
+      const done = log$p.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -12216,30 +12216,30 @@ ${scopedInner}
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$o.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$p.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$o.info("Dictionary database deleted", { name: DB_NAME });
+        log$p.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$o.warn("Dictionary database delete failed", { error });
+        log$p.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$o.time("Dictionary delete", { dictionary });
+      const done = log$p.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$o.info("Dictionary delete skipped; not installed", { dictionary });
+          log$p.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$o.info("Only installed dictionary cleared", { dictionary });
+          log$p.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -12255,9 +12255,9 @@ ${scopedInner}
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$o.info("Dictionary deleted", { dictionary });
+        log$p.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$o.warn("Dictionary delete failed", { dictionary, error });
+        log$p.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -12584,7 +12584,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$o.time("Term search index rebuild");
+      const done = log$p.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -12601,13 +12601,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$o.info("Term search index rebuilt", { terms: indexedTerms });
+        log$p.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$o.time("Term kanji index rebuild");
+      const done = log$p.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -12624,7 +12624,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$o.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$p.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -12711,7 +12711,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$o.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$p.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -12741,7 +12741,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$o.warn("Dictionary database open failed", { error: request.error });
+          log$p.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       });
@@ -12749,7 +12749,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$o.info("Dictionary DB version change; closing", {
+        log$p.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -14298,7 +14298,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$n = Logger.scope("Anki");
+  const log$o = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -14341,7 +14341,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$n.warn("Anki status save fell back", error);
+      log$o.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -14355,7 +14355,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$n.warn("Anki status metadata failed", error);
+      log$o.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -14677,7 +14677,7 @@ ${entry.reading || ""}`;
   const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
-  const log$m = Logger.scope("Anki");
+  const log$n = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -14776,7 +14776,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       } catch (error) {
-        log$m.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$n.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -14791,7 +14791,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$m.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$n.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -14965,7 +14965,7 @@ ${entry.reading || ""}`;
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$m.warn("Exact Anki status lookup failed", error);
+        log$n.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache) {
@@ -14995,7 +14995,7 @@ ${entry.reading || ""}`;
       if (!pending.length) return results;
       const batches = this.pendingLookupBatches(pending);
       try {
-        const done = log$m.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        const done = log$n.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -15004,7 +15004,7 @@ ${entry.reading || ""}`;
         done();
         return results;
       } catch (error) {
-        log$m.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        log$n.warn("Anki batch lookup failed", { terms: pending.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -15072,7 +15072,7 @@ ${entry.reading || ""}`;
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$m.warn("Anki status load failed", error);
+        log$n.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -15091,7 +15091,7 @@ ${entry.reading || ""}`;
       const keys = unique$1(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$m.warn("Anki status entry failed", error);
+        log$n.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -15124,7 +15124,7 @@ ${entry.reading || ""}`;
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$m.warn("Anki status index refresh failed", error);
+        log$n.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -15222,7 +15222,7 @@ ${entry.reading || ""}`;
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$m.warn("Queued Anki status index refresh failed", error);
+          log$n.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -15291,7 +15291,7 @@ ${entry.reading || ""}`;
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$m.warn("Anki status rebuild fell back", error);
+        log$n.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -15500,7 +15500,7 @@ ${entry.reading || ""}`;
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique$1([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$m.warn("Anki status cache update failed", error);
+        log$n.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -15648,7 +15648,7 @@ ${entry.reading || ""}`;
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$m.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$n.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -15672,7 +15672,7 @@ ${entry.reading || ""}`;
     }
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$m.info("Answering Anki card", { cardId, grade, ease });
+      log$n.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15684,7 +15684,7 @@ ${entry.reading || ""}`;
     // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
-      log$m.info("Setting Anki card suspension", { cardIds, suspended });
+      log$n.info("Setting Anki card suspension", { cardIds, suspended });
       await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15695,7 +15695,7 @@ ${entry.reading || ""}`;
     // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
-      log$m.info("Setting Anki note tag", { noteIds, tag, present });
+      log$n.info("Setting Anki note tag", { noteIds, tag, present });
       await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15704,7 +15704,7 @@ ${entry.reading || ""}`;
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$m.info("Opening Anki note browser", { noteId });
+      log$n.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -15815,7 +15815,7 @@ ${entry.reading || ""}`;
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$m.info("Adding Anki note", {
+      log$n.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -15829,7 +15829,7 @@ ${entry.reading || ""}`;
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$m.info("Anki note added", { term: card.spelling, noteId });
+      log$n.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
       return noteId;
@@ -15837,7 +15837,7 @@ ${entry.reading || ""}`;
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError(error)) throw error;
-        log$m.warn("Anki duplicate preflight failed", error);
+        log$n.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
@@ -15875,7 +15875,7 @@ ${entry.reading || ""}`;
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$m.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$n.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -15893,7 +15893,7 @@ ${entry.reading || ""}`;
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$m.warn("Anki dirty marker failed", { reason }, error);
+          log$n.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -15907,12 +15907,12 @@ ${entry.reading || ""}`;
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$m.warn("Anki dirty marker failed", { reason }, error);
+        log$n.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$m.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$n.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -15944,7 +15944,7 @@ ${entry.reading || ""}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$m.info("Anki model created", { modelName });
+      log$n.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
@@ -15971,7 +15971,7 @@ ${entry.reading || ""}`;
       });
       this.markAvailable();
       if (response.error) {
-        log$m.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$n.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -15983,11 +15983,11 @@ ${entry.reading || ""}`;
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError(error)) {
-          log$m.warn("AnkiConnect multi failed; cooling down", error);
+          log$n.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$m.warn("AnkiConnect multi failed; retrying solo", error);
+        log$n.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -16045,7 +16045,7 @@ ${entry.reading || ""}`;
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$m.warn("Active video frame capture failed", error);
+      log$n.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -17700,6 +17700,110 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function getPlacementSide(writingMode, position) {
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
+  }
+  const log$m = Logger.scope("CardStateSignal");
+  const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
+  const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
+  const SEEN_SIGNAL_LIMIT = 32;
+  function cardStateSignalCard(card) {
+    return {
+      vid: card.vid,
+      sid: card.sid,
+      rid: card.rid,
+      spelling: card.spelling,
+      reading: card.reading,
+      cardState: [...card.cardState],
+      pitchAccent: [...card.pitchAccent],
+      source: card.source
+    };
+  }
+  function cardFromCardStateSignal(card) {
+    return {
+      ...card,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      wordWithReading: null
+    };
+  }
+  function publishCardStateSignal(card) {
+    const signal = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+      at: Date.now(),
+      card: cardStateSignalCard(card)
+    };
+    try {
+      gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
+    } catch (error) {
+      log$m.debug("GM card-state publish failed", error);
+    }
+    publishBroadcastCardStateSignal(signal);
+  }
+  function publishBroadcastCardStateSignal(signal) {
+    if (typeof BroadcastChannel !== "function") return;
+    try {
+      const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+      channel.postMessage(signal);
+      channel.close();
+    } catch (error) {
+      log$m.debug("Broadcast card-state publish failed", error);
+    }
+  }
+  function subscribeToCardStateSignals(onCard) {
+    const cleanups = [];
+    const seenIds = [];
+    const handle = (value) => {
+      const signal = parseCardStateSignal(value);
+      if (!signal || seenIds.includes(signal.id)) return;
+      seenIds.push(signal.id);
+      if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
+      onCard(cardFromCardStateSignal(signal.card));
+    };
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      try {
+        const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+          if (remote) handle(newValue);
+        });
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        log$m.debug("GM card-state listener failed", error);
+      }
+    }
+    if (typeof BroadcastChannel === "function") {
+      try {
+        const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
+        channel.onmessage = (event) => handle(event.data);
+        cleanups.push(() => channel.close());
+      } catch (error) {
+        log$m.debug("Broadcast card-state listener failed", error);
+      }
+    }
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }
+  function parseCardStateSignal(value) {
+    if (!value || typeof value !== "object") return null;
+    const signal = value;
+    const card = signal.card;
+    if (typeof signal.id !== "string" || !card || typeof card.spelling !== "string" || !card.spelling) return null;
+    if (!Array.isArray(card.cardState)) return null;
+    return {
+      id: signal.id,
+      at: Number(signal.at) || Date.now(),
+      card: {
+        vid: Number(card.vid) || 0,
+        sid: Number(card.sid) || 0,
+        rid: Number(card.rid) || 0,
+        spelling: card.spelling,
+        reading: typeof card.reading === "string" ? card.reading : "",
+        cardState: card.cardState,
+        pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
+        source: card.source ?? "jpdb"
+      }
+    };
   }
   async function resolveAnkiWordAudio(card, settings) {
     if (!settings.audioEnabled) return null;
@@ -20111,6 +20215,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     notifyApiCardStateChanged(card) {
       this.options.invalidateCardData?.();
       this.options.onApiCardStateChanged?.(card);
+      publishCardStateSignal(card);
     }
     async showExistingAnkiCard(card, sentence) {
       const settings = this.options.getSettings();
@@ -37889,6 +37994,7 @@ ${glossaryKey}`;
       refreshWordContrast: (root) => refreshReaderWordContrast(root),
       toast: (message) => this.toast(message)
     });
+    unsubscribeCardStateSignals;
     factoryReset = createFactoryResetCoordinator({
       dictionaries: this.dictionaries,
       isDestroyed: () => this.isDestroyed,
@@ -38056,12 +38162,23 @@ ${glossaryKey}`;
       this.youtube.init();
       this.setupAutoScan();
       this.initJpdbPageEnhancements();
+      this.installCardStateSignalSubscription();
       if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
       if (this.shouldScanInitialPage()) {
         void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleAnkiStatusWarmup());
       } else {
         this.scheduleAnkiStatusWarmup();
       }
+    }
+    // Cross-tab card-state mutation bus: grading or mining a card in another
+    // tab (e.g. the new tab) recolors this page's rendered occurrences of the
+    // same card immediately, without a rescan.
+    installCardStateSignalSubscription() {
+      this.unsubscribeCardStateSignals?.();
+      this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
+        if (this.isDestroyed) return;
+        this.applyPublicVocabularyToRenderedWords(card, card);
+      });
     }
     scheduleAnkiStatusWarmup() {
       if (!this.shouldRunAnkiBackgroundWork()) return;
@@ -38450,6 +38567,8 @@ ${glossaryKey}`;
     }
     destroy(options = {}) {
       this.isDestroyed = true;
+      this.unsubscribeCardStateSignals?.();
+      this.unsubscribeCardStateSignals = void 0;
       this.pageScanner.destroy?.();
       this.factoryReset.destroy();
       this.abortController.abort();
