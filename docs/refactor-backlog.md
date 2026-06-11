@@ -18,8 +18,8 @@ Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per use
 
 ## Current Scoreboard
 
-- `npm run typecheck`, `npm run test:ci`, `npm run build`, `npm run docs:build`, `npm run verify`: all green at 0.6.88 (every release today gated by `npm run check`).
-- `dist/yomu.user.js`: 1,956,669 bytes (43,331 below the 2 MB Greasy Fork limit) — size lane urgent, see above.
+- `npm run typecheck`, `npm run test:ci`, `npm run build`, `npm run docs:build`, `npm run verify`: all green at 0.6.100 (every release today gated by `npm run check`).
+- `dist/yomu.user.js`: 1,958,246 bytes (41,754 below the 2 MB Greasy Fork limit) — size lane urgent, see above.
 - Live e2e: the user's signed-in Playwright MCP Chrome is available (YouTube, jpdb.io, jiten.moe, claude.ai as of 2026-06-11); injection recipe in `.playwright-mcp/inject-youtube.mjs` / `inject-generic.mjs` (serve dist on :8742, GM shim init script, CDP `Runtime.evaluate` with `allowUnsafeEvalBlockedByCSP`, companions before core).
 - Current user direction: verify journeys live, fix real bugs, groom this backlog (delete verified-done), then study-hub parity (`docs/study-hub-parity.md`); keep mobile/iPad users in mind.
 
