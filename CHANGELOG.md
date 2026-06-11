@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.122] - 2026-06-11
+
+### Fixed
+
+- Reviews or edits done inside Anki itself no longer leave stale word colors when the collection's card count happens to stay the same: the status index's count check now also sweeps recently-edited cards by modification time (AnkiConnect cardsModTime) and refreshes when anything changed since the last sync. Older AnkiConnect versions without cardsModTime keep the previous behavior.
+
 ## [0.6.121] - 2026-06-11
 
 ### Changed
