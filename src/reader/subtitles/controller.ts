@@ -569,8 +569,8 @@ export class SubtitlePlayerController {
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         setInnerHtml(root, `
             <div class="jpdb-subtitle-text" aria-live="polite"></div>
-            <div class="jpdb-subtitle-status" aria-live="polite"></div>
-            <div class="jpdb-subtitle-rail">
+            <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true"></div>
+            <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore="true">
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>

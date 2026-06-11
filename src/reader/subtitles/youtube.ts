@@ -1023,6 +1023,12 @@ export class YoutubeImmersionFilter {
             elements.status.textContent = 'YouTube session data is not available on this page yet.';
             return;
         }
+        if (!youTubeSapisidCookie()) {
+            // Without the signed-in session cookie the subscribe write cannot
+            // reach the user's account; be honest instead of faking success.
+            elements.status.textContent = 'Sign in to YouTube to subscribe to channels.';
+            return;
+        }
 
         this.subscriptionBusy = true;
         this.setChannelShelfBusy(true);
@@ -1483,15 +1489,60 @@ async function subscribeYouTubeChannel(channelId: string, config: YouTubeClientC
 }
 
 async function postYouTubeInnerTube(path: string, config: YouTubeClientConfig, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const headers = { ...youtubeInnerTubeHeaders(config), ...await youTubeAuthorizationHeaders() };
     const response = await fetch(`${location.origin}/youtubei/v1/${path}?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: youtubeInnerTubeHeaders(config),
+        headers,
         body: JSON.stringify({ context: config.context, ...body }),
     });
     if (!response.ok) throw new Error(`YouTube request failed: ${response.status}`);
     const json = await response.json() as unknown;
     return recordValue(json) ?? {};
+}
+
+// InnerTube write endpoints (subscription/subscribe) apply to the anonymous
+// visitor session unless the request carries the signed-in SAPISIDHASH
+// authorization — YouTube still answers 200, so the shelf would report
+// "Subscribed" while the real account never changes.
+let cachedYouTubeAuthorization: { key: string; headers: Promise<Record<string, string>> } | undefined;
+
+async function youTubeAuthorizationHeaders(): Promise<Record<string, string>> {
+    const sapisid = youTubeSapisidCookie();
+    const subtle = globalThis.crypto?.subtle;
+    if (!sapisid || !subtle) return {};
+    const timestamp = Math.floor(Date.now() / 1000);
+    const key = `${timestamp} ${sapisid} ${location.origin}`;
+    if (cachedYouTubeAuthorization?.key !== key) {
+        cachedYouTubeAuthorization = { key, headers: computeYouTubeAuthorizationHeaders(subtle, timestamp, key) };
+    }
+    return cachedYouTubeAuthorization.headers;
+}
+
+async function computeYouTubeAuthorizationHeaders(
+    subtle: SubtleCrypto,
+    timestamp: number,
+    payload: string,
+): Promise<Record<string, string>> {
+    try {
+        const digest = await subtle.digest('SHA-1', new TextEncoder().encode(payload));
+        const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+        return {
+            Authorization: `SAPISIDHASH ${timestamp}_${hash}`,
+            'X-Origin': location.origin,
+            'X-Goog-AuthUser': readYouTubeConfigString(readYouTubeConfigSource(), 'SESSION_INDEX') || '0',
+        };
+    } catch {
+        return {};
+    }
+}
+
+function youTubeSapisidCookie(): string {
+    for (const name of ['SAPISID', '__Secure-3PAPISID', '__Secure-1PAPISID']) {
+        const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp(name)}=([^;\\s]+)`, 'u'));
+        if (match?.[1]) return match[1];
+    }
+    return '';
 }
 
 function youtubeInnerTubeHeaders(config: YouTubeClientConfig): Record<string, string> {

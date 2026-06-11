@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.125] - 2026-06-12
+
+### Fixed
+
+- YouTube channel shelf (user-reported): Subscribe said 'Subscribed' but the account was never subscribed — InnerTube write calls now carry the signed-in SAPISIDHASH authorization (YouTube silently applied unauthorized writes to the anonymous visitor session). When signed out, the shelf now says 'Sign in to YouTube to subscribe to channels.' instead of faking success.
+- Subtitle popover (user-reported): the track-status line ('2 subtitle tracks detected') could be appended to the sentence sent to translation when a cue ends without punctuation; subtitle player chrome is now excluded from sentence context.
+
 ## [0.6.124] - 2026-06-11
 
 ### Fixed

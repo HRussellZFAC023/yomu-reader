@@ -845,6 +845,8 @@ describe('YouTube immersion filter', () => {
 
     it('subscribes to all recommended channels through the current YouTube page session', async () => {
         const subscriptionBodies: unknown[] = [];
+        const subscriptionHeaders: Array<Record<string, string>> = [];
+        document.cookie = 'SAPISID=test-sapisid';
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
             origin: 'https://www.youtube.com',
@@ -893,6 +895,7 @@ describe('YouTube immersion filter', () => {
             }
             if (url.includes('/youtubei/v1/subscription/subscribe')) {
                 subscriptionBodies.push(JSON.parse(String(init?.body ?? '{}')));
+                subscriptionHeaders.push({ ...(init?.headers as Record<string, string>) });
                 return { ok: true, json: async () => ({}) };
             }
             return { ok: false, json: async () => ({}) };
@@ -902,9 +905,12 @@ describe('YouTube immersion filter', () => {
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!.click();
         await flushPendingFilterWork();
-        for (let i = 0; i < YOUTUBE_CHANNEL_RECOMMENDATION_COUNT; i += 1) {
+        // The SAPISIDHASH digest adds real-async hops, so poll until the run
+        // completes instead of assuming a fixed number of microtask turns.
+        for (let i = 0; i < YOUTUBE_CHANNEL_RECOMMENDATION_COUNT * 40 && subscriptionBodies.length < YOUTUBE_CHANNEL_RECOMMENDATION_COUNT; i += 1) {
             await settlePromises();
         }
+        await settlePromises();
 
         expect(subscriptionBodies).toHaveLength(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
         expect(subscriptionBodies[0]).toMatchObject({
@@ -912,6 +918,44 @@ describe('YouTube immersion filter', () => {
             context: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
         });
         expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent).toBe('Subscribed to 100 channels.');
+        // The subscribe write must carry the signed-in SAPISIDHASH
+        // authorization; without it YouTube applies the call to the anonymous
+        // visitor session and the account is never actually subscribed.
+        expect(subscriptionHeaders[0]?.Authorization).toMatch(/^SAPISIDHASH \d+_[0-9a-f]{40}$/);
+        expect(subscriptionHeaders[0]?.['X-Origin']).toBe('https://www.youtube.com');
+        expect(subscriptionHeaders[0]?.['X-Goog-AuthUser']).toBe('0');
+
+        document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        filter.destroy();
+    });
+
+    it('refuses to fake a subscription when no signed-in YouTube session cookie exists', async () => {
+        document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+            search: '',
+        });
+        vi.stubGlobal('ytcfg', {
+            get: (key: string) => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+            } as Record<string, unknown>)[key],
+        });
+        const fetchMock = vi.fn(async (..._args: unknown[]) => ({ ok: true, json: async () => ({}) }));
+        vi.stubGlobal('fetch', fetchMock);
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+
+        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!.click();
+        await flushPendingFilterWork();
+        await settlePromises();
+
+        expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent)
+            .toBe('Sign in to YouTube to subscribe to channels.');
+        expect(fetchMock.mock.calls.map(call => String(call[0])).filter(url => url.includes('subscription/subscribe'))).toHaveLength(0);
 
         filter.destroy();
     });
