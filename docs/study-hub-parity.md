@@ -165,11 +165,12 @@ for the next pass. First two findings, from the user's own screenshots:
   card after Jiten's own sections, and produces no target at all until reveal
   (live-verified on the signed-in study page: front addonCount 0, back addonCount 1
   insideCard true).
-- OPEN: due-in on grade/mining buttons everywhere Jiten shows them (1m/10m/16d/28d on
-  Again/Hard/Good/Easy). Our jiten-api and anki grade bars already render
-  reviewGradeIntervals when the provider sends them; remaining recon: confirm Anki's
-  per-ease next-review strings (guiCurrentCard nextReviews vs computed), jpdb has none
-  (verified live 0.6.85), and surface intervals on the MINING buttons too.
+- PARTIAL 0.6.108: Anki review cards now show Hard/Good/Easy due-ins on the study grade
+  bar, computed exactly like Anki's own answer buttons (interval x 1.2 / x ease / x1.3 —
+  cardsInfo never sends the GUI's nextReviews strings); learning/new cards and Again stay
+  blank rather than guessing deck step config. Jiten intervals were already wired;
+  jpdb has none (verified live 0.6.85). Remaining: intervals on the popover MINING
+  grade row (same data, popover surface) and learning-step previews via getDeckConfig.
 
 ## Undocumented-endpoint technique (user direction, 2026-06-11)
 

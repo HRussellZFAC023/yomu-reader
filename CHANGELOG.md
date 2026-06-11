@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.108] - 2026-06-11
+
+### Added
+
+- Anki review cards in the study page now show due-in previews on the grade buttons (Hard/Good/Easy — '12d', '25d', '1.1mo'), computed the same way Anki's own answer buttons are: current interval x hard factor / x ease / x easy bonus. AnkiConnect only exposes the real strings inside its GUI reviewer, so queue cards never had them. Learning and new cards stay blank instead of guessing your deck's step config — no invented numbers on a trust surface.
+
 ## [0.6.107] - 2026-06-11
 
 ### Fixed
