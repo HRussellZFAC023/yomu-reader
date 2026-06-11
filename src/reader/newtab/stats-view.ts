@@ -59,6 +59,7 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
         ),
         renderStatsSourceTabs(context),
         renderStatsMetrics(context),
+        renderStatsLearningProgress(context),
         renderStatsActivity(context),
         renderStatsDistribution(context),
         renderStatsConnections(context),
@@ -221,6 +222,41 @@ function renderStatsHeatmapDay(point: StatsDailyPoint, maxValue: number, metric:
             today: point.date === todayStatsDate(),
         },
     });
+}
+
+// JPDB Learn parity: the "Learning | You know" progress table. Only rows the
+// active provider can honestly report are rendered (the public JPDB API has
+// no kanji or indirect-count endpoints, so those rows stay provider-side).
+function renderStatsLearningProgress(context: NewTabStatsRenderContext): HTMLElement {
+    const { source, text } = context;
+    const cards = source.cards;
+    const knownPct = cards.total > 0 ? formatPercent(cards.known / cards.total) : '';
+    return el('section', { class: 'jpdb-reader-stats-panel jpdb-reader-stats-progress' },
+        el('div', { class: 'jpdb-reader-stats-panel-heading' },
+            el('h2', {}, text('statsLearningProgress')),
+        ),
+        el('table', { class: 'jpdb-reader-stats-progress-table' },
+            el('thead', {},
+                el('tr', {},
+                    el('th', {}, ''),
+                    el('th', {}, ''),
+                    el('th', {}, text('statsLearningColumn')),
+                    el('th', {}, text('statsKnownColumn')),
+                ),
+            ),
+            el('tbody', {},
+                el('tr', {},
+                    el('th', { scope: 'row' }, text('statsWordsRow')),
+                    el('td', {}, formatCompactNumber(cards.total)),
+                    el('td', {}, formatCompactNumber(cards.learning + cards.failed)),
+                    el('td', {}, knownPct ? `${formatCompactNumber(cards.known)} (${knownPct})` : formatCompactNumber(cards.known)),
+                ),
+            ),
+        ),
+        el('p', { class: 'jpdb-reader-stats-progress-total' },
+            `${text('statsTotalKnownVocabulary')}: ${formatCompactNumber(cards.known)}`,
+        ),
+    );
 }
 
 function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement {

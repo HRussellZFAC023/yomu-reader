@@ -787,3 +787,30 @@
     touch-action: manipulation;
   }
 }
+
+/* JPDB Learn parity: the "Learning | You know" progress table. */
+.jpdb-reader-stats-progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.jpdb-reader-stats-progress-table th,
+.jpdb-reader-stats-progress-table td {
+  padding: 4px 8px;
+  text-align: right;
+  color: var(--jpdb-reader-text);
+}
+.jpdb-reader-stats-progress-table thead th {
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+}
+.jpdb-reader-stats-progress-table tbody th {
+  text-align: left;
+  color: var(--jpdb-reader-muted);
+  font-weight: 600;
+}
+.jpdb-reader-stats-progress-total {
+  margin: 8px 0 0;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+}

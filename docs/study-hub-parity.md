@@ -62,7 +62,7 @@ Missing vs the references — the tickets below.
 
 ## Tickets (ranked)
 
-### SH-1: Learning-progress table in Stats (JPDB shape)
+### SH-1: Learning-progress table in Stats (JPDB shape) — SHIPPED 0.6.89 (Words row + total-known line per provider; kanji/indirect rows remain provider-side data gaps, see Non-goals)
 Render the `Learning | You know` table — `Words (direct)`, `Kanji (direct)` rows first —
 plus **Total known non-redundant vocabulary**, for each connected provider.
 Feasibility: JPDB API `list user decks` + `global` deck card states give direct word

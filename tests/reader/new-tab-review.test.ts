@@ -1611,6 +1611,49 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('renders the JPDB-style learning-progress table with totals and known percentage', async () => {
+        const states: Array<[string, Array<'due' | 'known' | 'learning' | 'new'>]> = [
+            ['読む', ['known']],
+            ['書く', ['known']],
+            ['話す', ['learning']],
+            ['聞く', ['new']],
+        ];
+        const listStudyBatchCards = vi.fn(async () => states.map(([spelling, cardState], index) => newTabTestCard({
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            cardState,
+            jitenWordId: index + 1,
+            spelling,
+            reading: spelling,
+        })));
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+        }, {
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+        });
+        try {
+            const root = await renderLoadedApiStats(controller);
+
+            const table = root.querySelector<HTMLElement>('.jpdb-reader-stats-progress-table');
+            expect(table).not.toBeNull();
+            // Header columns mirror JPDB's Learn page.
+            expect(table!.textContent).toContain('Learning');
+            expect(table!.textContent).toContain('You know');
+            // Words row: total 4, learning 1, known 2 (50%).
+            const cells = [...table!.querySelectorAll('tbody td')].map(cell => cell.textContent);
+            expect(cells[0]).toBe('4');
+            expect(cells[1]).toBe('1');
+            expect(cells[2]).toContain('2');
+            expect(cells[2]).toMatch(/50/);
+            expect(root.textContent).toContain('Total known vocabulary: 2');
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('shows an error state on the stats page when the Jiten API fails instead of going blank', async () => {
         const listStudyBatchCards = vi.fn(async () => {
             throw new Error('Jiten API unreachable');

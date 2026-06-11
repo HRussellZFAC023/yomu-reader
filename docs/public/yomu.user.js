@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.88
+// @version      0.6.89
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19624,6 +19624,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsActivityMinutes: "Minutes",
       statsActivityNewCards: "New cards",
       statsCardDistribution: "Card distribution",
+      statsLearningProgress: "Learning progress",
+      statsWordsRow: "Words",
+      statsLearningColumn: "Learning",
+      statsKnownColumn: "You know",
+      statsTotalKnownVocabulary: "Total known vocabulary",
       statsStudyTroubleCards: "Study due/failed",
       statsStudyTroubleHint: "Open the main study deck focused on cards marked due or failed.",
       statsChooseJpdbFile: "Choose reviews.json",
@@ -19737,6 +19742,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsActivityMinutes: "分",
     statsActivityNewCards: "新規",
     statsCardDistribution: "カード分布",
+    statsLearningProgress: "学習の進捗",
+    statsWordsRow: "単語",
+    statsLearningColumn: "学習中",
+    statsKnownColumn: "習得済み",
+    statsTotalKnownVocabulary: "習得済み語彙の合計",
     statsStudyTroubleCards: "期限/失敗を学習",
     statsStudyTroubleHint: "期限または失敗のカードを中心に学習画面を開きます。",
     statsChooseJpdbFile: "reviews.jsonを選択",
