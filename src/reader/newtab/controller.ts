@@ -330,7 +330,7 @@ function searchCardStateLabel(state: string, language: ReaderSettings['interface
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     anki: {
-        listNewTabCards: (limit?: number) => Promise<JPDBCard[]>;
+        listNewTabCards: (limit?: number, deckScope?: string) => Promise<JPDBCard[]>;
         answerCard: (cardId: number, grade: JPDBGrade) => Promise<void>;
         findExistingCards?: (card: JPDBCard) => Promise<AnkiLookupResult>;
         invoke: <T>(action: string, params?: Record<string, unknown>) => Promise<T>;
@@ -1068,9 +1068,12 @@ export class NewTabController {
             }
             const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
             if (deckSelect && root.contains(deckSelect)) {
-                this.state = { ...this.state, jpdbDeck: deckSelect.value, revealAnswer: false };
+                const pickedDeck = deckSelect.value === 'all' && this.state.source === 'anki' ? '' : deckSelect.value;
+                this.state = this.state.source === 'anki'
+                    ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false }
+                    : { ...this.state, jpdbDeck: deckSelect.value, revealAnswer: false };
                 this.persistState();
-                this.invalidateSourceResultCache('jpdb');
+                this.invalidateSourceResultCache(this.state.source === 'anki' ? 'anki' : 'jpdb');
                 this.allWords = [];
                 this.visibleWords = [];
                 this.visiblePoolSignature = '';
@@ -2502,7 +2505,7 @@ export class NewTabController {
         }
         const cardLimit = Math.max(1, Math.floor(limit));
         let unavailable = false;
-        const loadCards = this.dependencies.anki.listNewTabCards(cardLimit);
+        const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.state.ankiDeck || undefined);
         const cards = await (this.state.source === 'anki'
             ? loadCards
             : promiseWithTimeout(loadCards, timeoutMs, 'Anki timed out.')).catch(error => {
@@ -7543,11 +7546,38 @@ export class NewTabController {
         const select = root.querySelector<HTMLSelectElement>('[data-newtab-deck-select]');
         if (!select) return;
         const settings = this.dependencies.getSettings();
+        if (this.state.mode !== 'word') {
+            select.hidden = true;
+            return;
+        }
+        // Anki source gets its own deck scope (SH-6 parity for all providers).
+        if (this.state.source === 'anki') {
+            const show = settings.ankiEnabled && settings.newTabAnkiEnabled;
+            select.hidden = !show;
+            if (show) void this.populateAnkiDeckSelector(select);
+            return;
+        }
         const sourceAllowsJpdb = this.state.source === 'auto' || this.state.source === 'jpdb';
-        const show = this.state.mode === 'word' && sourceAllowsJpdb && hasJpdbApiCredential(settings);
+        const show = sourceAllowsJpdb && hasJpdbApiCredential(settings);
         select.hidden = !show;
         if (!show) return;
         void this.populateDeckSelector(select, settings);
+    }
+
+    private async populateAnkiDeckSelector(select: HTMLSelectElement): Promise<void> {
+        const invoke = this.dependencies.anki.invoke;
+        const names = typeof invoke === 'function'
+            ? await invoke<string[]>('deckNames').catch((): string[] => [])
+            : [];
+        if (!select.isConnected) return;
+        const selected = this.state.ankiDeck || 'all';
+        const options = [
+            { id: 'all', name: this.text('allVocabularyDeck') },
+            ...names.filter(Boolean).map(name => ({ id: name, name })),
+        ];
+        if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
+        replaceChildrenWith(select, options.map(option => el('option', { value: option.id, selected: option.id === selected }, option.name)));
+        select.value = selected;
     }
 
     private async populateDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): Promise<void> {

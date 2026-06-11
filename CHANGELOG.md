@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.111] - 2026-06-11
+
+### Added
+
+- The in-page study-deck selector now works for the Anki source too: pick All decks or any single deck (subdecks included, disabled-deck toggles still honored) and the Anki review queue rescopes immediately — completing per-deck study for both providers that support it (JPDB shipped in 0.6.97; Jiten is parked until its API exposes study decks to scope).
+
 ## [0.6.110] - 2026-06-11
 
 ### Added

@@ -16717,13 +16717,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const ANKI_KANA_FIELD_NAME_PATTERN = /^(?:katakana|hiragana|kana|mnemonic)$/;
   const ANKI_SENTENCE_FIELD_NAME_PATTERN = /^(?:sentence|sentkanji|sentencetext|japanesesentence|selectiontext|contextsentence)$/;
   const ANKI_KANJI_MODEL_PATTERN = /(?:rtk|heisig|kanji)/;
-  async function listNewTabAnkiCards(client, settings, limit = 80) {
+  async function listNewTabAnkiCards(client, settings, limit = 80, deckScope = "") {
     if (!settings.newTabAnkiEnabled) return [];
     if (Date.now() < unavailableUntil) throw new AnkiNewTabUnavailableError("AnkiConnect is cooling down after a failed new-tab request.");
     if (!await client.isAvailableForBackground()) throw new AnkiNewTabUnavailableError();
     try {
       const done = log$o.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
-      const deckNames = await newTabAnkiDeckNames(client, settings);
+      const allDeckNames = await newTabAnkiDeckNames(client, settings);
+      const scope = deckScope.trim();
+      const deckNames = scope ? allDeckNames.filter((deck) => deck === scope || deck.startsWith(`${scope}::`)) : allDeckNames;
       if (!deckNames.length) {
         done();
         return [];
@@ -32603,7 +32605,8 @@ ${normalizedReading}`;
     filter: "study",
     source: "auto",
     revealAnswer: false,
-    jpdbDeck: ""
+    jpdbDeck: "",
+    ankiDeck: ""
   };
   const NEW_TAB_FILTERS = [
     { value: "study", labelKey: "filterStudy" },
@@ -32627,7 +32630,8 @@ ${normalizedReading}`;
       filter: normalizeNewTabFilter(value?.filter),
       source: normalizeNewTabSource(value?.source),
       revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
-      jpdbDeck: typeof value?.jpdbDeck === "string" ? value.jpdbDeck : ""
+      jpdbDeck: typeof value?.jpdbDeck === "string" ? value.jpdbDeck : "",
+      ankiDeck: typeof value?.ankiDeck === "string" ? value.ankiDeck : ""
     };
   }
   function loadNewTabUiState() {
@@ -37102,9 +37106,10 @@ ${newTabCardReading(card)}`;
         }
         const deckSelect2 = target?.closest("[data-newtab-deck-select]");
         if (deckSelect2 && root.contains(deckSelect2)) {
-          this.state = { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
+          const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
+          this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
           this.persistState();
-          this.invalidateSourceResultCache("jpdb");
+          this.invalidateSourceResultCache(this.state.source === "anki" ? "anki" : "jpdb");
           this.allWords = [];
           this.visibleWords = [];
           this.visiblePoolSignature = "";
@@ -38312,7 +38317,7 @@ ${newTabCardReading(card)}`;
       }
       const cardLimit = Math.max(1, Math.floor(limit));
       let unavailable = false;
-      const loadCards = this.dependencies.anki.listNewTabCards(cardLimit);
+      const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.state.ankiDeck || void 0);
       const cards = await (this.state.source === "anki" ? loadCards : promiseWithTimeout(loadCards, timeoutMs, "Anki timed out.")).catch((error) => {
         unavailable = true;
         log$7.warn("New tab Anki source failed", { error });
@@ -42665,11 +42670,34 @@ ${newTabCardReading(card)}`;
       const select2 = root.querySelector("[data-newtab-deck-select]");
       if (!select2) return;
       const settings = this.dependencies.getSettings();
+      if (this.state.mode !== "word") {
+        select2.hidden = true;
+        return;
+      }
+      if (this.state.source === "anki") {
+        const show2 = settings.ankiEnabled && settings.newTabAnkiEnabled;
+        select2.hidden = !show2;
+        if (show2) void this.populateAnkiDeckSelector(select2);
+        return;
+      }
       const sourceAllowsJpdb = this.state.source === "auto" || this.state.source === "jpdb";
-      const show = this.state.mode === "word" && sourceAllowsJpdb && hasJpdbApiCredential(settings);
+      const show = sourceAllowsJpdb && hasJpdbApiCredential(settings);
       select2.hidden = !show;
       if (!show) return;
       void this.populateDeckSelector(select2, settings);
+    }
+    async populateAnkiDeckSelector(select2) {
+      const invoke = this.dependencies.anki.invoke;
+      const names = typeof invoke === "function" ? await invoke("deckNames").catch(() => []) : [];
+      if (!select2.isConnected) return;
+      const selected = this.state.ankiDeck || "all";
+      const options = [
+        { id: "all", name: this.text("allVocabularyDeck") },
+        ...names.filter(Boolean).map((name) => ({ id: name, name }))
+      ];
+      if (!options.some((option) => option.id === selected)) options.push({ id: selected, name: selected });
+      replaceChildrenWith(select2, options.map((option) => el("option", { value: option.id, selected: option.id === selected }, option.name)));
+      select2.value = selected;
     }
     async populateDeckSelector(select2, settings) {
       const key2 = effectiveJpdbApiKey(settings);
@@ -49490,7 +49518,7 @@ ${newTabCardReading(card)}`;
       return new NewTabController({
         getSettings: () => this.settings,
         anki: {
-          listNewTabCards: (limit) => listNewTabAnkiCards(this.anki, this.settings, limit),
+          listNewTabCards: (limit, deckScope) => listNewTabAnkiCards(this.anki, this.settings, limit, deckScope),
           answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
           findExistingCards: (card) => this.anki.findExistingCards(card),
           invoke: (action, params) => this.anki.invoke(action, params),
