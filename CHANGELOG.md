@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.110] - 2026-06-11
+
+### Added
+
+- New (unseen) Anki cards now show due-in previews too: Again/Hard/Good/Easy derive from your deck's actual learning steps via getDeckConfig ('<1m', '<6m', '<10m', '4d') — the same numbers Anki shows on a fresh card, one config fetch per distinct deck. With 0.6.108/0.6.109 this completes the due-in story across study queue and popover for every provider that has the data.
+
 ## [0.6.109] - 2026-06-11
 
 ### Added

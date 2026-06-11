@@ -169,7 +169,7 @@ for the next pass. First two findings, from the user's own screenshots:
   bar, computed exactly like Anki's own answer buttons (interval x 1.2 / x ease / x1.3 —
   cardsInfo never sends the GUI's nextReviews strings); learning/new cards and Again stay
   blank rather than guessing deck step config. Jiten intervals were already wired;
-  jpdb has none (verified live 0.6.85). Popover grade-row intervals SHIPPED 0.6.109 (renderReviewButtons takes the card's reviewGradeIntervals — Anki existing notes get the computed previews too via ankiExistingNoteFromInfo). Remaining: learning-step previews via getDeckConfig.
+  jpdb has none (verified live 0.6.85). Popover grade-row intervals SHIPPED 0.6.109 (renderReviewButtons takes the card's reviewGradeIntervals — Anki existing notes get the computed previews too via ankiExistingNoteFromInfo). Learning-step previews SHIPPED 0.6.110 (new cards derive Again/Hard/Good/Easy from the deck's getDeckConfig learning steps — Anki's own first-answer numbers; one config fetch per distinct deck; mid-learning cards stay blank since cardsInfo lacks step position). The due-in story is now COMPLETE across providers and surfaces.
 
 ## Undocumented-endpoint technique (user direction, 2026-06-11)
 

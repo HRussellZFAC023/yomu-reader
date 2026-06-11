@@ -285,7 +285,54 @@ async function loadCardInfoChunks(client: AnkiConnectClient, cardChunks: number[
             results.push(...infos);
         }
     }));
+    await applyNewCardStepPreviews(client, results);
     return results;
+}
+
+// Due-in previews for NEW cards come from the deck's learning steps
+// (getDeckConfig new.delays/new.ints) — exactly the numbers Anki's own
+// answer buttons show for an unseen card. Hard is only shown with two or
+// more steps (the v3 mid-point of Again and Good); cards mid-learning are
+// left blank because their position in the steps isn't in cardsInfo.
+export async function applyNewCardStepPreviews(
+    client: Pick<AnkiConnectClient, 'invoke'>,
+    cards: AnkiCardInfo[],
+): Promise<void> {
+    const newCards = cards.filter(card => card.type === 0 && !(Array.isArray(card.nextReviews) && card.nextReviews.length));
+    if (!newCards.length) return;
+    const deckNames = [...new Set(newCards.map(card => card.deckName).filter((name): name is string => Boolean(name)))];
+    const configs = new Map<string, { delays: number[]; ints: number[] }>();
+    await Promise.all(deckNames.map(async deckName => {
+        const config = await client.invoke<{ new?: { delays?: number[]; ints?: number[] } }>('getDeckConfig', { deck: deckName }).catch(() => null);
+        const delays = config?.new?.delays;
+        if (Array.isArray(delays) && delays.length) {
+            configs.set(deckName, { delays: delays.map(Number), ints: (config?.new?.ints ?? []).map(Number) });
+        }
+    }));
+    for (const card of newCards) {
+        const config = card.deckName ? configs.get(card.deckName) : undefined;
+        if (!config) continue;
+        const again = formatAnkiStepMinutes(config.delays[0] ?? 0);
+        const good = config.delays.length > 1
+            ? formatAnkiStepMinutes(config.delays[1] ?? 0)
+            : `${Math.max(1, Math.round(config.ints[0] ?? 1))}d`;
+        const easy = `${Math.max(1, Math.round(config.ints[1] ?? 4))}d`;
+        if (config.delays.length > 1) {
+            const hard = formatAnkiStepMinutes(((config.delays[0] ?? 0) + (config.delays[1] ?? 0)) / 2);
+            card.buttons = [1, 2, 3, 4];
+            card.nextReviews = [again, hard, good, easy];
+        } else {
+            card.buttons = [1, 3, 4];
+            card.nextReviews = [again, good, easy];
+        }
+    }
+}
+
+function formatAnkiStepMinutes(minutes: number): string {
+    if (!Number.isFinite(minutes) || minutes <= 0) return '<1m';
+    if (minutes < 60) return `<${Math.max(1, Math.round(minutes))}m`;
+    if (minutes < 1440) return `<${(minutes / 60).toFixed(1).replace(/\.0$/, '')}h`;
+    return `${Math.round(minutes / 1440)}d`;
 }
 
 async function ankiDueFlags(client: AnkiConnectClient, candidateCardIds: number[]): Promise<Map<number, boolean>> {

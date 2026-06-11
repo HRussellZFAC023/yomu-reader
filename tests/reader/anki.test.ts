@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AnkiConnectClient, buildYomuAnkiPreviewFields, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { applyComputedAnkiNextReviews, reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
+import { applyNewCardStepPreviews } from '../../src/reader/anki/new-tab';
 import { renderAnkiExistingSection, renderReviewButtons } from '../../src/reader/anki/render';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -2029,5 +2030,30 @@ describe('popover review-button intervals', () => {
     it('renders plain buttons when no intervals exist', () => {
         const html = renderReviewButtons({ ...DEFAULT_SETTINGS, ankiEnabled: true }, null, { targetLabel: 'JPDB' });
         expect(html).not.toContain('jpdb-reader-grade-interval');
+    });
+});
+
+describe('Anki new-card step previews', () => {
+    it('derives Again/Hard/Good/Easy for unseen cards from the deck learning steps', async () => {
+        const invoke = vi.fn(async (action: string) => {
+            if (action === 'getDeckConfig') return { new: { delays: [1, 10], ints: [1, 4] } };
+            throw new Error(`unexpected ${action}`);
+        });
+        const card = { cardId: 1, deckName: 'Core', queue: 0, type: 0 } as never;
+        await applyNewCardStepPreviews({ invoke } as never, [card]);
+        expect((card as { nextReviews?: string[] }).nextReviews).toEqual(['<1m', '<6m', '<10m', '4d']);
+        expect((card as { buttons?: number[] }).buttons).toEqual([1, 2, 3, 4]);
+        // One config fetch per distinct deck.
+        expect(invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('omits Hard with a single learning step and never touches non-new cards', async () => {
+        const invoke = vi.fn(async () => ({ new: { delays: [10], ints: [3, 5] } }));
+        const fresh = { cardId: 2, deckName: 'Mining', queue: 0, type: 0 } as never;
+        const review = { cardId: 3, deckName: 'Mining', queue: 2, type: 2, interval: 10, factor: 2500, nextReviews: ['12d'] } as never;
+        await applyNewCardStepPreviews({ invoke } as never, [fresh, review]);
+        expect((fresh as { nextReviews?: string[] }).nextReviews).toEqual(['<10m', '3d', '5d']);
+        expect((fresh as { buttons?: number[] }).buttons).toEqual([1, 3, 4]);
+        expect((review as { nextReviews?: string[] }).nextReviews).toEqual(['12d']);
     });
 });
