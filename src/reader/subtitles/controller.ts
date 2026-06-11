@@ -398,6 +398,7 @@ export class SubtitlePlayerController {
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
     private lastRenderedPrimaryKey = '';
+    private lastAppliedSubtitleHtml = '';
     private parseWarmupSerial = 0;
     private transcriptHydrationCursor = 0;
     private effectiveTranscriptPlacement: ReaderSettings['subtitleTranscriptPlacement'] = 'right';
@@ -707,6 +708,7 @@ export class SubtitlePlayerController {
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
+        this.lastAppliedSubtitleHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
     }
@@ -1258,15 +1260,31 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
-        setInnerHtml(this.subtitleEl, this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : '');
+        this.applySubtitleHtml(this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : '');
     }
 
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
         const primary = this.renderPrimarySubtitle(text, settings);
-        setInnerHtml(this.subtitleEl, `<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
+        const changed = this.applySubtitleHtml(`<div class="jpdb-subtitle-primary">${primary.html}</div>${this.renderSecondarySubtitle(settings)}`);
         this.applyRenderedPrimarySubtitle(primary, text);
-        this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+        // Re-applying state colors only matters when the DOM was rebuilt;
+        // re-notifying on identical renders made pitch/state highlights
+        // flicker out under time-driven render ticks (user-reported).
+        if (changed) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+    }
+
+    // render() runs on every cue/time/settings tick; rebuilding identical DOM
+    // each tick wiped the async-applied word-state coloring and caused a
+    // visible rerender flicker plus constant layout work (user-reported).
+    private applySubtitleHtml(html: string): boolean {
+        if (!this.subtitleEl) return false;
+        const unchanged = this.lastAppliedSubtitleHtml === html
+            && (html === '' || this.subtitleEl.firstChild !== null);
+        if (unchanged) return false;
+        setInnerHtml(this.subtitleEl, html);
+        this.lastAppliedSubtitleHtml = html;
+        return true;
     }
 
     // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
@@ -1362,7 +1380,12 @@ export class SubtitlePlayerController {
             const currentCue = this.currentCue ?? null;
             const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html)
                 && this.shouldRenderKaraokePrimary(primary, currentCue);
-            setInnerHtml(primary, this.primaryReplacementHtml(html, currentCue, shouldKaraoke));
+            const replacement = this.primaryReplacementHtml(html, currentCue, shouldKaraoke);
+            setInnerHtml(primary, replacement);
+            // Keep the applied-html cache aligned with the live DOM so the
+            // next composed render() is a no-op and the freshly applied state
+            // colors survive instead of being rebuilt away.
+            this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
             this.syncKaraokePrimary(currentCue, shouldKaraoke);
             this.fitSubtitleTextToVideo();
             return primary as HTMLElement;
@@ -3231,6 +3254,7 @@ export class SubtitlePlayerController {
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
+        this.lastAppliedSubtitleHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
     }

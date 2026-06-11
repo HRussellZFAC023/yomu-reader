@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.126] - 2026-06-12
+
+### Fixed
+
+- Mobile YouTube (user-reported): scroll position no longer jumps as videos load in — iOS Safari has no scroll anchoring, so filtering a card above the viewport shifted the page; the filter now keeps the element you are looking at stationary by compensating the scroll position.
+- Subtitle player (user-reported): rerender loop fixed — identical render ticks no longer rebuild the subtitle DOM, which was wiping pitch-accent and word-state highlights moments after they appeared and causing flicker and page lag.
+
 ## [0.6.125] - 2026-06-12
 
 ### Fixed
