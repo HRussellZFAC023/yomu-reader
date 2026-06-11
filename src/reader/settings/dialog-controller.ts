@@ -1,5 +1,6 @@
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from '../anki/index';
+import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText } from '../ui/browser';
 import { createAudioPreviewCard } from '../cards/utils';
 import { NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
@@ -1014,11 +1015,13 @@ export class SettingsDialogController {
                 this.queueAutomaticAnkiLibraryScan(form, language);
             } else {
                 this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
+                void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
             }
         } catch (error) {
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
             log.warn('Anki settings probe failed', error);
             this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
+            void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
         } finally {
             this.settings = previous;
         }
@@ -1623,6 +1626,25 @@ export class SettingsDialogController {
 
     private ankiUnreachableMessage(language: InterfaceLanguage): string {
         return uiText(language, 'ankiSettingsUnreachable');
+    }
+
+    // Diagnostic-UX ticket: when the direct probe fails, tell the user WHICH
+    // step failed. A no-cors probe that resolves means AnkiConnect is up but
+    // rejected this origin (webCorsOriginList) — name the origin to add; only
+    // a true network failure keeps the generic 'open Anki' guidance.
+    private async refineAnkiUnavailableStatus(
+        form: HTMLFormElement,
+        requestId: number,
+        settings: ReaderSettings,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        if (canUseMobileAnkiHandoff(settings) || hasUserscriptAnkiBridge()) return;
+        const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
+        const verdict = await diagnoseAnkiConnectFailure(url).catch((): 'unreachable' => 'unreachable');
+        if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
+        if (verdict !== 'cors-blocked') return;
+        const origin = typeof location !== 'undefined' ? location.origin : '';
+        this.setAnkiStatus(form, uiText(language, 'ankiCorsBlocked').replace('{origin}', origin), 'pending');
     }
 
     private ankiSetupUnavailableStatus(settings: ReaderSettings, language: InterfaceLanguage): SettingsStatusLine {

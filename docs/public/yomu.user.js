@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.122
+// @version      0.6.123
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Iwu2+kp5j1UUndEdGEsxqyXzvbmeu6C5KVdYO5und9Y=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XF02Bazus4LoyKGPqC5mAKZmUcW+ep9kBUko4jwA/aE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-wMZcQpa/kjx/MlEDpWHIz7HQs+fAfrtR4+dnIMcz6vg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NIYjIPXcNb2kr+uDTT3NS53GuqYERVuFg73twBvSXMg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ZCG01XMYy+EGGAVgDPr0RJBL69/bgf7PIbCFkul6lvI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-glTznJCz4vBhLaUItojKl3ZQxe+DEs6DuHrJd6NihZs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5733,6 +5733,7 @@
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
       ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
+      ankiCorsBlocked: 'AnkiConnect is running but refuses this site. In Anki: Tools → Add-ons → AnkiConnect → Config, add "{origin}" to webCorsOriginList, then restart Anki.',
       ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
       ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
@@ -7159,6 +7160,7 @@ ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiCorsBlocked	AnkiConnectは起動していますが、このサイトを拒否しています。Ankiの「ツール → アドオン → AnkiConnect → 設定」で webCorsOriginList に「{origin}」を追加し、Ankiを再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く

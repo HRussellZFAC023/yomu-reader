@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.123] - 2026-06-11
+
+### Added
+
+- When AnkiConnect can't be reached, the settings status now diagnoses WHICH step failed instead of a generic 'not connected': if AnkiConnect is running but rejecting this site (the usual Firefox case), the message names the exact origin to add to webCorsOriginList in the add-on's config — with the matching Japanese copy; only a genuine network failure keeps the 'open desktop Anki' guidance.
+
 ## [0.6.122] - 2026-06-11
 
 ### Fixed
