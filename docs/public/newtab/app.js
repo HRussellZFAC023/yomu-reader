@@ -16929,16 +16929,34 @@ ${entry.reading || ""}`;
         }
       }
       const terms = [...keysByTerm.keys()];
+      const lookupFields = this.statusLookupFieldNames();
+      if (lookupFields.length) {
+        const fieldQuery = (term) => lookupFields.map((field) => quoteAnkiSearch$1(`${field}:${term}`)).join(" OR ");
+        await this.collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, fieldQuery);
+        if (this.isDestroyed) return noteIdsByKey;
+      }
+      const unresolvedTerms = lookupFields.length ? terms.filter((term) => [...keysByTerm.get(term) ?? []].some((cacheKey) => (noteIdsByKey.get(cacheKey)?.size ?? 0) === 0)) : terms;
+      if (unresolvedTerms.length) {
+        await this.collectCandidateNoteIds(unresolvedTerms, keysByTerm, noteIdsByKey, (term) => quoteAnkiSearch$1(term));
+      }
+      return noteIdsByKey;
+    }
+    statusLookupFieldNames() {
+      const settings = this.getSettings();
+      const mapping = settings.ankiFieldMappings?.[resolvedAnkiModelName(settings)];
+      return [...new Set([mapping?.expression, mapping?.reading].map((value) => value?.trim()).filter((value) => Boolean(value)))];
+    }
+    async collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, buildQuery) {
       const chunks2 = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
       const chunkResponses = new Array(chunks2.length);
       await runLimited(chunks2, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
         chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
           action: "findNotes",
-          params: { query: quoteAnkiSearch$1(term) }
+          params: { query: buildQuery(term) }
         })));
       });
+      if (this.isDestroyed) return;
       const responses = chunkResponses.flat();
-      if (this.isDestroyed) return noteIdsByKey;
       terms.forEach((term, index) => {
         const ids = responses[index] ?? [];
         for (const cacheKey of keysByTerm.get(term) ?? []) {
@@ -16946,7 +16964,6 @@ ${entry.reading || ""}`;
           ids.forEach((id) => noteIds?.add(id));
         }
       });
-      return noteIdsByKey;
     }
     async loadExistingNotes(card, noteIds) {
       if (this.isDestroyed) return { existing: [], candidateNotes: 0 };

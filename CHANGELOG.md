@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.116] - 2026-06-11
+
+### Changed
+
+- Anki status lookups now search your mapped expression/reading fields first (e.g. Word:読む OR Kana:よむ), so text in sentence or definition fields can never create a false 'in Anki' match. The old whole-note search still runs, but only as a low-confidence final pass for words the field-scoped search couldn't find — keeping nonstandard and unmapped decks discoverable. Closes the last slice of the field-scoped lookup ticket (rest shipped 0.6.76).
+
 ## [0.6.115] - 2026-06-11
 
 ### Added

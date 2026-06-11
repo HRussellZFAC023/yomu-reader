@@ -1397,16 +1397,52 @@ export class AnkiConnectClient {
             }
         }
         const terms = [...keysByTerm.keys()];
+        // Stage 1 — field-scoped candidates (asbplayer/yomitan pattern): when
+        // the active mapping names expression/reading fields, search only
+        // those, so sentences/definitions can never create false matches.
+        const lookupFields = this.statusLookupFieldNames();
+        if (lookupFields.length) {
+            const fieldQuery = (term: string) => lookupFields.map(field => quoteAnkiSearch(`${field}:${term}`)).join(' OR ');
+            await this.collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, fieldQuery);
+            if (this.isDestroyed) return noteIdsByKey;
+        }
+        // Stage 2 — the raw-term probe is explicitly a LOW-CONFIDENCE final
+        // pass: it only runs for terms whose every target key is still empty
+        // (covers unmapped/nonstandard models); noteLooksLikeCard remains the
+        // downstream content gate for whatever it dredges up.
+        const unresolvedTerms = lookupFields.length
+            ? terms.filter(term => [...(keysByTerm.get(term) ?? [])].some(cacheKey => (noteIdsByKey.get(cacheKey)?.size ?? 0) === 0))
+            : terms;
+        if (unresolvedTerms.length) {
+            await this.collectCandidateNoteIds(unresolvedTerms, keysByTerm, noteIdsByKey, term => quoteAnkiSearch(term));
+        }
+        return noteIdsByKey;
+    }
+
+    private statusLookupFieldNames(): string[] {
+        const settings = this.getSettings();
+        const mapping = settings.ankiFieldMappings?.[resolvedAnkiModelName(settings)];
+        return [...new Set([mapping?.expression, mapping?.reading]
+            .map(value => value?.trim())
+            .filter((value): value is string => Boolean(value)))];
+    }
+
+    private async collectCandidateNoteIds(
+        terms: string[],
+        keysByTerm: Map<string, Set<string>>,
+        noteIdsByKey: Map<string, Set<number>>,
+        buildQuery: (term: string) => string,
+    ): Promise<void> {
         const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
         const chunkResponses: Array<Array<number[] | undefined>> = new Array(chunks.length);
         await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
             chunkResponses[index] = await this.invokeMulti<number[]>(chunk.map(term => ({
                 action: 'findNotes',
-                params: { query: quoteAnkiSearch(term) },
+                params: { query: buildQuery(term) },
             })));
         });
+        if (this.isDestroyed) return;
         const responses: Array<number[] | undefined> = chunkResponses.flat();
-        if (this.isDestroyed) return noteIdsByKey;
         terms.forEach((term, index) => {
             const ids = responses[index] ?? [];
             for (const cacheKey of keysByTerm.get(term) ?? []) {
@@ -1414,7 +1450,6 @@ export class AnkiConnectClient {
                 ids.forEach(id => noteIds?.add(id));
             }
         });
-        return noteIdsByKey;
     }
 
     private async loadExistingNotes(card: JPDBCard, noteIds: Set<number>): Promise<{ existing: AnkiExistingNote[]; candidateNotes: number }> {
