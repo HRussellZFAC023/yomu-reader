@@ -1,6 +1,6 @@
 # Yomu Refactor Backlog
 
-Last updated: 2026-06-10 (post-0.6.75; eleven releases 0.6.65→0.6.75 shipped this day, all CI workflows green at HEAD).
+Last updated: 2026-06-11 (post-0.6.88; thirteen releases 0.6.76→0.6.88 shipped this day across two parallel sessions, every release gated by `npm run check`; live e2e now runs against the user's signed-in MCP Chrome — see `.playwright-mcp/inject-youtube.mjs`).
 
 ## Remaining Large Lanes (next sessions)
 
@@ -28,7 +28,7 @@ Last updated: 2026-06-10 (post-0.6.75; eleven releases 0.6.65→0.6.75 shipped t
 - Readable `npm run build`: passing.
 - `npm run verify`: passing, with a non-blocking 90% size warning.
 - Current user direction: do not let file size block the current product-fix pass. Keep builds policy-readable and offline-capable, but prioritize parsing, Anki stability, new-tab UX, settings defaults, and browser verification until the behavioral regressions are closed.
-- Current userscript size: `dist/yomu.user.js` is 1,930,737 bytes in the latest policy-readable build, 69,263 bytes below the Greasy Fork hard limit.
+- Current userscript size: `dist/yomu.user.js` is 1,956,669 bytes at 0.6.88, 43,331 bytes below the Greasy Fork hard limit — headroom nearly halved since 0.6.75; the ADR 0003 extraction lane is becoming urgent before the next feature batch.
 - Release-size status: the current product-fix batch is verified without minification/compaction; size remains tight but is not blocking this pass per user direction.
 - Most recent top rendered source modules: `src/reader/main.ts` 213,643 bytes, `src/reader/subtitles/controller.ts` 119,635, `src/reader/settings-form.ts` 106,202, `src/reader/anki/index.ts` 89,611, `src/reader/dictionaries/yomitan/index.ts` 87,195, `src/reader/i18n.ts` 81,324, `src/reader/dom.ts` 74,134.
 - Current exact generated sizes: `dist/yomu.user.js` 1,930,737 bytes, `docs/public/yomu.user.js` 1,930,737 bytes, `dist/newtab/app.js` 2,192,792 bytes, `docs/public/newtab/app.js` 2,192,792 bytes.
