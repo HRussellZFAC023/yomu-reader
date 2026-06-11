@@ -136,6 +136,9 @@ const ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS = 2_500;
 const ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT = 24;
 const ANKI_MODEL_SCAN_CONCURRENCY = 3;
 const ANKI_STATUS_INDEX_CARD_CHUNK_SIZE = 500;
+const ANKI_EDITED_SWEEP_MAX_DAYS = 30;
+const ANKI_EDITED_SWEEP_MOD_LIMIT = 2_000;
+const ANKI_EDITED_SWEEP_DAY_MS = 24 * 60 * 60 * 1000;
 const ANKI_STATUS_INDEX_CARD_CONCURRENCY = 3;
 const ANKI_RENDERED_MEDIA_LIMIT = 12;
 const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
@@ -796,12 +799,45 @@ export class AnkiConnectClient {
         const deckStatsCardCount = await this.collectionCardCountFromDeckStats();
         if (this.isDestroyed) return { handled: true, index: null };
         if (this.canMarkStatusIndexCountCurrent(index, deckStatsCardCount, needsReadingKeyRefresh, now)) {
-            return { handled: true, index: await this.saveCheckedStatusIndex(index, now) };
+            // Same-count edits (reviews done in Anki itself, field edits) are
+            // invisible to the count gate. Sweep recently-edited cards by
+            // mod-time (asbplayer's cardsModTime pattern) and fall through to
+            // the dirty path when anything changed since the last sync —
+            // incremental-refresh ticket; the sweep failing (old AnkiConnect)
+            // leaves the count gate as before.
+            const edited = await this.statusIndexEditedSinceSync(index, now);
+            if (this.isDestroyed) return { handled: true, index: null };
+            if (!edited) {
+                return { handled: true, index: await this.saveCheckedStatusIndex(index, now) };
+            }
+            const dirty: AnkiStatusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
+            this.statusIndex = dirty;
+            await saveAnkiStatusIndexDirtyMarker(dirty).catch(error => {
+                log.warn('Anki edited-sweep dirty marker failed', error);
+            });
+            return { handled: false, index: dirty };
         }
         if (this.canDeferStatusIndexRebuild(index, needsReadingKeyRefresh, options)) {
             return { handled: true, index: await this.saveCheckedStatusIndex(index, now, deckStatsCardCount) };
         }
         return { handled: false, index };
+    }
+
+    private async statusIndexEditedSinceSync(index: AnkiStatusIndex, now: number): Promise<boolean> {
+        const sinceMs = index.syncedAt;
+        if (!(sinceMs > 0)) return false;
+        const days = Math.min(ANKI_EDITED_SWEEP_MAX_DAYS, Math.max(1, Math.ceil((now - sinceMs) / ANKI_EDITED_SWEEP_DAY_MS) + 1));
+        try {
+            const ids = await this.invoke<number[]>('findCards', { query: `edited:${days}` });
+            if (this.isDestroyed || !ids.length) return false;
+            const mods = await this.invoke<Array<{ cardId: number; mod: number }>>('cardsModTime', { cards: ids.slice(0, ANKI_EDITED_SWEEP_MOD_LIMIT) });
+            const sinceSeconds = Math.floor(sinceMs / 1000);
+            return mods.some(entry => Number(entry?.mod) > sinceSeconds);
+        } catch {
+            // cardsModTime needs AnkiConnect >= 23; without it the count gate
+            // keeps working exactly as before.
+            return false;
+        }
     }
 
     private canMarkStatusIndexCountCurrent(

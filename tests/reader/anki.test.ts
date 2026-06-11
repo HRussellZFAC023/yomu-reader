@@ -2115,3 +2115,89 @@ describe('field-scoped Anki candidate lookup', () => {
         vi.unstubAllGlobals();
     });
 });
+
+describe('incremental status-index refresh (edited-card mod-time sweep)', () => {
+    type RefreshInternals = {
+        statusIndexEditedSinceSync(index: unknown, now: number): Promise<boolean>;
+        refreshStatusIndexFromCollectionCount(index: unknown, needsReadingKeyRefresh: boolean, now: number, options: Record<string, unknown>): Promise<{ handled: boolean; index: { syncedAt: number; dirtyAt?: number } | null }>;
+    };
+
+    function sweepClient(handlers: Record<string, (params: Record<string, unknown>) => unknown>) {
+        const actions: string[] = [];
+        vi.stubGlobal('indexedDB', undefined);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                const request = JSON.parse(data) as { action: string; params: Record<string, unknown> };
+                actions.push(request.action);
+                const handler = handlers[request.action];
+                if (!handler) return Promise.resolve({ status: 200, response: { result: null, error: `unsupported: ${request.action}` } });
+                return Promise.resolve({ status: 200, response: { result: handler(request.params), error: null } });
+            },
+        });
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+        return { client, actions };
+    }
+
+    function countCurrentIndex(now: number, cardCount = 1) {
+        return {
+            settingsKey: 'k',
+            version: 1,
+            entries: {},
+            entryCount: 0,
+            cardCount,
+            syncedAt: now - 60_000,
+            checkedAt: now - 1,
+            updatedAt: now - 60_000,
+        };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('reports edits when a recently-edited card moved after the last sync', async () => {
+        const now = Date.now();
+        const { client, actions } = sweepClient({
+            findCards: () => [3001],
+            cardsModTime: () => [{ cardId: 3001, mod: Math.floor(now / 1000) }],
+        });
+        const internals = client as unknown as RefreshInternals;
+        await expect(internals.statusIndexEditedSinceSync(countCurrentIndex(now), now)).resolves.toBe(true);
+        expect(actions).toEqual(['findCards', 'cardsModTime']);
+        client.destroy();
+    });
+
+    it('stays quiet with no edited cards and skips the mod-time call', async () => {
+        const now = Date.now();
+        const { client, actions } = sweepClient({ findCards: () => [] });
+        const internals = client as unknown as RefreshInternals;
+        await expect(internals.statusIndexEditedSinceSync(countCurrentIndex(now), now)).resolves.toBe(false);
+        expect(actions).toEqual(['findCards']);
+        client.destroy();
+    });
+
+    it('falls back to the count gate when cardsModTime is unsupported', async () => {
+        const now = Date.now();
+        const { client } = sweepClient({ findCards: () => [3001] });
+        const internals = client as unknown as RefreshInternals;
+        await expect(internals.statusIndexEditedSinceSync(countCurrentIndex(now), now)).resolves.toBe(false);
+        client.destroy();
+    });
+
+    it('dirties a count-current index when the sweep finds same-count edits', async () => {
+        const now = Date.now();
+        const { client } = sweepClient({
+            getDeckStats: () => ({ 1: { name: 'Mining', total_in_deck: 1 } }),
+            deckNames: () => ['Mining'],
+            findCards: () => [3001],
+            cardsModTime: () => [{ cardId: 3001, mod: Math.floor(now / 1000) }],
+        });
+        const internals = client as unknown as RefreshInternals;
+        const decision = await internals.refreshStatusIndexFromCollectionCount(countCurrentIndex(now), false, now, {});
+        // handled:false hands the dirty index to the rebuild path.
+        expect(decision.handled).toBe(false);
+        expect(decision.index?.syncedAt).toBe(0);
+        expect(decision.index?.dirtyAt).toBe(now);
+        client.destroy();
+    });
+});

@@ -17781,8 +17781,11 @@ describe('reader helpers', () => {
             const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, ankiMobileHandoff: false }));
             await client.warmStatusIndex();
 
-            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats']);
+            // 0.6.122 adds the edited-card probe (findCards 'edited:N') to the
+            // count gate; the point of this test is that no per-card scan runs.
+            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats', 'findCards']);
             expect(requests.find(request => request.action === 'getDeckStats')?.params).toEqual({ decks: ['Mining', 'Archive'] });
+            expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
             const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { checkedAt?: number };
             expect(refreshed.checkedAt).toBeGreaterThan(now - 6 * 60 * 1000);
         } finally {
@@ -18362,9 +18365,14 @@ describe('reader helpers', () => {
             }]);
 
             await client.warmStatusIndex();
-            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats']);
+            // 0.6.122: the count gate also probes recently-edited cards
+            // (findCards 'edited:N'), but an unchanged count must never
+            // trigger the full deck:* rebuild or note hydration.
+            expect(requests.map(request => request.action)).toEqual(['version', 'deckNames', 'getDeckStats', 'findCards']);
             expect(requests.some(request => request.action === 'findCards' && request.params.query === 'deck:*')).toBe(false);
+            expect(requests.some(request => request.action === 'findCards' && String(request.params.query).startsWith('edited:'))).toBe(true);
             expect(requests.map(request => request.action)).not.toContain('notesInfo');
+            expect(requests.map(request => request.action)).not.toContain('cardsModTime');
 
             const refreshed = JSON.parse(localStorage.getItem('yomu:anki-status-index:v1') ?? '{}') as { checkedAt?: number };
             expect(refreshed.checkedAt).toBeGreaterThan(1);
