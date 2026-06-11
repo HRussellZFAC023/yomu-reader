@@ -17,6 +17,8 @@ export interface NewTabUiState {
     filter: NewTabFilter;
     source: NewTabWordSource;
     revealAnswer: boolean;
+    // JPDB deck scope for the study queue ('' = follow the settings default).
+    jpdbDeck: string;
 }
 
 // fallow-ignore-next-line unused-export
@@ -26,6 +28,7 @@ export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     filter: 'study',
     source: 'auto',
     revealAnswer: false,
+    jpdbDeck: '',
 };
 
 // fallow-ignore-next-line unused-export
@@ -53,6 +56,7 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
         filter: normalizeNewTabFilter(value?.filter),
         source: normalizeNewTabSource(value?.source),
         revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
+        jpdbDeck: typeof value?.jpdbDeck === 'string' ? value.jpdbDeck : '',
     };
 }
 

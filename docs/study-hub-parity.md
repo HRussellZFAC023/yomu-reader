@@ -98,7 +98,7 @@ JPDB fronts show the sentence with the target highlighted (when the card has one
 jpdb-sourced cards, that the highlight styling matches (target blue, rest plain), and
 the kind label ("Vocabulary" / "Kanji") is present like JPDB's.
 
-### SH-6: Deck management parity
+### SH-6: Deck management parity — v1 SHIPPED 0.6.97 (in-page JPDB deck selector on the Word tab: All vocabulary + user decks via the API, selection persists in new-tab state and rescopes the queue through the existing scheduled-only deck loader; mobile-safe 16px select). Remaining: per-deck progress in the selector, Jiten/Anki deck scoping (Jiten study-batch API has no deck param), deck creation; JPDB priority reorder stays page-only (no API endpoint)
 List the user's decks (JPDB: listDecks; Jiten: study decks; Anki: deck names) inside the
 study page with per-deck progress, reorder (JPDB API permitting — page uses
 `change_deck_priority`; API has no priority endpoint → JPDB reorder is OUT of scope,

@@ -204,7 +204,7 @@ import {
 } from '../app/stats';
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
-import type { CardState, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
+import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
@@ -270,7 +270,7 @@ import {
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import { JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK } from '../settings';
-import { activeApiCredentialLabel, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { activeApiCredentialLabel, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -617,6 +617,7 @@ export class NewTabController {
     private readonly sessionProgress = new NewTabSessionProgressTracker();
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private fallbackStudyNotice = false;
+    private deckSelectorDecks?: { key: string; promise: Promise<JPDBDeck[]> };
     private loadGeneration = 0;
     private sourceSwitchGeneration = 0;
     private searchGeneration = 0;
@@ -939,6 +940,12 @@ export class NewTabController {
                         el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
                     ),
                     el('button', { class: 'jpdb-reader-newtab-status', type: 'button', dataset: { newtabStatus: true }, disabled: true }, uiText(language, 'loading')),
+                    el('select', {
+                        class: 'jpdb-reader-newtab-deck',
+                        dataset: { newtabDeckSelect: true },
+                        hidden: true,
+                        'aria-label': newTabText(language, 'studyDeckSelector'),
+                    }),
                     el('form', { class: 'jpdb-reader-newtab-search', dataset: { newtabSearch: true }, role: 'search', hidden: true },
                         el('div', { class: 'jpdb-reader-newtab-searchbox' },
                             el('input', {
@@ -1023,6 +1030,19 @@ export class NewTabController {
             if (targetSelect && root.contains(targetSelect)) {
                 this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
                 targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
+                return;
+            }
+            const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
+            if (deckSelect && root.contains(deckSelect)) {
+                this.state = { ...this.state, jpdbDeck: deckSelect.value, revealAnswer: false };
+                this.persistState();
+                this.invalidateSourceResultCache('jpdb');
+                this.allWords = [];
+                this.visibleWords = [];
+                this.visiblePoolSignature = '';
+                this.index = 0;
+                this.setStatus(root, this.text('loading'));
+                void this.loadWordsInto(root, false, { useOfflineCache: false });
                 return;
             }
             const input = event.target instanceof HTMLInputElement
@@ -2579,7 +2599,9 @@ export class NewTabController {
         const hasJpdbKey = hasJpdbApiCredential(settings);
         const apiResults: NewTabLoadResult[] = [];
         if (hasJpdbKey) {
-            const selectedDeck = settings.newTabJpdbDeck.trim() || JPDB_ALL_DECKS;
+            // The in-page deck selector (study-hub parity SH-6) overrides the
+            // settings default; '' follows settings.
+            const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
             const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, options.timeoutMs, options.limit);
             if (selectedDeckCards) apiResults.push(selectedDeckCards);
         }
@@ -7316,6 +7338,41 @@ export class NewTabController {
             button.dataset.active = String(active);
             button.setAttribute('aria-pressed', String(active));
         });
+        this.syncDeckSelector(root);
+    }
+
+    // Study-hub parity SH-6: an in-page JPDB deck scope for the study queue,
+    // mirroring jpdb.io's per-deck Learn entry. Visible only when a JPDB API
+    // key is configured and the Word tab can include jpdb-api cards.
+    private syncDeckSelector(root: HTMLElement): void {
+        const select = root.querySelector<HTMLSelectElement>('[data-newtab-deck-select]');
+        if (!select) return;
+        const settings = this.dependencies.getSettings();
+        const sourceAllowsJpdb = this.state.source === 'auto' || this.state.source === 'jpdb';
+        const show = this.state.mode === 'word' && sourceAllowsJpdb && hasJpdbApiCredential(settings);
+        select.hidden = !show;
+        if (!show) return;
+        void this.populateDeckSelector(select, settings);
+    }
+
+    private async populateDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): Promise<void> {
+        const key = effectiveJpdbApiKey(settings);
+        if (this.deckSelectorDecks?.key !== key) {
+            const listDecks = typeof this.dependencies.jpdb.listDecks === 'function'
+                ? this.dependencies.jpdb.listDecks()
+                : Promise.resolve([] as JPDBDeck[]);
+            this.deckSelectorDecks = { key, promise: listDecks.catch((): JPDBDeck[] => []) };
+        }
+        const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([] as JPDBDeck[]));
+        if (!select.isConnected) return;
+        const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
+        const options = [
+            { id: 'all', name: this.text('allVocabularyDeck') },
+            ...decks.filter(deck => deck.id !== 'all'),
+        ];
+        if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
+        replaceChildrenWith(select, options.map(option => el('option', { value: option.id, selected: option.id === selected }, option.name)));
+        select.value = selected;
     }
 
     private async toggleTheme(root: HTMLElement): Promise<void> {

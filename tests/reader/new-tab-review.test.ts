@@ -3760,6 +3760,34 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('scopes the study queue to the deck chosen in the in-page deck selector (SH-6)', async () => {
+        resetNewTabReviewStorage();
+        const { listDeckCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');
+        const internals = controller as unknown as { dependencies: { jpdb: { listDecks?: () => Promise<Array<{ id: string; name: string }>> } } };
+        internals.dependencies.jpdb.listDecks = vi.fn(async () => [{ id: '89', name: '誕生日' }]);
+
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-deck-select]')!;
+            await waitForExpect(() => {
+                expect(select.hidden).toBe(false);
+                const labels = [...select.options].map(option => option.textContent);
+                expect(labels).toContain('All vocabulary');
+                expect(labels).toContain('誕生日');
+            });
+            // Initial load used the settings deck.
+            expect(listDeckCards).toHaveBeenCalledWith('deck', expect.anything(), expect.anything());
+
+            select.value = '89';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await waitForExpect(() => {
+                expect(listDeckCards).toHaveBeenCalledWith('89', expect.anything(), expect.anything());
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('does not reuse a stale JPDB cache entry when switching to Anki', async () => {
         resetNewTabReviewStorage();
         const { settings, listDeckCards, listNewTabCards, controller } = newTabJpdbAnkiSourceFixture('jpdb');
