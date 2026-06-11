@@ -54,13 +54,44 @@ export function currentJitenTermTarget(): JpdbTermTarget | null {
     }
     const headword = jitenHeadword();
     if (!headword) return null;
+    const anchor = jitenContentAnchor();
+    if (!anchor) return null;
     return {
         term: headword.term,
         reading: headword.reading,
         queries: uniqueLookupValues([headword.term, headword.reading, ...jitenAlternateForms()]),
         examples: [],
-        anchor: jitenVocabAnchor(),
+        anchor,
     };
+}
+
+function jitenContentAnchor(): HTMLElement | null {
+    if (isJitenStudyPage()) return jitenStudyCardAnchor();
+    return jitenVocabAnchor();
+}
+
+// /srs/study: the addon belongs INSIDE the revealed study card — after the
+// card's own sections (Kanji breakdown, Composed of) — and must never mount
+// during the question phase, where dictionary entries would spoil the
+// answer. While the answer is hidden no target is produced at all; once
+// revealed, the enhancement refresh sees the missing addon and mounts it
+// inside the card.
+function jitenStudyCardAnchor(): HTMLElement | null {
+    if (jitenStudyAnswerHidden()) return null;
+    const wrap = ownedElement(document.querySelector<HTMLElement>('.relative.touch-pan-y'));
+    if (!wrap) return null;
+    const content = Array.from(wrap.children).find(child =>
+        child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className)),
+    ) as HTMLElement | undefined;
+    const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
+    const last = card?.lastElementChild;
+    if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
+    return card ?? null;
+}
+
+function jitenStudyAnswerHidden(): boolean {
+    return Array.from(document.querySelectorAll('button'))
+        .some(button => /show answer/i.test(button.textContent ?? ''));
 }
 
 export function currentJitenLocalDictionaryTargets(): LocalDictionaryTarget[] {
@@ -70,13 +101,15 @@ export function currentJitenLocalDictionaryTargets(): LocalDictionaryTarget[] {
     }
     const headword = jitenHeadword();
     if (!headword) return [];
+    const anchor = jitenContentAnchor();
+    if (!anchor) return [];
     return [{
         term: headword.term,
         reading: headword.reading,
         alternates: uniqueLookupValues([headword.reading, ...jitenAlternateForms()]),
         compounds: [],
         examples: [],
-        anchor: jitenVocabAnchor(),
+        anchor,
     }];
 }
 

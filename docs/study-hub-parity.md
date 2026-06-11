@@ -153,6 +153,24 @@ documents them (some shortcuts exist; audit + align).
   remains covered by the signed-in MCP session (grade ids #show-answer/#grade-1..5
   captured live earlier; see Non-goals for the interval verdict).
 
+## UX-evaluation directive (user, 2026-06-11)
+
+When evaluating journeys in Playwright, always ask "what is this from a user
+experience?" / "how would a user feel about this screen?" and file the findings here
+for the next pass. First two findings, from the user's own screenshots:
+
+- FIXED 0.6.107: on jiten.moe/srs/study the addon (Immersion Kit + the user's
+  dictionaries) mounted detached at the top of the page — and during the question
+  phase, where dictionary entries spoil the answer. It now mounts INSIDE the revealed
+  card after Jiten's own sections, and produces no target at all until reveal
+  (live-verified on the signed-in study page: front addonCount 0, back addonCount 1
+  insideCard true).
+- OPEN: due-in on grade/mining buttons everywhere Jiten shows them (1m/10m/16d/28d on
+  Again/Hard/Good/Easy). Our jiten-api and anki grade bars already render
+  reviewGradeIntervals when the provider sends them; remaining recon: confirm Anki's
+  per-ease next-review strings (guiCurrentCard nextReviews vs computed), jpdb has none
+  (verified live 0.6.85), and surface intervals on the MINING buttons too.
+
 ## Undocumented-endpoint technique (user direction, 2026-06-11)
 
 Jiten's full API surface is browsable at https://api.jiten.moe/index.html, and features

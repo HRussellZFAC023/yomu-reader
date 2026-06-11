@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.106
+// @version      0.6.107
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -30097,13 +30097,34 @@ ${glossaryKey}`;
     }
     const headword = jitenHeadword();
     if (!headword) return null;
+    const anchor = jitenContentAnchor();
+    if (!anchor) return null;
     return {
       term: headword.term,
       reading: headword.reading,
       queries: uniqueLookupValues([headword.term, headword.reading, ...jitenAlternateForms()]),
       examples: [],
-      anchor: jitenVocabAnchor()
+      anchor
     };
+  }
+  function jitenContentAnchor() {
+    if (isJitenStudyPage()) return jitenStudyCardAnchor();
+    return jitenVocabAnchor();
+  }
+  function jitenStudyCardAnchor() {
+    if (jitenStudyAnswerHidden()) return null;
+    const wrap = ownedElement(document.querySelector(".relative.touch-pan-y"));
+    if (!wrap) return null;
+    const content = Array.from(wrap.children).find(
+      (child) => child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className))
+    );
+    const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
+    const last = card?.lastElementChild;
+    if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
+    return card ?? null;
+  }
+  function jitenStudyAnswerHidden() {
+    return Array.from(document.querySelectorAll("button")).some((button2) => /show answer/i.test(button2.textContent ?? ""));
   }
   function currentJitenLocalDictionaryTargets() {
     if (isJitenKanjiPage()) {
@@ -30112,13 +30133,15 @@ ${glossaryKey}`;
     }
     const headword = jitenHeadword();
     if (!headword) return [];
+    const anchor = jitenContentAnchor();
+    if (!anchor) return [];
     return [{
       term: headword.term,
       reading: headword.reading,
       alternates: uniqueLookupValues([headword.reading, ...jitenAlternateForms()]),
       compounds: [],
       examples: [],
-      anchor: jitenVocabAnchor()
+      anchor
     }];
   }
   function jitenHeadword() {
