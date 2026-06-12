@@ -266,7 +266,7 @@ describe('settings dialog keyboard dismissal', () => {
         document.body.append(opener);
         opener.focus();
         const { dismiss, form } = createSettingsDialog();
-        const input = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+        const input = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
         const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
 
         expect(opener.getAttribute('aria-hidden')).toBe('true');
@@ -368,7 +368,7 @@ describe('settings dialog keyboard dismissal', () => {
             const { form } = createSettingsDialog();
             const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
             const footer = form.querySelector<HTMLElement>('.footer')!;
-            const input = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+            const input = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
 
             vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(testRect(118, 374));
             vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(testRect(390, 454));
@@ -680,7 +680,7 @@ describe('settings dialog keyboard dismissal', () => {
     it('updates the JPDB status light when the API key field changes', () => {
         const { form } = createSettingsDialog();
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
         const enableReviews = form.querySelector<HTMLInputElement>('input[name="enableReviews"]')!;
         const jpdbMiningEnabled = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!;
 
@@ -718,7 +718,7 @@ describe('settings dialog keyboard dismissal', () => {
             jpdb: { clear: vi.fn(), listDecks: vi.fn().mockResolvedValue([]), ping },
         });
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+        const apiKey = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
 
         apiKey.value = 'jpdb-key';
         apiKey.dispatchEvent(new Event('change', { bubbles: true }));
@@ -735,7 +735,7 @@ describe('settings dialog keyboard dismissal', () => {
     it('updates the API status light when the API key field changes to a Jiten key', () => {
         const { form } = createSettingsDialog();
         const status = form.querySelector<HTMLElement>('[data-jpdb-status]')!;
-        const apiCredential = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
+        const apiCredential = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
 
         expect(status.dataset.statusTone).toBe('pending');
         expect(apiCredential.value).toBe('');

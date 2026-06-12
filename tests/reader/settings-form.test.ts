@@ -267,7 +267,7 @@ describe('settings form localization', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        expect(topLevelLegendForControl(form, 'apiCredential')).toBe('API');
+        expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('API');
         expect(topLevelLegendForControl(form, 'accentColor')).toBe('Appearance');
         expect(topLevelLegendForControl(form, 'lookupOnHover')).toBe('Reader');
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="basics"]')).toBeNull();
@@ -283,38 +283,45 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(false);
     });
 
-    it('renders and saves one JPDB-or-Jiten API key', () => {
+    it('renders and saves coexisting JPDB and Jiten API keys (UT-56)', () => {
         const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' });
-        const credentialInput = form.querySelector<HTMLInputElement>('input[name="apiCredential"]')!;
-        const jpdbOnlyForm = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: '' });
+        const jpdbInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
+        const jitenInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten"]')!;
 
-        expect(labelForControl(form, 'apiCredential')).toContain('API key');
-        expect(credentialInput.value).toBe('ak_jiten-key');
-        expect(jpdbOnlyForm.querySelector<HTMLInputElement>('input[name="apiCredential"]')?.value).toBe('jpdb-key');
+        expect(labelForControl(form, 'apiCredentialJpdb')).toContain('JPDB API key');
+        expect(labelForControl(form, 'apiCredentialJiten')).toContain('Jiten API key');
+        expect(jpdbInput.value).toBe('jpdb-key');
+        expect(jitenInput.value).toBe('ak_jiten-key');
         expect(form.querySelector<HTMLInputElement>('input[name="apiKey"]')).toBeNull();
         expect(form.querySelector<HTMLInputElement>('input[name="jitenApiKey"]')).toBeNull();
-        expect(credentialInput.getAttribute('autocapitalize')).toBe('off');
-        expect(credentialInput.getAttribute('autocorrect')).toBe('off');
-        expect(credentialInput.getAttribute('spellcheck')).toBe('false');
-        expect(credentialInput.getAttribute('enterkeyhint')).toBe('done');
+        expect(jpdbInput.getAttribute('autocapitalize')).toBe('off');
+        expect(jpdbInput.getAttribute('spellcheck')).toBe('false');
         expect(form.querySelector<HTMLAnchorElement>('a[href="https://jiten.moe/settings"]')?.textContent).toBe('Jiten settings');
-        expect(form.querySelector<HTMLButtonElement>('[data-action="check-jiten-api"]')).toBeNull();
-        expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
 
-        credentialInput.value = '  next-jpdb  ';
+        jpdbInput.value = '  next-jpdb  ';
+        jitenInput.value = '';
         let saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-
         expect(saved.apiKey).toBe('next-jpdb');
         expect(saved.jitenApiKey).toBe('');
 
-        credentialInput.value = '  ak_next-jiten  ';
+        // Both at once stay both; a jiten-prefixed key in the JPDB slot routes.
+        jpdbInput.value = 'next-jpdb';
+        jitenInput.value = ' ak_next-jiten ';
+        saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.apiKey).toBe('next-jpdb');
+        expect(saved.jitenApiKey).toBe('ak_next-jiten');
+
+        jpdbInput.value = 'ak_misplaced';
+        jitenInput.value = '';
         saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
         expect(saved.apiKey).toBe('');
-        expect(saved.jitenApiKey).toBe('ak_next-jiten');
+        expect(saved.jitenApiKey).toBe('ak_misplaced');
+
         expect(normalizeReaderSettings({ jitenApiKey: '  stored-jiten  ' }).jitenApiKey).toBe('stored-jiten');
-        expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({
-            apiKey: '',
-            jitenApiKey: 'ak_legacy-jiten',
+        expect(normalizeReaderSettings({ apiKey: '  ak_legacy-jiten  ' })).toMatchObject({ apiKey: '', jitenApiKey: 'ak_legacy-jiten' });
+        expect(normalizeReaderSettings({ apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' })).toMatchObject({
+            apiKey: 'jpdb-key',
+            jitenApiKey: 'ak_jiten-key',
         });
     });
 

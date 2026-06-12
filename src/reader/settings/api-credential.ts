@@ -45,11 +45,26 @@ function splitApiCredential(value: string): ApiCredentialSettings {
 }
 
 export function readApiCredentialsFromFormData(data: FormData): ApiCredentialSettings {
+    // UT-56: dedicated per-provider fields; values still auto-route by
+    // prefix so a Jiten key pasted into the JPDB field lands correctly.
+    if (data.has('apiCredentialJpdb') || data.has('apiCredentialJiten')) {
+        return mergeApiCredentialValues(
+            String(data.get('apiCredentialJpdb') ?? ''),
+            String(data.get('apiCredentialJiten') ?? ''),
+        );
+    }
     if (data.has('apiCredential')) return splitApiCredential(String(data.get('apiCredential') ?? ''));
     return {
         apiKey: String(data.get('apiKey') ?? '').trim(),
         jitenApiKey: String(data.get('jitenApiKey') ?? '').trim(),
     };
+}
+
+export function mergeApiCredentialValues(jpdbValue: string, jitenValue: string): ApiCredentialSettings {
+    const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
+    const jitenApiKey = values.find(isJitenApiCredential) ?? '';
+    const apiKey = values.find(value => !isJitenApiCredential(value)) ?? '';
+    return { apiKey, jitenApiKey };
 }
 
 export function isJitenApiCredential(value: string): boolean {

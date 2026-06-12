@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.156] - 2026-06-12
+
+### Fixed
+
+- JPDB and Jiten API keys now coexist: settings has separate fields for each, and the study queue mixes both providers' reviews in one session. Previously saving a Jiten key silently erased the JPDB key, which made the study page mirror only Jiten while jpdb.io Learn kept counting dues — the main source of "my queue doesn't match jpdb" reports. A Jiten-format key pasted into the JPDB field still routes to the right place.
+
 ## [0.6.155] - 2026-06-12
 
 ### Fixed

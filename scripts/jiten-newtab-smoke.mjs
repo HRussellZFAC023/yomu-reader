@@ -381,6 +381,38 @@ async function runJpdbOnlySmoke(browser, fixture) {
     }
 }
 
+// UT-56: both credentials at once — the study queue merges the JPDB deck
+// pool and the Jiten study batch instead of one key silently replacing the
+// other (the old single-credential normalization caused the user's study
+// page to diverge from jpdb Learn).
+async function runDualCredentialSmoke(browser, fixture) {
+    const requests = [];
+    const settings = createSettings({ apiKey: MOCK_JPDB_API_KEY });
+    const { context, page } = await installNewTabPage(browser, fixture, settings, requests);
+    try {
+        await expectText(page, '[data-newtab-count]', 'Left 2');
+        assertRequestCountAtLeast(requests, 'jiten-study-batch', 1);
+        assertRequestCountAtLeast(requests, 'jpdb-list-user-decks', 1);
+        assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 1);
+        const gradeCurrent = async () => {
+            await page.click('[data-newtab-action="reveal"]');
+            await page.waitForTimeout(250);
+            await page.click('[data-newtab-action="grade"][data-grade="okay"]');
+            await page.waitForTimeout(900);
+        };
+        await gradeCurrent();
+        await gradeCurrent();
+        const jpdbReview = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
+        const jitenReview = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
+        assert(jpdbReview, 'Dual-credential smoke did not submit a JPDB review', { requests });
+        assert(jitenReview, 'Dual-credential smoke did not submit a Jiten review', { requests });
+        await screenshot(page, 'jiten-newtab-dual-credential.png');
+        return { reviews: { jpdb: jpdbReview.body, jiten: jitenReview.body } };
+    } finally {
+        await context.close();
+    }
+}
+
 async function runLiveJitenHealthCheck() {
     const apiKey = process.env.YOMU_JITEN_API_KEY?.trim();
     if (!apiKey) return { skipped: true, reason: 'YOMU_JITEN_API_KEY is not set' };
@@ -464,12 +496,13 @@ async function main() {
     const browserName = process.env.YOMU_SMOKE_BROWSER === 'firefox' ? 'firefox' : 'chromium';
     const browser = await launchSmokeBrowser(browserName === 'firefox' ? firefox : chromium, browserName, { headless: true });
     try {
-        const [jitenOnly, jpdbOnly, liveJiten] = [
+        const [jitenOnly, jpdbOnly, dual, liveJiten] = [
             await runJitenOnlySmoke(browser, fixture),
             await runJpdbOnlySmoke(browser, fixture),
+            await runDualCredentialSmoke(browser, fixture),
             await runLiveJitenHealthCheck(),
         ];
-        console.log(JSON.stringify({ ok: true, jitenOnly, jpdbOnly, liveJiten }, null, 2));
+        console.log(JSON.stringify({ ok: true, jitenOnly, jpdbOnly, dual, liveJiten }, null, 2));
     } finally {
         await browser.close();
         await closeServer(fixture.server);

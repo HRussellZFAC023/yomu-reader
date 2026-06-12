@@ -5,7 +5,7 @@ import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
-import { apiCredentialLabelFromValue, hasJpdbApiCredential, singleApiCredentialValue } from './api-credential';
+import { apiCredentialLabelFromValue, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues, singleApiCredentialValue } from './api-credential';
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { renderSourceRowsList } from './form-source-rows';
@@ -206,9 +206,10 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input('apiCredential', `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Both keys can be set at once — reviews then mix both queues. Jiten keys start with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -1026,6 +1027,9 @@ function localizeSettingsLegends(form: HTMLFormElement, text: SettingsText): voi
 }
 
 function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
+    const jpdbField = getNamedControl<HTMLInputElement>(form, 'apiCredentialJpdb');
+    const jitenField = getNamedControl<HTMLInputElement>(form, 'apiCredentialJiten');
+    if (jpdbField || jitenField) return mergeApiCredentialValues(jpdbField?.value ?? '', jitenField?.value ?? '');
     const combined = getNamedControl<HTMLInputElement>(form, 'apiCredential')?.value ?? '';
     if (combined.trim()) return { apiKey: combined, jitenApiKey: '' };
     return {
@@ -1556,7 +1560,7 @@ function localizeDictionaryStatus(form: HTMLFormElement, text: SettingsText): vo
 }
 
 const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
-    'apiCredential', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
+    'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',

@@ -458,9 +458,12 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
 function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
     const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
-    if (jitenApiKey) return { apiKey: '', jitenApiKey };
-    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: apiKey };
-    return { apiKey, jitenApiKey: '' };
+    // UT-56: JPDB and Jiten credentials COEXIST — the study queue loads both
+    // providers in parallel, so a Jiten key must not wipe the JPDB key (that
+    // wipe made the study page silently diverge from jpdb Learn). A
+    // jiten-prefixed value in the JPDB slot still routes to the Jiten slot.
+    if (isJitenApiCredential(apiKey)) return { apiKey: '', jitenApiKey: jitenApiKey || apiKey };
+    return { apiKey, jitenApiKey };
 }
 
 function stripUnsupportedSettings(value: LegacyReaderSettings | null | undefined): Partial<ReaderSettings> | null {
