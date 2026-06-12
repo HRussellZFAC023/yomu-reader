@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.157] - 2026-06-12
+
+### Fixed
+
+- Compact UI text is no longer excluded from annotation: tight rows, small headings and media-bearing text links (like YouTube channel names next to avatars) now get colour/state annotation without furigana, instead of being skipped entirely. Ruby still stays off those rows so it can never crop or reflow them; true icon buttons and UI chrome remain untouched.
+
 ## [0.6.156] - 2026-06-12
 
 ### Fixed
