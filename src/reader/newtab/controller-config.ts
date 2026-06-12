@@ -70,6 +70,10 @@ export const NEW_TAB_GRADE_QUEUE_LIMIT = 200;
 export const NEW_TAB_STATS_JPDB_HISTORY_KEY = 'jpdb-reader-newtab-jpdb-stats-history';
 export const NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY = 'jpdb-reader-newtab-disabled-anki-decks';
 export const NEW_TAB_STATS_JPDB_CARD_LIMIT = 2_000;
+// Deck-scoped Search browser (2D reviews): one bulk lookup covers thousands
+// of pairs cheaply, so whole decks are browsable; capped to keep render/data
+// structures sane on huge decks.
+export const NEW_TAB_BROWSE_DECK_LIMIT = 5_000;
 export const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     '.jpdb-reader-word',
     '.jpdb-reader-doodle-stage',

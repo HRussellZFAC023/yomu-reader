@@ -1,4 +1,4 @@
-import { filterBrowseCards, renderBrowseChips, renderBrowseList, type BrowseFilter } from './browse-view';
+import { filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards, type BrowseFilter, type BrowseSortKey } from './browse-view';
 import { primaryCardState } from '../cards/state';
 import { copyText } from '../ui/browser';
 import type { CardRenderData } from '../cards/render-data';
@@ -257,6 +257,7 @@ import {
     NEW_TAB_SEARCH_WORD_LIMIT,
     NEW_TAB_SOURCE_LABELS,
     NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY,
+    NEW_TAB_BROWSE_DECK_LIMIT,
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
     NEW_TAB_STATS_JPDB_HISTORY_KEY,
     NEW_TAB_STUDY_INTERACTIVE_SELECTOR,
@@ -676,7 +677,10 @@ export class NewTabController {
     private statsSnapshot: StatsDashboardSnapshot = emptyStatsDashboardSnapshot();
     private browsePool?: JPDBCard[];
     private browsePoolKey = '';
-    private browseFilter: BrowseFilter = 'all';
+    private browseFilters = new Set<CardState>();
+    private browseSort: BrowseSortKey = 'queue';
+    private browseSortDescending = false;
+    private browseSelectMode = false;
     private browsePage = 0;
     private statsSelectedSource: StatsSourceId = 'combined';
     private statsActivityMetric: StatsActivityMetric = 'reviews';
@@ -1059,6 +1063,15 @@ export class NewTabController {
                 this.syncBrowseBulkControls(root);
                 return;
             }
+            const browseSort = target?.closest<HTMLSelectElement>('[data-newtab-action="browse-sort"]');
+            if (browseSort && root.contains(browseSort)) {
+                const value = browseSort.value;
+                this.browseSort = value === 'alpha' || value === 'frequency' ? value : 'queue';
+                this.browsePage = 0;
+                const mount = this.searchResultsMount(root);
+                if (mount && this.state.mode === 'search') this.renderBrowseResults(mount);
+                return;
+            }
             const filterSelect = target?.closest<HTMLSelectElement>('[data-newtab-filter-select]');
             if (filterSelect && root.contains(filterSelect)) {
                 const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value as NewTabUiState['filter'] }).filter;
@@ -1076,6 +1089,15 @@ export class NewTabController {
                 return;
             }
             const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
+            if (deckSelect && root.contains(deckSelect) && this.state.mode === 'search') {
+                this.state = { ...this.state, jpdbDeck: deckSelect.value };
+                this.persistState();
+                this.browsePool = undefined;
+                this.browsePoolKey = '';
+                this.browsePage = 0;
+                void this.renderBrowseInto(root);
+                return;
+            }
             if (deckSelect && root.contains(deckSelect)) {
                 const pickedDeck = deckSelect.value === 'all' && this.state.source === 'anki' ? '' : deckSelect.value;
                 this.state = this.state.source === 'anki'
@@ -5543,14 +5565,33 @@ export class NewTabController {
                 return true;
             case 'browse-filter': {
                 event.preventDefault();
-                const filter = target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter;
-                this.browseFilter = (filter ?? 'all') as BrowseFilter;
+                const filter = (target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter ?? 'all') as BrowseFilter;
+                // Multi-select chips (user-tested): each state toggles
+                // independently; All clears the whole selection.
+                if (filter === 'all') this.browseFilters.clear();
+                else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
+                else this.browseFilters.add(filter);
                 this.browsePage = 0;
                 const query = normalizeSearchQuery(this.searchQuery);
-                if (this.browseFilter === 'all' && query) {
+                if (!this.browseScopeActive() && query) {
                     this.performSearch(root, query);
                     return true;
                 }
+                const mount = this.searchResultsMount(root);
+                if (mount) this.renderBrowseResults(mount);
+                return true;
+            }
+            case 'browse-sort-direction': {
+                event.preventDefault();
+                this.browseSortDescending = !this.browseSortDescending;
+                this.browsePage = 0;
+                const mount = this.searchResultsMount(root);
+                if (mount) this.renderBrowseResults(mount);
+                return true;
+            }
+            case 'browse-select-mode': {
+                event.preventDefault();
+                this.browseSelectMode = !this.browseSelectMode;
                 const mount = this.searchResultsMount(root);
                 if (mount) this.renderBrowseResults(mount);
                 return true;
@@ -5688,9 +5729,10 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!query) {
             this.renderSearchIdle(root);
-        } else if (this.browseFilter !== 'all' && this.browsePool && results) {
-            // SH-3 v2: with a state chip active, typing searches MY cards
-            // (Jiten Cards parity); the All chip returns to dictionary search.
+        } else if (this.browseScopeActive() && this.browsePool && results) {
+            // SH-3 v2: with a state chip or deck scope active, typing
+            // searches MY cards (Jiten Cards parity / 2D reviews); with no
+            // scope the default stays dictionary search.
             delete results.dataset.searchQuery;
             this.renderBrowseResults(results);
         } else if (results?.dataset.searchQuery !== query) {
@@ -6567,19 +6609,40 @@ export class NewTabController {
         return buckets;
     }
 
+    // Dictionary lookup stays the Search default; deck/state scope flips the
+    // tab into the My Cards browser (2D reviews).
+    private browseScopeActive(): boolean {
+        return this.browseFilters.size > 0 || Boolean(this.state.jpdbDeck && this.state.jpdbDeck !== 'all');
+    }
+
     private renderBrowseResults(mount: HTMLElement): void {
         const cards = this.browsePool ?? [];
         const language = this.language();
-        const query = this.browseFilter !== 'all' ? normalizeSearchQuery(this.searchQuery) : '';
-        const filtered = filterBrowseCards(cards, this.browseFilter, query);
+        const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchQuery) : '';
+        const filtered = sortBrowseCards(
+            filterBrowseCards(cards, this.browseFilters, query),
+            this.browseSort,
+            this.browseSortDescending,
+        );
         replaceChildrenWith(mount,
-            renderBrowseChips(cards, this.browseFilter, language, this.text('browseAllChip')),
+            renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
+            renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
+                sortLabel: this.text('browseSortLabel'),
+                sortQueue: this.text('browseSortQueue'),
+                sortAlpha: this.text('browseSortAlpha'),
+                sortFrequency: this.text('browseSortFrequency'),
+                directionAscending: this.text('browseSortAscending'),
+                directionDescending: this.text('browseSortDescending'),
+                select: this.text('browseSelectMode'),
+            }),
             renderBrowseList(filtered, this.browsePage, language, {
                 empty: this.text('browseNoCards'),
                 previous: this.text('browsePreviousPage'),
                 next: this.text('browseNextPage'),
                 showing: (from, to, total) => `${from}–${to} / ${total}`,
-                ...(this.dependencies.performCardAction ? {
+                // Rows only grow checkboxes in select mode (user-tested: the
+                // browser should not always look like a bulk editor).
+                ...(this.dependencies.performCardAction && this.browseSelectMode ? {
                     bulk: {
                         selectPage: this.text('browseSelectPage'),
                         blacklist: this.text('blacklist'),
@@ -6643,6 +6706,17 @@ export class NewTabController {
 
     private async loadBrowsePool(): Promise<JPDBCard[]> {
         const settings = this.dependencies.getSettings();
+        // 2D reviews: a selected JPDB deck scopes the browser to that deck's
+        // full word list (queue order via due_at; sort/filter on top).
+        const deck = (this.state.jpdbDeck || '').trim();
+        if (this.state.mode === 'search' && deck && deck !== 'all' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
+            const deckKey = `jpdb-deck:${deck}`;
+            if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
+            const cards = await this.dependencies.jpdb.listDeckCards(deck, NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []);
+            this.browsePool = dedupeWords(cards.map(normalizeNewTabCard));
+            this.browsePoolKey = deckKey;
+            return this.browsePool;
+        }
         const providers = this.browsePoolProviders(settings);
         const key = providers.map(provider => provider.label).join('+');
         if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
@@ -7701,6 +7775,14 @@ export class NewTabController {
         const select = root.querySelector<HTMLSelectElement>('[data-newtab-deck-select]');
         if (!select) return;
         const settings = this.dependencies.getSettings();
+        // The Search tab shares the JPDB deck scope (2D reviews: pick a deck,
+        // browse all of its words in queue order, type to narrow).
+        if (this.state.mode === 'search') {
+            const show = hasJpdbApiCredential(settings);
+            select.hidden = !show;
+            if (show) void this.populateDeckSelector(select, settings);
+            return;
+        }
         if (this.state.mode !== 'word') {
             select.hidden = true;
             return;

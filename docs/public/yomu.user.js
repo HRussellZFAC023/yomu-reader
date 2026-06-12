@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.131
+// @version      0.6.132
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19744,6 +19744,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sessionLeft: "Left",
       dailyGoalUnit: "min",
       dailyGoalReached: "Goal reached",
+      browseSortLabel: "Sort",
+      browseSortQueue: "Queue order",
+      browseSortAlpha: "A→Z",
+      browseSortFrequency: "Frequency",
+      browseSortAscending: "Ascending",
+      browseSortDescending: "Descending",
+      browseSelectMode: "Select",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -19878,6 +19885,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     sessionLeft: "残り",
     dailyGoalUnit: "分",
     dailyGoalReached: "目標達成",
+    browseSortLabel: "並び替え",
+    browseSortQueue: "復習順",
+    browseSortAlpha: "あいうえお順",
+    browseSortFrequency: "頻度順",
+    browseSortAscending: "昇順",
+    browseSortDescending: "降順",
+    browseSelectMode: "選択",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",
