@@ -549,6 +549,16 @@
   display: none;
 }
 
+.jpdb-ocr-video-frame {
+  position: fixed;
+  z-index: 2147483642;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  object-fit: fill;
+}
+
 .jpdb-ocr-layer {
   position: fixed;
   z-index: 2147483643;

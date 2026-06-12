@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.148] - 2026-06-12
+
+### Added
+
+- Pausing a video now OCRs the paused frame (user request): the frame is snapshotted over the player and read with the same OCR pipeline as images, so on-screen Japanese (captions burned into the video, slides, signs) becomes readable words while paused. The overlay disappears the moment playback resumes or the video changes. Respects the OCR provider/enabled settings, skips small players, and can be turned off with the new `ocrVideoPauseFrames` setting. DRM-protected frames that cannot be captured are silently skipped.
+
 ## [0.6.147] - 2026-06-12
 
 ### Fixed

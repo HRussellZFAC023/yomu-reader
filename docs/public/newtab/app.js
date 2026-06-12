@@ -3428,6 +3428,7 @@
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
+    ocrVideoPauseFrames: true,
     ocrShowTextOverlay: false,
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
@@ -26528,6 +26529,9 @@ ${spelling}`);
     positionFrame = 0;
     refreshTimer = 0;
     lastPointerMoveImage;
+    videoFrames = /* @__PURE__ */ new Map();
+    handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
+    handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
       this.requestOcrFromPointerEvent(event);
@@ -26541,6 +26545,9 @@ ${spelling}`);
       document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.addEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.addEventListener("click", this.handleDocumentClick, true);
+      document.addEventListener("pause", this.handleMediaPause, true);
+      document.addEventListener("play", this.handleMediaResume, true);
+      document.addEventListener("emptied", this.handleMediaResume, true);
       window.addEventListener("scroll", () => {
         if (!this.options.getSettings().ocrEnabled) return;
         this.schedulePosition();
@@ -26564,6 +26571,10 @@ ${spelling}`);
       document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
       document.removeEventListener("click", this.handleDocumentClick, true);
+      document.removeEventListener("pause", this.handleMediaPause, true);
+      document.removeEventListener("play", this.handleMediaResume, true);
+      document.removeEventListener("emptied", this.handleMediaResume, true);
+      this.releaseAllVideoFrames();
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
       this.clear();
@@ -26898,6 +26909,7 @@ ${spelling}`);
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
     }
     remember(key, result) {
+      if (key.startsWith("data:")) return;
       this.cache.set(key, result);
       while (this.cache.size > MAX_CACHE_ITEMS) {
         const oldest = this.cache.keys().next().value;
@@ -26909,8 +26921,58 @@ ${spelling}`);
       if (this.positionFrame) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
+        this.positionVideoFrames();
         for (const image of this.states.keys()) this.positionState(image);
       });
+    }
+    // --- Paused-video frames (UT-27) ---
+    snapshotPausedVideo(target) {
+      if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
+      const settings = this.options.getSettings();
+      if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
+      const rect = target.getBoundingClientRect();
+      if (rect.width * rect.height < settings.ocrMinImageArea) return;
+      if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
+      const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
+      if (!dataUrl) return;
+      const frame = document.createElement("img");
+      frame.className = "jpdb-ocr-video-frame";
+      frame.dataset.yomuVideoFrame = "true";
+      frame.alt = "";
+      positionVideoFrameImage(frame, rect);
+      frame.addEventListener("load", () => {
+        if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
+      }, { once: true });
+      frame.src = dataUrl;
+      document.body.append(frame);
+      this.videoFrames.set(target, frame);
+      this.schedulePosition();
+    }
+    releaseVideoFrame(target) {
+      if (!(target instanceof HTMLVideoElement)) return;
+      const frame = this.videoFrames.get(target);
+      if (!frame) return;
+      this.videoFrames.delete(target);
+      const state = this.states.get(frame);
+      if (state) {
+        this.observer?.unobserve(frame);
+        state.overlay.remove();
+        this.states.delete(frame);
+      }
+      this.queue = this.queue.filter((queued) => queued !== frame);
+      frame.remove();
+    }
+    releaseAllVideoFrames() {
+      for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
+    }
+    positionVideoFrames() {
+      for (const [video, frame] of [...this.videoFrames]) {
+        if (!video.isConnected || !video.paused) {
+          this.releaseVideoFrame(video);
+          continue;
+        }
+        positionVideoFrameImage(frame, video.getBoundingClientRect());
+      }
     }
     scheduleRefresh(delay2) {
       window.clearTimeout(this.refreshTimer);
@@ -27514,6 +27576,7 @@ ${spelling}`);
     return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLSourceElement || node instanceof Element && Boolean(node.querySelector("img, video, source"));
   }
   function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
+    if (image.dataset.yomuVideoFrame) return false;
     const imageArea = rect.width * rect.height;
     if (imageArea < 4) return false;
     const imageRoot = image.getRootNode();
@@ -27561,6 +27624,28 @@ ${spelling}`);
     if (rect.right < 0) return -rect.right;
     if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
     return 0;
+  }
+  function captureVideoFrameDataUrl(video) {
+    try {
+      if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return void 0;
+      const canvas = document.createElement("canvas");
+      const maxWidth = 960;
+      const scale = Math.min(1, maxWidth / video.videoWidth);
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.84);
+    } catch {
+      return void 0;
+    }
+  }
+  function positionVideoFrameImage(frame, rect) {
+    frame.style.left = `${rect.left}px`;
+    frame.style.top = `${rect.top}px`;
+    frame.style.width = `${rect.width}px`;
+    frame.style.height = `${rect.height}px`;
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;

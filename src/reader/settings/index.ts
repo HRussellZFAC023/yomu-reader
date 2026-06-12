@@ -293,6 +293,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     hideKnownFurigana: true,
     ocrEnabled: true,
     ocrAutoScanImages: true,
+    ocrVideoPauseFrames: true,
     ocrShowTextOverlay: false,
     ocrProvider: 'google-lens',
     ocrEndpointUrl: '',
