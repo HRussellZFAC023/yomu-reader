@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.167] - 2026-06-12
+
+### Added
+
+- Undo now works after every grade, on every provider: Jiten reviews reverse server-side as before, while JPDB and Anki grades — which cannot be reversed upstream — return the card to the front of the queue with an honest note that the recorded review still counts. The U key and the undo button appear for all of them.
+- Pressing Previous (or the browser Back button) right after grading performs that undo — stepping back across a grade boundary is the natural undo gesture.
+- Every study card has a stable URL (#card=…): advancing pushes browser history, so back/forward walk the session, a reload lands on the same card, and links to a specific card can be shared or bookmarked.
+
 ## [0.6.166] - 2026-06-12
 
 ### Changed

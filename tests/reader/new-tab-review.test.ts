@@ -7067,7 +7067,7 @@ describe('new tab review helpers', () => {
         });
     });
 
-    it('keeps next and previous navigation away from the just-graded card', async () => {
+    it('undoes the grade locally when Previous is pressed right after grading (UT-58)', async () => {
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
         const graded = newTabTestCard({ vid: 1, sid: 1, spelling: '採点', reading: 'さいてん', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
         const next = newTabTestCard({ vid: 2, sid: 1, spelling: '次', reading: 'つぎ', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] });
@@ -7113,12 +7113,20 @@ describe('new tab review helpers', () => {
                 expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
             });
 
+            // UT-58: Previous right after a grade IS the undo gesture — the
+            // graded card returns to the front (locally for JPDB: the
+            // upstream review stands) and the session counter walks back.
             root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('採点');
+            });
             expect(reviewCard).toHaveBeenCalledTimes(1);
-            expect(root.querySelector<HTMLElement>('[data-newtab-count]')?.dataset.sessionCompletedReviews).toBe('1');
+            expect(root.querySelector<HTMLElement>('[data-newtab-count]')?.dataset.sessionCompletedReviews).toBe('0');
+            // With the undo consumed, Previous is plain navigation again.
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]')?.click();
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('次');
+            });
         } finally {
             controller.destroy();
             root.remove();

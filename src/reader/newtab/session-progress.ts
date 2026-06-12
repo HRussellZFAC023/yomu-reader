@@ -48,6 +48,11 @@ export class NewTabSessionProgressTracker {
         this.startedAt = this.now();
     }
 
+    // UT-57: local undo walks one completed review back.
+    recordReviewUndone(): void {
+        this.completedReviews = Math.max(0, this.completedReviews - 1);
+    }
+
     recordReviewCompleted(): NewTabSessionProgressSnapshot {
         this.completedReviews += 1;
         return this.snapshot();
