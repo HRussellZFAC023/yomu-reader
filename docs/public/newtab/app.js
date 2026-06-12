@@ -3526,6 +3526,7 @@
       toggleOcr: "Alt+O",
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
+      massReviewVisible: "Alt+M",
       gradeNothing: "1",
       gradeSomething: "2",
       gradeHard: "3",
@@ -6176,6 +6177,11 @@
       toggleImageReading: "Toggle image reading",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
+      massReviewVisible: "Mass review visible words (Jiten)",
+      massReviewNoWords: "No due Jiten words on screen.",
+      massReviewNoKey: "Add a Jiten API key to mass review.",
+      massReviewDone: "Reviewed {count} words as Good.",
+      massReviewFailed: "Mass review failed.",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -7479,6 +7485,11 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
+massReviewVisible	画面内の単語を一括レビュー（Jiten）
+massReviewNoWords	画面内に復習対象のJiten単語がありません。
+massReviewNoKey	一括レビューにはJiten APIキーが必要です。
+massReviewDone	{count}語を「Good」でレビューしました。
+massReviewFailed	一括レビューに失敗しました。
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -19534,6 +19545,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const SHORTCUT_SETTING_NAMES = [
     "scanPage",
     "hoverLookup",
+    "massReviewVisible",
     "openSettings",
     "playAudio",
     "closePopup",
@@ -21703,6 +21715,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${shortcutInput("shortcuts.toggleOcr", "Toggle image reading", settings.shortcuts.toggleOcr)}
                     ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
+                    ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
             </fieldset>
@@ -22562,6 +22575,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["shortcuts.toggleOcr", "toggleImageReading"],
     ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
     ["shortcuts.scanImages", "readImagesNow"],
+    ["shortcuts.massReviewVisible", "massReviewVisible"],
     ["shortcuts.gradeNothing", "gradeNothing"],
     ["shortcuts.gradeSomething", "gradeSomething"],
     ["shortcuts.gradeHard", "gradeHard"],
@@ -45801,6 +45815,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ...jitenCardReference(card),
         rating: jitenRatingForGrade(grade)
       });
+    }
+    // Jiten v1.2.x parity: mass-review visible words in one transaction.
+    // fallow-ignore-next-line unused-class-member
+    async batchReviewCards(cards, grade) {
+      const reviews = cards.flatMap((card) => {
+        try {
+          return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
+        } catch {
+          return [];
+        }
+      });
+      if (!reviews.length) return 0;
+      await this.request("srs/batch-review", { reviews });
+      return reviews.length;
     }
     // Parity with JPDB's refreshCard: Jiten exposes card state only through
     // /parse (knownState), so refresh by re-parsing the word itself and

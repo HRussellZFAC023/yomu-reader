@@ -647,6 +647,11 @@ const COPY = {
         toggleImageReading: 'Toggle image reading',
         toggleYoutubeImmersion: 'Toggle YouTube filter',
         readImagesNow: 'Read images now',
+        massReviewVisible: 'Mass review visible words (Jiten)',
+        massReviewNoWords: 'No due Jiten words on screen.',
+        massReviewNoKey: 'Add a Jiten API key to mass review.',
+        massReviewDone: 'Reviewed {count} words as Good.',
+        massReviewFailed: 'Mass review failed.',
         ocrEnabledToast: 'Image reading enabled.',
         ocrHiddenToast: 'Image reading hidden.',
         ocrNoReadableImages: 'No readable images nearby.',
@@ -1956,6 +1961,11 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
+massReviewVisible	画面内の単語を一括レビュー（Jiten）
+massReviewNoWords	画面内に復習対象のJiten単語がありません。
+massReviewNoKey	一括レビューにはJiten APIキーが必要です。
+massReviewDone	{count}語を「Good」でレビューしました。
+massReviewFailed	一括レビューに失敗しました。
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート

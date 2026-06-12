@@ -62,6 +62,7 @@ const COLOR_SOURCE_SETTING_NAMES = [
 const SHORTCUT_SETTING_NAMES = [
     'scanPage',
     'hoverLookup',
+    'massReviewVisible',
     'openSettings',
     'playAudio',
     'closePopup',

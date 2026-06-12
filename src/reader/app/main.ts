@@ -92,12 +92,14 @@ import {
     pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
-import { subscribeToCardStateSignals } from './card-state-signal';
+import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
 import {
     cardMatchesRenderedLookupValue,
+    jitenWordCardForMassReview,
     publicJpdbRenderedWordLookup,
     kanaRunRenderedWordsForSurface,
+    visibleJitenReviewableWords,
     renderedKanaFragmentExpansionLookup,
     renderedWordCacheMatches,
     renderedWordExpansionLookup,
@@ -1523,6 +1525,11 @@ export class ReaderApp {
             void this.ocr.scanVisible();
             return true;
         }
+        if (matchesShortcut(event, this.settings.shortcuts.massReviewVisible)) {
+            event.preventDefault();
+            void this.massReviewVisibleJitenWords();
+            return true;
+        }
         return this.handleAudioShortcut(event);
     }
 
@@ -1533,6 +1540,38 @@ export class ReaderApp {
         this.ocr.refresh();
         log.info('Shortcut toggled OCR', { enabled: this.settings.ocrEnabled });
         this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? 'imageReadingEnabled' : 'imageReadingHidden'));
+    }
+
+    // Jiten v1.2.x parity: "review everything on screen" — grade every
+    // visible due/learning Jiten word as Good in one srs/batch-review
+    // transaction, then refresh their rendered states from a single parse.
+    private async massReviewVisibleJitenWords(): Promise<void> {
+        if (!hasJitenApiCredential(this.settings)) {
+            this.toast(uiText(this.settings.interfaceLanguage, 'massReviewNoKey'));
+            return;
+        }
+        const words = visibleJitenReviewableWords();
+        if (!words.length) {
+            this.toast(uiText(this.settings.interfaceLanguage, 'massReviewNoWords'));
+            return;
+        }
+        const cards = words.map(word => jitenWordCardForMassReview(word));
+        try {
+            const count = await this.jiten.batchReviewCards(cards, 'okay');
+            this.toast(uiText(this.settings.interfaceLanguage, 'massReviewDone').replace('{count}', String(count)));
+            log.info('Mass-reviewed visible Jiten words', { count });
+            void this.refreshMassReviewedWordStates(cards);
+        } catch (error) {
+            log.warn('Mass review failed', error);
+            this.toast(uiText(this.settings.interfaceLanguage, 'massReviewFailed'));
+        }
+    }
+
+    private async refreshMassReviewedWordStates(cards: JPDBCard[]): Promise<void> {
+        for (const card of cards.slice(0, 30)) {
+            await this.jiten.refreshCardState(card).catch(() => undefined);
+            publishCardStateSignal(card);
+        }
     }
 
     private handleAudioShortcut(event: KeyboardEvent): boolean {

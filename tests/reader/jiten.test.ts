@@ -750,6 +750,33 @@ describe('JitenApiClient', () => {
         }));
     });
 
+    it('mass-reviews visible words through srs/batch-review in one transaction', async () => {
+        const fetchMock = createFetchMock({ success: true });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+        const cards = [
+            jitenCard({ source: 'jiten', vid: 42, sid: 0 }),
+            jitenCard({ source: 'jiten', vid: 43, sid: 1 }),
+        ];
+
+        const count = await client.batchReviewCards(cards, 'okay');
+
+        expect(count).toBe(2);
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/srs/batch-review`, expect.objectContaining({
+            body: JSON.stringify({ reviews: [
+                { wordId: 42, readingIndex: 0, rating: 3 },
+                { wordId: 43, readingIndex: 1, rating: 3 },
+            ] }),
+        }));
+    });
+
+    it('skips the batch-review request entirely when no card is Jiten-backed', async () => {
+        const fetchMock = createFetchMock({ success: true });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        await expect(client.batchReviewCards([], 'okay')).resolves.toBe(0);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('normalizes Yomu review grades to Jiten FSRS ratings', () => {
         expect(jitenRatingForGrade('nothing')).toBe(1);
         expect(jitenRatingForGrade('fail')).toBe(1);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.133
+// @version      0.6.134
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-P9oOFNeIZpgJ3sUBT0f4DwchI+Bi3fDv/A/1ZFVdmN0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-mFf/xLn/78Ocq9J3czR6GQt7PMc3/o6+BgEUjcmYeFg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-fjiWEpiZDwVtDeIoCyeMu0OYnVNbn4vwQDQ0Lubpg6k=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-7c1+3dapbPWsG7SwGC8E0f5bHvXfCLC0GMEMUwxAh3o=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2OhdNUwo3MrfwmoLJ1tf3Rh13UNViD+U+dDoFKZoPak=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-2T2gONeWun4RyJadLeNxAcX+K3LnSjr9iMYqviJipU8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2144,6 +2144,7 @@
       toggleOcr: "Alt+O",
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
+      massReviewVisible: "Alt+M",
       gradeNothing: "1",
       gradeSomething: "2",
       gradeHard: "3",
@@ -5949,6 +5950,11 @@
       toggleImageReading: "Toggle image reading",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
+      massReviewVisible: "Mass review visible words (Jiten)",
+      massReviewNoWords: "No due Jiten words on screen.",
+      massReviewNoKey: "Add a Jiten API key to mass review.",
+      massReviewDone: "Reviewed {count} words as Good.",
+      massReviewFailed: "Mass review failed.",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -7252,6 +7258,11 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
+massReviewVisible	画面内の単語を一括レビュー（Jiten）
+massReviewNoWords	画面内に復習対象のJiten単語がありません。
+massReviewNoKey	一括レビューにはJiten APIキーが必要です。
+massReviewDone	{count}語を「Good」でレビューしました。
+massReviewFailed	一括レビューに失敗しました。
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -26213,6 +26224,20 @@ ${spelling}`);
         rating: jitenRatingForGrade(grade)
       });
     }
+    // Jiten v1.2.x parity: mass-review visible words in one transaction.
+    // fallow-ignore-next-line unused-class-member
+    async batchReviewCards(cards, grade) {
+      const reviews = cards.flatMap((card) => {
+        try {
+          return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
+        } catch {
+          return [];
+        }
+      });
+      if (!reviews.length) return 0;
+      await this.request("srs/batch-review", { reviews });
+      return reviews.length;
+    }
     // Parity with JPDB's refreshCard: Jiten exposes card state only through
     // /parse (knownState), so refresh by re-parsing the word itself and
     // copying the fresh state back onto the card.
@@ -31619,6 +31644,39 @@ ${glossaryKey}`;
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
     return clone.textContent ?? "";
   }
+  const MASS_REVIEW_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning", "new"]);
+  function visibleJitenReviewableWords() {
+    const seen = /* @__PURE__ */ new Set();
+    return Array.from(document.querySelectorAll('.jpdb-reader-word[data-card-source="jiten"]')).filter((word) => {
+      const state = word.dataset.cardState ?? "";
+      if (!MASS_REVIEW_STATES.has(state)) return false;
+      const key = `${word.dataset.vid}:${word.dataset.sid}`;
+      if (seen.has(key) || !(Number(word.dataset.vid) > 0)) return false;
+      const rect = word.getBoundingClientRect();
+      const visible = rect.bottom > 0 && rect.top < window.innerHeight && rect.width > 0 && rect.height > 0;
+      if (!visible) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function jitenWordCardForMassReview(word) {
+    return {
+      vid: Number(word.dataset.vid),
+      sid: Number(word.dataset.sid),
+      rid: 0,
+      spelling: word.dataset.expression || readerWordSurfaceText(word),
+      reading: word.dataset.reading ?? "",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: word.dataset.cardState ? [word.dataset.cardState] : [],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jiten",
+      jitenWordId: Number(word.dataset.vid),
+      jitenReadingIndex: Number(word.dataset.sid)
+    };
+  }
   class PopupNavigationController {
     constructor(hasActiveKanjiPopover) {
       this.hasActiveKanjiPopover = hasActiveKanjiPopover;
@@ -36121,6 +36179,11 @@ ${glossaryKey}`;
         void this.ocr.scanVisible();
         return true;
       }
+      if (matchesShortcut(event, this.settings.shortcuts.massReviewVisible)) {
+        event.preventDefault();
+        void this.massReviewVisibleJitenWords();
+        return true;
+      }
       return this.handleAudioShortcut(event);
     }
     toggleOcrFromShortcut(event) {
@@ -36130,6 +36193,36 @@ ${glossaryKey}`;
       this.ocr.refresh();
       log.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
       this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? "imageReadingEnabled" : "imageReadingHidden"));
+    }
+    // Jiten v1.2.x parity: "review everything on screen" — grade every
+    // visible due/learning Jiten word as Good in one srs/batch-review
+    // transaction, then refresh their rendered states from a single parse.
+    async massReviewVisibleJitenWords() {
+      if (!hasJitenApiCredential(this.settings)) {
+        this.toast(uiText(this.settings.interfaceLanguage, "massReviewNoKey"));
+        return;
+      }
+      const words = visibleJitenReviewableWords();
+      if (!words.length) {
+        this.toast(uiText(this.settings.interfaceLanguage, "massReviewNoWords"));
+        return;
+      }
+      const cards = words.map((word) => jitenWordCardForMassReview(word));
+      try {
+        const count = await this.jiten.batchReviewCards(cards, "okay");
+        this.toast(uiText(this.settings.interfaceLanguage, "massReviewDone").replace("{count}", String(count)));
+        log.info("Mass-reviewed visible Jiten words", { count });
+        void this.refreshMassReviewedWordStates(cards);
+      } catch (error) {
+        log.warn("Mass review failed", error);
+        this.toast(uiText(this.settings.interfaceLanguage, "massReviewFailed"));
+      }
+    }
+    async refreshMassReviewedWordStates(cards) {
+      for (const card of cards.slice(0, 30)) {
+        await this.jiten.refreshCardState(card).catch(() => void 0);
+        publishCardStateSignal(card);
+      }
     }
     handleAudioShortcut(event) {
       if (!this.lastCard || !this.activePopover) return false;

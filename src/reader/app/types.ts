@@ -427,6 +427,7 @@ export interface ReaderSettings {
         toggleOcr: string;
         toggleYoutubeImmersion: string;
         scanImages: string;
+        massReviewVisible: string;
         gradeNothing: string;
         gradeSomething: string;
         gradeHard: string;
