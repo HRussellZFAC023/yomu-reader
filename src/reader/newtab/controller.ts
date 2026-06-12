@@ -351,7 +351,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -2705,6 +2705,15 @@ export class NewTabController {
     private async loadApiReviewSourceResults(settings: ReaderSettings, options: { timeoutMs?: number; limit?: number }): Promise<NewTabLoadResult[]> {
         const hasJpdbKey = hasJpdbApiCredential(settings);
         const apiResults: NewTabLoadResult[] = [];
+        // UT-44: picking a specific deck scopes the session to that deck's
+        // provider — a Jiten study deck filters the Jiten batch and skips
+        // JPDB; a JPDB deck skips the Jiten batch; 'all' merges both.
+        const pickedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
+        const jitenDeckId = jitenScopedDeckId(pickedDeck);
+        if (jitenDeckId !== null) {
+            const jiten = await this.loadJitenStudyBatchWords({ ...options, deckId: jitenDeckId });
+            return jiten ? [jiten] : [];
+        }
         if (hasJpdbKey) {
             // The in-page deck selector (study-hub parity SH-6) overrides the
             // settings default; '' follows settings.
@@ -2718,8 +2727,10 @@ export class NewTabController {
             const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
             if (selectedDeckCards) apiResults.push(selectedDeckCards);
         }
-        const jiten = await this.loadJitenStudyBatchWords(options);
-        if (jiten) apiResults.push(jiten);
+        if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === 'all') {
+            const jiten = await this.loadJitenStudyBatchWords(options);
+            if (jiten) apiResults.push(jiten);
+        }
         return apiResults;
     }
 
@@ -2743,7 +2754,7 @@ export class NewTabController {
         return newTabLoadResult(accumulator, this.language());
     }
 
-    private async loadJitenStudyBatchWords(options: { timeoutMs?: number; limit?: number } = {}): Promise<NewTabLoadResult | null> {
+    private async loadJitenStudyBatchWords(options: { timeoutMs?: number; limit?: number; deckId?: number } = {}): Promise<NewTabLoadResult | null> {
         const settings = this.dependencies.getSettings();
         const jiten = this.dependencies.jiten;
         if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyBatchCards !== 'function') return null;
@@ -2754,12 +2765,38 @@ export class NewTabController {
             [] as JPDBCard[],
             options.timeoutMs,
         );
+        let cards = loaded.value;
+        // UT-44: srs/study-batch has no deck parameter — scope by
+        // intersecting with the deck's word keys.
+        if (typeof options.deckId === 'number' && typeof jiten.studyDeckWordKeys === 'function') {
+            const keys = await jiten.studyDeckWordKeys(options.deckId).catch((): Set<string> => new Set());
+            if (keys.size) cards = cards.filter(card => keys.has(`${card.jitenWordId}:${card.jitenReadingIndex ?? 0}`));
+        }
         return {
-            cards: loaded.value,
+            cards,
             sourceLabel: 'Jiten',
             reviewCountMode: true,
             emptyMessageKey: loaded.failed ? 'couldNotLoadWords' : undefined,
         };
+    }
+
+    // UT-44: Jiten study decks in the deck picker (labelled to distinguish
+    // them from JPDB decks; ids carry the jiten: prefix).
+    private jitenDeckOptionsCache?: { key: string; at: number; promise: Promise<Array<{ id: string; name: string }>> };
+
+    private jitenDeckSelectorOptions(settings: ReaderSettings): Promise<Array<{ id: string; name: string }>> {
+        const jiten = this.dependencies.jiten;
+        if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyDecks !== 'function') return Promise.resolve([]);
+        const key = settings.jitenApiKey.trim();
+        const now = Date.now();
+        if (this.jitenDeckOptionsCache && this.jitenDeckOptionsCache.key === key && now - this.jitenDeckOptionsCache.at < 60_000) {
+            return this.jitenDeckOptionsCache.promise;
+        }
+        const promise = jiten.listStudyDecks()
+            .then(decks => decks.map(deck => ({ id: `jiten:${deck.id}`, name: `Jiten · ${deck.name}` })))
+            .catch((): Array<{ id: string; name: string }> => []);
+        this.jitenDeckOptionsCache = { key, at: now, promise };
+        return promise;
     }
 
     private async loadPublicJpdbWords(): Promise<NewTabLoadResult> {
@@ -7763,7 +7800,9 @@ export class NewTabController {
             return;
         }
         const sourceAllowsJpdb = this.state.source === 'auto' || this.state.source === 'jpdb';
-        const show = sourceAllowsJpdb && hasJpdbApiCredential(settings);
+        // UT-44: the picker also lists Jiten study decks, so Jiten-only
+        // credentials show it too.
+        const show = sourceAllowsJpdb && (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings));
         select.hidden = !show;
         if (!show) return;
         void this.populateDeckSelector(select, settings);
@@ -7830,11 +7869,13 @@ export class NewTabController {
             this.deckSelectorDecks = { key, promise: listDecks.catch((): JPDBDeck[] => []) };
         }
         const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([] as JPDBDeck[]));
+        const jitenDecks = await this.jitenDeckSelectorOptions(settings);
         if (!select.isConnected) return;
         const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
         const options = [
             { id: 'all', name: this.text('allVocabularyDeck') },
             ...decks.filter(deck => deck.id !== 'all'),
+            ...jitenDecks,
         ];
         if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
         replaceChildrenWith(select, options.map(option => el('option', {
@@ -7926,6 +7967,13 @@ function ankiAudioFilenamesFromFields(fields: Record<string, string>): string[] 
     const filenames = uniqueStrings(Object.values(fields)
         .flatMap(value => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), match => match[1]?.trim() ?? '')));
     return filenames.length ? filenames : undefined;
+}
+
+// UT-44: deck-picker values of the form jiten:<id> scope to a Jiten study deck.
+function jitenScopedDeckId(pickedDeck: string): number | null {
+    if (!pickedDeck.startsWith('jiten:')) return null;
+    const id = Number(pickedDeck.slice('jiten:'.length));
+    return Number.isFinite(id) && id > 0 ? Math.floor(id) : null;
 }
 
 function uniqueConcreteSources(sources: Array<ConcreteNewTabWordSource | null>): ConcreteNewTabWordSource[] {
