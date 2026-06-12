@@ -5,9 +5,9 @@ Last updated: 2026-06-11 (post-0.6.88 groom: verified-done items deleted per use
 ## User Testing 2026-06-11 (critical batch — fix first, in order; ask for screenshots in follow-up notes for any non-repro)
 
 YouTube (mobile usability first):
-- UT-1 P0: Content shift while scrolling on mobile — scroll position jumps as videos load in ("making YouTube basically unusable"). Suspect: filter collapsing cards above the viewport without scroll anchoring compensation; reserve space or compensate scrollTop when culling above-fold items.
-- UT-2 P0: Channel-shelf Subscribe says "subscribed" but the channel is NOT subscribed on refresh/YouTube check. Suspect: the subscribe POST silently fails (missing innertube params/consent) while the UI optimistically flips.
-- UT-3 P0: ASB-style subtitle rerender loop — flicker + page lag; pitch-accent highlight appears then disappears. Suspect: cue re-render replacing enriched HTML with unenriched parse, then re-enriching (loop); pin enriched cue HTML by content hash.
+- DONE 0.6.126 — UT-1 mobile content shift (withFeedScrollAnchor; see DONE entry below if duplicated).
+- DONE 0.6.125 — UT-2 Subscribe (SAPISIDHASH; live-verified 登録済み).
+- DONE 0.6.126 — UT-3 subtitle rerender loop (identical-html skip in applySubtitleHtml).
 - DONE 0.6.127 — UT-4 description flash: parsing turned bio newlines into <br>, escaping the nowrap-ellipsis clamp; shelf descriptions now use -webkit-line-clamp:1 with br{display:none}. Also covers the UT-8 screenshot instance (furigana overlapping inside the expanded bio).
 - DONE 0.6.125 — UT-5 'tracks detected' leak: cue without terminal punctuation let the ancestor sentence walk reach the player root and append the chrome status line; .jpdb-subtitle-status/.jpdb-subtitle-rail now carry data-jpdb-reader-surface-ignore. Regression pinned in sentence-context.test.ts with the user's literal string.
 - DONE 0.6.127 — UT-6 community posts: feed posts (ytd-post-renderer/backstage-post desktop+mweb, live-captured DOM) now classify on their post text (#content-text / ytmBackstagePostRendererHostContentText, buttons stripped so 続きを読む doesn't count as Japanese); channel-own /posts pages exempt; text-less image/poll posts stay visible (follow-up: poll text classification).
@@ -22,7 +22,7 @@ Reader/typography:
 
 New tab / study page:
 - DONE 0.6.129 — UT-13 session timer + daily goal: the study-page stopwatch now ticks every second and shows in ALL word-study modes (was render-stamped and review-mode only); new setting newTabDailyGoalMinutes (default 60, 0=off, clamped 0-1440, settings form + en/ja labels) with per-local-day accumulation in localStorage (visible-tab seconds only) shown as 'X/60 min ✓ Goal reached'.
-- UT-14 TRUST: With a JPDB key, default options show "No reviews ready — showing practice words", but picking a deck starts working; and the SRS queue does not match jpdb.io Learn (next jpdb word よくできました absent). JPDB Learn also MIXES kanji+vocab in one queue (kanji unlock words). Default review flow must mirror that: combined queue, kanji-first unlock semantics; same concept for Anki/Jiten where derivable.
+- DONE 0.6.130/0.6.131 — UT-14 queue trust (due_at exact order, all-decks union) + combined kanji-unlock queue with newTabKanjiUnlockEnabled.
 - DONE 0.6.131 — UT-15 combined kanji+word unlock: Word-tab study queue now replaces locked words with their kanji unlock cards (synthetic negative-vid kanji cards render/grade as kanji via isKanjiUnlockStudyCard), deduped across the pool; kana-only locked words study as words. New setting newTabKanjiUnlockEnabled (default ON = jpdb parity; OFF = skip kanji entirely, locked words study directly; Kanji tab unaffected either way; toggling never touches provider progression). Welcome splash gained a Study feature card (en+ja). Applies to all providers since it keys off cardState 'locked'.
 - DONE 0.6.128 — UT-16 front furigana spoiler: the target word's furigana in the front example sentence is visibility-hidden until reveal (CSS, :not(.jpdb-reader-newtab-revealed) scope); other words keep furigana (jpdb Learn parity).
 - DONE 0.6.132 — UT-17 search-tab 2D reviews: state chips are now MULTI-select (All clears), deck dropdown also serves the Search tab (selecting a deck browses its full word list, 5000 cap, queue order via due_at), typing prefix-ranks matches (よ → よ… first, substring after), sort row (Queue order / A→Z / Frequency + asc/desc toggle), select mode is OPT-IN (checkboxes hidden behind a Select toggle), dictionary lookup remains the no-scope default. Pure helpers tested in new-tab-browse.test.ts (8 tests).
@@ -50,7 +50,7 @@ Community intel: `docs/community-intel-backlog.md` (captured 2026-06-11) seeds t
 ## Current Scoreboard
 
 - `npm run typecheck`, `npm run test:ci`, `npm run build`, `npm run docs:build`, `npm run verify`: all green at 0.6.100 (every release today gated by `npm run check`).
-- `dist/yomu.user.js`: 1,958,246 bytes (41,754 below the 2 MB Greasy Fork limit) — size lane urgent, see above.
+- `dist/yomu.user.js`: 1,832,625 bytes at 0.6.132 (167,375 headroom) — ADR-0003 split keeps size healthy.
 - Live e2e: the user's signed-in Playwright MCP Chrome is available (YouTube, jpdb.io, jiten.moe, claude.ai as of 2026-06-11); injection recipe in `.playwright-mcp/inject-youtube.mjs` / `inject-generic.mjs` (serve dist on :8742, GM shim init script, CDP `Runtime.evaluate` with `allowUnsafeEvalBlockedByCSP`, companions before core).
 - Current user direction: verify journeys live, fix real bugs, groom this backlog (delete verified-done), then study-hub parity (`docs/study-hub-parity.md`); keep mobile/iPad users in mind.
 
@@ -96,9 +96,9 @@ Community intel: `docs/community-intel-backlog.md` (captured 2026-06-11) seeds t
 
 ## P3: Duplication
 
-- `scripts/feedback-smoke.mjs` vs `tests/reader/hover-lookup.test.ts`: share text-selection fixture setup or suppress intentionally.
-- `scripts/uchisen-bulk-publish.mjs` vs `src/reader/dictionaries/uchisen.ts`: share or intentionally separate normalization.
-- `src/reader/dictionaries/groups-core.ts` vs `src/reader/newtab/index.ts`: extract learner-glossary cleanup helpers.
+- DONE 0.6.133 — feedback-smoke vs hover-lookup: documented as intentionally separate (hosted smoke vs jsdom unit; no shared setup worth extracting).
+- DONE 0.6.133 — uchisen normalizers: documented as intentionally duplicated across the node-script/TS boundary with keep-in-sync cross-references.
+- DONE 0.6.133 — learner-glossary summarization extracted to summarizeLearnerGlossaryTexts in dictionaries/learner-glossary.ts; groups-core and newtab meaning cleanup both consume it.
 - `tests/reader/jpdb.test.ts`: large clone group; extract fixtures carefully.
 - Avoid broad edits to `tests/reader/new-tab-review.test.ts` until the new-tab controller settles.
 
