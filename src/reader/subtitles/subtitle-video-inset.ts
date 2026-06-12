@@ -112,18 +112,9 @@ function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, _width: numbe
     return Math.max(180, Math.round(options.videoRect.height));
 }
 
-function isCijPage(): boolean {
-    const host = location.hostname;
-    return /(^|\.)cijapanese\.com$/i.test(host)
-        || host === 'localhost'
-        || host === '127.0.0.1'
-        || host === '';
-}
-
 function applyGenericVideoInsetIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {
-    if (isCijPage() && options.video) {
-        applyGenericVideoInset(options.video, options.side, options.side === 'bottom' ? metrics.height : metrics.width, metrics.height);
-    }
+    if (isYouTubePage() || !options.video) return;
+    applyGenericVideoInset(options.video, options.side, options.side === 'bottom' ? metrics.height : metrics.width, metrics.height);
 }
 
 interface VideoInsetSnapshot {
@@ -191,24 +182,39 @@ export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {
         const rect = youtubeVisiblePlayerRect();
         if (rect) return rect;
     }
-    return video?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    return subtitleVideoLayoutTarget(video)?.getBoundingClientRect()
+        ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
+export function subtitleVideoLayoutTarget(video?: HTMLVideoElement): HTMLElement | undefined {
+    if (!video) return undefined;
+    if (isYouTubePage()) {
+        return video.closest<HTMLElement>('#movie_player')
+            ?? video.closest<HTMLElement>('.html5-video-player')
+            ?? video.closest<HTMLElement>('ytd-player')
+            ?? video;
+    }
+    return genericVideoLayoutTarget(video);
 }
 
 export function transcriptAvoidanceTarget(video: HTMLVideoElement): HTMLElement {
     const videoRect = video.getBoundingClientRect();
     let best: HTMLElement = genericVideoLayoutTarget(video);
     for (let ancestor = video.parentElement; ancestor && ancestor !== document.body && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
-        if (isUsefulTranscriptAvoidanceTarget(ancestor, videoRect)) best = ancestor;
+        if (isUsefulTranscriptAvoidanceTarget(ancestor, video, videoRect)) best = ancestor;
     }
     return best;
 }
 
-function isUsefulTranscriptAvoidanceTarget(element: HTMLElement, videoRect: DOMRect): boolean {
+function isUsefulTranscriptAvoidanceTarget(element: HTMLElement, video: HTMLVideoElement, videoRect: DOMRect): boolean {
     const rect = element.getBoundingClientRect();
+    if (element.matches('[data-yomu-video-frame]')) return true;
     return usableVideoRect(rect)
         && rectContainsRect(rect, videoRect, 2)
         && !isViewportSizedVideoRect(rect)
-        && hasMeaningfulVideoInsetSpace(rect, videoRect);
+        && hasMeaningfulVideoInsetSpace(rect, videoRect)
+        && isLikelyGenericPlayerFrame(element)
+        && (video.controls || hasLikelyPlayerChrome(element));
 }
 
 function isViewportSizedVideoRect(rect: DOMRect): boolean {
@@ -357,7 +363,6 @@ function youtubeResizeSignature(width: number, height: number): string {
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
 function dispatchVideoLayoutResize(): void {
-    if (!isYouTubePage()) return;
     dispatchWindowEvent(createWindowEvent('resize'));
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
@@ -543,22 +548,51 @@ function stylePropertyName(property: GenericInsetProperty): string {
 }
 
 function genericVideoLayoutTarget(video: HTMLVideoElement, side: SubtitleVideoInsetSide = 'right'): HTMLElement {
-    const parent = video.parentElement;
-    if (!isGenericVideoLayoutParent(parent)) return video;
-    if (side === 'bottom' && !parent.matches('[data-yomu-video-frame]')) return video;
-    const parentRect = parent.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
-    return shouldUseGenericVideoParent(parent, parentRect, videoRect) ? parent : video;
+    let target: HTMLElement = video;
+    for (let parent = video.parentElement; isGenericVideoLayoutParent(parent); parent = parent.parentElement) {
+        const parentRect = parent.getBoundingClientRect();
+        if (shouldUseGenericVideoParent(parent, parentRect, video, videoRect)) target = parent;
+    }
+    if (side === 'bottom' && !target.matches('[data-yomu-video-frame]')) return video;
+    return target;
 }
 
 function isGenericVideoLayoutParent(parent: HTMLElement | null): parent is HTMLElement {
     return Boolean(parent && parent !== document.body && parent !== document.documentElement);
 }
 
-function shouldUseGenericVideoParent(parent: HTMLElement, parentRect: DOMRect, videoRect: DOMRect): boolean {
+function shouldUseGenericVideoParent(parent: HTMLElement, parentRect: DOMRect, video: HTMLVideoElement, videoRect: DOMRect): boolean {
     if (parent.matches('[data-yomu-video-frame]')) return true;
-    if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return false;
-    return rectContainsRect(parentRect, videoRect);
+    if (!usableVideoRect(parentRect)) return false;
+    if (isViewportSizedVideoRect(parentRect)) return false;
+    if (!rectContainsRect(parentRect, videoRect, 4)) return false;
+    const hasInsetSpace = hasMeaningfulVideoInsetSpace(parentRect, videoRect);
+    const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
+    const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
+    if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;
+    return likelyPlayerWithChrome || (hasInsetSpace && likelyPlayerFrame);
+}
+
+function isLikelyGenericPlayerFrame(element: HTMLElement): boolean {
+    const text = `${element.id} ${String(element.className)} ${element.getAttribute('aria-label') ?? ''}`;
+    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text);
+}
+
+function hasLikelyPlayerChrome(element: HTMLElement): boolean {
+    return Boolean(element.querySelector([
+        'button',
+        '[role="button"]',
+        '[role="slider"]',
+        '[role="progressbar"]',
+        '[aria-label*="play" i]',
+        '[aria-label*="pause" i]',
+        '[class*="control" i]',
+        '[class*="controls" i]',
+        '[class*="play" i]',
+        '[class*="pause" i]',
+        '[class*="progress" i]',
+    ].join(',')));
 }
 
 function rectsHaveMatchingSize(a: DOMRect, b: DOMRect, tolerance: number): boolean {

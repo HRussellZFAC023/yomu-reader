@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.178] - 2026-06-12
+
+### Added
+
+- Subtitle player Playwright coverage now includes BBC-style article video, Video.js, JW Player, Plyr, Vimeo-style, Wistia-style, Mux/Kaltura-style, CIJ, mobile YouTube, desktop YouTube placements, and a live-site player discovery smoke.
+
+### Fixed
+
+- Subtitle overlays and transcript drawers now anchor to the player frame/chrome instead of the centered raw video or surrounding article body on generic video sites.
+- Generic player frames now resize with side/bottom transcript drawers on all non-YouTube sites, not only CIJ, and dispatch resize events so embedded players can refit themselves.
+- Subtitle move handles are actually hit-testable and draggable above the subtitle text, with a mouse fallback for environments that do not deliver pointer events.
+- ASBPlayer subtitle dragging now composes with the player’s existing transform instead of relying on the individual `translate` property, and the default move handle no longer paints a shadow bar.
 ## [0.6.177] - 2026-06-12
 
 ### Fixed

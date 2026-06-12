@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
+import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitles/subtitle-video-inset';
 
 // UT-48 session parse cache: clear between tests so persisted cue html from
 // one test cannot satisfy another test's parse expectations.
@@ -467,6 +468,207 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('anchors the subtitle overlay and pointer activity to the player frame instead of the centered video', () => {
+        withViewport(1400, 900, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                document.body.insertAdjacentHTML('beforeend', `
+                    <section class="video-card">
+                        <video></video>
+                        <button class="player-control" type="button">Play</button>
+                    </section>
+                `);
+                const frame = document.querySelector<HTMLElement>('.video-card')!;
+                const video = document.querySelector<HTMLVideoElement>('.video-card video')!;
+                video.controls = false;
+                mockElementRect(frame, new DOMRect(168, 140, 980, 620));
+                mockElementRect(video, new DOMRect(318, 210, 680, 382));
+                attachVideo(controller, { video });
+                const internals = controllerInternals<{ alignToVideo: () => void }>(controller);
+
+                controller.refresh();
+                internals.alignToVideo();
+
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                expect(root.style.left).toBe('168px');
+                expect(root.style.top).toBe('140px');
+                expect(root.style.width).toBe('980px');
+                expect(root.style.height).toBe('620px');
+
+                controllerInternals<{ hideControlsImmediately: () => void }>(controller).hideControlsImmediately();
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+                handlePointerActivity(controller, { clientX: 188, clientY: 160 });
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+
+                controllerInternals<{ hideControlsImmediately: () => void }>(controller).hideControlsImmediately();
+                handlePointerActivity(controller, { clientX: 40, clientY: 40 });
+                expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('dispatches resize events after generic player insets on non-CIJ sites so embedded players refit themselves', async () => {
+        const originalLocation = window.location;
+        vi.useFakeTimers();
+        const resizeSpy = vi.fn();
+        window.addEventListener('resize', resizeSpy);
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://video.example/watch') as unknown as Location,
+        });
+
+        try {
+            let adapter: ReturnType<typeof createSubtitleVideoInsetAdapter> | undefined;
+            let video: HTMLVideoElement | undefined;
+            withViewport(1600, 900, () => {
+                document.body.innerHTML = '<section class="video-card"><video></video></section>';
+                const frame = document.querySelector<HTMLElement>('.video-card')!;
+                video = document.querySelector<HTMLVideoElement>('video')!;
+                mockElementRect(frame, new DOMRect(80, 120, 960, 620));
+                mockElementRect(video, new DOMRect(100, 160, 920, 518));
+
+                adapter = createSubtitleVideoInsetAdapter();
+                adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 820,
+                    panelSize: 420,
+                    videoRect: new DOMRect(80, 120, 960, 620),
+                    margin: 10,
+                });
+
+                expect(frame.style.width).toBe('820px');
+                expect(frame.style.height).toBe('620px');
+                expect(video.style.height).toBe('518px');
+            });
+
+            expect(resizeSpy).toHaveBeenCalledTimes(1);
+            await vi.advanceTimersByTimeAsync(80);
+            expect(resizeSpy).toHaveBeenCalledTimes(2);
+            adapter?.clear(video);
+        } finally {
+            window.removeEventListener('resize', resizeSpy);
+            vi.useRealTimers();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('resizes a same-size custom player wrapper so controls stay linked to the video frame', () => {
+        withViewport(1400, 900, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleTranscriptVisible: false,
+                subtitleTranscriptPlacement: 'right' as const,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                document.body.innerHTML = `
+                    <section class="video-js">
+                        <video></video>
+                        <button class="vjs-play-control" type="button">Play</button>
+                    </section>
+                `;
+                const frame = document.querySelector<HTMLElement>('.video-js')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                video.controls = false;
+                mockElementRect(frame, new DOMRect(80, 120, 900, 506));
+                mockElementRect(video, new DOMRect(80, 120, 900, 506));
+                const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                const internals = controller as unknown as {
+                    install: () => void;
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                };
+                internals.install();
+                internals.video = video;
+                internals.cues = [cue];
+                internals.currentCue = cue;
+
+                internals.openLinesPanel();
+
+                expect(frame.style.width).not.toBe('');
+                expect(frame.style.width).not.toBe(video.style.width);
+                expect(video.style.height).not.toBe('');
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('anchors article-embedded custom players to the player frame instead of the article body', () => {
+        withViewport(1680, 960, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                subtitleTranscriptVisible: false,
+                subtitleTranscriptPlacement: 'right' as const,
+            };
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                document.body.innerHTML = `
+                    <article class="story">
+                        <h1>Story headline</h1>
+                        <section class="bbc-media-player">
+                            <video></video>
+                            <button class="bbc-player-controls" type="button">Play</button>
+                        </section>
+                        <p>Article text below the player should not become the subtitle anchor.</p>
+                    </article>
+                `;
+                const article = document.querySelector<HTMLElement>('.story')!;
+                const frame = document.querySelector<HTMLElement>('.bbc-media-player')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                mockElementRect(article, new DOMRect(44, 44, 1042, 820));
+                mockElementRect(frame, new DOMRect(44, 128, 1042, 587));
+                mockElementRect(video, new DOMRect(326, 129, 478, 585));
+                const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+                const internals = controller as unknown as {
+                    install: () => void;
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                };
+                internals.install();
+                internals.video = video;
+                internals.cues = [cue];
+                internals.currentCue = cue;
+
+                internals.openLinesPanel();
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                expect(panel.style.top).toBe('128px');
+                expect(panel.style.top).not.toBe('44px');
+                expect(frame.style.width).not.toBe('');
+                expect(article.style.width).toBe('');
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('clamps an oversized side drawer instead of falling back below on wide CIJ layouts', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -514,7 +716,7 @@ describe('SubtitlePlayerController', () => {
 
                     const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
                     expect(panel.dataset.transcriptPlacement).toBe('right');
-                    expect(panel.style.width).toBe('990px');
+                    expect(panel.style.width).toBe('948px');
                     expect(panel.style.top).toBe('120px');
                     expect(internals.transcriptPanelSize.sideWidth).toBe(1200);
                 } finally {
@@ -1055,12 +1257,43 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('temporarily moves subtitle overlay from mouse drag when pointer events are not delivered', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+
+            handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientY: 300 }));
+            window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientY: 260 }));
+
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+            expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(true);
+
+            window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientY: 260 }));
+            expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('temporarily moves ASBPlayer subtitle overlays only from the inserted move handle', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         try {
             attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
             document.body.insertAdjacentHTML('beforeend', `
-                <div class="asbplayer-subtitles-container-bottom">
+                <div class="asbplayer-subtitles-container-bottom" style="transform: translateX(-50%)">
                     <span class="jpdb-reader-word">今日は読む。</span>
                 </div>
             `);
@@ -1073,6 +1306,7 @@ describe('SubtitlePlayerController', () => {
             const handle = asbRoot.querySelector<HTMLButtonElement>('[data-yomu-asb-subtitle-drag-handle="true"]')!;
             expect(handle).not.toBeNull();
             expect(asbRoot.classList.contains('jpdb-subtitle-asb-movable')).toBe(true);
+            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-base-transform')).not.toBe('');
 
             handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 11 }));
             window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 11 }));
@@ -1339,6 +1573,18 @@ describe('SubtitlePlayerController', () => {
             .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: 0;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
         expect(SUBTITLES_YOUTUBE_CSS)
             .not.toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
+    });
+
+    it('keeps the subtitle move handle draggable on touch without painting a default shadow', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
+        expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px)); overflow: visible; pointer-events: auto;');
+        expect(normalizedCss).toContain('box-shadow: none;');
+        expect(normalizedCss).toContain('touch-action: none;');
+        expect(normalizedCss).toContain('transform: translateY(var(--jpdb-subtitle-asb-drag-offset-y)) var(--jpdb-subtitle-asb-base-transform, translateZ(0));');
+        expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging)');
+        expect(normalizedCss).toContain('box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);');
     });
 
     it('does not default live subtitle status colors to blue without a real status source', () => {

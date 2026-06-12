@@ -33,6 +33,7 @@ import {
 import {
     createSubtitleVideoInsetAdapter,
     subtitleVideoLayoutRect,
+    subtitleVideoLayoutTarget,
     transcriptAvoidanceTarget,
     type SubtitleVideoInsetAdapter,
     type SubtitleVideoInsetSide,
@@ -258,6 +259,19 @@ function clearWindowAnimationFrame(id: number | undefined): undefined {
     return undefined;
 }
 
+function frameHasPlayerControls(frame: HTMLElement): boolean {
+    return Boolean(frame.querySelector([
+        'button',
+        '[role="button"]',
+        '[aria-label*="play" i]',
+        '[aria-label*="pause" i]',
+        '[class*="control" i]',
+        '[class*="controls" i]',
+        '[class*="play" i]',
+        '[class*="pause" i]',
+    ].join(',')));
+}
+
 // Behind matters for the previous-line button: keep enough parsed history
 // that stepping back always hits the cache.
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
@@ -302,6 +316,14 @@ function normalizedSubtitleText(value: string | null | undefined): string {
 interface TranscriptRow {
     cue: SubtitleCue;
     cueIndex: number;
+}
+
+interface SubtitleDragSession {
+    handle: HTMLElement;
+    dragFrame: HTMLElement;
+    dragRoot?: HTMLElement;
+    startY: number;
+    startOffset: number;
 }
 
 interface TranscriptPanelRenderState {
@@ -459,7 +481,9 @@ export class SubtitlePlayerController {
     private pausePanelDismissed = false;
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
+    private subtitleDragActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
+    private readonly asbSubtitleBaseTransforms = new WeakMap<HTMLElement, string>();
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -700,6 +724,8 @@ export class SubtitlePlayerController {
         if (!this.video) return false;
         if (this.video.controls || isYouTubePage()) return true;
         if (this.video.closest('#movie_player, .html5-video-player, [data-yomu-video-frame]')) return true;
+        const frame = subtitleVideoLayoutTarget(this.video);
+        if (frame && frame !== this.video && frameHasPlayerControls(frame)) return true;
         return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
     }
 
@@ -2038,32 +2064,21 @@ export class SubtitlePlayerController {
         const handle = this.root?.querySelector<HTMLElement>('[data-subtitle-drag-handle]');
         if (!handle) return;
         handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
+        handle.addEventListener('mousedown', event => this.startSubtitleMouseDrag(event), this.eventOptions());
         handle.addEventListener('keydown', event => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
     }
 
     private startSubtitleDrag(event: PointerEvent): void {
         const handle = event.currentTarget as HTMLElement;
-        const dragFrame = this.subtitleDragFrameForHandle(handle);
-        if (!dragFrame || event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-
-        const dragRoot = this.subtitleDragClassRootForHandle(handle);
+        const session = this.beginSubtitleDrag(handle, event.button, event.clientY, event);
+        if (!session) return;
         const pointerId = event.pointerId;
-        const startY = event.clientY;
-        const startOffset = this.subtitleDragOffsetYPx;
         handle.setPointerCapture?.(pointerId);
-        handle.classList.add('jpdb-subtitle-dragging');
-        dragRoot?.classList.add('jpdb-subtitle-dragging');
-        if (dragRoot !== this.root) this.root?.classList.add('jpdb-subtitle-dragging');
-        this.showControlsTemporarily();
 
         const pointerMatches = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId;
         const onMove = (moveEvent: PointerEvent) => {
             if (!pointerMatches(moveEvent)) return;
-            if (moveEvent.cancelable) moveEvent.preventDefault();
-            this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY, dragFrame);
-            this.showControlsTemporarily();
+            this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
         };
 
         const onEnd = (upEvent: PointerEvent) => {
@@ -2072,15 +2087,63 @@ export class SubtitlePlayerController {
             window.removeEventListener('pointerup', onEnd);
             window.removeEventListener('pointercancel', onEnd);
             handle.releasePointerCapture?.(pointerId);
-            handle.classList.remove('jpdb-subtitle-dragging');
-            dragRoot?.classList.remove('jpdb-subtitle-dragging');
-            if (dragRoot !== this.root) this.root?.classList.remove('jpdb-subtitle-dragging');
-            this.showControlsTemporarily();
+            this.endSubtitleDrag(session);
         };
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
         window.addEventListener('pointerup', onEnd, this.eventOptions());
         window.addEventListener('pointercancel', onEnd, this.eventOptions());
+    }
+
+    private startSubtitleMouseDrag(event: MouseEvent): void {
+        const handle = event.currentTarget as HTMLElement;
+        const session = this.beginSubtitleDrag(handle, event.button, event.clientY, event);
+        if (!session) return;
+        const onMove = (moveEvent: MouseEvent) => this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
+        const onEnd = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onEnd);
+            this.endSubtitleDrag(session);
+        };
+        window.addEventListener('mousemove', onMove, this.eventOptions());
+        window.addEventListener('mouseup', onEnd, this.eventOptions());
+    }
+
+    private beginSubtitleDrag(handle: HTMLElement, button: number, startY: number, event: Event): SubtitleDragSession | undefined {
+        if (this.subtitleDragActive || button !== 0) return undefined;
+        const dragFrame = this.subtitleDragFrameForHandle(handle);
+        if (!dragFrame) return undefined;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const dragRoot = this.subtitleDragClassRootForHandle(handle);
+        const session: SubtitleDragSession = {
+            handle,
+            dragFrame,
+            dragRoot,
+            startY,
+            startOffset: this.subtitleDragOffsetYPx,
+        };
+        this.subtitleDragActive = true;
+        handle.classList.add('jpdb-subtitle-dragging');
+        dragRoot?.classList.add('jpdb-subtitle-dragging');
+        if (dragRoot !== this.root) this.root?.classList.add('jpdb-subtitle-dragging');
+        this.showControlsTemporarily();
+        return session;
+    }
+
+    private updateSubtitleDrag(session: SubtitleDragSession, clientY: number, event: Event): void {
+        if (event.cancelable) event.preventDefault();
+        this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+        this.showControlsTemporarily();
+    }
+
+    private endSubtitleDrag(session: SubtitleDragSession): void {
+        this.subtitleDragActive = false;
+        session.handle.classList.remove('jpdb-subtitle-dragging');
+        session.dragRoot?.classList.remove('jpdb-subtitle-dragging');
+        if (session.dragRoot !== this.root) this.root?.classList.remove('jpdb-subtitle-dragging');
+        this.showControlsTemporarily();
     }
 
     private moveSubtitleOverlayFromKeyboard(event: KeyboardEvent): void {
@@ -2175,6 +2238,7 @@ export class SubtitlePlayerController {
                 this.teardownAsbPlayerSubtitleMoveRoot(root);
                 continue;
             }
+            this.captureAsbPlayerSubtitleBaseTransform(root);
             root.classList.add('jpdb-subtitle-asb-movable', 'jpdb-subtitle-has-lines');
             root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
             root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
@@ -2213,8 +2277,17 @@ export class SubtitlePlayerController {
         handle.setAttribute('aria-label', moveLabel);
         if (this.asbSubtitleDragHandles.has(handle)) return;
         handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
+        handle.addEventListener('mousedown', event => this.startSubtitleMouseDrag(event), this.eventOptions());
         handle.addEventListener('keydown', event => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
         this.asbSubtitleDragHandles.add(handle);
+    }
+
+    private captureAsbPlayerSubtitleBaseTransform(root: HTMLElement): void {
+        if (this.asbSubtitleBaseTransforms.has(root)) return;
+        const transform = getComputedStyle(root).transform;
+        const baseTransform = transform && transform !== 'none' ? transform : 'translateZ(0)';
+        this.asbSubtitleBaseTransforms.set(root, baseTransform);
+        root.style.setProperty('--jpdb-subtitle-asb-base-transform', baseTransform);
     }
 
     private removeAsbPlayerSubtitleMoveHandles(): void {
@@ -2226,6 +2299,8 @@ export class SubtitlePlayerController {
         root.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR).forEach(handle => handle.remove());
         root.classList.remove(...ASBPLAYER_SUBTITLE_DRAG_CLASSES);
         root.style.removeProperty('--jpdb-subtitle-asb-drag-offset-y');
+        root.style.removeProperty('--jpdb-subtitle-asb-base-transform');
+        this.asbSubtitleBaseTransforms.delete(root);
     }
 
     private showControlsTemporarily(): void {
@@ -2280,7 +2355,7 @@ export class SubtitlePlayerController {
     }
 
     private videoIsLargeEnoughForIdleControls(): boolean {
-        const rect = this.video?.getBoundingClientRect();
+        const rect = this.video ? this.videoLayoutRect() : undefined;
         return Boolean(rect && rect.width > 120 && rect.height > 90);
     }
 
@@ -2290,7 +2365,7 @@ export class SubtitlePlayerController {
         if (this.pointInOpenTranscriptPanel(x, y)) return true;
         if (!this.video) return true;
         if (this.videoPlayerChromeHidden()) return false;
-        return pointInRect(x, y, this.video.getBoundingClientRect());
+        return pointInRect(x, y, this.videoLayoutRect());
     }
 
     private videoPlayerChromeHidden(): boolean {
