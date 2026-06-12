@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.137] - 2026-06-12
+
+### Fixed
+
+- Study page: the session clock now stops when you leave the Word tab, and daily-goal time only counts seconds actually spent studying words (it previously kept ticking on the Stats/Search tabs and while idling).
+
 ## [0.6.136] - 2026-06-12
 
 ### Changed
