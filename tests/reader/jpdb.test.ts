@@ -395,6 +395,7 @@ function jpdbDeckVocabularyInfoRow(
         idOffset?: number;
         state?: string[];
         reviewState?: string[];
+        dueAt?: number | null;
     } = {},
 ): unknown[] {
     const spellingPrefix = options.spellingPrefix ?? '語';
@@ -412,6 +413,7 @@ function jpdbDeckVocabularyInfoRow(
         [['n']],
         options.state ?? ['known'],
         options.reviewState ?? [],
+        options.dueAt ?? null,
     ];
 }
 
@@ -2770,7 +2772,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans JPDB deck vocabulary chunks until scheduled cards are found', async () => {
+    it('scans the whole JPDB deck in one bulk lookup and keeps only scheduled cards', async () => {
         const client = new JpdbClient(() => 'token');
         const lookupBatches: Array<Array<[number, number]>> = [];
         const fetchMock = createJpdbDeckVocabularyFetchMock({
@@ -2802,9 +2804,11 @@ describe('reader helpers', () => {
             const cards = await client.listDeckCards('deck', 2, { scheduledOnly: true });
 
             expect(cards.map(card => card.spelling)).toEqual(['語150', '語151']);
-            expect(lookupBatches.map(batch => batch.length)).toEqual([100, 100]);
+            // The API answers tens of thousands of pairs per call, so the
+            // whole deck resolves in one bulk lookup instead of 100-pair
+            // chunks (the chunked scan timed out on big accounts).
+            expect(lookupBatches.map(batch => batch.length)).toEqual([205]);
             expect(lookupBatches[0][0]).toEqual([1, 1001]);
-            expect(lookupBatches[1][0]).toEqual([101, 1101]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -2834,14 +2838,12 @@ describe('reader helpers', () => {
         }
     });
 
-    it('lists all-decks scheduled JPDB vocabulary in queue order and includes locked cards', async () => {
+    it('lists all-decks scheduled JPDB vocabulary from the listed-decks union without requesting the bogus all id', async () => {
         const client = new JpdbClient(() => 'token');
-        const requestedDeckIds: unknown[] = [];
-        const fetchMock = createJpdbDeckVocabularyFetchMock({
-            vocabulary: body => {
-                requestedDeckIds.push(body.id);
-                return [[9, 99], [7, 77], [8, 88]];
-            },
+        const requestedDecks: unknown[] = [];
+        const fetchMock = createFallbackJpdbDeckFetchMock({
+            requestedDecks,
+            vocabularyForDeck: deckId => deckId === 'deck-a' ? [[9, 99], [7, 77]] : [[8, 88], [7, 77]],
             lookupVocabulary: body => {
                 const byVid: Record<number, string[]> = {
                     7: ['due'],
@@ -2861,8 +2863,32 @@ describe('reader helpers', () => {
         try {
             const cards = await client.listDeckCards('all', 10, { scheduledOnly: true });
 
-            expect(requestedDeckIds).toEqual(['all']);
+            // 'all' is not a real jpdb API deck id (bad_deck): only the
+            // listed decks are requested, duplicate pairs collapse.
+            expect(requestedDecks).toEqual(['deck-a', 'deck-b']);
             expectScheduledDeckCards(cards, ['全9', '全7']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('orders the JPDB study queue by due_at exactly like jpdb Learn', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = createJpdbDeckVocabularyFetchMock({
+            vocabulary: [[1, 11], [2, 22], [3, 33], [4, 44]],
+            lookupVocabulary: body => (body.list ?? []).map(pair => jpdbDeckVocabularyInfoRow(pair, {
+                state: pair[0] === 4 ? ['new'] : ['due'],
+                // deck order 1,2,3 but due times 3 < 1 < 2; the new card
+                // (no due_at) comes after every timed card.
+                dueAt: pair[0] === 1 ? 2000 : pair[0] === 2 ? 3000 : pair[0] === 3 ? 1000 : null,
+            })),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const cards = await client.listDeckCards('deck', 10, { scheduledOnly: true });
+            expect(cards.map(card => card.spelling)).toEqual(['語3', '語1', '語2', '語4']);
+            expect(cards[0]?.dueAt).toBe(1000);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -2888,29 +2914,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('checks JPDB membership against the all-decks vocabulary pool', async () => {
-        const client = new JpdbClient(() => 'token');
-        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
-            const href = String(url);
-            const body = JSON.parse(String(init?.body ?? '{}')) as { id?: string };
-            if (href === JPDB_DECK_LIST_VOCABULARY_API) {
-                expect(body.id).toBe('all');
-                return jpdbJsonResponse({ vocabulary: [[1464530, 0], [2, 2]] });
-            }
-            throw new Error(`Unexpected URL: ${href}`);
-        });
-        vi.stubGlobal('fetch', fetchMock);
-
-        try {
-            await expect(client.isInUserDeckPool({ ...card, vid: 1464530, sid: 0 })).resolves.toBe(true);
-            await expect(client.isInUserDeckPool({ ...card, vid: 777, sid: 0 })).resolves.toBe(false);
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-        } finally {
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it('falls back to scanning listed JPDB decks when all-decks membership is unavailable', async () => {
+    it('checks JPDB membership against the listed-decks vocabulary pool', async () => {
         const client = new JpdbClient(() => 'token');
         const requestedDecks: unknown[] = [];
         const fetchMock = createFallbackJpdbDeckFetchMock({
@@ -2921,13 +2925,14 @@ describe('reader helpers', () => {
 
         try {
             await expect(client.isInUserDeckPool({ ...card, vid: 1464530, sid: 0 })).resolves.toBe(true);
-            expect(requestedDecks).toEqual(expect.arrayContaining(['all', 'deck-a', 'deck-b']));
+            await expect(client.isInUserDeckPool({ ...card, vid: 777, sid: 0 })).resolves.toBe(false);
+            expect(requestedDecks).toEqual(['deck-a', 'deck-b']);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('falls back to scanning listed JPDB decks when listing all-decks cards fails', async () => {
+    it('lists all-decks cards through the listed decks union', async () => {
         const client = new JpdbClient(() => 'token');
         const requestedDecks: unknown[] = [];
         const lookupPairs: Array<[number, number]> = [];
@@ -2944,7 +2949,8 @@ describe('reader helpers', () => {
 
         try {
             const cards = await client.listDeckCards('all', 10, { scheduledOnly: true });
-            expect(requestedDecks).toEqual(expect.arrayContaining(['all', 'deck-a', 'deck-b']));
+            expect(requestedDecks).toEqual(expect.arrayContaining(['deck-a', 'deck-b']));
+            expect(requestedDecks).not.toEqual(expect.arrayContaining(['all']));
             expect(cards.map(c => c.vid)).toEqual(expect.arrayContaining([1464530, 12345]));
             expect(lookupPairs).toEqual(expect.arrayContaining([[1464530, 0], [12345, 0]]));
         } finally {

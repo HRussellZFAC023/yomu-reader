@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.129
+// @version      0.6.130
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -24306,7 +24306,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         meaningsChunks,
         meaningsPartOfSpeech,
         cardState,
-        pitchAccent
+        pitchAccent,
+        dueAt
       ] = item;
       cards.push({
         vid,
@@ -24322,6 +24323,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         })),
         cardState: normalizeCardStates(cardState),
         pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
         wordWithReading: null,
         source: "jpdb"
       });
@@ -27588,14 +27590,15 @@ ${spelling}`);
     "meanings_chunks",
     "meanings_part_of_speech",
     "card_state",
-    "pitch_accent"
+    "pitch_accent",
+    "due_at"
   ];
   const DECK_FIELDS = ["id", "name", "vocabulary_count", "vocabulary_known_coverage"];
   const PARSE_CACHE_SIZE = 250;
   const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const PARSE_BATCH_BYTE_LIMIT = 16384;
   const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
-  const VOCABULARY_LOOKUP_CHUNK_SIZE = 100;
+  const VOCABULARY_LOOKUP_CHUNK_SIZE = 5e3;
   const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1e3;
   const USER_DECK_POOL_CONCURRENCY = 4;
   const JPDB_ALL_DECKS_ID = "all";
@@ -27672,12 +27675,9 @@ ${spelling}`);
       const maxCards = Math.max(1, Math.floor(limit));
       const done = log$8.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
       try {
+        if (id === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
         const pairs = await this.listDeckVocabularyPairsByRequestId(id);
         return await this.cardsFromDeckVocabularyPairs(pairs, maxCards, options);
-      } catch (error) {
-        if (id !== JPDB_ALL_DECKS_ID) throw error;
-        log$8.warn("JPDB all-decks list failed", error);
-        return await this.listCardsFromListedDecks(maxCards, options);
       } finally {
         done();
       }
@@ -27762,12 +27762,8 @@ ${spelling}`);
       }
     }
     async lookupScheduledDeckCards(pairs, limit) {
-      const cards = [];
-      for (let index = 0; index < pairs.length && cards.length < limit; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
-        const batchCards = await this.lookupDeckVocabularyCards(pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE));
-        cards.push(...batchCards.filter(isScheduledJpdbStudyCard));
-      }
-      return cards.slice(0, limit);
+      const cards = await this.lookupDeckVocabularyCards(pairs);
+      return orderScheduledJpdbCards(cards).slice(0, limit);
     }
     async lookupDeckVocabularyCards(pairs) {
       const rawVocabulary = [];
@@ -27794,12 +27790,7 @@ ${spelling}`);
       return promise;
     }
     async loadUserDeckPool() {
-      try {
-        return await this.fetchDeckVocabularyPairSet(JPDB_ALL_DECKS_ID);
-      } catch (error) {
-        log$8.warn("JPDB all-decks membership failed", error);
-        return await this.fetchListedDeckVocabularyPairSet();
-      }
+      return await this.fetchListedDeckVocabularyPairSet();
     }
     async fetchListedDeckVocabularyPairSet() {
       const decks = await this.listDecks();
@@ -27810,35 +27801,35 @@ ${spelling}`);
       });
       return pool;
     }
+    // All-decks listing: pairs from every user deck are unioned in parallel
+    // and resolved in bulk — the sequential per-deck scan used to blow the
+    // study page's load timeout on large accounts, which surfaced as
+    // "No reviews ready" despite due cards existing (user-reported).
     async listCardsFromListedDecks(limit, options) {
       const decks = await this.listDecks();
-      const cards = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const deck of decks) {
-        if (cards.length >= limit) break;
-        const pairs = await this.listDeckVocabularyPairs(deck.id).catch((error) => {
+      const pairGroups = [];
+      await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
+        pairGroups[index] = await this.listDeckVocabularyPairs(deck.id).catch((error) => {
           log$8.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
           return [];
         });
-        const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
-        for (const card of deckCards) {
-          const key = vocabularyPairKey(card.vid, card.sid);
+      });
+      const seen = /* @__PURE__ */ new Set();
+      const pairs = [];
+      for (const group of pairGroups) {
+        for (const [vid, sid] of group ?? []) {
+          const key = vocabularyPairKey(vid, sid);
           if (seen.has(key)) continue;
           seen.add(key);
-          cards.push(card);
-          if (cards.length >= limit) break;
+          pairs.push([vid, sid]);
         }
       }
-      return cards.slice(0, limit);
+      return await this.cardsFromDeckVocabularyPairs(pairs, limit, options);
     }
     async cardsFromDeckVocabularyPairs(rawPairs, limit, options) {
       const pairs = deckVocabularyPairsForRequest(rawPairs, limit, options);
       if (!pairs.length) return [];
       return options.scheduledOnly ? await this.lookupScheduledDeckCards(pairs, limit) : await this.lookupDeckVocabularyCards(pairs);
-    }
-    async fetchDeckVocabularyPairSet(deckId) {
-      const pairs = await this.listDeckVocabularyPairs(deckId);
-      return new Set(pairs.map(([vid, sid]) => vocabularyPairKey(vid, sid)));
     }
     async listDeckVocabularyPairs(deckId) {
       return this.listDeckVocabularyPairsByRequestId(normalizeDeckRequestId(deckId));
@@ -27962,6 +27953,13 @@ ${spelling}`);
     if (typeof value !== "number" || !Number.isFinite(value)) return null;
     const integer = Math.floor(value);
     return integer > 0 ? integer : null;
+  }
+  function orderScheduledJpdbCards(cards) {
+    const scheduled = cards.filter(isScheduledJpdbStudyCard);
+    const withDue = scheduled.filter((card) => typeof card.dueAt === "number");
+    const withoutDue = scheduled.filter((card) => typeof card.dueAt !== "number");
+    withDue.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+    return [...withDue, ...withoutDue];
   }
   function isScheduledJpdbStudyCard(card) {
     return card.cardState.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "locked");
