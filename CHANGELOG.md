@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.172] - 2026-06-12
+
+### Fixed
+
+- Image OCR now starts on large image-reader surfaces even when the page has no Japanese DOM text, covering image feeds and manga/gallery viewers rather than only standalone image documents.
+- OCR overlays now refresh when an inner scrolling container moves, so image-feed pages that keep `window.scrollY` fixed still keep text regions aligned.
+
 ## [0.6.171] - 2026-06-12
 
 ### Fixed

@@ -514,6 +514,57 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('repositions OCR overlays when an inner image scroller moves', async () => {
+        stubInstantIntersectionObserver();
+        const sentence = '日本語を読む';
+        const scroller = document.createElement('div');
+        const image = document.createElement('img');
+        let imageTop = 80;
+        image.src = '/ocr-scroll-feed.png';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: sentence, box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, imageTop, 500, 300);
+        scroller.append(image);
+        document.body.replaceChildren(scroller);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: false,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => [parsedToken(sentence)]),
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-layer')?.style.top).toBe('80px');
+            });
+
+            imageTop = 24;
+            scroller.dispatchEvent(new Event('scroll'));
+
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLElement>('.jpdb-ocr-layer')?.style.top).toBe('24px');
+            });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not render a status banner when OCR finds no Japanese text', async () => {
         const restoreCanvas = installCanvasEncodingMock();
         stubInstantIntersectionObserver();

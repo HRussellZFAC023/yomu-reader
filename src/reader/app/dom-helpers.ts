@@ -62,12 +62,31 @@ export function currentLookupNavigationWord(
     return undefined;
 }
 
-export function documentLooksLikeStandaloneImagePage(): boolean {
+const IMAGE_READING_MIN_AREA = 150000;
+const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
+const IMAGE_READING_MIN_EDGE = 240;
+
+export function documentLooksLikeImageReadingPage(): boolean {
     const images = Array.from(document.images).filter(image => !image.closest('[data-jpdb-reader-root]'));
-    if (images.length !== 1) return false;
+    if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
+    return images.some(imageLooksLikeReadableSurface);
+}
+
+function isStandaloneImageDocument(image: HTMLImageElement): boolean {
     const bodyText = document.body?.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (bodyText) return false;
-    return Boolean(images[0]?.currentSrc || images[0]?.src);
+    return !bodyText && Boolean(image.currentSrc || image.src);
+}
+
+function imageLooksLikeReadableSurface(image: HTMLImageElement): boolean {
+    if (!image.currentSrc && !image.src) return false;
+    const rect = image.getBoundingClientRect();
+    const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    const visibleArea = visibleWidth * visibleHeight;
+    const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
+    return visibleArea >= IMAGE_READING_MIN_AREA
+        && visibleArea / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO
+        && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
 }
 
 export function wait(ms: number): Promise<void> {
