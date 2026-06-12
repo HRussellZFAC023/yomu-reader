@@ -389,6 +389,10 @@ function firstString(...values) {
   return '';
 }
 
+// Intentionally duplicated from src/reader/dictionaries/uchisen.ts
+// (normalizeUchisenImageFilename): this build script runs in plain node
+// without the TS build, and sharing an 8-line URL→filename helper across
+// that boundary costs more plumbing than the duplication. Keep in sync.
 function normalizeImageFilename(value) {
   if (!value) return '';
   const filename = lastPathSegment(imageReferencePath(value));

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.132
+// @version      0.6.133
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -9393,6 +9393,10 @@ recommendedJiten	jiten.moe頻度データです。
     if (!normalized) return "";
     return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
   }
+  function summarizeLearnerGlossaryTexts(texts, limit = 3) {
+    const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
+    return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
+  }
   function cleanLearnerGlossaryText(text2) {
     let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
     clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
@@ -13575,8 +13579,7 @@ ${entry.reading || ""}`;
     meaningKeys.set(key, seen);
   }
   function summarizeLearnerGlossary(entry) {
-    const candidates = entry.glossary.flatMap((item) => splitLearnerGlossaryText(glossaryToText(item))).map(cleanLearnerGlossaryText).filter(Boolean);
-    return Array.from(new Set(candidates)).slice(0, 3).join(", ");
+    return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   async function postAnkiJson(url, body, timeoutMs) {

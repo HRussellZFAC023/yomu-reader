@@ -20,6 +20,17 @@ export function learnerGlossaryWithoutExamples(text: string): string {
         .trim();
 }
 
+// Shared summarization (P3 dedup: groups-core summarizeLearnerGlossary and
+// the new-tab meaning cleanup used to repeat this clean → dedupe → top-3
+// pipeline independently).
+export function summarizeLearnerGlossaryTexts(texts: string[], limit = 3): string {
+    const cleaned = texts
+        .flatMap(splitLearnerGlossaryText)
+        .map(cleanLearnerGlossaryText)
+        .filter(Boolean);
+    return Array.from(new Set(cleaned)).slice(0, limit).join(', ');
+}
+
 export function cleanLearnerGlossaryText(text: string): string {
     let clean = text
         .replace(/^\[[^\]]+\]\s*/u, '')

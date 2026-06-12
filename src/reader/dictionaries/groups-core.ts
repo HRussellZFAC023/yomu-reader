@@ -1,5 +1,5 @@
 import type { JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
-import { cleanLearnerGlossaryText, splitLearnerGlossaryText } from './learner-glossary';
+import { summarizeLearnerGlossaryTexts } from './learner-glossary';
 import type { JPDBCard } from '../app/types';
 import { glossaryToText, type YomitanTermEntry } from './yomitan';
 
@@ -144,9 +144,5 @@ function compareOptionalNumber(a?: number, b?: number): number {
 }
 
 export function summarizeLearnerGlossary(entry: Pick<YomitanTermEntry, 'glossary'>): string {
-    const candidates = entry.glossary
-        .flatMap(item => splitLearnerGlossaryText(glossaryToText(item)))
-        .map(cleanLearnerGlossaryText)
-        .filter(Boolean);
-    return Array.from(new Set(candidates)).slice(0, 3).join(', ');
+    return summarizeLearnerGlossaryTexts(entry.glossary.map(item => glossaryToText(item)));
 }

@@ -887,6 +887,8 @@ function firstString(...values: unknown[]): string {
     return '';
 }
 
+// Intentionally duplicated in scripts/uchisen-bulk-publish.mjs
+// (normalizeImageFilename) — see the note there. Keep in sync.
 function normalizeUchisenImageFilename(value: string): string {
     if (!value) return '';
     try {

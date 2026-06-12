@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.133] - 2026-06-12
+
+### Changed
+
+- Internal cleanup: learner-glossary summarization is now a single shared helper used by both the dictionary grouping and study-page meaning cleanup; the two remaining cross-boundary duplications (build scripts vs runtime) are documented as intentional with keep-in-sync notes.
+
 ## [0.6.132] - 2026-06-12
 
 ### Added

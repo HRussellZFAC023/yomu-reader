@@ -10444,6 +10444,10 @@ recommendedJiten	jiten.moe頻度データです。
     if (!normalized) return "";
     return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
   }
+  function summarizeLearnerGlossaryTexts(texts, limit = 3) {
+    const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
+    return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
+  }
   function cleanLearnerGlossaryText(text2) {
     let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
     clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
@@ -14878,8 +14882,7 @@ ${entry.reading || ""}`;
     meaningKeys.set(key, seen);
   }
   function summarizeLearnerGlossary(entry) {
-    const candidates = entry.glossary.flatMap((item) => splitLearnerGlossaryText(glossaryToText(item))).map(cleanLearnerGlossaryText).filter(Boolean);
-    return Array.from(new Set(candidates)).slice(0, 3).join(", ");
+    return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   async function postAnkiJson(url, body, timeoutMs) {
@@ -48991,8 +48994,8 @@ ${normalizedReading}`;
   function cleanupNewTabMeaning(text2) {
     const normalized = stripMeaningMarkup(text2);
     const withoutExamples = learnerGlossaryWithoutExamples(normalized);
-    const cleaned = splitLearnerGlossaryText(normalized).map(cleanLearnerGlossaryText).filter(Boolean);
-    if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(", ");
+    const summary = summarizeLearnerGlossaryTexts([normalized]);
+    if (summary) return summary;
     return trimSpaces(withoutExamples);
   }
   function stripMeaningMarkup(value) {

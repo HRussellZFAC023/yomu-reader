@@ -20,6 +20,10 @@ const SETTINGS_WEIGHT_SELECTOR = 'input[name="popupFontWeight"]';
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
+// Fixture intentionally separate from tests/reader/hover-lookup.test.ts:
+// this is a hosted-browser smoke (real files on disk, real video element)
+// while the unit test builds a jsdom selection — different harnesses, no
+// shared setup worth extracting.
 const fixtureDir = mkdtempSync(path.join(tmpdir(), 'yomu-feedback-smoke-'));
 const fakeVideoPath = path.join(fixtureDir, 'local-video.mp4');
 const primaryVttPath = path.join(fixtureDir, 'japanese.vtt');

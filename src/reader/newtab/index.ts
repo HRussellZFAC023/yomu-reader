@@ -1,6 +1,6 @@
 import { NEW_TAB_COLOR_TOKENS } from '../theme/color-tokens';
 import { hexToRgba, mixHex, readableOn } from '../theme/color-utils';
-import { cleanLearnerGlossaryText, learnerGlossaryWithoutExamples, splitLearnerGlossaryText } from '../dictionaries/learner-glossary';
+import { learnerGlossaryWithoutExamples, summarizeLearnerGlossaryTexts } from '../dictionaries/learner-glossary';
 import { sanitizeAccentColor } from '../settings';
 import type { JPDBCard } from '../app/types';
 export { cardKey } from '../cards/utils';
@@ -103,10 +103,8 @@ export function kanjiCharacters(value: string): string[] {
 function cleanupNewTabMeaning(text: string): string {
     const normalized = stripMeaningMarkup(text);
     const withoutExamples = learnerGlossaryWithoutExamples(normalized);
-    const cleaned = splitLearnerGlossaryText(normalized)
-        .map(cleanLearnerGlossaryText)
-        .filter(Boolean);
-    if (cleaned.length) return Array.from(new Set(cleaned)).slice(0, 3).join(', ');
+    const summary = summarizeLearnerGlossaryTexts([normalized]);
+    if (summary) return summary;
     return trimSpaces(withoutExamples);
 }
 
