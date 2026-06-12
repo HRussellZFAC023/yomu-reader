@@ -77,6 +77,71 @@
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
   }
+  const DECK_CLASS_NAME_LIMIT = 8;
+  function cardDeckMembership(card) {
+    const names = cardDeckNames(card);
+    return {
+      source: cardDeckMembershipSource(card),
+      names,
+      member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
+    };
+  }
+  function cardDeckNames(card) {
+    return uniqueDeckNames([
+      ...primaryDeckNames(card),
+      ...ankiDeckNames(card)
+    ]);
+  }
+  function cardDeckMembershipClassNames(card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return [];
+    const classes = /* @__PURE__ */ new Set(["yomu-deck-member"]);
+    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes, primaryDeckMembershipSource(card), primaryDeckNames(card));
+    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes, "anki", ankiDeckNames(card));
+    return [...classes];
+  }
+  function deckClassSlug(value) {
+    const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+    return slug || "unnamed";
+  }
+  function uniqueDeckNames(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map((value) => value?.trim() ?? "").filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  function cardDeckMembershipSource(card) {
+    if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
+    return primaryDeckMembershipSource(card);
+  }
+  function primaryDeckMembershipSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function primaryDeckNames(card) {
+    return uniqueDeckNames([
+      ...card.deckNames ?? [],
+      card.sourceDeckName ?? ""
+    ]);
+  }
+  function ankiDeckNames(card) {
+    return uniqueDeckNames(card.ankiDeckNames ?? []);
+  }
+  function hasPrimaryDeckMembership(card) {
+    return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
+  }
+  function hasAnkiDeckMembership(card) {
+    return ankiDeckNames(card).length > 0;
+  }
+  function addDeckSourceClasses(classes, source, names) {
+    classes.add(`${source}-deck-member`);
+    names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
+      const slug = deckClassSlug(name);
+      classes.add(`yomu-deck-${slug}`);
+      classes.add(`${source}-deck-${slug}`);
+    });
+  }
   const CORE_COLOR_TOKENS = {
     white: "#ffffff"
   };
@@ -1026,7 +1091,14 @@
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
+    const deck = renderDeckMembershipAttributes(token.card);
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+  }
+  function renderDeckMembershipAttributes(card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return "";
+    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
+    return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
   }
   function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
     if (!allowRuby) return false;
@@ -1056,6 +1128,7 @@
       const source = readerCardSource(token.card);
       if (source !== "jpdb") classes.push(`${source}-${state}`);
     }
+    classes.push(...cardDeckMembershipClassNames(token.card));
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(" ");
   }
@@ -9976,16 +10049,16 @@ ${spelling}`);
     }
     return { ready, batch };
   }
-  function planProvisionalSubtitleParseBatch(items, parsedHtmlCache, provisionalParsedHtmlCache, pendingProvisionalParsedHtml, freshEmptyHtml = () => void 0) {
+  function planProvisionalSubtitleParseBatch(items, parsedHtml, provisionalParsedHtml, pendingParsedHtml, freshEmptyHtml = () => void 0) {
     const ready = [];
     const batch = [];
     for (const item of items) {
-      const cached = parsedHtmlCache.get(item.key);
+      const cached = parsedHtml(item.key);
       if (cached !== void 0) {
         ready.push(Promise.resolve({ key: item.key, html: cached }));
         continue;
       }
-      const provisional = provisionalParsedHtmlCache.get(item.key);
+      const provisional = provisionalParsedHtml(item.key);
       if (provisional !== void 0) {
         ready.push(Promise.resolve({ key: item.key, html: provisional, provisional: true }));
         continue;
@@ -9995,7 +10068,7 @@ ${spelling}`);
         ready.push(Promise.resolve({ key: item.key, html: empty }));
         continue;
       }
-      const pending = pendingProvisionalParsedHtml.get(item.key);
+      const pending = pendingParsedHtml(item.key);
       if (pending) ready.push(pending.then((html) => ({ key: item.key, html, provisional: true })));
       else batch.push(item);
     }
@@ -10184,7 +10257,18 @@ ${spelling}`);
     "popstate",
     "hashchange"
   ];
-  const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
+  const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
+  const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
+  const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
+  const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
+    "jpdb-subtitle-asb-movable",
+    "jpdb-subtitle-has-lines",
+    "jpdb-subtitle-controls-auto",
+    "jpdb-subtitle-controls-always",
+    "jpdb-subtitle-controls-hidden",
+    "jpdb-subtitle-controls-idle",
+    "jpdb-subtitle-dragging"
+  ];
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -10399,6 +10483,7 @@ ${spelling}`);
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
     subtitleDragOffsetYPx = 0;
+    asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -10485,6 +10570,7 @@ ${spelling}`);
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
       this.clearVideoInsetForTranscriptPanel();
+      this.removeAsbPlayerSubtitleMoveHandles();
       this.transcriptPanel?.remove();
       this.root?.remove();
       this.root = void 0;
@@ -10502,6 +10588,7 @@ ${spelling}`);
       this.syncTranscriptPlacementClass();
       this.syncFullscreenState();
       this.syncRootStyleSettings(settings);
+      this.syncAsbPlayerSubtitleMoveHandles(settings);
       this.openTranscriptPanelFromSettings(settings);
       this.syncPauseTranscriptPanel();
       this.scheduleAlignToVideo();
@@ -10909,6 +10996,7 @@ ${spelling}`);
       this.refreshNativeCueLists();
       this.updateFromLoadedCues();
       this.syncPlayerChromeIdleState();
+      this.syncAsbPlayerSubtitleMoveHandles(settings);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
@@ -11309,7 +11397,7 @@ ${spelling}`);
       const emptyCached = this.freshEmptyParsedHtml(key);
       if (emptyCached) return emptyCached;
       if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text, settings, key);
-      const pending = this.pendingParsedHtml.get(key);
+      const pending = this.pendingParsedCueHtml(key, "authoritative");
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text, subtitleParseOptions());
@@ -11332,7 +11420,7 @@ ${spelling}`);
       if (cached) {
         return cached;
       }
-      const pending = this.pendingProvisionalParsedHtml.get(key);
+      const pending = this.pendingParsedCueHtml(key, "provisional");
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
@@ -11422,8 +11510,12 @@ ${spelling}`);
       if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings);
       const { ready, batch } = planSubtitleParseBatch(
         items,
-        (key) => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key),
-        (key) => this.pendingParsedHtml.get(key)
+        // Keyless there is nothing to upgrade to, so a provisional hit is
+        // final here too — without it the transcript-tail warmup
+        // (allowProvisional: false) re-parsed every already-parsed cue a
+        // second time through the local tokenizer.
+        (key) => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier() ? void 0 : this.provisionalParsedHtmlCache.get(key)),
+        (key) => this.pendingParsedCueHtml(key, "authoritative")
       );
       if (!batch.length) return Promise.all(ready);
       if (!this.options.parseJapaneseBatch) {
@@ -11440,9 +11532,9 @@ ${spelling}`);
       this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
       const { ready, batch } = planProvisionalSubtitleParseBatch(
         items,
-        this.parsedHtmlCache,
-        this.provisionalParsedHtmlCache,
-        this.pendingProvisionalParsedHtml,
+        (key) => this.parsedHtmlCache.get(key),
+        (key) => this.provisionalParsedHtmlCache.get(key),
+        (key) => this.pendingParsedCueHtml(key, "provisional"),
         (key) => this.freshEmptyParsedHtml(key)
       );
       if (!batch.length) return Promise.all(ready);
@@ -11606,6 +11698,15 @@ ${spelling}`);
       if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
       return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
     }
+    // Keyless both tiers produce the same local-tokenizer result, so an
+    // in-flight parse on EITHER tier satisfies the other — without this the
+    // overlay warmup and the transcript-tail warmup tokenized the same cue
+    // twice whenever their windows overlapped.
+    pendingParsedCueHtml(key, tier) {
+      const own = tier === "provisional" ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedHtml.get(key);
+      if (own || this.hasAuthoritativeParseTier()) return own;
+      return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
+    }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
       const settings = this.options.getSettings();
@@ -11721,22 +11822,25 @@ ${spelling}`);
       handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
     }
     startSubtitleDrag(event) {
-      if (!this.root || !this.subtitleEl || event.button !== 0) return;
+      const handle = event.currentTarget;
+      const dragFrame = this.subtitleDragFrameForHandle(handle);
+      if (!dragFrame || event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
-      const handle = event.currentTarget;
+      const dragRoot = this.subtitleDragClassRootForHandle(handle);
       const pointerId = event.pointerId;
       const startY = event.clientY;
       const startOffset = this.subtitleDragOffsetYPx;
       handle.setPointerCapture?.(pointerId);
       handle.classList.add("jpdb-subtitle-dragging");
-      this.root.classList.add("jpdb-subtitle-dragging");
+      dragRoot?.classList.add("jpdb-subtitle-dragging");
+      if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
       this.showControlsTemporarily();
       const pointerMatches = (pointerEvent) => pointerEvent.pointerId === pointerId;
       const onMove = (moveEvent) => {
         if (!pointerMatches(moveEvent)) return;
         if (moveEvent.cancelable) moveEvent.preventDefault();
-        this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY);
+        this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY, dragFrame);
         this.showControlsTemporarily();
       };
       const onEnd = (upEvent) => {
@@ -11746,7 +11850,8 @@ ${spelling}`);
         window.removeEventListener("pointercancel", onEnd);
         handle.releasePointerCapture?.(pointerId);
         handle.classList.remove("jpdb-subtitle-dragging");
-        this.root?.classList.remove("jpdb-subtitle-dragging");
+        dragRoot?.classList.remove("jpdb-subtitle-dragging");
+        if (dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
         this.showControlsTemporarily();
       };
       window.addEventListener("pointermove", onMove, this.eventOptions());
@@ -11754,6 +11859,7 @@ ${spelling}`);
       window.addEventListener("pointercancel", onEnd, this.eventOptions());
     }
     moveSubtitleOverlayFromKeyboard(event) {
+      const dragFrame = event.currentTarget instanceof HTMLElement ? this.subtitleDragFrameForHandle(event.currentTarget) : void 0;
       const step = event.shiftKey ? 24 : 8;
       const deltas = {
         ArrowUp: -step,
@@ -11766,11 +11872,11 @@ ${spelling}`);
       if (delta === void 0 && !shouldReset) return;
       event.preventDefault();
       event.stopPropagation();
-      this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta);
+      this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta, dragFrame);
       this.showControlsTemporarily();
     }
-    setSubtitleDragOffset(offsetPx) {
-      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx));
+    setSubtitleDragOffset(offsetPx, dragFrame) {
+      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx, dragFrame));
       if (offset === this.subtitleDragOffsetYPx) return;
       this.subtitleDragOffsetYPx = offset;
       this.syncSubtitleDragOffsetStyle();
@@ -11780,21 +11886,24 @@ ${spelling}`);
       this.syncSubtitleDragOffsetStyle();
     }
     syncSubtitleDragOffsetStyle() {
-      if (!this.root) return;
-      setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", `${this.subtitleDragOffsetYPx}px`);
+      const offset = `${this.subtitleDragOffsetYPx}px`;
+      if (this.root) setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", offset);
+      for (const root of this.asbPlayerSubtitleMoveRoots()) {
+        setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", offset);
+      }
     }
-    clampedSubtitleDragOffset(offsetPx) {
+    clampedSubtitleDragOffset(offsetPx, dragFrame) {
       if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
-      const { min, max } = this.subtitleDragOffsetBounds();
+      const { min, max } = this.subtitleDragOffsetBounds(dragFrame);
       return Math.min(max, Math.max(min, offsetPx));
     }
-    subtitleDragOffsetBounds() {
+    subtitleDragOffsetBounds(dragFrame) {
       const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
       const fallback = {
         min: -Math.round(viewportHeight * 0.45),
         max: Math.round(viewportHeight * 0.35)
       };
-      const subtitleFrame = this.root?.querySelector(".jpdb-subtitle-text") ?? this.subtitleEl;
+      const subtitleFrame = dragFrame ?? this.root?.querySelector(".jpdb-subtitle-text") ?? this.subtitleEl;
       const rect = subtitleFrame?.getBoundingClientRect();
       if (!rect || rect.height <= 0 || rect.width <= 0) return fallback;
       const margin = 12;
@@ -11802,15 +11911,80 @@ ${spelling}`);
       const max = this.subtitleDragOffsetYPx + viewportHeight - margin - rect.bottom;
       return min <= max ? { min, max } : fallback;
     }
+    subtitleDragFrameForHandle(handle) {
+      const asbRoot = handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? handle.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR) : null;
+      return asbRoot ?? this.root?.querySelector(".jpdb-subtitle-text") ?? this.subtitleEl;
+    }
+    subtitleDragClassRootForHandle(handle) {
+      return handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? handle.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR) ?? void 0 : this.root;
+    }
+    syncAsbPlayerSubtitleMoveHandles(settings = this.options.getSettings()) {
+      const roots = this.asbPlayerSubtitleMoveRoots();
+      const activeRoots = new Set(roots);
+      for (const handle of Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))) {
+        const root = handle.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR);
+        if (!root || !activeRoots.has(root)) handle.remove();
+      }
+      for (const root of roots) {
+        const enabled = settings.subtitlePlayerEnabled && settings.subtitleOverlayVisible && settings.subtitleControlsMode !== "hidden" && this.asbPlayerSubtitleRootHasText(root);
+        if (!enabled) {
+          this.teardownAsbPlayerSubtitleMoveRoot(root);
+          continue;
+        }
+        root.classList.add("jpdb-subtitle-asb-movable", "jpdb-subtitle-has-lines");
+        root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
+        root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
+        root.classList.toggle("jpdb-subtitle-controls-idle", settings.subtitleControlsMode === "auto" && Boolean(this.root?.classList.contains("jpdb-subtitle-controls-idle")));
+        setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", `${this.subtitleDragOffsetYPx}px`);
+        this.ensureAsbPlayerSubtitleMoveHandle(root, settings);
+      }
+    }
+    asbPlayerSubtitleMoveRoots() {
+      return Array.from(document.querySelectorAll(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR));
+    }
+    asbPlayerSubtitleRootHasText(root) {
+      return Array.from(root.childNodes).filter((node) => !(node instanceof HTMLElement && node.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))).some((node) => Boolean(node.textContent?.replace(/\s+/g, "")));
+    }
+    ensureAsbPlayerSubtitleMoveHandle(root, settings) {
+      let handle = Array.from(root.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR)).find((candidate) => candidate.parentElement === root);
+      const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
+      if (!handle) {
+        handle = document.createElement("button");
+        handle.type = "button";
+        handle.className = "jpdb-subtitle-drag-handle jpdb-subtitle-asb-drag-handle";
+        handle.dataset.subtitleDragHandle = "true";
+        handle.dataset.yomuAsbSubtitleDragHandle = "true";
+        handle.dataset.jpdbReaderSurfaceIgnore = "true";
+        setInnerHtml(handle, '<span aria-hidden="true"></span>');
+        root.appendChild(handle);
+      }
+      handle.title = moveLabel;
+      handle.setAttribute("aria-label", moveLabel);
+      if (this.asbSubtitleDragHandles.has(handle)) return;
+      handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
+      handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+      this.asbSubtitleDragHandles.add(handle);
+    }
+    removeAsbPlayerSubtitleMoveHandles() {
+      for (const root of this.asbPlayerSubtitleMoveRoots()) this.teardownAsbPlayerSubtitleMoveRoot(root);
+      for (const handle of Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))) handle.remove();
+    }
+    teardownAsbPlayerSubtitleMoveRoot(root) {
+      root.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR).forEach((handle) => handle.remove());
+      root.classList.remove(...ASBPLAYER_SUBTITLE_DRAG_CLASSES);
+      root.style.removeProperty("--jpdb-subtitle-asb-drag-offset-y");
+    }
     showControlsTemporarily() {
       if (!this.root) return;
       this.root.classList.remove("jpdb-subtitle-controls-idle");
+      this.syncAsbPlayerSubtitleMoveHandles();
       this.scheduleControlsIdle();
     }
     hideControlsImmediately() {
       this.clearControlsIdleTimer();
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
+      this.syncAsbPlayerSubtitleMoveHandles();
     }
     scheduleControlsIdle() {
       this.clearControlsIdleTimer();
@@ -14249,7 +14423,7 @@ ${spelling}`);
       meta.textContent = channelRowMetaText(channel, preview);
       const description = document.createElement("div");
       description.className = "jpdb-youtube-channel-description jpdb-reader-parseable";
-      description.textContent = preview?.description || youtubeChannelRecommendationDescription(channel);
+      description.textContent = youtubeChannelRecommendationDescription(channel);
       const tags = document.createElement("div");
       tags.className = "jpdb-youtube-channel-tags";
       channelRowTags(channel).forEach((tag) => {

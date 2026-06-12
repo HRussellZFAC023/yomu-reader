@@ -1055,6 +1055,66 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('temporarily moves ASBPlayer subtitle overlays only from the inserted move handle', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            document.body.insertAdjacentHTML('beforeend', `
+                <div class="asbplayer-subtitles-container-bottom">
+                    <span class="jpdb-reader-word">今日は読む。</span>
+                </div>
+            `);
+            const internals = controllerInternals<{ clearTransientSubtitleState(): void }>(controller);
+            const asbRoot = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom')!;
+            mockElementRect(asbRoot, new DOMRect(80, 260, 480, 64));
+
+            controller.refresh();
+
+            const handle = asbRoot.querySelector<HTMLButtonElement>('[data-yomu-asb-subtitle-drag-handle="true"]')!;
+            expect(handle).not.toBeNull();
+            expect(asbRoot.classList.contains('jpdb-subtitle-asb-movable')).toBe(true);
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 11 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 11 }));
+
+            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-drag-offset-y')).toBe('-40px');
+            expect(asbRoot.classList.contains('jpdb-subtitle-dragging')).toBe(true);
+
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 11 }));
+            expect(asbRoot.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+
+            internals.clearTransientSubtitleState();
+            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-drag-offset-y')).toBe('0px');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not move ASBPlayer subtitle overlays from ordinary subtitle text pointer activity', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            document.body.insertAdjacentHTML('beforeend', `
+                <div class="asbplayer-subtitles-container-bottom">
+                    <span>今日は読む。</span>
+                </div>
+            `);
+            const asbRoot = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom')!;
+            const asbText = asbRoot.querySelector<HTMLElement>('span')!;
+            mockElementRect(asbRoot, new DOMRect(80, 260, 480, 64));
+
+            controller.refresh();
+            asbText.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 12 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 12 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 12 }));
+
+            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-drag-offset-y')).toBe('0px');
+            expect(asbRoot.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps subtitle controls idle when YouTube player chrome is autohidden', () => {
         let controller: SubtitlePlayerController | undefined;
         try {
