@@ -14,6 +14,7 @@ import {
     collectYouTubeVideoCards,
     isProbablyJapaneseYouTubeText,
     rebalanceYouTubeGridRows,
+    syncUnrenderedYouTubeShelfSlots,
 } from '../../src/reader/subtitles/youtube';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
@@ -1392,6 +1393,30 @@ describe('YouTube immersion filter', () => {
         expect(document.getElementById('v4')!.hasAttribute('is-first-in-column')).toBe(false);
         // Filtered items keep their stale attribute harmlessly offscreen.
         expect(document.getElementById('f2')!.hasAttribute('is-in-first-column')).toBe(true);
+    });
+
+    it('collapses unrendered shelf slots until YouTube hydrates them (UT-26 gaps)', () => {
+        document.body.innerHTML = `
+            <ytd-rich-shelf-renderer>
+                <ytd-rich-item-renderer id="rendered"><ytd-rich-grid-media></ytd-rich-grid-media></ytd-rich-item-renderer>
+                <ytd-rich-item-renderer id="blank"><!--css-build:shady--></ytd-rich-item-renderer>
+                <ytd-rich-item-renderer id="filtered" class="jpdb-youtube-filtered"></ytd-rich-item-renderer>
+            </ytd-rich-shelf-renderer>
+            <ytd-rich-item-renderer id="grid-item"></ytd-rich-item-renderer>
+        `;
+
+        syncUnrenderedYouTubeShelfSlots();
+
+        expect(document.getElementById('rendered')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
+        expect(document.getElementById('blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(true);
+        // Filter decisions own filtered slots; grid items outside shelves are untouched.
+        expect(document.getElementById('filtered')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
+        expect(document.getElementById('grid-item')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
+
+        // YouTube hydrates the slot: the next sweep restores it.
+        document.getElementById('blank')!.append(document.createElement('yt-lockup-view-model'));
+        syncUnrenderedYouTubeShelfSlots();
+        expect(document.getElementById('blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
     });
 
     it('keeps one column counter across legacy ytd-rich-grid-row wrappers (display:contents flattening)', () => {

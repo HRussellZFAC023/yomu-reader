@@ -23,6 +23,8 @@ import {
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
+const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
+const YOUTUBE_RENDERED_SLOT_SELECTOR = 'ytd-rich-grid-media, ytd-rich-grid-slim-media, yt-lockup-view-model, ytm-shorts-lockup-view-model';
 const YOUTUBE_PENDING_CLASS = 'jpdb-youtube-filter-pending';
 const YOUTUBE_FIRST_IN_ROW_CLASS = 'jpdb-youtube-first-in-row';
 const YOUTUBE_COLLAPSING_CLASS = 'jpdb-youtube-filter-collapsing';
@@ -410,6 +412,7 @@ export class YoutubeImmersionFilter {
             }
         }
         this.syncEmptiedRichSections();
+        syncUnrenderedYouTubeShelfSlots();
         rebalanceYouTubeGridRows();
     }
 
@@ -1798,6 +1801,22 @@ function collectFilterableVideoShelves(root: ParentNode = document): HTMLElement
 // mid-grid, margins misalign, and holes appear. The NihongoTube fix: strip
 // YouTube's flags and re-mark the first VISIBLE item of each row with our own
 // margin-compensation class, resetting the row counter at visible sections.
+// UT-26: shelf carousels render their items lazily on PAGING, not on
+// visibility — when filtering collapses the rendered neighbours, the
+// still-unrendered slots slide into the visible page as blank full-height
+// boxes (the "missing video gaps"). Keep them out of the flow until YouTube
+// hydrates them; the childList observer re-runs this sweep when they do.
+export function syncUnrenderedYouTubeShelfSlots(root: ParentNode = document): void {
+    root.querySelectorAll<HTMLElement>('ytd-rich-shelf-renderer ytd-rich-item-renderer').forEach(slot => {
+        if (slot.classList.contains(YOUTUBE_FILTERED_CLASS) || slot.classList.contains(YOUTUBE_PENDING_CLASS)) {
+            slot.classList.remove(YOUTUBE_UNRENDERED_SLOT_CLASS);
+            return;
+        }
+        const rendered = Boolean(slot.querySelector(YOUTUBE_RENDERED_SLOT_SELECTOR));
+        slot.classList.toggle(YOUTUBE_UNRENDERED_SLOT_CLASS, !rendered);
+    });
+}
+
 export function rebalanceYouTubeGridRows(root: ParentNode = document): void {
     root.querySelectorAll<HTMLElement>('ytd-rich-grid-renderer').forEach(grid => {
         const contents = grid.querySelector<HTMLElement>('div#contents');

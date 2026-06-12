@@ -9288,7 +9288,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
    YouTube's virtualized grid janky) — the nihongotube technique: offscreen
    absolute positioning keeps the renderer's bookkeeping intact while the
    remaining cards reflow with zero content-shift animation. */
+/* UT-26: lazily-rendered shelf slots that YouTube has not hydrated yet are
+   blank boxes — keep them off-flow with the same technique until they
+   hydrate. */
 .jpdb-youtube-filtered,
+.jpdb-youtube-unrendered-slot,
 .jpdb-youtube-filter-collapsing,
 .jpdb-youtube-filter-collapsed {
     visibility: hidden !important;
