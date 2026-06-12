@@ -5,6 +5,7 @@ import { exampleSentenceLookupTokens } from '../lookup/example-sentence-tokens';
 import type { ImmersionKitClient, ImmersionKitExample } from '../immersion/kit';
 import { localizedImmersionProviderLabel } from '../immersion/labels';
 import { uiText } from '../app/i18n';
+import { effectiveFuriganaMode } from '../settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export function renderNewTabImmersionSentence(card: JPDBCard, example: ImmersionKitExample, settings: ReaderSettings, tokens?: JPDBToken[]): HTMLElement {
@@ -29,8 +30,18 @@ export function renderNewTabFrontSentence(card: JPDBCard, sentence: string, sett
 
 export function renderNewTabSentenceHtml(sentence: string, card: JPDBCard, settings: ReaderSettings, tokens?: JPDBToken[]): string {
     return tokens && tokens.length
-        ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings)
+        ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), newTabStudySentenceSettings(settings))
         : renderCardHighlightedTextHtml(sentence, card);
+}
+
+// UT-22: study sentences are an SRS surface — words the user already knows
+// (known / mature / never-forget …) must not carry furigana even when the
+// global furigana mode is "all", or the page keeps feeding answers for
+// graded-out vocabulary. Stricter explicit modes (off / difficult-kanji /
+// known-status) pass through unchanged.
+function newTabStudySentenceSettings(settings: ReaderSettings): ReaderSettings {
+    if (effectiveFuriganaMode(settings) !== 'all') return settings;
+    return { ...settings, furiganaMode: 'known-status' };
 }
 
 export function renderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): HTMLElement | null {

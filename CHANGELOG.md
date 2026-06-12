@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.147] - 2026-06-12
+
+### Fixed
+
+- Study-page sentences no longer show furigana over words you already know (known, mature, never-forget and similar states), even when the global furigana mode is "all" — the study page is a review surface, so readings only appear for words still being learned. Explicit stricter modes (off, difficult kanji, known status) behave exactly as before.
+
 ## [0.6.146] - 2026-06-12
 
 ### Fixed
