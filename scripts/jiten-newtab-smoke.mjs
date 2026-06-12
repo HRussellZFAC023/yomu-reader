@@ -49,6 +49,7 @@ const JITEN_REQUEST_HANDLERS = new Map([
     ['POST srs/review', handleJitenReview],
 ]);
 const JPDB_REQUEST_HANDLERS = new Map([
+    ['list-user-decks', handleJpdbListUserDecks],
     ['deck/list-vocabulary', handleJpdbListVocabulary],
     ['lookup-vocabulary', handleJpdbLookupVocabulary],
     ['review', handleJpdbReview],
@@ -98,7 +99,7 @@ function createSettings(overrides = {}) {
         studyTranslationEnabled: false,
         studyGrammarEnabled: false,
         audioEnabled: false,
-        enableLogging: false,
+        enableLogging: Boolean(process.env.SMOKE_DEBUG),
         ...overrides,
     };
 }
@@ -106,6 +107,10 @@ function createSettings(overrides = {}) {
 async function installNewTabPage(browser, fixture, settings, requests) {
     const context = await browser.newContext({ bypassCSP: true, viewport: { width: 980, height: 760 } });
     const page = await context.newPage();
+    if (process.env.SMOKE_DEBUG) {
+        page.on('console', m => console.error('[console]', m.type(), m.text().slice(0, 240)));
+        page.on('pageerror', e => console.error('[pageerror]', e.message.slice(0, 240)));
+    }
     await page.exposeFunction(REQUEST_BRIDGE_NAME, request => mockedApiRequest(request, requests));
     await addGmStorageBridgeInitScript(page, {
         key: SETTINGS_KEY,
@@ -180,6 +185,15 @@ function corsHeaders() {
 }
 
 function mockedApiRequest(request, requests) {
+    try {
+        return mockedApiRequestInner(request, requests);
+    } catch (error) {
+        if (process.env.SMOKE_DEBUG) console.error('[mock-error]', request.method, request.url, String(error).slice(0, 200));
+        throw error;
+    }
+}
+
+function mockedApiRequestInner(request, requests) {
     const url = new URL(request.url);
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
     if (url.origin === JPDB_API_ORIGIN) return mockedJpdbRequest(url, request, requests);
@@ -204,8 +218,11 @@ function mockedJpdbRequest(url, request, requests) {
 }
 
 function handleJitenStudyBatch(url, _request, requests) {
+    // Stateful like the real API: a card that has been reviewed leaves the
+    // due batch, so post-grade queue refreshes do not resurrect it.
+    const reviewed = requests.some(item => item.kind === 'jiten-review');
     requests.push({ kind: 'jiten-study-batch', limit: url.searchParams.get('limit') });
-    return jsonHttpResponse(jitenStudyBatchResponse());
+    return jsonHttpResponse(reviewed ? { ...jitenStudyBatchResponse(), cards: [] } : jitenStudyBatchResponse());
 }
 
 function handleJitenReview(_url, request, requests) {
@@ -223,9 +240,17 @@ function jitenPingHandler(pathname) {
     return pathname === 'reader/ping' ? handleJitenPing : undefined;
 }
 
+function handleJpdbListUserDecks(body, requests) {
+    // The 'all' deck selection unions the listed user decks ('all' is not a
+    // real JPDB API deck id), so the smoke account exposes one deck.
+    requests.push({ kind: 'jpdb-list-user-decks', body });
+    return jsonHttpResponse({ decks: [[7, 'Smoke deck', 1, 0]] });
+}
+
 function handleJpdbListVocabulary(body, requests) {
+    const reviewed = requests.some(item => item.kind === 'jpdb-review');
     requests.push({ kind: 'jpdb-list-vocabulary', body });
-    return jsonHttpResponse({ vocabulary: [[101, 1]] });
+    return jsonHttpResponse({ vocabulary: reviewed ? [] : [[101, 1]] });
 }
 
 function handleJpdbLookupVocabulary(body, requests) {
@@ -282,6 +307,7 @@ function jpdbVocabularyTuple() {
         [['vn']],
         ['due'],
         ['LHH'],
+        1700000000,
     ];
 }
 
@@ -291,83 +317,68 @@ async function runJitenOnlySmoke(browser, fixture) {
     try {
         await expectText(page, '[data-newtab-prompt]', '日本語');
         await expectText(page, '[data-newtab-status]', 'Jiten');
-        await expectText(page, '[data-newtab-status]', '1 / 1');
+        await expectText(page, '[data-newtab-count]', 'Left 1');
         await assertStatusLight(page, 'jiten');
         assertRequestCount(requests, 'jiten-study-batch', 1);
         assertAllRequests(requests, 'jiten-study-batch', request => request.limit === '180', 'Jiten-only smoke used an unexpected study-batch limit');
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
         await page.click('[data-newtab-action="reveal"]');
-        await expectText(page, '[data-newtab-grade-target-chip]', 'Jiten');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
         assertRequestCount(requests, 'jiten-review', 0);
         await screenshot(page, 'jiten-newtab-jiten-only.png');
+        // Failed-card loop: a failing grade submits a review but requeues the
+        // card client-side, so the same prompt comes straight back.
+        await page.click('[data-newtab-action="grade"][data-grade="nothing"]');
+        const failedReview = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
+        assert(failedReview, 'Failed Jiten review request was not submitted', { requests });
+        assert(failedReview.body.rating === 1, 'Failed Jiten review should submit rating 1', failedReview.body);
+        await expectText(page, '[data-newtab-prompt]', '日本語');
+        // Undo affordance appears once a Jiten review has been graded.
+        await page.waitForSelector('[data-newtab-action="undo-review"]', { timeout: 8_000 });
+        await page.click('[data-newtab-action="reveal"]');
         await page.click('[data-newtab-action="grade"][data-grade="okay"]');
-        const review = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
-        assert(review, 'Jiten review request was not submitted', { requests });
+        const review = await waitForRequest(requests, item => item.kind === 'jiten-review' && item.body.rating === 3, 8_000);
+        assert(review, 'Passing Jiten review request was not submitted', { requests });
         assert(review.body.wordId === 42 && review.body.readingIndex === 2 && review.body.rating === 3, 'Jiten review request body was incorrect', review.body);
-        assertRequestCount(requests, 'jiten-review', 1);
+        assertRequestCount(requests, 'jiten-review', 2);
         return { prompt: await textContent(page, '[data-newtab-prompt]'), review: review.body };
     } finally {
         await context.close();
     }
 }
 
-async function runCombinedApiSmoke(browser, fixture) {
+async function runJpdbOnlySmoke(browser, fixture) {
     const requests = [];
-    const { context, page } = await installNewTabPage(browser, fixture, createSettings({ apiKey: MOCK_JPDB_API_KEY }), requests);
+    // Single-credential design: setting jitenApiKey wipes apiKey during
+    // settings normalization, so JPDB must be exercised with the Jiten key
+    // cleared. newTabStopAtBatchEnd pins the batch-complete breather.
+    const settings = createSettings({ apiKey: MOCK_JPDB_API_KEY, jitenApiKey: '', newTabStopAtBatchEnd: true });
+    const { context, page } = await installNewTabPage(browser, fixture, settings, requests);
     try {
         await expectText(page, '[data-newtab-prompt]', '復習');
         await expectText(page, '[data-newtab-status]', 'JPDB');
-        await expectText(page, '[data-newtab-status]', '1 / 2');
+        await expectText(page, '[data-newtab-count]', 'Left 1');
         await assertStatusLight(page, 'jpdb');
-        await page.click('[data-newtab-action="reveal"]');
-        await expectText(page, '[data-newtab-grade-target-chip]', 'JPDB');
-        await expectText(page, '[data-newtab-grade-target-text]', 'Grades JPDB');
-        const jpdbReview = await gradeCombinedJpdbReview(page, requests);
-        await expectText(page, '[data-newtab-prompt]', '日本語');
-        await expectText(page, '[data-newtab-status]', 'Jiten');
-        await expectText(page, '[data-newtab-status]', '1 / 1');
-        await assertStatusLight(page, 'jiten');
-        const jitenPrompt = await textContent(page, '[data-newtab-prompt]');
-        await page.click('[data-newtab-action="reveal"]');
-        await expectText(page, '[data-newtab-grade-target-chip]', 'Jiten');
-        await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
-        const jitenReview = await gradeCombinedJitenReview(page, requests);
-        await screenshot(page, 'jiten-newtab-combined-api.png');
+        assertRequestCountAtLeast(requests, 'jpdb-list-user-decks', 1);
         assertRequestCountAtLeast(requests, 'jpdb-list-vocabulary', 1);
-        assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 2);
-        assertRequestCountAtLeast(requests, 'jiten-study-batch', 1);
-        assertAllRequests(requests, 'jiten-study-batch', request => request.limit === '180', 'Jiten study-batch smoke requests used an unexpected limit');
-        assertRequestCount(requests, 'jpdb-review', 1);
-        assertRequestCount(requests, 'jiten-review', 1);
-        return {
-            firstPrompt: '復習',
-            secondPrompt: jitenPrompt,
-            reviews: {
-                jpdb: jpdbReview.body,
-                jiten: jitenReview.body,
-            },
-            sources: requests.map(item => item.kind),
-        };
+        assertRequestCountAtLeast(requests, 'jpdb-lookup-vocabulary', 1);
+        assertNoRequests(requests, request => String(request.kind).startsWith('jiten-'), 'JPDB-only smoke unexpectedly called Jiten');
+        await page.click('[data-newtab-action="reveal"]');
+        await expectText(page, '[data-newtab-grade-target-text]', 'Grades JPDB');
+        await page.click('[data-newtab-action="grade"][data-grade="easy"]');
+        const review = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
+        assert(review, 'JPDB review request was not submitted', { requests });
+        assert(review.body.vid === 101 && review.body.sid === 1 && review.body.grade === 'easy', 'JPDB review request body was incorrect', review.body);
+        // Stop-at-batch: the queue is exhausted, so the breather renders with
+        // a continue control instead of silently fetching the next batch.
+        await expectText(page, '[data-newtab-prompt]', 'Batch complete');
+        await screenshot(page, 'jiten-newtab-jpdb-only.png');
+        await page.click('[data-newtab-action="continue-batch"]');
+        await expectText(page, '[data-newtab-count]', 'No reviews ready');
+        return { prompt: '復習', review: review.body, sources: requests.map(item => item.kind) };
     } finally {
         await context.close();
     }
-}
-
-async function gradeCombinedJpdbReview(page, requests) {
-    await page.click('[data-newtab-action="grade"][data-grade="easy"]');
-    const review = await waitForRequest(requests, item => item.kind === 'jpdb-review', 8_000);
-    assert(review, 'JPDB review request was not submitted in combined smoke', { requests });
-    assert(review.body.vid === 101 && review.body.sid === 1 && review.body.grade === 'easy', 'JPDB review request body was incorrect', review.body);
-    return review;
-}
-
-async function gradeCombinedJitenReview(page, requests) {
-    await page.click('[data-newtab-action="grade"][data-grade="okay"]');
-    const review = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
-    assert(review, 'Jiten review request was not submitted in combined smoke', { requests });
-    assert(review.body.wordId === 42 && review.body.readingIndex === 2 && review.body.rating === 3, 'Combined Jiten review request body was incorrect', review.body);
-    return review;
 }
 
 async function runLiveJitenHealthCheck() {
@@ -388,9 +399,17 @@ async function runLiveJitenHealthCheck() {
 }
 
 async function expectText(page, selector, expected) {
-    await page.waitForFunction(({ selector: targetSelector, expected: targetText }) => {
-        return document.querySelector(targetSelector)?.textContent?.includes(targetText);
-    }, { selector, expected }, { timeout: 10_000 });
+    try {
+        await page.waitForFunction(({ selector: targetSelector, expected: targetText }) => {
+            return document.querySelector(targetSelector)?.textContent?.includes(targetText);
+        }, { selector, expected }, { timeout: 10_000 });
+    } catch (error) {
+        const actual = await page.evaluate(targetSelector => {
+            const element = document.querySelector(targetSelector);
+            return element ? { text: element.textContent, hidden: element.hidden } : null;
+        }, selector).catch(() => 'unavailable');
+        throw new Error(`Expected ${selector} to contain ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`, { cause: error });
+    }
 }
 
 async function waitForRequest(requests, predicate, timeoutMs) {
@@ -445,12 +464,12 @@ async function main() {
     const browserName = process.env.YOMU_SMOKE_BROWSER === 'firefox' ? 'firefox' : 'chromium';
     const browser = await launchSmokeBrowser(browserName === 'firefox' ? firefox : chromium, browserName, { headless: true });
     try {
-        const [jitenOnly, combined, liveJiten] = [
+        const [jitenOnly, jpdbOnly, liveJiten] = [
             await runJitenOnlySmoke(browser, fixture),
-            await runCombinedApiSmoke(browser, fixture),
+            await runJpdbOnlySmoke(browser, fixture),
             await runLiveJitenHealthCheck(),
         ];
-        console.log(JSON.stringify({ ok: true, jitenOnly, combined, liveJiten }, null, 2));
+        console.log(JSON.stringify({ ok: true, jitenOnly, jpdbOnly, liveJiten }, null, 2));
     } finally {
         await browser.close();
         await closeServer(fixture.server);

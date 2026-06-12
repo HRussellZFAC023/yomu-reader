@@ -63,11 +63,6 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
   - Evidence: `#jiten-suggestions`, "Compound decks", 2026-06-10.
   - Yomu cross-reference: Yomu can review provider cards, but has no Jiten compound-deck learner lane or compound-specific card model.
 
-- DONE 0.6.141 — stop-at-end-of-batch: opt-in setting 'Stop at the end of each batch' (default off); when the loaded review batch exhausts, the study page shows 'Batch complete · Done N · elapsed' with an explicit Continue button instead of silently fetching more (also delivers the queue-completion-summary idea from research round 2).
-- Add stop-at-end-of-batch review mode (original).
-  - Evidence: `#jiten-suggestions`, "Srs stop at the end of batch", 2026-06-09.
-  - Yomu cross-reference: Yomu has session progress and queues in `src/reader/newtab/session-progress.ts` and `src/reader/newtab/study-queue.ts`; no explicit "do not fetch next batch after current batch" mode was confirmed.
-
 - Reduce review latency and prefetch next review work.
   - Evidence: JPDB's 2024 feature-voting result ranked "reduce lag between reviews" as the top request.
   - Yomu cross-reference: Yomu has visible-work scheduling and new-tab queues, but review-next-card latency should be measured for JPDB live, JPDB API, Jiten API, and Anki paths.
@@ -89,10 +84,6 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
   - Evidence: `#jiten-bugs-issues`: suspended and blacklisted cards still showed overdue; due color beat suspended state; redundant/due/young cards had no grading buttons but users still wanted at least blacklist controls.
   - Yomu cross-reference: `CardState` includes `due`, `blacklisted`, `suspended`, and `redundant` in `src/reader/app/types.ts`; Jiten maps `6` to `redundant` in `src/reader/dictionaries/jiten.ts`; `assertReviewableApiCardState` blocks review for blacklisted/never-forget/redundant in `src/reader/cards/action-controller.ts`. Yomu should still audit visual priority and fallback actions when multiple states are present.
 
-- Add Jiten batch-review or mass-review visible words.
-  - Evidence: JitenReader v1.2.0 upstream added mass review using Jiten `srs/batch-review`; `#jiten-reader` users discussed mass review and backup anxiety.
-  - Yomu cross-reference: Yomu Jiten client exposes `srs/review` only in `src/reader/dictionaries/jiten.ts`. `docs/refactor-backlog.md` already has "mass-review visible words" under Jiten v1.2.x remaining.
-
 - Add review session modes borrowed from JPDB user workarounds.
   - Evidence: public JPDB research: requests for reviews-only, new-only, review-ahead, focus deck/list, short block, no-new-after-due queue; scripts mask huge review counts to make sessions feel manageable. JPDB `#content-requests` also had a user asking how to learn/review only one deck without deleting other decks.
   - Yomu cross-reference: Yomu has provider selection and browse filters, but no explicit review-load masking or full session mode matrix.
@@ -100,17 +91,6 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
 - Add offline-first review mode.
   - Evidence: JPDB 2024 feature-voting ranking included "offline mode"; JPDB scripts and export tools exist because users want their data and reviews usable outside the live site.
   - Yomu cross-reference: Yomu already queues offline JPDB/Jiten/Anki grades for later flush in tests, but no full offline deck snapshot/download workflow was confirmed.
-
-- DONE 0.6.140 (Jiten) — Add undo recent review: after grading a Jiten card on the study page an Undo button appears for 5 minutes (POST srs/undo-review, schema-verified), restores the word to the front unrevealed, refreshes state through the card-state bus. JPDB API has no undo endpoint (their issue-tracker #417 still open) and AnkiConnect's answerCards has no reliable reversal — Jiten-only by provider capability, not by choice.
-- Add undo recent review (original).
-  - Evidence: JPDB issue tracker has open `[feature request] Undo recent reviews` (`jpdb-io/issue-tracker#417`, opened 2024-11-04).
-  - User behavior: review mistakes are common enough that users ask for a reversal path, not only a later corrective review.
-  - Yomu cross-reference: Yomu has offline queued JPDB/Jiten/Anki grades and live JPDB grade routing tests, but no confirmed user-facing "undo last grade" transaction.
-
-- DONE 0.6.142 — failed-card session loop: failing grades (nothing/something/two-button fail) requeue the card at the back of the current session pool so it repeats until passed, jpdb-style; 'hard' still advances. Applies in review-count mode for every provider; passing grades remove as before.
-- Add failed-card loop controls after session cap (original).
-  - Evidence: JPDB `#next-update-feature-voting`: "Continue showing failed cards after hitting 'Cards per review session'", including variants to keep showing failed cards until seen once or passed.
-  - Yomu cross-reference: Yomu tracks session progress and queues, but no "finish misses before ending" mode was confirmed.
 
 - Add interval upper-limit and scheduler-version controls for any local/provider-backed SRS layer Yomu owns.
   - Evidence: JPDB feature-voting threads started in 2025 for "Implement FSRS-6 as default SRS" and "Interval Upper Limit"; Jiten SRS users also discuss retention/schedule semantics.

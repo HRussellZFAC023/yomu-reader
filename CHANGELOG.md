@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.145] - 2026-06-12
+
+### Changed
+
+- Study page internals: the search detail-expansion renderers (header, definitions, loading state, fallback definition sources, inline kanji section shell) moved out of the controller hotspot into the search view module as pure helpers — no behavior change.
+
+### Fixed
+
+- The study-page Playwright smoke harness works again (it had silently drifted after the session-progress, grade-target and stop-at-batch reworks): it now also pins the failed-card requeue loop, the undo-review button after a Jiten grade, the JPDB all-decks union with due-time lookups, and the "Batch complete" breather, browser-level. Its API mocks are stateful (a reviewed card leaves the due pool) and the impossible combined JPDB+Jiten credential scenario was replaced with a JPDB-only one (by design, a Jiten key takes over the single API credential slot).
+
 ## [0.6.144] - 2026-06-12
 
 ### Changed
