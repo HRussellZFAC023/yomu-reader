@@ -3956,6 +3956,20 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('hides the Show-only state filter when no provider credential exists (keyless)', async () => {
+        resetNewTabReviewStorage();
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', ankiEnabled: false });
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-filter-select]')!;
+            // Keyless cards carry no provider states, so the filter would
+            // only ever hide everything (user-reported confusion).
+            expect(select.hidden).toBe(true);
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('broadcasts the refreshed card state after a live-bridge grade when an API key exists (mutation-bus P0)', async () => {
         vi.useFakeTimers();
         const refreshCardState = vi.fn(async (card: JPDBCard) => { card.cardState = ['known']; });

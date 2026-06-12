@@ -4328,9 +4328,12 @@ export class NewTabController {
 
     private renderNewTabImmersionToolbar(example: ImmersionKitExample, index: number, total: number, hasAudio: boolean): HTMLElement {
         const language = this.language();
+        // The clip title identifies the example well enough on the study card;
+        // the provider name lives in the tooltip instead of its own chip, and
+        // the controls stay inline with the title (user-reported: the old
+        // stacked layout wasted vertical space).
         return el('div', { class: 'jpdb-reader-example-toolbar' },
-            el('div', { class: 'jpdb-reader-example-meta' },
-                el('span', { class: 'jpdb-reader-example-source' }, newTabImmersionProviderLabel(example, language)),
+            el('div', { class: 'jpdb-reader-example-meta', title: newTabImmersionProviderLabel(example, language) },
                 el('span', { class: 'jpdb-reader-example-title' }, localizedImmersionSourceTitle(example.sourceTitle, language)),
                 el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
             ),
@@ -7591,7 +7594,14 @@ export class NewTabController {
     private syncStateFilterSelector(root: HTMLElement): void {
         const select = root.querySelector<HTMLSelectElement>('[data-newtab-filter-select]');
         if (!select) return;
-        const show = this.state.mode === 'word';
+        // Without any provider credential every card is plain dictionary
+        // study — state filters have nothing to filter and only confuse
+        // (user-reported), so keyless setups never see the dropdown.
+        const settings = this.dependencies.getSettings();
+        const hasProvider = hasJpdbApiCredential(settings)
+            || hasJitenApiCredential(settings)
+            || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
+        const show = this.state.mode === 'word' && hasProvider;
         select.hidden = !show;
         if (!show) return;
         replaceChildrenWith(select, NEW_TAB_FILTERS.map(filter => el('option', {

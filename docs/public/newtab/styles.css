@@ -1645,6 +1645,17 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   color: inherit;
 }
 
+/* Front of a study card: the target word's own furigana gives the reading
+   away (user-reported). Hide it until reveal; other words keep theirs, which
+   matches jpdb's Learn front. visibility (not display) keeps the line height
+   stable across reveal. */
+.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed)
+  .jpdb-reader-newtab-sentence
+  .jpdb-reader-example-target
+  :is(.jpdb-reader-furi, rt) {
+  visibility: hidden;
+}
+
 .jpdb-reader-newtab-answer {
   width: min(640px, 100%);
   min-height: clamp(68px, 11vh, 124px);
@@ -3586,25 +3597,22 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     margin-top: 4px;
   }
 
+  /* Title and controls share one row (jpdb-frame pattern); the old
+     centered, stacked controls wasted a whole row (user-reported). */
   .jpdb-reader-newtab-immersion .jpdb-reader-example-toolbar {
     gap: 7px;
-    justify-content: center;
-  }
-
-  .jpdb-reader-newtab-immersion
-    .jpdb-reader-example-toolbar
-    .jpdb-reader-example-actions {
-    margin-inline: auto;
+    justify-content: space-between;
+    flex-wrap: nowrap;
   }
 
   .jpdb-reader-newtab-immersion .jpdb-reader-example-title {
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
 
   .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
   }
 
   .jpdb-reader-newtab-kanji-answer {
@@ -3722,11 +3730,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom)));
   }
 
-  .jpdb-reader-language-toggle,
-  .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
+  .jpdb-reader-language-toggle {
     width: 44px !important;
     min-width: 44px !important;
     height: 44px !important;
+  }
+
+  /* Immersion Kit controls sit inline with the clip title; 36px visible
+     size keeps the row compact (user-reported) while staying tappable. */
+  .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
   }
 
   .jpdb-reader-newtab-theme-controls .jpdb-reader-theme-appearance,
@@ -3749,7 +3765,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     > summary.jpdb-reader-local-title,
   .jpdb-reader-newtab-kanji-vocab > button,
   .jpdb-reader-newtab-mini-action,
-  .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini,
   .jpdb-reader-newtab-install {
     min-height: 44px !important;
   }
