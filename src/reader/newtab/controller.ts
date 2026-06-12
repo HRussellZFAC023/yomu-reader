@@ -115,6 +115,7 @@ import { isNewTabStatsDateKey, normalizeNewTabStatsActivityMetric, renderNewTabS
 import {
     newTabApiGradeTargetShortLabel,
     newTabGradeTargetLabel,
+    newTabKeyHintsRenderable,
     newTabMainGradeTargetOptions,
     renderNewTabGradeControlButtons,
     selectedNewTabMainGradeTarget,
@@ -6804,7 +6805,7 @@ export class NewTabController {
         return [
             el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
             el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel,
-                el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, 'Space')),
+                newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, 'Space') : null),
             el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
         ];
     }

@@ -213,8 +213,18 @@ function renderNewTabGradeButton(
     el('span', { class: 'jpdb-reader-newtab-grade-label' }, label),
     // jpdb.io/Jiten parity: both advertise their grading keys on the
     // controls; digits map to rendered order (handleGradeDigitKeydown).
-    // Hidden on touch via CSS.
-    keyHint ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, String(keyHint)) : null);
+    // UT-54: touch-only devices never render the hint at all (the CSS
+    // pointer:coarse rule stays as a belt for hybrid devices).
+    keyHint && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, String(keyHint)) : null);
+}
+
+export function newTabKeyHintsRenderable(): boolean {
+    if (typeof matchMedia !== 'function') return true;
+    try {
+        return !matchMedia('(pointer: coarse)').matches;
+    } catch {
+        return true;
+    }
 }
 
 function mainGradeTargetShortLabel(option: HTMLOptionElement, fallback: string): string {

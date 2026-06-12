@@ -431,13 +431,21 @@ export class YoutubeImmersionFilter {
         const now = performance.now();
         if (now - this.lastShelfBackfillAt < YOUTUBE_SHELF_BACKFILL_THROTTLE_MS) return;
         for (const shelf of collectFilterableVideoShelves()) {
-            if (shelf.classList.contains(YOUTUBE_FILTERED_CLASS)) continue;
+            // A fully-filtered shelf is collapsed but still pageable — its
+            // "show more" can hydrate Japanese items that un-hide it on the
+            // next pass. Skipping it here would freeze it empty forever.
             const cards = collectYouTubeVideoCards(shelf);
             if (!cards.length) continue;
             const visible = cards.filter(card => !card.classList.contains(YOUTUBE_FILTERED_CLASS)
                 && !card.classList.contains(YOUTUBE_PENDING_CLASS)
                 && !card.classList.contains(YOUTUBE_UNRENDERED_SLOT_CLASS)).length;
-            if (visible >= YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE) continue;
+            // UT-53: fill the shelf's own visible page (elements-per-row)
+            // when it advertises one, not just a bare minimum.
+            const perRow = Number(shelf.getAttribute('elements-per-row') ?? shelf.querySelector('[items-per-row]')?.getAttribute('items-per-row') ?? '');
+            const target = Number.isFinite(perRow) && perRow > 0
+                ? Math.min(Math.max(Math.round(perRow), YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE), 8)
+                : YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE;
+            if (visible >= target) continue;
             const pages = Number(shelf.dataset.yomuShelfBackfillPages ?? '0');
             if (pages >= YOUTUBE_SHELF_BACKFILL_MAX_PAGES) continue;
             // Truncated shelves (Shorts row) hydrate more slots through their
