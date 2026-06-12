@@ -48,6 +48,7 @@ type JitenEndpointMap = {
     'srs/study-batch': [undefined, JitenStudyBatchResponse];
     'srs/review': [JitenReviewRequest, unknown];
     'srs/batch-review': [JitenBatchReviewRequest, unknown];
+    'srs/undo-review': [JitenCardReference, unknown];
     'srs/set-vocabulary-state': [JitenVocabularyStateRequest, unknown];
 };
 
@@ -336,6 +337,12 @@ export class JitenApiClient {
             ...jitenCardReference(card),
             rating: jitenRatingForGrade(grade),
         });
+    }
+
+    // Community ask (jpdb issue-tracker #417 class): reverse the most recent
+    // review of a word. POST /api/srs/undo-review {wordId, readingIndex}.
+    async undoReview(card: JPDBCard): Promise<void> {
+        await this.request('srs/undo-review', jitenCardReference(card));
     }
 
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
