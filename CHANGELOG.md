@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.161] - 2026-06-12
+
+### Added
+
+- First-run guidance on the study page: when no SRS source is connected, the practice-words view now shows a "Connect JPDB / Jiten / Anki" button that opens settings directly — instead of silently showing random practice words.
+
+### Verified
+
+- Live queue-mirroring check against Jiten with a seeded account: the study page's card order matched the Jiten API's own study batch exactly (due cards first, then the server's new-card order), and the count line matched the API's due summary.
+
 ## [0.6.160] - 2026-06-12
 
 ### Added

@@ -4086,6 +4086,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 
+/* UT-41: first-run connect call-to-action under the practice-words notice. */
+.jpdb-reader-newtab-connect-cta {
+  margin-top: 4px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 44%, var(--jpdb-reader-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 84%, var(--jpdb-reader-accent) 12%);
+  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+  font-weight: 600;
+  cursor: pointer;
+}
+
+
 /* Source: src/reader/styles/stats.css */
 .jpdb-reader-newtab-stats-mode .jpdb-reader-newtab-study {
   align-content: start;

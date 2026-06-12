@@ -3885,9 +3885,26 @@ export class NewTabController {
     private renderCount(countSlot: HTMLElement | null, label: string, progress: NewTabSessionProgressSnapshot | null = null): void {
         if (!countSlot) return;
         countSlot.textContent = label;
-        countSlot.hidden = !label;
+        this.appendConnectSrsCta(countSlot);
+        countSlot.hidden = !countSlot.textContent && !countSlot.firstElementChild;
         countSlot.style.setProperty('--jpdb-reader-newtab-session-progress', progress ? String(newTabSessionProgressRatio(progress)) : '0');
         this.syncSessionProgressDataset(countSlot, progress);
+    }
+
+    // UT-41: a first-run user lands on practice words with no explanation —
+    // when no SRS source is configured, the fallback notice carries a
+    // "Connect" button that opens settings.
+    private appendConnectSrsCta(countSlot: HTMLElement): void {
+        // Practice pool with nothing configured = the first-run state; the
+        // fallback notice itself only renders for users who DO have sources.
+        if (this.reviewCountMode || this.state.mode !== 'word') return;
+        const settings = this.dependencies.getSettings();
+        if (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled || settings.newTabAnkiEnabled) return;
+        countSlot.append(el('button', {
+            type: 'button',
+            class: 'jpdb-reader-newtab-connect-cta',
+            dataset: { newtabAction: 'settings' },
+        }, this.text('connectSrsCta')));
     }
 
     private syncSessionProgressDataset(countSlot: HTMLElement, progress: NewTabSessionProgressSnapshot | null): void {
