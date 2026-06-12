@@ -36,6 +36,11 @@
     "../yomu.user.js",
     "./styles.css?v=__YOMU_NEW_TAB_CSS_HASH__"
   ],
+  // ADR-0003 seam: popup/render.ts re-exports companion shims under the
+  // original kanji/origin names so core call sites stay unchanged.
+  "rules": {
+    "duplicate-exports": "off"
+  },
   "ignoreExports": [
     {
       "file": "src/reader/cards/utils.ts",

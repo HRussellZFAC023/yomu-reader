@@ -4,7 +4,7 @@ const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
 const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
 const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
 
-export function splitLearnerGlossaryText(text: string): string[] {
+function splitLearnerGlossaryText(text: string): string[] {
     const withoutExamples = learnerGlossaryWithoutExamples(text);
     return withoutExamples
         .split(LEARNER_GLOSSARY_SEPARATOR_RE)
@@ -31,7 +31,7 @@ export function summarizeLearnerGlossaryTexts(texts: string[], limit = 3): strin
     return Array.from(new Set(cleaned)).slice(0, limit).join(', ');
 }
 
-export function cleanLearnerGlossaryText(text: string): string {
+function cleanLearnerGlossaryText(text: string): string {
     let clean = text
         .replace(/^\[[^\]]+\]\s*/u, '')
         .replace(LEARNER_GLOSSARY_TAG_RE, '')

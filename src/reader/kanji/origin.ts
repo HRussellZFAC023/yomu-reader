@@ -89,6 +89,8 @@ export interface KanjiSourceInfo {
 export class KanjiOriginClient {
     private cache = new Map<string, Promise<KanjiSourceInfo | null>>();
 
+    // Called through the nullable kanji-study companion slot (app/main.ts).
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const key = Array.from(kanji)[0] ?? kanji;
         if (!key || !settings.kanjiOriginsEnabled) {

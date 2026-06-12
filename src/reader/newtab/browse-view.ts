@@ -13,7 +13,7 @@ import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency';
 
-export const BROWSE_PAGE_SIZE = 50;
+const BROWSE_PAGE_SIZE = 50;
 
 // JPDB deck-browse "Show only" order.
 const BROWSE_FILTER_ORDER: CardState[] = [

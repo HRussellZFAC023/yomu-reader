@@ -1855,6 +1855,8 @@
   const log$A = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
+    // Called through the nullable kanji-study companion slot (app/main.ts).
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {
@@ -45836,7 +45838,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
-    // fallow-ignore-next-line unused-class-member
     async batchReviewCards(cards, grade) {
       const reviews = cards.flatMap((card) => {
         try {
