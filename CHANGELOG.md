@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.150] - 2026-06-12
+
+### Fixed
+
+- Sparse YouTube shelves after filtering: when the Japanese-content filter leaves a shelf (e.g. the Shorts row) with fewer than three visible items, Yomu now pages the shelf forward (its own "show more" / next control) so YouTube hydrates more items for the filter to keep — instead of the shelf shrinking to one or two cards. Capped at four pages per shelf and throttled so a genuinely non-Japanese shelf is not paged forever. (The shelf "show more" hydration was verified live on a signed-in feed: 5 → 9 rendered items per click.)
+
 ## [0.6.149] - 2026-06-12
 
 ### Fixed

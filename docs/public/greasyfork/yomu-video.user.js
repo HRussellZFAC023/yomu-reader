@@ -13158,6 +13158,9 @@ ${spelling}`);
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
   const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
+  const YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE = 3;
+  const YOUTUBE_SHELF_BACKFILL_MAX_PAGES = 4;
+  const YOUTUBE_SHELF_BACKFILL_THROTTLE_MS = 1500;
   const YOUTUBE_RENDERED_SLOT_SELECTOR = "ytd-rich-grid-media, ytd-rich-grid-slim-media, yt-lockup-view-model, ytm-shorts-lockup-view-model";
   const YOUTUBE_PENDING_CLASS = "jpdb-youtube-filter-pending";
   const YOUTUBE_FIRST_IN_ROW_CLASS = "jpdb-youtube-first-in-row";
@@ -13283,6 +13286,7 @@ ${spelling}`);
     compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     subscribedChannelHandles = /* @__PURE__ */ new Set();
     channelShelfRefreshTimer;
+    lastShelfBackfillAt = 0;
     lastAdvancedShortPath = "";
     lastShortAdvanceAt = 0;
     // Already-subscribed channels never belong in the suggestions; the pool
@@ -13439,7 +13443,34 @@ ${spelling}`);
       }
       this.syncEmptiedRichSections();
       syncUnrenderedYouTubeShelfSlots();
+      this.backfillSparseShelves();
       rebalanceYouTubeGridRows();
+    }
+    // UT-26 remainder: after filtering, a shelf can be left with one or two
+    // visible items because YouTube only hydrates carousel slots when the
+    // shelf is PAGED. When a visible shelf runs sparse, page it forward
+    // (its next arrow hydrates the following slots) so the filter has more
+    // candidates to keep. Capped per shelf and throttled so a genuinely
+    // non-Japanese shelf cannot be paged forever or fight the user.
+    backfillSparseShelves() {
+      const now = performance.now();
+      if (now - this.lastShelfBackfillAt < YOUTUBE_SHELF_BACKFILL_THROTTLE_MS) return;
+      for (const shelf of collectFilterableVideoShelves()) {
+        if (shelf.classList.contains(YOUTUBE_FILTERED_CLASS)) continue;
+        const cards = collectYouTubeVideoCards(shelf);
+        if (!cards.length) continue;
+        const visible = cards.filter((card) => !card.classList.contains(YOUTUBE_FILTERED_CLASS) && !card.classList.contains(YOUTUBE_PENDING_CLASS) && !card.classList.contains(YOUTUBE_UNRENDERED_SLOT_CLASS)).length;
+        if (visible >= YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE) continue;
+        const pages = Number(shelf.dataset.yomuShelfBackfillPages ?? "0");
+        if (pages >= YOUTUBE_SHELF_BACKFILL_MAX_PAGES) continue;
+        const expand = shelf.hasAttribute("is-truncated") ? shelf.querySelector("div#dismissible ytd-button-renderer button") : null;
+        const next = expand ?? shelf.querySelector('#right-arrow button, button[aria-label="Next"]');
+        if (!next || next.disabled) continue;
+        shelf.dataset.yomuShelfBackfillPages = String(pages + 1);
+        this.lastShelfBackfillAt = now;
+        next.click();
+        return;
+      }
     }
     // A rich section whose entire filterable content is hidden must take its
     // wrapper with it: the empty ytd-rich-section-renderer otherwise keeps its
