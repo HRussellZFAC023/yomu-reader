@@ -5515,6 +5515,9 @@ ${candidate.depth}`;
     handleDocumentPointerOver = (event) => this.requestOcrFromPointerEvent(event);
     handleDocumentPointerMove = (event) => this.requestOcrFromPointerEvent(event);
     handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
+    handleDocumentScroll = () => this.handleOcrViewportShift(120);
+    handleWindowScroll = () => this.handleOcrViewportShift(240);
+    handleWindowResize = () => this.handleOcrViewportShift(300);
     init() {
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
@@ -5524,16 +5527,9 @@ ${candidate.depth}`;
       document.addEventListener("pause", this.handleMediaPause, true);
       document.addEventListener("play", this.handleMediaResume, true);
       document.addEventListener("emptied", this.handleMediaResume, true);
-      window.addEventListener("scroll", () => {
-        if (!this.options.getSettings().ocrEnabled) return;
-        this.schedulePosition();
-        this.scheduleRefresh(240);
-      }, { passive: true });
-      window.addEventListener("resize", () => {
-        if (!this.options.getSettings().ocrEnabled) return;
-        this.schedulePosition();
-        this.scheduleRefresh(300);
-      }, { passive: true });
+      document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
+      window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
+      window.addEventListener("resize", this.handleWindowResize, { passive: true });
       this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
       this.mutationObserver.observe(document.body, {
         childList: true,
@@ -5550,6 +5546,9 @@ ${candidate.depth}`;
       document.removeEventListener("pause", this.handleMediaPause, true);
       document.removeEventListener("play", this.handleMediaResume, true);
       document.removeEventListener("emptied", this.handleMediaResume, true);
+      document.removeEventListener("scroll", this.handleDocumentScroll, true);
+      window.removeEventListener("scroll", this.handleWindowScroll);
+      window.removeEventListener("resize", this.handleWindowResize);
       this.releaseAllVideoFrames();
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -5587,6 +5586,11 @@ ${candidate.depth}`;
       this.schedulePosition();
       if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
       this.scheduleRefresh(summary.addedImage ? 0 : 40);
+    }
+    handleOcrViewportShift(refreshDelay) {
+      if (!this.options.getSettings().ocrEnabled) return;
+      this.schedulePosition();
+      this.scheduleRefresh(refreshDelay);
     }
     hasVisibleInlineOcrFallback(settings) {
       return Array.from(document.images).some((image) => {
