@@ -102,6 +102,62 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('re-annotates text after a framework re-render replaces annotated nodes', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<div id="app"><p>日本語の文です。</p></div>';
+        const tokenFor = (sentence: string): JPDBToken[] => [{
+            card: {
+                vid: 1,
+                sid: 1,
+                rid: 1,
+                spelling: '日本語',
+                reading: 'にほんご',
+                frequencyRank: null,
+                partOfSpeech: [],
+                meanings: [],
+                cardState: ['known'],
+                pitchAccent: [],
+                wordWithReading: null,
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence,
+        }];
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => tokenFor(text)));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+            expect(document.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+
+            // A frameworky re-render: the component swaps the whole subtree
+            // for fresh nodes with identical text, dropping our spans (this
+            // is what the auto-scan mutation observer reacts to live).
+            const app = document.querySelector('#app')!;
+            const fresh = document.createElement('p');
+            fresh.textContent = '日本語の文です。';
+            app.replaceChildren(fresh);
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+
+            await scanner.scanVisiblePage({ silent: true });
+            expect(fresh.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+
+            // And again for an in-place text-node replacement (React updates
+            // a text child without replacing the element).
+            const word = fresh.querySelector('.jpdb-reader-word')!;
+            word.parentElement!.replaceChildren(document.createTextNode('日本語の文です。'));
+            await scanner.scanVisiblePage({ silent: true });
+            expect(fresh.querySelector('.jpdb-reader-word.jpdb-known')).not.toBeNull();
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('reports page coverage and i+1 guidance for manual scans with Jiten-backed words', async () => {
         const restoreRects = mockVisibleElementRects();
         const sentence = '今日本を読む';
@@ -780,6 +836,28 @@ describe('abortable visible-work scheduling (P1)', () => {
             // Old scan: 1 batch then aborted (stale generation); fresh scan
             // re-collects and parses all 3 batches => 4 total, not 6.
             expect(parseJapanese).toHaveBeenCalledTimes(4);
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('drops targets that disappear before the next parse batch', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 95 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => {
+            if (parseJapanese.mock.calls.length === 1) {
+                Array.from(document.querySelectorAll('p')).slice(80).forEach(paragraph => paragraph.remove());
+            }
+            return paragraphs.map(() => [] as JPDBToken[]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
         } finally {
             restoreRects();
             document.body.innerHTML = '';
