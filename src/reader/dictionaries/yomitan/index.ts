@@ -153,6 +153,22 @@ interface RandomTopTermOptions {
     fallbackMaxMs?: number;
 }
 
+// Best-effort: browsers may prompt or silently deny; either way the request
+// marks the origin as a persistence candidate (Safari honors it for
+// frequently-used and Home-Screen sites).
+let persistentStorageRequested = false;
+function requestPersistentDictionaryStorage(): void {
+    if (persistentStorageRequested) return;
+    persistentStorageRequested = true;
+    try {
+        void navigator.storage?.persist?.().then(granted => {
+            log.info('Persistent storage request', { granted });
+        }).catch(() => undefined);
+    } catch {
+        // navigator.storage unavailable (older WebKit) — nothing to do.
+    }
+}
+
 export class YomitanDictionaryStore {
     private dbPromise?: Promise<IDBDatabase>;
     private dictionaryInfoPromise?: Promise<YomitanDictionaryInfo[]>;
@@ -665,6 +681,10 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
+            // UT-72: imports live in IndexedDB, which Safari evicts after ~7
+            // days of inactivity for non-persisted origins. Ask for durable
+            // storage up front.
+            requestPersistentDictionaryStorage();
             const summary = /\.zip$/i.test(file.name)
                 ? await this.importZip(file, onProgress, sourceUrl)
                 : await this.importJson(file, onProgress);

@@ -354,13 +354,19 @@ function canInspectTextNode(node: Node): boolean {
     return isAnnotatableChipControl(blocked);
 }
 
-// UT-76: YouTube filter chips are buttons (normally skipped — annotating
-// interactive controls risks click conflicts), but their labels are prime
-// immersion text and the fragile-UI classifier renders them as PASSIVE
-// color-only words, which are click-transparent — the chip keeps working.
+// UT-76/79: interactive controls are excluded from collection by default
+// (annotating them risked click conflicts), but a short Japanese control
+// label (filter chip, tab, menu row) annotates safely on ANY site: the
+// passivity classifier renders it as a click-transparent color-only word and
+// ruby is suppressed for passive targets — no per-site element lists.
+const CONTROL_LABEL_TEXT_LIMIT = 60;
+const ANNOTATABLE_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"]';
+
 function isAnnotatableChipControl(blocked: Element): boolean {
-    return blocked.matches('button')
-        && Boolean(blocked.closest('yt-chip-cloud-chip-renderer, .ytChipShapeChip, [class*="ChipShape"]'));
+    if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
+    const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
+    const text = control.textContent?.replace(/\s+/g, '').trim() ?? '';
+    return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
 }
 
 function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
@@ -1322,7 +1328,9 @@ function insertSingleFragmentToken(
 }
 
 function scanTargetAllowsRuby(target: ScanTextTarget): boolean {
-    return target.layoutSensitive !== true;
+    // Passive control labels stay color-only: ruby grows fixed-height
+    // buttons and wraps their labels badly.
+    return target.layoutSensitive !== true && target.passiveInteraction !== true;
 }
 
 function scanFragmentAllowsRuby(hasNativeRuby: boolean, layoutSensitive: boolean, _passiveInteraction: boolean): boolean {

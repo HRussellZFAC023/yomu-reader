@@ -32,7 +32,7 @@ export function isJitenSrsCard(card: JPDBCard): boolean {
 // UT-60: a jpdb-primary card that merged with its Jiten twin keeps the Jiten
 // identity (jitenWordId) without becoming a Jiten-sourced card — gradeability
 // follows the identity, not the winning source.
-export function isJitenGradableCard(card: JPDBCard): boolean {
+function isJitenGradableCard(card: JPDBCard): boolean {
     return isJitenSrsCard(card) || (typeof card.jitenWordId === 'number' && card.jitenWordId > 0);
 }
 

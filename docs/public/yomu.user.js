@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.178
+// @version      0.6.179
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-EXfHajorDyAlWnIBIHP5BCulXfGh4YZUK9aZhDAsTRo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f8fZfCMukBYjWuXrrh+iMSAI+rVks4iB1LfK3ZRF9Qo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-r//sBQc1sBQRUDwhgyFK6aLw9dLqxfzLcqChrRKjM7M=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-bwFmpIOXAaMu/3JYuper+QYQCSoGsBaUEqzq6KWGn78=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Z7BVQajdYCthaDNfkMOlfw5W9FhOIr9Lrp1nvFESQWg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-KWmWhBB91XxhORfgkNkXjkeGvaEgHJTghNo8UoGBjEg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Yt2tZsgXr2ZGU1d2/bp8B8C2EIB8cWnCSKRlza++EaM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-s5RgDfGuJ0OoKzN9sS+DSVN7pqdtwGIvNLIOIf6luxw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3193,8 +3193,13 @@
     if (!blocked) return true;
     return isAnnotatableChipControl(blocked);
   }
+  const CONTROL_LABEL_TEXT_LIMIT = 60;
+  const ANNOTATABLE_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"]';
   function isAnnotatableChipControl(blocked) {
-    return blocked.matches("button") && Boolean(blocked.closest('yt-chip-cloud-chip-renderer, .ytChipShapeChip, [class*="ChipShape"]'));
+    if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
+    const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
+    const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
+    return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
   }
   function textWalkerHasJapanese(walker, limit) {
     let inspected = 0;
@@ -3850,7 +3855,7 @@
     replaceTextNodeRange(fragment.node, start, end, rendered);
   }
   function scanTargetAllowsRuby(target) {
-    return target.layoutSensitive !== true;
+    return target.layoutSensitive !== true && target.passiveInteraction !== true;
   }
   function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
     return !hasNativeRuby && !layoutSensitive;
@@ -6084,6 +6089,7 @@
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
       dictionaryStatusUnavailable: "Dictionary status unavailable.",
       noLocalDictionariesImported: "No local dictionaries imported yet.",
+      dictionaryStorageEvicted: "Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
@@ -6243,6 +6249,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -6710,6 +6717,7 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -6935,6 +6943,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -11795,6 +11804,17 @@ ${scopedInner}
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$l = Logger.scope("Yomitan");
+  let persistentStorageRequested = false;
+  function requestPersistentDictionaryStorage() {
+    if (persistentStorageRequested) return;
+    persistentStorageRequested = true;
+    try {
+      void navigator.storage?.persist?.().then((granted) => {
+        log$l.info("Persistent storage request", { granted });
+      }).catch(() => void 0);
+    } catch {
+    }
+  }
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -12220,6 +12240,7 @@ ${scopedInner}
       const done = log$l.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
         log$l.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
         log$l.info("Dictionary file import completed", summary);
         return summary;
@@ -21527,27 +21548,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
   }
   function localPitchPatternFromMeta(reading, entries) {
+    return localPitchPatternsFromMeta(reading, entries)[0] ?? "";
+  }
+  function localPitchPatternsFromMeta(reading, entries) {
+    const patterns = [];
     for (const entry of entries) {
       if (entry.mode !== "pitch") continue;
-      const position = readPitchPosition(entry.data, reading);
-      const pattern = position == null ? "" : pitchPatternFromPosition(reading, position);
-      if (pattern) return pattern;
+      for (const position of readPitchPositions(entry.data, reading)) {
+        const pattern = pitchPatternFromPosition(reading, position);
+        if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
+      }
     }
-    return "";
+    return patterns;
   }
-  function readPitchPosition(value, reading) {
+  function readPitchPositions(value, reading) {
     const record = objectRecord(value);
-    if (!record) return pitchPositionFromValue(value);
-    if (!pitchMetadataReadingMatches(record, reading)) return null;
-    return pitchPositionFromMetadataRecord(record);
-  }
-  function pitchPositionFromMetadataRecord(record) {
+    if (!record) {
+      const position = pitchPositionFromValue(value);
+      return position == null ? [] : [position];
+    }
+    if (!pitchMetadataReadingMatches(record, reading)) return [];
+    const candidates = pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).filter((position) => position != null);
+    if (candidates.length) return candidates;
     const direct = pitchPositionFromValue(record.position);
-    if (direct != null) return direct;
-    return firstPitchPositionCandidate(record);
-  }
-  function firstPitchPositionCandidate(record) {
-    return pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).find((position) => position != null) ?? null;
+    return direct == null ? [] : [direct];
   }
   function pitchMetadataReadingMatches(record, reading) {
     const metadataReading = typeof record.reading === "string" ? record.reading : "";
@@ -22420,9 +22444,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return null;
     }
     applyLocalPitchAccent(card, metaEntries) {
-      if (card.pitchAccent.length) return;
-      const pitch = localPitchPatternFromMeta(card.reading, metaEntries);
-      if (pitch) card.pitchAccent = [pitch];
+      const patterns = localPitchPatternsFromMeta(card.reading, metaEntries);
+      if (!patterns.length) return;
+      if (!card.pitchAccent.length) {
+        card.pitchAccent = patterns;
+        return;
+      }
+      for (const pattern of patterns) {
+        if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
+      }
     }
     cachedJpdbDecks(settings) {
       const key = `jpdb:${effectiveJpdbApiKey(settings)}`;
@@ -26046,6 +26076,7 @@ ${spelling}`);
     }
     // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
     // reader-study-decks). Rows carry userStudyDeckId + name.
+    // fallow-ignore-next-line unused-class-member
     async listStudyDecks() {
       const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
       if (!Array.isArray(response)) return [];
@@ -26058,6 +26089,7 @@ ${spelling}`);
     }
     // UT-44: srs/study-batch has no deck parameter, so deck scoping
     // intersects the batch with the deck's word keys.
+    // fallow-ignore-next-line unused-class-member
     async studyDeckWordKeys(deckId) {
       const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
       const keys = /* @__PURE__ */ new Set();

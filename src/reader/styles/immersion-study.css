@@ -565,7 +565,9 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-item {
   display: grid;
-  grid-template-columns: minmax(54px, max-content) minmax(0, 1fr);
+  /* UT-73: a fixed label column keeps every row's body aligned — per-item
+     max-content columns made ではない/じゃない and です/だ indent differently. */
+  grid-template-columns: 9.5rem minmax(0, 1fr);
   gap: 10px;
   align-items: start;
   border-top: 1px solid var(--jpdb-reader-border);

@@ -4,14 +4,6 @@ export type ApiCredentialSettings = Pick<ReaderSettings, 'apiKey' | 'jitenApiKey
 
 const JITEN_API_KEY_PREFIX = 'ak_';
 
-export function singleApiCredentialValue(settings: ApiCredentialSettings): string {
-    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
-}
-
-export function activeApiCredentialLabel(settings: ApiCredentialSettings): 'JPDB' | 'Jiten' {
-    return effectiveJitenApiKey(settings) ? 'Jiten' : 'JPDB';
-}
-
 // UT-61: dual credentials are first-class — labels must reflect BOTH
 // providers instead of silently preferring one.
 export function combinedApiCredentialLabel(settings: ApiCredentialSettings): string {
@@ -20,10 +12,6 @@ export function combinedApiCredentialLabel(settings: ApiCredentialSettings): str
     if (jpdb && jiten) return 'JPDB + Jiten';
     if (jiten) return 'Jiten';
     return 'JPDB';
-}
-
-export function apiCredentialLabelFromValue(value: string): 'JPDB' | 'Jiten' {
-    return isJitenApiCredential(value) ? 'Jiten' : 'JPDB';
 }
 
 export function effectiveJpdbApiKey(settings: ApiCredentialSettings): string {

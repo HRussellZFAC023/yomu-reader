@@ -1,1 +1,1 @@
-export { localPitchPatternFromMeta } from './pitch-meta-pattern';
+export { localPitchPatternFromMeta, localPitchPatternsFromMeta } from './pitch-meta-pattern';

@@ -158,8 +158,12 @@ export class ImageOcrController {
     private refreshTimer = 0;
     private lastPointerMoveImage?: HTMLImageElement;
     private videoFrames = new Map<HTMLVideoElement, HTMLImageElement>();
+    private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
+    // Stepping subtitle lines while paused seeks the video — the snapshot
+    // must follow the new frame instead of showing the stale one.
+    private readonly handleMediaSeeked = (event: Event) => this.refreshVideoFrameAfterSeek(event.target);
     private readonly handleDocumentPointerDown = (event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
         this.requestOcrFromPointerEvent(event);
@@ -185,6 +189,7 @@ export class ImageOcrController {
         document.addEventListener('pause', this.handleMediaPause, true);
         document.addEventListener('play', this.handleMediaResume, true);
         document.addEventListener('emptied', this.handleMediaResume, true);
+        document.addEventListener('seeked', this.handleMediaSeeked, true);
         document.addEventListener('scroll', this.handleDocumentScroll, { capture: true, passive: true });
         window.addEventListener('scroll', this.handleWindowScroll, { passive: true });
         window.addEventListener('resize', this.handleWindowResize, { passive: true });
@@ -205,6 +210,7 @@ export class ImageOcrController {
         document.removeEventListener('pause', this.handleMediaPause, true);
         document.removeEventListener('play', this.handleMediaResume, true);
         document.removeEventListener('emptied', this.handleMediaResume, true);
+        document.removeEventListener('seeked', this.handleMediaSeeked, true);
         document.removeEventListener('scroll', this.handleDocumentScroll, true);
         window.removeEventListener('scroll', this.handleWindowScroll);
         window.removeEventListener('resize', this.handleWindowResize);
@@ -675,7 +681,43 @@ export class ImageOcrController {
         frame.src = dataUrl;
         document.body.append(frame);
         this.videoFrames.set(target, frame);
+        // Paused-frame escape hatch: recognized text areas swallow clicks for
+        // lookups, so on text-dense frames the player itself becomes hard to
+        // reach — a visible resume control always works.
+        const resume = this.createVideoFrameResumeControl(target);
+        document.body.append(resume);
+        this.videoFrameControls.set(target, resume);
+        positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
+    }
+
+    private createVideoFrameResumeControl(video: HTMLVideoElement): HTMLElement {
+        const language = this.options.getSettings().interfaceLanguage;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'jpdb-ocr-video-frame-resume';
+        button.textContent = `▶ ${uiText(language, 'ocrResumeVideo')}`;
+        button.setAttribute('aria-label', uiText(language, 'ocrResumeVideo'));
+        button.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            // Remove the overlay even if play() is blocked — getting the
+            // frame out of the way is the usability win.
+            this.releaseVideoFrame(video);
+            try {
+                void video.play()?.catch(() => undefined);
+            } catch {
+                // jsdom / autoplay-blocked: overlay removal already happened.
+            }
+        });
+        return button;
+    }
+
+    private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
+        if (!(target instanceof HTMLVideoElement) || !target.paused) return;
+        if (!this.videoFrames.has(target)) return;
+        this.releaseVideoFrame(target);
+        this.snapshotPausedVideo(target);
     }
 
     private releaseVideoFrame(target: EventTarget | null): void {
@@ -683,6 +725,8 @@ export class ImageOcrController {
         const frame = this.videoFrames.get(target);
         if (!frame) return;
         this.videoFrames.delete(target);
+        this.videoFrameControls.get(target)?.remove();
+        this.videoFrameControls.delete(target);
         const state = this.states.get(frame);
         if (state) {
             this.observer?.unobserve(frame);
@@ -703,7 +747,10 @@ export class ImageOcrController {
                 this.releaseVideoFrame(video);
                 continue;
             }
-            positionVideoFrameImage(frame, video.getBoundingClientRect(), video);
+            const rect = video.getBoundingClientRect();
+            positionVideoFrameImage(frame, rect, video);
+            const resume = this.videoFrameControls.get(video);
+            if (resume) positionVideoFrameResumeControl(resume, rect, video);
         }
     }
 
@@ -1539,6 +1586,12 @@ function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: 
     frame.style.top = `${content.top}px`;
     frame.style.width = `${content.width}px`;
     frame.style.height = `${content.height}px`;
+}
+
+function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
+    const content = videoContentBox(rect, video);
+    control.style.left = `${content.left + content.width - 12}px`;
+    control.style.top = `${content.top + 12}px`;
 }
 
 function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {
