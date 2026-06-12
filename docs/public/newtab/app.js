@@ -34388,6 +34388,8 @@ ${spelling}`);
   const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
+  const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
+  const YOUTUBE_RENDERED_SLOT_SELECTOR = "ytd-rich-grid-media, ytd-rich-grid-slim-media, yt-lockup-view-model, ytm-shorts-lockup-view-model";
   const YOUTUBE_PENDING_CLASS = "jpdb-youtube-filter-pending";
   const YOUTUBE_FIRST_IN_ROW_CLASS = "jpdb-youtube-first-in-row";
   const YOUTUBE_COLLAPSING_CLASS = "jpdb-youtube-filter-collapsing";
@@ -34667,6 +34669,7 @@ ${spelling}`);
         }
       }
       this.syncEmptiedRichSections();
+      syncUnrenderedYouTubeShelfSlots();
       rebalanceYouTubeGridRows();
     }
     // A rich section whose entire filterable content is hidden must take its
@@ -35777,6 +35780,16 @@ ${spelling}`);
   }
   function collectFilterableVideoShelves(root = document) {
     return Array.from(root.querySelectorAll(FILTERABLE_VIDEO_SHELF_SELECTOR)).filter(isFilterableVideoShelf);
+  }
+  function syncUnrenderedYouTubeShelfSlots(root = document) {
+    root.querySelectorAll("ytd-rich-shelf-renderer ytd-rich-item-renderer").forEach((slot) => {
+      if (slot.classList.contains(YOUTUBE_FILTERED_CLASS) || slot.classList.contains(YOUTUBE_PENDING_CLASS)) {
+        slot.classList.remove(YOUTUBE_UNRENDERED_SLOT_CLASS);
+        return;
+      }
+      const rendered = Boolean(slot.querySelector(YOUTUBE_RENDERED_SLOT_SELECTOR));
+      slot.classList.toggle(YOUTUBE_UNRENDERED_SLOT_CLASS, !rendered);
+    });
   }
   function rebalanceYouTubeGridRows(root = document) {
     root.querySelectorAll("ytd-rich-grid-renderer").forEach((grid) => {

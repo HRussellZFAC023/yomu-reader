@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.149] - 2026-06-12
+
+### Fixed
+
+- YouTube feed gaps: shelf carousels (Shorts, news and similar rows) render their items lazily, so when the Japanese-content filter collapsed the rendered neighbours, YouTube's still-unrendered slots slid into view as blank full-height boxes. Those unhydrated slots now stay out of the flow until YouTube fills them, removing the empty holes in filtered feeds. (Verified on a signed-in feed: blank shelf boxes collapsed, grid reflows cleanly.)
+
 ## [0.6.148] - 2026-06-12
 
 ### Added
