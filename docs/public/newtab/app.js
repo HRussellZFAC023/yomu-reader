@@ -39945,6 +39945,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      gradeTargetJpdbAndJiten: "Grades JPDB + Jiten",
+      gradeTargetAllProviders: "Grades JPDB + Jiten + Anki card: {target}",
       offlineGradeReconnect: "Grade saved offline. It will sync when JPDB, Jiten, or Anki reconnects.",
       missingAnkiCardId: "Missing Anki card id.",
       noDefinitionsFound: "No definitions found.",
@@ -40094,6 +40096,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     gradeTargetAnki: "Ankiカードを採点: {target}",
     gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
     gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
+    gradeTargetJpdbAndJiten: "JPDB + Jitenを採点",
+    gradeTargetAllProviders: "JPDB + Jiten + Ankiカードを採点: {target}",
     offlineGradeReconnect: "採点をオフラインで保存しました。JPDB・Jiten・Ankiへの再接続時に同期されます。",
     missingAnkiCardId: "AnkiカードIDがありません。",
     noDefinitionsFound: "定義が見つかりませんでした。",
@@ -49868,6 +49872,10 @@ ${normalizedReading}`;
       ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
       ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
       ankiAudioFilenames: mergeOptionalStrings(primary.ankiAudioFilenames, secondary.ankiAudioFilenames),
+      // UT-60: a word living in both API queues keeps its Jiten identity
+      // after the jpdb twin wins primary, so both grade targets stay live.
+      jitenWordId: primary.jitenWordId ?? secondary.jitenWordId,
+      jitenReadingIndex: primary.jitenReadingIndex ?? secondary.jitenReadingIndex,
       fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
         secondary.spelling,
         secondary.reading,
@@ -49920,6 +49928,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function isJitenSrsCard(card) {
     return card.source === "jiten" || card.reviewSource === "jiten-api";
   }
+  function isJitenGradableCard(card) {
+    return isJitenSrsCard(card) || typeof card.jitenWordId === "number" && card.jitenWordId > 0;
+  }
   function newTabCardSourceLabel(card, language) {
     if (card.source === "anki" || card.reviewSource === "anki") return ankiReviewSourceLabel(card, language);
     if (card.source === "local" || card.source === "fallback" || card.reviewSource === "dictionary") return uiText(language, "dictionary");
@@ -49948,7 +49959,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       if (settings.jpdbMiningEnabled) add("jpdb-live");
     } else if ((card.reviewSource === "jpdb-api" || isPositiveJpdbCard(card)) && settings.jpdbMiningEnabled && hasJpdbApiCredential(settings)) {
       add("jpdb-api");
-    } else if (isJitenSrsCard(card) && settings.jpdbMiningEnabled && hasJitenApiCredential(settings)) {
+    }
+    if (card.reviewSource !== "jpdb-live" && isJitenGradableCard(card) && settings.jpdbMiningEnabled && hasJitenApiCredential(settings)) {
       add("jiten-api");
     }
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
@@ -51689,6 +51701,7 @@ ${newTabCardReading(card)}`;
     return target === "jpdb-api" || target === "jpdb-live";
   }
   function newTabGradeTargetLabel(summary, labels) {
+    if (summary.hasJpdb && summary.hasJiten) return summary.hasAnki ? labels.all : labels.jpdbAndJiten;
     if (summary.hasJiten && summary.hasAnki) return labels.jitenAndAnki;
     if (summary.hasJpdb && summary.hasAnki) return labels.jpdbAndAnki;
     if (summary.hasAnki) return labels.anki;
@@ -51696,6 +51709,7 @@ ${newTabCardReading(card)}`;
     return labels.jpdb;
   }
   function newTabApiGradeTargetShortLabel(summary) {
+    if (summary.hasJpdb && summary.hasJiten) return "JPDB + Jiten";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
   function newTabMainGradeTargetOptions(targets, combinedLabel, bothLabel) {
@@ -59032,11 +59046,13 @@ ${entry.url}`),
       const summary = this.reviewSourceSummary(card);
       const ankiTarget = summary.hasAnki ? this.ankiReviewTargetLabel(card) : "";
       return newTabGradeTargetLabel(summary, {
+        all: this.formatNewTabText("gradeTargetAllProviders", { target: ankiTarget }),
         anki: this.formatNewTabText("gradeTargetAnki", { target: ankiTarget }),
         jiten: this.text("gradeTargetJiten"),
         jitenAndAnki: this.formatNewTabText("gradeTargetJitenAndAnki", { target: ankiTarget }),
         jpdb: this.text("gradeTargetJpdb"),
-        jpdbAndAnki: this.formatNewTabText("gradeTargetJpdbAndAnki", { target: ankiTarget })
+        jpdbAndAnki: this.formatNewTabText("gradeTargetJpdbAndAnki", { target: ankiTarget }),
+        jpdbAndJiten: this.text("gradeTargetJpdbAndJiten")
       });
     }
     apiGradeTargetShortLabel(card) {

@@ -6946,11 +6946,13 @@ export class NewTabController {
         const summary = this.reviewSourceSummary(card);
         const ankiTarget = summary.hasAnki ? this.ankiReviewTargetLabel(card) : '';
         return newTabGradeTargetLabel(summary, {
+            all: this.formatNewTabText('gradeTargetAllProviders', { target: ankiTarget }),
             anki: this.formatNewTabText('gradeTargetAnki', { target: ankiTarget }),
             jiten: this.text('gradeTargetJiten'),
             jitenAndAnki: this.formatNewTabText('gradeTargetJitenAndAnki', { target: ankiTarget }),
             jpdb: this.text('gradeTargetJpdb'),
             jpdbAndAnki: this.formatNewTabText('gradeTargetJpdbAndAnki', { target: ankiTarget }),
+            jpdbAndJiten: this.text('gradeTargetJpdbAndJiten'),
         });
     }
 
