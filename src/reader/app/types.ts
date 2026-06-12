@@ -327,6 +327,7 @@ export interface ReaderSettings {
     hideKnownFurigana: boolean;
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;
+    ocrVideoPauseFrames: boolean;
     ocrShowTextOverlay: boolean;
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;

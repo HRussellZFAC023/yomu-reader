@@ -54,6 +54,8 @@ interface OcrControllerOptions {
     enrichTokensBeforeRender?: (tokens: JPDBToken[]) => void | Promise<void>;
     enrichRenderedTokens?: (tokens: JPDBToken[], root: ParentNode) => void | Promise<void>;
     fallbackCardFromText?: (text: string) => JPDBCard;
+    /** Test seam: overrides the canvas capture of a paused video frame. */
+    captureVideoFrame?: (video: HTMLVideoElement) => string | undefined;
 }
 
 const MAX_CACHE_ITEMS = 36;
@@ -155,6 +157,9 @@ export class ImageOcrController {
     private positionFrame = 0;
     private refreshTimer = 0;
     private lastPointerMoveImage?: HTMLImageElement;
+    private videoFrames = new Map<HTMLVideoElement, HTMLImageElement>();
+    private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
+    private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     private readonly handleDocumentPointerDown = (event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
         this.requestOcrFromPointerEvent(event);
@@ -171,6 +176,12 @@ export class ImageOcrController {
         document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.addEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.addEventListener('click', this.handleDocumentClick, true);
+        // UT-27: paused video frames are OCR'd like images and cleared the
+        // moment playback resumes. Media events do not bubble, so listen in
+        // the capture phase.
+        document.addEventListener('pause', this.handleMediaPause, true);
+        document.addEventListener('play', this.handleMediaResume, true);
+        document.addEventListener('emptied', this.handleMediaResume, true);
         window.addEventListener('scroll', () => {
             if (!this.options.getSettings().ocrEnabled) return;
             this.schedulePosition();
@@ -195,6 +206,10 @@ export class ImageOcrController {
         document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.removeEventListener('click', this.handleDocumentClick, true);
+        document.removeEventListener('pause', this.handleMediaPause, true);
+        document.removeEventListener('play', this.handleMediaResume, true);
+        document.removeEventListener('emptied', this.handleMediaResume, true);
+        this.releaseAllVideoFrames();
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
         this.clear();
@@ -615,6 +630,8 @@ export class ImageOcrController {
     }
 
     private remember(key: string, result: OcrResult): void {
+        // Paused-video frames key by their data: URL — far too large to keep.
+        if (key.startsWith('data:')) return;
         this.cache.set(key, result);
         while (this.cache.size > MAX_CACHE_ITEMS) {
             const oldest = this.cache.keys().next().value;
@@ -627,8 +644,63 @@ export class ImageOcrController {
         if (this.positionFrame) return;
         this.positionFrame = requestAnimationFrame(() => {
             this.positionFrame = 0;
+            this.positionVideoFrames();
             for (const image of this.states.keys()) this.positionState(image);
         });
+    }
+
+    // --- Paused-video frames (UT-27) ---
+
+    private snapshotPausedVideo(target: EventTarget | null): void {
+        if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
+        const settings = this.options.getSettings();
+        if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === 'off') return;
+        const rect = target.getBoundingClientRect();
+        if (rect.width * rect.height < settings.ocrMinImageArea) return;
+        if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
+        const dataUrl = (this.options.captureVideoFrame ?? captureVideoFrameDataUrl)(target);
+        if (!dataUrl) return;
+        const frame = document.createElement('img');
+        frame.className = 'jpdb-ocr-video-frame';
+        frame.dataset.yomuVideoFrame = 'true';
+        frame.alt = '';
+        positionVideoFrameImage(frame, rect);
+        frame.addEventListener('load', () => {
+            if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
+        }, { once: true });
+        frame.src = dataUrl;
+        document.body.append(frame);
+        this.videoFrames.set(target, frame);
+        this.schedulePosition();
+    }
+
+    private releaseVideoFrame(target: EventTarget | null): void {
+        if (!(target instanceof HTMLVideoElement)) return;
+        const frame = this.videoFrames.get(target);
+        if (!frame) return;
+        this.videoFrames.delete(target);
+        const state = this.states.get(frame);
+        if (state) {
+            this.observer?.unobserve(frame);
+            state.overlay.remove();
+            this.states.delete(frame);
+        }
+        this.queue = this.queue.filter(queued => queued !== frame);
+        frame.remove();
+    }
+
+    private releaseAllVideoFrames(): void {
+        for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
+    }
+
+    private positionVideoFrames(): void {
+        for (const [video, frame] of [...this.videoFrames]) {
+            if (!video.isConnected || !video.paused) {
+                this.releaseVideoFrame(video);
+                continue;
+            }
+            positionVideoFrameImage(frame, video.getBoundingClientRect());
+        }
     }
 
     private scheduleRefresh(delay: number): void {
@@ -1370,6 +1442,8 @@ function nodeContainsRenderableMedia(node: Node): boolean {
 }
 
 function isImageOccludedByVideo(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {
+    // Paused-video snapshots intentionally sit on their video.
+    if (image.dataset.yomuVideoFrame) return false;
     const imageArea = rect.width * rect.height;
     if (imageArea < 4) return false;
     const imageRoot = image.getRootNode();
@@ -1431,6 +1505,31 @@ function imageViewportDistance(image: HTMLImageElement): number {
     if (rect.right < 0) return -rect.right;
     if (rect.left > window.innerWidth) return rect.left - window.innerWidth;
     return 0;
+}
+
+function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
+    try {
+        if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return undefined;
+        const canvas = document.createElement('canvas');
+        const maxWidth = 960;
+        const scale = Math.min(1, maxWidth / video.videoWidth);
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+        const context = canvas.getContext('2d');
+        if (!context) return undefined;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Throws on DRM/cross-origin tainted frames — treated as "no frame".
+        return canvas.toDataURL('image/jpeg', 0.84);
+    } catch {
+        return undefined;
+    }
+}
+
+function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect): void {
+    frame.style.left = `${rect.left}px`;
+    frame.style.top = `${rect.top}px`;
+    frame.style.width = `${rect.width}px`;
+    frame.style.height = `${rect.height}px`;
 }
 
 function imageCacheKey(image: HTMLImageElement): string {
