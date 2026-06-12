@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.135] - 2026-06-12
+
+### Changed
+
+- Toasts redesigned: multiple notifications now stack neatly instead of overlapping, fade in and out (animations respect reduced-motion preferences), and repeated identical messages extend the visible toast rather than piling up duplicates.
+
 ## [0.6.134] - 2026-06-12
 
 ### Added
