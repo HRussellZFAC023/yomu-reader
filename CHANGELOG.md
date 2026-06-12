@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.169] - 2026-06-12
+
+### Fixed
+
+- Removed the remaining "one credential or the other" assumptions: with both JPDB and Jiten keys, Jiten features no longer pretend JPDB is absent, settings labels read "JPDB + Jiten" where both apply, and an open jpdb.io review tab no longer hijacks the merged study queue in Auto mode — the explicit "Live JPDB review session" mode is the only thing that preempts, exactly as chosen.
+
 ## [0.6.168] - 2026-06-12
 
 ### Added

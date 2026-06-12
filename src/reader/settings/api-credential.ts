@@ -12,6 +12,16 @@ export function activeApiCredentialLabel(settings: ApiCredentialSettings): 'JPDB
     return effectiveJitenApiKey(settings) ? 'Jiten' : 'JPDB';
 }
 
+// UT-61: dual credentials are first-class — labels must reflect BOTH
+// providers instead of silently preferring one.
+export function combinedApiCredentialLabel(settings: ApiCredentialSettings): string {
+    const jpdb = Boolean(effectiveJpdbApiKey(settings));
+    const jiten = Boolean(effectiveJitenApiKey(settings));
+    if (jpdb && jiten) return 'JPDB + Jiten';
+    if (jiten) return 'Jiten';
+    return 'JPDB';
+}
+
 export function apiCredentialLabelFromValue(value: string): 'JPDB' | 'Jiten' {
     return isJitenApiCredential(value) ? 'Jiten' : 'JPDB';
 }
