@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.170] - 2026-06-12
+
+### Added
+
+- Words that live in both the JPDB and Jiten review queues now keep both identities after merging, so the study grade-target selector offers Both / JPDB / Jiten (and Anki) per card — grading just one provider works exactly like the jpdb+anki pairing always has.
+
+### Changed
+
+- Triaged the 15-screenshot iPad feedback wave into the backlog (UT-64…UT-78): jpdb kanji-used furigana position, lookup pitch gaps, keyless subtitle completeness, lines-panel gap, copy-subtitle UX, end-screen clipping, disappearing feed/comment text, shortcuts-settings completeness, jitendex regression, study-settings copy, sidebar-left player void, unannotated chrome, paused-OCR stretch, reddit styling.
+
 ## [0.6.169] - 2026-06-12
 
 ### Fixed

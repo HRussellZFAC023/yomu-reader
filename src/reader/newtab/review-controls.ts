@@ -31,11 +31,13 @@ export interface NewTabReviewSourceSummary {
 }
 
 interface NewTabGradeTargetLabels {
+    all: string;
     anki: string;
     jiten: string;
     jitenAndAnki: string;
     jpdb: string;
     jpdbAndAnki: string;
+    jpdbAndJiten: string;
 }
 
 interface RenderNewTabGradeControlsOptions {
@@ -64,6 +66,7 @@ function isJpdbReviewTarget(target: NewTabReviewTarget): boolean {
 }
 
 export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, labels: NewTabGradeTargetLabels): string {
+    if (summary.hasJpdb && summary.hasJiten) return summary.hasAnki ? labels.all : labels.jpdbAndJiten;
     if (summary.hasJiten && summary.hasAnki) return labels.jitenAndAnki;
     if (summary.hasJpdb && summary.hasAnki) return labels.jpdbAndAnki;
     if (summary.hasAnki) return labels.anki;
@@ -72,6 +75,7 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
 }
 
 export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
+    if (summary.hasJpdb && summary.hasJiten) return 'JPDB + Jiten';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }
 

@@ -119,6 +119,10 @@ export function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard):
         ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
         ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
         ankiAudioFilenames: mergeOptionalStrings(primary.ankiAudioFilenames, secondary.ankiAudioFilenames),
+        // UT-60: a word living in both API queues keeps its Jiten identity
+        // after the jpdb twin wins primary, so both grade targets stay live.
+        jitenWordId: primary.jitenWordId ?? secondary.jitenWordId,
+        jitenReadingIndex: primary.jitenReadingIndex ?? secondary.jitenReadingIndex,
         fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
             secondary.spelling,
             secondary.reading,

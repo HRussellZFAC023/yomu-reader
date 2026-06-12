@@ -29,6 +29,13 @@ export function isJitenSrsCard(card: JPDBCard): boolean {
     return card.source === 'jiten' || card.reviewSource === 'jiten-api';
 }
 
+// UT-60: a jpdb-primary card that merged with its Jiten twin keeps the Jiten
+// identity (jitenWordId) without becoming a Jiten-sourced card — gradeability
+// follows the identity, not the winning source.
+export function isJitenGradableCard(card: JPDBCard): boolean {
+    return isJitenSrsCard(card) || (typeof card.jitenWordId === 'number' && card.jitenWordId > 0);
+}
+
 export function newTabCardSourceLabel(card: JPDBCard, language: ReaderSettings['interfaceLanguage']): string {
     if (card.source === 'anki' || card.reviewSource === 'anki') return ankiReviewSourceLabel(card, language);
     if (card.source === 'local' || card.source === 'fallback' || card.reviewSource === 'dictionary') return uiText(language, 'dictionary');
@@ -62,7 +69,11 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         && settings.jpdbMiningEnabled
         && hasJpdbApiCredential(settings)) {
         add('jpdb-api');
-    } else if (isJitenSrsCard(card)
+    }
+    // UT-60: not an else-branch — a card living in both SRS queues offers
+    // both API targets, exactly like the jpdb+anki pairing already does.
+    if (card.reviewSource !== 'jpdb-live'
+        && isJitenGradableCard(card)
         && settings.jpdbMiningEnabled
         && hasJitenApiCredential(settings)) {
         add('jiten-api');

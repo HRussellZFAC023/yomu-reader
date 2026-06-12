@@ -53,3 +53,33 @@ describe('newTabDueSummary', () => {
         expect(newTabDueSummary(cards)).toEqual({ dueWords: 2, dueKanji: 1, newWords: 1, newKanji: 1 });
     });
 });
+
+describe('dedupeWords dual-provider merge (UT-60)', () => {
+    it('keeps the Jiten identity when a jpdb-primary card absorbs its Jiten twin', async () => {
+        const { dedupeWords } = await import('../../src/reader/newtab/card-selection');
+        const jpdbCard = kanjiCard({ vid: 1234, sid: 5, spelling: '日本語', reading: 'にほんご', cardState: ['due'] as CardState[], reviewSource: 'jpdb-api' });
+        const jitenCard = kanjiCard({
+            vid: 42, sid: 2, spelling: '日本語', reading: 'にほんご',
+            source: 'jiten', reviewSource: 'jiten-api', jitenWordId: 42, jitenReadingIndex: 2,
+        });
+        const merged = dedupeWords([jpdbCard, jitenCard]);
+        expect(merged).toHaveLength(1);
+        // jpdb wins primary (ids stay jpdb's) but the Jiten identity survives
+        expect(merged[0]).toMatchObject({ vid: 1234, sid: 5, source: 'jpdb', jitenWordId: 42, jitenReadingIndex: 2 });
+    });
+});
+
+describe('reviewTargetsForNewTabCard dual API targets (UT-60)', () => {
+    it('offers both jpdb-api and jiten-api for a merged card with both credentials', async () => {
+        const { reviewTargetsForNewTabCard } = await import('../../src/reader/newtab/review-targets');
+        const { DEFAULT_SETTINGS } = await import('../../src/reader/settings');
+        const settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten', jpdbMiningEnabled: true, enableReviews: true };
+        const merged = kanjiCard({ vid: 1234, sid: 5, reviewSource: 'jpdb-api', jitenWordId: 42, jitenReadingIndex: 2 });
+        expect(reviewTargetsForNewTabCard(merged, settings, null)).toEqual(['jpdb-api', 'jiten-api']);
+        // single-identity cards are unchanged
+        const jpdbOnly = kanjiCard({ vid: 1234, sid: 5, reviewSource: 'jpdb-api' });
+        expect(reviewTargetsForNewTabCard(jpdbOnly, settings, null)).toEqual(['jpdb-api']);
+        const jitenOnly = kanjiCard({ vid: 42, sid: 2, source: 'jiten', reviewSource: 'jiten-api', jitenWordId: 42, jitenReadingIndex: 2 });
+        expect(reviewTargetsForNewTabCard(jitenOnly, settings, null)).toEqual(['jiten-api']);
+    });
+});

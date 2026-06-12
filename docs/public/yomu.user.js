@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.169
+// @version      0.6.170
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19979,6 +19979,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      gradeTargetJpdbAndJiten: "Grades JPDB + Jiten",
+      gradeTargetAllProviders: "Grades JPDB + Jiten + Anki card: {target}",
       offlineGradeReconnect: "Grade saved offline. It will sync when JPDB, Jiten, or Anki reconnects.",
       missingAnkiCardId: "Missing Anki card id.",
       noDefinitionsFound: "No definitions found.",
@@ -20128,6 +20130,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     gradeTargetAnki: "Ankiカードを採点: {target}",
     gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
     gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
+    gradeTargetJpdbAndJiten: "JPDB + Jitenを採点",
+    gradeTargetAllProviders: "JPDB + Jiten + Ankiカードを採点: {target}",
     offlineGradeReconnect: "採点をオフラインで保存しました。JPDB・Jiten・Ankiへの再接続時に同期されます。",
     missingAnkiCardId: "AnkiカードIDがありません。",
     noDefinitionsFound: "定義が見つかりませんでした。",
