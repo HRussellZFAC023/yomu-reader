@@ -26,6 +26,7 @@ export class RtkClient {
     private cache = new Map<string, Promise<RtkInfo | null>>();
     private keywordIndex?: Promise<Map<string, string>>;
 
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji: string): Promise<RtkInfo | null> {
         if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
         const key = Array.from(kanji)[0] ?? kanji;

@@ -101,3 +101,60 @@ describe('paused-video frame letterbox fit (UT-77a)', () => {
         video.remove();
     });
 });
+
+// Paused-frame escape hatch: recognized text swallows clicks for lookups, so
+// the visible resume control is how users reliably unpause text-dense frames.
+describe('paused-video resume control', () => {
+    it('shows a resume button with the frame and releases the overlay on click', () => {
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+        document.body.append(video);
+        const controller = new ImageOcrController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
+        } as never);
+        controller.init();
+        video.dispatchEvent(new Event('pause'));
+
+        const resume = document.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-resume');
+        expect(resume).not.toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
+
+        resume!.click();
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+        controller.destroy();
+        video.remove();
+    });
+});
+
+describe('paused-video seek refresh', () => {
+    it('re-snapshots the frame when the paused video seeks (next/previous line)', () => {
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+        document.body.append(video);
+        let captures = 0;
+        const controller = new ImageOcrController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => `data:image/jpeg;base64,Zg==#${++captures}`,
+        } as never);
+        controller.init();
+        video.dispatchEvent(new Event('pause'));
+        const first = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!.src;
+
+        video.dispatchEvent(new Event('seeked'));
+        const second = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!.src;
+        expect(captures).toBe(2);
+        expect(second).not.toBe(first);
+
+        // seeking a PLAYING video never creates a frame
+        Object.defineProperty(video, 'paused', { value: false, configurable: true });
+        video.dispatchEvent(new Event('play'));
+        video.dispatchEvent(new Event('seeked'));
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        controller.destroy();
+        video.remove();
+    });
+});

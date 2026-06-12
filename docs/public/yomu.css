@@ -923,6 +923,30 @@
   object-fit: fill;
 }
 
+.jpdb-ocr-video-frame-resume {
+  position: fixed;
+  transform: translateX(-100%);
+  z-index: 2147483644;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 18, 24, 0.82);
+  color: #fff;
+  font: 600 13px/1.2 var(--jpdb-reader-popup-font, var(--jpdb-reader-font, system-ui));
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.jpdb-ocr-video-frame-resume:hover,
+.jpdb-ocr-video-frame-resume:focus-visible {
+  background: rgba(15, 18, 24, 0.95);
+  outline: none;
+}
+
 .jpdb-ocr-layer {
   position: fixed;
   display: block;
@@ -3914,7 +3938,9 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-study-item {
   display: grid;
-  grid-template-columns: minmax(54px, max-content) minmax(0, 1fr);
+  /* UT-73: a fixed label column keeps every row's body aligned — per-item
+     max-content columns made ではない/じゃない and です/だ indent differently. */
+  grid-template-columns: 9.5rem minmax(0, 1fr);
   gap: 10px;
   align-items: start;
   border-top: 1px solid var(--jpdb-reader-border);

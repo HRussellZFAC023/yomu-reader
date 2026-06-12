@@ -2614,6 +2614,7 @@
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
       dictionaryStatusUnavailable: "Dictionary status unavailable.",
       noLocalDictionariesImported: "No local dictionaries imported yet.",
+      dictionaryStorageEvicted: "Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
@@ -2773,6 +2774,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -3221,6 +3223,7 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -3446,6 +3449,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -5599,8 +5603,12 @@ ${candidate.depth}`;
     refreshTimer = 0;
     lastPointerMoveImage;
     videoFrames = /* @__PURE__ */ new Map();
+    videoFrameControls = /* @__PURE__ */ new Map();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
+    // Stepping subtitle lines while paused seeks the video — the snapshot
+    // must follow the new frame instead of showing the stale one.
+    handleMediaSeeked = (event) => this.refreshVideoFrameAfterSeek(event.target);
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
       this.requestOcrFromPointerEvent(event);
@@ -5620,6 +5628,7 @@ ${candidate.depth}`;
       document.addEventListener("pause", this.handleMediaPause, true);
       document.addEventListener("play", this.handleMediaResume, true);
       document.addEventListener("emptied", this.handleMediaResume, true);
+      document.addEventListener("seeked", this.handleMediaSeeked, true);
       document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
       window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
       window.addEventListener("resize", this.handleWindowResize, { passive: true });
@@ -5639,6 +5648,7 @@ ${candidate.depth}`;
       document.removeEventListener("pause", this.handleMediaPause, true);
       document.removeEventListener("play", this.handleMediaResume, true);
       document.removeEventListener("emptied", this.handleMediaResume, true);
+      document.removeEventListener("seeked", this.handleMediaSeeked, true);
       document.removeEventListener("scroll", this.handleDocumentScroll, true);
       window.removeEventListener("scroll", this.handleWindowScroll);
       window.removeEventListener("resize", this.handleWindowResize);
@@ -6014,13 +6024,43 @@ ${candidate.depth}`;
       frame.src = dataUrl;
       document.body.append(frame);
       this.videoFrames.set(target, frame);
+      const resume = this.createVideoFrameResumeControl(target);
+      document.body.append(resume);
+      this.videoFrameControls.set(target, resume);
+      positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
+    }
+    createVideoFrameResumeControl(video) {
+      const language = this.options.getSettings().interfaceLanguage;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "jpdb-ocr-video-frame-resume";
+      button.textContent = `▶ ${uiText(language, "ocrResumeVideo")}`;
+      button.setAttribute("aria-label", uiText(language, "ocrResumeVideo"));
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.releaseVideoFrame(video);
+        try {
+          void video.play()?.catch(() => void 0);
+        } catch {
+        }
+      });
+      return button;
+    }
+    refreshVideoFrameAfterSeek(target) {
+      if (!(target instanceof HTMLVideoElement) || !target.paused) return;
+      if (!this.videoFrames.has(target)) return;
+      this.releaseVideoFrame(target);
+      this.snapshotPausedVideo(target);
     }
     releaseVideoFrame(target) {
       if (!(target instanceof HTMLVideoElement)) return;
       const frame = this.videoFrames.get(target);
       if (!frame) return;
       this.videoFrames.delete(target);
+      this.videoFrameControls.get(target)?.remove();
+      this.videoFrameControls.delete(target);
       const state = this.states.get(frame);
       if (state) {
         this.observer?.unobserve(frame);
@@ -6039,7 +6079,10 @@ ${candidate.depth}`;
           this.releaseVideoFrame(video);
           continue;
         }
-        positionVideoFrameImage(frame, video.getBoundingClientRect(), video);
+        const rect = video.getBoundingClientRect();
+        positionVideoFrameImage(frame, rect, video);
+        const resume = this.videoFrameControls.get(video);
+        if (resume) positionVideoFrameResumeControl(resume, rect, video);
       }
     }
     scheduleRefresh(delay) {
@@ -6715,6 +6758,11 @@ ${spelling}`);
     frame.style.top = `${content.top}px`;
     frame.style.width = `${content.width}px`;
     frame.style.height = `${content.height}px`;
+  }
+  function positionVideoFrameResumeControl(control, rect, video) {
+    const content = videoContentBox(rect, video);
+    control.style.left = `${content.left + content.width - 12}px`;
+    control.style.top = `${content.top + 12}px`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;
@@ -13935,7 +13983,6 @@ ${spelling}`);
     unsubscribedChannels(channels) {
       return channels.filter((channel) => !this.subscribedChannelHandles.has(channel.handle));
     }
-    // fallow-ignore-next-line unused-class-member
     init() {
       this.destroy();
       this.destroyed = false;
@@ -13975,7 +14022,6 @@ ${spelling}`);
         if (isNearPageBottom()) this.schedule(180);
       }, { passive: true, signal: this.events.signal });
     }
-    // fallow-ignore-next-line unused-class-member
     refresh() {
       if (!this.isActivePage()) {
         this.destroy();

@@ -7,7 +7,7 @@ import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { Logger } from '../app/logger';
-import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { localPitchPatternFromMeta, localPitchPatternsFromMeta } from '../lookup/pitch-meta';
 import { isKanjiCharacter, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -388,9 +388,17 @@ export class CardRenderDataLoader {
     }
 
     private applyLocalPitchAccent(card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        if (card.pitchAccent.length) return;
-        const pitch = localPitchPatternFromMeta(card.reading, metaEntries);
-        if (pitch) card.pitchAccent = [pitch];
+        const patterns = localPitchPatternsFromMeta(card.reading, metaEntries);
+        if (!patterns.length) return;
+        if (!card.pitchAccent.length) {
+            card.pitchAccent = patterns;
+            return;
+        }
+        // UT-65: jpdb supplies one accent — append the other accepted
+        // variants the pitch dictionary knows about.
+        for (const pattern of patterns) {
+            if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
+        }
     }
 
     private cachedJpdbDecks(settings: ReaderSettings): Promise<JPDBDeck[]> {

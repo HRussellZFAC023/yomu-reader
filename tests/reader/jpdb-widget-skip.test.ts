@@ -31,24 +31,28 @@ describe('jpdb structural widget skip', () => {
     });
 });
 
-// UT-76: YouTube filter chips are buttons (normally skipped), but their
-// labels annotate as click-transparent passive words.
-describe('YouTube chip annotation allowance', () => {
-    it('collects chip button labels but keeps ordinary buttons skipped', () => {
+// UT-76/79: short Japanese control labels annotate generically on any site
+// as click-transparent passive words — no per-site element lists.
+describe('control label annotation allowance', () => {
+    it('collects short Japanese control labels and skips long/non-Japanese ones', () => {
         document.body.innerHTML = `
-            <yt-chip-cloud-chip-renderer><button>最近アップロードされた動画</button></yt-chip-cloud-chip-renderer>
-            <button id="plain">設定を開く</button>`;
+            <div class="chips"><button>最近アップロードされた動画</button></div>
+            <button id="plain">設定を開く</button>
+            <button id="english">Open settings</button>
+            <button id="long">${'こ'.repeat(80)}</button>`;
         const targets = collectTextTargetsIn(document.body, 20, false);
         const texts = targets.map(target => target.text.trim());
         expect(texts).toContain('最近アップロードされた動画');
-        expect(texts).not.toContain('設定を開く');
+        expect(texts).toContain('設定を開く');
+        expect(texts).not.toContain('Open settings');
+        expect(texts.some(text => text.startsWith('こここ'))).toBe(false);
         document.body.innerHTML = '';
     });
 
     it('marks chip text passive and layout sensitive end to end', async () => {
         const { applyTokensToTextNode } = await import('../../src/reader/dom');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings');
-        document.body.innerHTML = '<yt-chip-cloud-chip-renderer><button>動画</button></yt-chip-cloud-chip-renderer>';
+        document.body.innerHTML = '<div class="filter-row"><button>動画</button></div>';
         const [target] = collectTextTargetsIn(document.body, 5, false);
         expect(target).toBeTruthy();
         applyTokensToTextNode(target!, [{

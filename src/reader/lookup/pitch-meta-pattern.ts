@@ -2,33 +2,39 @@ import { pitchPatternFromPosition } from './pitch-accent';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
 export function localPitchPatternFromMeta(reading: string, entries: YomitanMetaEntry[]): string {
+    return localPitchPatternsFromMeta(reading, entries)[0] ?? '';
+}
+
+// UT-65: words commonly carry several accepted accents — pitch dictionaries
+// list them all, so surface every distinct pattern instead of the first hit.
+export function localPitchPatternsFromMeta(reading: string, entries: YomitanMetaEntry[]): string[] {
+    const patterns: string[] = [];
     for (const entry of entries) {
         if (entry.mode !== 'pitch') continue;
-        const position = readPitchPosition(entry.data, reading);
-        const pattern = position == null ? '' : pitchPatternFromPosition(reading, position);
-        if (pattern) return pattern;
+        for (const position of readPitchPositions(entry.data, reading)) {
+            const pattern = pitchPatternFromPosition(reading, position);
+            if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
+        }
     }
-    return '';
+    return patterns;
 }
 
-function readPitchPosition(value: unknown, reading: string): number | null {
+function readPitchPositions(value: unknown, reading: string): number[] {
     const record = objectRecord(value);
-    if (!record) return pitchPositionFromValue(value);
-    if (!pitchMetadataReadingMatches(record, reading)) return null;
-    return pitchPositionFromMetadataRecord(record);
-}
-
-function pitchPositionFromMetadataRecord(record: Record<string, unknown>): number | null {
-    const direct = pitchPositionFromValue(record.position);
-    if (direct != null) return direct;
-    return firstPitchPositionCandidate(record);
-}
-
-function firstPitchPositionCandidate(record: Record<string, unknown>): number | null {
-    return pitchPositionCandidates(record)
+    if (!record) {
+        const position = pitchPositionFromValue(value);
+        return position == null ? [] : [position];
+    }
+    if (!pitchMetadataReadingMatches(record, reading)) return [];
+    const candidates = pitchPositionCandidates(record)
         .map(candidate => pitchPositionFromValue(candidate))
-        .find((position): position is number => position != null) ?? null;
+        .filter((position): position is number => position != null);
+    if (candidates.length) return candidates;
+    const direct = pitchPositionFromValue(record.position);
+    return direct == null ? [] : [direct];
 }
+
+
 
 function pitchMetadataReadingMatches(record: Record<string, unknown>, reading: string): boolean {
     const metadataReading = typeof record.reading === 'string' ? record.reading : '';

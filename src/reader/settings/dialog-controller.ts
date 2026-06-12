@@ -429,20 +429,27 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
 }
 
 function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
+    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage, settings);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
 }
 
-function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
-    return summary.dictionaries.length
-        ? formatUiTemplate(uiText(language, 'dictionaryStatusSummary'), {
+function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage, settings?: ReaderSettings): string {
+    if (summary.dictionaries.length) {
+        return formatUiTemplate(uiText(language, 'dictionaryStatusSummary'), {
             dictionaries: summary.dictionaries.length.toLocaleString(),
             terms: summary.terms.toLocaleString(),
             kanji: summary.kanji.toLocaleString(),
             metadata: summary.termMeta.toLocaleString(),
-        })
+        });
+    }
+    // UT-72: preferences remember imported dictionaries — an empty store with
+    // remembered names means the BROWSER evicted IndexedDB (Safari does this
+    // after ~7 days of inactivity), not that the user never imported.
+    const remembered = settings?.dictionaryPreferences?.filter(item => (item.type ?? 'terms') === 'terms').length ?? 0;
+    return remembered
+        ? formatUiTemplate(uiText(language, 'dictionaryStorageEvicted'), { count: String(remembered) })
         : uiText(language, 'noLocalDictionariesImported');
 }
 

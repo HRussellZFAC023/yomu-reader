@@ -537,6 +537,7 @@ const COPY = {
         dictionaryStatusSummary: 'Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.',
         dictionaryStatusUnavailable: 'Dictionary status unavailable.',
         noLocalDictionariesImported: 'No local dictionaries imported yet.',
+        dictionaryStorageEvicted: 'Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.',
         dictionaryDownloadFailed: 'Dictionary download failed.',
         dictionaryDownloadTimedOut: 'Dictionary download timed out.',
         dictionaryDownloadNotZip: 'Dictionary download did not return a ZIP file.',
@@ -696,6 +697,7 @@ const COPY = {
         ankiMappingStaleField: 'saved field missing',
         ocrEnabledToast: 'Image reading enabled.',
         ocrHiddenToast: 'Image reading hidden.',
+        ocrResumeVideo: 'Resume video',
         ocrNoReadableImages: 'No readable images nearby.',
         gradeNothing: 'Grade NOTHING',
         gradeSomething: 'Grade SOMETHING',
@@ -1168,6 +1170,7 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -1393,6 +1396,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習

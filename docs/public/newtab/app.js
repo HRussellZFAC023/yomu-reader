@@ -3640,7 +3640,7 @@
     replaceTextNodeRange(fragment2.node, start, end, rendered);
   }
   function scanTargetAllowsRuby(target) {
-    return target.layoutSensitive !== true;
+    return target.layoutSensitive !== true && target.passiveInteraction !== true;
   }
   function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
     return !hasNativeRuby && !layoutSensitive;
@@ -5609,6 +5609,7 @@
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
       dictionaryStatusUnavailable: "Dictionary status unavailable.",
       noLocalDictionariesImported: "No local dictionaries imported yet.",
+      dictionaryStorageEvicted: "Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
@@ -5768,6 +5769,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -6235,6 +6237,7 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -6460,6 +6463,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -9617,6 +9621,17 @@ ${scopedInner}
   const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$x = Logger.scope("Yomitan");
+  let persistentStorageRequested = false;
+  function requestPersistentDictionaryStorage() {
+    if (persistentStorageRequested) return;
+    persistentStorageRequested = true;
+    try {
+      void navigator.storage?.persist?.().then((granted) => {
+        log$x.info("Persistent storage request", { granted });
+      }).catch(() => void 0);
+    } catch {
+    }
+  }
   class YomitanDictionaryStore {
     constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -10042,6 +10057,7 @@ ${scopedInner}
       const done = log$x.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
         log$x.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
         log$x.info("Dictionary file import completed", summary);
         return summary;
@@ -16535,27 +16551,30 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
   }
   function localPitchPatternFromMeta(reading, entries) {
+    return localPitchPatternsFromMeta(reading, entries)[0] ?? "";
+  }
+  function localPitchPatternsFromMeta(reading, entries) {
+    const patterns = [];
     for (const entry of entries) {
       if (entry.mode !== "pitch") continue;
-      const position = readPitchPosition(entry.data, reading);
-      const pattern = position == null ? "" : pitchPatternFromPosition(reading, position);
-      if (pattern) return pattern;
+      for (const position of readPitchPositions(entry.data, reading)) {
+        const pattern = pitchPatternFromPosition(reading, position);
+        if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
+      }
     }
-    return "";
+    return patterns;
   }
-  function readPitchPosition(value, reading) {
+  function readPitchPositions(value, reading) {
     const record = objectRecord(value);
-    if (!record) return pitchPositionFromValue(value);
-    if (!pitchMetadataReadingMatches(record, reading)) return null;
-    return pitchPositionFromMetadataRecord(record);
-  }
-  function pitchPositionFromMetadataRecord(record) {
+    if (!record) {
+      const position = pitchPositionFromValue(value);
+      return position == null ? [] : [position];
+    }
+    if (!pitchMetadataReadingMatches(record, reading)) return [];
+    const candidates = pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).filter((position) => position != null);
+    if (candidates.length) return candidates;
     const direct = pitchPositionFromValue(record.position);
-    if (direct != null) return direct;
-    return firstPitchPositionCandidate(record);
-  }
-  function firstPitchPositionCandidate(record) {
-    return pitchPositionCandidates(record).map((candidate) => pitchPositionFromValue(candidate)).find((position) => position != null) ?? null;
+    return direct == null ? [] : [direct];
   }
   function pitchMetadataReadingMatches(record, reading) {
     const metadataReading = typeof record.reading === "string" ? record.reading : "";
@@ -17618,6 +17637,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   };
   class KanjiVGClient {
     cache = /* @__PURE__ */ new Map();
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
       const character = Array.from(kanji)[0] ?? "";
       if (!character) return Promise.resolve(null);
@@ -18881,6 +18901,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
       if (!KANJI_RE$1.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
@@ -24402,18 +24423,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
+    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage, settings);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
-  function dictionaryStatusText(summary, language) {
-    return summary.dictionaries.length ? formatUiTemplate(uiText(language, "dictionaryStatusSummary"), {
-      dictionaries: summary.dictionaries.length.toLocaleString(),
-      terms: summary.terms.toLocaleString(),
-      kanji: summary.kanji.toLocaleString(),
-      metadata: summary.termMeta.toLocaleString()
-    }) : uiText(language, "noLocalDictionariesImported");
+  function dictionaryStatusText(summary, language, settings) {
+    if (summary.dictionaries.length) {
+      return formatUiTemplate(uiText(language, "dictionaryStatusSummary"), {
+        dictionaries: summary.dictionaries.length.toLocaleString(),
+        terms: summary.terms.toLocaleString(),
+        kanji: summary.kanji.toLocaleString(),
+        metadata: summary.termMeta.toLocaleString()
+      });
+    }
+    const remembered = settings?.dictionaryPreferences?.filter((item) => (item.type ?? "terms") === "terms").length ?? 0;
+    return remembered ? formatUiTemplate(uiText(language, "dictionaryStorageEvicted"), { count: String(remembered) }) : uiText(language, "noLocalDictionariesImported");
   }
   function setDictionaryStatusError(status, error, language) {
     if (status) status.textContent = errorMessage(error, uiText(language, "dictionaryStatusUnavailable"));
@@ -27617,8 +27642,12 @@ ${spelling}`);
     refreshTimer = 0;
     lastPointerMoveImage;
     videoFrames = /* @__PURE__ */ new Map();
+    videoFrameControls = /* @__PURE__ */ new Map();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
+    // Stepping subtitle lines while paused seeks the video — the snapshot
+    // must follow the new frame instead of showing the stale one.
+    handleMediaSeeked = (event) => this.refreshVideoFrameAfterSeek(event.target);
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
       this.requestOcrFromPointerEvent(event);
@@ -27638,6 +27667,7 @@ ${spelling}`);
       document.addEventListener("pause", this.handleMediaPause, true);
       document.addEventListener("play", this.handleMediaResume, true);
       document.addEventListener("emptied", this.handleMediaResume, true);
+      document.addEventListener("seeked", this.handleMediaSeeked, true);
       document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
       window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
       window.addEventListener("resize", this.handleWindowResize, { passive: true });
@@ -27657,6 +27687,7 @@ ${spelling}`);
       document.removeEventListener("pause", this.handleMediaPause, true);
       document.removeEventListener("play", this.handleMediaResume, true);
       document.removeEventListener("emptied", this.handleMediaResume, true);
+      document.removeEventListener("seeked", this.handleMediaSeeked, true);
       document.removeEventListener("scroll", this.handleDocumentScroll, true);
       window.removeEventListener("scroll", this.handleWindowScroll);
       window.removeEventListener("resize", this.handleWindowResize);
@@ -28032,13 +28063,43 @@ ${spelling}`);
       frame.src = dataUrl;
       document.body.append(frame);
       this.videoFrames.set(target, frame);
+      const resume = this.createVideoFrameResumeControl(target);
+      document.body.append(resume);
+      this.videoFrameControls.set(target, resume);
+      positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
+    }
+    createVideoFrameResumeControl(video) {
+      const language = this.options.getSettings().interfaceLanguage;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "jpdb-ocr-video-frame-resume";
+      button.textContent = `▶ ${uiText(language, "ocrResumeVideo")}`;
+      button.setAttribute("aria-label", uiText(language, "ocrResumeVideo"));
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.releaseVideoFrame(video);
+        try {
+          void video.play()?.catch(() => void 0);
+        } catch {
+        }
+      });
+      return button;
+    }
+    refreshVideoFrameAfterSeek(target) {
+      if (!(target instanceof HTMLVideoElement) || !target.paused) return;
+      if (!this.videoFrames.has(target)) return;
+      this.releaseVideoFrame(target);
+      this.snapshotPausedVideo(target);
     }
     releaseVideoFrame(target) {
       if (!(target instanceof HTMLVideoElement)) return;
       const frame = this.videoFrames.get(target);
       if (!frame) return;
       this.videoFrames.delete(target);
+      this.videoFrameControls.get(target)?.remove();
+      this.videoFrameControls.delete(target);
       const state = this.states.get(frame);
       if (state) {
         this.observer?.unobserve(frame);
@@ -28057,7 +28118,10 @@ ${spelling}`);
           this.releaseVideoFrame(video);
           continue;
         }
-        positionVideoFrameImage(frame, video.getBoundingClientRect(), video);
+        const rect = video.getBoundingClientRect();
+        positionVideoFrameImage(frame, rect, video);
+        const resume = this.videoFrameControls.get(video);
+        if (resume) positionVideoFrameResumeControl(resume, rect, video);
       }
     }
     scheduleRefresh(delay2) {
@@ -28733,6 +28797,11 @@ ${spelling}`);
     frame.style.top = `${content.top}px`;
     frame.style.width = `${content.width}px`;
     frame.style.height = `${content.height}px`;
+  }
+  function positionVideoFrameResumeControl(control, rect, video) {
+    const content = videoContentBox(rect, video);
+    control.style.left = `${content.left + content.width - 12}px`;
+    control.style.top = `${content.top + 12}px`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;
@@ -36109,7 +36178,6 @@ ${spelling}`);
     unsubscribedChannels(channels) {
       return channels.filter((channel) => !this.subscribedChannelHandles.has(channel.handle));
     }
-    // fallow-ignore-next-line unused-class-member
     init() {
       this.destroy();
       this.destroyed = false;
@@ -36149,7 +36217,6 @@ ${spelling}`);
         if (isNearPageBottom()) this.schedule(180);
       }, { passive: true, signal: this.events.signal });
     }
-    // fallow-ignore-next-line unused-class-member
     refresh() {
       if (!this.isActivePage()) {
         this.destroy();
@@ -43762,9 +43829,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return null;
     }
     applyLocalPitchAccent(card, metaEntries) {
-      if (card.pitchAccent.length) return;
-      const pitch = localPitchPatternFromMeta(card.reading, metaEntries);
-      if (pitch) card.pitchAccent = [pitch];
+      const patterns = localPitchPatternsFromMeta(card.reading, metaEntries);
+      if (!patterns.length) return;
+      if (!card.pitchAccent.length) {
+        card.pitchAccent = patterns;
+        return;
+      }
+      for (const pattern of patterns) {
+        if (!card.pitchAccent.includes(pattern)) card.pitchAccent.push(pattern);
+      }
     }
     cachedJpdbDecks(settings) {
       const key = `jpdb:${effectiveJpdbApiKey(settings)}`;
@@ -47111,6 +47184,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
     // reader-study-decks). Rows carry userStudyDeckId + name.
+    // fallow-ignore-next-line unused-class-member
     async listStudyDecks() {
       const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
       if (!Array.isArray(response)) return [];
@@ -47123,6 +47197,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     // UT-44: srs/study-batch has no deck parameter, so deck scoping
     // intersects the batch with the deck's word keys.
+    // fallow-ignore-next-line unused-class-member
     async studyDeckWordKeys(deckId) {
       const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
       const keys = /* @__PURE__ */ new Set();

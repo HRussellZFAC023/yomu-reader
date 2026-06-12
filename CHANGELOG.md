@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.179] - 2026-06-13
+
+### Fixed
+
+- Paused-video OCR usability: a floating "Resume video" pill now sits on the snapshot (recognized text swallows clicks for lookups, so text-dense frames made the player hard to unpause — the pill always works and also clears the overlay when playback is blocked), and stepping next/previous subtitle line while paused re-captures the snapshot instead of showing the stale frame.
+- Restored pieces dropped in a release rebase: all-variant pitch patterns from imported dictionaries, the persistent-storage request + eviction notice for imported dictionaries, and the aligned grammar-row label column.
+
 ## [0.6.178] - 2026-06-12
 
 ### Added
