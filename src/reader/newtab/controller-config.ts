@@ -74,6 +74,9 @@ export const NEW_TAB_STATS_JPDB_CARD_LIMIT = 2_000;
 // of pairs cheaply, so whole decks are browsable; capped to keep render/data
 // structures sane on huge decks.
 export const NEW_TAB_BROWSE_DECK_LIMIT = 5_000;
+// Undo stays offered briefly after a Jiten grade; older reviews are no
+// longer 'the last review' from the user's perspective.
+export const NEW_TAB_UNDO_REVIEW_WINDOW_MS = 5 * 60_000;
 export const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     '.jpdb-reader-word',
     '.jpdb-reader-doodle-stage',

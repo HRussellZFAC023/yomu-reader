@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.140] - 2026-06-12
+
+### Added
+
+- Undo review (Jiten): after grading a Jiten card on the study page, an Undo button appears for a few minutes — it reverses the review on Jiten and puts the word back in front of you, unrevealed. (JPDB's API and AnkiConnect expose no review-undo, so this is Jiten-only for now.)
+
 ## [0.6.139] - 2026-06-12
 
 ### Changed

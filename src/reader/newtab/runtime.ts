@@ -460,6 +460,7 @@ export class NewTabRuntime {
     private createNewTabController(): NewTabController {
         return new NewTabController({
             getSettings: () => this.settings,
+            toast: message => showReaderToast(message),
             anki: {
                 listNewTabCards: (limit, deckScope) => listNewTabAnkiCards(this.anki, this.settings, limit, deckScope),
                 answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),

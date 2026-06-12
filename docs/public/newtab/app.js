@@ -39480,6 +39480,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseSortAscending: "Ascending",
       browseSortDescending: "Descending",
       browseSelectMode: "Select",
+      undoReview: "Undo",
+      reviewUndone: "Review undone.",
+      undoReviewFailed: "Could not undo the review.",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -39621,6 +39624,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseSortAscending: "昇順",
     browseSortDescending: "降順",
     browseSelectMode: "選択",
+    undoReview: "取り消す",
+    reviewUndone: "レビューを取り消しました。",
+    undoReviewFailed: "レビューを取り消せませんでした。",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",
@@ -45837,6 +45843,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         rating: jitenRatingForGrade(grade)
       });
     }
+    // Community ask (jpdb issue-tracker #417 class): reverse the most recent
+    // review of a word. POST /api/srs/undo-review {wordId, readingIndex}.
+    async undoReview(card) {
+      await this.request("srs/undo-review", jitenCardReference(card));
+    }
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards, grade) {
       const reviews = cards.flatMap((card) => {
@@ -49708,6 +49719,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY = "jpdb-reader-newtab-disabled-anki-decks";
   const NEW_TAB_STATS_JPDB_CARD_LIMIT = 2e3;
   const NEW_TAB_BROWSE_DECK_LIMIT = 5e3;
+  const NEW_TAB_UNDO_REVIEW_WINDOW_MS = 5 * 6e4;
   const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     ".jpdb-reader-word",
     ".jpdb-reader-doodle-stage",
@@ -52981,6 +52993,9 @@ ${entry.url}`),
       skip: (_root, _target, event) => this.navigateFromPointer("next", event),
       previous: (_root, _target, event) => this.navigateFromPointer("previous", event),
       reveal: (root) => this.toggleReveal(root),
+      "undo-review": (root) => {
+        void this.undoLastReview(root);
+      },
       grade: (root, target) => this.gradeFromStudyClick(root, target),
       "jpdb-kanji-action": (root, target) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -58339,9 +58354,10 @@ ${entry.url}`),
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
-      if (!this.canReviewCard(card)) return this.navigationControlButtons(this.text(this.state.revealAnswer ? "hide" : "reveal"));
-      if (!this.state.revealAnswer) return this.navigationControlButtons(this.text("reveal"));
-      return this.gradeControlButtons(card);
+      const undo = this.canUndoLastReview() ? [el("button", { type: "button", class: "jpdb-reader-newtab-undo-review", dataset: { newtabAction: "undo-review" } }, this.text("undoReview"))] : [];
+      if (!this.canReviewCard(card)) return [...undo, ...this.navigationControlButtons(this.text(this.state.revealAnswer ? "hide" : "reveal"))];
+      if (!this.state.revealAnswer) return [...undo, ...this.navigationControlButtons(this.text("reveal"))];
+      return [...undo, ...this.gradeControlButtons(card)];
     }
     canReviewCard(card) {
       if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;
@@ -58630,10 +58646,36 @@ ${entry.url}`),
       if (!hasJitenApiCredential(settings)) throw new Error(this.text("addJitenApiKeyReview"));
       if (typeof this.dependencies.jiten?.reviewCard !== "function") throw new Error(this.text("couldNotSubmitGrade"));
       await this.dependencies.jiten.reviewCard(card, grade);
+      this.lastUndoableReview = { card, at: Date.now() };
       if (typeof this.dependencies.jiten.refreshCardState === "function") {
         await this.dependencies.jiten.refreshCardState(card).catch(() => void 0);
       }
       this.publishGradedCardState(card);
+    }
+    lastUndoableReview;
+    canUndoLastReview() {
+      return Boolean(this.lastUndoableReview && Date.now() - this.lastUndoableReview.at < NEW_TAB_UNDO_REVIEW_WINDOW_MS && typeof this.dependencies.jiten?.undoReview === "function");
+    }
+    async undoLastReview(root) {
+      const last = this.lastUndoableReview;
+      if (!last || !this.canUndoLastReview()) return;
+      this.lastUndoableReview = void 0;
+      const jiten = this.dependencies.jiten;
+      try {
+        await jiten?.undoReview?.(last.card);
+        if (typeof jiten?.refreshCardState === "function") {
+          await jiten.refreshCardState(last.card).catch(() => void 0);
+        }
+        this.publishGradedCardState(last.card);
+        this.dependencies.toast?.(this.text("reviewUndone"));
+        this.visibleWords = promoteCardByKey(this.visibleWords, cardKey(last.card));
+        this.index = 0;
+        this.state = { ...this.state, revealAnswer: false };
+        this.renderWord(root, this.visibleWords[this.index] ?? last.card);
+      } catch (error) {
+        log$3.warn("Undo review failed", error);
+        this.dependencies.toast?.(this.text("undoReviewFailed"));
+      }
     }
     async submitAnkiGrade(card, grade, explicitCardId) {
       const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
@@ -60622,6 +60664,7 @@ ${entry.url}`),
     createNewTabController() {
       return new NewTabController({
         getSettings: () => this.settings,
+        toast: (message) => showReaderToast(message),
         anki: {
           listNewTabCards: (limit, deckScope) => listNewTabAnkiCards(this.anki, this.settings, limit, deckScope),
           answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),

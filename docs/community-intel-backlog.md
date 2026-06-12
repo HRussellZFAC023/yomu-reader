@@ -100,7 +100,8 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
   - Evidence: JPDB 2024 feature-voting ranking included "offline mode"; JPDB scripts and export tools exist because users want their data and reviews usable outside the live site.
   - Yomu cross-reference: Yomu already queues offline JPDB/Jiten/Anki grades for later flush in tests, but no full offline deck snapshot/download workflow was confirmed.
 
-- Add undo recent review.
+- DONE 0.6.140 (Jiten) — Add undo recent review: after grading a Jiten card on the study page an Undo button appears for 5 minutes (POST srs/undo-review, schema-verified), restores the word to the front unrevealed, refreshes state through the card-state bus. JPDB API has no undo endpoint (their issue-tracker #417 still open) and AnkiConnect's answerCards has no reliable reversal — Jiten-only by provider capability, not by choice.
+- Add undo recent review (original).
   - Evidence: JPDB issue tracker has open `[feature request] Undo recent reviews` (`jpdb-io/issue-tracker#417`, opened 2024-11-04).
   - User behavior: review mistakes are common enough that users ask for a reversal path, not only a later corrective review.
   - Yomu cross-reference: Yomu has offline queued JPDB/Jiten/Anki grades and live JPDB grade routing tests, but no confirmed user-facing "undo last grade" transaction.

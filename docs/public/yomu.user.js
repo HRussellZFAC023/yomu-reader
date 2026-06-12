@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.139
+// @version      0.6.140
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19784,6 +19784,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseSortAscending: "Ascending",
       browseSortDescending: "Descending",
       browseSelectMode: "Select",
+      undoReview: "Undo",
+      reviewUndone: "Review undone.",
+      undoReviewFailed: "Could not undo the review.",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -19925,6 +19928,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseSortAscending: "昇順",
     browseSortDescending: "降順",
     browseSelectMode: "選択",
+    undoReview: "取り消す",
+    reviewUndone: "レビューを取り消しました。",
+    undoReviewFailed: "レビューを取り消せませんでした。",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",
@@ -26242,6 +26248,11 @@ ${spelling}`);
         ...jitenCardReference(card),
         rating: jitenRatingForGrade(grade)
       });
+    }
+    // Community ask (jpdb issue-tracker #417 class): reverse the most recent
+    // review of a word. POST /api/srs/undo-review {wordId, readingIndex}.
+    async undoReview(card) {
+      await this.request("srs/undo-review", jitenCardReference(card));
     }
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards, grade) {

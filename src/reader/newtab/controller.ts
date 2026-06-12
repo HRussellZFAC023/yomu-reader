@@ -264,6 +264,7 @@ import {
     NEW_TAB_SOURCE_LABELS,
     NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY,
     NEW_TAB_BROWSE_DECK_LIMIT,
+    NEW_TAB_UNDO_REVIEW_WINDOW_MS,
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
     NEW_TAB_STATS_JPDB_HISTORY_KEY,
     NEW_TAB_STUDY_INTERACTIVE_SELECTOR,
@@ -337,6 +338,7 @@ function shouldCacheParsedNewTabSentenceTokens(tokens: JPDBToken[]): boolean {
 
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
+    toast?: (message: string) => void;
     anki: {
         listNewTabCards: (limit?: number, deckScope?: string) => Promise<JPDBCard[]>;
         answerCard: (cardId: number, grade: JPDBGrade) => Promise<void>;
@@ -345,7 +347,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -644,6 +646,7 @@ export class NewTabController {
         skip: (_root, _target, event) => this.navigateFromPointer('next', event),
         previous: (_root, _target, event) => this.navigateFromPointer('previous', event),
         reveal: root => this.toggleReveal(root),
+        'undo-review': root => { void this.undoLastReview(root); },
         grade: (root, target) => this.gradeFromStudyClick(root, target),
         'jpdb-kanji-action': (root, target) => {
             void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -6866,9 +6869,12 @@ export class NewTabController {
     }
 
     private controlButtonsForCard(card: JPDBCard): HTMLElement[] {
-        if (!this.canReviewCard(card)) return this.navigationControlButtons(this.text(this.state.revealAnswer ? 'hide' : 'reveal'));
-        if (!this.state.revealAnswer) return this.navigationControlButtons(this.text('reveal'));
-        return this.gradeControlButtons(card);
+        const undo = this.canUndoLastReview()
+            ? [el('button', { type: 'button', class: 'jpdb-reader-newtab-undo-review', dataset: { newtabAction: 'undo-review' } }, this.text('undoReview'))]
+            : [];
+        if (!this.canReviewCard(card)) return [...undo, ...this.navigationControlButtons(this.text(this.state.revealAnswer ? 'hide' : 'reveal'))];
+        if (!this.state.revealAnswer) return [...undo, ...this.navigationControlButtons(this.text('reveal'))];
+        return [...undo, ...this.gradeControlButtons(card)];
     }
 
     private canReviewCard(card: JPDBCard): boolean {
@@ -7191,12 +7197,46 @@ export class NewTabController {
         if (!hasJitenApiCredential(settings)) throw new Error(this.text('addJitenApiKeyReview'));
         if (typeof this.dependencies.jiten?.reviewCard !== 'function') throw new Error(this.text('couldNotSubmitGrade'));
         await this.dependencies.jiten.reviewCard(card, grade);
+        // Community ask: keep the last Jiten review reversible (the only
+        // provider with a real undo endpoint).
+        this.lastUndoableReview = { card, at: Date.now() };
         // Parity with the JPDB path (jpdb.reviewCard refreshes internally):
         // pull the post-review state so the review summary reflects reality.
         if (typeof this.dependencies.jiten.refreshCardState === 'function') {
             await this.dependencies.jiten.refreshCardState(card).catch(() => undefined);
         }
         this.publishGradedCardState(card);
+    }
+
+    private lastUndoableReview?: { card: JPDBCard; at: number };
+
+    private canUndoLastReview(): boolean {
+        return Boolean(this.lastUndoableReview
+            && Date.now() - this.lastUndoableReview.at < NEW_TAB_UNDO_REVIEW_WINDOW_MS
+            && typeof this.dependencies.jiten?.undoReview === 'function');
+    }
+
+    private async undoLastReview(root: HTMLElement): Promise<void> {
+        const last = this.lastUndoableReview;
+        if (!last || !this.canUndoLastReview()) return;
+        this.lastUndoableReview = undefined;
+        const jiten = this.dependencies.jiten;
+        try {
+            await jiten?.undoReview?.(last.card);
+            if (typeof jiten?.refreshCardState === 'function') {
+                await jiten.refreshCardState(last.card).catch(() => undefined);
+            }
+            this.publishGradedCardState(last.card);
+            this.dependencies.toast?.(this.text('reviewUndone'));
+            // Put the word back in front so it can be regraded immediately.
+            this.visibleWords = promoteCardByKey(this.visibleWords, cardKey(last.card));
+            this.index = 0;
+            this.state = { ...this.state, revealAnswer: false };
+            this.renderWord(root, this.visibleWords[this.index] ?? last.card);
+        } catch (error) {
+            log.warn('Undo review failed', error);
+            this.dependencies.toast?.(this.text('undoReviewFailed'));
+        }
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {

@@ -185,3 +185,59 @@ describe('daily study goal (user-requested, default 1h)', () => {
         localStorage.removeItem('jpdb-reader-newtab-daily-study-time');
     });
 });
+
+describe('undo last review (community ask, Jiten undo endpoint)', () => {
+    it('tracks the last Jiten grade and reverses it through srs/undo-review', async () => {
+        const reviewCard = vi.fn(async () => undefined);
+        const undoReview = vi.fn(async () => undefined);
+        const refreshCardState = vi.fn(async () => undefined);
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, interfaceLanguage: 'en' }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jiten: { reviewCard, undoReview, refreshCardState, listStudyBatchCards: vi.fn(async () => []) } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: false }), grade: vi.fn(), requestCurrent: vi.fn() } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+            toast: vi.fn(),
+        } as never);
+        try {
+            const internals = controller as unknown as {
+                submitJitenApiGrade(card: JPDBCard, grade: 'okay'): Promise<void>;
+                canUndoLastReview(): boolean;
+                undoLastReview(root: HTMLElement): Promise<void>;
+                visibleWords: JPDBCard[];
+                renderWord(root: HTMLElement, card: JPDBCard): void;
+            };
+            const card = {
+                vid: 42, sid: 0, rid: 0, spelling: '辞典', reading: 'じてん',
+                frequencyRank: null, partOfSpeech: [], meanings: [], cardState: ['due'],
+                pitchAccent: [], wordWithReading: null, source: 'jiten', reviewSource: 'jiten-api',
+                jitenWordId: 42, jitenReadingIndex: 0,
+            } as unknown as JPDBCard;
+            expect(internals.canUndoLastReview()).toBe(false);
+
+            await internals.submitJitenApiGrade(card, 'okay');
+            expect(internals.canUndoLastReview()).toBe(true);
+
+            internals.visibleWords = [card];
+            internals.renderWord = vi.fn();
+            const root = document.createElement('main');
+            await internals.undoLastReview(root);
+
+            expect(undoReview).toHaveBeenCalledWith(card);
+            // Undo is one-shot: the button disappears until the next grade.
+            expect(internals.canUndoLastReview()).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
