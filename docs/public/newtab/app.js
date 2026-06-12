@@ -46285,6 +46285,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const response = await this.request("srs/reader-study-decks", void 0);
       return normalizeReaderStudyDecks(response);
     }
+    // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
+    // reader-study-decks). Rows carry userStudyDeckId + name.
+    async listStudyDecks() {
+      const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
+      if (!Array.isArray(response)) return [];
+      return response.map((row) => {
+        const record = row;
+        const id = Number(record?.userStudyDeckId);
+        const name = typeof record?.name === "string" ? record.name : "";
+        return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
+      }).filter((deck) => deck !== null);
+    }
+    // UT-44: srs/study-batch has no deck parameter, so deck scoping
+    // intersects the batch with the deck's word keys.
+    async studyDeckWordKeys(deckId) {
+      const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
+      const keys = /* @__PURE__ */ new Set();
+      if (!Array.isArray(response)) return keys;
+      for (const row of response) {
+        const record = row;
+        const wordId = Number(record?.wordId);
+        if (!Number.isFinite(wordId)) continue;
+        keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
+      }
+      return keys;
+    }
     async listStudyBatchCards(limit = 80) {
       const cardLimit = Math.max(1, Math.floor(limit));
       const response = await this.requestEndpoint("srs/study-batch", void 0, {
@@ -55389,14 +55415,22 @@ ${entry.url}`),
     async loadApiReviewSourceResults(settings, options) {
       const hasJpdbKey = hasJpdbApiCredential(settings);
       const apiResults = [];
+      const pickedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
+      const jitenDeckId = jitenScopedDeckId(pickedDeck);
+      if (jitenDeckId !== null) {
+        const jiten = await this.loadJitenStudyBatchWords({ ...options, deckId: jitenDeckId });
+        return jiten ? [jiten] : [];
+      }
       if (hasJpdbKey) {
         const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
         const timeoutMs = selectedDeck === JPDB_ALL_DECKS ? Math.max(options.timeoutMs ?? 0, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3) : options.timeoutMs;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
         if (selectedDeckCards) apiResults.push(selectedDeckCards);
       }
-      const jiten = await this.loadJitenStudyBatchWords(options);
-      if (jiten) apiResults.push(jiten);
+      if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === "all") {
+        const jiten = await this.loadJitenStudyBatchWords(options);
+        if (jiten) apiResults.push(jiten);
+      }
       return apiResults;
     }
     loadJpdbWordsFallback(hasJpdbKey, allowPublicFallback) {
@@ -55428,12 +55462,32 @@ ${entry.url}`),
         [],
         options.timeoutMs
       );
+      let cards = loaded.value;
+      if (typeof options.deckId === "number" && typeof jiten.studyDeckWordKeys === "function") {
+        const keys = await jiten.studyDeckWordKeys(options.deckId).catch(() => /* @__PURE__ */ new Set());
+        if (keys.size) cards = cards.filter((card) => keys.has(`${card.jitenWordId}:${card.jitenReadingIndex ?? 0}`));
+      }
       return {
-        cards: loaded.value,
+        cards,
         sourceLabel: "Jiten",
         reviewCountMode: true,
         emptyMessageKey: loaded.failed ? "couldNotLoadWords" : void 0
       };
+    }
+    // UT-44: Jiten study decks in the deck picker (labelled to distinguish
+    // them from JPDB decks; ids carry the jiten: prefix).
+    jitenDeckOptionsCache;
+    jitenDeckSelectorOptions(settings) {
+      const jiten = this.dependencies.jiten;
+      if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyDecks !== "function") return Promise.resolve([]);
+      const key = settings.jitenApiKey.trim();
+      const now = Date.now();
+      if (this.jitenDeckOptionsCache && this.jitenDeckOptionsCache.key === key && now - this.jitenDeckOptionsCache.at < 6e4) {
+        return this.jitenDeckOptionsCache.promise;
+      }
+      const promise = jiten.listStudyDecks().then((decks) => decks.map((deck) => ({ id: `jiten:${deck.id}`, name: `Jiten · ${deck.name}` }))).catch(() => []);
+      this.jitenDeckOptionsCache = { key, at: now, promise };
+      return promise;
     }
     async loadPublicJpdbWords() {
       const cards = await this.remoteSourceWithFallback(
@@ -59716,7 +59770,7 @@ ${entry.url}`),
         return;
       }
       const sourceAllowsJpdb = this.state.source === "auto" || this.state.source === "jpdb";
-      const show = sourceAllowsJpdb && hasJpdbApiCredential(settings);
+      const show = sourceAllowsJpdb && (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings));
       select2.hidden = !show;
       if (!show) return;
       void this.populateDeckSelector(select2, settings);
@@ -59772,11 +59826,13 @@ ${entry.url}`),
         this.deckSelectorDecks = { key, promise: listDecks.catch(() => []) };
       }
       const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([]));
+      const jitenDecks = await this.jitenDeckSelectorOptions(settings);
       if (!select2.isConnected) return;
       const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || "all";
       const options = [
         { id: "all", name: this.text("allVocabularyDeck") },
-        ...decks.filter((deck) => deck.id !== "all")
+        ...decks.filter((deck) => deck.id !== "all"),
+        ...jitenDecks
       ];
       if (!options.some((option) => option.id === selected)) options.push({ id: selected, name: selected });
       replaceChildrenWith(select2, options.map((option) => el("option", {
@@ -59855,6 +59911,11 @@ ${entry.url}`),
   function ankiAudioFilenamesFromFields(fields) {
     const filenames = uniqueTrimmedStrings(Object.values(fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")));
     return filenames.length ? filenames : void 0;
+  }
+  function jitenScopedDeckId(pickedDeck) {
+    if (!pickedDeck.startsWith("jiten:")) return null;
+    const id = Number(pickedDeck.slice("jiten:".length));
+    return Number.isFinite(id) && id > 0 ? Math.floor(id) : null;
   }
   function uniqueConcreteSources(sources) {
     return sources.filter((source, index) => Boolean(source) && sources.indexOf(source) === index);

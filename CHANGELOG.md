@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.164] - 2026-06-12
+
+### Added
+
+- Jiten study decks appear in the study page's deck picker (labelled "Jiten · deck name") when a Jiten key is connected. Picking one scopes the queue to that deck's words — Jiten's API has no per-deck review call, so Yomu intersects the global batch with the deck's word list. Picking a JPDB deck now scopes to JPDB only, and "All vocabulary" merges both providers as before.
+
 ## [0.6.163] - 2026-06-12
 
 ### Fixed

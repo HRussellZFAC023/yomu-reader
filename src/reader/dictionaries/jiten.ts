@@ -322,6 +322,36 @@ export class JitenApiClient {
         return normalizeReaderStudyDecks(response);
     }
 
+    // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
+    // reader-study-decks). Rows carry userStudyDeckId + name.
+    async listStudyDecks(): Promise<Array<{ id: number; name: string }>> {
+        const response = await this.requestEndpoint<unknown>('srs/study-decks', undefined, { method: 'GET' });
+        if (!Array.isArray(response)) return [];
+        return response
+            .map(row => {
+                const record = row as { userStudyDeckId?: unknown; name?: unknown };
+                const id = Number(record?.userStudyDeckId);
+                const name = typeof record?.name === 'string' ? record.name : '';
+                return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
+            })
+            .filter((deck): deck is { id: number; name: string } => deck !== null);
+    }
+
+    // UT-44: srs/study-batch has no deck parameter, so deck scoping
+    // intersects the batch with the deck's word keys.
+    async studyDeckWordKeys(deckId: number): Promise<Set<string>> {
+        const response = await this.requestEndpoint<unknown>(`srs/study-decks/${Math.floor(deckId)}/word-keys`, undefined, { method: 'GET' });
+        const keys = new Set<string>();
+        if (!Array.isArray(response)) return keys;
+        for (const row of response) {
+            const record = row as { wordId?: unknown; readingIndex?: unknown };
+            const wordId = Number(record?.wordId);
+            if (!Number.isFinite(wordId)) continue;
+            keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
+        }
+        return keys;
+    }
+
     async listStudyBatchCards(limit = 80): Promise<JPDBCard[]> {
         const cardLimit = Math.max(1, Math.floor(limit));
         const response = await this.requestEndpoint<JitenStudyBatchResponse>('srs/study-batch', undefined, {
