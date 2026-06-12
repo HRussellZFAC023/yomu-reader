@@ -1,11 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-<<<<<<< HEAD
-// @version      0.6.161
-=======
 // @version      0.6.162
->>>>>>> b007c50 (Release yomu reader 0.6.162)
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
