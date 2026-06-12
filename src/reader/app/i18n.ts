@@ -146,6 +146,7 @@ const COPY = {
         newTabKanjiAutoSubmit: 'Auto-submit kanji grade',
         newTabOfflineEnabled: 'Cache Study for offline use',
         newTabOfflineLimit: 'Offline review cache limit',
+        newTabDailyGoalMinutes: 'Daily study goal (minutes, 0 = off)',
         newTabUrl: 'Study address',
         newTabOfflineHelp: 'Saves recent reviews for offline study.',
         newTabJpdbDeck: 'Study JPDB deck',
@@ -1607,6 +1608,7 @@ newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
+newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ

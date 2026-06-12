@@ -872,6 +872,7 @@ function resetNewTabReviewStorage(): void {
     document.body.replaceChildren();
     localStorage.removeItem(NEW_TAB_UI_KEY);
     localStorage.removeItem(NEW_TAB_CACHE_KEY);
+    localStorage.removeItem('jpdb-reader-newtab-daily-study-time');
     sessionStorage.removeItem(NEW_TAB_CURRENT_WORD_KEY);
 }
 
@@ -3524,7 +3525,7 @@ describe('new tab review helpers', () => {
 
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
             const progress = root.querySelector<HTMLElement>('[data-newtab-count]')!;
-            expect(progress.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(progress.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(progress.dataset.sessionCompletedReviews).toBe('0');
             expect(progress.dataset.sessionRemainingCards).toBe('2');
             expect(progress.dataset.sessionRemainingDueCards).toBe('2');
@@ -3536,14 +3537,14 @@ describe('new tab review helpers', () => {
 
             expect(internals.index).toBe(1);
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('日本語');
 
             internals.showPreviousWord();
 
             expect(internals.index).toBe(0);
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d$/);
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 2 · Due 2 · \d\d:\d\d · 0\/60 min$/);
             expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('復習');
         } finally {
             controller.destroy();
@@ -3600,14 +3601,14 @@ describe('new tab review helpers', () => {
             internals.renderWord(root, current);
 
             expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('JPDB');
-            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d$/);
+            expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 539 · Due 539 · \d\d:\d\d · 0\/60 min$/);
             expect(root.textContent).not.toContain('360 / 539');
 
             root.querySelector<HTMLButtonElement>('[data-grade="okay"]')?.click();
 
             await waitForExpect(() => {
                 expect(reviewCard).toHaveBeenCalledWith(current, 'okay');
-                expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 1 · Left 538 · Due 538 · \d\d:\d\d$/);
+                expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 1 · Left 538 · Due 538 · \d\d:\d\d · 0\/60 min$/);
                 expect(root.textContent).not.toContain('360 / 539');
                 expect(root.textContent).not.toContain('360 / 538');
             });
@@ -12642,6 +12643,7 @@ describe('new tab review helpers', () => {
 
     it('restores the saved refresh card at the first visible position', () => {
         localStorage.removeItem('jpdb-reader-newtab-ui');
+        localStorage.removeItem('jpdb-reader-newtab-daily-study-time');
         sessionStorage.setItem('jpdb-reader-newtab-current-word', JSON.stringify({
             signature: 'dictionary|word|Dictionaries',
             key: '1:1:読む:よむ',
@@ -12664,7 +12666,9 @@ describe('new tab review helpers', () => {
         (controller as unknown as { applyWords(root: HTMLElement, preferStoredWord: boolean): void }).applyWords(root, true);
 
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords[0]?.spelling).toBe('読む');
-        expect(root.querySelector('[data-newtab-count]')?.textContent).toBe('');
+        // Word study always shows the ticking session timer + daily goal now
+        // (user-requested session timer).
+        expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min$/);
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 

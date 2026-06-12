@@ -280,6 +280,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabFrontSentenceEnabled: has('newTabFrontSentenceEnabled'),
         newTabOfflineEnabled: has('newTabOfflineEnabled'),
         newTabOfflineLimit: clamped('newTabOfflineLimit', 0, 500, current.newTabOfflineLimit),
+        newTabDailyGoalMinutes: clamped('newTabDailyGoalMinutes', 0, 1440, current.newTabDailyGoalMinutes),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
     };

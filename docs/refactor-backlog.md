@@ -21,7 +21,7 @@ Reader/typography:
 - DONE 0.6.128 — UT-12 keyless filter hiding: the Word-tab Show-only dropdown now renders only when a provider credential exists (jpdb/jiten key or Anki enabled); keyless cards have no states to filter.
 
 New tab / study page:
-- UT-13: Session timer missing — show how long the user has studied this session relative to a daily goal (default 1h; configurable + can be turned off in settings).
+- DONE 0.6.129 — UT-13 session timer + daily goal: the study-page stopwatch now ticks every second and shows in ALL word-study modes (was render-stamped and review-mode only); new setting newTabDailyGoalMinutes (default 60, 0=off, clamped 0-1440, settings form + en/ja labels) with per-local-day accumulation in localStorage (visible-tab seconds only) shown as 'X/60 min ✓ Goal reached'.
 - UT-14 TRUST: With a JPDB key, default options show "No reviews ready — showing practice words", but picking a deck starts working; and the SRS queue does not match jpdb.io Learn (next jpdb word よくできました absent). JPDB Learn also MIXES kanji+vocab in one queue (kanji unlock words). Default review flow must mirror that: combined queue, kanji-first unlock semantics; same concept for Anki/Jiten where derivable.
 - UT-15: Kanji-cards-off option (JPDB has one): setting to skip kanji cards in the main study flow while keeping the Kanji tab for isolated study; toggling must not lose progression; surface on welcome splash (which should also mention the study page exists) + main settings.
 - DONE 0.6.128 — UT-16 front furigana spoiler: the target word's furigana in the front example sentence is visibility-hidden until reveal (CSS, :not(.jpdb-reader-newtab-revealed) scope); other words keep furigana (jpdb Learn parity).

@@ -147,7 +147,7 @@ describe('new-tab session progress', () => {
         vi.setSystemTime(new Date('2026-06-06T12:01:05Z'));
         (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, jpdb);
         const count = root.querySelector<HTMLElement>('[data-newtab-count]')!;
-        expect(count.textContent).toBe('Done 0 · Left 2 · Due 2 · 01:05');
+        expect(count.textContent).toBe('Done 0 · Left 2 · Due 2 · 01:05 · 0/60 min');
         expect(count.dataset.sessionRemainingCards).toBe('2');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('1');
         expect(count.dataset.sessionAnkiRemainingCards).toBe('1');
@@ -155,10 +155,33 @@ describe('new-tab session progress', () => {
         await (controller as unknown as { gradeCurrentCard(grade: 'okay'): Promise<void> }).gradeCurrentCard('okay');
 
         expect(reviewCard).toHaveBeenCalledWith(jpdb, 'okay');
-        expect(count.textContent).toBe('Done 1 · Left 1 · Due 1 · 01:05');
+        expect(count.textContent).toBe('Done 1 · Left 1 · Due 1 · 01:05 · 0/60 min');
         expect(count.dataset.sessionCompletedReviews).toBe('1');
         expect(count.dataset.sessionRemainingCards).toBe('1');
         expect(count.dataset.sessionJpdbRemainingCards).toBe('0');
         expect(count.dataset.sessionAnkiRemainingCards).toBe('1');
+    });
+});
+
+describe('daily study goal (user-requested, default 1h)', () => {
+    it('formats goal progress and the reached state', async () => {
+        const { formatNewTabDailyGoalLabel } = await import('../../src/reader/newtab/session-progress');
+        const labels = { unit: 'min', reached: 'Goal reached' };
+        expect(formatNewTabDailyGoalLabel(0, 0, labels)).toBe('');
+        expect(formatNewTabDailyGoalLabel(5 * 60000, 60, labels)).toBe('5/60 min');
+        expect(formatNewTabDailyGoalLabel(61 * 60000, 60, labels)).toBe('61/60 min ✓ Goal reached');
+    });
+
+    it('accumulates per local day and resets on rollover', async () => {
+        const { addNewTabDailyStudyTimeMs, newTabDailyStudyTimeMs } = await import('../../src/reader/newtab/session-progress');
+        localStorage.removeItem('jpdb-reader-newtab-daily-study-time');
+        expect(newTabDailyStudyTimeMs('2026-06-12')).toBe(0);
+        addNewTabDailyStudyTimeMs(90000, '2026-06-12');
+        expect(newTabDailyStudyTimeMs('2026-06-12')).toBe(90000);
+        // A new day starts from zero.
+        expect(newTabDailyStudyTimeMs('2026-06-13')).toBe(0);
+        addNewTabDailyStudyTimeMs(1000, '2026-06-13');
+        expect(newTabDailyStudyTimeMs('2026-06-13')).toBe(1000);
+        localStorage.removeItem('jpdb-reader-newtab-daily-study-time');
     });
 });

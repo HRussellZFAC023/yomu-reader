@@ -175,3 +175,62 @@ function sessionProgressFallbackKey(card: JPDBCard): string {
 function padStopwatchPart(value: number): string {
     return String(value).padStart(2, '0');
 }
+
+// ---------------------------------------------------------------------------
+// Daily study time (user-requested daily goal, default 1h, 0 disables).
+// Persisted per calendar day in localStorage so the goal survives reloads;
+// the controller's 1s clock adds visible-tab time only.
+
+const NEW_TAB_DAILY_STUDY_TIME_KEY = 'jpdb-reader-newtab-daily-study-time';
+
+interface NewTabDailyStudyTime {
+    date: string;
+    ms: number;
+}
+
+export function newTabDailyStudyTimeMs(today: string): number {
+    const stored = readNewTabDailyStudyTime();
+    return stored && stored.date === today ? stored.ms : 0;
+}
+
+export function addNewTabDailyStudyTimeMs(deltaMs: number, today: string): number {
+    const ms = Math.max(0, newTabDailyStudyTimeMs(today) + Math.max(0, deltaMs));
+    writeNewTabDailyStudyTime({ date: today, ms });
+    return ms;
+}
+
+export function formatNewTabDailyGoalLabel(
+    studiedMs: number,
+    goalMinutes: number,
+    labels: { unit: string; reached: string },
+): string {
+    if (!(goalMinutes > 0)) return '';
+    const minutes = Math.floor(studiedMs / 60000);
+    const base = `${Math.min(minutes, 9999)}/${goalMinutes} ${labels.unit}`;
+    return minutes >= goalMinutes ? `${base} ✓ ${labels.reached}` : base;
+}
+
+function readNewTabDailyStudyTime(): NewTabDailyStudyTime | null {
+    try {
+        const raw = localStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as NewTabDailyStudyTime;
+        return typeof parsed?.date === 'string' && Number.isFinite(parsed?.ms) ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeNewTabDailyStudyTime(value: NewTabDailyStudyTime): void {
+    try {
+        localStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
+    } catch {
+        // Storage full or unavailable: the goal display just stays at 0.
+    }
+}
+
+export function newTabLocalDateKey(now = new Date()): string {
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+}

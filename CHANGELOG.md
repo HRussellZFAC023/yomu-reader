@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.129] - 2026-06-12
+
+### Added
+
+- Study page (user-requested): a live session timer now ticks during study in every mode, and a daily study goal setting (default 60 minutes, set 0 to disable) shows your progress next to it ('12/60 min', with a checkmark when reached). Time only counts while the study tab is visible.
+
 ## [0.6.128] - 2026-06-12
 
 ### Fixed
