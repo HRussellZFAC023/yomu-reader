@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.154] - 2026-06-12
+
+### Fixed
+
+- Refreshing a video page no longer loses subtitle ruby and colouring: parsed cue annotations now persist for the browser session (six-hour cap) and restore instantly on reload instead of waiting for a fresh parse. This also covers keyless use, where the local parse result is the final one — it is persisted and reused the same way.
+
 ## [0.6.153] - 2026-06-12
 
 ### Added

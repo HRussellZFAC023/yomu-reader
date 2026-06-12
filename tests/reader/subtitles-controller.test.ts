@@ -8,6 +8,14 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
+
+// UT-48 session parse cache: clear between tests so persisted cue html from
+// one test cannot satisfy another test's parse expectations.
+afterEach(() => {
+    for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith('yomu:subtitle-parse:v1:')) sessionStorage.removeItem(key);
+    }
+});
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { withViewport } from './helpers/browser-fixtures';
 
@@ -2816,5 +2824,48 @@ describe('SubtitlePlayerController', () => {
 
         expect(currentTime).toBeCloseTo(12);
         expect(play).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('subtitle parse session persistence (UT-48)', () => {
+    it('restores parsed cue html after a reload without re-parsing', async () => {
+        sessionStorage.clear();
+        const settings = { ...BASE_DEFAULT_SETTINGS, apiKey: 'test-key', furiganaMode: 'all' as const };
+        const token = {
+            card: {
+                vid: 9, sid: 1, rid: 0, spelling: '読む', reading: 'よむ', frequencyRank: null,
+                partOfSpeech: [], meanings: [], cardState: ['known' as const], pitchAccent: [],
+                wordWithReading: null, source: 'jpdb' as const,
+            },
+            start: 0, end: 2, length: 2,
+            rubies: [{ start: 0, end: 1, length: 1, text: 'よ' }],
+            pitchClass: 'heiban', sentence: '読む',
+        };
+        const firstParse = vi.fn(async () => [token]);
+        const first = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: firstParse,
+            onSettingsChange: () => undefined,
+        });
+        const firstInternals = first as unknown as {
+            parseCueHtml(text: string, settings?: unknown, options?: { allowProvisional?: boolean }): Promise<string>;
+        };
+        const html = await firstInternals.parseCueHtml('読む', settings, { allowProvisional: false });
+        expect(html).toContain('jpdb-reader-word');
+        expect(Object.keys(sessionStorage).some(key => key.startsWith('yomu:subtitle-parse:v1:'))).toBe(true);
+
+        const secondParse = vi.fn(async () => [token]);
+        const second = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: secondParse,
+            onSettingsChange: () => undefined,
+        });
+        const secondInternals = second as unknown as {
+            parseCueHtml(text: string, settings?: unknown, options?: { allowProvisional?: boolean }): Promise<string>;
+        };
+        const restored = await secondInternals.parseCueHtml('読む', settings, { allowProvisional: false });
+        expect(restored).toBe(html);
+        expect(secondParse).not.toHaveBeenCalled();
+        sessionStorage.clear();
     });
 });

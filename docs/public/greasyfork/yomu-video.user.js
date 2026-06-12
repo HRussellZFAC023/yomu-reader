@@ -10066,6 +10066,18 @@ ${spelling}`);
     if (placement === "bottom") return "ArrowDown";
     return placement === "left" ? "ArrowLeft" : "ArrowRight";
   }
+  const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = "yomu:subtitle-parse:v1:";
+  const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
+  function subtitleSessionParseHash(key) {
+    let h1 = 2166136261;
+    let h2 = 5381;
+    for (let i = 0; i < key.length; i += 1) {
+      const code = key.charCodeAt(i);
+      h1 = Math.imul(h1 ^ code, 16777619) >>> 0;
+      h2 = (Math.imul(h2, 33) ^ code) >>> 0;
+    }
+    return `${h1.toString(36)}${h2.toString(36)}`;
+  }
   const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
     "yt-navigate-finish",
     "yt-page-data-updated",
@@ -10234,6 +10246,7 @@ ${spelling}`);
     pendingDomCaption;
     parsedHtmlCache = /* @__PURE__ */ new Map();
     provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
+    sessionParseCacheChecked = /* @__PURE__ */ new Set();
     emptyParsedHtmlCache = /* @__PURE__ */ new Map();
     pendingParsedHtml = /* @__PURE__ */ new Map();
     pendingProvisionalParsedHtml = /* @__PURE__ */ new Map();
@@ -11150,7 +11163,7 @@ ${spelling}`);
     }
     async parseCueHtml(text, settings = this.options.getSettings(), options = {}) {
       const key = this.parseCacheKey(text, settings);
-      const cached = this.parsedHtmlCache.get(key);
+      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
       if (cached) {
         return cached;
       }
@@ -11173,6 +11186,8 @@ ${spelling}`);
       }
     }
     async parseProvisionalCueHtml(text, settings, key) {
+      const restored = this.restoreSessionParsedCueHtml(key);
+      if (restored) return restored;
       this.ensureAuthoritativeParsedCueHtml(text, settings, key);
       const cached = this.provisionalParsedHtmlCache.get(key);
       if (cached) {
@@ -11289,6 +11304,7 @@ ${spelling}`);
           this.parsedHtmlCache.set(key, html);
           this.provisionalParsedHtmlCache.delete(key);
         }
+        if (!options.provisional || !this.hasAuthoritativeParseTier()) this.persistSessionParsedCueHtml(key, html);
         this.emptyParsedHtmlCache.delete(key);
         if (tokens.length) this.parsedTokenCache.set(key, tokens);
         this.pruneParsedSubtitleCaches();
@@ -11304,6 +11320,35 @@ ${spelling}`);
       this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache);
       while (this.emptyParsedHtmlCache.size > 180) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? "");
       while (this.parsedTokenCache.size > 180) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? "");
+    }
+    hasAuthoritativeParseTier() {
+      const settings = this.options.getSettings();
+      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
+    }
+    // UT-48 session persistence: parsed cue html survives reloads of the
+    // same video/session. Quota errors and disabled storage degrade to the
+    // in-memory caches silently.
+    persistSessionParsedCueHtml(key, html) {
+      try {
+        sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
+      } catch {
+      }
+    }
+    restoreSessionParsedCueHtml(key) {
+      if (this.sessionParseCacheChecked.has(key)) return void 0;
+      this.sessionParseCacheChecked.add(key);
+      try {
+        const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
+        if (!raw) return void 0;
+        const value = JSON.parse(raw);
+        if (typeof value.html !== "string" || typeof value.at !== "number") return void 0;
+        if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return void 0;
+        this.parsedHtmlCache.set(key, value.html);
+        this.pruneParsedSubtitleCaches();
+        return value.html;
+      } catch {
+        return void 0;
+      }
     }
     pruneParsedSubtitleCache(cache) {
       while (cache.size > 180) this.deleteParsedSubtitleKey(cache.keys().next().value ?? "");
