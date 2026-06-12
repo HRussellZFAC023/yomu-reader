@@ -2186,7 +2186,8 @@ describe('new tab review helpers', () => {
 
         // getDeckConfig: 0.6.110 fetches the deck's learning steps once per
         // distinct deck to preview new-card due-ins.
-        expect(actions).toEqual(['version', 'deckNames', 'findCards', 'areDue', 'cardsInfo', 'getDeckConfig', 'notesInfo', 'findCards', 'cardsInfo', 'getDeckConfig', 'notesInfo']);
+        // UT-50: getDecks pre-filters candidates before the costly cardsInfo render.
+        expect(actions).toEqual(['version', 'deckNames', 'findCards', 'areDue', 'getDecks', 'cardsInfo', 'getDeckConfig', 'notesInfo', 'findCards', 'getDecks', 'cardsInfo', 'getDeckConfig', 'notesInfo']);
         expect(cards.map(card => card.spelling)).toEqual(['読む', '書く']);
         expect(cards[0].ankiCardId).toBe(101);
         expect(cards[0].sentence).toBe('本を読む。');
@@ -2633,8 +2634,11 @@ describe('new tab review helpers', () => {
         const cards = await listNewTabAnkiCards(client, settings, 1);
 
         expect(cards.map(card => card.spelling)).toEqual(['後続']);
-        expect(cardInfoBatchSizes).toEqual([24, 48]);
-        expect(noteInfoBatchSizes).toEqual([24, 48]);
+        // UT-50: cardsInfo streams in 40-card chunks and stops as soon as
+        // enough reviewable cards are found — the second window's tail chunk
+        // is never rendered.
+        expect(cardInfoBatchSizes).toEqual([24, 40]);
+        expect(noteInfoBatchSizes).toEqual([24, 40]);
     });
 
     it('uses broad Anki due queue across configured and imported note types', async () => {

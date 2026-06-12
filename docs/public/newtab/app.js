@@ -38272,6 +38272,7 @@ ${spelling}`);
   }
   const log$h = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
+  const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
   const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
   const ANKI_CARD_INFO_CONCURRENCY = 2;
   const ANKI_CANDIDATE_OVERFETCH = 3;
@@ -38382,7 +38383,7 @@ ${spelling}`);
   }
   async function loadNewTabAnkiCardsFromCandidateWindow(client, settings, candidateCardIds, limit, kind, deckNames) {
     if (limit <= 0 || !candidateCardIds.length) return [];
-    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames);
+    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit);
     if (!reviewCards.length) return [];
     const noteIds = unique$1(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
@@ -38417,9 +38418,15 @@ ${spelling}`);
   function isAnkiDeckDisabled(deck, disabledDecks) {
     return disabledDecks.some((disabled) => deck === disabled || Boolean(disabled && deck.startsWith(`${disabled}::`)));
   }
-  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames) {
+  async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length) {
     const dueByCardId = kind === "due" ? await ankiDueFlags(client, candidateCardIds) : /* @__PURE__ */ new Map();
-    const cards = await loadCardInfoChunks(client, chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE));
+    const deckEligibleIds = await filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames);
+    const cards = await loadCardInfoChunksUntil(
+      client,
+      chunks(deckEligibleIds, ANKI_CARD_INFO_STREAM_CHUNK_SIZE),
+      (info) => isReviewableAnkiCard(kind === "due" && dueByCardId.has(Number(info.cardId)) ? { ...info, isDue: dueByCardId.get(Number(info.cardId)) === true } : info, kind),
+      Math.max(1, Math.ceil(limit * 1.25))
+    );
     const cardsById = new Map(cards.map((cardInfo) => [Number(cardInfo.cardId), cardInfo]));
     const reviewableCards = candidateCardIds.map((cardId) => {
       const cardInfo = cardsById.get(Number(cardId));
@@ -38433,18 +38440,27 @@ ${spelling}`);
     if (!deckName) return true;
     return deckNames.includes(deckName);
   }
-  async function loadCardInfoChunks(client, cardChunks) {
+  async function filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames) {
+    if (!candidateCardIds.length || !deckNames.length) return candidateCardIds;
+    const decks = await client.invoke("getDecks", { cards: candidateCardIds }).catch(() => null);
+    if (!decks || typeof decks !== "object" || Array.isArray(decks) || !Object.keys(decks).length) return candidateCardIds;
+    const enabled = /* @__PURE__ */ new Set();
+    for (const [deckName, ids] of Object.entries(decks)) {
+      if (!deckNames.includes(deckName.trim())) continue;
+      for (const id of ids ?? []) enabled.add(Number(id));
+    }
+    return candidateCardIds.filter((cardId) => enabled.has(Number(cardId)));
+  }
+  async function loadCardInfoChunksUntil(client, cardChunks, reviewable, target) {
     const results = [];
-    let nextIndex = 0;
-    const workerCount = Math.min(ANKI_CARD_INFO_CONCURRENCY, cardChunks.length);
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-      while (nextIndex < cardChunks.length) {
-        const chunk = cardChunks[nextIndex++] ?? [];
-        const infos = await client.invoke("cardsInfo", { cards: chunk }).catch(() => []);
-        for (const info of infos) applyComputedAnkiNextReviews(info);
-        results.push(...infos);
-      }
-    }));
+    let reviewableCount = 0;
+    for (const chunk of cardChunks) {
+      const infos = await client.invoke("cardsInfo", { cards: chunk }).catch(() => []);
+      for (const info of infos) applyComputedAnkiNextReviews(info);
+      results.push(...infos);
+      reviewableCount += infos.filter(reviewable).length;
+      if (reviewableCount >= target) break;
+    }
     await applyNewCardStepPreviews(client, results);
     return results;
   }

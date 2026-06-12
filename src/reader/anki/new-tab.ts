@@ -14,6 +14,7 @@ import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '.
 
 const log = Logger.scope('AnkiNewTab');
 const ANKI_CARD_INFO_CHUNK_SIZE = 250;
+const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
 const ANKI_NOTE_INFO_CHUNK_SIZE = 100;
 const ANKI_CARD_INFO_CONCURRENCY = 2;
 const ANKI_CANDIDATE_OVERFETCH = 3;
@@ -212,7 +213,7 @@ async function loadNewTabAnkiCardsFromCandidateWindow(
     deckNames: string[],
 ): Promise<JPDBCard[]> {
     if (limit <= 0 || !candidateCardIds.length) return [];
-    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames);
+    const reviewCards = await loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit);
     if (!reviewCards.length) return [];
 
     const noteIds = unique(reviewCards.map(cardInfo => Number(cardInfo.note)).filter(Number.isFinite));
@@ -253,11 +254,23 @@ function isAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolean {
     return disabledDecks.some(disabled => deck === disabled || Boolean(disabled && deck.startsWith(`${disabled}::`)));
 }
 
-async function loadReviewableNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[], kind: AnkiNewTabQueryKind, deckNames: string[]): Promise<AnkiCardInfo[]> {
+async function loadReviewableNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[], kind: AnkiNewTabQueryKind, deckNames: string[], limit = candidateCardIds.length): Promise<AnkiCardInfo[]> {
     const dueByCardId = kind === 'due'
         ? await ankiDueFlags(client, candidateCardIds)
         : new Map<number, boolean>();
-    const cards = await loadCardInfoChunks(client, chunks(candidateCardIds, ANKI_CARD_INFO_CHUNK_SIZE));
+    // UT-50: cardsInfo renders templates (~110ms/card), so drop
+    // disabled-deck candidates with one cheap getDecks call FIRST, then
+    // stream small chunks and stop once the queue has enough reviewable
+    // cards — instead of rendering the whole overfetched window up front.
+    const deckEligibleIds = await filterAnkiCandidatesByDeck(client, candidateCardIds, deckNames);
+    const cards = await loadCardInfoChunksUntil(
+        client,
+        chunks(deckEligibleIds, ANKI_CARD_INFO_STREAM_CHUNK_SIZE),
+        info => isReviewableAnkiCard(kind === 'due' && dueByCardId.has(Number(info.cardId))
+            ? { ...info, isDue: dueByCardId.get(Number(info.cardId)) === true }
+            : info, kind),
+        Math.max(1, Math.ceil(limit * 1.25)),
+    );
     const cardsById = new Map(cards.map(cardInfo => [Number(cardInfo.cardId), cardInfo]));
     const reviewableCards = candidateCardIds
         .map(cardId => {
@@ -279,18 +292,37 @@ function isEnabledAnkiCardDeck(cardInfo: AnkiCardInfo, deckNames: string[]): boo
     return deckNames.includes(deckName);
 }
 
-async function loadCardInfoChunks(client: AnkiConnectClient, cardChunks: number[][]): Promise<AnkiCardInfo[]> {
+async function filterAnkiCandidatesByDeck(client: AnkiConnectClient, candidateCardIds: number[], deckNames: string[]): Promise<number[]> {
+    if (!candidateCardIds.length || !deckNames.length) return candidateCardIds;
+    const decks = await client.invoke<Record<string, number[]>>('getDecks', { cards: candidateCardIds }).catch(() => null);
+    // A missing/odd response (older AnkiConnect, bridges that answer [] for
+    // unknown actions) must never filter the queue to nothing.
+    if (!decks || typeof decks !== 'object' || Array.isArray(decks) || !Object.keys(decks).length) return candidateCardIds;
+    const enabled = new Set<number>();
+    for (const [deckName, ids] of Object.entries(decks)) {
+        if (!deckNames.includes(deckName.trim())) continue;
+        for (const id of ids ?? []) enabled.add(Number(id));
+    }
+    return candidateCardIds.filter(cardId => enabled.has(Number(cardId)));
+}
+
+// Streams cardsInfo chunk by chunk and stops once `target` cards pass the
+// reviewable check — the remaining candidates never pay the render cost.
+async function loadCardInfoChunksUntil(
+    client: AnkiConnectClient,
+    cardChunks: number[][],
+    reviewable: (info: AnkiCardInfo) => boolean,
+    target: number,
+): Promise<AnkiCardInfo[]> {
     const results: AnkiCardInfo[] = [];
-    let nextIndex = 0;
-    const workerCount = Math.min(ANKI_CARD_INFO_CONCURRENCY, cardChunks.length);
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-        while (nextIndex < cardChunks.length) {
-            const chunk = cardChunks[nextIndex++] ?? [];
-            const infos = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []);
-            for (const info of infos) applyComputedAnkiNextReviews(info);
-            results.push(...infos);
-        }
-    }));
+    let reviewableCount = 0;
+    for (const chunk of cardChunks) {
+        const infos = await client.invoke<AnkiCardInfo[]>('cardsInfo', { cards: chunk }).catch((): AnkiCardInfo[] => []);
+        for (const info of infos) applyComputedAnkiNextReviews(info);
+        results.push(...infos);
+        reviewableCount += infos.filter(reviewable).length;
+        if (reviewableCount >= target) break;
+    }
     await applyNewCardStepPreviews(client, results);
     return results;
 }

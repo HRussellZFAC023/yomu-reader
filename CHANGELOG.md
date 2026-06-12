@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.159] - 2026-06-12
+
+### Changed
+
+- Loading Anki reviews on the study page is substantially faster: candidates from disabled decks are dropped with one cheap call before any card rendering, and card details now stream in small batches that stop as soon as the queue is full — instead of rendering an entire overfetched window up front (AnkiConnect renders every card's templates at ~110ms per card, so this cuts seconds to tens of seconds off study startup on large collections).
+
 ## [0.6.158] - 2026-06-12
 
 ### Fixed
