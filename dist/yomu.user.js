@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-EXfHajorDyAlWnIBIHP5BCulXfGh4YZUK9aZhDAsTRo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f8fZfCMukBYjWuXrrh+iMSAI+rVks4iB1LfK3ZRF9Qo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-r//sBQc1sBQRUDwhgyFK6aLw9dLqxfzLcqChrRKjM7M=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-FFYfzobSaBq8j3B7sfaQfaDIGCg0UfZsj37DbZkSaRM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-OCxWDAmmHZndxARku5hK7Zdj0UVAmolklZdQptlFVPw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -17580,7 +17580,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       reading: card.reading,
       cardState: [...card.cardState],
       pitchAccent: [...card.pitchAccent],
-      source: card.source
+      source: card.source,
+      deckNames: card.deckNames ? [...card.deckNames] : void 0,
+      ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : void 0,
+      jpdbDeckMembership: card.jpdbDeckMembership,
+      sourceDeckName: card.sourceDeckName
     };
   }
   function cardFromCardStateSignal(card) {
@@ -17667,7 +17671,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         reading: typeof card.reading === "string" ? card.reading : "",
         cardState: card.cardState,
         pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
-        source: card.source ?? "jpdb"
+        source: card.source ?? "jpdb",
+        deckNames: Array.isArray(card.deckNames) ? card.deckNames : void 0,
+        ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames : void 0,
+        jpdbDeckMembership: typeof card.jpdbDeckMembership === "string" ? card.jpdbDeckMembership : void 0,
+        sourceDeckName: typeof card.sourceDeckName === "string" ? card.sourceDeckName : void 0
       }
     };
   }
@@ -26196,6 +26204,7 @@ ${spelling}`);
     const reading = cleanJitenAnnotatedReading(vocabulary.reading);
     const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
     const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
+    const deckNames = jitenVocabularyDeckNames(vocabulary);
     return {
       vid: vocabulary.wordId,
       sid: vocabulary.readingIndex,
@@ -26215,6 +26224,7 @@ ${spelling}`);
       reviewSource: "jiten-api",
       jitenWordId: vocabulary.wordId,
       jitenReadingIndex: vocabulary.readingIndex,
+      ...deckNames.length ? { deckNames } : {},
       ...reviewGradeIntervals ? { reviewGradeIntervals } : {}
     };
   }
@@ -26245,9 +26255,32 @@ ${spelling}`);
       reviewSource: "jiten-api",
       jitenWordId: wordId,
       jitenReadingIndex: readingIndex,
+      ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { deckNames: [card.sourceDeckName.trim()] } : {},
       ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
       ...typeof card.sourceDeckName === "string" && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}
     };
+  }
+  function jitenVocabularyDeckNames(vocabulary) {
+    return uniqueJitenText([
+      ...jitenDeckNamesFromValue(vocabulary.deckNames),
+      ...jitenDeckNamesFromValue(vocabulary.decks),
+      ...jitenDeckNamesFromValue(vocabulary.studyDecks),
+      ...jitenDeckNamesFromValue(vocabulary.userStudyDecks),
+      ...jitenDeckNamesFromValue(vocabulary.readerStudyDecks),
+      ...jitenDeckNamesFromValue(vocabulary.lookupDecks),
+      typeof vocabulary.sourceDeckName === "string" ? vocabulary.sourceDeckName : ""
+    ]);
+  }
+  function jitenDeckNamesFromValue(value) {
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) return value.flatMap(jitenDeckNamesFromValue);
+    if (!isJsonRecord$1(value)) return [];
+    return [
+      firstRecordString(value, ["name", "title", "deckName", "sourceDeckName"]) ?? "",
+      ...jitenDeckNamesFromValue(value.deck),
+      ...jitenDeckNamesFromValue(value.studyDeck),
+      ...jitenDeckNamesFromValue(value.userStudyDeck)
+    ];
   }
   function jitenStudyCardPitchAccent(card, reading) {
     return jitenPitchAccentPatterns(card.pitchAccents, reading);

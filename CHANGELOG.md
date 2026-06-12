@@ -15,6 +15,7 @@
 - Late pitch/vocabulary enrichment now re-bakes cached subtitle cue HTML and hydrated transcript rows, so stepping back keeps pitch colors.
 - Public jpdb pitch lookups now run four-wide, so keyless pitch underlines fill in faster during subtitle bursts.
 - ASBPlayer subtitle overlays no longer inherit Yomu subtitle underline color channels, avoiding dark shadow underlines when API-backed status/pitch styling is enabled.
+- ASBPlayer subtitle overlays now get the same deliberate temporary move handle as Yomu subtitles, so their position can be nudged per video without dragging ordinary subtitle text.
 - Deck membership styling now applies across JPDB, Jiten, and Anki rendered words, with provider-specific deck classes and merged Anki metadata preserved.
 - Word lookups now resolve the real pointer target through shadow-DOM event retargeting, so framework re-renders that replace annotated nodes are re-annotated by the next scan.
 - Imported dictionaries on iPad now request persistent storage on import, and the Dictionaries panel explains when Safari has cleared remembered IndexedDB data.
