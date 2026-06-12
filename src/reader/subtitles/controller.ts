@@ -145,6 +145,23 @@ import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, matchesShortcut } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+
+// UT-48: parsed cue html survives reloads via sessionStorage (same-tab,
+// same video session). Keys are hashed — raw parse keys embed whole cue
+// texts and would blow past storage key-size sanity.
+const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v1:';
+const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function subtitleSessionParseHash(key: string): string {
+    let h1 = 0x811c9dc5;
+    let h2 = 0x1505;
+    for (let i = 0; i < key.length; i += 1) {
+        const code = key.charCodeAt(i);
+        h1 = Math.imul(h1 ^ code, 0x01000193) >>> 0;
+        h2 = (Math.imul(h2, 33) ^ code) >>> 0;
+    }
+    return `${h1.toString(36)}${h2.toString(36)}`;
+}
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
@@ -370,6 +387,7 @@ export class SubtitlePlayerController {
     private pendingDomCaption?: { text: string; firstSeenAt: number };
     private parsedHtmlCache = new Map<string, string>();
     private provisionalParsedHtmlCache = new Map<string, string>();
+    private sessionParseCacheChecked = new Set<string>();
     private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
     private pendingParsedHtml = new Map<string, Promise<string>>();
     private pendingProvisionalParsedHtml = new Map<string, Promise<string>>();
@@ -1438,7 +1456,7 @@ export class SubtitlePlayerController {
 
     private async parseCueHtml(text: string, settings = this.options.getSettings(), options: { allowProvisional?: boolean } = {}): Promise<string> {
         const key = this.parseCacheKey(text, settings);
-        const cached = this.parsedHtmlCache.get(key);
+        const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
         if (cached) {
             return cached;
         }
@@ -1462,6 +1480,8 @@ export class SubtitlePlayerController {
     }
 
     private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string): Promise<string> {
+        const restored = this.restoreSessionParsedCueHtml(key);
+        if (restored) return restored;
         this.ensureAuthoritativeParsedCueHtml(text, settings, key);
         const cached = this.provisionalParsedHtmlCache.get(key);
         if (cached) {
@@ -1606,6 +1626,10 @@ export class SubtitlePlayerController {
                 this.parsedHtmlCache.set(key, html);
                 this.provisionalParsedHtmlCache.delete(key);
             }
+            // UT-48: refreshing the page must keep the parsed ruby — the
+            // final tier per key (authoritative, or provisional when no API
+            // credential exists) persists for the session.
+            if (!options.provisional || !this.hasAuthoritativeParseTier()) this.persistSessionParsedCueHtml(key, html);
             this.emptyParsedHtmlCache.delete(key);
             if (tokens.length) this.parsedTokenCache.set(key, tokens);
             this.pruneParsedSubtitleCaches();
@@ -1622,6 +1646,39 @@ export class SubtitlePlayerController {
         this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache);
         while (this.emptyParsedHtmlCache.size > 180) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? '');
         while (this.parsedTokenCache.size > 180) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? '');
+    }
+
+    private hasAuthoritativeParseTier(): boolean {
+        const settings = this.options.getSettings();
+        return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
+    }
+
+    // UT-48 session persistence: parsed cue html survives reloads of the
+    // same video/session. Quota errors and disabled storage degrade to the
+    // in-memory caches silently.
+    private persistSessionParsedCueHtml(key: string, html: string): void {
+        try {
+            sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
+        } catch {
+            // Storage full or unavailable — in-memory cache still applies.
+        }
+    }
+
+    private restoreSessionParsedCueHtml(key: string): string | undefined {
+        if (this.sessionParseCacheChecked.has(key)) return undefined;
+        this.sessionParseCacheChecked.add(key);
+        try {
+            const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
+            if (!raw) return undefined;
+            const value = JSON.parse(raw) as { at?: number; html?: string };
+            if (typeof value.html !== 'string' || typeof value.at !== 'number') return undefined;
+            if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return undefined;
+            this.parsedHtmlCache.set(key, value.html);
+            this.pruneParsedSubtitleCaches();
+            return value.html;
+        } catch {
+            return undefined;
+        }
     }
 
     private pruneParsedSubtitleCache(cache: Map<string, string>): void {
