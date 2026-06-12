@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.180] - 2026-06-13
+
+### Changed
+
+- The clamp sweep is now evidence-based instead of list-based: it strips furigana only from rows whose container measurably overflows (any site, no per-site whitelists), so ruby that fits stays — including inside expandable descriptions and comments — and ruby that actually crops is removed wherever it happens. Verified across YouTube watch, jpdb.io, and NHK News Easy with zero measurably-cropped ruby rows.
+
 ## [0.6.179] - 2026-06-13
 
 ### Fixed

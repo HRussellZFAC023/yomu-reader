@@ -2287,7 +2287,12 @@ export function stripRubyInClampedRows(root: ParentNode = document): number {
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        if (!isLayoutSensitiveScanElement(word.parentElement)) continue;
+        // UT-79: the sweep is EVIDENCE-based, not list-based — find the
+        // nearest crop-capable box (raw computed-style walk, no per-site
+        // whitelists) and strip only when it measurably overflows. Ruby that
+        // fits stays, anywhere; ruby that crops goes, anywhere.
+        const cropBox = nearestCropCapableBox(word.parentElement);
+        if (!cropBox || !boxActuallyCrops(cropBox)) continue;
         word.querySelectorAll('ruby').forEach(ruby => {
             ruby.querySelectorAll('rt, rp').forEach(node => node.remove());
             const base = ruby.querySelector('.jpdb-reader-ruby-base');
@@ -2297,4 +2302,19 @@ export function stripRubyInClampedRows(root: ParentNode = document): number {
         stripped += 1;
     }
     return stripped;
+}
+
+function nearestCropCapableBox(element: HTMLElement | null): HTMLElement | null {
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body && current !== document.documentElement) {
+        if (current.dataset.jpdbReaderRoot) return null;
+        const style = safeComputedStyle(current);
+        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function boxActuallyCrops(box: HTMLElement): boolean {
+    return box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
 }

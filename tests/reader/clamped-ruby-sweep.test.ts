@@ -20,6 +20,11 @@ describe('stripRubyInClampedRows', () => {
             </div>
             <p id="prose">${annotatedWord('べんきょう', '勉強')}は楽しい。</p>
         `;
+        // jsdom has no layout — simulate the ruby-grown content overflowing
+        // the clamped box (the sweep strips on MEASURED crops only).
+        const titleBox = document.querySelector<HTMLElement>('#title')!;
+        Object.defineProperty(titleBox, 'scrollHeight', { value: 56, configurable: true });
+        Object.defineProperty(titleBox, 'clientHeight', { value: 40, configurable: true });
         const stripped = stripRubyInClampedRows(document);
         rectSpy.mockRestore();
 
@@ -35,8 +40,11 @@ describe('stripRubyInClampedRows', () => {
 
     it('strips ruby in single-line ellipsis rows (channel bylines)', () => {
         document.body.innerHTML = `
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${annotatedWord()}チャンネル</div>
+            <div id="byline" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${annotatedWord()}チャンネル</div>
         `;
+        const byline = document.querySelector<HTMLElement>('#byline')!;
+        Object.defineProperty(byline, 'scrollHeight', { value: 34, configurable: true });
+        Object.defineProperty(byline, 'clientHeight', { value: 22, configurable: true });
         expect(stripRubyInClampedRows(document)).toBe(1);
         expect(document.querySelector('rt')).toBeNull();
         document.body.innerHTML = '';
@@ -59,6 +67,23 @@ describe('stripRubyInClampedRows', () => {
         expect(stripRubyInClampedRows(document)).toBe(0);
         expect(document.querySelector('ytm-slim-video-metadata-section-renderer rt')?.textContent).toBe('しちょう');
         expect(document.querySelector('ytm-video-description-transcript-section-renderer rt')?.textContent).toBe('もじ');
+        document.body.innerHTML = '';
+    });
+});
+
+
+// UT-79: the sweep is measurement-driven — ruby that FITS stays, even inside
+// clamp-capable boxes (deleting the need for per-site force-ruby whitelists).
+describe('evidence-based sweep keeps fitting ruby', () => {
+    it('does not strip when the clamped box is not actually overflowing', () => {
+        document.body.innerHTML = `
+            <div id="fits" style="display:-webkit-box;-webkit-line-clamp:4;overflow:hidden">${'<span class="jpdb-reader-word"><ruby><span class="jpdb-reader-ruby-base">勉強</span><rt class="jpdb-reader-furi">べんきょう</rt></ruby></span>'}します</div>
+        `;
+        const fits = document.querySelector<HTMLElement>('#fits')!;
+        Object.defineProperty(fits, 'scrollHeight', { value: 80, configurable: true });
+        Object.defineProperty(fits, 'clientHeight', { value: 80, configurable: true });
+        expect(stripRubyInClampedRows(document)).toBe(0);
+        expect(document.querySelector('#fits rt')).not.toBeNull();
         document.body.innerHTML = '';
     });
 });

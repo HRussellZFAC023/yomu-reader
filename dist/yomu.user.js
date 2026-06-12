@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.179
+// @version      0.6.180
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -4588,7 +4588,8 @@
     const words = root.querySelectorAll(".jpdb-reader-word");
     for (const word of words) {
       if (!word.querySelector("rt")) continue;
-      if (!isLayoutSensitiveScanElement(word.parentElement)) continue;
+      const cropBox = nearestCropCapableBox(word.parentElement);
+      if (!cropBox || !boxActuallyCrops(cropBox)) continue;
       word.querySelectorAll("ruby").forEach((ruby) => {
         ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
         const base = ruby.querySelector(".jpdb-reader-ruby-base");
@@ -4598,6 +4599,19 @@
       stripped += 1;
     }
     return stripped;
+  }
+  function nearestCropCapableBox(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (current.dataset.jpdbReaderRoot) return null;
+      const style = safeComputedStyle(current);
+      if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function boxActuallyCrops(box) {
+    return box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
   }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
