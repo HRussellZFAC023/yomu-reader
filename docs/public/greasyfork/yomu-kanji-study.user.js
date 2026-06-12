@@ -1280,6 +1280,8 @@
   const log$3 = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
+    // Called through the nullable kanji-study companion slot (app/main.ts).
+    // fallow-ignore-next-line unused-class-member
     lookup(kanji, settings) {
       const key = Array.from(kanji)[0] ?? kanji;
       if (!key || !settings.kanjiOriginsEnabled) {

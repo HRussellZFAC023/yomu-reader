@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.139] - 2026-06-12
+
+### Changed
+
+- Internal hygiene: dead-code analysis is back to zero findings (post-refactor internals privatized, companion-seam types documented as intentional).
+
 ## [0.6.138] - 2026-06-12
 
 ### Changed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.138
+// @version      0.6.139
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-7c1+3dapbPWsG7SwGC8E0f5bHvXfCLC0GMEMUwxAh3o=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-6iYGrmCbbHrG83am9RxQGPhuRnXzqFSkJ+jyC2Igf7Y=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2OhdNUwo3MrfwmoLJ1tf3Rh13UNViD+U+dDoFKZoPak=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-2T2gONeWun4RyJadLeNxAcX+K3LnSjr9iMYqviJipU8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
@@ -26244,7 +26244,6 @@ ${spelling}`);
       });
     }
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
-    // fallow-ignore-next-line unused-class-member
     async batchReviewCards(cards, grade) {
       const reviews = cards.flatMap((card) => {
         try {

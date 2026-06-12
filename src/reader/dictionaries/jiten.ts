@@ -339,7 +339,6 @@ export class JitenApiClient {
     }
 
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
-    // fallow-ignore-next-line unused-class-member
     async batchReviewCards(cards: JPDBCard[], grade: JPDBGrade): Promise<number> {
         const reviews = cards.flatMap(card => {
             try {

@@ -5,10 +5,20 @@ export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerContro
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type KanjiOriginClientClass = typeof import('../kanji/origin').KanjiOriginClient;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type KanjiVGClientClass = typeof import('../kanji/vg').KanjiVGClient;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RtkClientClass = typeof import('../kanji/rtk').RtkClient;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type JpdbKanjiClientClass = typeof import('../jpdb/jpdb-kanji').JpdbKanjiClient;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderKanjiOriginGraphFn = typeof import('../popup/origin-graph').renderKanjiOriginGraph;
 export type RenderJpdbKanjiInfoFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
 export type RenderJpdbKanjiMiningControlsFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;

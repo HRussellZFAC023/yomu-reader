@@ -46,7 +46,7 @@ export function cardStateSignalCard(card: JPDBCard): CardStateSignalCard {
     };
 }
 
-export function cardFromCardStateSignal(card: CardStateSignalCard): JPDBCard {
+function cardFromCardStateSignal(card: CardStateSignalCard): JPDBCard {
     return {
         ...card,
         frequencyRank: null,
