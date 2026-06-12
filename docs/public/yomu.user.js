@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-FkAPBnZTabSPWWPwVOYtrhuqAdqalnasGY4Y5HgMytg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zgo2IM66pwfai35c3OiT6Q4GzIFJNGc9sVotX2wq5As=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-UeqvSauEGK43kDUClxgfmo1WdKIrbZ3r4rF9ivqJYGk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dToUwWaO3PeyH8F+zbR6Jdksw70IXygXxEF/9SSBkbw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com

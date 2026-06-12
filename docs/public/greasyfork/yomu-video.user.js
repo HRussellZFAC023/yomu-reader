@@ -13384,6 +13384,7 @@ ${spelling}`);
     channelShelfExpanded = false;
     channelShelfFilter = "all";
     subscriptionBusy = false;
+    channelShelfStatusOverride = "";
     lastBackfillAt = Number.NEGATIVE_INFINITY;
     lastScrollAt = Number.NEGATIVE_INFINITY;
     destroyed = true;
@@ -13909,7 +13910,7 @@ ${spelling}`);
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) {
-        elements.status.textContent = !renderedRecommendations.length ? remainingChannels ? "All shown channels are already subscribed — browse all channels for more." : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.";
+        elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length ? remainingChannels ? "All shown channels are already subscribed — browse all channels for more." : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.");
       }
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
@@ -14099,18 +14100,19 @@ ${spelling}`);
       if (this.subscriptionBusy) return;
       const elements = this.channelShelfElements(this.ensureChannelShelf());
       if (!channels.length) {
-        elements.status.textContent = "All of these channels are already subscribed.";
+        this.setChannelShelfStatus(elements, "All of these channels are already subscribed.");
         return;
       }
       const config = readYouTubeClientConfig();
       if (!config) {
-        elements.status.textContent = "YouTube session data is not available on this page yet.";
+        this.setChannelShelfStatus(elements, "YouTube session data is not available on this page yet.");
         return;
       }
       if (!youTubeSapisidCookie()) {
-        elements.status.textContent = "Sign in to YouTube to subscribe to channels.";
+        this.setChannelShelfStatus(elements, "Sign in to YouTube to subscribe to channels.");
         return;
       }
+      this.channelShelfStatusOverride = "";
       this.subscriptionBusy = true;
       this.setChannelShelfBusy(true);
       let subscribed = 0;
@@ -14130,8 +14132,12 @@ ${spelling}`);
       }
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
-      elements.status.textContent = failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`;
+      this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
       if (subscribed) this.scheduleChannelShelfRefresh();
+    }
+    setChannelShelfStatus(elements, status) {
+      this.channelShelfStatusOverride = status;
+      elements.status.textContent = status;
     }
     // Show the confirmation in place first (button flips to "Subscribed", the
     // live status announces it), then let the refresh swap the row for the
@@ -14163,6 +14169,7 @@ ${spelling}`);
     removeChannelShelf() {
       this.channelShelf?.remove();
       this.channelShelf = void 0;
+      this.channelShelfStatusOverride = "";
     }
     currentChannelShelfScope() {
       const routeKey = this.currentRouteKey();
@@ -14191,6 +14198,7 @@ ${spelling}`);
       this.channelShelfExpanded = false;
       this.channelShelfFilter = "all";
       this.subscriptionBusy = false;
+      this.channelShelfStatusOverride = "";
       this.lastBackfillAt = Number.NEGATIVE_INFINITY;
       this.lastScrollAt = Number.NEGATIVE_INFINITY;
       this.setFilterActiveClass(false);
