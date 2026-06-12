@@ -821,12 +821,13 @@ export class SettingsDialogController {
         });
         syncJpdbMiningDependentSettings(form);
         syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        const apiKeyInput = form.querySelector<HTMLInputElement>('input[name="apiCredential"]');
-        apiKeyInput?.addEventListener('input', () => this.syncJpdbStatus(form));
-        apiKeyInput?.addEventListener('change', () => {
-            void this.refreshDeckControls(form);
-            void this.refreshJpdbConnectionStatus(form);
-        });
+        for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
+            apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
+            apiKeyInput.addEventListener('change', () => {
+                void this.refreshDeckControls(form);
+                void this.refreshJpdbConnectionStatus(form);
+            });
+        }
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));

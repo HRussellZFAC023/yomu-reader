@@ -569,11 +569,23 @@
     return isJitenApiCredential(credential) ? { apiKey: "", jitenApiKey: credential } : { apiKey: credential, jitenApiKey: "" };
   }
   function readApiCredentialsFromFormData(data) {
+    if (data.has("apiCredentialJpdb") || data.has("apiCredentialJiten")) {
+      return mergeApiCredentialValues(
+        String(data.get("apiCredentialJpdb") ?? ""),
+        String(data.get("apiCredentialJiten") ?? "")
+      );
+    }
     if (data.has("apiCredential")) return splitApiCredential(String(data.get("apiCredential") ?? ""));
     return {
       apiKey: String(data.get("apiKey") ?? "").trim(),
       jitenApiKey: String(data.get("jitenApiKey") ?? "").trim()
     };
+  }
+  function mergeApiCredentialValues(jpdbValue, jitenValue) {
+    const values = [jpdbValue.trim(), jitenValue.trim()].filter(Boolean);
+    const jitenApiKey = values.find(isJitenApiCredential) ?? "";
+    const apiKey = values.find((value) => !isJitenApiCredential(value)) ?? "";
+    return { apiKey, jitenApiKey };
   }
   function isJitenApiCredential(value) {
     return value.trim().startsWith(JITEN_API_KEY_PREFIX);
@@ -3589,9 +3601,8 @@
   function normalizeApiCredentialSettings(value) {
     const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
-    if (jitenApiKey) return { apiKey: "", jitenApiKey };
-    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: apiKey };
-    return { apiKey, jitenApiKey: "" };
+    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey };
+    return { apiKey, jitenApiKey };
   }
   function stripUnsupportedSettings(value) {
     if (!value) return null;
@@ -5612,6 +5623,8 @@
       jpdb: "JPDB",
       api: "API",
       apiCredential: "API key",
+      apiCredentialJpdb: "JPDB API key",
+      apiCredentialJiten: "Jiten API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
@@ -7095,6 +7108,8 @@ anki	Anki
 jpdb	JPDB
 api	API
 apiCredential	APIキー
+apiCredentialJpdb	JPDB APIキー
+apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
@@ -21313,9 +21328,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input("apiCredential", `API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a> / <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, singleApiCredentialValue(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
+                        ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
+                        ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste one JPDB or Jiten API key. Jiten keys start with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Both keys can be set at once — reviews then mix both queues. Jiten keys start with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -22054,6 +22070,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function apiCredentialSettingsFromForm(form) {
+    const jpdbField = getNamedControl(form, "apiCredentialJpdb");
+    const jitenField = getNamedControl(form, "apiCredentialJiten");
+    if (jpdbField || jitenField) return mergeApiCredentialValues(jpdbField?.value ?? "", jitenField?.value ?? "");
     const combined = getNamedControl(form, "apiCredential")?.value ?? "";
     if (combined.trim()) return { apiKey: combined, jitenApiKey: "" };
     return {
@@ -22526,6 +22545,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     "apiCredential",
+    "apiCredentialJpdb",
+    "apiCredentialJiten",
     "miningDeck",
     "newTabJpdbDeck",
     "neverForgetDeck",
@@ -23815,12 +23836,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       syncJpdbMiningDependentSettings(form);
       syncDisabledSettingsControlDescriptions(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      const apiKeyInput = form.querySelector('input[name="apiCredential"]');
-      apiKeyInput?.addEventListener("input", () => this.syncJpdbStatus(form));
-      apiKeyInput?.addEventListener("change", () => {
-        void this.refreshDeckControls(form);
-        void this.refreshJpdbConnectionStatus(form);
-      });
+      for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
+        apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
+        apiKeyInput.addEventListener("change", () => {
+          void this.refreshDeckControls(form);
+          void this.refreshJpdbConnectionStatus(form);
+        });
+      }
       form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));

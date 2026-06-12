@@ -2158,6 +2158,8 @@
       jpdb: "JPDB",
       api: "API",
       apiCredential: "API key",
+      apiCredentialJpdb: "JPDB API key",
+      apiCredentialJiten: "Jiten API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
@@ -3622,6 +3624,8 @@ anki	Anki
 jpdb	JPDB
 api	API
 apiCredential	APIキー
+apiCredentialJpdb	JPDB APIキー
+apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス

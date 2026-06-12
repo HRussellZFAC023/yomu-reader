@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rhz9xOTriMkneJWAVh3ikH9gcLxh9m11Uhfp55c6Wns=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-kYH4jf9T2hrawuRX9mvgC5PTXdgb4oKlflc6cUpghUw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-d9BusHAw+tOE9KgtsmXtJxxZwMx5WK2oj8vfqkBtJOs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-P4mcKbAFYZINzl82R0FerV4JI1wTZXIOmF4zdsYl+zs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-owUp2Mo+UW7Dwg0i94C2i9TetNdj1dWz1OBCLVoA3lY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-BdDhxJNQflb++HHUCIns/w+9oPl8WfPKwv9o+schA6Q=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2202,9 +2202,8 @@
   function normalizeApiCredentialSettings(value) {
     const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
-    if (jitenApiKey) return { apiKey: "", jitenApiKey };
-    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: apiKey };
-    return { apiKey, jitenApiKey: "" };
+    if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey };
+    return { apiKey, jitenApiKey };
   }
   function stripUnsupportedSettings(value) {
     if (!value) return null;
@@ -5383,6 +5382,8 @@
       jpdb: "JPDB",
       api: "API",
       apiCredential: "API key",
+      apiCredentialJpdb: "JPDB API key",
+      apiCredentialJiten: "Jiten API key",
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
@@ -6866,6 +6867,8 @@ anki	Anki
 jpdb	JPDB
 api	API
 apiCredential	APIキー
+apiCredentialJpdb	JPDB APIキー
+apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
