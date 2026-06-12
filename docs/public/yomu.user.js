@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.171
+// @version      0.6.172
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-FkAPBnZTabSPWWPwVOYtrhuqAdqalnasGY4Y5HgMytg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zgo2IM66pwfai35c3OiT6Q4GzIFJNGc9sVotX2wq5As=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-0fejvzSdy7F5J0/zjT5esRqnUOCeJP7XAUL3Qca8F50=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-UeqvSauEGK43kDUClxgfmo1WdKIrbZ3r4rF9ivqJYGk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -34449,12 +34449,26 @@ ${glossaryKey}`;
     if (keyboardActiveWord?.isConnected && words.includes(keyboardActiveWord)) return keyboardActiveWord;
     return void 0;
   }
-  function documentLooksLikeStandaloneImagePage() {
+  const IMAGE_READING_MIN_AREA = 15e4;
+  const IMAGE_READING_MIN_VIEWPORT_RATIO = 0.35;
+  const IMAGE_READING_MIN_EDGE = 240;
+  function documentLooksLikeImageReadingPage() {
     const images = Array.from(document.images).filter((image) => !image.closest("[data-jpdb-reader-root]"));
-    if (images.length !== 1) return false;
+    if (images.length === 1 && isStandaloneImageDocument(images[0])) return true;
+    return images.some(imageLooksLikeReadableSurface);
+  }
+  function isStandaloneImageDocument(image) {
     const bodyText = document.body?.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (bodyText) return false;
-    return Boolean(images[0]?.currentSrc || images[0]?.src);
+    return !bodyText && Boolean(image.currentSrc || image.src);
+  }
+  function imageLooksLikeReadableSurface(image) {
+    if (!image.currentSrc && !image.src) return false;
+    const rect = image.getBoundingClientRect();
+    const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    const visibleArea2 = visibleWidth * visibleHeight;
+    const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
+    return visibleArea2 >= IMAGE_READING_MIN_AREA && visibleArea2 / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
   }
   function wait(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -35737,7 +35751,7 @@ ${glossaryKey}`;
         getSettings: () => this.settings,
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         onToast: (message) => this.toast(message),
-        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
+        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
         enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
         enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
         fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
