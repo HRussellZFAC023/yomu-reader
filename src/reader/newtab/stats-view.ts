@@ -138,7 +138,10 @@ function renderStatsActivity(context: NewTabStatsRenderContext): HTMLElement {
         ),
         el('p', { class: 'jpdb-reader-stats-activity-summary' }, statsDayLabel(selected, source.daily, context)),
         el('div', { class: 'jpdb-reader-stats-bars', role: 'group', 'aria-label': text('statsDailyActivity') },
-            points.map(point => renderStatsActivityBar(point, maxValue, activityMetric, selected.date, source.daily, context)),
+            // Only an explicit user pick draws the selected outline; the
+            // implicit today-default made the final bar look permanently
+            // "selected" (user-reported).
+            points.map(point => renderStatsActivityBar(point, maxValue, activityMetric, isNewTabStatsDateKey(context.selectedDate) ? selected.date : '', source.daily, context)),
         ),
         renderStatsMonthStrip(source, activityMetric, context),
     );
@@ -213,7 +216,9 @@ function renderStatsHeatmapMonth(month: ReturnType<typeof monthlyActivityHeatmap
 
 function renderStatsHeatmapDay(point: StatsDailyPoint, maxValue: number, metric: StatsActivityMetric, sourcePoints: StatsDailyPoint[], context: NewTabStatsRenderContext): HTMLElement {
     const value = statsActivityMetricValue(point, metric);
-    const selectedDate = selectedStatsDate(context, todayStatsDate());
+    // '' fallback: only an explicit user pick marks a cell selected (the
+    // today-default outline is the bar chart bug, same here).
+    const selectedDate = selectedStatsDate(context, '');
     const label = statsDayLabel(point, sourcePoints, context);
     return el('button', {
         type: 'button',

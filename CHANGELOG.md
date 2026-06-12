@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.128] - 2026-06-12
+
+### Fixed
+
+- Study page (user-reported): the front of a card no longer spoils the answer — the target word's furigana in the example sentence stays hidden until you reveal (other words keep theirs, like jpdb's Learn).
+- Study page (user-reported): Immersion Kit controls are compact — the 'IMMERSION KIT' label is gone (clip title is enough; provider shown on hover), and prev/audio/next sit inline with the title instead of on their own oversized row.
+- Stats (user-reported): the last bar of the daily activity chart no longer looks permanently 'selected'; the outline now only appears when you actually pick a day.
+- Study page (user-reported): without any API key the Show-only state filter dropdown is hidden — keyless dictionary study has no card states to filter.
+
 ## [0.6.127] - 2026-06-12
 
 ### Fixed

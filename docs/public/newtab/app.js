@@ -50122,7 +50122,10 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       el(
         "div",
         { class: "jpdb-reader-stats-bars", role: "group", "aria-label": text2("statsDailyActivity") },
-        points.map((point) => renderStatsActivityBar(point, maxValue, activityMetric, selected.date, source.daily, context))
+        // Only an explicit user pick draws the selected outline; the
+        // implicit today-default made the final bar look permanently
+        // "selected" (user-reported).
+        points.map((point) => renderStatsActivityBar(point, maxValue, activityMetric, isNewTabStatsDateKey(context.selectedDate) ? selected.date : "", source.daily, context))
       ),
       renderStatsMonthStrip(source, activityMetric, context)
     );
@@ -50202,7 +50205,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function renderStatsHeatmapDay(point, maxValue, metric, sourcePoints, context) {
     const value = statsActivityMetricValue(point, metric);
-    const selectedDate = selectedStatsDate(context, todayStatsDate());
+    const selectedDate = selectedStatsDate(context, "");
     const label = statsDayLabel(point, sourcePoints, context);
     return el("button", {
       type: "button",
@@ -55865,8 +55868,7 @@ ${newTabCardReading(card)}`;
         { class: "jpdb-reader-example-toolbar" },
         el(
           "div",
-          { class: "jpdb-reader-example-meta" },
-          el("span", { class: "jpdb-reader-example-source" }, newTabImmersionProviderLabel(example, language)),
+          { class: "jpdb-reader-example-meta", title: newTabImmersionProviderLabel(example, language) },
           el("span", { class: "jpdb-reader-example-title" }, localizedImmersionSourceTitle(example.sourceTitle, language)),
           el("span", { class: "jpdb-reader-example-count" }, `${index + 1}/${total}`)
         ),
@@ -58731,7 +58733,9 @@ ${newTabCardReading(card)}`;
     syncStateFilterSelector(root) {
       const select2 = root.querySelector("[data-newtab-filter-select]");
       if (!select2) return;
-      const show = this.state.mode === "word";
+      const settings = this.dependencies.getSettings();
+      const hasProvider = hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
+      const show = this.state.mode === "word" && hasProvider;
       select2.hidden = !show;
       if (!show) return;
       replaceChildrenWith(select2, NEW_TAB_FILTERS.map((filter) => el("option", {

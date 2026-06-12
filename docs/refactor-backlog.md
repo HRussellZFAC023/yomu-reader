@@ -18,16 +18,16 @@ Reader/typography:
 - UT-9 OCR ruby sometimes missing: not reproduced yet. NEEDS INFO: ask for a screenshot + the image/page where ruby was missing.
 - UT-10 図書 としょ+しょ double furigana over empty box: screenshot crop doesn't identify the surface (popup? study card? kanji tab vocab list?). NEEDS INFO: ask which screen and for an uncropped screenshot.
 - UT-11 keyless underline delay (colorisation only after tapping sentence): not reproduced; provisional/keyless parse paths all push a render on completion. NEEDS INFO: ask which surface (ASB subs? page text?) and whether video was paused.
-- UT-12: Keyless — hide the state-filter dropdown options that need an API key.
+- DONE 0.6.128 — UT-12 keyless filter hiding: the Word-tab Show-only dropdown now renders only when a provider credential exists (jpdb/jiten key or Anki enabled); keyless cards have no states to filter.
 
 New tab / study page:
 - UT-13: Session timer missing — show how long the user has studied this session relative to a daily goal (default 1h; configurable + can be turned off in settings).
 - UT-14 TRUST: With a JPDB key, default options show "No reviews ready — showing practice words", but picking a deck starts working; and the SRS queue does not match jpdb.io Learn (next jpdb word よくできました absent). JPDB Learn also MIXES kanji+vocab in one queue (kanji unlock words). Default review flow must mirror that: combined queue, kanji-first unlock semantics; same concept for Anki/Jiten where derivable.
 - UT-15: Kanji-cards-off option (JPDB has one): setting to skip kanji cards in the main study flow while keeping the Kanji tab for isolated study; toggling must not lose progression; surface on welcome splash (which should also mention the study page exists) + main settings.
-- UT-16: Front example-sentence furigana can give away the answer — hide furigana on the front (target word at minimum).
+- DONE 0.6.128 — UT-16 front furigana spoiler: the target word's furigana in the front example sentence is visibility-hidden until reveal (CSS, :not(.jpdb-reader-newtab-revealed) scope); other words keep furigana (jpdb Learn parity).
 - UT-17: Search tab — bring the deck/state filter dropdowns here; selecting a deck lists all its words scrollable in SRS order ("2D reviews"); typing filters within the selection (e.g. よ prefix); sort asc/desc + multi-filter; default jisho-style lookup stays when no filters active; refine pill spacing/accessibility; don't always be in "select" mode.
-- UT-18: Immersion Kit controls waste space: drop the "IMMERSION KIT" heading (clip title suffices), inline the [<] play [>] controls like the jpdb-injected frame pattern.
-- UT-19: Stats — final bar of the bar chart renders as "selected" by default.
+- DONE 0.6.128 — UT-18 IK compact controls: 'IMMERSION KIT' chip removed from the study card (provider in tooltip), title+count and ‹ 🔊 › share one row, coarse-pointer buttons 36px instead of 44px.
+- DONE 0.6.128 — UT-19 stats last-bar 'selected': the implicit today-default no longer draws the selected outline on the bar chart or heatmap; only an explicit day pick does (summary line still defaults to today). Regression in tests/reader/stats-view.test.ts.
 - DONE 0.6.124 — UT-20 AnkiMobile handoff: URLSearchParams '+'-encoded spaces broke the note type ('よむ+Japanese'); the x-callback URL is now %20-encoded throughout (model, deck, tags, fields — AnkiMobile decodes %20 but not '+'); AnkiDroid path audited, already encodeURIComponent. Regression pinned.
 
 Community intel: `docs/community-intel-backlog.md` (captured 2026-06-11) seeds the long-tail items — treat as backlog source after the batch above.
