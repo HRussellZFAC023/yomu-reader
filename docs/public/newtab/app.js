@@ -5694,6 +5694,17 @@
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
+      appearancePresetCustom: "Custom / current",
+      appearancePresetDefault: "Yomu default",
+      appearancePresetNoColors: "Don't color words",
+      appearancePresetNewOnly: "Only color new words",
+      appearancePresetUnderlineNew: "Underline new words only",
+      appearancePresetFuriAll: "Show all furigana",
+      appearancePresetFuriKnownHidden: "Hide furigana you know",
+      appearancePresetFuriHover: "Furigana on hover only",
+      appearancePresetFuriOff: "No furigana",
+      wordColorStatesAll: "All card states",
+      wordColorStatesNewOnly: "Only new words",
       furiganaDifficultKanji: "Difficult kanji only",
       furiganaHideKnown: "Hide for chosen states",
       furiganaHoverOnly: "Show on hover only",
@@ -7174,6 +7185,17 @@ settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
+appearancePresetCustom	カスタム／現在の設定
+appearancePresetDefault	Yomu標準
+appearancePresetNoColors	単語に色を付けない
+appearancePresetNewOnly	新規単語のみ色付け
+appearancePresetUnderlineNew	新規単語に下線のみ
+appearancePresetFuriAll	ふりがなを全て表示
+appearancePresetFuriKnownHidden	既知のふりがなを非表示
+appearancePresetFuriHover	ホバー時のみふりがな
+appearancePresetFuriOff	ふりがななし
+wordColorStatesAll	全てのカード状態
+wordColorStatesNewOnly	新規単語のみ
 furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	選択した状態で非表示
 furiganaHoverOnly	ホバー時のみ表示
@@ -22133,6 +22155,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeColorAndReaderSelects(form, text2) {
     localizeColorSourceSelects(form, text2);
+    setSelectOptionLabels(form, "appearancePreset", [
+      ["", text2("appearancePresetCustom")],
+      ["default", text2("appearancePresetDefault")],
+      ["no-colors", text2("appearancePresetNoColors")],
+      ["new-only", text2("appearancePresetNewOnly")],
+      ["underline-new", text2("appearancePresetUnderlineNew")],
+      ["furi-all", text2("appearancePresetFuriAll")],
+      ["furi-known-hidden", text2("appearancePresetFuriKnownHidden")],
+      ["furi-hover", text2("appearancePresetFuriHover")],
+      ["furi-off", text2("appearancePresetFuriOff")]
+    ]);
+    setSelectOptionLabels(form, "wordColorStates", [
+      ["all", text2("wordColorStatesAll")],
+      ["new-only", text2("wordColorStatesNewOnly")]
+    ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text2("automatic")],
       ["difficult-kanji", text2("furiganaDifficultKanji")],
@@ -59332,12 +59369,24 @@ ${entry.url}`),
       }
       this.index = nextIndex;
       this.renderWord(root, this.visibleWords[this.index]);
+      this.playCardEnterTransition(root);
       if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
         useOfflineCache: false,
         quiet: true,
         excludeCardKeys: [key],
         preserveVisibleOrder: true
       });
+    }
+    // UT-45: button grades advance with the same brief card-enter motion the
+    // swipe commit produces, so the two grading paths feel identical.
+    // (prefers-reduced-motion disables it in CSS.)
+    playCardEnterTransition(root) {
+      const study = root.querySelector("[data-newtab-study]");
+      if (!study) return;
+      study.classList.remove("jpdb-reader-newtab-card-fresh");
+      void study.offsetWidth;
+      study.classList.add("jpdb-reader-newtab-card-fresh");
+      study.addEventListener("animationend", () => study.classList.remove("jpdb-reader-newtab-card-fresh"), { once: true });
     }
     requeueFailedCard(root, gradedKey, previousIndex) {
       const pool = this.visibleWords.filter((item) => cardKey(item) !== gradedKey);
@@ -59348,10 +59397,12 @@ ${entry.url}`),
       if (!pool.length) {
         this.index = 0;
         this.renderWord(root, this.visibleWords[0] ?? this.allWords[0]);
+        this.playCardEnterTransition(root);
         return;
       }
       this.index = Math.min(previousIndex, this.visibleWords.length - 1);
       this.renderWord(root, this.visibleWords[this.index]);
+      this.playCardEnterTransition(root);
     }
     nextVisibleReviewCardKeyAfterGrade(gradedKey, startIndex) {
       for (let offset = 1; offset < this.visibleWords.length; offset += 1) {

@@ -1,7 +1,11 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
+<<<<<<< HEAD
 // @version      0.6.161
+=======
+// @version      0.6.162
+>>>>>>> b007c50 (Release yomu reader 0.6.162)
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +17,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-P4mcKbAFYZINzl82R0FerV4JI1wTZXIOmF4zdsYl+zs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-owUp2Mo+UW7Dwg0i94C2i9TetNdj1dWz1OBCLVoA3lY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-BdDhxJNQflb++HHUCIns/w+9oPl8WfPKwv9o+schA6Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NkrLwxdfXqJHhJ3Knf8XBNpf4eVgBd5sFNh787AYwwk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-kCA2+Qg/kcfX5JQ44SCtL5/irt66ojFgO/iO7cvitVA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Av8pdFMEmzRfU+9eHWlSXgQxzNwgWuWItvwTQDp8m3M=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5528,6 +5532,17 @@
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
+      appearancePresetCustom: "Custom / current",
+      appearancePresetDefault: "Yomu default",
+      appearancePresetNoColors: "Don't color words",
+      appearancePresetNewOnly: "Only color new words",
+      appearancePresetUnderlineNew: "Underline new words only",
+      appearancePresetFuriAll: "Show all furigana",
+      appearancePresetFuriKnownHidden: "Hide furigana you know",
+      appearancePresetFuriHover: "Furigana on hover only",
+      appearancePresetFuriOff: "No furigana",
+      wordColorStatesAll: "All card states",
+      wordColorStatesNewOnly: "Only new words",
       furiganaDifficultKanji: "Difficult kanji only",
       furiganaHideKnown: "Hide for chosen states",
       furiganaHoverOnly: "Show on hover only",
@@ -7008,6 +7023,17 @@ settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
+appearancePresetCustom	カスタム／現在の設定
+appearancePresetDefault	Yomu標準
+appearancePresetNoColors	単語に色を付けない
+appearancePresetNewOnly	新規単語のみ色付け
+appearancePresetUnderlineNew	新規単語に下線のみ
+appearancePresetFuriAll	ふりがなを全て表示
+appearancePresetFuriKnownHidden	既知のふりがなを非表示
+appearancePresetFuriHover	ホバー時のみふりがな
+appearancePresetFuriOff	ふりがななし
+wordColorStatesAll	全てのカード状態
+wordColorStatesNewOnly	新規単語のみ
 furiganaDifficultKanji	難しい漢字のみ
 furiganaHideKnown	選択した状態で非表示
 furiganaHoverOnly	ホバー時のみ表示

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.162] - 2026-06-12
+
+### Changed
+
+- Grading with the buttons now advances with the same brief card-enter motion as a committed swipe, so the two grading paths feel identical (disabled under reduced-motion preferences). The failed-card requeue uses it too.
+- The appearance preset and "Color words" options are now localized in Japanese.
+
 ## [0.6.161] - 2026-06-12
 
 ### Added
