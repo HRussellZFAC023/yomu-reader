@@ -2654,6 +2654,16 @@
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
       massReviewFailed: "Mass review failed.",
+      adapterStateDisabled: "Off",
+      adapterStateProbing: "Probing",
+      adapterStateUnreachable: "Unreachable",
+      adapterStateConnected: "Connected",
+      adapterStateScanning: "Scanning",
+      adapterStateSuggested: "Mapped",
+      adapterStateReady: "Ready",
+      ankiMappingConfidenceHigh: "high match",
+      ankiMappingConfidenceMedium: "fuzzy match",
+      ankiMappingConfidenceLow: "unmapped",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -3944,6 +3954,16 @@ massReviewNoWords	画面内に復習対象のJiten単語がありません。
 massReviewNoKey	一括レビューにはJiten APIキーが必要です。
 massReviewDone	{count}語を「Good」でレビューしました。
 massReviewFailed	一括レビューに失敗しました。
+adapterStateDisabled	オフ
+adapterStateProbing	接続確認中
+adapterStateUnreachable	接続不可
+adapterStateConnected	接続済み
+adapterStateScanning	スキャン中
+adapterStateSuggested	対応付け済み
+adapterStateReady	準備完了
+ankiMappingConfidenceHigh	完全一致
+ankiMappingConfidenceMedium	曖昧一致
+ankiMappingConfidenceLow	未対応
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート

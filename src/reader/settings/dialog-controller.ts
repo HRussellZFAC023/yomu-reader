@@ -48,7 +48,7 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './form';
-import type { SettingsStatusAction, SettingsStatusLine } from './form';
+import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusLine } from './form';
 import { updateAnkiTagsEditor } from './form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
@@ -1011,7 +1011,7 @@ export class SettingsDialogController {
             const connected = await this.dependencies.anki.isConnected();
             if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
             if (connected) {
-                this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
+                this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success', undefined, 'connected');
                 this.queueAutomaticAnkiLibraryScan(form, language);
             } else {
                 this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
@@ -1051,17 +1051,17 @@ export class SettingsDialogController {
             this.settings = previous;
             return;
         }
-        this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending');
+        this.setAnkiStatus(form, uiText(language, 'ankiScanning'), 'pending', undefined, 'scanning');
         try {
             const scan = await scanLibrary.call(this.dependencies.anki);
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             this.applyAnkiScanToForm(form, scan);
-            this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success');
+            this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success', undefined, scan.suggestedModel ? 'suggested' : 'ready', this.ankiScanDetails(scan, language));
             log.info('Auto Anki scan ok', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
         } catch (error) {
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             log.warn('Automatic Anki library scan failed', error);
-            this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success');
+            this.setAnkiStatus(form, uiText(language, 'ankiConnectionReady'), 'success', undefined, 'connected');
         } finally {
             this.settings = previous;
         }
@@ -1092,16 +1092,19 @@ export class SettingsDialogController {
     }
 
     private setAnkiStatusLine(form: HTMLFormElement, line: SettingsStatusLine): void {
-        this.setAnkiStatus(form, line.message, line.tone, line.action);
-    }
-
-    private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction): void {
         const status = form.querySelector<HTMLElement>('[data-anki-status]');
         if (!status) return;
-        status.dataset.statusTone = tone;
-        if (action) status.dataset.statusAction = action;
+        status.dataset.statusTone = line.tone;
+        if (line.action) status.dataset.statusAction = line.action;
         else delete status.dataset.statusAction;
-        setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        // Machine-readable adapter lifecycle (P1 adapter state machine).
+        if (line.state) status.dataset.ankiAdapterState = line.state;
+        else delete status.dataset.ankiAdapterState;
+        setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+    }
+
+    private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction, state?: AnkiAdapterState, details?: SettingsStatusLine['details']): void {
+        this.setAnkiStatusLine(form, { message, tone, action, state, details });
     }
 
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
@@ -1649,12 +1652,28 @@ export class SettingsDialogController {
 
     private ankiSetupUnavailableStatus(settings: ReaderSettings, language: InterfaceLanguage): SettingsStatusLine {
         if (canUseMobileAnkiHandoff(settings)) {
-            return { message: uiText(language, 'mobileAnkiReady'), tone: 'pending' };
+            return { message: uiText(language, 'mobileAnkiReady'), tone: 'pending', state: 'ready' };
         }
         if (typeof location !== 'undefined' && location.hostname && !['127.0.0.1', 'localhost', '::1'].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
-            return { message: uiText(language, 'ankiHostedBridgeMissing'), tone: 'pending', action: 'anki-unreachable' };
+            return { message: uiText(language, 'ankiHostedBridgeMissing'), tone: 'pending', action: 'anki-unreachable', state: 'unreachable' };
         }
-        return { message: this.ankiUnreachableMessage(language), tone: 'pending', action: 'anki-unreachable' };
+        return { message: this.ankiUnreachableMessage(language), tone: 'pending', action: 'anki-unreachable', state: 'unreachable' };
+    }
+
+    // Field-mapping suggestions with their confidence, shown as the status
+    // checklist instead of hidden mapping JSON (P1 adapter state machine).
+    private ankiScanDetails(scan: AnkiLibraryScanResult, language: InterfaceLanguage): SettingsStatusLine['details'] {
+        const suggestions = scan.suggestedModel?.suggestions ?? [];
+        return suggestions
+            .filter(suggestion => suggestion.fieldName || suggestion.confidence === 'low')
+            .map(suggestion => ({
+                label: `${suggestion.role}: ${suggestion.fieldName ?? '—'}`,
+                suffix: uiText(language, suggestion.confidence === 'high'
+                    ? 'ankiMappingConfidenceHigh'
+                    : suggestion.confidence === 'medium'
+                        ? 'ankiMappingConfidenceMedium'
+                        : 'ankiMappingConfidenceLow'),
+            }));
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {

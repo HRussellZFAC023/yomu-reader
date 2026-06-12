@@ -10,10 +10,22 @@ export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-d
 export type SettingsStatusTone = 'pending' | 'success' | 'error';
 export type SettingsStatusAction = 'anki-unreachable';
 
+// Explicit adapter lifecycle (P1 adapter state machine): the Anki setup
+// surfaces these instead of an opaque status sentence, so users can see
+// where the automatic flow is and what it concluded.
+export type AnkiAdapterState = 'disabled' | 'probing' | 'unreachable' | 'connected' | 'scanning' | 'suggested' | 'ready';
+
+export interface SettingsStatusDetail {
+    label: string;
+    suffix?: string;
+}
+
 export interface SettingsStatusLine {
     message: string;
     tone: SettingsStatusTone;
     action?: SettingsStatusAction;
+    state?: AnkiAdapterState;
+    details?: SettingsStatusDetail[];
 }
 
 function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiText>[1]): string {
@@ -73,10 +85,26 @@ export function formatSettingsStatusLine(line: SettingsStatusLine, language: Int
 }
 
 export function renderAnkiStatusHtml(line: SettingsStatusLine, language: InterfaceLanguage): string {
-    const summary = `<div class="jpdb-reader-status-main">${formatSettingsStatusLine(line, language)}</div>`;
-    const actions = ankiStatusActions(line.action, language);
+    const chip = line.state
+        ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml(line.state)}">${escapedUiText(language, ankiAdapterStateLabelKey(line.state))}</span> `
+        : '';
+    const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language)}</div>`;
+    const actions = [...(line.details ?? []), ...ankiStatusActions(line.action, language)];
     if (!actions.length) return summary;
     return `${summary}<ul class="jpdb-reader-status-checklist">${actions.map(renderStatusAction).join('')}</ul>`;
+}
+
+function ankiAdapterStateLabelKey(state: AnkiAdapterState): Parameters<typeof uiText>[1] {
+    const keys = {
+        disabled: 'adapterStateDisabled',
+        probing: 'adapterStateProbing',
+        unreachable: 'adapterStateUnreachable',
+        connected: 'adapterStateConnected',
+        scanning: 'adapterStateScanning',
+        suggested: 'adapterStateSuggested',
+        ready: 'adapterStateReady',
+    } as const;
+    return keys[state];
 }
 
 function renderStatusAction(action: { label: string; href?: string; suffix?: string }): string {
@@ -120,6 +148,7 @@ function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, 
         return {
             message: uiText(language, 'ankiMiningDisabledStatus'),
             tone: 'pending',
+            state: 'disabled',
         };
     }
     return {
@@ -127,6 +156,7 @@ function ankiStatusLineFromValues(ankiEnabled: boolean, ankiConnectUrl: string, 
             url: ankiConnectUrl.trim(),
         }),
         tone: 'pending',
+        state: 'probing',
     };
 }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.142
+// @version      0.6.143
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-PNcYPwciK3lMF+kKzZTIQ1YR8M89niS0xpnQrHSwFww=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-t4KzEAE+I8bMEQ2lk2gz+Pkl9o7mSqRDPsvW5WISF3I=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-j+h0qYjPPrnEKCKj8JyPM0wmjf7bII2WBJ4e0eQl59U=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-MHXj7jcO+NBSVvkSITaPa6a6JJsYz7PvSjyOGXKdhIw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Mssce5AeD3fluNT2nY5yzfelRzF1vBUJf6kZAZIbFWg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-HLstV21FOjJ+/fDPjMfHjmqoWfaQ2395KCTQXohRs1c=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5958,6 +5958,16 @@
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
       massReviewFailed: "Mass review failed.",
+      adapterStateDisabled: "Off",
+      adapterStateProbing: "Probing",
+      adapterStateUnreachable: "Unreachable",
+      adapterStateConnected: "Connected",
+      adapterStateScanning: "Scanning",
+      adapterStateSuggested: "Mapped",
+      adapterStateReady: "Ready",
+      ankiMappingConfidenceHigh: "high match",
+      ankiMappingConfidenceMedium: "fuzzy match",
+      ankiMappingConfidenceLow: "unmapped",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -7267,6 +7277,16 @@ massReviewNoWords	画面内に復習対象のJiten単語がありません。
 massReviewNoKey	一括レビューにはJiten APIキーが必要です。
 massReviewDone	{count}語を「Good」でレビューしました。
 massReviewFailed	一括レビューに失敗しました。
+adapterStateDisabled	オフ
+adapterStateProbing	接続確認中
+adapterStateUnreachable	接続不可
+adapterStateConnected	接続済み
+adapterStateScanning	スキャン中
+adapterStateSuggested	対応付け済み
+adapterStateReady	準備完了
+ankiMappingConfidenceHigh	完全一致
+ankiMappingConfidenceMedium	曖昧一致
+ankiMappingConfidenceLow	未対応
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート

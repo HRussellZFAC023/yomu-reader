@@ -10535,6 +10535,32 @@ html.jpdb-reader-doodle-active * {
   }
 }
 
+/* Adapter lifecycle chip (P1 adapter state machine): a compact state badge
+   ahead of the Anki status sentence. */
+.jpdb-reader-adapter-state-chip {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--jpdb-reader-muted);
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+}
+.jpdb-reader-adapter-state-chip[data-adapter-state="connected"],
+.jpdb-reader-adapter-state-chip[data-adapter-state="suggested"],
+.jpdb-reader-adapter-state-chip[data-adapter-state="ready"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
+}
+.jpdb-reader-adapter-state-chip[data-adapter-state="unreachable"] {
+  border-color: color-mix(in srgb, #d33 60%, var(--jpdb-reader-border));
+  color: color-mix(in srgb, #d33 70%, var(--jpdb-reader-text));
+}
+
 .jpdb-reader-settings {
   left: 50%;
   top: 50%;
