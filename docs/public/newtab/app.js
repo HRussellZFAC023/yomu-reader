@@ -55396,9 +55396,12 @@ ${entry.url}`),
       this.sessionClockTimer = void 0;
     }
     tickSessionClock() {
+      if (this.state.mode !== "word") {
+        this.stopSessionClock();
+        return;
+      }
       if (document.hidden) return;
       addNewTabDailyStudyTimeMs(1e3, newTabLocalDateKey());
-      if (this.state.mode !== "word") return;
       const root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
       const card = this.visibleWords[this.index];
       if (!root || !card) return;

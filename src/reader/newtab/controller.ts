@@ -3469,9 +3469,15 @@ export class NewTabController {
     }
 
     private tickSessionClock(): void {
+        // Snow Leopard: no idle timers — the clock only runs while the Word
+        // tab is actually studying (renderSessionProgress restarts it), and
+        // goal time only accrues for visible word-study seconds.
+        if (this.state.mode !== 'word') {
+            this.stopSessionClock();
+            return;
+        }
         if (document.hidden) return;
         addNewTabDailyStudyTimeMs(1000, newTabLocalDateKey());
-        if (this.state.mode !== 'word') return;
         const root = document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
         const card = this.visibleWords[this.index];
         if (!root || !card) return;
