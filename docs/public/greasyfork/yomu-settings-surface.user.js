@@ -1429,6 +1429,7 @@
     newTabDailyGoalMinutes: 60,
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
+    newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -1715,6 +1716,7 @@
       newTabDailyGoalMinutes: clampNumber$1(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
+      newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -2543,6 +2545,7 @@
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabStopAtBatchEnd: "Stop at the end of each batch",
+      newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -3999,6 +4002,7 @@ newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
+newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -5939,6 +5943,7 @@ recommendedJiten	jiten.moe頻度データです。
       newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
+      newTabSwipeReviews: has("newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -7448,6 +7453,7 @@ recommendedJiten	jiten.moe頻度データです。
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
+                        ${checkbox("newTabSwipeReviews", "Swipe cards to grade (left = fail, right = pass)", settings.newTabSwipeReviews)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
@@ -8594,6 +8600,7 @@ recommendedJiten	jiten.moe頻度データです。
     "newTabDailyGoalMinutes",
     "newTabKanjiUnlockEnabled",
     "newTabStopAtBatchEnd",
+    "newTabSwipeReviews",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",

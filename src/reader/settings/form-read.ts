@@ -284,6 +284,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabDailyGoalMinutes: clamped('newTabDailyGoalMinutes', 0, 1440, current.newTabDailyGoalMinutes),
         newTabKanjiUnlockEnabled: has('newTabKanjiUnlockEnabled'),
         newTabStopAtBatchEnd: has('newTabStopAtBatchEnd'),
+        newTabSwipeReviews: has('newTabSwipeReviews'),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
     };

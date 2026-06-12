@@ -3416,6 +3416,7 @@
     newTabDailyGoalMinutes: 60,
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
+    newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -3702,6 +3703,7 @@
       newTabDailyGoalMinutes: clampNumber$3(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
+      newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5686,6 +5688,7 @@
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabStopAtBatchEnd: "Stop at the end of each batch",
+      newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -7161,6 +7164,7 @@ newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
+newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -19789,6 +19793,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
+      newTabSwipeReviews: has("newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -21364,6 +21369,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
+                        ${checkbox("newTabSwipeReviews", "Swipe cards to grade (left = fail, right = pass)", settings.newTabSwipeReviews)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
@@ -22510,6 +22516,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "newTabDailyGoalMinutes",
     "newTabKanjiUnlockEnabled",
     "newTabStopAtBatchEnd",
+    "newTabSwipeReviews",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",
@@ -49091,7 +49098,8 @@ ${normalizedReading}`;
     source: "auto",
     revealAnswer: false,
     jpdbDeck: "",
-    ankiDeck: ""
+    ankiDeck: "",
+    keyHintsDismissed: false
   };
   const NEW_TAB_FILTERS = [
     { value: "study", labelKey: "filterStudy" },
@@ -49116,7 +49124,8 @@ ${normalizedReading}`;
       source: normalizeNewTabSource(value?.source),
       revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
       jpdbDeck: typeof value?.jpdbDeck === "string" ? value.jpdbDeck : "",
-      ankiDeck: typeof value?.ankiDeck === "string" ? value.ankiDeck : ""
+      ankiDeck: typeof value?.ankiDeck === "string" ? value.ankiDeck : "",
+      keyHintsDismissed: value?.keyHintsDismissed === true
     };
   }
   function loadNewTabUiState() {
@@ -53793,7 +53802,7 @@ ${entry.url}`),
         const file = event.dataTransfer?.files?.[0];
         if (file) void this.importJpdbStatsFile(root, file);
       }, { signal: controller.signal });
-      root.addEventListener("keydown", (event) => this.handleRootKeydown(root, event), { signal: controller.signal });
+      document.addEventListener("keydown", (event) => this.handleRootKeydown(root, event), { signal: controller.signal });
       installNewTabSwipeGesture({
         root,
         target: () => root.querySelector("[data-newtab-study]"),
@@ -53874,10 +53883,23 @@ ${entry.url}`),
       }
       if (isNewTabSpaceRevealKey(event.key) || isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target)) {
         event.preventDefault();
+        this.dismissKeyHints(root);
         this.toggleReveal(root);
         return;
       }
       this.handleGradeDigitKeydown(root, event);
+    }
+    // UT-34: inline kbd hints exist only until the user proves they know the
+    // shortcuts — the first keyboard reveal/grade hides them permanently
+    // (shortcuts stay listed in settings).
+    dismissKeyHints(root) {
+      if (this.state.keyHintsDismissed) return;
+      this.state = { ...this.state, keyHintsDismissed: true };
+      this.persistState();
+      this.syncKeyHintVisibility(root);
+    }
+    syncKeyHintVisibility(root) {
+      root.classList.toggle("jpdb-reader-newtab-key-hints-dismissed", this.state.keyHintsDismissed);
     }
     // jpdb.io parity (SH-8): on a revealed card, digits 1..5 press the grade
     // buttons in their rendered order — 1=Nothing … 5=Easy on JPDB-shaped
@@ -53889,6 +53911,7 @@ ${entry.url}`),
       const button = buttons[Number(event.key) - 1];
       if (!button) return;
       event.preventDefault();
+      this.dismissKeyHints(root);
       button.click();
     }
     canRevealFromEnterTarget(root, target) {
@@ -53969,6 +53992,7 @@ ${entry.url}`),
       void this.gradeCurrentCard(grade, this.selectedMainGradeTarget(root));
     }
     canSwipeCurrentStudyCard() {
+      if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
       const card = this.visibleWords[this.index];
       return Boolean(
         card && this.state.mode !== "search" && this.state.mode !== "stats" && this.canReviewCard(card)
@@ -59328,6 +59352,7 @@ ${entry.url}`),
       return word.dataset.vid === String(card.vid) && word.dataset.sid === String(card.sid) || word.dataset.expression === card.spelling && (!word.dataset.reading || word.dataset.reading === reading);
     }
     syncMode(root) {
+      this.syncKeyHintVisibility(root);
       root.classList.toggle("jpdb-reader-newtab-search-mode", this.state.mode === "search");
       root.classList.toggle("jpdb-reader-newtab-kanji-mode", this.state.mode === "kanji");
       root.classList.toggle("jpdb-reader-newtab-stats-mode", this.state.mode === "stats");

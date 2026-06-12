@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.150
+// @version      0.6.151
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-MHXj7jcO+NBSVvkSITaPa6a6JJsYz7PvSjyOGXKdhIw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-mKXRHC9O+sfrqvLFuxQ5YGruyZaQWO6WNJAdkxmvG9w=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Kc1vY3PiVRcc7J5o8qNFeywYbnm+jW69AMwUtVHPXf8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Id7//B6jE/ZOkZgV0Bb+ctwartxIiByajvZfPx91g8Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-EePaaaBLdc55vhgprWycuEq2JJ38vOAAuswusIqBf58=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-MadfKKiYf36sc0GZvTOxOzP5QJQi/u8p3ku/QjikuJw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2032,6 +2032,7 @@
     newTabDailyGoalMinutes: 60,
     newTabKanjiUnlockEnabled: true,
     newTabStopAtBatchEnd: false,
+    newTabSwipeReviews: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -2315,6 +2316,7 @@
       newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
+      newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5457,6 +5459,7 @@
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabStopAtBatchEnd: "Stop at the end of each batch",
+      newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -6932,6 +6935,7 @@ newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
+newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
