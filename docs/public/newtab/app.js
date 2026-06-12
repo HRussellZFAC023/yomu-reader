@@ -39435,6 +39435,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sessionLeft: "Left",
       dailyGoalUnit: "min",
       dailyGoalReached: "Goal reached",
+      browseSortLabel: "Sort",
+      browseSortQueue: "Queue order",
+      browseSortAlpha: "A→Z",
+      browseSortFrequency: "Frequency",
+      browseSortAscending: "Ascending",
+      browseSortDescending: "Descending",
+      browseSelectMode: "Select",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -39569,6 +39576,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     sessionLeft: "残り",
     dailyGoalUnit: "分",
     dailyGoalReached: "目標達成",
+    browseSortLabel: "並び替え",
+    browseSortQueue: "復習順",
+    browseSortAlpha: "あいうえお順",
+    browseSortFrequency: "頻度順",
+    browseSortAscending: "昇順",
+    browseSortDescending: "降順",
+    browseSelectMode: "選択",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",
@@ -49009,27 +49023,78 @@ ${normalizedReading}`;
     }
     return counts;
   }
-  function filterBrowseCards(cards, filter, query) {
+  function filterBrowseCards(cards, filters, query) {
     const trimmed = query.trim();
-    return cards.filter((card) => {
-      if (filter !== "all" && primaryCardState(card.cardState) !== filter) return false;
-      if (!trimmed) return true;
-      return card.spelling.includes(trimmed) || card.reading.includes(trimmed);
-    });
+    const stateMatched = cards.filter((card) => !filters.size || filters.has(primaryCardState(card.cardState)));
+    if (!trimmed) return stateMatched;
+    const prefix = [];
+    const partial = [];
+    for (const card of stateMatched) {
+      if (card.spelling.startsWith(trimmed) || card.reading.startsWith(trimmed)) prefix.push(card);
+      else if (card.spelling.includes(trimmed) || card.reading.includes(trimmed)) partial.push(card);
+    }
+    return [...prefix, ...partial];
+  }
+  function sortBrowseCards(cards, sort, descending) {
+    const sorted = [...cards];
+    if (sort === "alpha") {
+      sorted.sort((a, b) => (a.reading || a.spelling).localeCompare(b.reading || b.spelling, "ja"));
+    } else if (sort === "frequency") {
+      sorted.sort((a, b) => (a.frequencyRank ?? Number.MAX_SAFE_INTEGER) - (b.frequencyRank ?? Number.MAX_SAFE_INTEGER));
+    } else {
+      sorted.sort((a, b) => queueOrderValue(a) - queueOrderValue(b));
+    }
+    return descending ? sorted.reverse() : sorted;
+  }
+  function queueOrderValue(card) {
+    return typeof card.dueAt === "number" ? card.dueAt : Number.MAX_SAFE_INTEGER;
   }
   function renderBrowseChips(cards, active, language, allLabel) {
     const counts = browseStateCounts(cards);
-    const chip = (filter, label, count) => el("button", {
+    const chip = (filter, label, count, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip",
       dataset: { newtabAction: "browse-filter", browseFilter: filter },
-      "aria-pressed": String(filter === active)
+      "aria-pressed": String(pressed)
     }, `${label} ${count}`);
     return el(
       "div",
       { class: "jpdb-reader-newtab-browse-chips", role: "group" },
-      chip("all", allLabel, cards.length),
-      ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0))
+      chip("all", allLabel, cards.length, active.size === 0),
+      ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0, active.has(state)))
+    );
+  }
+  function renderBrowseControls(sort, descending, selectMode, copy) {
+    const directionLabel = descending ? copy.directionDescending : copy.directionAscending;
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-browse-controls" },
+      el(
+        "label",
+        { class: "jpdb-reader-newtab-browse-sort" },
+        el("span", { class: "jpdb-reader-newtab-sr-only" }, copy.sortLabel),
+        el(
+          "select",
+          { dataset: { newtabAction: "browse-sort" }, "aria-label": copy.sortLabel },
+          el("option", { value: "queue", selected: sort === "queue" }, copy.sortQueue),
+          el("option", { value: "alpha", selected: sort === "alpha" }, copy.sortAlpha),
+          el("option", { value: "frequency", selected: sort === "frequency" }, copy.sortFrequency)
+        )
+      ),
+      el("button", {
+        type: "button",
+        class: "jpdb-reader-newtab-browse-direction",
+        dataset: { newtabAction: "browse-sort-direction" },
+        "aria-label": directionLabel,
+        title: directionLabel,
+        "aria-pressed": String(descending)
+      }, descending ? "↓" : "↑"),
+      el("button", {
+        type: "button",
+        class: "jpdb-reader-newtab-browse-select-toggle",
+        dataset: { newtabAction: "browse-select-mode" },
+        "aria-pressed": String(selectMode)
+      }, copy.select)
     );
   }
   function renderBrowseList(cards, page, language, copy) {
@@ -51652,6 +51717,7 @@ ${newTabCardReading(card)}`;
   const NEW_TAB_STATS_JPDB_HISTORY_KEY = "jpdb-reader-newtab-jpdb-stats-history";
   const NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY = "jpdb-reader-newtab-disabled-anki-decks";
   const NEW_TAB_STATS_JPDB_CARD_LIMIT = 2e3;
+  const NEW_TAB_BROWSE_DECK_LIMIT = 5e3;
   const NEW_TAB_STUDY_INTERACTIVE_SELECTOR = [
     ".jpdb-reader-word",
     ".jpdb-reader-doodle-stage",
@@ -52804,7 +52870,10 @@ ${newTabCardReading(card)}`;
     statsSnapshot = emptyStatsDashboardSnapshot();
     browsePool;
     browsePoolKey = "";
-    browseFilter = "all";
+    browseFilters = /* @__PURE__ */ new Set();
+    browseSort = "queue";
+    browseSortDescending = false;
+    browseSelectMode = false;
     browsePage = 0;
     statsSelectedSource = "combined";
     statsActivityMetric = "reviews";
@@ -53175,6 +53244,15 @@ ${newTabCardReading(card)}`;
           this.syncBrowseBulkControls(root);
           return;
         }
+        const browseSort = target?.closest('[data-newtab-action="browse-sort"]');
+        if (browseSort && root.contains(browseSort)) {
+          const value = browseSort.value;
+          this.browseSort = value === "alpha" || value === "frequency" ? value : "queue";
+          this.browsePage = 0;
+          const mount = this.searchResultsMount(root);
+          if (mount && this.state.mode === "search") this.renderBrowseResults(mount);
+          return;
+        }
         const filterSelect = target?.closest("[data-newtab-filter-select]");
         if (filterSelect && root.contains(filterSelect)) {
           const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value }).filter;
@@ -53189,6 +53267,15 @@ ${newTabCardReading(card)}`;
           return;
         }
         const deckSelect2 = target?.closest("[data-newtab-deck-select]");
+        if (deckSelect2 && root.contains(deckSelect2) && this.state.mode === "search") {
+          this.state = { ...this.state, jpdbDeck: deckSelect2.value };
+          this.persistState();
+          this.browsePool = void 0;
+          this.browsePoolKey = "";
+          this.browsePage = 0;
+          void this.renderBrowseInto(root);
+          return;
+        }
         if (deckSelect2 && root.contains(deckSelect2)) {
           const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
           this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
@@ -56945,14 +57032,31 @@ ${newTabCardReading(card)}`;
           return true;
         case "browse-filter": {
           event.preventDefault();
-          const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter;
-          this.browseFilter = filter ?? "all";
+          const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter ?? "all";
+          if (filter === "all") this.browseFilters.clear();
+          else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
+          else this.browseFilters.add(filter);
           this.browsePage = 0;
           const query = normalizeSearchQuery(this.searchQuery);
-          if (this.browseFilter === "all" && query) {
+          if (!this.browseScopeActive() && query) {
             this.performSearch(root, query);
             return true;
           }
+          const mount = this.searchResultsMount(root);
+          if (mount) this.renderBrowseResults(mount);
+          return true;
+        }
+        case "browse-sort-direction": {
+          event.preventDefault();
+          this.browseSortDescending = !this.browseSortDescending;
+          this.browsePage = 0;
+          const mount = this.searchResultsMount(root);
+          if (mount) this.renderBrowseResults(mount);
+          return true;
+        }
+        case "browse-select-mode": {
+          event.preventDefault();
+          this.browseSelectMode = !this.browseSelectMode;
           const mount = this.searchResultsMount(root);
           if (mount) this.renderBrowseResults(mount);
           return true;
@@ -57078,7 +57182,7 @@ ${newTabCardReading(card)}`;
       const results = this.searchResultsMount(root);
       if (!query) {
         this.renderSearchIdle(root);
-      } else if (this.browseFilter !== "all" && this.browsePool && results) {
+      } else if (this.browseScopeActive() && this.browsePool && results) {
         delete results.dataset.searchQuery;
         this.renderBrowseResults(results);
       } else if (results?.dataset.searchQuery !== query) {
@@ -57850,20 +57954,40 @@ ${newTabCardReading(card)}`;
       }
       return buckets;
     }
+    // Dictionary lookup stays the Search default; deck/state scope flips the
+    // tab into the My Cards browser (2D reviews).
+    browseScopeActive() {
+      return this.browseFilters.size > 0 || Boolean(this.state.jpdbDeck && this.state.jpdbDeck !== "all");
+    }
     renderBrowseResults(mount) {
       const cards = this.browsePool ?? [];
       const language = this.language();
-      const query = this.browseFilter !== "all" ? normalizeSearchQuery(this.searchQuery) : "";
-      const filtered = filterBrowseCards(cards, this.browseFilter, query);
+      const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchQuery) : "";
+      const filtered = sortBrowseCards(
+        filterBrowseCards(cards, this.browseFilters, query),
+        this.browseSort,
+        this.browseSortDescending
+      );
       replaceChildrenWith(
         mount,
-        renderBrowseChips(cards, this.browseFilter, language, this.text("browseAllChip")),
+        renderBrowseChips(cards, this.browseFilters, language, this.text("browseAllChip")),
+        renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
+          sortLabel: this.text("browseSortLabel"),
+          sortQueue: this.text("browseSortQueue"),
+          sortAlpha: this.text("browseSortAlpha"),
+          sortFrequency: this.text("browseSortFrequency"),
+          directionAscending: this.text("browseSortAscending"),
+          directionDescending: this.text("browseSortDescending"),
+          select: this.text("browseSelectMode")
+        }),
         renderBrowseList(filtered, this.browsePage, language, {
           empty: this.text("browseNoCards"),
           previous: this.text("browsePreviousPage"),
           next: this.text("browseNextPage"),
           showing: (from, to, total) => `${from}–${to} / ${total}`,
-          ...this.dependencies.performCardAction ? {
+          // Rows only grow checkboxes in select mode (user-tested: the
+          // browser should not always look like a bulk editor).
+          ...this.dependencies.performCardAction && this.browseSelectMode ? {
             bulk: {
               selectPage: this.text("browseSelectPage"),
               blacklist: this.text("blacklist"),
@@ -57923,6 +58047,15 @@ ${newTabCardReading(card)}`;
     }
     async loadBrowsePool() {
       const settings = this.dependencies.getSettings();
+      const deck = (this.state.jpdbDeck || "").trim();
+      if (this.state.mode === "search" && deck && deck !== "all" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
+        const deckKey = `jpdb-deck:${deck}`;
+        if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
+        const cards2 = await this.dependencies.jpdb.listDeckCards(deck, NEW_TAB_BROWSE_DECK_LIMIT).catch(() => []);
+        this.browsePool = dedupeWords(cards2.map(normalizeNewTabCard));
+        this.browsePoolKey = deckKey;
+        return this.browsePool;
+      }
       const providers = this.browsePoolProviders(settings);
       const key = providers.map((provider) => provider.label).join("+");
       if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
@@ -58870,6 +59003,12 @@ ${newTabCardReading(card)}`;
       const select2 = root.querySelector("[data-newtab-deck-select]");
       if (!select2) return;
       const settings = this.dependencies.getSettings();
+      if (this.state.mode === "search") {
+        const show2 = hasJpdbApiCredential(settings);
+        select2.hidden = !show2;
+        if (show2) void this.populateDeckSelector(select2, settings);
+        return;
+      }
       if (this.state.mode !== "word") {
         select2.hidden = true;
         return;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.132] - 2026-06-12
+
+### Added
+
+- Study page Search tab (user-requested '2D reviews'): pick a deck from the dropdown to browse its full word list in your actual review-queue order; typing then narrows within it, with words starting with your input ranked first. State chips are now multi-selectable, a compact sort row offers queue order / A→Z / frequency with an ascending/descending toggle, and bulk-select checkboxes only appear after tapping Select. Plain dictionary search stays the default when nothing is selected.
+
 ## [0.6.131] - 2026-06-12
 
 ### Added

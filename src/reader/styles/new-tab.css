@@ -3525,6 +3525,40 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border-color: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-readable);
 }
+/* 2D reviews controls: one compact row — sort key, direction, select mode. */
+.jpdb-reader-newtab-browse-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.jpdb-reader-newtab-browse-controls select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-text);
+  font: 600 12px/1 var(--jpdb-reader-font);
+}
+.jpdb-reader-newtab-browse-direction,
+.jpdb-reader-newtab-browse-select-toggle {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-muted);
+  font: 600 12px/1 var(--jpdb-reader-font);
+  cursor: pointer;
+}
+.jpdb-reader-newtab-browse-direction[aria-pressed="true"],
+.jpdb-reader-newtab-browse-select-toggle[aria-pressed="true"] {
+  border-color: var(--jpdb-reader-accent);
+  color: var(--jpdb-reader-accent-readable);
+}
+
 .jpdb-reader-newtab-browse-meta {
   margin: 4px 0 8px;
   color: var(--jpdb-reader-muted);

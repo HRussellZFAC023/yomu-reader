@@ -1,7 +1,8 @@
-// "My Cards" browser for the study page Search tab (study-hub parity SH-3):
-// JPDB deck-browse "Show only" state filters and Jiten's Cards list, applied
-// to the user's own SRS pool. Pure helpers — the controller owns data
-// loading and event dispatch.
+// "My Cards" browser for the study page Search tab (study-hub parity SH-3 +
+// user-tested 2D reviews): JPDB deck-browse "Show only" state filters and
+// Jiten's Cards list, applied to the user's own SRS pool with multi-state
+// filters, queue-order sorting and an opt-in select mode. Pure helpers — the
+// controller owns data loading and event dispatch.
 import { el } from '../dom/builder';
 import { cardStateLabel } from '../app/i18n';
 import { firstCardMeaning } from './index';
@@ -10,6 +11,7 @@ import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 
 export type BrowseFilter = 'all' | CardState;
+export type BrowseSortKey = 'queue' | 'alpha' | 'frequency';
 
 export const BROWSE_PAGE_SIZE = 50;
 
@@ -36,33 +38,104 @@ export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
     return counts;
 }
 
-export function filterBrowseCards(cards: JPDBCard[], filter: BrowseFilter, query: string): JPDBCard[] {
+// Multi-state OR filter. With a query, prefix matches rank ahead of
+// substring matches (typing よ surfaces words STARTING with よ first).
+export function filterBrowseCards(cards: JPDBCard[], filters: ReadonlySet<CardState>, query: string): JPDBCard[] {
     const trimmed = query.trim();
-    return cards.filter(card => {
-        if (filter !== 'all' && primaryCardState(card.cardState) !== filter) return false;
-        if (!trimmed) return true;
-        return card.spelling.includes(trimmed) || card.reading.includes(trimmed);
-    });
+    const stateMatched = cards.filter(card => !filters.size || filters.has(primaryCardState(card.cardState)));
+    if (!trimmed) return stateMatched;
+    const prefix: JPDBCard[] = [];
+    const partial: JPDBCard[] = [];
+    for (const card of stateMatched) {
+        if (card.spelling.startsWith(trimmed) || card.reading.startsWith(trimmed)) prefix.push(card);
+        else if (card.spelling.includes(trimmed) || card.reading.includes(trimmed)) partial.push(card);
+    }
+    return [...prefix, ...partial];
+}
+
+// 2D reviews: 'queue' keeps the pool's SRS order (due_at ascending for jpdb
+// cards, provider order otherwise — the pool is loaded queue-first), 'alpha'
+// sorts by reading, 'frequency' by frequency rank. Descending flips any key.
+export function sortBrowseCards(cards: JPDBCard[], sort: BrowseSortKey, descending: boolean): JPDBCard[] {
+    const sorted = [...cards];
+    if (sort === 'alpha') {
+        sorted.sort((a, b) => (a.reading || a.spelling).localeCompare(b.reading || b.spelling, 'ja'));
+    } else if (sort === 'frequency') {
+        sorted.sort((a, b) => (a.frequencyRank ?? Number.MAX_SAFE_INTEGER) - (b.frequencyRank ?? Number.MAX_SAFE_INTEGER));
+    } else {
+        sorted.sort((a, b) => queueOrderValue(a) - queueOrderValue(b));
+    }
+    return descending ? sorted.reverse() : sorted;
+}
+
+function queueOrderValue(card: JPDBCard): number {
+    return typeof card.dueAt === 'number' ? card.dueAt : Number.MAX_SAFE_INTEGER;
 }
 
 export function renderBrowseChips(
     cards: JPDBCard[],
-    active: BrowseFilter,
+    active: ReadonlySet<CardState>,
     language: ReaderSettings['interfaceLanguage'],
     allLabel: string,
 ): HTMLElement {
     const counts = browseStateCounts(cards);
-    const chip = (filter: BrowseFilter, label: string, count: number): HTMLElement => el('button', {
+    const chip = (filter: BrowseFilter, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
         class: 'jpdb-reader-newtab-browse-chip',
         dataset: { newtabAction: 'browse-filter', browseFilter: filter },
-        'aria-pressed': String(filter === active),
+        'aria-pressed': String(pressed),
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips', role: 'group' },
-        chip('all', allLabel, cards.length),
+        chip('all', allLabel, cards.length, active.size === 0),
         ...BROWSE_FILTER_ORDER
             .filter(state => (counts.get(state) ?? 0) > 0)
-            .map(state => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0)),
+            .map(state => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0, active.has(state))),
+    );
+}
+
+export interface BrowseControlsCopy {
+    sortLabel: string;
+    sortQueue: string;
+    sortAlpha: string;
+    sortFrequency: string;
+    directionAscending: string;
+    directionDescending: string;
+    select: string;
+}
+
+// Sort + direction + select-mode toggle row. Kept to three compact controls
+// so the browser stays simple on phones (user feedback: controls should not
+// take up much space and rows should not always be in select mode).
+export function renderBrowseControls(
+    sort: BrowseSortKey,
+    descending: boolean,
+    selectMode: boolean,
+    copy: BrowseControlsCopy,
+): HTMLElement {
+    const directionLabel = descending ? copy.directionDescending : copy.directionAscending;
+    return el('div', { class: 'jpdb-reader-newtab-browse-controls' },
+        el('label', { class: 'jpdb-reader-newtab-browse-sort' },
+            el('span', { class: 'jpdb-reader-newtab-sr-only' }, copy.sortLabel),
+            el('select', { dataset: { newtabAction: 'browse-sort' }, 'aria-label': copy.sortLabel },
+                el('option', { value: 'queue', selected: sort === 'queue' }, copy.sortQueue),
+                el('option', { value: 'alpha', selected: sort === 'alpha' }, copy.sortAlpha),
+                el('option', { value: 'frequency', selected: sort === 'frequency' }, copy.sortFrequency),
+            ),
+        ),
+        el('button', {
+            type: 'button',
+            class: 'jpdb-reader-newtab-browse-direction',
+            dataset: { newtabAction: 'browse-sort-direction' },
+            'aria-label': directionLabel,
+            title: directionLabel,
+            'aria-pressed': String(descending),
+        }, descending ? '↓' : '↑'),
+        el('button', {
+            type: 'button',
+            class: 'jpdb-reader-newtab-browse-select-toggle',
+            dataset: { newtabAction: 'browse-select-mode' },
+            'aria-pressed': String(selectMode),
+        }, copy.select),
     );
 }
 

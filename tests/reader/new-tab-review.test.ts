@@ -1769,6 +1769,12 @@ describe('new tab review helpers', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             await new Promise(resolve => setTimeout(resolve, 0));
 
+            // Select mode is opt-in (user-tested: rows should not always
+            // carry checkboxes) — toggle it on first.
+            expect(root.querySelector('[data-browse-select-page]')).toBeNull();
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-select-mode"]')!.click();
+            await new Promise(resolve => setTimeout(resolve, 0));
+
             const selectPage = root.querySelector<HTMLInputElement>('[data-browse-select-page]')!;
             expect(selectPage).not.toBeNull();
             const bulkButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="browse-bulk"][data-bulk-action="blacklist"]')!;
