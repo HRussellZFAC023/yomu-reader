@@ -241,3 +241,53 @@ describe('undo last review (community ask, Jiten undo endpoint)', () => {
         }
     });
 });
+
+describe('stop at end of batch (community ask)', () => {
+    it('shows the batch-complete state instead of auto-fetching when enabled', async () => {
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, newTabStopAtBatchEnd: true, interfaceLanguage: 'en' }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jiten: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: false }), grade: vi.fn(), requestCurrent: vi.fn() } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        } as never);
+        try {
+            const internals = controller as unknown as {
+                reviewCountMode: boolean;
+                renderBatchComplete(root: HTMLElement): void;
+                studySlots(root: HTMLElement): { prompt: HTMLElement | null; meaning: HTMLElement | null; controls: HTMLElement | null };
+            };
+            internals.reviewCountMode = true;
+            const root = document.createElement('main');
+            root.className = 'jpdb-reader-newtab';
+            root.innerHTML = `
+                <h1 data-newtab-prompt></h1>
+                <div data-newtab-answer></div>
+                <div data-newtab-meaning></div>
+                <div data-newtab-count></div>
+                <button data-newtab-status></button>
+                <nav data-newtab-controls></nav>
+            `;
+            document.body.append(root);
+
+            internals.renderBatchComplete(root);
+
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('Batch complete');
+            expect(root.querySelector('[data-newtab-meaning]')?.textContent).toMatch(/^Done 0 · /);
+            expect(root.querySelector('[data-newtab-action="continue-batch"]')?.textContent).toBe('Continue');
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+});

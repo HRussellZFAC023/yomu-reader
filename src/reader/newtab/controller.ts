@@ -647,6 +647,7 @@ export class NewTabController {
         previous: (_root, _target, event) => this.navigateFromPointer('previous', event),
         reveal: root => this.toggleReveal(root),
         'undo-review': root => { void this.undoLastReview(root); },
+        'continue-batch': root => { void this.continueAfterBatch(root); },
         grade: (root, target) => this.gradeFromStudyClick(root, target),
         'jpdb-kanji-action': (root, target) => {
             void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -7208,6 +7209,28 @@ export class NewTabController {
         this.publishGradedCardState(card);
     }
 
+    private renderBatchComplete(root: HTMLElement): void {
+        const slots = this.studySlots(root);
+        root.classList.remove('jpdb-reader-newtab-revealed');
+        this.renderPromptSlot(slots.prompt, this.text('batchComplete'), resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en');
+        setOptionalText(slots.answer, '');
+        const snapshot = this.sessionProgress.snapshot([]);
+        setOptionalText(slots.meaning, `${this.text('sessionDone')} ${snapshot.completedReviews} · ${snapshot.elapsedLabel}`);
+        this.renderCount(slots.count, '');
+        setOptionalText(slots.status, '');
+        if (slots.controls) {
+            slots.controls.hidden = false;
+            replaceChildrenWith(slots.controls,
+                el('button', { type: 'button', dataset: { newtabAction: 'continue-batch' } }, this.text('continueStudying')),
+            );
+        }
+    }
+
+    private async continueAfterBatch(root: HTMLElement): Promise<void> {
+        this.setStatus(root, this.text('loading'));
+        await this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+
     private lastUndoableReview?: { card: JPDBCard; at: number };
 
     private canUndoLastReview(): boolean {
@@ -7415,6 +7438,13 @@ export class NewTabController {
             this.clearReviewHistory();
             this.visibleWords = [];
             this.visiblePoolSignature = '';
+            // Community ask (Jiten #jiten-suggestions 2026-06-09): an opt-in
+            // breather at the end of each batch instead of silently fetching
+            // the next one.
+            if (this.reviewCountMode && this.dependencies.getSettings().newTabStopAtBatchEnd) {
+                this.renderBatchComplete(root);
+                return;
+            }
             void this.loadWordsInto(root, false, { useOfflineCache: false });
             return;
         }

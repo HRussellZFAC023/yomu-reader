@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.141] - 2026-06-12
+
+### Added
+
+- Stop at the end of each batch (optional, off by default): when your loaded review batch runs out, the study page now shows a 'Batch complete' summary with your review count and session time, and waits for you to press Continue instead of silently fetching more cards.
+
 ## [0.6.140] - 2026-06-12
 
 ### Added
