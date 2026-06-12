@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.175] - 2026-06-12
+
+### Fixed
+
+- Yomu-owned roots now inherit Yomu text color through their descendants as part of the host-page reset, so broad site CSS cannot tint settings sections while the floating puck and panel surfaces stay correctly sized and themed on Reddit, mobile Reddit, and other aggressive CSS hosts.
+
 ## [0.6.174] - 2026-06-12
 
 ### Added

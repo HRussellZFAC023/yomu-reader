@@ -2818,7 +2818,7 @@ describe('SubtitlePlayerController', () => {
                 jitenApiKey: '',
                 localDictionariesEnabled: true,
             };
-            const parseJapaneseBatch = vi.fn(async (texts: string[]) => {
+            const parseJapaneseBatch = vi.fn(async (texts: string[], _options?: { skipJpdb?: boolean }) => {
                 await new Promise(resolve => setTimeout(resolve, 30));
                 return texts.map(text => [makeSubtitleToken(text)]);
             });
