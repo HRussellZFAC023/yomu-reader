@@ -1,7 +1,11 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
+<<<<<<< HEAD
 // @version      0.6.160
+=======
+// @version      0.6.161
+>>>>>>> 1b5e341 (Release yomu reader 0.6.161)
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19934,6 +19938,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       noReviewWordsReady: "No review cards ready.",
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
+      connectSrsCta: "Connect JPDB / Jiten / Anki",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
       couldNotLoadWords: "Could not load words.",
@@ -20080,6 +20085,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     noReviewWordsReady: "復習する単語カードは今ありません。",
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
+    connectSrsCta: "JPDB / Jiten / Anki と連携",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
     couldNotLoadWords: "単語を読み込めませんでした。",

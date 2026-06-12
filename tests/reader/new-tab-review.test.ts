@@ -12682,7 +12682,10 @@ describe('new tab review helpers', () => {
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords[0]?.spelling).toBe('読む');
         // Word study always shows the ticking session timer + daily goal now
         // (user-requested session timer).
-        expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min$/);
+        // UT-41: the unconfigured practice state appends a connect CTA after
+        // the session text.
+        expect(root.querySelector('[data-newtab-count]')?.textContent).toMatch(/^\d\d:\d\d · 0\/60 min/);
+        expect(root.querySelector('[data-newtab-count] .jpdb-reader-newtab-connect-cta')).not.toBeNull();
         sessionStorage.removeItem('jpdb-reader-newtab-current-word');
     });
 
