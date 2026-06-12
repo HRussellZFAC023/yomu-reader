@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.155] - 2026-06-12
+
+### Fixed
+
+- The Shorts shelf now fills its visible row properly after filtering: Yomu pages the shelf until it has as many Japanese items as the row advertises (or the paging cap is reached), and a shelf whose hydrated items are all non-Japanese collapses entirely instead of stranding one or two cards. Fully-filtered shelves are paged too — previously they froze empty because hiding happened before backfilling.
+- Keyboard hint pills are no longer rendered at all on touch-only devices (previously they were only hidden with CSS).
+
 ## [0.6.154] - 2026-06-12
 
 ### Fixed
