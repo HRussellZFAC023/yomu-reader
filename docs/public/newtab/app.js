@@ -50046,7 +50046,11 @@ ${newTabCardReading(card)}`;
     return sentenceWrap;
   }
   function renderNewTabSentenceHtml(sentence, card, settings, tokens) {
-    return tokens && tokens.length ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderCardHighlightedTextHtml(sentence, card);
+    return tokens && tokens.length ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), newTabStudySentenceSettings(settings)) : renderCardHighlightedTextHtml(sentence, card);
+  }
+  function newTabStudySentenceSettings(settings) {
+    if (effectiveFuriganaMode(settings) !== "all") return settings;
+    return { ...settings, furiganaMode: "known-status" };
   }
   function renderNewTabImmersionTranslation(example, settings) {
     if (!shouldRenderNewTabImmersionTranslation(example, settings)) return null;
