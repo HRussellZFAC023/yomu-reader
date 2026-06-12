@@ -1779,14 +1779,42 @@ function cleanYouTubeAriaTitle(title: string): string {
 function withFeedScrollAnchor(mutated: HTMLElement, mutate: () => void): void {
     const anchor = feedScrollAnchorElement(mutated);
     const before = anchor?.getBoundingClientRect().top;
+    const scroller = anchor ? feedScrollerFor(anchor) : null;
     mutate();
-    if (!anchor || before === undefined || !anchor.isConnected) return;
+    if (!anchor || before === undefined || !anchor.isConnected || !scroller) return;
     const delta = anchor.getBoundingClientRect().top - before;
-    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+    if (Math.abs(delta) > 0.5) scroller(delta);
+}
+
+// UT-39: m.youtube.com (and some desktop states) scroll inside a container,
+// not the window — anchor against whichever scroller actually moved, or the
+// compensation never fires and filtering shifts the feed under the finger.
+function feedScrollerFor(anchor: HTMLElement): ((delta: number) => void) | null {
+    let current = anchor.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+        let style: CSSStyleDeclaration;
+        try { style = getComputedStyle(current); } catch { return null; }
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight + 1) {
+            const scroller = current;
+            return delta => { scroller.scrollTop += delta; };
+        }
+        current = current.parentElement;
+    }
+    return delta => window.scrollBy(0, delta);
+}
+
+function feedHasScrolled(mutated: HTMLElement): boolean {
+    if (window.scrollY > 0) return true;
+    let current = mutated.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+        if (current.scrollTop > 0) return true;
+        current = current.parentElement;
+    }
+    return false;
 }
 
 function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
-    if (!(window.scrollY > 0) || typeof document.elementFromPoint !== 'function') return null;
+    if (!feedHasScrolled(mutated) || typeof document.elementFromPoint !== 'function') return null;
     for (const ratio of [0.35, 0.55, 0.8]) {
         const probe = document.elementFromPoint(
             Math.floor(window.innerWidth / 2),
