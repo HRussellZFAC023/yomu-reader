@@ -1046,6 +1046,23 @@ function applyTokenToIndexedFragments(
         return;
     }
 
+    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+        const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
+        if (nativeRubyRange) {
+            insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+                scanWord: true,
+                passiveInteraction,
+                allowRuby: false,
+                preserveTokenRubies: true,
+                miningInsightKeys,
+            });
+            nativeRubyRange.detach();
+            return;
+        }
+        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+        return;
+    }
+
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
@@ -1133,6 +1150,73 @@ function fragmentRangeHasNativeRuby(fragments: IndexedTextFragment[], start: num
     return fragments.some(fragment => fragment.hasNativeRuby
         && fragment.globalStart < end
         && fragment.globalEnd > start);
+}
+
+function nativeRubyPreservingTokenRange(
+    fragments: IndexedTextFragment[],
+    bounds: { start: FragmentBoundaryMatch; end: FragmentBoundaryMatch },
+    tokenStart: number,
+    tokenEnd: number,
+): Range | null {
+    const rubies = fullyCoveredNativeRubies(fragments, tokenStart, tokenEnd);
+    if (!rubies.size) return null;
+
+    const range = document.createRange();
+    setNativeRubyPreservingRangeStart(range, bounds.start, rubies);
+    setNativeRubyPreservingRangeEnd(range, bounds.end, rubies);
+    return range;
+}
+
+function fullyCoveredNativeRubies(fragments: IndexedTextFragment[], start: number, end: number): Set<HTMLElement> {
+    const rubies = new Set<HTMLElement>();
+    for (const fragment of fragments) {
+        if (!fragment.hasNativeRuby || fragment.globalStart >= end || fragment.globalEnd <= start) continue;
+        const ruby = closestFragmentRuby(fragment);
+        if (!ruby) return new Set();
+        const span = nativeRubyBaseSpan(fragments, ruby);
+        if (!span || start > span.start || end < span.end) return new Set();
+        rubies.add(ruby);
+    }
+    return rubies;
+}
+
+function nativeRubyBaseSpan(fragments: IndexedTextFragment[], ruby: HTMLElement): { start: number; end: number } | null {
+    const rubyFragments = fragments.filter(fragment => closestFragmentRuby(fragment) === ruby);
+    if (!rubyFragments.length) return null;
+    return {
+        start: Math.min(...rubyFragments.map(fragment => fragment.globalStart)),
+        end: Math.max(...rubyFragments.map(fragment => fragment.globalEnd)),
+    };
+}
+
+function setNativeRubyPreservingRangeStart(
+    range: Range,
+    boundary: FragmentBoundaryMatch,
+    rubies: ReadonlySet<HTMLElement>,
+): void {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+        range.setStartBefore(ruby);
+        return;
+    }
+    range.setStart(boundary.fragment.node, boundary.localOffset);
+}
+
+function setNativeRubyPreservingRangeEnd(
+    range: Range,
+    boundary: FragmentBoundaryMatch,
+    rubies: ReadonlySet<HTMLElement>,
+): void {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+        range.setEndAfter(ruby);
+        return;
+    }
+    range.setEnd(boundary.fragment.node, boundary.localOffset);
+}
+
+function closestFragmentRuby(fragment: TextFragment): HTMLElement | null {
+    return fragment.node.parentElement?.closest<HTMLElement>('ruby') ?? null;
 }
 
 interface FragmentBoundaryMatch {

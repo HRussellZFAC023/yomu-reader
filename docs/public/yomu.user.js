@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.173
+// @version      0.6.174
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-nu8pmyH0glnI63Lm2WpD9dueKLI6cs9PSQgZSagnM24=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-WLRHtgiHKh4aZScz1dZQrOtz4jgytTAGg8T46l5PJl8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-s/hlidp/9rIat8ISSqIGb8cqzoIJAruSXqWagG32Ywo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-epSkf2u49FSbjbsrtP5jU7EPpHim4GsdgEgxpB8IQXM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-AaTlA/c1vVEK1GmFIRyQzvFqLwqVAyjgzTTLQGBnveE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nN16OB0BD9LJW2sppvgTVcldfma3NGkMJhkQRQQJF04=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2149,6 +2149,7 @@
       nextSubtitle: "Alt+ArrowRight",
       copySubtitle: "Alt+C",
       toggleOcr: "Alt+O",
+      toggleSubtitleOverlay: "Shift+H",
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       massReviewVisible: "Alt+M",
@@ -3589,6 +3590,22 @@
       insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
+    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+      const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
+      if (nativeRubyRange) {
+        insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+          scanWord: true,
+          passiveInteraction,
+          allowRuby: false,
+          preserveTokenRubies: true,
+          miningInsightKeys
+        });
+        nativeRubyRange.detach();
+        return;
+      }
+      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+      return;
+    }
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
@@ -3645,6 +3662,53 @@
   }
   function fragmentRangeHasNativeRuby(fragments, start, end) {
     return fragments.some((fragment) => fragment.hasNativeRuby && fragment.globalStart < end && fragment.globalEnd > start);
+  }
+  function nativeRubyPreservingTokenRange(fragments, bounds, tokenStart, tokenEnd) {
+    const rubies = fullyCoveredNativeRubies(fragments, tokenStart, tokenEnd);
+    if (!rubies.size) return null;
+    const range = document.createRange();
+    setNativeRubyPreservingRangeStart(range, bounds.start, rubies);
+    setNativeRubyPreservingRangeEnd(range, bounds.end, rubies);
+    return range;
+  }
+  function fullyCoveredNativeRubies(fragments, start, end) {
+    const rubies = /* @__PURE__ */ new Set();
+    for (const fragment of fragments) {
+      if (!fragment.hasNativeRuby || fragment.globalStart >= end || fragment.globalEnd <= start) continue;
+      const ruby = closestFragmentRuby(fragment);
+      if (!ruby) return /* @__PURE__ */ new Set();
+      const span = nativeRubyBaseSpan(fragments, ruby);
+      if (!span || start > span.start || end < span.end) return /* @__PURE__ */ new Set();
+      rubies.add(ruby);
+    }
+    return rubies;
+  }
+  function nativeRubyBaseSpan(fragments, ruby) {
+    const rubyFragments = fragments.filter((fragment) => closestFragmentRuby(fragment) === ruby);
+    if (!rubyFragments.length) return null;
+    return {
+      start: Math.min(...rubyFragments.map((fragment) => fragment.globalStart)),
+      end: Math.max(...rubyFragments.map((fragment) => fragment.globalEnd))
+    };
+  }
+  function setNativeRubyPreservingRangeStart(range, boundary, rubies) {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+      range.setStartBefore(ruby);
+      return;
+    }
+    range.setStart(boundary.fragment.node, boundary.localOffset);
+  }
+  function setNativeRubyPreservingRangeEnd(range, boundary, rubies) {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+      range.setEndAfter(ruby);
+      return;
+    }
+    range.setEnd(boundary.fragment.node, boundary.localOffset);
+  }
+  function closestFragmentRuby(fragment) {
+    return fragment.node.parentElement?.closest("ruby") ?? null;
   }
   function attachableFragmentRange(start, end) {
     const attachedStart = attachedFragmentBoundary(start);
@@ -6024,7 +6088,9 @@
       trackStatusLoading: "loading",
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
+      moveSubtitles: "Move subtitles",
       toggleImageReading: "Toggle image reading",
+      toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
@@ -6153,6 +6219,7 @@
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
+      kanjiStudyCompanionMissing: "Install or update the Yomu Kanji/Study companion to show JPDB, RTK, stroke order, and origin details.",
       originStructure: "Component graph",
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
@@ -6257,6 +6324,8 @@
       parsedFrom: "Parsed from",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      subtitleOverlayEnabled: "Subtitle overlay enabled.",
+      subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
@@ -6739,6 +6808,7 @@ textTrace	筆順ガイド
 hideTrace	ガイドを隠す
 showTrace	ガイドを表示
 clear	クリア
+kanjiStudyCompanionMissing	Yomu Kanji/Studyコンパニオンをインストールまたは更新すると、JPDB、RTK、筆順、由来情報を表示できます。
 originStructure	部品グラフ
 originMapLabel	2D漢字由来・部品マップ
 originShowSubcomponents	下位部品
@@ -6836,6 +6906,8 @@ selection	選択範囲
 parsedFrom	解析元
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
+subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
@@ -7214,6 +7286,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
+moveSubtitles	字幕を移動
 right	右
 left	左
 bottom	下
@@ -7368,6 +7441,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
+toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
@@ -35537,7 +35611,8 @@ ${glossaryKey}`;
     jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     // ADR-0003 phase 2: kanji clients come from the Kanji/Study companion;
-    // absent companion degrades kanji drilldowns to dictionary-only sections.
+    // absent companion degrades kanji drilldowns to dictionary-only sections
+    // with an install notice.
     kanjiCompanion = yomuKanjiStudyCompanion();
     jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
     jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
@@ -36552,6 +36627,10 @@ ${glossaryKey}`;
         this.toggleOcrFromShortcut(event);
         return true;
       }
+      if (matchesShortcut(event, this.settings.shortcuts.toggleSubtitleOverlay)) {
+        this.toggleSubtitleOverlayFromShortcut(event);
+        return true;
+      }
       if (matchesShortcut(event, this.settings.shortcuts.toggleYoutubeImmersion)) {
         event.preventDefault();
         void this.toggleYoutubeImmersion();
@@ -36577,6 +36656,14 @@ ${glossaryKey}`;
       this.ocr.refresh();
       log.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
       this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? "imageReadingEnabled" : "imageReadingHidden"));
+    }
+    toggleSubtitleOverlayFromShortcut(event) {
+      event.preventDefault();
+      this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
+      void saveSettings(this.settings);
+      this.subtitles.refresh();
+      log.info("Shortcut toggled subtitle overlay", { visible: this.settings.subtitleOverlayVisible });
+      this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? "subtitleOverlayEnabled" : "subtitleOverlayHidden"));
     }
     // Jiten v1.2.x parity: "review everything on screen" — grade every
     // visible due/learning Jiten word as Good in one srs/batch-review
@@ -38678,6 +38765,7 @@ ${glossaryKey}`;
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${this.renderKanjiStudyCompanionNotice(language)}
                     ${this.renderKanjiSourceMounts(kanji, language)}
                 </div>
             </div>
@@ -38776,6 +38864,14 @@ ${glossaryKey}`;
         sourceTitle: (sourceId) => this.kanjiSourceTitle(sourceId),
         renderImmersionMount: () => this.renderKanjiImmersionKitMount()
       });
+    }
+    renderKanjiStudyCompanionNotice(language) {
+      if (this.kanjiCompanion) return "";
+      return `
+            <div class="jpdb-reader-local jpdb-reader-source-card" role="note">
+                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiStudyCompanionMissing"))}</div>
+            </div>
+        `;
     }
     renderKanjiImmersionKitMount() {
       return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));

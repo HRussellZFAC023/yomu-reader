@@ -1959,7 +1959,7 @@
   function stripHtml$2(value) {
     return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   }
-  function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
+  function buildKanjiFacts$1(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
     const facts = /* @__PURE__ */ new Map();
     for (const candidate of kanjiFactCandidates(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo)) {
       addKanjiFact(facts, candidate.label, candidate.value, candidate.source);
@@ -2060,7 +2060,7 @@
     if (!normalized || facts.has(label)) return;
     facts.set(label, { label, value: normalized, source: source || "source unknown" });
   }
-  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
+  function buildKanjiOriginGraph$1(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
     const nodes = /* @__PURE__ */ new Map();
     const edges = [];
     const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
@@ -3543,6 +3543,7 @@
       nextSubtitle: "Alt+ArrowRight",
       copySubtitle: "Alt+C",
       toggleOcr: "Alt+O",
+      toggleSubtitleOverlay: "Shift+H",
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       massReviewVisible: "Alt+M",
@@ -4820,6 +4821,22 @@
       insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
+    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+      const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
+      if (nativeRubyRange) {
+        insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+          scanWord: true,
+          passiveInteraction,
+          allowRuby: false,
+          preserveTokenRubies: true,
+          miningInsightKeys
+        });
+        nativeRubyRange.detach();
+        return;
+      }
+      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+      return;
+    }
     const range = document.createRange();
     range.setStart(bounds.start.fragment.node, bounds.start.localOffset);
     range.setEnd(bounds.end.fragment.node, bounds.end.localOffset);
@@ -4876,6 +4893,53 @@
   }
   function fragmentRangeHasNativeRuby(fragments, start, end) {
     return fragments.some((fragment2) => fragment2.hasNativeRuby && fragment2.globalStart < end && fragment2.globalEnd > start);
+  }
+  function nativeRubyPreservingTokenRange(fragments, bounds, tokenStart, tokenEnd) {
+    const rubies = fullyCoveredNativeRubies(fragments, tokenStart, tokenEnd);
+    if (!rubies.size) return null;
+    const range = document.createRange();
+    setNativeRubyPreservingRangeStart(range, bounds.start, rubies);
+    setNativeRubyPreservingRangeEnd(range, bounds.end, rubies);
+    return range;
+  }
+  function fullyCoveredNativeRubies(fragments, start, end) {
+    const rubies = /* @__PURE__ */ new Set();
+    for (const fragment2 of fragments) {
+      if (!fragment2.hasNativeRuby || fragment2.globalStart >= end || fragment2.globalEnd <= start) continue;
+      const ruby = closestFragmentRuby(fragment2);
+      if (!ruby) return /* @__PURE__ */ new Set();
+      const span = nativeRubyBaseSpan(fragments, ruby);
+      if (!span || start > span.start || end < span.end) return /* @__PURE__ */ new Set();
+      rubies.add(ruby);
+    }
+    return rubies;
+  }
+  function nativeRubyBaseSpan(fragments, ruby) {
+    const rubyFragments = fragments.filter((fragment2) => closestFragmentRuby(fragment2) === ruby);
+    if (!rubyFragments.length) return null;
+    return {
+      start: Math.min(...rubyFragments.map((fragment2) => fragment2.globalStart)),
+      end: Math.max(...rubyFragments.map((fragment2) => fragment2.globalEnd))
+    };
+  }
+  function setNativeRubyPreservingRangeStart(range, boundary, rubies) {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+      range.setStartBefore(ruby);
+      return;
+    }
+    range.setStart(boundary.fragment.node, boundary.localOffset);
+  }
+  function setNativeRubyPreservingRangeEnd(range, boundary, rubies) {
+    const ruby = closestFragmentRuby(boundary.fragment);
+    if (ruby && rubies.has(ruby)) {
+      range.setEndAfter(ruby);
+      return;
+    }
+    range.setEnd(boundary.fragment.node, boundary.localOffset);
+  }
+  function closestFragmentRuby(fragment2) {
+    return fragment2.node.parentElement?.closest("ruby") ?? null;
   }
   function attachableFragmentRange(start, end) {
     const attachedStart = attachedFragmentBoundary(start);
@@ -6172,7 +6236,9 @@
       trackStatusLoading: "loading",
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
+      moveSubtitles: "Move subtitles",
       toggleImageReading: "Toggle image reading",
+      toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
@@ -6301,6 +6367,7 @@
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
+      kanjiStudyCompanionMissing: "Install or update the Yomu Kanji/Study companion to show JPDB, RTK, stroke order, and origin details.",
       originStructure: "Component graph",
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
@@ -6405,6 +6472,8 @@
       parsedFrom: "Parsed from",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      subtitleOverlayEnabled: "Subtitle overlay enabled.",
+      subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
@@ -6887,6 +6956,7 @@ textTrace	筆順ガイド
 hideTrace	ガイドを隠す
 showTrace	ガイドを表示
 clear	クリア
+kanjiStudyCompanionMissing	Yomu Kanji/Studyコンパニオンをインストールまたは更新すると、JPDB、RTK、筆順、由来情報を表示できます。
 originStructure	部品グラフ
 originMapLabel	2D漢字由来・部品マップ
 originShowSubcomponents	下位部品
@@ -6984,6 +7054,8 @@ selection	選択範囲
 parsedFrom	解析元
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
+subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
@@ -7362,6 +7434,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
+moveSubtitles	字幕を移動
 right	右
 left	左
 bottom	下
@@ -7516,6 +7589,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
+toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
@@ -8163,7 +8237,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
   const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
-  function installOriginGraphInteractions(root) {
+  function installOriginGraphInteractions$1(root) {
     root.querySelectorAll(".jpdb-reader-origin-graph-wrap").forEach((wrap) => {
       if (wrap.dataset.graphDragInstalled === "true") {
         refreshOriginGraphEdgesAfterLayout(wrap);
@@ -10429,9 +10503,9 @@ recommendedJiten	jiten.moe頻度データです。
     buildRtkComponentSummaries: buildRtkComponentSummaries$1,
     renderKanjiKeywordLine: renderKanjiKeywordLine$1,
     renderRtkInfo: renderRtkInfo$1,
-    installOriginGraphInteractions,
-    buildKanjiFacts,
-    buildKanjiOriginGraph
+    installOriginGraphInteractions: installOriginGraphInteractions$1,
+    buildKanjiFacts: buildKanjiFacts$1,
+    buildKanjiOriginGraph: buildKanjiOriginGraph$1
   });
   async function runLimited(items, concurrency, worker) {
     if (!items.length) return;
@@ -19663,6 +19737,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "nextSubtitle",
     "copySubtitle",
     "toggleOcr",
+    "toggleSubtitleOverlay",
     "toggleYoutubeImmersion",
     "scanImages",
     "gradeNothing",
@@ -21871,6 +21946,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${shortcutInput("shortcuts.nextSubtitle", "Next subtitle", settings.shortcuts.nextSubtitle)}
                     ${shortcutInput("shortcuts.copySubtitle", "Copy subtitle", settings.shortcuts.copySubtitle)}
                     ${shortcutInput("shortcuts.toggleOcr", "Toggle image reading", settings.shortcuts.toggleOcr)}
+                    ${shortcutInput("shortcuts.toggleSubtitleOverlay", "Toggle subtitle overlay", settings.shortcuts.toggleSubtitleOverlay)}
                     ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
                     ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
@@ -22774,6 +22850,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["shortcuts.nextSubtitle", "nextSubtitle"],
     ["shortcuts.copySubtitle", "copySubtitle"],
     ["shortcuts.toggleOcr", "toggleImageReading"],
+    ["shortcuts.toggleSubtitleOverlay", "toggleSubtitleOverlay"],
     ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
     ["shortcuts.scanImages", "readImagesNow"],
     ["shortcuts.massReviewVisible", "massReviewVisible"],
@@ -31520,6 +31597,7 @@ ${spelling}`);
     "popstate",
     "hashchange"
   ];
+  const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -31727,6 +31805,7 @@ ${spelling}`);
     pausePanelOpen = false;
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
+    subtitleDragOffsetYPx = 0;
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -31853,6 +31932,7 @@ ${spelling}`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${settings.subtitleFontSize}px`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${settings.subtitleFontSize}px`);
       this.root.style.setProperty("--subtitle-bottom", `${settings.subtitleBottomOffset}%`);
+      this.syncSubtitleDragOffsetStyle();
       this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
       this.root.style.setProperty("--subtitle-outline", settings.subtitleOutlineColor);
       this.root.style.setProperty("--subtitle-background-rgba", accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
@@ -31875,8 +31955,9 @@ ${spelling}`);
       const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
+      const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
-            <div class="jpdb-subtitle-text" aria-live="polite"></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore="true" title="${escapeHtml$1(moveLabel)}" aria-label="${escapeHtml$1(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true"></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore="true">
                 <button type="button" data-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">‹</button>
@@ -31886,7 +31967,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-list" hidden></div>
         `);
       root.addEventListener("click", (event) => this.handleClick(event));
-      this.subtitleEl = root.querySelector(".jpdb-subtitle-text");
+      this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
       this.transcriptPanel.addEventListener("click", (event) => this.handleClick(event), this.eventOptions());
@@ -31894,6 +31975,7 @@ ${spelling}`);
       document.body.appendChild(root);
       document.body.appendChild(this.transcriptPanel);
       this.root = root;
+      this.bindSubtitleDragHandle();
       this.refresh();
       this.scheduleControlsIdle();
     }
@@ -32001,6 +32083,7 @@ ${spelling}`);
       this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
+      this.resetSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
       const textTracks = new Set(Array.from(video.textTracks));
@@ -32474,7 +32557,8 @@ ${spelling}`);
     // visible rerender flicker plus constant layout work (user-reported).
     applySubtitleHtml(html) {
       if (!this.subtitleEl) return false;
-      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" || this.subtitleEl.firstChild !== null);
+      const hasContent = this.subtitleEl.firstChild !== null;
+      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" ? !hasContent : hasContent);
       if (unchanged) return false;
       setInnerHtml(this.subtitleEl, html);
       this.lastAppliedSubtitleHtml = html;
@@ -32962,6 +33046,94 @@ ${spelling}`);
       } else {
         this.hideControlsImmediately();
       }
+    }
+    bindSubtitleDragHandle() {
+      const handle = this.root?.querySelector("[data-subtitle-drag-handle]");
+      if (!handle) return;
+      handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
+      handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+    }
+    startSubtitleDrag(event) {
+      if (!this.root || !this.subtitleEl || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const handle = event.currentTarget;
+      const pointerId = event.pointerId;
+      const startY = event.clientY;
+      const startOffset = this.subtitleDragOffsetYPx;
+      handle.setPointerCapture?.(pointerId);
+      handle.classList.add("jpdb-subtitle-dragging");
+      this.root.classList.add("jpdb-subtitle-dragging");
+      this.showControlsTemporarily();
+      const pointerMatches = (pointerEvent) => pointerEvent.pointerId === pointerId;
+      const onMove = (moveEvent) => {
+        if (!pointerMatches(moveEvent)) return;
+        if (moveEvent.cancelable) moveEvent.preventDefault();
+        this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY);
+        this.showControlsTemporarily();
+      };
+      const onEnd = (upEvent) => {
+        if (!pointerMatches(upEvent)) return;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onEnd);
+        window.removeEventListener("pointercancel", onEnd);
+        handle.releasePointerCapture?.(pointerId);
+        handle.classList.remove("jpdb-subtitle-dragging");
+        this.root?.classList.remove("jpdb-subtitle-dragging");
+        this.showControlsTemporarily();
+      };
+      window.addEventListener("pointermove", onMove, this.eventOptions());
+      window.addEventListener("pointerup", onEnd, this.eventOptions());
+      window.addEventListener("pointercancel", onEnd, this.eventOptions());
+    }
+    moveSubtitleOverlayFromKeyboard(event) {
+      const step = event.shiftKey ? 24 : 8;
+      const deltas = {
+        ArrowUp: -step,
+        ArrowDown: step,
+        PageUp: -step * 4,
+        PageDown: step * 4
+      };
+      const delta = deltas[event.key];
+      const shouldReset = event.key === "Home" || event.key === "0";
+      if (delta === void 0 && !shouldReset) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta);
+      this.showControlsTemporarily();
+    }
+    setSubtitleDragOffset(offsetPx) {
+      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx));
+      if (offset === this.subtitleDragOffsetYPx) return;
+      this.subtitleDragOffsetYPx = offset;
+      this.syncSubtitleDragOffsetStyle();
+    }
+    resetSubtitleDragOffset() {
+      this.subtitleDragOffsetYPx = 0;
+      this.syncSubtitleDragOffsetStyle();
+    }
+    syncSubtitleDragOffsetStyle() {
+      if (!this.root) return;
+      setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", `${this.subtitleDragOffsetYPx}px`);
+    }
+    clampedSubtitleDragOffset(offsetPx) {
+      if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
+      const { min, max: max2 } = this.subtitleDragOffsetBounds();
+      return Math.min(max2, Math.max(min, offsetPx));
+    }
+    subtitleDragOffsetBounds() {
+      const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
+      const fallback = {
+        min: -Math.round(viewportHeight * 0.45),
+        max: Math.round(viewportHeight * 0.35)
+      };
+      const subtitleFrame = this.root?.querySelector(".jpdb-subtitle-text") ?? this.subtitleEl;
+      const rect = subtitleFrame?.getBoundingClientRect();
+      if (!rect || rect.height <= 0 || rect.width <= 0) return fallback;
+      const margin = 12;
+      const min = this.subtitleDragOffsetYPx + margin - rect.top;
+      const max2 = this.subtitleDragOffsetYPx + viewportHeight - margin - rect.bottom;
+      return min <= max2 ? { min, max: max2 } : fallback;
     }
     showControlsTemporarily() {
       if (!this.root) return;
@@ -34214,6 +34386,7 @@ ${spelling}`);
     clearPrimaryTrack() {
       this.suppressYouTubeAutoSelectForCurrentVideo();
       this.resetPrimarySubtitleState();
+      this.clearAsbPlayerReaderLines();
       this.clearPrimaryTrackLoadingStates();
       this.setNativeTrackModes();
       this.render();
@@ -34237,6 +34410,7 @@ ${spelling}`);
     }
     clearSecondaryTrack() {
       this.resetSecondarySubtitleState();
+      if (!this.selectedTrackId) this.clearAsbPlayerReaderLines();
       this.clearSecondaryTrackLoadingStates();
       this.setNativeTrackModes();
       this.render();
@@ -34253,6 +34427,12 @@ ${spelling}`);
       if (!this.isTranscriptPanelOpen()) return;
       if (this.panelMode === "lines") this.renderTranscriptPanel(true);
       else this.renderTrackPanel();
+    }
+    clearAsbPlayerReaderLines() {
+      let cleared = 0;
+      const roots = Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
+      for (const root of roots) cleared += unwrapReaderWords(root);
+      if (cleared) log$k.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
     }
     positionTranscriptPanel(options = {}) {
       if (this.fullscreen) {
@@ -42285,6 +42465,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderRtkInfo(...args) {
     return yomuKanjiStudyCompanion()?.renderRtkInfo(...args) ?? "";
+  }
+  function installOriginGraphInteractions(...args) {
+    yomuKanjiStudyCompanion()?.installOriginGraphInteractions(...args);
+  }
+  function buildKanjiFacts(...args) {
+    return yomuKanjiStudyCompanion()?.buildKanjiFacts(...args) ?? [];
+  }
+  function buildKanjiOriginGraph(...args) {
+    return yomuKanjiStudyCompanion()?.buildKanjiOriginGraph(...args) ?? null;
   }
   class CardPopoverRenderer {
     constructor(dependencies) {
@@ -57753,8 +57942,8 @@ ${entry.url}`),
     }
     renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels = /* @__PURE__ */ new Set()) {
       if (!settings.kanjiOriginsEnabled || !settings.kanjiOriginGraphEnabled) return null;
-      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
-      const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, null, vg);
+      const factsForOrigins = buildKanjiFacts$1(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
+      const graph = buildKanjiOriginGraph$1(kanji, fullInfo, rtk, localEntries, null, vg);
       if (!graph) return null;
       const section = htmlToFirstElement(renderKanjiOrigins(
         factsForOrigins,
@@ -57769,7 +57958,7 @@ ${entry.url}`),
       ));
       if (!section) return null;
       section.classList.add("jpdb-reader-newtab-origin-graph");
-      installOriginGraphInteractions(section);
+      installOriginGraphInteractions$1(section);
       return section;
     }
     newTabKanjiFacts(card, fullInfo, rtk, localMeanings) {
@@ -61282,6 +61471,22 @@ ${entry.url}`),
   const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
   const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
+  function createNoopJpdbKanjiClient() {
+    return {
+      lookup: () => Promise.resolve(null),
+      performAction: () => Promise.reject(new Error("Yomu Kanji/Study companion is missing."))
+    };
+  }
+  function createNoopKanjiVGClient() {
+    return {
+      lookup: () => Promise.resolve(null)
+    };
+  }
+  function createNoopRtkClient() {
+    return {
+      lookup: () => Promise.resolve(null)
+    };
+  }
   function bootNewTabRuntime() {
     const app = new NewTabRuntime();
     void app.init().catch((error) => {
@@ -61301,14 +61506,15 @@ ${entry.url}`),
     newTab;
     jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-    jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    kanjiCompanion = yomuKanjiStudyCompanion();
+    jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
     jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    kanjiVG = new KanjiVGClient();
+    kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : createNoopKanjiVGClient();
     immersionKit = new ImmersionKitClient();
     audio = new AudioPlayer(() => this.settings);
     anki = new AnkiConnectClient(() => this.settings);
-    rtk = new RtkClient();
+    rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     jpdbReviewBridge = createJpdbReviewBridgeClient();
     dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     dictionarySourceState = new DictionarySourceStateController({
@@ -61909,6 +62115,7 @@ ${entry.url}`),
       const language = this.settings.interfaceLanguage;
       const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
       const sourceMounts = this.renderKanjiLookupSourceMounts(kanji, language);
+      const companionNotice = this.renderKanjiStudyCompanionNotice(language);
       return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
@@ -61931,6 +62138,7 @@ ${entry.url}`),
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${companionNotice}
                     ${sourceMounts}
                 </div>
             </div>
@@ -61947,6 +62155,14 @@ ${entry.url}`),
         sourceTitle: (sourceId) => this.kanjiSourceTitle(sourceId),
         renderImmersionMount: () => this.renderKanjiLookupImmersionMount()
       });
+    }
+    renderKanjiStudyCompanionNotice(language) {
+      if (this.kanjiCompanion) return "";
+      return `
+            <div class="jpdb-reader-local jpdb-reader-source-card" role="note">
+                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiStudyCompanionMissing"))}</div>
+            </div>
+        `;
     }
     renderKanjiLookupImmersionMount() {
       return renderKanjiImmersionKitMount(this.settings, (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded));

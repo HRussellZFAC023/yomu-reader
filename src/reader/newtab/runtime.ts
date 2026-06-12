@@ -11,6 +11,7 @@ import { highlightCardTargetScopes } from '../cards/highlight';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { yomuKanjiStudyCompanion } from '../companions/registry';
 import {
     kanjiSourceStateKey,
     renderKanjiDefinitions,
@@ -41,15 +42,14 @@ import { JpdbClient } from '../jpdb/jpdb';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
-import { JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { KanjiVGClient, type KanjiVGInfo } from '../kanji/vg';
-import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji/origin';
+import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
@@ -65,12 +65,14 @@ import {
 } from '../study/mining-controls';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
-import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
+    buildKanjiFacts,
+    buildKanjiOriginGraph,
     buildRtkComponentSummaries,
     cardPronunciationReading,
+    installOriginGraphInteractions,
     isKanjiCharacter,
     pickTokenForSelection,
     renderJpdbKanjiInfo,
@@ -81,7 +83,7 @@ import {
 } from '../popup/render';
 import { updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
-import { RtkClient, type RtkInfo } from '../kanji/rtk';
+import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -129,6 +131,25 @@ const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
 type NewTabRuntimeTextKey = UiCopyKey | NewTabCopyKey;
+
+function createNoopJpdbKanjiClient(): JpdbKanjiClient {
+    return {
+        lookup: () => Promise.resolve(null),
+        performAction: () => Promise.reject(new Error('Yomu Kanji/Study companion is missing.')),
+    } as unknown as JpdbKanjiClient;
+}
+
+function createNoopKanjiVGClient(): KanjiVGClient {
+    return {
+        lookup: () => Promise.resolve(null),
+    } as unknown as KanjiVGClient;
+}
+
+function createNoopRtkClient(): RtkClient {
+    return {
+        lookup: () => Promise.resolve(null),
+    } as unknown as RtkClient;
+}
 
 type YomuNewTabWindow = typeof window & {
     __YOMU_READER_RUNTIME__?: string;
@@ -191,14 +212,15 @@ export class NewTabRuntime {
 
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-    private jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    private kanjiCompanion = yomuKanjiStudyCompanion();
+    private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    private kanjiVG = new KanjiVGClient();
+    private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : createNoopKanjiVGClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
-    private rtk = new RtkClient();
+    private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     private jpdbReviewBridge = createJpdbReviewBridgeClient();
     private dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private dictionarySourceState = new DictionarySourceStateController({
@@ -865,6 +887,7 @@ export class NewTabRuntime {
         const language = this.settings.interfaceLanguage;
         const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
         const sourceMounts = this.renderKanjiLookupSourceMounts(kanji, language);
+        const companionNotice = this.renderKanjiStudyCompanionNotice(language);
         return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
@@ -887,6 +910,7 @@ export class NewTabRuntime {
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${companionNotice}
                     ${sourceMounts}
                 </div>
             </div>
@@ -904,6 +928,15 @@ export class NewTabRuntime {
             sourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
             renderImmersionMount: () => this.renderKanjiLookupImmersionMount(),
         });
+    }
+
+    private renderKanjiStudyCompanionNotice(language: ReaderSettings['interfaceLanguage']): string {
+        if (this.kanjiCompanion) return '';
+        return `
+            <div class="jpdb-reader-local jpdb-reader-source-card" role="note">
+                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiStudyCompanionMissing'))}</div>
+            </div>
+        `;
     }
 
     private renderKanjiLookupImmersionMount(): string {

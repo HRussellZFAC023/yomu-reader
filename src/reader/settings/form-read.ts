@@ -73,6 +73,7 @@ const SHORTCUT_SETTING_NAMES = [
     'nextSubtitle',
     'copySubtitle',
     'toggleOcr',
+    'toggleSubtitleOverlay',
     'toggleYoutubeImmersion',
     'scanImages',
     'gradeNothing',

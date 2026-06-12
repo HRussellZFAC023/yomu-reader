@@ -2673,7 +2673,9 @@
       trackStatusLoading: "loading",
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
+      moveSubtitles: "Move subtitles",
       toggleImageReading: "Toggle image reading",
+      toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
@@ -2802,6 +2804,7 @@
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
+      kanjiStudyCompanionMissing: "Install or update the Yomu Kanji/Study companion to show JPDB, RTK, stroke order, and origin details.",
       originStructure: "Component graph",
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
@@ -2906,6 +2909,8 @@
       parsedFrom: "Parsed from",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      subtitleOverlayEnabled: "Subtitle overlay enabled.",
+      subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
@@ -3369,6 +3374,7 @@ textTrace	筆順ガイド
 hideTrace	ガイドを隠す
 showTrace	ガイドを表示
 clear	クリア
+kanjiStudyCompanionMissing	Yomu Kanji/Studyコンパニオンをインストールまたは更新すると、JPDB、RTK、筆順、由来情報を表示できます。
 originStructure	部品グラフ
 originMapLabel	2D漢字由来・部品マップ
 originShowSubcomponents	下位部品
@@ -3466,6 +3472,8 @@ selection	選択範囲
 parsedFrom	解析元
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
+subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
@@ -3844,6 +3852,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
+moveSubtitles	字幕を移動
 right	右
 left	左
 bottom	下
@@ -3998,6 +4007,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
+toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
@@ -10141,6 +10151,7 @@ ${spelling}`);
     "popstate",
     "hashchange"
   ];
+  const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -10348,6 +10359,7 @@ ${spelling}`);
     pausePanelOpen = false;
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
+    subtitleDragOffsetYPx = 0;
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -10474,6 +10486,7 @@ ${spelling}`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${settings.subtitleFontSize}px`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${settings.subtitleFontSize}px`);
       this.root.style.setProperty("--subtitle-bottom", `${settings.subtitleBottomOffset}%`);
+      this.syncSubtitleDragOffsetStyle();
       this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
       this.root.style.setProperty("--subtitle-outline", settings.subtitleOutlineColor);
       this.root.style.setProperty("--subtitle-background-rgba", accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
@@ -10496,8 +10509,9 @@ ${spelling}`);
       const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
+      const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
-            <div class="jpdb-subtitle-text" aria-live="polite"></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore="true" title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true"></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore="true">
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
@@ -10507,7 +10521,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-list" hidden></div>
         `);
       root.addEventListener("click", (event) => this.handleClick(event));
-      this.subtitleEl = root.querySelector(".jpdb-subtitle-text");
+      this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
       this.transcriptPanel.addEventListener("click", (event) => this.handleClick(event), this.eventOptions());
@@ -10515,6 +10529,7 @@ ${spelling}`);
       document.body.appendChild(root);
       document.body.appendChild(this.transcriptPanel);
       this.root = root;
+      this.bindSubtitleDragHandle();
       this.refresh();
       this.scheduleControlsIdle();
     }
@@ -10622,6 +10637,7 @@ ${spelling}`);
       this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
+      this.resetSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
       const textTracks = new Set(Array.from(video.textTracks));
@@ -11095,7 +11111,8 @@ ${spelling}`);
     // visible rerender flicker plus constant layout work (user-reported).
     applySubtitleHtml(html) {
       if (!this.subtitleEl) return false;
-      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" || this.subtitleEl.firstChild !== null);
+      const hasContent = this.subtitleEl.firstChild !== null;
+      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" ? !hasContent : hasContent);
       if (unchanged) return false;
       setInnerHtml(this.subtitleEl, html);
       this.lastAppliedSubtitleHtml = html;
@@ -11583,6 +11600,94 @@ ${spelling}`);
       } else {
         this.hideControlsImmediately();
       }
+    }
+    bindSubtitleDragHandle() {
+      const handle = this.root?.querySelector("[data-subtitle-drag-handle]");
+      if (!handle) return;
+      handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
+      handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+    }
+    startSubtitleDrag(event) {
+      if (!this.root || !this.subtitleEl || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const handle = event.currentTarget;
+      const pointerId = event.pointerId;
+      const startY = event.clientY;
+      const startOffset = this.subtitleDragOffsetYPx;
+      handle.setPointerCapture?.(pointerId);
+      handle.classList.add("jpdb-subtitle-dragging");
+      this.root.classList.add("jpdb-subtitle-dragging");
+      this.showControlsTemporarily();
+      const pointerMatches = (pointerEvent) => pointerEvent.pointerId === pointerId;
+      const onMove = (moveEvent) => {
+        if (!pointerMatches(moveEvent)) return;
+        if (moveEvent.cancelable) moveEvent.preventDefault();
+        this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY);
+        this.showControlsTemporarily();
+      };
+      const onEnd = (upEvent) => {
+        if (!pointerMatches(upEvent)) return;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onEnd);
+        window.removeEventListener("pointercancel", onEnd);
+        handle.releasePointerCapture?.(pointerId);
+        handle.classList.remove("jpdb-subtitle-dragging");
+        this.root?.classList.remove("jpdb-subtitle-dragging");
+        this.showControlsTemporarily();
+      };
+      window.addEventListener("pointermove", onMove, this.eventOptions());
+      window.addEventListener("pointerup", onEnd, this.eventOptions());
+      window.addEventListener("pointercancel", onEnd, this.eventOptions());
+    }
+    moveSubtitleOverlayFromKeyboard(event) {
+      const step = event.shiftKey ? 24 : 8;
+      const deltas = {
+        ArrowUp: -step,
+        ArrowDown: step,
+        PageUp: -step * 4,
+        PageDown: step * 4
+      };
+      const delta = deltas[event.key];
+      const shouldReset = event.key === "Home" || event.key === "0";
+      if (delta === void 0 && !shouldReset) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta);
+      this.showControlsTemporarily();
+    }
+    setSubtitleDragOffset(offsetPx) {
+      const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx));
+      if (offset === this.subtitleDragOffsetYPx) return;
+      this.subtitleDragOffsetYPx = offset;
+      this.syncSubtitleDragOffsetStyle();
+    }
+    resetSubtitleDragOffset() {
+      this.subtitleDragOffsetYPx = 0;
+      this.syncSubtitleDragOffsetStyle();
+    }
+    syncSubtitleDragOffsetStyle() {
+      if (!this.root) return;
+      setStylePropertyIfChanged(this.root, "--subtitle-drag-offset-y", `${this.subtitleDragOffsetYPx}px`);
+    }
+    clampedSubtitleDragOffset(offsetPx) {
+      if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
+      const { min, max } = this.subtitleDragOffsetBounds();
+      return Math.min(max, Math.max(min, offsetPx));
+    }
+    subtitleDragOffsetBounds() {
+      const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
+      const fallback = {
+        min: -Math.round(viewportHeight * 0.45),
+        max: Math.round(viewportHeight * 0.35)
+      };
+      const subtitleFrame = this.root?.querySelector(".jpdb-subtitle-text") ?? this.subtitleEl;
+      const rect = subtitleFrame?.getBoundingClientRect();
+      if (!rect || rect.height <= 0 || rect.width <= 0) return fallback;
+      const margin = 12;
+      const min = this.subtitleDragOffsetYPx + margin - rect.top;
+      const max = this.subtitleDragOffsetYPx + viewportHeight - margin - rect.bottom;
+      return min <= max ? { min, max } : fallback;
     }
     showControlsTemporarily() {
       if (!this.root) return;
@@ -12835,6 +12940,7 @@ ${spelling}`);
     clearPrimaryTrack() {
       this.suppressYouTubeAutoSelectForCurrentVideo();
       this.resetPrimarySubtitleState();
+      this.clearAsbPlayerReaderLines();
       this.clearPrimaryTrackLoadingStates();
       this.setNativeTrackModes();
       this.render();
@@ -12858,6 +12964,7 @@ ${spelling}`);
     }
     clearSecondaryTrack() {
       this.resetSecondarySubtitleState();
+      if (!this.selectedTrackId) this.clearAsbPlayerReaderLines();
       this.clearSecondaryTrackLoadingStates();
       this.setNativeTrackModes();
       this.render();
@@ -12874,6 +12981,12 @@ ${spelling}`);
       if (!this.isTranscriptPanelOpen()) return;
       if (this.panelMode === "lines") this.renderTranscriptPanel(true);
       else this.renderTrackPanel();
+    }
+    clearAsbPlayerReaderLines() {
+      let cleared = 0;
+      const roots = Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
+      for (const root of roots) cleared += unwrapReaderWords(root);
+      if (cleared) log.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
     }
     positionTranscriptPanel(options = {}) {
       if (this.fullscreen) {

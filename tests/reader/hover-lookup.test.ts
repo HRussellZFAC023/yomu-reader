@@ -516,7 +516,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('keeps Apple Pencil tap separate from hover preview', () => {
+    it('keeps Apple Pencil hover separate from tap lookup', () => {
         const app = new ReaderApp();
         const word = readerWordFixture('読む');
 
@@ -527,12 +527,9 @@ describe('hover lookup', () => {
 
             hoverLookup.internals.suppressPenHoverUntil = 0;
             hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
-            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(
-                word,
-                expect.objectContaining({ pointerType: 'pen' }),
-            );
+            hoverLookup.internals.handleHoverPointerOut(hoverPointerEvent(word, 'pen', 'pointerout'));
+            expectNoHoverLookup(hoverLookup);
 
-            hoverLookup.scheduleHoverLookup.mockClear();
             hoverLookup.internals.suppressPenHoverUntil = Date.now() + 1000;
             hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word, 'pen'));
             hoverLookup.internals.handleHoverPointerOut(hoverPointerEvent(word, 'pen', 'pointerout'));

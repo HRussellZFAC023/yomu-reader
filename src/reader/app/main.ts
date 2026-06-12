@@ -370,7 +370,8 @@ export class ReaderApp {
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     // ADR-0003 phase 2: kanji clients come from the Kanji/Study companion;
-    // absent companion degrades kanji drilldowns to dictionary-only sections.
+    // absent companion degrades kanji drilldowns to dictionary-only sections
+    // with an install notice.
     private kanjiCompanion = yomuKanjiStudyCompanion();
     private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
@@ -1514,6 +1515,10 @@ export class ReaderApp {
             this.toggleOcrFromShortcut(event);
             return true;
         }
+        if (matchesShortcut(event, this.settings.shortcuts.toggleSubtitleOverlay)) {
+            this.toggleSubtitleOverlayFromShortcut(event);
+            return true;
+        }
         if (matchesShortcut(event, this.settings.shortcuts.toggleYoutubeImmersion)) {
             event.preventDefault();
             void this.toggleYoutubeImmersion();
@@ -1540,6 +1545,15 @@ export class ReaderApp {
         this.ocr.refresh();
         log.info('Shortcut toggled OCR', { enabled: this.settings.ocrEnabled });
         this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? 'imageReadingEnabled' : 'imageReadingHidden'));
+    }
+
+    private toggleSubtitleOverlayFromShortcut(event: KeyboardEvent): void {
+        event.preventDefault();
+        this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
+        void saveSettings(this.settings);
+        this.subtitles.refresh();
+        log.info('Shortcut toggled subtitle overlay', { visible: this.settings.subtitleOverlayVisible });
+        this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? 'subtitleOverlayEnabled' : 'subtitleOverlayHidden'));
     }
 
     // Jiten v1.2.x parity: "review everything on screen" — grade every
@@ -4289,6 +4303,7 @@ export class ReaderApp {
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${this.renderKanjiStudyCompanionNotice(language)}
                     ${this.renderKanjiSourceMounts(kanji, language)}
                 </div>
             </div>
@@ -4397,6 +4412,15 @@ export class ReaderApp {
             sourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
             renderImmersionMount: () => this.renderKanjiImmersionKitMount(),
         });
+    }
+
+    private renderKanjiStudyCompanionNotice(language: InterfaceLanguage): string {
+        if (this.kanjiCompanion) return '';
+        return `
+            <div class="jpdb-reader-local jpdb-reader-source-card" role="note">
+                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiStudyCompanionMissing'))}</div>
+            </div>
+        `;
     }
 
     private renderKanjiImmersionKitMount(): string {

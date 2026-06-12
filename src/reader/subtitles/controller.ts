@@ -1,4 +1,4 @@
-import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml } from '../dom/index';
+import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
     compactTextLength,
     cueHasExactWordTimings,
@@ -173,6 +173,7 @@ const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
     'popstate',
     'hashchange',
 ] as const;
+const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -433,6 +434,7 @@ export class SubtitlePlayerController {
     private pausePanelOpen = false;
     private pausePanelDismissed = false;
     private pausePanelSyncScheduled = false;
+    private subtitleDragOffsetYPx = 0;
 
     constructor(private options: SubtitlePlayerOptions) {}
 
@@ -561,6 +563,7 @@ export class SubtitlePlayerController {
         setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${settings.subtitleFontSize}px`);
         setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${settings.subtitleFontSize}px`);
         this.root.style.setProperty('--subtitle-bottom', `${settings.subtitleBottomOffset}%`);
+        this.syncSubtitleDragOffsetStyle();
         this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
         this.root.style.setProperty('--subtitle-outline', settings.subtitleOutlineColor);
         this.root.style.setProperty('--subtitle-background-rgba', accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
@@ -586,8 +589,9 @@ export class SubtitlePlayerController {
         const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
         const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
+        const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         setInnerHtml(root, `
-            <div class="jpdb-subtitle-text" aria-live="polite"></div>
+            <div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines" aria-live="polite"></div><button class="jpdb-subtitle-drag-handle" type="button" data-subtitle-drag-handle data-jpdb-reader-surface-ignore="true" title="${escapeHtml(moveLabel)}" aria-label="${escapeHtml(moveLabel)}"><span aria-hidden="true"></span></button></div>
             <div class="jpdb-subtitle-status" aria-live="polite" data-jpdb-reader-surface-ignore="true"></div>
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore="true">
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
@@ -597,7 +601,7 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-list" hidden></div>
         `);
         root.addEventListener('click', event => this.handleClick(event));
-        this.subtitleEl = root.querySelector('.jpdb-subtitle-text') as HTMLElement;
+        this.subtitleEl = root.querySelector('.jpdb-subtitle-lines') as HTMLElement;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
         this.transcriptPanel.addEventListener('click', event => this.handleClick(event), this.eventOptions());
@@ -605,6 +609,7 @@ export class SubtitlePlayerController {
         document.body.appendChild(root);
         document.body.appendChild(this.transcriptPanel);
         this.root = root;
+        this.bindSubtitleDragHandle();
         this.refresh();
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
@@ -729,6 +734,7 @@ export class SubtitlePlayerController {
         this.lastAppliedSubtitleHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
+        this.resetSubtitleDragOffset();
     }
 
     private removeStaleNativeTracks(video: HTMLVideoElement): void {
@@ -1302,8 +1308,9 @@ export class SubtitlePlayerController {
     // visible rerender flicker plus constant layout work (user-reported).
     private applySubtitleHtml(html: string): boolean {
         if (!this.subtitleEl) return false;
+        const hasContent = this.subtitleEl.firstChild !== null;
         const unchanged = this.lastAppliedSubtitleHtml === html
-            && (html === '' || this.subtitleEl.firstChild !== null);
+            && (html === '' ? !hasContent : hasContent);
         if (unchanged) return false;
         setInnerHtml(this.subtitleEl, html);
         this.lastAppliedSubtitleHtml = html;
@@ -1889,6 +1896,108 @@ export class SubtitlePlayerController {
         } else {
             this.hideControlsImmediately();
         }
+    }
+
+    private bindSubtitleDragHandle(): void {
+        const handle = this.root?.querySelector<HTMLElement>('[data-subtitle-drag-handle]');
+        if (!handle) return;
+        handle.addEventListener('pointerdown', event => this.startSubtitleDrag(event), this.eventOptions());
+        handle.addEventListener('keydown', event => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
+    }
+
+    private startSubtitleDrag(event: PointerEvent): void {
+        if (!this.root || !this.subtitleEl || event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const handle = event.currentTarget as HTMLElement;
+        const pointerId = event.pointerId;
+        const startY = event.clientY;
+        const startOffset = this.subtitleDragOffsetYPx;
+        handle.setPointerCapture?.(pointerId);
+        handle.classList.add('jpdb-subtitle-dragging');
+        this.root.classList.add('jpdb-subtitle-dragging');
+        this.showControlsTemporarily();
+
+        const pointerMatches = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId;
+        const onMove = (moveEvent: PointerEvent) => {
+            if (!pointerMatches(moveEvent)) return;
+            if (moveEvent.cancelable) moveEvent.preventDefault();
+            this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY);
+            this.showControlsTemporarily();
+        };
+
+        const onEnd = (upEvent: PointerEvent) => {
+            if (!pointerMatches(upEvent)) return;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onEnd);
+            window.removeEventListener('pointercancel', onEnd);
+            handle.releasePointerCapture?.(pointerId);
+            handle.classList.remove('jpdb-subtitle-dragging');
+            this.root?.classList.remove('jpdb-subtitle-dragging');
+            this.showControlsTemporarily();
+        };
+
+        window.addEventListener('pointermove', onMove, this.eventOptions());
+        window.addEventListener('pointerup', onEnd, this.eventOptions());
+        window.addEventListener('pointercancel', onEnd, this.eventOptions());
+    }
+
+    private moveSubtitleOverlayFromKeyboard(event: KeyboardEvent): void {
+        const step = event.shiftKey ? 24 : 8;
+        const deltas: Record<string, number> = {
+            ArrowUp: -step,
+            ArrowDown: step,
+            PageUp: -step * 4,
+            PageDown: step * 4,
+        };
+        const delta = deltas[event.key];
+        const shouldReset = event.key === 'Home' || event.key === '0';
+        if (delta === undefined && !shouldReset) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta);
+        this.showControlsTemporarily();
+    }
+
+    private setSubtitleDragOffset(offsetPx: number): void {
+        const offset = Math.round(this.clampedSubtitleDragOffset(offsetPx));
+        if (offset === this.subtitleDragOffsetYPx) return;
+        this.subtitleDragOffsetYPx = offset;
+        this.syncSubtitleDragOffsetStyle();
+    }
+
+    private resetSubtitleDragOffset(): void {
+        this.subtitleDragOffsetYPx = 0;
+        this.syncSubtitleDragOffsetStyle();
+    }
+
+    private syncSubtitleDragOffsetStyle(): void {
+        if (!this.root) return;
+        setStylePropertyIfChanged(this.root, '--subtitle-drag-offset-y', `${this.subtitleDragOffsetYPx}px`);
+    }
+
+    private clampedSubtitleDragOffset(offsetPx: number): number {
+        if (!Number.isFinite(offsetPx)) return this.subtitleDragOffsetYPx;
+        const { min, max } = this.subtitleDragOffsetBounds();
+        return Math.min(max, Math.max(min, offsetPx));
+    }
+
+    private subtitleDragOffsetBounds(): { min: number; max: number } {
+        const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
+        const fallback = {
+            min: -Math.round(viewportHeight * 0.45),
+            max: Math.round(viewportHeight * 0.35),
+        };
+        const subtitleFrame = this.root?.querySelector<HTMLElement>('.jpdb-subtitle-text') ?? this.subtitleEl;
+        const rect = subtitleFrame?.getBoundingClientRect();
+        if (!rect || rect.height <= 0 || rect.width <= 0) return fallback;
+
+        const margin = 12;
+        const min = this.subtitleDragOffsetYPx + margin - rect.top;
+        const max = this.subtitleDragOffsetYPx + viewportHeight - margin - rect.bottom;
+        return min <= max ? { min, max } : fallback;
     }
 
     private showControlsTemporarily(): void {
@@ -3352,6 +3461,7 @@ export class SubtitlePlayerController {
     private clearPrimaryTrack(): void {
         this.suppressYouTubeAutoSelectForCurrentVideo();
         this.resetPrimarySubtitleState();
+        this.clearAsbPlayerReaderLines();
         this.clearPrimaryTrackLoadingStates();
         this.setNativeTrackModes();
         this.render();
@@ -3379,6 +3489,7 @@ export class SubtitlePlayerController {
 
     private clearSecondaryTrack(): void {
         this.resetSecondarySubtitleState();
+        if (!this.selectedTrackId) this.clearAsbPlayerReaderLines();
         this.clearSecondaryTrackLoadingStates();
         this.setNativeTrackModes();
         this.render();
@@ -3397,6 +3508,13 @@ export class SubtitlePlayerController {
         if (!this.isTranscriptPanelOpen()) return;
         if (this.panelMode === 'lines') this.renderTranscriptPanel(true);
         else this.renderTrackPanel();
+    }
+
+    private clearAsbPlayerReaderLines(): void {
+        let cleared = 0;
+        const roots = Array.from(document.querySelectorAll<HTMLElement>(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
+        for (const root of roots) cleared += unwrapReaderWords(root);
+        if (cleared) log.info('Cleared parsed ASBPlayer subtitle lines', { roots: roots.length, cleared });
     }
 
     private positionTranscriptPanel(options: { realignAfterInset?: boolean; skipInset?: boolean } = {}): void {

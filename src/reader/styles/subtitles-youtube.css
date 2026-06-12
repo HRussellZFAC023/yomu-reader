@@ -9,6 +9,7 @@
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
   --subtitle-bottom: 12%;
+  --subtitle-drag-offset-y: 0px;
   --subtitle-color: var(--jpdb-reader-video-text);
   --subtitle-outline: var(--jpdb-reader-video-outline);
   --subtitle-background-rgba: transparent;
@@ -34,7 +35,55 @@
   max-height: min(45%, calc(100% - 24px));
   overflow: hidden;
   pointer-events: auto;
+  transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
+}
+.jpdb-subtitle-lines {
+  min-height: 1.36em;
+  max-height: inherit;
+  overflow: hidden;
+}
+.jpdb-subtitle-drag-handle {
+  position: absolute;
+  left: 50%;
+  top: -28px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, transparent);
+  color: var(--jpdb-reader-muted);
+  box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease, background 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-subtitle-drag-handle span {
+  width: 15px;
+  height: 9px;
+  background: repeating-linear-gradient(to bottom, currentColor 0 1px, transparent 1px 4px);
+}
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-text:hover .jpdb-subtitle-drag-handle,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:focus-visible,
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden).jpdb-subtitle-dragging .jpdb-subtitle-drag-handle {
+  opacity: .82;
+  pointer-events: auto;
+}
+.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging) {
+  border-color: var(--jpdb-reader-accent);
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  opacity: 1;
+}
+.jpdb-subtitle-drag-handle.jpdb-subtitle-dragging {
+  cursor: grabbing;
 }
 .jpdb-subtitle-status {
   position: absolute;
@@ -45,6 +94,7 @@
   white-space: nowrap;
 }
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-text,
+.jpdb-subtitle-video-out-of-view .jpdb-subtitle-drag-handle,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-rail {
   display: none !important;
   pointer-events: none !important;
@@ -1144,7 +1194,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   color: var(--jpdb-reader-muted);
   font: 700 12px/1.35 var(--jpdb-reader-font);
 }
-.jpdb-subtitle-hidden .jpdb-subtitle-text { display: none; }
+.jpdb-subtitle-hidden .jpdb-subtitle-text,
+.jpdb-subtitle-hidden .jpdb-subtitle-drag-handle { display: none; }
 
 @media (max-width: 768px), (pointer: coarse) {
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
@@ -1165,6 +1216,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
+  .jpdb-subtitle-drag-handle {
+    top: -32px;
+    width: 42px;
+    height: 28px;
+  }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));
     right: max(8px, env(safe-area-inset-right));

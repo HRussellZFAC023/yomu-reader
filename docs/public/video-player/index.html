@@ -815,7 +815,10 @@
         }
         applyTheme(effectiveTheme());
         applyAccent();
-        requestHostedDemoLookupScan();
+        // Guarded: this hook only exists on hosted-demo builds that define it;
+        // a bare call threw a ReferenceError that aborted the rest of page
+        // setup (the subtitle player never mounted).
+        window.requestHostedDemoLookupScan?.();
       }
 
       function runtimeAssetCandidates(fileName) {
