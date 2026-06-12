@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Id7//B6jE/ZOkZgV0Bb+ctwartxIiByajvZfPx91g8Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-EePaaaBLdc55vhgprWycuEq2JJ38vOAAuswusIqBf58=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-BE6tj2SmDmTpexWStCQXS7wo3FlHycskaZMhTgr4pF4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rhz9xOTriMkneJWAVh3ikH9gcLxh9m11Uhfp55c6Wns=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-kYH4jf9T2hrawuRX9mvgC5PTXdgb4oKlflc6cUpghUw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RK5KokLt3ciJvfZJGTgOT7K1C+NIZtuk/R1A4RhrBZM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1838,7 +1838,7 @@
   const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
   const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES = ["jpod101", "language-pod-101", "jisho", "text-to-speech"];
   const READER_COLOR_SOURCES = /* @__PURE__ */ new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
-  const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status"]);
+  const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
   const OCR_ENGINE_ALIASES = /* @__PURE__ */ new Map([
     ["MangaOcrAdapter", "MangaOCR"],
     ["PpOcrAdapter", "PaddleOCR"],
@@ -2038,7 +2038,11 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
-    furiganaMode: "all",
+    // UT-47: auto resolves to known-status hiding once an SRS source exists
+    // (the user-requested default), difficult-kanji otherwise.
+    furiganaMode: "auto",
+    furiganaHiddenStateGroups: ["known", "due", "failed"],
+    wordColorStates: "all",
     showPitchAccent: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
@@ -2331,6 +2335,8 @@
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
+      wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
       hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
     };
   }
@@ -2633,7 +2639,13 @@
     return DEFAULT_SETTINGS.furiganaMode;
   }
   function isFuriganaMode(value) {
-    return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "off";
+    return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
+  }
+  const FURIGANA_STATE_GROUPS = /* @__PURE__ */ new Set(["new", "learning", "known", "due", "failed"]);
+  function normalizeFuriganaHiddenStateGroups(value) {
+    if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+    const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+    return [...new Set(groups)];
   }
   function legacyBooleanSettingIs(settings, key, expected) {
     return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
@@ -2922,15 +2934,20 @@
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
-  const KNOWN_STATUS_FURIGANA_HIDDEN_STATES = /* @__PURE__ */ new Set([
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "never-forget",
-    "redundant"
-  ]);
+  const FURIGANA_GROUP_STATES = {
+    new: ["new", "not-in-deck", "in-deck"],
+    learning: ["learning", "young"],
+    known: ["known", "mature", "mastered", "never-forget", "redundant"],
+    due: ["due"],
+    failed: ["failed"]
+  };
+  function furiganaHiddenStates(settings) {
+    const states = /* @__PURE__ */ new Set();
+    for (const group of settings.furiganaHiddenStateGroups) {
+      for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
+    }
+    return states;
+  }
   const FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
     ...FORM_BOUNDARY_SKIP_ENTRIES,
@@ -3909,15 +3926,13 @@
   function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
     if (!allowRuby) return false;
     if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token);
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
   }
-  function furiganaModeAllowsRuby(mode, surface, token) {
+  function furiganaModeAllowsRuby(mode, surface, token, settings) {
     if (mode === "off") return false;
-    if (mode === "known-status") return !knownStatusHidesTokenFurigana(token);
+    if (mode === "hover") return true;
+    if (mode === "known-status") return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
     return mode !== "difficult-kanji" || hasDifficultKanji(surface);
-  }
-  function knownStatusHidesTokenFurigana(token) {
-    return KNOWN_STATUS_FURIGANA_HIDDEN_STATES.has(primaryCardState(token.card.cardState));
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
@@ -5500,8 +5515,10 @@
       settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
+      wordColorStates: "Color words",
       furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
+      furiganaHideKnown: "Hide for chosen states",
+      furiganaHoverOnly: "Show on hover only",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
@@ -6976,8 +6993,10 @@ showFloatingButton	設定ボタンを表示
 settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
+wordColorStates	色を付ける単語
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	既知語を非表示
+furiganaHideKnown	選択した状態で非表示
+furiganaHoverOnly	ホバー時のみ表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
@@ -34348,7 +34367,13 @@ ${glossaryKey}`;
     applyReaderSubtitleSettings(settings, root);
     applyReaderFontSettings(settings, root);
     applyPopupFontSettings(settings, root);
-    root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status");
+    const hideGroups = theme.furiganaMode === "known-status" ? new Set(settings.furiganaHiddenStateGroups) : /* @__PURE__ */ new Set();
+    for (const group of ["new", "learning", "known", "due", "failed"]) {
+      root.classList.toggle(`yomu-furi-hide-${group}`, hideGroups.has(group));
+    }
+    root.classList.toggle("jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
+    root.classList.toggle("yomu-furi-hover", theme.furiganaMode === "hover");
+    root.classList.toggle("yomu-word-color-new-only", settings.wordColorStates === "new-only");
     root.classList.toggle("jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
     root.classList.toggle("jpdb-reader-sheet-close-left", Boolean(settings.sheetCloseButtonOnLeft));
     root.classList.remove("jpdb-reader-highlight-status", "jpdb-reader-highlight-pitch", "jpdb-reader-highlight-off");
@@ -38786,7 +38811,7 @@ ${glossaryKey}`;
     }
     settingsJapaneseParsePlan(form) {
       if (!this.isCurrentSettingsRoot(form)) return null;
-      unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup]" });
+      unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
       clearNestedParseState(form);
       if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.canParseJapanese()) return null;
       const plan = nestedSettingsTextParsePlan(form, 640);

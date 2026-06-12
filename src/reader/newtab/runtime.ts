@@ -2039,7 +2039,7 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
-        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
+        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
         clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) return;
         const plan = nestedSettingsTextParsePlan(form, 640);

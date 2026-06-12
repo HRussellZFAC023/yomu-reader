@@ -25,8 +25,8 @@ describe('Jiten token rendering', () => {
         expect(word.querySelector('rt')?.textContent).toBe('よ');
     });
 
-    it('hides Jiten user-known and young furigana in known-status mode', () => {
-        for (const state of ['young', 'mature', 'mastered'] as const) {
+    it('hides Jiten known-family furigana in known-status mode (UT-47 default groups)', () => {
+        for (const state of ['mature', 'mastered'] as const) {
             const html = renderJitenToken('読む', state, { furiganaMode: 'known-status' });
 
             expect(html).toContain(`jpdb-${state}`);
@@ -34,11 +34,19 @@ describe('Jiten token rendering', () => {
             expect(html).not.toContain('<rt');
             expect(html).not.toContain('jpdb-reader-has-furi');
         }
+        // Learning-family words keep their ruby unless the user opts the
+        // "learning" group into hiding.
+        expect(renderJitenToken('読む', 'young', { furiganaMode: 'known-status' })).toContain('<rt');
+        expect(renderJitenToken('読む', 'young', { furiganaMode: 'known-status', furiganaHiddenStateGroups: ['learning'] })).not.toContain('<rt');
     });
 
-    it('uses Jiten credentials to hide user-known and young furigana in auto mode', () => {
-        expect(renderJitenToken('読む', 'young', { furiganaMode: 'auto' })).not.toContain('<rt');
+    it('uses Jiten credentials to hide user-known furigana in auto mode', () => {
         expect(renderJitenToken('読む', 'mature', { furiganaMode: 'auto' })).not.toContain('<rt');
+        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'auto' })).not.toContain('<rt');
+    });
+
+    it('renders ruby for every word in hover mode (visibility is CSS-driven)', () => {
+        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'hover' })).toContain('<rt');
     });
 
     it('still shows Jiten ruby in all mode', () => {

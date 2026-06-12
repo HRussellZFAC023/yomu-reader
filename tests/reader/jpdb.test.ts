@@ -3232,8 +3232,10 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word rt.jpdb-reader-furi { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).toContain('display: ruby-text;');
-        expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
-        expect(normalizedCss).toContain('.jpdb-reader-hide-known .jpdb-reader-word:is(.jiten-young, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-due, .jiten-never-forget, .jiten-redundant):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
+        // UT-47: hiding is per state group now.
+        expect(normalizedCss).toContain('.yomu-furi-hide-known .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
+        expect(normalizedCss).toContain('.yomu-furi-hide-due .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
+        expect(normalizedCss).toContain('.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi { visibility: hidden; }');
         expect(normalizedCss).toContain('text-decoration-line: inherit !important;');
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
@@ -5447,9 +5449,9 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    it('defaults furigana to all parsed words while automatic still personalizes from JPDB, Jiten, or Anki data', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+    it('defaults furigana to automatic, personalizing from JPDB, Jiten, or Anki data (UT-47)', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('auto');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' })).toBe('difficult-kanji');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');

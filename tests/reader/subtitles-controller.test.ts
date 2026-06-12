@@ -1937,6 +1937,7 @@ describe('SubtitlePlayerController', () => {
                 settings: {
                     subtitleTranscriptAutoScroll: false,
                     apiKey: 'test-key',
+                    furiganaMode: 'all',
                 },
             });
 
@@ -2222,6 +2223,9 @@ describe('SubtitlePlayerController', () => {
             const settings = {
                 ...DEFAULT_SETTINGS,
                 apiKey: 'test-key',
+                // This test pins hydration, not furigana policy (UT-47 made
+                // auto hide known-state ruby by default).
+                furiganaMode: 'all' as const,
                 localDictionariesEnabled: false,
                 subtitleTranscriptAutoScroll: false,
             };

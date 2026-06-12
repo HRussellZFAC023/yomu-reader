@@ -74,15 +74,23 @@ const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifu
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
 const MINING_INSIGHT_MIN_CARD_COUNT = 3;
-const KNOWN_STATUS_FURIGANA_HIDDEN_STATES = new Set<CardState>([
-    'young',
-    'mature',
-    'known',
-    'mastered',
-    'due',
-    'never-forget',
-    'redundant',
-]);
+// UT-47: the per-group state families behind "hide furigana for …" —
+// configurable through settings.furiganaHiddenStateGroups.
+const FURIGANA_GROUP_STATES: Record<ReaderSettings['furiganaHiddenStateGroups'][number], readonly CardState[]> = {
+    new: ['new', 'not-in-deck', 'in-deck'],
+    learning: ['learning', 'young'],
+    known: ['known', 'mature', 'mastered', 'never-forget', 'redundant'],
+    due: ['due'],
+    failed: ['failed'],
+};
+
+function furiganaHiddenStates(settings: ReaderSettings): Set<CardState> {
+    const states = new Set<CardState>();
+    for (const group of settings.furiganaHiddenStateGroups) {
+        for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
+    }
+    return states;
+}
 
 const FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
@@ -1515,17 +1523,15 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
 export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
     if (!allowRuby) return false;
     if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token);
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
 }
 
-function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken): boolean {
+function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken, settings: ReaderSettings): boolean {
     if (mode === 'off') return false;
-    if (mode === 'known-status') return !knownStatusHidesTokenFurigana(token);
+    // Hover mode renders ruby for every word; visibility is CSS-driven.
+    if (mode === 'hover') return true;
+    if (mode === 'known-status') return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
     return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
-}
-
-function knownStatusHidesTokenFurigana(token: JPDBToken): boolean {
-    return KNOWN_STATUS_FURIGANA_HIDDEN_STATES.has(primaryCardState(token.card.cardState));
 }
 
 function hasDifficultKanji(surface: string): boolean {

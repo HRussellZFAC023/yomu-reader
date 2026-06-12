@@ -2146,3 +2146,17 @@
   line-height: 0;
   padding-bottom: 2px !important;
 }
+
+
+/* UT-47: appearance preview — a sample annotated sentence that restyles
+   live with the furigana/colour options (classes cascade from the root). */
+.jpdb-reader-settings-appearance-preview {
+  margin: 8px 0 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 10px;
+  background: var(--jpdb-reader-surface);
+  font-size: 1.18rem;
+  line-height: 2.1;
+  user-select: none;
+}

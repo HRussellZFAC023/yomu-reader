@@ -80,7 +80,11 @@ export type NewTabKanjiKeywordSource = 'auto' | 'rtk' | 'jpdb' | 'local';
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
 
-export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'off';
+export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'hover' | 'off';
+
+export type FuriganaStateGroup = 'new' | 'learning' | 'known' | 'due' | 'failed';
+
+export type WordColorStates = 'all' | 'new-only';
 
 export interface AudioSourceSetting {
     type: AudioSourceType;
@@ -322,6 +326,8 @@ export interface ReaderSettings {
     puckPositionY?: number;
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
+    furiganaHiddenStateGroups: FuriganaStateGroup[];
+    wordColorStates: WordColorStates;
     showPitchAccent: boolean;
     suppressRedundantWordUi: boolean;
     sheetCloseButtonOnLeft: boolean;

@@ -327,8 +327,12 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+        // UT-47: auto resolves to known-status hiding once an SRS source exists
+        // (user-requested default), difficult-kanji otherwise.
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('auto');
+        expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
+        expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);

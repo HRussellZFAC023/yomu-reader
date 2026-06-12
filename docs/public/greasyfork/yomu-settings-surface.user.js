@@ -1435,7 +1435,11 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
-    furiganaMode: "all",
+    // UT-47: auto resolves to known-status hiding once an SRS source exists
+    // (the user-requested default), difficult-kanji otherwise.
+    furiganaMode: "auto",
+    furiganaHiddenStateGroups: ["known", "due", "failed"],
+    wordColorStates: "all",
     showPitchAccent: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
@@ -1731,6 +1735,8 @@
       puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
       showFurigana: booleanSetting(value, "showFurigana"),
       furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+      furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
+      wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
       hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
     };
   }
@@ -2033,7 +2039,13 @@
     return DEFAULT_SETTINGS.furiganaMode;
   }
   function isFuriganaMode(value) {
-    return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "off";
+    return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
+  }
+  const FURIGANA_STATE_GROUPS = /* @__PURE__ */ new Set(["new", "learning", "known", "due", "failed"]);
+  function normalizeFuriganaHiddenStateGroups(value) {
+    if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+    const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+    return [...new Set(groups)];
   }
   function legacyBooleanSettingIs(settings, key, expected) {
     return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
@@ -2586,8 +2598,10 @@
       settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
+      wordColorStates: "Color words",
       furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
+      furiganaHideKnown: "Hide for chosen states",
+      furiganaHoverOnly: "Show on hover only",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
@@ -4043,8 +4057,10 @@ showFloatingButton	設定ボタンを表示
 settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
+wordColorStates	色を付ける単語
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	既知語を非表示
+furiganaHideKnown	選択した状態で非表示
+furiganaHoverOnly	ホバー時のみ表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
@@ -5789,7 +5805,7 @@ recommendedJiten	jiten.moe頻度データです。
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "off"], current.furiganaMode);
+    const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode);
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
@@ -5950,9 +5966,12 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function readReadingDisplayFormSettings(reader, furiganaMode) {
     const { has } = reader;
+    const { get } = reader;
     return {
       showFurigana: furiganaMode !== "off",
       furiganaMode,
+      furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group) => has(`furiganaHide-${group}`)),
+      wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
       showPitchAccent: has("showPitchAccent"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
       sheetCloseButtonOnLeft: has("sheetCloseButtonOnLeft"),
@@ -7529,6 +7548,25 @@ recommendedJiten	jiten.moe頻度データです。
   function isAnkiSubdeckOf(deck, parent) {
     return Boolean(parent && deck.startsWith(`${parent}::`));
   }
+  const FURIGANA_HIDE_GROUPS = [
+    ["known", "Known"],
+    ["due", "Due"],
+    ["failed", "Failed"],
+    ["learning", "Learning"],
+    ["new", "New"]
+  ];
+  function renderFuriganaHiddenStateGroupControls(settings) {
+    const selected = new Set(settings.furiganaHiddenStateGroups);
+    const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
+  }
+  function renderAppearancePreview() {
+    return `<div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>`;
+  }
+  function appearancePreviewHtml() {
+    const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
+    return `${word("jpdb-new", "新", "あたら", "しい")}${word("jpdb-learning", "言葉", "ことば")}を${word("jpdb-due", "毎日", "まいにち")}${word("jpdb-failed", "勉強", "べんきょう")}して、${word("jpdb-known", "日本語", "にほんご")}が${word("jpdb-never-forget", "上手", "じょうず")}になる。`;
+  }
   function renderPitchColorSettingsSubsection(settings) {
     return renderColorSettingsSubsection("Pitch accent colors", PITCH_COLOR_FIELDS, settings);
   }
@@ -7676,7 +7714,11 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
-                    ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide known words"], ["all", "All parsed words"], ["off", "Off"]])}
+                    ${select("appearancePreset", "Appearance preset", "", [["", "Custom / current"], ["default", "Yomu default"], ["no-colors", "Don't color words"], ["new-only", "Only color new words"], ["underline-new", "Underline new words only"], ["furi-all", "Show all furigana"], ["furi-known-hidden", "Hide furigana you know"], ["furi-hover", "Furigana on hover only"], ["furi-off", "No furigana"]])}
+                    ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide for chosen states"], ["hover", "Show on hover only"], ["all", "All parsed words"], ["off", "Off"]])}
+                    ${renderFuriganaHiddenStateGroupControls(settings)}
+                    ${select("wordColorStates", "Color words", settings.wordColorStates, [["all", "All card states"], ["new-only", "Only new words"]])}
+                    ${renderAppearancePreview()}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
                     ${checkbox("suppressRedundantWordUi", "Hide styling on JPDB-redundant words", settings.suppressRedundantWordUi)}
                     ${checkbox("sheetCloseButtonOnLeft", "Mobile sheet: close button on the left", settings.sheetCloseButtonOnLeft)}
@@ -7946,7 +7988,7 @@ recommendedJiten	jiten.moe頻度データです。
     return value === "auto" || value === "en" || value === "ja" ? value : fallback;
   }
   function localizeSettingsForm(form, language) {
-    unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup]" });
+    unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
     const text = (key) => uiText(language, key);
     localizeSettingsShell(form, language, text);
     localizeSettingsLabels(form, text);
@@ -8183,6 +8225,7 @@ recommendedJiten	jiten.moe頻度データです。
       ["auto", text("automatic")],
       ["difficult-kanji", text("furiganaDifficultKanji")],
       ["known-status", text("furiganaHideKnown")],
+      ["hover", text("furiganaHoverOnly")],
       ["all", text("furiganaAllParsed")],
       ["off", text("off")]
     ]);
@@ -8626,6 +8669,7 @@ recommendedJiten	jiten.moe頻度データです。
     "lookupOnMiddleMouse",
     "showFloatingButton",
     "furiganaMode",
+    "wordColorStates",
     "showPitchAccent",
     "suppressRedundantWordUi",
     "sheetCloseButtonOnLeft",
@@ -9776,6 +9820,7 @@ recommendedJiten	jiten.moe頻度データです。
         if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
         if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
       });
+      this.bindAppearancePresets(form, applyThemePreview);
       form.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
       syncStickyBottomSheetAvailability(form);
       const syncImmersionTranslationReveal = () => {
@@ -9940,9 +9985,69 @@ recommendedJiten	jiten.moe頻度データです。
         "subtitleTextColorSource"
       ].includes(name);
     }
+    // UT-47: one-click appearance presets — each maps onto the underlying
+    // controls and replays the live theme preview, so the sample sentence and
+    // the page restyle immediately. The hidden-state fieldset only makes
+    // sense for the known-status mode.
+    bindAppearancePresets(form, applyThemePreview) {
+      const preview = form.querySelector("[data-yomu-appearance-preview]");
+      if (preview) setInnerHtml(preview, appearancePreviewHtml());
+      const setSelect = (name, value) => {
+        const control = form.querySelector(`select[name="${name}"]`);
+        if (control) control.value = value;
+      };
+      const setGroups = (groups) => {
+        for (const group of ["new", "learning", "known", "due", "failed"]) {
+          const box = form.querySelector(`input[name="furiganaHide-${group}"]`);
+          if (box) box.checked = groups.includes(group);
+        }
+      };
+      const syncGroupVisibility = () => {
+        const fieldset = form.querySelector("[data-furigana-hide-groups]");
+        const mode = form.querySelector('select[name="furiganaMode"]')?.value;
+        if (fieldset) fieldset.hidden = mode !== "known-status";
+      };
+      form.querySelector('select[name="furiganaMode"]')?.addEventListener("change", syncGroupVisibility);
+      const preset = form.querySelector('select[name="appearancePreset"]');
+      preset?.addEventListener("change", () => {
+        const value = preset.value;
+        if (!value) return;
+        if (value === "default") {
+          setSelect("wordColorStates", "all");
+          setSelect("furiganaMode", "auto");
+          setGroups(["known", "due", "failed"]);
+          setSelect("wordHighlightColorSource", "jpdb");
+          setSelect("wordUnderlineColorSource", "pitch");
+          setSelect("wordTextColorSource", "anki");
+        } else if (value === "no-colors") {
+          setSelect("wordColorStates", "all");
+          setSelect("wordHighlightColorSource", "off");
+          setSelect("wordUnderlineColorSource", "off");
+          setSelect("wordTextColorSource", "off");
+        } else if (value === "new-only") {
+          setSelect("wordColorStates", "new-only");
+        } else if (value === "underline-new") {
+          setSelect("wordColorStates", "new-only");
+          setSelect("wordHighlightColorSource", "off");
+          setSelect("wordTextColorSource", "off");
+          setSelect("wordUnderlineColorSource", "jpdb");
+        } else if (value === "furi-all") {
+          setSelect("furiganaMode", "all");
+        } else if (value === "furi-known-hidden") {
+          setSelect("furiganaMode", "known-status");
+          setGroups(["known", "due", "failed"]);
+        } else if (value === "furi-hover") {
+          setSelect("furiganaMode", "hover");
+        } else if (value === "furi-off") {
+          setSelect("furiganaMode", "off");
+        }
+        syncGroupVisibility();
+        applyThemePreview();
+      });
+    }
     isReaderDisplayControl(target) {
       const name = target?.name ?? "";
-      return ["furiganaMode", "theme", "readerFontFamily", "readerFontFamilyCustom", "popupFontFamily", "popupFontFamilyCustom", "popupFontWeight"].includes(name);
+      return ["furiganaMode", "wordColorStates", "theme", "readerFontFamily", "readerFontFamilyCustom", "popupFontFamily", "popupFontFamilyCustom", "popupFontWeight"].includes(name) || name.startsWith("furiganaHide-");
     }
     isAnkiFieldMappingControl(target) {
       return Boolean(target?.closest?.("[data-anki-field-role]"));

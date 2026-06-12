@@ -34,6 +34,7 @@ import {
     renderDictionarySourceRows,
     renderFrequencyDictionaryRows,
     renderRecommendedDictionaries,
+    appearancePreviewHtml,
     renderSettingsForm,
     jpdbStatusLineForSettings,
     syncAudioSourceRow,
@@ -747,6 +748,7 @@ export class SettingsDialogController {
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
             if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
         });
+        this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
         syncStickyBottomSheetAvailability(form);
         const syncImmersionTranslationReveal = () => {
@@ -916,9 +918,70 @@ export class SettingsDialogController {
         ].includes(name);
     }
 
+    // UT-47: one-click appearance presets — each maps onto the underlying
+    // controls and replays the live theme preview, so the sample sentence and
+    // the page restyle immediately. The hidden-state fieldset only makes
+    // sense for the known-status mode.
+    private bindAppearancePresets(form: HTMLFormElement, applyThemePreview: () => void): void {
+        const preview = form.querySelector<HTMLElement>('[data-yomu-appearance-preview]');
+        if (preview) setInnerHtml(preview, appearancePreviewHtml());
+        const setSelect = (name: string, value: string): void => {
+            const control = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
+            if (control) control.value = value;
+        };
+        const setGroups = (groups: string[]): void => {
+            for (const group of ['new', 'learning', 'known', 'due', 'failed']) {
+                const box = form.querySelector<HTMLInputElement>(`input[name="furiganaHide-${group}"]`);
+                if (box) box.checked = groups.includes(group);
+            }
+        };
+        const syncGroupVisibility = (): void => {
+            const fieldset = form.querySelector<HTMLElement>('[data-furigana-hide-groups]');
+            const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
+            if (fieldset) fieldset.hidden = mode !== 'known-status';
+        };
+        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.addEventListener('change', syncGroupVisibility);
+        const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]');
+        preset?.addEventListener('change', () => {
+            const value = preset.value;
+            if (!value) return;
+            if (value === 'default') {
+                setSelect('wordColorStates', 'all');
+                setSelect('furiganaMode', 'auto');
+                setGroups(['known', 'due', 'failed']);
+                setSelect('wordHighlightColorSource', 'jpdb');
+                setSelect('wordUnderlineColorSource', 'pitch');
+                setSelect('wordTextColorSource', 'anki');
+            } else if (value === 'no-colors') {
+                setSelect('wordColorStates', 'all');
+                setSelect('wordHighlightColorSource', 'off');
+                setSelect('wordUnderlineColorSource', 'off');
+                setSelect('wordTextColorSource', 'off');
+            } else if (value === 'new-only') {
+                setSelect('wordColorStates', 'new-only');
+            } else if (value === 'underline-new') {
+                setSelect('wordColorStates', 'new-only');
+                setSelect('wordHighlightColorSource', 'off');
+                setSelect('wordTextColorSource', 'off');
+                setSelect('wordUnderlineColorSource', 'jpdb');
+            } else if (value === 'furi-all') {
+                setSelect('furiganaMode', 'all');
+            } else if (value === 'furi-known-hidden') {
+                setSelect('furiganaMode', 'known-status');
+                setGroups(['known', 'due', 'failed']);
+            } else if (value === 'furi-hover') {
+                setSelect('furiganaMode', 'hover');
+            } else if (value === 'furi-off') {
+                setSelect('furiganaMode', 'off');
+            }
+            syncGroupVisibility();
+            applyThemePreview();
+        });
+    }
+
     private isReaderDisplayControl(target: EventTarget | null): boolean {
         const name = (target as HTMLInputElement | HTMLSelectElement | null)?.name ?? '';
-        return ['furiganaMode', 'theme', 'readerFontFamily', 'readerFontFamilyCustom', 'popupFontFamily', 'popupFontFamilyCustom', 'popupFontWeight'].includes(name);
+        return ['furiganaMode', 'wordColorStates', 'theme', 'readerFontFamily', 'readerFontFamilyCustom', 'popupFontFamily', 'popupFontFamilyCustom', 'popupFontWeight'].includes(name) || name.startsWith('furiganaHide-');
     }
 
     private isAnkiFieldMappingControl(target: EventTarget | null): boolean {

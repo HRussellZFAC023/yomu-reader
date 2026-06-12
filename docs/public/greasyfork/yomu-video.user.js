@@ -873,7 +873,7 @@
     "custom-json"
   ];
   new Set(AUDIO_SOURCE_TYPE_VALUES);
-  const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status"]);
+  const EXPLICIT_FURIGANA_MODES = /* @__PURE__ */ new Set(["all", "difficult-kanji", "known-status", "hover"]);
   ({
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
   });
@@ -913,15 +913,20 @@
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
-  const KNOWN_STATUS_FURIGANA_HIDDEN_STATES = /* @__PURE__ */ new Set([
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "never-forget",
-    "redundant"
-  ]);
+  const FURIGANA_GROUP_STATES = {
+    new: ["new", "not-in-deck", "in-deck"],
+    learning: ["learning", "young"],
+    known: ["known", "mature", "mastered", "never-forget", "redundant"],
+    due: ["due"],
+    failed: ["failed"]
+  };
+  function furiganaHiddenStates(settings) {
+    const states = /* @__PURE__ */ new Set();
+    for (const group of settings.furiganaHiddenStateGroups) {
+      for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
+    }
+    return states;
+  }
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   /* @__PURE__ */ new Set([
     ...PROSE_TAGS,
@@ -1026,15 +1031,13 @@
   function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
     if (!allowRuby) return false;
     if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token);
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
   }
-  function furiganaModeAllowsRuby(mode, surface, token) {
+  function furiganaModeAllowsRuby(mode, surface, token, settings) {
     if (mode === "off") return false;
-    if (mode === "known-status") return !knownStatusHidesTokenFurigana(token);
+    if (mode === "hover") return true;
+    if (mode === "known-status") return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
     return mode !== "difficult-kanji" || hasDifficultKanji(surface);
-  }
-  function knownStatusHidesTokenFurigana(token) {
-    return KNOWN_STATUS_FURIGANA_HIDDEN_STATES.has(primaryCardState(token.card.cardState));
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
@@ -2193,8 +2196,10 @@
       settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
+      wordColorStates: "Color words",
       furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
+      furiganaHideKnown: "Hide for chosen states",
+      furiganaHoverOnly: "Show on hover only",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
@@ -3650,8 +3655,10 @@ showFloatingButton	設定ボタンを表示
 settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
+wordColorStates	色を付ける単語
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	既知語を非表示
+furiganaHideKnown	選択した状態で非表示
+furiganaHoverOnly	ホバー時のみ表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示

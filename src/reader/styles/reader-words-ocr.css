@@ -538,15 +538,49 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.jpdb-reader-hide-known
-  .jpdb-reader-word:is(.jpdb-young, .jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-due, .jpdb-never-forget, .jpdb-redundant):not(.jpdb-reader-example-target)
+/* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).
+   The classes apply on the page root AND on the settings preview container,
+   so the preview restyles live. Example targets keep their ruby. */
+.yomu-furi-hide-known
+  .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
 }
-.jpdb-reader-hide-known
-  .jpdb-reader-word:is(.jiten-young, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-due, .jiten-never-forget, .jiten-redundant):not(.jpdb-reader-example-target)
+.yomu-furi-hide-due
+  .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target)
   .jpdb-reader-furi {
   display: none;
+}
+.yomu-furi-hide-failed
+  .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi {
+  display: none;
+}
+.yomu-furi-hide-learning
+  .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi {
+  display: none;
+}
+.yomu-furi-hide-new
+  .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target)
+  .jpdb-reader-furi {
+  display: none;
+}
+
+/* UT-47: hover-only furigana — ruby is rendered but only visible while the
+   word is hovered (visibility keeps the line height stable). */
+.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+  visibility: hidden;
+}
+
+/* UT-47: "only colour new words" — every non-new word inherits the page's
+   own colour and loses Yomu underline/highlight marking. */
+.yomu-word-color-new-only
+  .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
+  color: inherit !important;
+  background: transparent !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
 }
 
 .jpdb-ocr-video-frame {

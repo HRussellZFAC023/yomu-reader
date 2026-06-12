@@ -114,7 +114,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'off'] as const, current.furiganaMode);
+    const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode);
     const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
@@ -295,9 +295,12 @@ function readReadingDisplayFormSettings(
     furiganaMode: ReaderSettings['furiganaMode'],
 ): Partial<ReaderSettings> {
     const { has } = reader;
+    const { get } = reader;
     return {
         showFurigana: furiganaMode !== 'off',
         furiganaMode,
+        furiganaHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`furiganaHide-${group}`)),
+        wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
         showPitchAccent: has('showPitchAccent'),
         suppressRedundantWordUi: has('suppressRedundantWordUi'),
         sheetCloseButtonOnLeft: has('sheetCloseButtonOnLeft'),

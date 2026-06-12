@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.153] - 2026-06-12
+
+### Added
+
+- Appearance presets with a live preview (user request): one-click configurations covering the popular jpdb CSS recipes without writing CSS — don't color words, only color new words, underline new words instead of coloring, show all furigana, hide furigana for chosen card states, furigana on hover only, or no furigana. A sample annotated sentence in Settings → Reading restyles instantly as you change options.
+- Furigana hiding is now per state group: choose any combination of Known, Due, Failed, Learning and New under "Hide for chosen states". A new "Show on hover only" furigana mode renders ruby invisibly until the word is hovered.
+- New "Color words" option: keep Yomu's coloring on every card state, or only on new/not-in-deck words (everything you're already studying inherits the page's own text style).
+
+### Changed
+
+- The default furigana mode is now Automatic: with a JPDB/Jiten key or Anki connected it hides furigana for words you know (known, due and failed states by default — your request), and falls back to difficult-kanji-only furigana otherwise. An explicitly chosen mode is never changed.
+
 ## [0.6.152] - 2026-06-12
 
 ### Fixed

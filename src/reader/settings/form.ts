@@ -385,6 +385,37 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
     return Boolean(parent && deck.startsWith(`${parent}::`));
 }
 
+const FURIGANA_HIDE_GROUPS: Array<[ReaderSettings['furiganaHiddenStateGroups'][number], string]> = [
+    ['known', 'Known'],
+    ['due', 'Due'],
+    ['failed', 'Failed'],
+    ['learning', 'Learning'],
+    ['new', 'New'],
+];
+
+function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): string {
+    const selected = new Set(settings.furiganaHiddenStateGroups);
+    const boxes = FURIGANA_HIDE_GROUPS
+        .map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group)))
+        .join('');
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === 'known-status' ? '' : ' hidden'}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
+}
+
+// UT-47: a live sample sentence that mirrors the furigana/colour options.
+// data-settings-preview-lookup keeps localizeSettingsForm's
+// unwrapReaderWords pass from stripping the sample word spans.
+function renderAppearancePreview(): string {
+    return `<div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>`;
+}
+
+// The preview words carry the same state classes real annotations get, so
+// the root-level yomu-furi-*/yomu-word-color-* classes restyle them live.
+export function appearancePreviewHtml(): string {
+    const word = (classes: string, base: string, furi: string, tail = ''): string =>
+        `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
+    return `${word('jpdb-new', '新', 'あたら', 'しい')}${word('jpdb-learning', '言葉', 'ことば')}を${word('jpdb-due', '毎日', 'まいにち')}${word('jpdb-failed', '勉強', 'べんきょう')}して、${word('jpdb-known', '日本語', 'にほんご')}が${word('jpdb-never-forget', '上手', 'じょうず')}になる。`;
+}
+
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
     return renderColorSettingsSubsection('Pitch accent colors', PITCH_COLOR_FIELDS, settings);
 }
@@ -542,7 +573,11 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
-                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide known words'], ['all', 'All parsed words'], ['off', 'Off']])}
+                    ${select('appearancePreset', 'Appearance preset', '', [['', 'Custom / current'], ['default', 'Yomu default'], ['no-colors', "Don't color words"], ['new-only', 'Only color new words'], ['underline-new', 'Underline new words only'], ['furi-all', 'Show all furigana'], ['furi-known-hidden', 'Hide furigana you know'], ['furi-hover', 'Furigana on hover only'], ['furi-off', 'No furigana']])}
+                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide for chosen states'], ['hover', 'Show on hover only'], ['all', 'All parsed words'], ['off', 'Off']])}
+                    ${renderFuriganaHiddenStateGroupControls(settings)}
+                    ${select('wordColorStates', 'Color words', settings.wordColorStates, [['all', 'All card states'], ['new-only', 'Only new words']])}
+                    ${renderAppearancePreview()}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
                     ${checkbox('suppressRedundantWordUi', 'Hide styling on JPDB-redundant words', settings.suppressRedundantWordUi)}
                     ${checkbox('sheetCloseButtonOnLeft', 'Mobile sheet: close button on the left', settings.sheetCloseButtonOnLeft)}
@@ -831,7 +866,7 @@ export function getFormInterfaceLanguage(form: HTMLFormElement, fallback: Interf
 }
 
 export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage): void {
-    unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
+    unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
     localizeSettingsShell(form, language, text);
     localizeSettingsLabels(form, text);
@@ -1091,6 +1126,7 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
         ['auto', text('automatic')],
         ['difficult-kanji', text('furiganaDifficultKanji')],
         ['known-status', text('furiganaHideKnown')],
+        ['hover', text('furiganaHoverOnly')],
         ['all', text('furiganaAllParsed')],
         ['off', text('off')],
     ]);
@@ -1531,7 +1567,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
