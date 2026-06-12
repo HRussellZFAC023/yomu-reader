@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.168] - 2026-06-12
+
+### Added
+
+- With both JPDB and Jiten connected, the study page's deck picker now has one-tap "JPDB" and "Jiten" entries to study a single provider's queue — "All vocabulary" keeps mixing both, and individual decks keep scoping further.
+
 ## [0.6.167] - 2026-06-12
 
 ### Added

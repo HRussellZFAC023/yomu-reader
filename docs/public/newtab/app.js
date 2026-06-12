@@ -55429,8 +55429,12 @@ ${entry.url}`),
         const jiten = await this.loadJitenStudyBatchWords({ ...options, deckId: jitenDeckId });
         return jiten ? [jiten] : [];
       }
+      if (pickedDeck === "provider:jiten") {
+        const jiten = await this.loadJitenStudyBatchWords(options);
+        return jiten ? [jiten] : [];
+      }
       if (hasJpdbKey) {
-        const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
+        const selectedDeck = NewTabController.normalizeProviderScopedDeck((this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS);
         const timeoutMs = selectedDeck === JPDB_ALL_DECKS ? Math.max(options.timeoutMs ?? 0, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3) : options.timeoutMs;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
         if (selectedDeckCards) apiResults.push(selectedDeckCards);
@@ -55440,6 +55444,10 @@ ${entry.url}`),
         if (jiten) apiResults.push(jiten);
       }
       return apiResults;
+    }
+    // UT-62: provider:jpdb behaves like the all-decks union scoped to JPDB.
+    static normalizeProviderScopedDeck(pickedDeck) {
+      return pickedDeck === "provider:jpdb" ? "all" : pickedDeck;
     }
     loadJpdbWordsFallback(hasJpdbKey, allowPublicFallback) {
       if (allowPublicFallback !== false) return this.loadFreshStudyWords();
@@ -59884,8 +59892,14 @@ ${entry.url}`),
       const jitenDecks = await this.jitenDeckSelectorOptions(settings);
       if (!select2.isConnected) return;
       const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || "all";
+      const bothProviders = hasJpdbApiCredential(settings) && hasJitenApiCredential(settings);
       const options = [
         { id: "all", name: this.text("allVocabularyDeck") },
+        // UT-62: one-tap provider scoping when both queues exist.
+        ...bothProviders ? [
+          { id: "provider:jpdb", name: "JPDB" },
+          { id: "provider:jiten", name: "Jiten" }
+        ] : [],
         ...decks.filter((deck) => deck.id !== "all"),
         ...jitenDecks
       ];

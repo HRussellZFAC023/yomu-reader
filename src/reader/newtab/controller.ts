@@ -2716,10 +2716,15 @@ export class NewTabController {
             const jiten = await this.loadJitenStudyBatchWords({ ...options, deckId: jitenDeckId });
             return jiten ? [jiten] : [];
         }
+        // UT-62: provider umbrellas — study only one provider's queue.
+        if (pickedDeck === 'provider:jiten') {
+            const jiten = await this.loadJitenStudyBatchWords(options);
+            return jiten ? [jiten] : [];
+        }
         if (hasJpdbKey) {
             // The in-page deck selector (study-hub parity SH-6) overrides the
             // settings default; '' follows settings.
-            const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
+            const selectedDeck = NewTabController.normalizeProviderScopedDeck((this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS);
             // The all-decks union lists every user deck before one bulk
             // lookup; large accounts need more than the default 8s (the old
             // timeout surfaced as "No reviews ready" with due cards waiting).
@@ -2734,6 +2739,11 @@ export class NewTabController {
             if (jiten) apiResults.push(jiten);
         }
         return apiResults;
+    }
+
+    // UT-62: provider:jpdb behaves like the all-decks union scoped to JPDB.
+    private static normalizeProviderScopedDeck(pickedDeck: string): string {
+        return pickedDeck === 'provider:jpdb' ? 'all' : pickedDeck;
     }
 
     private loadJpdbWordsFallback(hasJpdbKey: boolean, allowPublicFallback: boolean | undefined): Promise<NewTabLoadResult> | NewTabLoadResult {
@@ -7928,8 +7938,14 @@ export class NewTabController {
         const jitenDecks = await this.jitenDeckSelectorOptions(settings);
         if (!select.isConnected) return;
         const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
+        const bothProviders = hasJpdbApiCredential(settings) && hasJitenApiCredential(settings);
         const options = [
             { id: 'all', name: this.text('allVocabularyDeck') },
+            // UT-62: one-tap provider scoping when both queues exist.
+            ...(bothProviders ? [
+                { id: 'provider:jpdb', name: 'JPDB' },
+                { id: 'provider:jiten', name: 'Jiten' },
+            ] : []),
             ...decks.filter(deck => deck.id !== 'all'),
             ...jitenDecks,
         ];
