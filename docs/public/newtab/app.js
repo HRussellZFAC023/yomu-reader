@@ -5401,11 +5401,7 @@
   const BLOCK_LIKE_DISPLAY_VALUES = /* @__PURE__ */ new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
   function isFragileUiText(element, text2) {
     if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
-    if (isFragileUiContext(element, text2)) return true;
-    const metrics = fragileTextMetrics(element, text2);
-    if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
-    if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
-    return fragileByInlineControl(text2, metrics.style, metrics.rect);
+    return isFragileUiContext(element, text2);
   }
   function isShortCenteredDisplayHeading(element, text2) {
     const heading = closestDisplayHeading(element);
@@ -5434,70 +5430,9 @@
     if (compactLength(text2) < 8) return false;
     return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
   }
-  function fragileTextMetrics(element, text2) {
-    const style = safeComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    const compactLength2 = Array.from(text2.replace(/\s+/g, "")).length;
-    const fontSize = cssPixels(style.fontSize);
-    const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
-    return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element) };
-  }
-  function fragileByCompactLayout(text2, style, rect) {
-    if (!hasCompactLayoutShape(text2, rect)) return false;
-    return hasCompactLayoutAlignment(style);
-  }
-  function hasCompactLayoutShape(text2, rect) {
-    return rect.width > 0 && text2.length <= 12 && rect.width < 180;
-  }
-  function hasCompactLayoutAlignment(style) {
-    return style.textAlign === "center" || style.whiteSpace !== "normal";
-  }
-  function fragileByInlineControl(text2, style, rect) {
-    return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
-  }
-  function fragileByTypography(element, style, compactLength2, fontSize, lineHeight, prose) {
-    const centered = style.textAlign === "center";
-    const heading = DISPLAY_HEADING_RE.test(element.tagName);
-    if (!heading) return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
-    if (isReadableArticleHeading(element, compactLength2)) return false;
-    if (fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight)) return true;
-    return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
-  }
-  function fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight) {
-    return compactLength2 <= 40 && (centered || fontSize >= 18 || lineHeight <= fontSize * 1.35);
-  }
-  function fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose) {
-    if (!isCompactCenteredNonProse(prose, centered, compactLength2)) return false;
-    return hasProminentCenteredTypography(style, fontSize);
-  }
-  function isCompactCenteredNonProse(prose, centered, compactLength2) {
-    return !prose && centered && compactLength2 <= 30;
-  }
-  function hasProminentCenteredTypography(style, fontSize) {
-    return fontSize >= 17 || Number(style.fontWeight) >= 600;
-  }
-  function isReadableArticleHeading(element, compactLength2) {
-    return compactLength2 >= 4 && Boolean(element.closest('article, main, [role="main"]'));
-  }
-  function hasUiBox(style) {
-    return [
-      style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack,
-      style.borderTopStyle !== "none",
-      Number(style.borderTopWidth.replace("px", "")) > 0,
-      Number(style.borderBottomWidth.replace("px", "")) > 0,
-      Number.parseFloat(style.borderRadius) > 0
-    ].some(Boolean);
-  }
-  function hasInlineControlShape(display) {
-    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
-  }
   function isLikelyProseElement(element) {
     if (PROSE_TAGS.has(element.tagName)) return true;
     return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element.className || "");
-  }
-  function cssPixels(value) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
   }
   function ancestorClassLooksLikeUi(element) {
     let current = element;
@@ -5512,7 +5447,8 @@
     const link = element.closest("a[href]");
     if (!link) return false;
     if (isLikelyProseLink(link, element)) return false;
-    return [isExplicitControlLink(link), linkHasControlMedia(link), linkHasControlShape(link, text2)].some(Boolean);
+    const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
+    return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
   }
   function isLikelyProseLink(link, element) {
     return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element));

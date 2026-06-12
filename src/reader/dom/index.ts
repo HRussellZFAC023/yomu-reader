@@ -401,12 +401,13 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
     const passiveInteraction = isPassiveInteractionElement(parent);
+    const text = nodeTextContent(node).trim();
     return {
         node: node as Text,
-        text: nodeTextContent(node).trim(),
+        text,
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
-        layoutSensitive: isLayoutSensitiveScanElement(parent),
+        layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
         passiveInteraction,
     };
 }
@@ -1859,11 +1860,18 @@ const BLOCK_LIKE_DISPLAY_VALUES = new Set(['block', 'flow-root', 'grid', 'list-i
 
 function isFragileUiText(element: HTMLElement, text: string): boolean {
     if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
-    if (isFragileUiContext(element, text)) return true;
+    return isFragileUiContext(element, text);
+}
 
+// UT-52: geometry-fragile text (compact rows, tight headings, inline
+// controls — e.g. YouTube channel names) is no longer SKIPPED; it annotates
+// colour-only via the layoutSensitive flag so ruby can never break the row.
+function isGeometryFragileText(element: HTMLElement, text: string): boolean {
+    if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
     const metrics = fragileTextMetrics(element, text);
     if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
+    if (isInsideMediaTextLink(element, text)) return true;
     return fragileByInlineControl(text, metrics.style, metrics.rect);
 }
 
@@ -2015,7 +2023,18 @@ function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link) return false;
     if (isLikelyProseLink(link, element)) return false;
-    return [isExplicitControlLink(link), linkHasControlMedia(link), linkHasControlShape(link, text)].some(Boolean);
+    // UT-52: a link that carries media AND real text (channel avatar + name)
+    // is content, not an icon button — those soft-annotate colour-only via
+    // isGeometryFragileText instead of being skipped.
+    const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text) <= 2;
+    return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text)].some(Boolean);
+}
+
+// UT-52 soft tier: media-bearing text links annotate without ruby.
+function isInsideMediaTextLink(element: HTMLElement, text: string): boolean {
+    const link = element.closest('a[href]') as HTMLElement | null;
+    if (!link || isLikelyProseLink(link, element)) return false;
+    return linkHasControlMedia(link) && compactLength(text) > 2;
 }
 
 function isLikelyProseLink(link: HTMLElement, element: HTMLElement): boolean {

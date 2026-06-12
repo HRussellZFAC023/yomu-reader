@@ -3158,12 +3158,13 @@
     const parent = node.parentElement;
     if (!parent) return null;
     const passiveInteraction = isPassiveInteractionElement(parent);
+    const text2 = nodeTextContent(node).trim();
     return {
       node,
-      text: nodeTextContent(node).trim(),
+      text: text2,
       parent,
       hasNativeRuby: Boolean(parent.closest("ruby")),
-      layoutSensitive: isLayoutSensitiveScanElement(parent),
+      layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
       passiveInteraction
     };
   }
@@ -4203,10 +4204,14 @@
   const BLOCK_LIKE_DISPLAY_VALUES = /* @__PURE__ */ new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
   function isFragileUiText(element2, text2) {
     if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
-    if (isFragileUiContext(element2, text2)) return true;
+    return isFragileUiContext(element2, text2);
+  }
+  function isGeometryFragileText(element2, text2) {
+    if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
     const metrics = fragileTextMetrics(element2, text2);
     if (fragileByTypography(element2, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
+    if (isInsideMediaTextLink(element2, text2)) return true;
     return fragileByInlineControl(text2, metrics.style, metrics.rect);
   }
   function isShortCenteredDisplayHeading(element2, text2) {
@@ -4314,7 +4319,13 @@
     const link = element2.closest("a[href]");
     if (!link) return false;
     if (isLikelyProseLink(link, element2)) return false;
-    return [isExplicitControlLink(link), linkHasControlMedia(link), linkHasControlShape(link, text2)].some(Boolean);
+    const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
+    return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
+  }
+  function isInsideMediaTextLink(element2, text2) {
+    const link = element2.closest("a[href]");
+    if (!link || isLikelyProseLink(link, element2)) return false;
+    return linkHasControlMedia(link) && compactLength(text2) > 2;
   }
   function isLikelyProseLink(link, element2) {
     return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
