@@ -3415,6 +3415,7 @@
     newTabOfflineLimit: 50,
     newTabDailyGoalMinutes: 60,
     newTabKanjiUnlockEnabled: true,
+    newTabStopAtBatchEnd: false,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -3699,6 +3700,7 @@
       newTabOfflineLimit: clampNumber$3(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabDailyGoalMinutes: clampNumber$3(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
+      newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5682,6 +5684,7 @@
       newTabOfflineLimit: "Offline review cache limit",
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
+      newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -7146,6 +7149,7 @@ newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
+newTabStopAtBatchEnd	バッチの終わりで停止
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -19763,6 +19767,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
       newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
       newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
+      newTabStopAtBatchEnd: has("newTabStopAtBatchEnd"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -21322,6 +21327,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
                         ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
+                        ${checkbox("newTabStopAtBatchEnd", "Stop at the end of each batch", settings.newTabStopAtBatchEnd)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
@@ -22467,6 +22473,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "newTabOfflineLimit",
     "newTabDailyGoalMinutes",
     "newTabKanjiUnlockEnabled",
+    "newTabStopAtBatchEnd",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",
@@ -39481,6 +39488,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       browseSortDescending: "Descending",
       browseSelectMode: "Select",
       undoReview: "Undo",
+      batchComplete: "Batch complete",
+      continueStudying: "Continue",
       reviewUndone: "Review undone.",
       undoReviewFailed: "Could not undo the review.",
       searchWordsOrKanji: "Search words or kanji",
@@ -39625,6 +39634,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     browseSortDescending: "降順",
     browseSelectMode: "選択",
     undoReview: "取り消す",
+    batchComplete: "バッチ完了",
+    continueStudying: "続ける",
     reviewUndone: "レビューを取り消しました。",
     undoReviewFailed: "レビューを取り消せませんでした。",
     searchWordsOrKanji: "単語・漢字を検索",
@@ -52996,6 +53007,9 @@ ${entry.url}`),
       "undo-review": (root) => {
         void this.undoLastReview(root);
       },
+      "continue-batch": (root) => {
+        void this.continueAfterBatch(root);
+      },
       grade: (root, target) => this.gradeFromStudyClick(root, target),
       "jpdb-kanji-action": (root, target) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -58652,6 +58666,27 @@ ${entry.url}`),
       }
       this.publishGradedCardState(card);
     }
+    renderBatchComplete(root) {
+      const slots = this.studySlots(root);
+      root.classList.remove("jpdb-reader-newtab-revealed");
+      this.renderPromptSlot(slots.prompt, this.text("batchComplete"), resolveUiLanguage(this.language()) === "ja" ? "ja" : "en");
+      setOptionalText(slots.answer, "");
+      const snapshot = this.sessionProgress.snapshot([]);
+      setOptionalText(slots.meaning, `${this.text("sessionDone")} ${snapshot.completedReviews} · ${snapshot.elapsedLabel}`);
+      this.renderCount(slots.count, "");
+      setOptionalText(slots.status, "");
+      if (slots.controls) {
+        slots.controls.hidden = false;
+        replaceChildrenWith(
+          slots.controls,
+          el("button", { type: "button", dataset: { newtabAction: "continue-batch" } }, this.text("continueStudying"))
+        );
+      }
+    }
+    async continueAfterBatch(root) {
+      this.setStatus(root, this.text("loading"));
+      await this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
     lastUndoableReview;
     canUndoLastReview() {
       return Boolean(this.lastUndoableReview && Date.now() - this.lastUndoableReview.at < NEW_TAB_UNDO_REVIEW_WINDOW_MS && typeof this.dependencies.jiten?.undoReview === "function");
@@ -58828,6 +58863,10 @@ ${entry.url}`),
         this.clearReviewHistory();
         this.visibleWords = [];
         this.visiblePoolSignature = "";
+        if (this.reviewCountMode && this.dependencies.getSettings().newTabStopAtBatchEnd) {
+          this.renderBatchComplete(root);
+          return;
+        }
         void this.loadWordsInto(root, false, { useOfflineCache: false });
         return;
       }

@@ -63,7 +63,8 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
   - Evidence: `#jiten-suggestions`, "Compound decks", 2026-06-10.
   - Yomu cross-reference: Yomu can review provider cards, but has no Jiten compound-deck learner lane or compound-specific card model.
 
-- Add stop-at-end-of-batch review mode.
+- DONE 0.6.141 — stop-at-end-of-batch: opt-in setting 'Stop at the end of each batch' (default off); when the loaded review batch exhausts, the study page shows 'Batch complete · Done N · elapsed' with an explicit Continue button instead of silently fetching more (also delivers the queue-completion-summary idea from research round 2).
+- Add stop-at-end-of-batch review mode (original).
   - Evidence: `#jiten-suggestions`, "Srs stop at the end of batch", 2026-06-09.
   - Yomu cross-reference: Yomu has session progress and queues in `src/reader/newtab/session-progress.ts` and `src/reader/newtab/study-queue.ts`; no explicit "do not fetch next batch after current batch" mode was confirmed.
 
