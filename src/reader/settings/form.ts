@@ -1126,6 +1126,21 @@ function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText)
 
 function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText): void {
     localizeColorSourceSelects(form, text);
+    setSelectOptionLabels(form, 'appearancePreset', [
+        ['', text('appearancePresetCustom')],
+        ['default', text('appearancePresetDefault')],
+        ['no-colors', text('appearancePresetNoColors')],
+        ['new-only', text('appearancePresetNewOnly')],
+        ['underline-new', text('appearancePresetUnderlineNew')],
+        ['furi-all', text('appearancePresetFuriAll')],
+        ['furi-known-hidden', text('appearancePresetFuriKnownHidden')],
+        ['furi-hover', text('appearancePresetFuriHover')],
+        ['furi-off', text('appearancePresetFuriOff')],
+    ]);
+    setSelectOptionLabels(form, 'wordColorStates', [
+        ['all', text('wordColorStatesAll')],
+        ['new-only', text('wordColorStatesNewOnly')],
+    ]);
     setSelectOptionLabels(form, 'furiganaMode', [
         ['auto', text('automatic')],
         ['difficult-kanji', text('furiganaDifficultKanji')],

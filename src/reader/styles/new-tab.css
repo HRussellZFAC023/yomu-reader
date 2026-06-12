@@ -3799,3 +3799,27 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font-weight: 600;
   cursor: pointer;
 }
+
+
+/* UT-45: shared card-enter motion after a grade (buttons and swipe alike). */
+@keyframes jpdb-reader-newtab-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jpdb-reader-newtab-card-fresh {
+  animation: jpdb-reader-newtab-card-in 170ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-newtab-card-fresh {
+    animation: none;
+  }
+}

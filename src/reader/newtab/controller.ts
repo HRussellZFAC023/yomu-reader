@@ -7388,12 +7388,25 @@ export class NewTabController {
         }
         this.index = nextIndex;
         this.renderWord(root, this.visibleWords[this.index]);
+        this.playCardEnterTransition(root);
         if (this.shouldRefreshQueueAfterGrade(card)) void this.loadWordsInto(root, true, {
             useOfflineCache: false,
             quiet: true,
             excludeCardKeys: [key],
             preserveVisibleOrder: true,
         });
+    }
+
+    // UT-45: button grades advance with the same brief card-enter motion the
+    // swipe commit produces, so the two grading paths feel identical.
+    // (prefers-reduced-motion disables it in CSS.)
+    private playCardEnterTransition(root: HTMLElement): void {
+        const study = root.querySelector<HTMLElement>('[data-newtab-study]');
+        if (!study) return;
+        study.classList.remove('jpdb-reader-newtab-card-fresh');
+        void study.offsetWidth;
+        study.classList.add('jpdb-reader-newtab-card-fresh');
+        study.addEventListener('animationend', () => study.classList.remove('jpdb-reader-newtab-card-fresh'), { once: true });
     }
 
     private requeueFailedCard(root: HTMLElement, gradedKey: string, previousIndex: number): void {
@@ -7406,10 +7419,12 @@ export class NewTabController {
             // The failed card is the only one left: show it again directly.
             this.index = 0;
             this.renderWord(root, this.visibleWords[0] ?? this.allWords[0]!);
+            this.playCardEnterTransition(root);
             return;
         }
         this.index = Math.min(previousIndex, this.visibleWords.length - 1);
         this.renderWord(root, this.visibleWords[this.index]!);
+        this.playCardEnterTransition(root);
     }
 
     private nextVisibleReviewCardKeyAfterGrade(gradedKey: string, startIndex: number): string {
