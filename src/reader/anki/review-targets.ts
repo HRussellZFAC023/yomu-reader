@@ -21,6 +21,8 @@ export function collectAnkiReviewTargetLabels(
     return Array.from(candidates, ([cardId, label]) => ({ cardId, label }));
 }
 
+// Grade targets keep the #id: it disambiguates duplicate cards of the same
+// deck/template (the rendered-card HEADINGS drop it instead — UT-49).
 export function compactAnkiReviewTargetLabel(label: string, cardId: number): string {
     const suffix = `#${cardId}`;
     const clean = label.replace(/\s+/g, ' ').trim();

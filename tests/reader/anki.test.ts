@@ -1794,7 +1794,7 @@ describe('Anki rendered card details', () => {
         const target = section.querySelector<HTMLElement>('.jpdb-reader-review-target');
         const easy = section.querySelector<HTMLButtonElement>('[data-grade="easy"]');
 
-        expect(titles).toEqual(['Mining · Production #456', 'Mining · Recognition #123']);
+        expect(titles).toEqual(['Mining · Production', 'Mining · Recognition']);
         expect(target?.textContent).toBe('Grades Anki card: Mining · Production #456');
         expect(easy?.dataset.ankiCardId).toBe('456');
         expect(easy?.getAttribute('aria-label')).toBe('Easy: Grades Anki card: Mining · Production #456');

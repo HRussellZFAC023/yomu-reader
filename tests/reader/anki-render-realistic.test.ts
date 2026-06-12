@@ -22,7 +22,7 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expect(renderedCards).toHaveLength(2);
         expectFirstRenderedAnkiCardOpen(renderedCards);
         expect(renderedCards.map(card => card.querySelector('.jpdb-reader-anki-rendered-card-title')?.textContent))
-            .toEqual(['RRTK Recognition #7001', 'RRTK Recognition #7002']);
+            .toEqual(['RRTK Recognition · Card 1', 'RRTK Recognition · Card 2']);
         expect(section.querySelector('style')).toBeNull();
         // UT-49: multi-font glyph repeats collapse to one per rendered side
         // (the decorative @font-face fonts cannot load here, so the repeats

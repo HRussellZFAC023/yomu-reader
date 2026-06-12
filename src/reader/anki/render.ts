@@ -281,10 +281,11 @@ function orderedRenderedCards(note: AnkiExistingNote): AnkiRenderedCard[] {
     return primary ? [primary, ...cards.filter(card => card.cardId !== primary.cardId)] : cards;
 }
 
+// UT-49: raw card ids (#1764...) are database noise to users — the deck
+// plus the template name (or an ordinal) identifies the card fully.
 function renderedCardTitle(card: AnkiRenderedCard, index: number): string {
-    const id = `#${card.cardId || index + 1}`;
-    if (card.cardName) return [card.deckName, `${card.cardName} ${id}`].filter(Boolean).join(' · ');
-    return [card.deckName, id].filter(Boolean).join(' ');
+    if (card.cardName) return [card.deckName, card.cardName].filter(Boolean).join(' · ');
+    return [card.deckName, `Card ${index + 1}`].filter(Boolean).join(' · ');
 }
 
 function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[], language: InterfaceLanguage, options = POPOVER_ANKI_SANITIZE): string[] {

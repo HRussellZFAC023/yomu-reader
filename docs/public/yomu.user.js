@@ -17223,9 +17223,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return primary ? [primary, ...cards.filter((card) => card.cardId !== primary.cardId)] : cards;
   }
   function renderedCardTitle(card, index) {
-    const id = `#${card.cardId || index + 1}`;
-    if (card.cardName) return [card.deckName, `${card.cardName} ${id}`].filter(Boolean).join(" · ");
-    return [card.deckName, id].filter(Boolean).join(" ");
+    if (card.cardName) return [card.deckName, card.cardName].filter(Boolean).join(" · ");
+    return [card.deckName, `Card ${index + 1}`].filter(Boolean).join(" · ");
   }
   function renderAnkiRenderedSides(card, soundFilenames, language, options = POPOVER_ANKI_SANITIZE) {
     const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls, options);
