@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.142] - 2026-06-12
+
+### Added
+
+- Failed cards now loop within your study session, jpdb-style: grading Nothing/Something (or Fail in two-button mode) puts the card at the back of the current queue so it comes around again until you pass it. Hard still advances the card.
+
 ## [0.6.141] - 2026-06-12
 
 ### Added

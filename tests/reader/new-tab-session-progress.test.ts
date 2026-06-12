@@ -291,3 +291,63 @@ describe('stop at end of batch (community ask)', () => {
         }
     });
 });
+
+describe('failed-card session loop (community ask)', () => {
+    it('requeues a failed card at the back of the session instead of dropping it', () => {
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jiten: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: false }), grade: vi.fn(), requestCurrent: vi.fn() } as never,
+            parser: {} as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        } as never);
+        try {
+            const card = (spelling: string, vid: number) => ({
+                vid, sid: 0, rid: 0, spelling, reading: spelling,
+                frequencyRank: null, partOfSpeech: [], meanings: [], cardState: ['due'],
+                pitchAccent: [], wordWithReading: null, source: 'jpdb', reviewSource: 'jpdb-api',
+            } as unknown as JPDBCard);
+            const failedCard = card('落第', 1);
+            const nextCard = card('次', 2);
+            const internals = controller as unknown as {
+                reviewCountMode: boolean;
+                visibleWords: JPDBCard[];
+                allWords: JPDBCard[];
+                index: number;
+                renderWord(root: HTMLElement, card: JPDBCard): void;
+                rememberReviewHistoryCard(card: JPDBCard): void;
+                advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: string): void;
+            };
+            internals.reviewCountMode = true;
+            internals.visibleWords = [failedCard, nextCard];
+            internals.allWords = [failedCard, nextCard];
+            internals.index = 0;
+            internals.renderWord = vi.fn();
+            internals.rememberReviewHistoryCard = vi.fn();
+            const root = document.createElement('main');
+
+            internals.advanceAfterGrade(root, failedCard, 'nothing');
+
+            expect(internals.visibleWords.map(item => item.spelling)).toEqual(['次', '落第']);
+            expect(internals.allWords.map(item => item.spelling)).toEqual(['落第', '次']);
+            expect(internals.renderWord).toHaveBeenCalledWith(root, nextCard);
+
+            // A passing grade still removes the card.
+            internals.index = 0;
+            internals.advanceAfterGrade(root, nextCard, 'okay');
+            expect(internals.allWords.map(item => item.spelling)).toEqual(['落第']);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
