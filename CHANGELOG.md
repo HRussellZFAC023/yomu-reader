@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.138] - 2026-06-12
+
+### Changed
+
+- Anki card audio: media files are now cached after the first play, so replaying a card's audio (or revisiting the same note) no longer re-downloads it from AnkiConnect each time.
+
 ## [0.6.137] - 2026-06-12
 
 ### Fixed

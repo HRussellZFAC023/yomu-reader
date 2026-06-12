@@ -16032,6 +16032,7 @@ ${entry.reading || ""}`;
   const ANKI_EDITED_SWEEP_DAY_MS = 24 * 60 * 60 * 1e3;
   const ANKI_STATUS_INDEX_CARD_CONCURRENCY = 3;
   const ANKI_RENDERED_MEDIA_LIMIT = 12;
+  const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
   const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
   const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
   const ANKI_MOBILE_FALLBACK_DECK$1 = "Default";
@@ -16084,6 +16085,10 @@ ${entry.reading || ""}`;
       this.installFocusStatusRefresh();
     }
     lookupCache = /* @__PURE__ */ new Map();
+    // Media manifest cache (P1): base64 payloads from retrieveMediaFile are
+    // expensive; repeat plays/hydrations reuse the same data URL by sanitized
+    // filename. Failures are evicted so a transient error can retry.
+    mediaDataUrlCache = /* @__PURE__ */ new Map();
     statusLookupCache = /* @__PURE__ */ new Map();
     lookupInflight = /* @__PURE__ */ new Map();
     statusIndex;
@@ -17112,6 +17117,20 @@ ${entry.reading || ""}`;
     async mediaFileDataUrl(filename) {
       const cleanFilename = filename.trim();
       if (!cleanFilename) throw new Error(this.text("ankiAudioFileNotFound"));
+      const cached = this.mediaDataUrlCache.get(cleanFilename);
+      if (cached) return cached;
+      const promise = this.fetchMediaFileDataUrl(cleanFilename).catch((error) => {
+        this.mediaDataUrlCache.delete(cleanFilename);
+        throw error;
+      });
+      this.mediaDataUrlCache.set(cleanFilename, promise);
+      if (this.mediaDataUrlCache.size > ANKI_MEDIA_DATA_URL_CACHE_LIMIT) {
+        const oldest = this.mediaDataUrlCache.keys().next().value;
+        if (oldest !== void 0) this.mediaDataUrlCache.delete(oldest);
+      }
+      return promise;
+    }
+    async fetchMediaFileDataUrl(cleanFilename) {
       const data = await this.invoke("retrieveMediaFile", { filename: cleanFilename });
       if (!data) throw new Error(this.text("ankiAudioFileNotFound"));
       return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
