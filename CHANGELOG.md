@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.146] - 2026-06-12
+
+### Fixed
+
+- Study page swipe-to-grade works on iOS Safari: the card now declares `touch-action: pan-y`, so Safari no longer claims horizontal pans (which cancelled the gesture before the grade threshold), and the active pointer is captured once a drag starts so fast flicks cannot drop their release.
+- The swipe edge glows are now real grading affordances: red on the left (fail) and green on the right (pass), visible only while dragging and scaling with drag distance. The old always-on green glows on both edges of review mode and the static green strip at the top of the page (which read as a stuck swipe indicator) are gone, including the first-paint copy in the page template.
+- The study session clock stops itself if its environment disappears mid-tick instead of throwing from the timer.
+
 ## [0.6.145] - 2026-06-12
 
 ### Changed

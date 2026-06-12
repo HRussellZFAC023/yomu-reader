@@ -51485,6 +51485,7 @@ ${newTabCardReading(card)}`;
           return;
         }
         drag.dragging = true;
+        capturePointer(drag.card, event);
       }
       event.preventDefault();
       event.stopPropagation();
@@ -51568,6 +51569,13 @@ ${newTabCardReading(card)}`;
   }
   function isPrimaryPointerDown(event) {
     return event.button === 0 && event.isPrimary !== false;
+  }
+  function capturePointer(card, event) {
+    if (!(typeof PointerEvent !== "undefined" && event instanceof PointerEvent)) return;
+    try {
+      card.setPointerCapture?.(event.pointerId);
+    } catch {
+    }
   }
   function resolveSwipeTarget(target) {
     return typeof target === "function" ? target() : target;
@@ -55610,11 +55618,11 @@ ${entry.url}`),
     }
     stopSessionClock() {
       if (this.sessionClockTimer === void 0) return;
-      window.clearInterval(this.sessionClockTimer);
+      if (typeof window !== "undefined") window.clearInterval(this.sessionClockTimer);
       this.sessionClockTimer = void 0;
     }
     tickSessionClock() {
-      if (this.state.mode !== "word") {
+      if (typeof document === "undefined" || this.state.mode !== "word") {
         this.stopSessionClock();
         return;
       }

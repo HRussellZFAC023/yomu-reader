@@ -316,14 +316,44 @@
   font-family: Inter, ui-sans-serif, var(--jpdb-reader-font);
 }
 
-.jpdb-reader-newtab::before {
+/* Swipe-grade edge glows (UT-21): hidden at rest, fade in only while a drag
+   is in progress. Left = fail (red), right = pass (green), matching the
+   grade the released swipe submits. The old static top accent strip read as
+   a stuck green "swipe glow" on iOS and was removed. */
+.jpdb-reader-newtab::before,
+.jpdb-reader-newtab::after {
   content: "";
   position: fixed;
-  inset: 0 0 auto;
-  height: 2px;
-  background: var(--jpdb-reader-accent);
-  opacity: 0.8;
+  top: 0;
+  bottom: 0;
+  width: clamp(56px, 18vw, 140px);
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 90ms ease;
+  z-index: 4;
+}
+
+.jpdb-reader-newtab::before {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--jpdb-reader-state-failed) 62%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab::after {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent),
+    transparent
+  );
+}
+
+.jpdb-reader-newtab[data-newtab-swipe-direction="left"]::before,
+.jpdb-reader-newtab[data-newtab-swipe-direction="right"]::after {
+  opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0));
 }
 
 .jpdb-reader-newtab * {
@@ -1138,6 +1168,10 @@
   gap: clamp(8px, 1.8vh, 16px);
   cursor: pointer;
   user-select: none;
+  /* UT-21: keep vertical scrolling native but own horizontal pans —
+     without this iOS Safari claims the gesture and fires pointercancel
+     before the swipe threshold, so swipe-to-grade never completed. */
+  touch-action: pan-y;
   padding-top: clamp(16px, 3vh, 32px);
 }
 
@@ -1373,45 +1407,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   );
 }
 
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study {
-  position: relative;
-  isolation: isolate;
-}
-
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before,
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  z-index: 0;
-  width: min(22vw, 168px);
-  opacity: 0.2;
-  pointer-events: none;
-}
-
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study > * {
-  position: relative;
-  z-index: 1;
-}
-
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before {
-  left: 0;
-  background: radial-gradient(
-    ellipse at left center,
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
-    transparent 70%
-  );
-}
-
-.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::after {
-  right: 0;
-  background: radial-gradient(
-    ellipse at right center,
-    color-mix(in srgb, var(--jpdb-reader-accent) 42%, transparent),
-    transparent 70%
-  );
-}
+/* UT-21: the always-on review-mode edge glows lived here (accent green on
+   both sides at opacity 0.2). They read as a stuck green swipe affordance,
+   so the drag-gated red/green glows on .jpdb-reader-newtab::before/::after
+   replace them. */
 
 .jpdb-reader-newtab-prompt {
   max-width: min(100%, 720px);

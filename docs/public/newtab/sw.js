@@ -1,4 +1,4 @@
-const APP_HASH = '3fdfacf05691';
+const APP_HASH = '57bf57b8d3ef';
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './app.js', './styles.css', '../yomu.user.js'];
 const CACHEABLE_PATH_SUFFIXES = [

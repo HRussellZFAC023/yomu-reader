@@ -44,6 +44,7 @@ import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins,
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
 import { NewTabController } from '../../src/reader/newtab/controller';
+import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { ReaderParser, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
@@ -24003,23 +24004,17 @@ describe('reader helpers', () => {
             },
         };
         const internals = controller as unknown as {
-            renderSearchFallbackDefinitionSources(card: JPDBCard, detail: {
-                localEntries: [];
-                kanjiEntries: [];
-                metaEntries: [];
-                ankiLookup: AnkiLookupResult;
-                jpdbVocabularyInfo: null;
-            }): string;
+            searchDetailViewContext(): NewTabSearchDetailViewContext;
         };
 
         try {
-            document.body.innerHTML = internals.renderSearchFallbackDefinitionSources(lookupCard, {
+            document.body.innerHTML = searchWordDetailHtml(lookupCard, {
                 localEntries: [],
                 kanjiEntries: [],
                 metaEntries: [],
                 ankiLookup,
                 jpdbVocabularyInfo: null,
-            });
+            }, internals.searchDetailViewContext());
 
             const preview = document.querySelector<HTMLElement>('.jpdb-reader-anki-card-preview')!;
 

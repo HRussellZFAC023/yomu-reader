@@ -1435,12 +1435,9 @@ describe('new tab review helpers', () => {
 
     it('keeps generic new-tab accent surfaces on accent tokens', () => {
         const genericAccentRules = [
-            newTabCssRule('.jpdb-reader-newtab::before'),
             newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'),
             newTabCssRule('.jpdb-reader-newtab-searchbox button[type="submit"]'),
             newTabCssRule('.jpdb-reader-newtab-count::before'),
-            newTabCssRule('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before'),
-            newTabCssRule('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::after'),
         ];
 
         expect(genericAccentRules.join(' ')).toContain('--jpdb-reader-accent');
@@ -1456,6 +1453,18 @@ describe('new tab review helpers', () => {
             expect(rule).not.toContain('--jpdb-reader-state-new-bright');
             expect(rule).not.toContain('--jpdb-reader-state-learning');
         }
+
+        // UT-21: the page edge glows are swipe-grade affordances — left mirrors
+        // the fail grade, right mirrors the pass grade, and both stay hidden
+        // unless a drag is in progress.
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab::before { left: 0; background: linear-gradient( 90deg, color-mix(in srgb, var(--jpdb-reader-state-failed) 62%, transparent), transparent ); }');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab::after { right: 0; background: linear-gradient( 270deg, color-mix(in srgb, var(--jpdb-reader-state-known) 62%, transparent), transparent ); }');
+        expect(newTabCssRule('.jpdb-reader-newtab::before, .jpdb-reader-newtab::after')).toContain('opacity: 0');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab[data-newtab-swipe-direction="left"]::before, .jpdb-reader-newtab[data-newtab-swipe-direction="right"]::after { opacity: calc(0.25 + 0.75 * var(--jpdb-reader-newtab-swipe-progress, 0)); }');
+        expect(NORMALIZED_NEW_TAB_CSS).not.toContain('.jpdb-reader-newtab-review-mode .jpdb-reader-newtab-study::before');
 
         expect(NORMALIZED_NEW_TAB_CSS)
             .toContain('.jpdb-reader-newtab-controls button[data-grade="pass"], .jpdb-reader-newtab-controls button[data-grade="okay"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-state-known); }');
