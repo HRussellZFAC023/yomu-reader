@@ -13726,7 +13726,7 @@ describe('reader helpers', () => {
 
     it('applies generic video inset through a reversible adapter', () => {
         withViewport(1600, 900, () => {
-            document.body.innerHTML = '<main id="player" style="width:1200px;max-width:1200px"><video></video></main>';
+            document.body.innerHTML = '<main id="player" style="width:1200px;max-width:1200px"><video></video><button class="player-control" type="button">Play</button></main>';
             const container = document.querySelector<HTMLElement>('#player')!;
             const video = document.querySelector('video') as HTMLVideoElement;
             Object.defineProperty(container, 'getBoundingClientRect', {

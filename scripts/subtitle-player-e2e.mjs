@@ -8,6 +8,7 @@ import { dragTranscriptResizeHandle, panelSizeDelta } from './lib/subtitle-layou
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
+const videoCompanionPath = resolve(process.env.YOMU_E2E_VIDEO_COMPANION ?? 'dist/greasyfork/yomu-video.user.js');
 const readerCssPath = resolve(process.env.YOMU_E2E_READER_CSS ?? 'dist/yomu.css');
 const artifactsDir = resolve(process.env.YOMU_E2E_ARTIFACTS ?? join(qaArtifactsRoot, 'subtitle-e2e/latest'));
 const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s';
@@ -16,6 +17,15 @@ const useYouTubeFixture = process.env.YOMU_E2E_YOUTUBE_FIXTURE === '1';
 const headed = process.env.YOMU_E2E_HEADED === '1';
 const settingsStorageKey = 'jpdb-popup-reader-settings';
 const transcriptPlacements = ['right', 'left', 'bottom'];
+const baseE2ESettings = {
+    onboardingSeen: true,
+    interfaceLanguage: 'ja',
+    showFloatingButton: false,
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: true,
+    subtitleControlsMode: 'auto',
+};
 
 const primaryVtt = `WEBVTT
 
@@ -50,6 +60,69 @@ const youtubeTimedText = `<timedtext><body>
 
 const FIXTURE_ROUTES = new Map([
     ['/generic', origin => ({ body: genericHtml(origin), contentType: 'text/html' })],
+    ['/bbc', origin => ({ body: playerEngineHtml(origin, {
+        title: 'BBC article player fixture',
+        className: 'bbc-media-player',
+        controlClass: 'bbc-player-controls',
+        videoWidth: '46%',
+        bodyClass: 'fixture-news-page',
+        heading: 'I have a duty to stay on, says PM',
+        aside: 'Article text and ads sit outside the player frame.',
+    }), contentType: 'text/html' })],
+    ['/videojs', origin => ({ body: playerEngineHtml(origin, {
+        title: 'Video.js player fixture',
+        className: 'video-js vjs-default-skin vjs-paused',
+        controlClass: 'vjs-control-bar',
+        videoWidth: '100%',
+        bodyClass: 'fixture-library-page',
+        heading: 'Video.js lesson player',
+        aside: 'Controls are an overlay inside a same-size player wrapper.',
+    }), contentType: 'text/html' })],
+    ['/jwplayer', origin => ({ body: playerEngineHtml(origin, {
+        title: 'JW Player fixture',
+        className: 'jwplayer jw-state-paused',
+        controlClass: 'jw-controls jw-reset',
+        videoWidth: '72%',
+        bodyClass: 'fixture-library-page',
+        heading: 'JW Player centered media',
+        aside: 'The video is centered inside a larger black player frame.',
+    }), contentType: 'text/html' })],
+    ['/plyr', origin => ({ body: playerEngineHtml(origin, {
+        title: 'Plyr player fixture',
+        className: 'plyr plyr--video plyr--stopped',
+        controlClass: 'plyr__controls',
+        videoWidth: '100%',
+        bodyClass: 'fixture-library-page',
+        heading: 'Plyr accessible controls',
+        aside: 'The wrapper and video share a rect; controls still move with the frame.',
+    }), contentType: 'text/html' })],
+    ['/vimeo', origin => ({ body: playerEngineHtml(origin, {
+        title: 'Vimeo-style player fixture',
+        className: 'vimeo-player vp-player',
+        controlClass: 'vp-controls',
+        videoWidth: '100%',
+        bodyClass: 'fixture-embed-page',
+        heading: 'Vimeo-style embed',
+        aside: 'A custom embed wrapper exposes controls outside the video element.',
+    }), contentType: 'text/html' })],
+    ['/wistia', origin => ({ body: playerEngineHtml(origin, {
+        title: 'Wistia-style player fixture',
+        className: 'wistia_embed wistia-player',
+        controlClass: 'w-control-bar',
+        videoWidth: '82%',
+        bodyClass: 'fixture-marketing-page',
+        heading: 'Wistia-style marketing video',
+        aside: 'Letterboxed media and marketing content should not steal the anchor.',
+    }), contentType: 'text/html' })],
+    ['/mux', origin => ({ body: playerEngineHtml(origin, {
+        title: 'Mux/Kaltura-style player fixture',
+        className: 'mux-player kaltura-player playback-shell',
+        controlClass: 'media-controls',
+        videoWidth: '100%',
+        bodyClass: 'fixture-course-page',
+        heading: 'Course player with custom chrome',
+        aside: 'The player shell resizes while captions auto-detect from the track.',
+    }), contentType: 'text/html' })],
     ['/primary.vtt', () => ({ body: primaryVtt, contentType: 'text/vtt' })],
     ['/native.srt', () => ({ body: nativeSrt, contentType: 'text/plain' })],
 ]);
@@ -109,6 +182,81 @@ function genericHtml(origin) {
 </html>`;
 }
 
+function playerEngineHtml(origin, fixture) {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${fixture.title}</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #f6f7f9; color: #17202a; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body.fixture-news-page { font-family: Georgia, "Times New Roman", serif; }
+    body.fixture-library-page { background: #101923; color: #e9f1fb; }
+    body.fixture-embed-page { background: #111; color: white; }
+    body.fixture-marketing-page { background: #f2f1ed; color: #20242a; }
+    body.fixture-course-page { background: #10201c; color: #eaf5ef; }
+    main { display: grid; grid-template-columns: minmax(520px, 1fr) 340px; gap: 28px; align-items: start; padding: 44px; box-sizing: border-box; }
+    h1 { margin: 0 0 24px; font-size: clamp(30px, 4vw, 58px); line-height: 1.05; letter-spacing: 0; }
+    .copy { margin-top: 20px; max-width: 720px; font-size: 21px; line-height: 1.55; }
+    aside { min-height: 680px; padding: 22px; border: 1px solid rgba(90, 110, 132, .28); background: rgba(255, 255, 255, .08); color: inherit; }
+    .site-player { position: relative; width: min(1040px, calc(100vw - 456px)); min-width: 420px; aspect-ratio: 16 / 9; overflow: hidden; background: #020304; border: 1px solid rgba(120, 137, 160, .42); box-shadow: 0 18px 48px rgba(0, 0, 0, .22); }
+    .site-player video { position: absolute; top: 0; bottom: 0; left: 50%; display: block; width: var(--fixture-video-width); height: 100%; transform: translateX(-50%); object-fit: cover; background: #030405; }
+    .site-player .caption-window { position: absolute; left: 16%; right: 16%; bottom: 74px; color: white; text-align: center; font: 700 26px/1.35 system-ui, sans-serif; text-shadow: 0 2px 4px black, 0 0 8px black; }
+    .site-player .fixture-controls { position: absolute; left: 0; right: 0; bottom: 0; height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 18px; box-sizing: border-box; background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.18)); color: white; font: 600 13px/1 system-ui, sans-serif; }
+    .site-player .fixture-controls button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255,255,255,.18); color: white; font: inherit; }
+    .site-player .fixture-progress { flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,.24); overflow: hidden; }
+    .site-player .fixture-progress::before { content: ""; display: block; width: 28%; height: 100%; background: #fff; }
+    @media (max-width: 760px) {
+      main { display: block; padding: 0; }
+      h1, .copy, aside { display: none; }
+      .site-player { width: 100vw; min-width: 0; border: 0; }
+    }
+  </style>
+</head>
+<body class="${fixture.bodyClass}">
+  <main>
+    <article>
+      <h1>${fixture.heading}</h1>
+      <section class="site-player ${fixture.className}" style="--fixture-video-width: ${fixture.videoWidth}">
+        <video muted preload="metadata" ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}>
+          <track kind="subtitles" srclang="ja-JP" label="日本語" src="${origin}/primary.vtt" default>
+        </video>
+        <div class="caption-window">この小人は立っています。</div>
+        <div class="fixture-controls ${fixture.controlClass}">
+          <button type="button" aria-label="Play">&gt;</button>
+          <div class="fixture-progress" role="slider" aria-label="Seek"></div>
+          <button type="button" aria-label="Captions">CC</button>
+        </div>
+      </section>
+      <p class="copy">This surrounding page deliberately looks unlike YouTube and CIJ. Yomu should bind to the media frame and load the Japanese subtitle track without depending on a host-specific rule.</p>
+    </article>
+    <aside>${fixture.aside}</aside>
+  </main>
+  <script>
+    (() => {
+      const track = document.querySelector('video')?.textTracks?.[0];
+      if (!track || !window.VTTCue) return;
+      track.mode = 'hidden';
+      const cues = [
+        [0, 4, 'この小人は立っています。'],
+        [4, 8, 'それからカメラを持っています。'],
+        [8, 12, 'でも多分、ガイドブックか地図ですかね。'],
+        [12, 18, 'これはとても長い日本語字幕の行で、狭い横幅の文字起こしパネルでもはみ出さずに折り返される必要があります。'],
+      ];
+      for (const [start, end, text] of cues) {
+        try { track.addCue(new VTTCue(start, end, text)); } catch {}
+      }
+      window.__fixtureTrackState = {
+        tracks: document.querySelector('video')?.textTracks?.length ?? 0,
+        cues: track.cues?.length ?? 0,
+        mode: track.mode,
+      };
+    })();
+  </script>
+</body>
+</html>`;
+}
+
 function cijHtml() {
     return `<!doctype html>
 <html>
@@ -120,7 +268,8 @@ function cijHtml() {
     header { height: 138px; display: flex; align-items: center; gap: 18px; padding: 0 30px; background: #142637; box-sizing: border-box; }
     .logo { width: 96px; height: 96px; border-radius: 50%; background: #dc7aa5; display: grid; place-items: center; font-weight: 700; }
     .layout { display: grid; grid-template-columns: minmax(560px, 1fr) 420px; gap: 22px; padding: 38px 16px; box-sizing: border-box; }
-    .video-card { position: relative; background: #16283a; border: 1px solid #243e56; }
+    .video-card { background: #16283a; border: 1px solid #243e56; }
+    .lesson-player { position: relative; background: #050607; }
     video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #050607; }
     .caption-window { position: absolute; left: 20%; right: 20%; bottom: 92px; padding: 8px 14px; border-radius: 6px; background: rgba(0,0,0,.72); text-align: center; font-size: 26px; color: white; }
     .tabs { height: 280px; padding: 24px; border-top: 1px solid #284057; color: #c7d5e4; }
@@ -132,10 +281,12 @@ function cijHtml() {
   <header><div class="logo">日本語</div><div><h1>Comprehensible Japanese</h1><p>LEARN JAPANESE THROUGH MEANINGFUL INPUT</p></div></header>
   <main class="layout">
     <section class="video-card">
-      <video controls muted preload="metadata" ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}>
-        <track kind="subtitles" srclang="ja-JP" label="日本語" src="https://cijapanese.com/media/subtitles.vtt?filename=%E5%B0%8F%E4%BA%BA.vtt&v=123" default>
-      </video>
-      <div class="caption-window">この小人は立っています。</div>
+      <div class="lesson-player">
+        <video controls muted preload="metadata" ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}>
+          <track kind="subtitles" srclang="ja-JP" label="日本語" src="https://cijapanese.com/media/subtitles.vtt?filename=%E5%B0%8F%E4%BA%BA.vtt&v=123" default>
+        </video>
+        <div class="caption-window">この小人は立っています。</div>
+      </div>
       <div class="tabs">
         <h2>Yoshito先生</h2>
         <p>Teacher info and downloads are below the player.</p>
@@ -291,18 +442,23 @@ function send(res, body, contentType, status = 200) {
 async function ensureUserscript(page) {
     if (await page.locator('.jpdb-subtitle-player').count()) return;
     await installUserscriptStyleResource(page);
+    await addUserscriptFile(page, videoCompanionPath);
+    await addUserscriptFile(page, userscriptPath);
+    await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 10000 });
+}
+
+async function addUserscriptFile(page, scriptPath) {
     try {
-        await page.addScriptTag({ path: userscriptPath });
+        await page.addScriptTag({ path: scriptPath });
     } catch {
         const client = await page.context().newCDPSession(page);
         await client.send('Runtime.evaluate', {
-            expression: readFileSync(userscriptPath, 'utf8'),
+            expression: readFileSync(scriptPath, 'utf8'),
             awaitPromise: false,
             allowUnsafeEvalBlockedByCSP: true,
             replMode: true,
         });
     }
-    await page.waitForSelector('.jpdb-subtitle-player', { timeout: 10000 });
 }
 
 async function installUserscriptStyleResource(page) {
@@ -315,6 +471,50 @@ async function installUserscriptStyleResource(page) {
                 document.head.append(style);
                 return style;
             };
+            window.GM_getValue = (key, fallback) => {
+                const raw = localStorage.getItem(key);
+                if (raw == null) return fallback;
+                try { return JSON.parse(raw); } catch { return raw; }
+            };
+            window.GM_setValue = (key, value) => {
+                localStorage.setItem(key, JSON.stringify(value));
+            };
+            window.GM_deleteValue = key => {
+                localStorage.removeItem(key);
+            };
+            window.GM_listValues = () => Object.keys(localStorage);
+            window.GM_xmlhttpRequest = options => {
+                const controller = new AbortController();
+                fetch(options.url, {
+                    method: options.method || 'GET',
+                    headers: options.headers || {},
+                    body: options.data,
+                    signal: controller.signal,
+                }).then(async response => {
+                    const responseText = await response.text();
+                    options.onload?.({
+                        status: response.status,
+                        statusText: response.statusText,
+                        response,
+                        responseText,
+                        finalUrl: response.url,
+                        responseHeaders: '',
+                    });
+                }).catch(error => options.onerror?.(error));
+                return { abort: () => controller.abort() };
+            };
+            window.GM = {
+                getValue: async (key, fallback) => window.GM_getValue(key, fallback),
+                setValue: async (key, value) => window.GM_setValue(key, value),
+                deleteValue: async key => window.GM_deleteValue(key),
+                listValues: async () => window.GM_listValues(),
+                addStyle: window.GM_addStyle,
+                getResourceText: async name => window.GM_getResourceText(name),
+                xmlHttpRequest: window.GM_xmlhttpRequest,
+                xmlhttpRequest: window.GM_xmlhttpRequest,
+            };
+            window.GM_info = { script: { version: '0.0.0-e2e' }, scriptHandler: 'yomu-e2e' };
+            window.unsafeWindow = window;
         `;
     try {
         await page.addScriptTag({ content: polyfill });
@@ -393,8 +593,8 @@ async function clearPageStorage(page) {
 
 async function seedSettings(page, settings) {
     await page.evaluate(({ key, value }) => {
-        localStorage.setItem(key, JSON.stringify(value));
-    }, { key: settingsStorageKey, value: settings });
+        localStorage.setItem(key, JSON.stringify({ ...value.base, ...value.site }));
+    }, { key: settingsStorageKey, value: { base: baseE2ESettings, site: settings } });
 }
 
 async function installYouTubeConsentCookies(page) {
@@ -408,12 +608,18 @@ async function installYouTubeConsentCookies(page) {
 
 async function waitForSubtitleSurface(page, site) {
     await page.waitForFunction(subtitleSurfaceReady, null, { timeout: site.readyTimeout ?? 25000 });
-    if (site.expectClosedRailTappable) await assertClosedRailPanelButton(page, site);
+    if (site.expectClosedRailTappable) {
+        await revealSubtitleControls(page, site);
+        await assertClosedRailPanelButton(page, site);
+    }
 
     await openTracksPanel(page);
     await maybeSelectFirstJapaneseTrack(page);
-    await page.waitForFunction(subtitleLinesReady, null, { timeout: site.readyTimeout ?? 25000 });
+    await page.waitForFunction(site.expectRows === false ? subtitleLinesReady : subtitleCueRowsReady, null, { timeout: site.readyTimeout ?? 25000 });
     await openLinesOrTracksPanel(page);
+    if (site.expectRows !== false) {
+        await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout: site.readyTimeout ?? 25000 });
+    }
 }
 
 async function assertClosedRailPanelButton(page, site) {
@@ -469,12 +675,22 @@ function subtitleLinesReady() {
         || Boolean(document.querySelector('.jpdb-subtitle-track-row.active'));
 }
 
+function subtitleCueRowsReady() {
+    return document.querySelectorAll('.jpdb-subtitle-list-row').length > 0
+        || Boolean(document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim());
+}
+
 async function maybeSelectFirstJapaneseTrack(page) {
     const rows = await page.locator('.jpdb-subtitle-list-row').count();
     if (rows) return;
-    const firstJapanese = page.locator('.jpdb-subtitle-track-row').filter({ hasText: /Japanese|日本語|JA/i }).first();
-    if (!await firstJapanese.count()) return;
-    await pressPrimaryTrackIfNeeded(firstJapanese);
+    const namedJapanese = page.locator('.jpdb-subtitle-track-row').filter({ hasText: /Japanese|日本語/i }).first();
+    if (await namedJapanese.count()) {
+        await pressPrimaryTrackIfNeeded(namedJapanese);
+        return;
+    }
+    const languageCodeJapanese = page.locator('.jpdb-subtitle-track-row').filter({ hasText: /\bJA(?:-JP)?\b/i }).first();
+    if (!await languageCodeJapanese.count()) return;
+    await pressPrimaryTrackIfNeeded(languageCodeJapanese);
 }
 
 async function pressPrimaryTrackIfNeeded(track) {
@@ -598,6 +814,7 @@ async function openPanelFromRailOrTracks(page) {
     if (await panelAlreadyOpenOnLines(page)) return;
     await clickRailPanelButton(page);
     await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 });
+    await switchOpenPanelToLines(page);
 }
 
 async function canOpenRailPanel(page) {
@@ -637,6 +854,12 @@ async function snapshot(page, site) {
                 ...layout,
                 rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
                 tracks: document.querySelectorAll('.jpdb-subtitle-track-row').length,
+                trackRows: trackRowSnapshot(),
+                fixtureTrackState: globalThis.__fixtureTrackState ?? null,
+                videoTextTracks: videoTextTrackSnapshot(),
+                panelMode: panelMode(document.querySelector('.jpdb-subtitle-list')),
+                primaryText: document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim() ?? '',
+                linesButtonDisabled: linesButtonDisabled(),
                 yomuCaptionsActive: document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active'),
                 nativeCaptionVisible: nativeCaptionVisible(),
                 blockingDialogVisible: Boolean(findVisibleBlockingDialog()),
@@ -670,6 +893,39 @@ async function snapshot(page, site) {
             if (!nativeCaption) return true;
             const style = getComputedStyle(nativeCaption);
             return style.display !== 'none' && style.visibility !== 'hidden';
+        }
+
+        function trackRowSnapshot() {
+            return [...document.querySelectorAll('.jpdb-subtitle-track-row')].map((row, index) => ({
+                index,
+                text: row.textContent?.replace(/\s+/g, ' ').trim().slice(0, 180) ?? '',
+                active: row.classList.contains('active'),
+                primaryPressed: row.querySelector('[data-action="primary-track"]')?.getAttribute('aria-pressed') ?? '',
+            }));
+        }
+
+        function panelMode(panel) {
+            if (!panel || panel.hidden) return '';
+            if (panel.classList.contains('jpdb-subtitle-lines-panel')) return 'lines';
+            if (panel.classList.contains('jpdb-subtitle-tracks-panel')) return 'tracks';
+            return 'open';
+        }
+
+        function linesButtonDisabled() {
+            const button = document.querySelector('.jpdb-subtitle-list [data-action="panel-lines"]');
+            return button instanceof HTMLButtonElement ? button.disabled : null;
+        }
+
+        function videoTextTrackSnapshot() {
+            return [...document.querySelectorAll('video')].flatMap((video, videoIndex) => [...video.textTracks].map((track, trackIndex) => ({
+                videoIndex,
+                trackIndex,
+                label: track.label,
+                language: track.language,
+                mode: track.mode,
+                cues: track.cues?.length ?? 0,
+                activeCues: track.activeCues?.length ?? 0,
+            })));
         }
 
         function findVisibleBlockingDialog() {
@@ -761,14 +1017,15 @@ async function prepareDrawerLayoutPhase(page, site, phase) {
 }
 
 async function waitForDrawerLayoutSettled(page, site) {
-    await page.waitForFunction(() => {
+    await page.waitForFunction(anchorSelector => {
         const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
-        const video = videoRect();
-        if (!panel || !video) return false;
+        const player = playerRect(anchorSelector);
+        if (!panel || !player) return false;
         if (!hasSubtitlePanelContent()) return false;
-        return boxesSeparated(panel, video);
+        return boxesSeparated(panel, player);
 
-        function videoRect() {
+        function playerRect(anchorSelector) {
+            if (anchorSelector) return document.querySelector(anchorSelector)?.getBoundingClientRect();
             const moviePlayer = document.querySelector('#movie_player');
             return (moviePlayer || document.querySelector('video'))?.getBoundingClientRect();
         }
@@ -787,7 +1044,7 @@ async function waitForDrawerLayoutSettled(page, site) {
                 video.bottom <= panel.top + 1,
             ].some(Boolean);
         }
-    }, null, { timeout: site.readyTimeout ?? 25000 });
+    }, site.anchorSelector ?? '', { timeout: site.readyTimeout ?? 25000 });
     await page.waitForTimeout(150);
 }
 
@@ -806,6 +1063,13 @@ function assertDrawerLayoutState(site, phase, state, layout) {
     if (site.expectPlacement) assert(isExpectedPlacementForPhase(site.expectPlacement, phase, layout.placement), `${site.name}: unexpected transcript placement during ${phase}`, state);
     if (site.expectEdgeToEdgePanel) assert(isEdgeToEdgePanel(layout.panel, state.viewport), `${site.name}: compact transcript panel is not edge-to-edge during ${phase}`, state);
     assert(!rectsOverlap(layout.panel, layout.video), `${site.name}: transcript panel overlaps video during ${phase}`, state);
+    if (layout.anchor) assert(!rectsOverlap(layout.panel, layout.anchor), `${site.name}: transcript panel overlaps player frame during ${phase}`, {
+        placement: layout.placement,
+        panel: layout.panel,
+        anchor: layout.anchor,
+        video: layout.video,
+        viewport: state.viewport,
+    });
     assert(panelFitsViewport(layout.panel, state.viewport), `${site.name}: transcript panel leaves viewport during ${phase}`, state);
     assertTranscriptRowsWrap(site, phase, state);
     assertPlacementGeometry(site, phase, layout, state);
@@ -906,6 +1170,7 @@ async function runSite(browser, site) {
     try {
         console.error(`[subtitle-e2e] ${site.name}`);
         const telemetry = await openAndReady(page, site);
+        if (site.exerciseSubtitleDrag) await assertSubtitleMoveHandle(page, site);
         if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
         const layouts = await exerciseDrawerLayout(page, site);
         return {
@@ -921,6 +1186,151 @@ async function runSite(browser, site) {
     } finally {
         await page.close();
     }
+}
+
+async function assertSubtitleMoveHandle(page, site) {
+    await closePanelIfOpen(page);
+    await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim()), null, { timeout: site.readyTimeout ?? 25000 });
+    await revealSubtitleControls(page, site);
+    await page.waitForFunction(() => {
+        const handle = document.querySelector('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle');
+        if (!handle) return false;
+        const style = getComputedStyle(handle);
+        return style.pointerEvents !== 'none' && Number(style.opacity || '0') > 0.1;
+    }, null, { timeout: 5000 });
+
+    await installSubtitleDragProbe(page);
+    const before = await subtitleDragSnapshot(page, site);
+    const handleBox = await page.locator('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle').first().boundingBox();
+    assert(handleBox, `${site.name}: subtitle move handle did not expose a drag box`, before);
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 - 52, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+
+    const after = await subtitleDragSnapshot(page, site);
+    assert(Math.abs(after.offset) >= 24, `${site.name}: subtitle drag handle did not change the temporary offset`, { before, after, dragProbe: await subtitleDragProbeSnapshot(page) });
+    assert(after.subtitle && before.subtitle && after.subtitle.top < before.subtitle.top - 18, `${site.name}: subtitle line did not move with the drag handle`, { before, after });
+
+    await page.waitForTimeout(2700);
+    const idle = await subtitleRailIdleSnapshot(page);
+    assert(idle.idle && (idle.opacity <= 0.05 || idle.pointerEvents === 'none'), `${site.name}: subtitle rail did not return to idle after drag`, idle);
+}
+
+async function installSubtitleDragProbe(page) {
+    await page.evaluate(() => {
+        const handle = document.querySelector('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle');
+        const probe = {
+            pointerdown: 0,
+            pointermove: 0,
+            pointerup: 0,
+            mousedown: 0,
+            mousemove: 0,
+            mouseup: 0,
+            lastTarget: '',
+            lastWindowTarget: '',
+        };
+        globalThis.__yomuSubtitleDragProbe = probe;
+        handle?.addEventListener('pointerdown', event => {
+            probe.pointerdown += 1;
+            probe.lastTarget = describeTarget(event.target);
+        }, true);
+        handle?.addEventListener('mousedown', event => {
+            probe.mousedown += 1;
+            probe.lastTarget = describeTarget(event.target);
+        }, true);
+        window.addEventListener('pointermove', event => {
+            probe.pointermove += 1;
+            probe.lastWindowTarget = describeTarget(event.target);
+        }, true);
+        window.addEventListener('pointerup', event => {
+            probe.pointerup += 1;
+            probe.lastWindowTarget = describeTarget(event.target);
+        }, true);
+        window.addEventListener('mousemove', event => {
+            probe.mousemove += 1;
+            probe.lastWindowTarget = describeTarget(event.target);
+        }, true);
+        window.addEventListener('mouseup', event => {
+            probe.mouseup += 1;
+            probe.lastWindowTarget = describeTarget(event.target);
+        }, true);
+
+        function describeTarget(target) {
+            if (!(target instanceof Element)) return String(target);
+            return `${target.tagName.toLowerCase()}#${target.id}.${String(target.className).replace(/\s+/g, '.')}`;
+        }
+    });
+}
+
+async function subtitleDragProbeSnapshot(page) {
+    return page.evaluate(() => {
+        const handle = document.querySelector('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle');
+        const rect = handle?.getBoundingClientRect();
+        const centerX = rect ? rect.left + rect.width / 2 : 0;
+        const centerY = rect ? rect.top + rect.height / 2 : 0;
+        const topElement = document.elementFromPoint(centerX, centerY);
+        const style = handle ? getComputedStyle(handle) : undefined;
+        return {
+            probe: globalThis.__yomuSubtitleDragProbe ?? null,
+            handle: rect?.toJSON(),
+            center: { x: centerX, y: centerY },
+            topElement: topElement instanceof Element ? `${topElement.tagName.toLowerCase()}#${topElement.id}.${String(topElement.className).replace(/\s+/g, '.')}` : String(topElement),
+            handleStyle: style ? {
+                opacity: style.opacity,
+                pointerEvents: style.pointerEvents,
+                display: style.display,
+                visibility: style.visibility,
+                zIndex: style.zIndex,
+            } : undefined,
+        };
+    });
+}
+
+async function closePanelIfOpen(page) {
+    const isOpen = await page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return Boolean(panel && !panel.hidden);
+    });
+    if (!isOpen) return;
+    await closePanelFromRail(page);
+}
+
+async function revealSubtitleControls(page, site) {
+    const anchor = await page.locator(site.anchorSelector || 'video').first().boundingBox();
+    assert(anchor, `${site.name}: could not locate player frame for subtitle control reveal`, { anchorSelector: site.anchorSelector });
+    await page.mouse.move(anchor.x + Math.min(anchor.width - 4, Math.max(4, anchor.width / 2)), anchor.y + Math.min(anchor.height - 4, Math.max(4, anchor.height / 2)));
+}
+
+async function subtitleDragSnapshot(page, site) {
+    return page.evaluate(anchorSelector => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const subtitle = document.querySelector('.jpdb-subtitle-text');
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const anchor = anchorSelector ? document.querySelector(anchorSelector) : document.querySelector('video');
+        const offset = Number.parseFloat(root?.style.getPropertyValue('--subtitle-drag-offset-y') || '0');
+        return {
+            offset,
+            root: root?.getBoundingClientRect().toJSON(),
+            subtitle: subtitle?.getBoundingClientRect().toJSON(),
+            rail: rail?.getBoundingClientRect().toJSON(),
+            anchor: anchor?.getBoundingClientRect().toJSON(),
+        };
+    }, site.anchorSelector ?? '');
+}
+
+async function subtitleRailIdleSnapshot(page) {
+    return page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const style = rail ? getComputedStyle(rail) : null;
+        return {
+            idle: Boolean(root?.classList.contains('jpdb-subtitle-controls-idle')),
+            opacity: Number(style?.opacity ?? '0'),
+            pointerEvents: style?.pointerEvents ?? '',
+        };
+    });
 }
 
 async function assertDrawerDockingControls(page, site) {
@@ -965,7 +1375,7 @@ async function runYouTubeWithFallback(browser) {
             url: youtubeUrl,
             viewport: { width: 2048, height: 1050 },
             route: installYouTubeFixtureRoutes,
-            minRows: 3,
+            expectRows: false,
             readyTimeout: 30000,
             anchorSelector: '#movie_player',
         });
@@ -986,7 +1396,7 @@ async function runYouTubeWithFallback(browser) {
             url: youtubeUrl,
             viewport: { width: 2048, height: 1050 },
             route: installYouTubeFixtureRoutes,
-            minRows: 3,
+            expectRows: false,
             readyTimeout: 30000,
             anchorSelector: '#movie_player',
         });
@@ -1020,6 +1430,22 @@ mkdirSync(artifactsDir, { recursive: true });
 const fixture = await startFixtureServer();
 const browser = await chromium.launch({ headless: !headed });
 try {
+    const playerEngineSites = [
+        { name: 'bbc-article', path: '/bbc', anchorSelector: '.bbc-media-player', exerciseSubtitleDrag: true },
+        { name: 'videojs-engine', path: '/videojs', anchorSelector: '.video-js', exerciseSubtitleDrag: true },
+        { name: 'jwplayer-engine', path: '/jwplayer', anchorSelector: '.jwplayer', exerciseSubtitleDrag: true },
+        { name: 'plyr-engine', path: '/plyr', anchorSelector: '.plyr', exerciseSubtitleDrag: true },
+        { name: 'vimeo-embed', path: '/vimeo', anchorSelector: '.vimeo-player' },
+        { name: 'wistia-embed', path: '/wistia', anchorSelector: '.wistia_embed' },
+        { name: 'mux-kaltura-engine', path: '/mux', anchorSelector: '.mux-player' },
+    ].map(site => ({
+        ...site,
+        url: `${fixture.origin}${site.path}`,
+        viewport: { width: 1680, height: 960 },
+        expectPlacement: 'right',
+        expectNativeCaptions: true,
+        settings: { subtitleTranscriptPlacement: 'right' },
+    }));
     const sites = [
         ...transcriptPlacements.map(placement => siteWithPlacement({
             name: 'generic',
@@ -1045,23 +1471,26 @@ try {
             expectPlacement: 'right',
             expectNativeCaptions: true,
             exerciseDockingControls: true,
+            exerciseSubtitleDrag: true,
             settings: { subtitleTranscriptPlacement: 'right' },
             anchorSelector: '.player',
         },
+        ...playerEngineSites,
         ...transcriptPlacements.map(placement => siteWithPlacement({
             name: 'cij',
             url: 'https://cijapanese.com/video/560',
             viewport: { width: 2048, height: 1050 },
             route: installFixtureRoutes,
             expectNativeCaptions: true,
-            anchorSelector: '.video-card',
+            exerciseSubtitleDrag: placement === 'right',
+            anchorSelector: '.lesson-player',
         }, placement)),
         {
             name: 'youtube-mobile',
             url: 'https://m.youtube.com/watch?v=_fXQ8TquRWo&list=PLx5DSNMsjO9hJx2kV5JegcddNqQZtj34d&index=5&pp=iAQB&ra=m',
             viewport: { width: 980, height: 844 },
             route: installMobileYouTubeFixtureRoutes,
-            minRows: 3,
+            expectRows: false,
             readyTimeout: 30000,
             anchorSelector: '#movie_player',
             expectClosedRailTappable: true,

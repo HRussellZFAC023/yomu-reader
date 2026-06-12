@@ -30213,14 +30213,9 @@ ${spelling}`);
     if (options.side === "bottom") return Math.max(180, Math.round(options.playerSize));
     return Math.max(180, Math.round(options.videoRect.height));
   }
-  function isCijPage() {
-    const host = location.hostname;
-    return /(^|\.)cijapanese\.com$/i.test(host) || host === "localhost" || host === "127.0.0.1" || host === "";
-  }
   function applyGenericVideoInsetIfNeeded(options, metrics) {
-    if (isCijPage() && options.video) {
-      applyGenericVideoInset(options.video, options.side, options.side === "bottom" ? metrics.height : metrics.width, metrics.height);
-    }
+    if (isYouTubePage$1() || !options.video) return;
+    applyGenericVideoInset(options.video, options.side, options.side === "bottom" ? metrics.height : metrics.width, metrics.height);
   }
   const GENERIC_TARGET_INSET_PROPS = ["width", "height", "max-width", "max-height", "min-width", "min-height", "margin-left", "margin-right", "justify-self", "object-fit"];
   const CONTAINED_VIDEO_INSET_PROPS = ["height", "max-height", "min-height", "object-fit"];
@@ -30277,19 +30272,27 @@ ${spelling}`);
       const rect = youtubeVisiblePlayerRect();
       if (rect) return rect;
     }
-    return video?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    return subtitleVideoLayoutTarget(video)?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+  }
+  function subtitleVideoLayoutTarget(video) {
+    if (!video) return void 0;
+    if (isYouTubePage$1()) {
+      return video.closest("#movie_player") ?? video.closest(".html5-video-player") ?? video.closest("ytd-player") ?? video;
+    }
+    return genericVideoLayoutTarget(video);
   }
   function transcriptAvoidanceTarget(video) {
     const videoRect = video.getBoundingClientRect();
     let best = genericVideoLayoutTarget(video);
     for (let ancestor = video.parentElement; ancestor && ancestor !== document.body && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
-      if (isUsefulTranscriptAvoidanceTarget(ancestor, videoRect)) best = ancestor;
+      if (isUsefulTranscriptAvoidanceTarget(ancestor, video, videoRect)) best = ancestor;
     }
     return best;
   }
-  function isUsefulTranscriptAvoidanceTarget(element, videoRect) {
+  function isUsefulTranscriptAvoidanceTarget(element, video, videoRect) {
     const rect = element.getBoundingClientRect();
-    return usableVideoRect(rect) && rectContainsRect(rect, videoRect, 2) && !isViewportSizedVideoRect(rect) && hasMeaningfulVideoInsetSpace(rect, videoRect);
+    if (element.matches("[data-yomu-video-frame]")) return true;
+    return usableVideoRect(rect) && rectContainsRect(rect, videoRect, 2) && !isViewportSizedVideoRect(rect) && hasMeaningfulVideoInsetSpace(rect, videoRect) && isLikelyGenericPlayerFrame(element) && (video.controls || hasLikelyPlayerChrome(element));
   }
   function isViewportSizedVideoRect(rect) {
     return rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.9;
@@ -30407,7 +30410,6 @@ ${spelling}`);
     return `${Math.round(width)}:${Math.round(height)}`;
   }
   function dispatchVideoLayoutResize() {
-    if (!isYouTubePage$1()) return;
     dispatchWindowEvent(createWindowEvent("resize"));
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
@@ -30563,20 +30565,47 @@ ${spelling}`);
     return property.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
   function genericVideoLayoutTarget(video, side = "right") {
-    const parent = video.parentElement;
-    if (!isGenericVideoLayoutParent(parent)) return video;
-    if (side === "bottom" && !parent.matches("[data-yomu-video-frame]")) return video;
-    const parentRect = parent.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
-    return shouldUseGenericVideoParent(parent, parentRect, videoRect) ? parent : video;
+    let target = video;
+    for (let parent = video.parentElement; isGenericVideoLayoutParent(parent); parent = parent.parentElement) {
+      const parentRect = parent.getBoundingClientRect();
+      if (shouldUseGenericVideoParent(parent, parentRect, video, videoRect)) target = parent;
+    }
+    if (side === "bottom" && !target.matches("[data-yomu-video-frame]")) return video;
+    return target;
   }
   function isGenericVideoLayoutParent(parent) {
     return Boolean(parent && parent !== document.body && parent !== document.documentElement);
   }
-  function shouldUseGenericVideoParent(parent, parentRect, videoRect) {
+  function shouldUseGenericVideoParent(parent, parentRect, video, videoRect) {
     if (parent.matches("[data-yomu-video-frame]")) return true;
-    if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return false;
-    return rectContainsRect(parentRect, videoRect);
+    if (!usableVideoRect(parentRect)) return false;
+    if (isViewportSizedVideoRect(parentRect)) return false;
+    if (!rectContainsRect(parentRect, videoRect, 4)) return false;
+    const hasInsetSpace = hasMeaningfulVideoInsetSpace(parentRect, videoRect);
+    const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
+    const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
+    if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;
+    return likelyPlayerWithChrome || hasInsetSpace && likelyPlayerFrame;
+  }
+  function isLikelyGenericPlayerFrame(element) {
+    const text2 = `${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
+    return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text2);
+  }
+  function hasLikelyPlayerChrome(element) {
+    return Boolean(element.querySelector([
+      "button",
+      '[role="button"]',
+      '[role="slider"]',
+      '[role="progressbar"]',
+      '[aria-label*="play" i]',
+      '[aria-label*="pause" i]',
+      '[class*="control" i]',
+      '[class*="controls" i]',
+      '[class*="play" i]',
+      '[class*="pause" i]',
+      '[class*="progress" i]'
+    ].join(",")));
   }
   function rectsHaveMatchingSize(a, b, tolerance) {
     return Math.abs(a.width - b.width) <= tolerance && Math.abs(a.height - b.height) <= tolerance;
@@ -32491,6 +32520,18 @@ ${spelling}`);
     if (id !== void 0) window.cancelAnimationFrame(id);
     return void 0;
   }
+  function frameHasPlayerControls(frame) {
+    return Boolean(frame.querySelector([
+      "button",
+      '[role="button"]',
+      '[aria-label*="play" i]',
+      '[aria-label*="pause" i]',
+      '[class*="control" i]',
+      '[class*="controls" i]',
+      '[class*="play" i]',
+      '[class*="pause" i]'
+    ].join(",")));
+  }
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
@@ -32657,7 +32698,9 @@ ${spelling}`);
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
     subtitleDragOffsetYPx = 0;
+    subtitleDragActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
+    asbSubtitleBaseTransforms = /* @__PURE__ */ new WeakMap();
     clickHandlers = {
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
@@ -32882,6 +32925,8 @@ ${spelling}`);
       if (!this.video) return false;
       if (this.video.controls || isYouTubePage()) return true;
       if (this.video.closest("#movie_player, .html5-video-player, [data-yomu-video-frame]")) return true;
+      const frame = subtitleVideoLayoutTarget(this.video);
+      if (frame && frame !== this.video && frameHasPlayerControls(frame)) return true;
       return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
     }
     clearDiscoveredVideoCandidate() {
@@ -33993,29 +34038,19 @@ ${spelling}`);
       const handle = this.root?.querySelector("[data-subtitle-drag-handle]");
       if (!handle) return;
       handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
+      handle.addEventListener("mousedown", (event) => this.startSubtitleMouseDrag(event), this.eventOptions());
       handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
     }
     startSubtitleDrag(event) {
       const handle = event.currentTarget;
-      const dragFrame = this.subtitleDragFrameForHandle(handle);
-      if (!dragFrame || event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const dragRoot = this.subtitleDragClassRootForHandle(handle);
+      const session = this.beginSubtitleDrag(handle, event.button, event.clientY, event);
+      if (!session) return;
       const pointerId = event.pointerId;
-      const startY = event.clientY;
-      const startOffset = this.subtitleDragOffsetYPx;
       handle.setPointerCapture?.(pointerId);
-      handle.classList.add("jpdb-subtitle-dragging");
-      dragRoot?.classList.add("jpdb-subtitle-dragging");
-      if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
-      this.showControlsTemporarily();
       const pointerMatches = (pointerEvent) => pointerEvent.pointerId === pointerId;
       const onMove = (moveEvent) => {
         if (!pointerMatches(moveEvent)) return;
-        if (moveEvent.cancelable) moveEvent.preventDefault();
-        this.setSubtitleDragOffset(startOffset + moveEvent.clientY - startY, dragFrame);
-        this.showControlsTemporarily();
+        this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
       };
       const onEnd = (upEvent) => {
         if (!pointerMatches(upEvent)) return;
@@ -34023,14 +34058,57 @@ ${spelling}`);
         window.removeEventListener("pointerup", onEnd);
         window.removeEventListener("pointercancel", onEnd);
         handle.releasePointerCapture?.(pointerId);
-        handle.classList.remove("jpdb-subtitle-dragging");
-        dragRoot?.classList.remove("jpdb-subtitle-dragging");
-        if (dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
-        this.showControlsTemporarily();
+        this.endSubtitleDrag(session);
       };
       window.addEventListener("pointermove", onMove, this.eventOptions());
       window.addEventListener("pointerup", onEnd, this.eventOptions());
       window.addEventListener("pointercancel", onEnd, this.eventOptions());
+    }
+    startSubtitleMouseDrag(event) {
+      const handle = event.currentTarget;
+      const session = this.beginSubtitleDrag(handle, event.button, event.clientY, event);
+      if (!session) return;
+      const onMove = (moveEvent) => this.updateSubtitleDrag(session, moveEvent.clientY, moveEvent);
+      const onEnd = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onEnd);
+        this.endSubtitleDrag(session);
+      };
+      window.addEventListener("mousemove", onMove, this.eventOptions());
+      window.addEventListener("mouseup", onEnd, this.eventOptions());
+    }
+    beginSubtitleDrag(handle, button, startY, event) {
+      if (this.subtitleDragActive || button !== 0) return void 0;
+      const dragFrame = this.subtitleDragFrameForHandle(handle);
+      if (!dragFrame) return void 0;
+      event.preventDefault();
+      event.stopPropagation();
+      const dragRoot = this.subtitleDragClassRootForHandle(handle);
+      const session = {
+        handle,
+        dragFrame,
+        dragRoot,
+        startY,
+        startOffset: this.subtitleDragOffsetYPx
+      };
+      this.subtitleDragActive = true;
+      handle.classList.add("jpdb-subtitle-dragging");
+      dragRoot?.classList.add("jpdb-subtitle-dragging");
+      if (dragRoot !== this.root) this.root?.classList.add("jpdb-subtitle-dragging");
+      this.showControlsTemporarily();
+      return session;
+    }
+    updateSubtitleDrag(session, clientY, event) {
+      if (event.cancelable) event.preventDefault();
+      this.setSubtitleDragOffset(session.startOffset + clientY - session.startY, session.dragFrame);
+      this.showControlsTemporarily();
+    }
+    endSubtitleDrag(session) {
+      this.subtitleDragActive = false;
+      session.handle.classList.remove("jpdb-subtitle-dragging");
+      session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
+      if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
+      this.showControlsTemporarily();
     }
     moveSubtitleOverlayFromKeyboard(event) {
       const dragFrame = event.currentTarget instanceof HTMLElement ? this.subtitleDragFrameForHandle(event.currentTarget) : void 0;
@@ -34105,6 +34183,7 @@ ${spelling}`);
           this.teardownAsbPlayerSubtitleMoveRoot(root);
           continue;
         }
+        this.captureAsbPlayerSubtitleBaseTransform(root);
         root.classList.add("jpdb-subtitle-asb-movable", "jpdb-subtitle-has-lines");
         root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
         root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
@@ -34136,8 +34215,16 @@ ${spelling}`);
       handle.setAttribute("aria-label", moveLabel);
       if (this.asbSubtitleDragHandles.has(handle)) return;
       handle.addEventListener("pointerdown", (event) => this.startSubtitleDrag(event), this.eventOptions());
+      handle.addEventListener("mousedown", (event) => this.startSubtitleMouseDrag(event), this.eventOptions());
       handle.addEventListener("keydown", (event) => this.moveSubtitleOverlayFromKeyboard(event), this.eventOptions());
       this.asbSubtitleDragHandles.add(handle);
+    }
+    captureAsbPlayerSubtitleBaseTransform(root) {
+      if (this.asbSubtitleBaseTransforms.has(root)) return;
+      const transform = getComputedStyle(root).transform;
+      const baseTransform = transform && transform !== "none" ? transform : "translateZ(0)";
+      this.asbSubtitleBaseTransforms.set(root, baseTransform);
+      root.style.setProperty("--jpdb-subtitle-asb-base-transform", baseTransform);
     }
     removeAsbPlayerSubtitleMoveHandles() {
       for (const root of this.asbPlayerSubtitleMoveRoots()) this.teardownAsbPlayerSubtitleMoveRoot(root);
@@ -34147,6 +34234,8 @@ ${spelling}`);
       root.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR).forEach((handle) => handle.remove());
       root.classList.remove(...ASBPLAYER_SUBTITLE_DRAG_CLASSES);
       root.style.removeProperty("--jpdb-subtitle-asb-drag-offset-y");
+      root.style.removeProperty("--jpdb-subtitle-asb-base-transform");
+      this.asbSubtitleBaseTransforms.delete(root);
     }
     showControlsTemporarily() {
       if (!this.root) return;
@@ -34191,7 +34280,7 @@ ${spelling}`);
       return Boolean(this.video || this.cues.length || this.currentCue?.text);
     }
     videoIsLargeEnoughForIdleControls() {
-      const rect = this.video?.getBoundingClientRect();
+      const rect = this.video ? this.videoLayoutRect() : void 0;
       return Boolean(rect && rect.width > 120 && rect.height > 90);
     }
     isPointerNearSubtitleSurface(x2, y) {
@@ -34200,7 +34289,7 @@ ${spelling}`);
       if (this.pointInOpenTranscriptPanel(x2, y)) return true;
       if (!this.video) return true;
       if (this.videoPlayerChromeHidden()) return false;
-      return pointInRect(x2, y, this.video.getBoundingClientRect());
+      return pointInRect(x2, y, this.videoLayoutRect());
     }
     videoPlayerChromeHidden() {
       const mobileOverlay = document.querySelector("#player-control-overlay");
