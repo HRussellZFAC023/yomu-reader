@@ -1302,6 +1302,27 @@ describe('SubtitlePlayerController', () => {
             .not.toContain('background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
     });
 
+    it('keeps ASBPlayer subtitle words out of Yomu underline color channels', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        const yomuSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface)';
+        const asbSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
+
+        expect(normalizedCss)
+            .toContain(`.jpdb-reader-subtitle-underline-jpdb ${yomuSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
+        expect(normalizedCss)
+            .toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${yomuSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
+        for (const source of ['status', 'jpdb', 'anki', 'pitch']) {
+            expect(normalizedCss)
+                .not.toContain(`.jpdb-reader-subtitle-underline-${source} ${asbSurfaces}`);
+        }
+        expect(normalizedCss)
+            .not.toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${asbSurfaces}`);
+        expect(normalizedCss)
+            .toContain(`.jpdb-reader-subtitle-text-jpdb ${asbSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }`);
+        expect(normalizedCss)
+            .toContain(`.jpdb-reader-subtitle-highlight-jpdb ${asbSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
+    });
+
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -2857,7 +2878,13 @@ describe('SubtitlePlayerController', () => {
             // Keyless results live in the provisional tier (it IS the final
             // tier without a key); nothing may dangle waiting on an upgrade.
             expect(internals.provisionalParsedHtmlCache.size).toBeGreaterThan(0);
-            expect(parseJapaneseBatch.mock.calls.every(call => (call[1] as { skipJpdb?: boolean })?.skipJpdb === true)).toBe(true);
+            // No call may demand the JPDB API keyless...
+            expect(parseJapaneseBatch.mock.calls.some(call => (call[1] as { requireJpdb?: boolean })?.requireJpdb === true)).toBe(false);
+            // ...and no cue text is tokenized twice: the provisional result is
+            // final, so the transcript-tail warmup must reuse it instead of
+            // re-parsing every cue through its non-provisional path.
+            const parsedTexts = parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[]);
+            expect(new Set(parsedTexts).size).toBe(parsedTexts.length);
         } finally {
             vi.useRealTimers();
             Object.defineProperty(window, 'location', {
@@ -2876,16 +2903,18 @@ describe('SubtitlePlayerController', () => {
                 apiKey: 'test-key',
                 localDictionariesEnabled: false,
             };
-            const parseJapaneseBatch = vi.fn(async (texts: string[]) => {
+            const parseJapaneseBatch = vi.fn(async (texts: string[], _options?: { skipJpdb?: boolean }) => {
                 await new Promise(resolve => setTimeout(resolve, 30));
                 return texts.map(text => [makeSubtitleToken(text)]);
             });
             const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
             installController(controller);
             const video = attachVideo(controller, { currentTime: 0.5 });
+            // 2s cues with real 2s gaps between them, so a seek can land
+            // clear of the boundary grace/tolerance windows.
             const cues = Array.from({ length: 60 }, (_, index) => ({
-                start: index * 2,
-                end: index * 2 + 1.8,
+                start: index * 4,
+                end: index * 4 + 2,
                 text: `間隙シーク字幕${index}`,
                 transcriptEligible: true,
             }));
@@ -2901,9 +2930,10 @@ describe('SubtitlePlayerController', () => {
             internals.updateFromLoadedCues();
             await vi.advanceTimersByTimeAsync(50);
 
-            // Forward seek into the gap AFTER cue 45 (no active cue there):
-            // the stale cue clears and the upcoming cue 46 + lookahead warm.
-            (video as { currentTime: number }).currentTime = cues[45].end + 0.1;
+            // Forward seek into the middle of the gap AFTER cue 45 (no active
+            // cue there): the stale cue clears and the upcoming cue 46 plus
+            // its lookahead warm within one turn.
+            (video as { currentTime: number }).currentTime = cues[45].end + 1;
             internals.updateFromLoadedCues();
             await vi.advanceTimersByTimeAsync(50);
             expect(internals.currentCue).toBeUndefined();
@@ -2911,7 +2941,7 @@ describe('SubtitlePlayerController', () => {
 
             // A second gap-landing seek (no cue-state change at all) must
             // still re-anchor: backward into the gap after cue 20.
-            (video as { currentTime: number }).currentTime = cues[20].end + 0.1;
+            (video as { currentTime: number }).currentTime = cues[20].end + 1;
             internals.updateFromLoadedCues();
             await vi.advanceTimersByTimeAsync(50);
             expect(internals.subtitleWarmupTexts(21, 32, settings)).toEqual([]);
@@ -2968,7 +2998,9 @@ describe('SubtitlePlayerController', () => {
             };
             // A cue with no annotatable words: every parse returns no tokens.
             const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(() => []));
-            const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+            const parseJapanese = vi.fn(async () => []);
+            const totalParseCalls = () => parseJapaneseBatch.mock.calls.length + parseJapanese.mock.calls.length;
+            const { controller } = createSubtitleController(settings, { parseJapanese, parseJapaneseBatch });
             installController(controller);
             attachVideo(controller, { currentTime: 0.5 });
             const cues = [{ start: 0, end: 4, text: '12345', transcriptEligible: true }];
@@ -2985,7 +3017,7 @@ describe('SubtitlePlayerController', () => {
 
             internals.updateFromLoadedCues();
             await vi.advanceTimersByTimeAsync(10);
-            const initialParseCalls = parseJapaneseBatch.mock.calls.length;
+            const initialParseCalls = totalParseCalls();
             expect(initialParseCalls).toBeGreaterThan(0);
             expect(internals.emptyParsedHtmlCache.size).toBe(1);
 
@@ -2996,7 +3028,7 @@ describe('SubtitlePlayerController', () => {
                 internals.render();
                 await vi.advanceTimersByTimeAsync(250);
             }
-            expect(parseJapaneseBatch.mock.calls.length).toBe(initialParseCalls);
+            expect(totalParseCalls()).toBe(initialParseCalls);
             expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             expect(internals.subtitleEl.textContent).toContain('12345');
 
@@ -3005,7 +3037,7 @@ describe('SubtitlePlayerController', () => {
             internals.updateFromLoadedCues();
             internals.render();
             await vi.advanceTimersByTimeAsync(10);
-            expect(parseJapaneseBatch.mock.calls.length).toBeGreaterThan(initialParseCalls);
+            expect(totalParseCalls()).toBeGreaterThan(initialParseCalls);
         } finally {
             vi.useRealTimers();
             Object.defineProperty(window, 'location', {
@@ -3039,6 +3071,8 @@ describe('SubtitlePlayerController', () => {
                 subtitleEl: HTMLElement;
                 currentCue: { start: number; end: number; text: string } | undefined;
                 keepDomCaptionCueAlive: (text: string) => void;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                provisionalParsedHtmlCache: Map<string, string>;
             }>(controller);
 
             // First sighting starts the parse DURING the stability window —
@@ -3048,8 +3082,8 @@ describe('SubtitlePlayerController', () => {
             expect(internals.isDomCaptionStable(caption, 1000)).toBe(false);
             expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
             expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['こんにちは先生。', '元気ですか。']);
-            await vi.waitFor(() => expect(parseJapaneseBatch.mock.results.length).toBeGreaterThan(0));
-            await Promise.resolve();
+            const firstPartKey = internals.parseCacheKey('こんにちは先生。', settings);
+            await vi.waitFor(() => expect(internals.provisionalParsedHtmlCache.has(firstPartKey)).toBe(true));
 
             // Stability passing renders the first part pre-parsed: no loading
             // shimmer, reader words present immediately.
@@ -3117,6 +3151,9 @@ describe('SubtitlePlayerController', () => {
             await internals.parseCueHtmlBatch(['読む']);
             expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
             expect(internals.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-pitch-heiban');
+            // The cue is on screen with the pre-enrichment html.
+            internals.render();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
 
             // A transcript row already hydrated with the pre-enrichment html.
             const rowText = document.createElement('strong');

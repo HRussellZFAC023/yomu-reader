@@ -1,4 +1,5 @@
 import { primaryCardState } from '../cards/state';
+import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
 import { escapeHtml, setInnerHtml } from './html';
@@ -315,7 +316,19 @@ function visibleTextNodeFilter(node: Node): number {
 
 function canInspectTextNode(node: Node): boolean {
     const parent = node.parentElement;
-    return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR));
+    if (!parent || parent.closest(READER_ROOT_SELECTOR)) return false;
+    const blocked = parent.closest(SKIP_SELECTOR);
+    if (!blocked) return true;
+    return isAnnotatableChipControl(blocked);
+}
+
+// UT-76: YouTube filter chips are buttons (normally skipped — annotating
+// interactive controls risks click conflicts), but their labels are prime
+// immersion text and the fragile-UI classifier renders them as PASSIVE
+// color-only words, which are click-transparent — the chip keeps working.
+function isAnnotatableChipControl(blocked: Element): boolean {
+    return blocked.matches('button')
+        && Boolean(blocked.closest('yt-chip-cloud-chip-renderer, .ytChipShapeChip, [class*="ChipShape"]'));
 }
 
 function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
@@ -378,7 +391,8 @@ function textTargetParentFilterResult(parent: HTMLElement, text: string, visible
 }
 
 function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): boolean {
-    if (parent.closest(SKIP_SELECTOR)) return true;
+    const blocked = parent.closest(SKIP_SELECTOR);
+    if (blocked && !isAnnotatableChipControl(blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
     if (isShortCenteredDisplayHeading(parent, text)) return true;
     return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
@@ -1574,8 +1588,17 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
+    applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
+}
+
+function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return;
+    span.dataset.deckMember = 'true';
+    span.dataset.deckSource = membership.source;
+    if (membership.names.length) span.dataset.deckNames = membership.names.join(', ');
 }
 
 function applyTokenRenderOptions(span: HTMLElement, token: JPDBToken, options: TokenRenderOptions): void {
@@ -1608,7 +1631,15 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
+    const deck = renderDeckMembershipAttributes(token.card);
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+}
+
+function renderDeckMembershipAttributes(card: JPDBCard): string {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return '';
+    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(', '))}"` : '';
+    return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 
 export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
@@ -1643,6 +1674,7 @@ function readerWordClassName(state: string, token: JPDBToken): string {
         const source = readerCardSource(token.card);
         if (source !== 'jpdb') classes.push(`${source}-${state}`);
     }
+    classes.push(...cardDeckMembershipClassNames(token.card));
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(' ');
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { kanaRunRenderedWordsForSurface } from '../../src/reader/main/rendered-word-lookup';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { renderTokensToHtml } from '../../src/reader/dom/index';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
 
 describe('rendered word card identity', () => {
@@ -49,6 +51,100 @@ describe('rendered word card identity', () => {
         expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
     });
 });
+
+describe('rendered word deck styling parity', () => {
+    const deckStylingCases: Array<{ source: NonNullable<JPDBCard['source']>; deckFields: Partial<JPDBCard> }> = [
+        { source: 'jpdb', deckFields: { deckNames: ['Mining'] } },
+        { source: 'jiten', deckFields: { deckNames: ['Mining'], sourceDeckName: 'Mining' } },
+        { source: 'anki', deckFields: { ankiDeckNames: ['Mining'] } },
+    ];
+
+    it.each(deckStylingCases)('stamps $source deck membership on reader words', ({ source, deckFields }) => {
+        document.body.innerHTML = renderTokensToHtml('読む', [{
+            card: renderedWordCard({
+                source,
+                cardState: ['in-deck'],
+                ...deckFields,
+            }),
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: 'unknown',
+        }], DEFAULT_SETTINGS);
+
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('yomu-deck-member')).toBe(true);
+        expect(word.classList.contains(`${source}-deck-member`)).toBe(true);
+        expect(word.classList.contains('yomu-deck-mining')).toBe(true);
+        expect(word.classList.contains(`${source}-deck-mining`)).toBe(true);
+        expect(word.dataset.deckMember).toBe('true');
+        expect(word.dataset.deckSource).toBe(source);
+        expect(word.dataset.deckNames).toBe('Mining');
+    });
+
+    it('keeps merged Anki deck metadata on Anki deck classes', () => {
+        document.body.innerHTML = renderTokensToHtml('読む', [{
+            card: renderedWordCard({
+                source: 'jpdb',
+                cardState: ['known'],
+                ankiDeckNames: ['Mining'],
+            }),
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: 'unknown',
+        }], DEFAULT_SETTINGS);
+
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('anki-deck-member')).toBe(true);
+        expect(word.classList.contains('anki-deck-mining')).toBe(true);
+        expect(word.classList.contains('jpdb-deck-member')).toBe(false);
+        expect(word.dataset.deckSource).toBe('anki');
+        expect(word.dataset.deckNames).toBe('Mining');
+    });
+
+    it('replaces stale provider deck styling when retargeting a rendered word', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word yomu-deck-member yomu-deck-old jiten-deck-member jiten-deck-old';
+        word.dataset.deckMember = 'true';
+        word.dataset.deckSource = 'jiten';
+        word.dataset.deckNames = 'Old';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            source: 'jpdb',
+            cardState: ['not-in-deck'],
+            deckNames: [],
+        }));
+
+        expect(word.classList.contains('yomu-deck-member')).toBe(false);
+        expect(word.classList.contains('yomu-deck-old')).toBe(false);
+        expect(word.classList.contains('jiten-deck-member')).toBe(false);
+        expect(word.classList.contains('jiten-deck-old')).toBe(false);
+        expect(word.dataset.deckMember).toBeUndefined();
+        expect(word.dataset.deckSource).toBeUndefined();
+        expect(word.dataset.deckNames).toBeUndefined();
+    });
+});
+
+function renderedWordCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    return {
+        vid: 1456360,
+        sid: 3,
+        rid: 0,
+        source: 'jpdb',
+        spelling: '読む',
+        reading: 'よむ',
+        frequencyRank: 20215,
+        partOfSpeech: ['v5m'],
+        meanings: [{ glosses: ['to read'], partOfSpeech: ['v5m'] }],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        ...overrides,
+    };
+}
 
 describe('kana-run rendered-word identity (P0 parity)', () => {
     function renderRun(parts: string[]): HTMLElement[] {

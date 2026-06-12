@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.176] - 2026-06-12
+
+### Added
+
+- Lookup pitch graphs now show every accepted accent variant from imported pitch dictionaries, and append imported dictionary variants to the one jpdb supplies.
+
+### Fixed
+
+- YouTube channel suggestions now keep Yomu's short level/topic summaries after YouTube preview hydration, instead of replacing them with long channel bios in compact suggestion rows.
+- YouTube filtering now continues loading mobile homepage cards when the visible continuation item is reached, avoids annotating recommendation-grid titles as page text, and keeps the current Shorts watch item visible while hiding non-Japanese neighboring Shorts.
+- Keyless subtitle playback now treats provisional parses as warm for lookahead and transcript warmups, shares in-flight parses across tiers, caches empty parses in the retry TTL, and re-anchors warmup after long seeks into cue gaps.
+- YouTube native-caption fallback now warms the normalized text that actually renders, renews captions the page keeps showing, and can re-apply identical captions after a seek.
+- Late pitch/vocabulary enrichment now re-bakes cached subtitle cue HTML and hydrated transcript rows, so stepping back keeps pitch colors.
+- Public jpdb pitch lookups now run four-wide, so keyless pitch underlines fill in faster during subtitle bursts.
+- ASBPlayer subtitle overlays no longer inherit Yomu subtitle underline color channels, avoiding dark shadow underlines when API-backed status/pitch styling is enabled.
+- Deck membership styling now applies across JPDB, Jiten, and Anki rendered words, with provider-specific deck classes and merged Anki metadata preserved.
+- Word lookups now resolve the real pointer target through shadow-DOM event retargeting, so framework re-renders that replace annotated nodes are re-annotated by the next scan.
+- Imported dictionaries on iPad now request persistent storage on import, and the Dictionaries panel explains when Safari has cleared remembered IndexedDB data.
+- Grammar rows in the lookup sheet now indent consistently across alternate forms.
+
 ## [0.6.175] - 2026-06-12
 
 ### Fixed

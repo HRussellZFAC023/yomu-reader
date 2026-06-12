@@ -1,4 +1,5 @@
 import type { JPDBCard } from '../app/types';
+import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
 
@@ -22,6 +23,7 @@ const RENDERED_WORD_CARD_STATES = [
     'unparsed',
 ];
 const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback'];
+const RENDERED_WORD_DECK_SOURCE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'anki'];
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -121,6 +123,7 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
     clearRenderedWordCardStateClasses(word);
+    clearRenderedWordDeckMembershipClasses(word, ['anki']);
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
     word.dataset.cardSource = source;
@@ -131,6 +134,7 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     word.dataset.reading = card.reading;
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
+    applyRenderedWordDeckMembership(word, card);
 }
 
 function escapeCssAttributeValue(value: string): string {
@@ -143,8 +147,45 @@ function clearRenderedWordCardStateClasses(word: HTMLElement): void {
         .forEach(className => word.classList.remove(className));
 }
 
+function clearRenderedWordDeckMembershipClasses(word: HTMLElement, preserveSources: string[] = []): void {
+    Array.from(word.classList)
+        .filter(className => isRenderedWordDeckMembershipClass(className, preserveSources))
+        .forEach(className => word.classList.remove(className));
+    if (preserveSources.length) return;
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+}
+
 function isRenderedWordCardStateClass(className: string): boolean {
     return RENDERED_WORD_CARD_STATE_PREFIXES.some(prefix => RENDERED_WORD_CARD_STATES.some(state => className === `${prefix}-${state}`));
+}
+
+function isRenderedWordDeckMembershipClass(className: string, preserveSources: string[]): boolean {
+    if (className === 'yomu-deck-member') return false;
+    if (className.startsWith('yomu-deck-')) return true;
+    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some(prefix => {
+        if (preserveSources.includes(prefix)) return false;
+        return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+    });
+}
+
+function applyRenderedWordDeckMembership(word: HTMLElement, card: JPDBCard): void {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) {
+        if (!word.classList.contains('anki-deck-member')) {
+            word.classList.remove('yomu-deck-member');
+            delete word.dataset.deckMember;
+            delete word.dataset.deckSource;
+            delete word.dataset.deckNames;
+        }
+        return;
+    }
+    word.classList.add(...cardDeckMembershipClassNames(card));
+    word.dataset.deckMember = 'true';
+    word.dataset.deckSource = membership.source;
+    if (membership.names.length) word.dataset.deckNames = membership.names.join(', ');
+    else delete word.dataset.deckNames;
 }
 
 function renderedWordCardSource(card: JPDBCard): string {

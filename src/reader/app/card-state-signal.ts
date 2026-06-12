@@ -25,6 +25,10 @@ export interface CardStateSignalCard {
     cardState: CardState[];
     pitchAccent: string[];
     source: JPDBCard['source'];
+    deckNames?: string[];
+    ankiDeckNames?: string[];
+    jpdbDeckMembership?: string;
+    sourceDeckName?: string;
 }
 
 interface CardStateSignal {
@@ -43,6 +47,10 @@ export function cardStateSignalCard(card: JPDBCard): CardStateSignalCard {
         cardState: [...card.cardState],
         pitchAccent: [...card.pitchAccent],
         source: card.source,
+        deckNames: card.deckNames ? [...card.deckNames] : undefined,
+        ankiDeckNames: card.ankiDeckNames ? [...card.ankiDeckNames] : undefined,
+        jpdbDeckMembership: card.jpdbDeckMembership,
+        sourceDeckName: card.sourceDeckName,
     };
 }
 
@@ -147,6 +155,10 @@ function parseCardStateSignal(value: unknown): CardStateSignal | null {
             cardState: card.cardState as CardState[],
             pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent as string[] : [],
             source: (card.source ?? 'jpdb') as JPDBCard['source'],
+            deckNames: Array.isArray(card.deckNames) ? card.deckNames as string[] : undefined,
+            ankiDeckNames: Array.isArray(card.ankiDeckNames) ? card.ankiDeckNames as string[] : undefined,
+            jpdbDeckMembership: typeof card.jpdbDeckMembership === 'string' ? card.jpdbDeckMembership : undefined,
+            sourceDeckName: typeof card.sourceDeckName === 'string' ? card.sourceDeckName : undefined,
         },
     };
 }

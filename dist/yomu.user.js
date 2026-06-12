@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.175
+// @version      0.6.176
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-EXfHajorDyAlWnIBIHP5BCulXfGh4YZUK9aZhDAsTRo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f8fZfCMukBYjWuXrrh+iMSAI+rVks4iB1LfK3ZRF9Qo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-r//sBQc1sBQRUDwhgyFK6aLw9dLqxfzLcqChrRKjM7M=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-6NxdR/9AM/W/Z5Q+NH/4PbxwRFNgYtWrSIrammikRYQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-FFYfzobSaBq8j3B7sfaQfaDIGCg0UfZsj37DbZkSaRM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -131,6 +131,71 @@
   }
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
+  }
+  const DECK_CLASS_NAME_LIMIT = 8;
+  function cardDeckMembership(card) {
+    const names = cardDeckNames(card);
+    return {
+      source: cardDeckMembershipSource(card),
+      names,
+      member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
+    };
+  }
+  function cardDeckNames(card) {
+    return uniqueDeckNames([
+      ...primaryDeckNames(card),
+      ...ankiDeckNames(card)
+    ]);
+  }
+  function cardDeckMembershipClassNames(card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return [];
+    const classes = /* @__PURE__ */ new Set(["yomu-deck-member"]);
+    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes, primaryDeckMembershipSource(card), primaryDeckNames(card));
+    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes, "anki", ankiDeckNames(card));
+    return [...classes];
+  }
+  function deckClassSlug(value) {
+    const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+    return slug || "unnamed";
+  }
+  function uniqueDeckNames(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map((value) => value?.trim() ?? "").filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  function cardDeckMembershipSource(card) {
+    if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
+    return primaryDeckMembershipSource(card);
+  }
+  function primaryDeckMembershipSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function primaryDeckNames(card) {
+    return uniqueDeckNames([
+      ...card.deckNames ?? [],
+      card.sourceDeckName ?? ""
+    ]);
+  }
+  function ankiDeckNames(card) {
+    return uniqueDeckNames(card.ankiDeckNames ?? []);
+  }
+  function hasPrimaryDeckMembership(card) {
+    return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
+  }
+  function hasAnkiDeckMembership(card) {
+    return ankiDeckNames(card).length > 0;
+  }
+  function addDeckSourceClasses(classes, source, names) {
+    classes.add(`${source}-deck-member`);
+    names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
+      const slug = deckClassSlug(name);
+      classes.add(`yomu-deck-${slug}`);
+      classes.add(`${source}-deck-${slug}`);
+    });
   }
   const CORE_COLOR_TOKENS = {
     black: "#000000",
@@ -3091,7 +3156,13 @@
   }
   function canInspectTextNode(node) {
     const parent = node.parentElement;
-    return Boolean(parent && !parent.closest(SKIP_SELECTOR) && !parent.closest(READER_ROOT_SELECTOR$2));
+    if (!parent || parent.closest(READER_ROOT_SELECTOR$2)) return false;
+    const blocked = parent.closest(SKIP_SELECTOR);
+    if (!blocked) return true;
+    return isAnnotatableChipControl(blocked);
+  }
+  function isAnnotatableChipControl(blocked) {
+    return blocked.matches("button") && Boolean(blocked.closest('yt-chip-cloud-chip-renderer, .ytChipShapeChip, [class*="ChipShape"]'));
   }
   function textWalkerHasJapanese(walker, limit) {
     let inspected = 0;
@@ -3144,7 +3215,8 @@
     return NodeFilter.FILTER_ACCEPT;
   }
   function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
-    if (parent.closest(SKIP_SELECTOR)) return true;
+    const blocked = parent.closest(SKIP_SELECTOR);
+    if (blocked && !isAnnotatableChipControl(blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
     if (isShortCenteredDisplayHeading(parent, text2)) return true;
     return shouldRejectTextTargetPresentation(parent, text2, visibleOnly);
@@ -3962,8 +4034,16 @@
     span.dataset.sentence = token.sentence ?? "";
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
+    applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
+  }
+  function applyDeckMembershipDataset(span, card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return;
+    span.dataset.deckMember = "true";
+    span.dataset.deckSource = membership.source;
+    if (membership.names.length) span.dataset.deckNames = membership.names.join(", ");
   }
   function applyTokenRenderOptions(span, token, options) {
     if (options.scanWord) span.classList.add("jpdb-reader-scan-word");
@@ -3994,7 +4074,14 @@
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading} tabindex="-1">${content}</span>`;
+    const deck = renderDeckMembershipAttributes(token.card);
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+  }
+  function renderDeckMembershipAttributes(card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return "";
+    const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml$1(membership.names.join(", "))}"` : "";
+    return ` data-deck-member="true" data-deck-source="${escapeHtml$1(membership.source)}"${deckNames}`;
   }
   function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
     if (!allowRuby) return false;
@@ -4024,6 +4111,7 @@
       const source = readerCardSource(token.card);
       if (source !== "jpdb") classes.push(`${source}-${state}`);
     }
+    classes.push(...cardDeckMembershipClassNames(token.card));
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(" ");
   }
@@ -33796,6 +33884,7 @@ ${glossaryKey}`;
     "unparsed"
   ];
   const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
+  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
   function clearRenderedWordAnkiState(word) {
     Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
     delete word.dataset.ankiState;
@@ -33871,6 +33960,7 @@ ${glossaryKey}`;
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
     clearRenderedWordCardStateClasses(word);
+    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
     word.dataset.vid = String(card.vid);
     word.dataset.sid = String(card.sid);
     word.dataset.cardSource = source;
@@ -33881,6 +33971,7 @@ ${glossaryKey}`;
     word.dataset.reading = card.reading;
     word.classList.add(`jpdb-${state}`);
     if (source !== "jpdb") word.classList.add(`${source}-${state}`);
+    applyRenderedWordDeckMembership(word, card);
   }
   function escapeCssAttributeValue(value) {
     return value.replace(/["\\]/g, "\\$&");
@@ -33888,8 +33979,40 @@ ${glossaryKey}`;
   function clearRenderedWordCardStateClasses(word) {
     Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
   }
+  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
+    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
+    if (preserveSources.length) return;
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+  }
   function isRenderedWordCardStateClass(className) {
     return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
+  }
+  function isRenderedWordDeckMembershipClass(className, preserveSources) {
+    if (className === "yomu-deck-member") return false;
+    if (className.startsWith("yomu-deck-")) return true;
+    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
+      if (preserveSources.includes(prefix)) return false;
+      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+    });
+  }
+  function applyRenderedWordDeckMembership(word, card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) {
+      if (!word.classList.contains("anki-deck-member")) {
+        word.classList.remove("yomu-deck-member");
+        delete word.dataset.deckMember;
+        delete word.dataset.deckSource;
+        delete word.dataset.deckNames;
+      }
+      return;
+    }
+    word.classList.add(...cardDeckMembershipClassNames(card));
+    word.dataset.deckMember = "true";
+    word.dataset.deckSource = membership.source;
+    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
+    else delete word.dataset.deckNames;
   }
   function renderedWordCardSource(card) {
     return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
@@ -34021,7 +34144,16 @@ ${glossaryKey}`;
     word.classList.add(`anki-${ankiLookup.state}`);
     word.dataset.ankiState = ankiLookup.state;
     word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
+    applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
     word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+  }
+  function applyAnkiDeckMembershipToRenderedWord(word, deckNames) {
+    if (!deckNames.length) return;
+    word.classList.add(...cardDeckMembershipClassNames({
+      cardState: ["in-deck"],
+      source: "anki",
+      ankiDeckNames: deckNames
+    }).filter((className) => !className.startsWith("yomu-")));
   }
   function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
     const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();

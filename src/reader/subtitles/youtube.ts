@@ -955,7 +955,7 @@ export class YoutubeImmersionFilter {
 
         const description = document.createElement('div');
         description.className = 'jpdb-youtube-channel-description jpdb-reader-parseable';
-        description.textContent = preview?.description || youtubeChannelRecommendationDescription(channel);
+        description.textContent = youtubeChannelRecommendationDescription(channel);
 
         const tags = document.createElement('div');
         tags.className = 'jpdb-youtube-channel-tags';
