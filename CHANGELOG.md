@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.158] - 2026-06-12
+
+### Fixed
+
+- Anki kanji cards (RTK-style decks) no longer show the same kanji repeated several times: those templates render the glyph in multiple decorative fonts that cannot load outside Anki, so the repeats collapsed into identical copies. Yomu now keeps one glyph per card side and drops the duplicates (verified against a real RRTK deck), along with dead text-to-speech placeholders.
+
+### Changed
+
+- The Anki status index rebuild is dramatically faster on large collections: it now derives note, deck and state information from three fast bulk queries instead of asking Anki to render every card's templates (~110ms per card — about 20 minutes for a 12k-card collection, now seconds). Classification verified identical against a live collection; the old path remains as a fallback for older AnkiConnect versions.
+
 ## [0.6.157] - 2026-06-12
 
 ### Fixed

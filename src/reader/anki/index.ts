@@ -1131,6 +1131,12 @@ export class AnkiConnectClient {
         rebuildLeaseOwner: string | undefined,
         settingsKey: string,
     ): Promise<Map<number, AnkiCardInfo[]>> {
+        // UT-50: cardsInfo renders every card's templates server-side
+        // (~110ms/card — minutes on large collections). The index only needs
+        // note/deck/state per card, all of which come from three fast bulk
+        // calls; fall back to the rendering path if they are unavailable.
+        const fast = await this.loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey);
+        if (fast) return fast;
         const cardChunks = chunkArray(unique(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
         const cardsByChunk: AnkiCardInfo[][] = Array.from({ length: cardChunks.length }, () => []);
         await runLimited(cardChunks, ANKI_STATUS_INDEX_CARD_CONCURRENCY, async (chunk, index) => {
@@ -1140,6 +1146,59 @@ export class AnkiConnectClient {
             this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
         });
         return cardsByNoteId(cardsByChunk.flat());
+    }
+
+    private async loadStatusIndexCardsByNoteFast(
+        allCardIds: number[],
+        sets: AnkiStatusIndexCardSets,
+        rebuildLeaseOwner: string | undefined,
+        settingsKey: string,
+    ): Promise<Map<number, AnkiCardInfo[]> | null> {
+        const cardIds = unique(allCardIds).map(Number).filter(Number.isFinite);
+        if (!cardIds.length) return new Map();
+        try {
+            const [noteIds, decks, relearning] = await Promise.all([
+                this.invoke<number[]>('cardsToNotes', { cards: cardIds }),
+                this.invoke<Record<string, number[]>>('getDecks', { cards: cardIds }),
+                this.findCardIdSet('deck:* is:learn is:review'),
+            ]);
+            if (!Array.isArray(noteIds) || noteIds.length !== cardIds.length || !decks || typeof decks !== 'object') return null;
+            this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+            const deckByCard = new Map<number, string>();
+            for (const [deckName, deckCardIds] of Object.entries(decks)) {
+                for (const id of deckCardIds ?? []) deckByCard.set(Number(id), deckName);
+            }
+            const cards = cardIds.map((cardId, index) => this.syntheticStatusIndexCardInfo(cardId, Number(noteIds[index]), deckByCard.get(cardId) ?? '', sets, relearning));
+            return cardsByNoteId(cards);
+        } catch {
+            return null;
+        }
+    }
+
+    // queue/type synthesized so stateFromAnkiCards classifies exactly like
+    // the rendering path: relearn > due > learning > new > suspended > known.
+    private syntheticStatusIndexCardInfo(
+        cardId: number,
+        noteId: number,
+        deckName: string,
+        sets: AnkiStatusIndexCardSets,
+        relearning: Set<number>,
+    ): AnkiCardInfo {
+        const queue = relearning.has(cardId) ? 3
+            : sets.learning.has(cardId) ? 1
+            : sets.new.has(cardId) ? 0
+            : sets.suspended.has(cardId) ? -1
+            : 2;
+        return {
+            cardId,
+            note: noteId,
+            deckName,
+            queue,
+            type: queue === 3 ? 3 : queue === 1 ? 1 : queue === 0 ? 0 : 2,
+            reps: 0,
+            lapses: 0,
+            isDue: sets.due.has(cardId),
+        } as AnkiCardInfo;
     }
 
     private statusIndexCardInfoWithDueFlag(card: AnkiCardInfo, sets: AnkiStatusIndexCardSets): AnkiCardInfo {
