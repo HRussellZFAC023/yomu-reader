@@ -574,6 +574,8 @@ export class ReaderApp {
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
     private pitchEnrichmentDrain?: Promise<void>;
+    private pendingSubtitleRebakeTexts = new Set<string>();
+    private subtitleRebakeTimer?: number;
     private pressedKeys = new Set<string>();
     private hoverAnchorIds = new WeakMap<HTMLElement, number>();
     private nextHoverAnchorId = 1;
@@ -1181,6 +1183,9 @@ export class ReaderApp {
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
         this.clearPitchEnrichmentQueue();
+        window.clearTimeout(this.subtitleRebakeTimer);
+        this.subtitleRebakeTimer = undefined;
+        this.pendingSubtitleRebakeTexts.clear();
         this.clearRenderedWordIndex();
         if (this.popoverRepositionFrame !== undefined) {
             window.cancelAnimationFrame(this.popoverRepositionFrame);
@@ -4884,6 +4889,31 @@ export class ReaderApp {
         void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
     }
 
+    // Pitch/vocabulary enrichment lands after cue html is cached; pushing the
+    // enriched sentences back through the subtitle controller re-bakes those
+    // caches so stepping back to a previous line keeps its pitch colors
+    // (UT-66) instead of re-rendering the pre-enrichment html.
+    private queueSubtitleParsedHtmlRefresh(sentence: string | undefined): void {
+        const text = sentence?.trim();
+        if (!text || this.isDestroyed) return;
+        this.pendingSubtitleRebakeTexts.add(text);
+        if (this.subtitleRebakeTimer !== undefined) return;
+        this.subtitleRebakeTimer = window.setTimeout(() => {
+            this.subtitleRebakeTimer = undefined;
+            this.flushSubtitleParsedHtmlRefresh();
+        }, 150);
+    }
+
+    private flushSubtitleParsedHtmlRefresh(): void {
+        const texts = Array.from(this.pendingSubtitleRebakeTexts);
+        this.pendingSubtitleRebakeTexts.clear();
+        if (!texts.length || this.isDestroyed) return;
+        const subtitles = this.subtitles as { refreshParsedCueTexts?: (texts: string[]) => void };
+        // Companion version skew: an older video companion has no rebake hook.
+        if (typeof subtitles.refreshParsedCueTexts !== 'function') return;
+        subtitles.refreshParsedCueTexts(texts);
+    }
+
     private async enrichOcrTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
         if (!tokens.length) return;
         this.preloadTermAudioForTokens(tokens);
@@ -5148,6 +5178,7 @@ export class ReaderApp {
         this.applyPublicVocabularyToRenderedWords(token.card, card, pitchClass);
         token.card = card;
         token.pitchClass = pitchClass;
+        this.queueSubtitleParsedHtmlRefresh(token.sentence);
         return true;
     }
 
@@ -5208,13 +5239,16 @@ export class ReaderApp {
 
     private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup'> = {}): Promise<void> {
         const fallback = token.card;
+        const previousPitchClass = token.pitchClass ?? '';
         const card = await this.pitchEnrichedRenderedCard(fallback, options);
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
         if (card !== fallback) {
             this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+            this.queueSubtitleParsedHtmlRefresh(token.sentence);
             return;
         }
         this.applyPitchClassToFallbackToken(token, card, pitchClass);
+        if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
 
     private async pitchEnrichedRenderedCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<JPDBCard> {

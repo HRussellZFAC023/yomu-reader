@@ -1,3 +1,4 @@
+import './anki';
 import './kanji-study';
 import './settings-surface';
 import './video';

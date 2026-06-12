@@ -1,5 +1,6 @@
 .jpdb-reader-backdrop {
   position: fixed;
+  display: block;
   inset: 0;
   z-index: 2147483646;
   background: var(--jpdb-reader-backdrop);
@@ -8,6 +9,7 @@
 .jpdb-reader-popover,
 .jpdb-reader-settings {
   position: fixed;
+  display: block;
   z-index: 2147483647;
   box-sizing: border-box;
   background: var(--jpdb-reader-bg);
@@ -273,6 +275,7 @@
 
 .jpdb-reader-onboarding {
   position: fixed;
+  display: block;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);

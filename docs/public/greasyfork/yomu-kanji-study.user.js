@@ -2732,6 +2732,9 @@
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
       copySubtitleLine: "Copy subtitle line",
+      subtitleCopyIncludeTranslation: "Include the translation when copying a line",
+      peekSubtitleTranslation: "Show translation",
+      hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
       subtitleCurrentLineWillAppear: "The current line appears when captions are available.",
@@ -2783,10 +2786,12 @@
       adapterStateConnected: "Connected",
       adapterStateScanning: "Scanning",
       adapterStateSuggested: "Mapped",
+      adapterStateStale: "Needs review",
       adapterStateReady: "Ready",
       ankiMappingConfidenceHigh: "high match",
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
+      ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -3422,6 +3427,9 @@ subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
 copySubtitleLine	字幕行をコピー
+subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
+peekSubtitleTranslation	翻訳を表示
+hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
@@ -4115,10 +4123,12 @@ adapterStateUnreachable	接続不可
 adapterStateConnected	接続済み
 adapterStateScanning	スキャン中
 adapterStateSuggested	対応付け済み
+adapterStateStale	要確認
 adapterStateReady	準備完了
 ankiMappingConfidenceHigh	完全一致
 ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
+ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート

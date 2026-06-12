@@ -30,8 +30,24 @@ export type RenderRtkInfoFn = typeof import('../popup/rtk-info').renderRtkInfo;
 export type InstallOriginGraphInteractionsFn = typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
 export type BuildKanjiFactsFn = typeof import('../kanji/origin').buildKanjiFacts;
 export type BuildKanjiOriginGraphFn = typeof import('../kanji/origin').buildKanjiOriginGraph;
+export type RenderAnkiActionRowFn = typeof import('../anki/render-impl').renderAnkiActionRow;
+export type RenderAnkiExistingSectionFn = typeof import('../anki/render-impl').renderAnkiExistingSection;
+export type RenderAnkiNewCardPreviewFn = typeof import('../anki/render-impl').renderAnkiNewCardPreview;
+export type PruneRedundantAnkiGlyphRepeatsFn = typeof import('../anki/render-impl').pruneRedundantAnkiGlyphRepeats;
+export type RenderAnkiRenderedCardStudyBodyFn = typeof import('../anki/render-impl').renderAnkiRenderedCardStudyBody;
+export type RenderReviewButtonsFn = typeof import('../anki/render-impl').renderReviewButtons;
+export type ReviewButtonGradesFn = typeof import('../anki/render-impl').reviewButtonGrades;
 
 interface YomuCompanionRegistry {
+    anki?: {
+        renderAnkiActionRow: RenderAnkiActionRowFn;
+        renderAnkiExistingSection: RenderAnkiExistingSectionFn;
+        renderAnkiNewCardPreview: RenderAnkiNewCardPreviewFn;
+        pruneRedundantAnkiGlyphRepeats: PruneRedundantAnkiGlyphRepeatsFn;
+        renderAnkiRenderedCardStudyBody: RenderAnkiRenderedCardStudyBodyFn;
+        renderReviewButtons: RenderReviewButtonsFn;
+        reviewButtonGrades: ReviewButtonGradesFn;
+    };
     settings?: {
         SettingsDialogController: SettingsDialogControllerClass;
     };
@@ -80,6 +96,10 @@ export function registerYomuCompanion<K extends keyof YomuCompanionRegistry>(
 
 export function yomuSettingsDialogController(): SettingsDialogControllerClass | undefined {
     return yomuCompanions().settings?.SettingsDialogController;
+}
+
+export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> | undefined {
+    return yomuCompanions().anki;
 }
 
 export function yomuSubtitlePlayerController(): SubtitlePlayerControllerClass | undefined {

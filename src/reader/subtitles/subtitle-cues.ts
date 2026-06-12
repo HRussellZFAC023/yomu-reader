@@ -1072,12 +1072,36 @@ export function cueHasExactWordTimings(cue: SubtitleCue | undefined): cue is Sub
 }
 
 export function normalizeCaptionText(value: string): string {
-    return value
+    return decodeCaptionEntities(value)
         .replace(/\u00a0/g, ' ')
         .split('\n')
         .map(line => line.replace(/\s+/g, ' ').trim())
         .filter(Boolean)
         .join(' ');
+}
+
+// UT-67: auto-translated YouTube tracks ship literal HTML entities \u2014 a
+// `&nbsp;` cue passes the word-content check (letters n/b/s/p) and renders
+// as a blank row band in the Lines panel. Decode the common ones so empty
+// cues are recognized as empty.
+const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
+const NAMED_CAPTION_ENTITIES: Record<string, string> = {
+    nbsp: '\u00a0',
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+};
+
+function decodeCaptionEntities(value: string): string {
+    if (!value.includes('&')) return value;
+    return value.replace(CAPTION_ENTITY_RE, (match, name: string) => {
+        const lower = name.toLowerCase();
+        if (lower in NAMED_CAPTION_ENTITIES) return NAMED_CAPTION_ENTITIES[lower];
+        const code = lower.startsWith('#x') ? Number.parseInt(lower.slice(2), 16) : Number.parseInt(lower.slice(1), 10);
+        return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+    });
 }
 
 export function escapeWithBreaks(value: string): string {

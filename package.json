@@ -25,6 +25,7 @@
   ],
   "yomu": {
     "allowedRequireUrls": [
+      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js",
       "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js",
       "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js",
       "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js"

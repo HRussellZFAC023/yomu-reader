@@ -27009,14 +27009,23 @@ describe('reader helpers', () => {
 
     it('does not scan YouTube homepage recommendation titles as page text', () => {
         const targets = collectYouTubeTargets(`
-            <ytd-rich-grid-renderer>
-                <ytd-rich-item-renderer>
-                    <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
-                </ytd-rich-item-renderer>
-                <ytd-rich-item-renderer>
-                    <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
-                </ytd-rich-item-renderer>
-            </ytd-rich-grid-renderer>
+            <ytd-app>
+                <ytd-rich-grid-renderer>
+                    <ytd-rich-item-renderer>
+                        <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
+                    </ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer>
+                        <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
+                    </ytd-rich-item-renderer>
+                </ytd-rich-grid-renderer>
+            </ytd-app>
+            <ytm-app>
+                <ytm-rich-grid-renderer>
+                    <ytm-video-with-context-renderer>
+                        <a href="/watch?v=mobile-jp"><h3 class="media-item-headline">東京散歩</h3></a>
+                    </ytm-video-with-context-renderer>
+                </ytm-rich-grid-renderer>
+            </ytm-app>
         `, 'https://www.youtube.com/', 10);
 
         expect(targets).toEqual([]);

@@ -14,6 +14,17 @@
 - Native page ruby is preserved when a scanned word fully covers the ruby base text, avoiding split or duplicated furigana in annotated pages.
 - Kanji/Study companion features now degrade to no-op clients with a visible notice when the companion bundle is missing, instead of importing companion-only modules into the base runtime.
 
+## [0.6.174] - 2026-06-12
+
+### Added
+
+- Copying a subtitle line now flashes a small check on the copy button, "Include the translation when copying a line" is a Media setting (default on, matching the old behavior), and rows with an aligned translation get an eye toggle to peek it while the list stays Japanese-only.
+
+### Fixed
+
+- Blank bands in the subtitle Lines panel: auto-translated tracks ship literal HTML entities, and a cue containing only `&nbsp;` rendered as an empty full-height row. Entities are now decoded, so empty cues are dropped.
+- The hosted video-player page called an undefined hook on every language/theme application; the error aborted page setup. The subtitle player smoke also injects the companion scripts now (the player moved into the video companion long ago, so the smoke could never mount it).
+
 ## [0.6.173] - 2026-06-12
 
 ### Fixed

@@ -34,4 +34,20 @@ describe('Anki adapter state machine (P1)', () => {
         expect(html).toContain('data-adapter-state="unreachable"');
         expect(html).toContain('jpdb-reader-status-checklist');
     });
+
+    it('renders stale saved mappings as a review-needed adapter state', () => {
+        const html = renderAnkiStatusHtml({
+            message: 'Scan found changed fields.',
+            tone: 'pending',
+            state: 'stale',
+            details: [
+                { label: 'reading: Legacy Reading', suffix: 'saved field missing' },
+            ],
+        }, 'en');
+
+        expect(html).toContain('data-adapter-state="stale"');
+        expect(html).toContain('Needs review');
+        expect(html).toContain('reading: Legacy Reading');
+        expect(html).toContain('saved field missing');
+    });
 });

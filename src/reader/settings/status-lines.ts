@@ -13,7 +13,7 @@ export type SettingsStatusAction = 'anki-unreachable';
 // Explicit adapter lifecycle (P1 adapter state machine): the Anki setup
 // surfaces these instead of an opaque status sentence, so users can see
 // where the automatic flow is and what it concluded.
-export type AnkiAdapterState = 'disabled' | 'probing' | 'unreachable' | 'connected' | 'scanning' | 'suggested' | 'ready';
+export type AnkiAdapterState = 'disabled' | 'probing' | 'unreachable' | 'connected' | 'scanning' | 'suggested' | 'stale' | 'ready';
 
 export interface SettingsStatusDetail {
     label: string;
@@ -102,6 +102,7 @@ function ankiAdapterStateLabelKey(state: AnkiAdapterState): Parameters<typeof ui
         connected: 'adapterStateConnected',
         scanning: 'adapterStateScanning',
         suggested: 'adapterStateSuggested',
+        stale: 'adapterStateStale',
         ready: 'adapterStateReady',
     } as const;
     return keys[state];

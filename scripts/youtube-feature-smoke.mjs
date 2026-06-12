@@ -7,6 +7,8 @@ import { dragTranscriptResizeHandle } from './lib/subtitle-layout-test-utils.mjs
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
+const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
+    .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? 'dist/greasyfork', name));
 const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -584,6 +586,14 @@ async function installUserscriptContext(context) {
                     .filter(caseName => caseName !== 'shorts-watch-current')
                     .map(caseName => document.querySelector(`[data-case="${caseName}"]`)?.dataset.expectedLanguage)
                     .filter(language => language === 'en').length,
+                documentClasses: document.documentElement.className,
+                items: [...document.querySelectorAll('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')].map(card => ({
+                    caseName: card.dataset.case,
+                    className: card.className,
+                    text: card.textContent?.trim(),
+                    href: card.querySelector('a[href]')?.getAttribute('href'),
+                    rect: card.getBoundingClientRect().toJSON(),
+                })),
             };
         };
         window.__yomuFeatureReadWatchState = function yomuFeatureReadWatchState() {
@@ -609,6 +619,9 @@ async function installUserscriptContext(context) {
             };
         };
     }, { css, settings, settingsKey: SETTINGS_KEY });
+    for (const companionPath of COMPANION_PATHS) {
+        await context.addInitScript({ path: companionPath });
+    }
     await context.addInitScript({ path: USERSCRIPT_PATH });
 }
 
@@ -793,7 +806,12 @@ async function runShortsWatchCheck(page) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(SHORTS_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('ytd-reel-video-renderer[data-case="shorts-watch-current"]', { timeout: 10000 });
-    await page.waitForTimeout(700);
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadShortsWatchState();
+        return state.hiddenCases.includes('shorts-watch-next-en')
+            && state.visibleCases.includes('shorts-watch-current')
+            && state.visibleCases.includes('shorts-watch-next-jp');
+    }, null, { timeout: 12000 }).catch(() => undefined);
 
     const shortsWatch = await page.evaluate(() => window.__yomuFeatureReadShortsWatchState());
     assert(shortsWatch.cards === 3, 'Shorts watch feed did not render the snap sequence', shortsWatch);

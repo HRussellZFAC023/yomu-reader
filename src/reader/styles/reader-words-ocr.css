@@ -595,6 +595,7 @@
 
 .jpdb-ocr-layer {
   position: fixed;
+  display: block;
   z-index: 2147483643;
   pointer-events: none;
   box-sizing: border-box;
@@ -815,6 +816,9 @@
 }
 .jpdb-reader-fab {
   position: fixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 2147483645;

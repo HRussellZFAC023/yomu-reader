@@ -555,12 +555,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Whole desktop/mobile app shell: chrome, masthead, sidebar, feeds,
-            // and content are all scanned. Interactive elements are matched by
-            // passiveInteraction so hover opens the dictionary while the click
-            // still drives the native control (subscribe, links, chips, …).
-            'ytd-app',
-            'ytm-app',
+            // Deliberately scan only watch/comment/live-chat surfaces. Feed
+            // recommendation cards are classified by the immersion filter, but
+            // wrapping their titles mutates YouTube's virtualized grid and can
+            // break filter decisions.
             'ytd-watch-metadata',
             'ytd-watch-metadata #description',
             'ytd-watch-metadata #description-inline-expander',

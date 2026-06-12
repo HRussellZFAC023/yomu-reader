@@ -5,6 +5,13 @@ const greasyForkLibraryDir = 'greasyfork';
 
 const GREASY_FORK_LIBRARIES = [
   {
+    id: 'anki',
+    label: 'Yomu Anki',
+    entry: 'src/reader/companions/anki.ts',
+    fileName: 'yomu-anki.user.js',
+    globalName: 'YomuAnkiLibrary',
+  },
+  {
     id: 'kanji-study',
     label: 'Yomu Kanji/Study',
     entry: 'src/reader/companions/kanji-study.ts',

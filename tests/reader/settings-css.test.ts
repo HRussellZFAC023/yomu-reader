@@ -2,17 +2,59 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+const BASE_CSS = readFileSync('src/reader/styles/base.css', 'utf8');
+const LOCAL_DICTIONARIES_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
+const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
+const READER_WORDS_OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
+const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
+
+function normalizeCss(css: string): string {
+    return css.replace(/\s+/g, ' ');
+}
 
 describe('settings CSS', () => {
     it('keeps inline help link icons and status text constrained inside settings panels', () => {
-        const normalizedPopoverCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
-        const normalizedSettingsCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+        const normalizedPopoverCss = normalizeCss(POPOVER_CORE_CSS);
+        const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
 
         expect(normalizedPopoverCss).toContain('.jpdb-reader-status-line[data-status-tone] { --jpdb-reader-status-light: var(--jpdb-reader-faint); display: flex; align-items: flex-start; gap: 8px; min-width: 0; max-width: 100%;');
         expect(normalizedPopoverCss).toContain('white-space: normal; overflow-wrap: anywhere;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings a:not(.jpdb-reader-btn) svg { display: inline-block; width: 0.95em; height: 0.95em;');
         expect(normalizedSettingsCss).toContain('stroke-linejoin: round; vertical-align: -0.12em;');
+    });
+
+    it('isolates Yomu roots from host page element CSS', () => {
+        const normalizedBaseCss = normalizeCss(BASE_CSS);
+
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root] { all: initial; box-sizing: border-box; color: var(--jpdb-reader-text); color-scheme: normal; direction: ltr; font: 14px/1.45 var(--jpdb-reader-font); letter-spacing: 0; text-transform: none; unicode-bidi: isolate; }');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root], [data-jpdb-reader-root] *, [data-jpdb-reader-root]::before, [data-jpdb-reader-root]::after, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { box-sizing: border-box; }');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root] *, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { background: transparent; }');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(button), [data-jpdb-reader-root] :where(button) { appearance: none;');
+        expect(normalizedBaseCss).toContain('height: auto; line-height: normal; margin: 0; padding: 0; text-align: inherit;');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(input, select, textarea), [data-jpdb-reader-root] :where(input, select, textarea) { appearance: auto;');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6), [data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) { background: transparent; color: inherit;');
+    });
+
+    it('redeclares layout for root surfaces after the host-page reset', () => {
+        const normalizedLocalDictionaryCss = normalizeCss(LOCAL_DICTIONARIES_CSS);
+        const normalizedNewTabCss = normalizeCss(NEW_TAB_CSS);
+        const normalizedPopoverCss = normalizeCss(POPOVER_CORE_CSS);
+        const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
+        const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
+        const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
+
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-ocr-layer { position: fixed; display: block;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed; display: inline-flex; align-items: center; justify-content: center;');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-backdrop { position: fixed; display: block;');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover, .jpdb-reader-settings { position: fixed; display: block;');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-onboarding { position: fixed; display: block;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings { left: 50%; top: 50%; transform: translate(-50%, -50%);');
+        expect(normalizedSettingsCss).toContain('padding: 0; display: flex; flex-direction: column;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; background: transparent;');
+        expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-player { position: fixed; display: block;');
+        expect(normalizedLocalDictionaryCss).toContain('.yomu-jpdb-page-addon { display: block;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab { --jpdb-reader-newtab-content-width: min(760px, 100%); display: block;');
     });
 });

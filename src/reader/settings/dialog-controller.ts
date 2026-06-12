@@ -49,7 +49,7 @@ import {
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './form';
-import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusLine } from './form';
+import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
 import { updateAnkiTagsEditor } from './form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
@@ -1119,8 +1119,14 @@ export class SettingsDialogController {
         try {
             const scan = await scanLibrary.call(this.dependencies.anki);
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+            const staleDetails = this.staleAnkiFieldMappingDetails(form, scan, language);
             this.applyAnkiScanToForm(form, scan);
-            this.setAnkiStatus(form, this.ankiScanMessage(scan, language), 'success', undefined, scan.suggestedModel ? 'suggested' : 'ready', this.ankiScanDetails(scan, language));
+            const state: AnkiAdapterState = staleDetails.length ? 'stale' : scan.suggestedModel ? 'suggested' : 'ready';
+            const tone = staleDetails.length ? 'pending' : 'success';
+            this.setAnkiStatus(form, this.ankiScanMessage(scan, language), tone, undefined, state, [
+                ...staleDetails,
+                ...this.ankiScanDetails(scan, language),
+            ]);
             log.info('Auto Anki scan ok', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
         } catch (error) {
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
@@ -1726,7 +1732,7 @@ export class SettingsDialogController {
 
     // Field-mapping suggestions with their confidence, shown as the status
     // checklist instead of hidden mapping JSON (P1 adapter state machine).
-    private ankiScanDetails(scan: AnkiLibraryScanResult, language: InterfaceLanguage): SettingsStatusLine['details'] {
+    private ankiScanDetails(scan: AnkiLibraryScanResult, language: InterfaceLanguage): SettingsStatusDetail[] {
         const suggestions = scan.suggestedModel?.suggestions ?? [];
         return suggestions
             .filter(suggestion => suggestion.fieldName || suggestion.confidence === 'low')
@@ -1737,6 +1743,23 @@ export class SettingsDialogController {
                     : suggestion.confidence === 'medium'
                         ? 'ankiMappingConfidenceMedium'
                         : 'ankiMappingConfidenceLow'),
+            }));
+    }
+
+    private staleAnkiFieldMappingDetails(form: HTMLFormElement, scan: AnkiLibraryScanResult, language: InterfaceLanguage): SettingsStatusDetail[] {
+        const controls = ankiScanFormControls(form);
+        const selection = ankiScanSelection(controls, scan);
+        const modelName = selection.selectedModel?.trim();
+        if (!modelName) return [];
+        const model = scan.models.find(candidate => candidate.modelName === modelName);
+        if (!model) return [];
+        const liveFields = new Set(model.fields);
+        const mapping = readFormSettings(new FormData(form), this.settings).ankiFieldMappings[modelName] ?? {};
+        return Object.entries(mapping)
+            .filter((entry): entry is [AnkiFieldMappingRole, string] => isAnkiFieldMappingRole(entry[0]) && !liveFields.has(entry[1]))
+            .map(([role, fieldName]) => ({
+                label: `${role}: ${fieldName}`,
+                suffix: uiText(language, 'ankiMappingStaleField'),
             }));
     }
 

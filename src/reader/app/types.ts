@@ -369,6 +369,7 @@ export interface ReaderSettings {
     subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
     subtitleTranscriptAutoScroll: boolean;
     subtitleAutoCopyLine: boolean;
+    subtitleCopyIncludeTranslation: boolean;
     subtitleControlsMode: SubtitleControlsMode;
     subtitleFontSize: number;
     subtitleBottomOffset: number;

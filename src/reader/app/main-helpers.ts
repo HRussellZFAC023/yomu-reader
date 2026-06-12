@@ -34,7 +34,10 @@ export const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 // DOM strategy threshold only: small updates use exact selectors, larger updates may build a rendered-word index.
 // This is not an Anki cache/card cap.
 export const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
-export const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
+// Public jpdb pitch lookups are independent per-term HTTP fetches; four in
+// flight keeps keyless subtitle batches from trickling in pair-by-pair while
+// staying below jpdb.io's burst-throttling threshold (it TLS-resets hammers).
+export const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
 // Local-only pitch lookups are IndexedDB-bound (no network): a wider lane
 // clears the cold-start backlog quickly instead of trickling 2 at a time.
 export const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;

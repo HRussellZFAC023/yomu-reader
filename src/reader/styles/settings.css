@@ -237,6 +237,7 @@
 .jpdb-reader-settings fieldset {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
+  background: transparent;
   margin: 12px 0;
   padding: 12px;
 }
