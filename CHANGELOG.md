@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.160] - 2026-06-12
+
+### Added
+
+- Press U on the study page to undo the last review where an undo exists (Jiten), matching the on-screen undo button — keyboard-only reviewing no longer needs the mouse for corrections.
+- The Anki deck picker on the study page now shows each deck's waiting count (reviews + learning) straight from Anki's scheduler, refreshed at most once a minute.
+
 ## [0.6.159] - 2026-06-12
 
 ### Changed
