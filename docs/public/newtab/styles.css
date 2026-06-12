@@ -243,6 +243,7 @@
 [data-jpdb-reader-root] *::before,
 [data-jpdb-reader-root] *::after {
   background: transparent;
+  color: inherit;
 }
 [data-jpdb-reader-root]:where(a),
 [data-jpdb-reader-root] :where(a) {
