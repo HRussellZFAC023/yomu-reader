@@ -743,6 +743,7 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.toggleOcr', 'Toggle image reading', settings.shortcuts.toggleOcr)}
                     ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
+                    ${shortcutInput('shortcuts.massReviewVisible', 'Mass review visible words (Jiten)', settings.shortcuts.massReviewVisible)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
             </fieldset>
@@ -1565,6 +1566,7 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['shortcuts.toggleOcr', 'toggleImageReading'],
     ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
     ['shortcuts.scanImages', 'readImagesNow'],
+    ['shortcuts.massReviewVisible', 'massReviewVisible'],
     ['shortcuts.gradeNothing', 'gradeNothing'],
     ['shortcuts.gradeSomething', 'gradeSomething'],
     ['shortcuts.gradeHard', 'gradeHard'],

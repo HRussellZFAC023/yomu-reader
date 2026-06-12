@@ -393,6 +393,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         toggleOcr: 'Alt+O',
         toggleYoutubeImmersion: 'Alt+Y',
         scanImages: 'Alt+I',
+        massReviewVisible: 'Alt+M',
         gradeNothing: '1',
         gradeSomething: '2',
         gradeHard: '3',

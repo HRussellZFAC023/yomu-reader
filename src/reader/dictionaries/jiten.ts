@@ -47,6 +47,7 @@ type JitenEndpointMap = {
     'srs/reader-study-decks': [undefined, JitenReaderStudyDeck[]];
     'srs/study-batch': [undefined, JitenStudyBatchResponse];
     'srs/review': [JitenReviewRequest, unknown];
+    'srs/batch-review': [JitenBatchReviewRequest, unknown];
     'srs/set-vocabulary-state': [JitenVocabularyStateRequest, unknown];
 };
 
@@ -243,6 +244,12 @@ interface JitenReviewRequest extends JitenCardReference {
     rating: number;
 }
 
+// POST /api/srs/batch-review — Jiten's documented "review everything on
+// screen" endpoint (single FSRS transaction): rating 1=Again 2=Hard 3=Good 4=Easy.
+interface JitenBatchReviewRequest {
+    reviews: Array<JitenCardReference & { rating: number }>;
+}
+
 interface JitenVocabularyStateRequest extends JitenCardReference {
     state: string;
 }
@@ -329,6 +336,21 @@ export class JitenApiClient {
             ...jitenCardReference(card),
             rating: jitenRatingForGrade(grade),
         });
+    }
+
+    // Jiten v1.2.x parity: mass-review visible words in one transaction.
+    // fallow-ignore-next-line unused-class-member
+    async batchReviewCards(cards: JPDBCard[], grade: JPDBGrade): Promise<number> {
+        const reviews = cards.flatMap(card => {
+            try {
+                return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
+            } catch {
+                return [];
+            }
+        });
+        if (!reviews.length) return 0;
+        await this.request('srs/batch-review', { reviews });
+        return reviews.length;
     }
 
     // Parity with JPDB's refreshCard: Jiten exposes card state only through
