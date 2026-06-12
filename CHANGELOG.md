@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.151] - 2026-06-12
+
+### Added
+
+- Swipe-to-grade on the study page can now be turned off: Settings → Study → "Swipe cards to grade (left = fail, right = pass)".
+
+### Fixed
+
+- Study-page keyboard shortcuts (Space to reveal, 1-9 to grade) now work from a fresh page load and after every button press. They previously only worked while focus happened to sit inside the page content, which broke after each re-render — most visits had effectively dead shortcuts.
+- The inline keyboard hint pills (like "Space" under the Reveal button) disappear permanently after the first time a shortcut is used — shortcuts stay discoverable in settings. Touch-only devices never see them (already the case).
+
 ## [0.6.150] - 2026-06-12
 
 ### Fixed

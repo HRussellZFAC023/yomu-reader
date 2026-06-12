@@ -1137,7 +1137,13 @@ export class NewTabController {
             if (file) void this.importJpdbStatsFile(root, file);
         }, { signal: controller.signal });
 
-        root.addEventListener('keydown', event => this.handleRootKeydown(root, event), { signal: controller.signal });
+        // Study shortcuts listen at document level: focus sits on body after
+        // load and falls back there after every re-render (button clicks
+        // replace the controls), so a root-scoped listener left Space/digit
+        // grading dead most of the time. This page is always Yomu's own
+        // (renderPage gates on isYomuNewTabUrl), and input/search/settings
+        // targets are filtered in handleRootKeydown.
+        document.addEventListener('keydown', event => this.handleRootKeydown(root, event), { signal: controller.signal });
 
         installNewTabSwipeGesture({
             root,
@@ -1228,10 +1234,25 @@ export class NewTabController {
         }
         if (isNewTabSpaceRevealKey(event.key) || (isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target))) {
             event.preventDefault();
+            this.dismissKeyHints(root);
             this.toggleReveal(root);
             return;
         }
         this.handleGradeDigitKeydown(root, event);
+    }
+
+    // UT-34: inline kbd hints exist only until the user proves they know the
+    // shortcuts — the first keyboard reveal/grade hides them permanently
+    // (shortcuts stay listed in settings).
+    private dismissKeyHints(root: HTMLElement): void {
+        if (this.state.keyHintsDismissed) return;
+        this.state = { ...this.state, keyHintsDismissed: true };
+        this.persistState();
+        this.syncKeyHintVisibility(root);
+    }
+
+    private syncKeyHintVisibility(root: HTMLElement): void {
+        root.classList.toggle('jpdb-reader-newtab-key-hints-dismissed', this.state.keyHintsDismissed);
     }
 
     // jpdb.io parity (SH-8): on a revealed card, digits 1..5 press the grade
@@ -1244,6 +1265,7 @@ export class NewTabController {
         const button = buttons[Number(event.key) - 1];
         if (!button) return;
         event.preventDefault();
+        this.dismissKeyHints(root);
         button.click();
     }
 
@@ -1334,6 +1356,7 @@ export class NewTabController {
     }
 
     private canSwipeCurrentStudyCard(): boolean {
+        if (!this.dependencies.getSettings().newTabSwipeReviews) return false;
         const card = this.visibleWords[this.index];
         return Boolean(
             card
@@ -7632,6 +7655,7 @@ export class NewTabController {
     }
 
     private syncMode(root: HTMLElement): void {
+        this.syncKeyHintVisibility(root);
         root.classList.toggle('jpdb-reader-newtab-search-mode', this.state.mode === 'search');
         root.classList.toggle('jpdb-reader-newtab-kanji-mode', this.state.mode === 'kanji');
         root.classList.toggle('jpdb-reader-newtab-stats-mode', this.state.mode === 'stats');

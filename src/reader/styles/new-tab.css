@@ -3706,6 +3706,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
+/* UT-34: once any study shortcut has been used the hints stay gone. */
+.jpdb-reader-newtab-key-hints-dismissed .jpdb-reader-newtab-key-hint {
+  display: none;
+}
+
 /* SH-3 v2: select-page bulk bar in the My Cards browser (Jiten parity). */
 .jpdb-reader-newtab-browse-bulk {
   display: flex;

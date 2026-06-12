@@ -21,6 +21,9 @@ export interface NewTabUiState {
     jpdbDeck: string;
     // Anki deck scope ('' = all enabled decks).
     ankiDeck: string;
+    // UT-34: once any study keyboard shortcut has been used, the inline kbd
+    // hints disappear for good (shortcuts stay discoverable in settings).
+    keyHintsDismissed: boolean;
 }
 
 // fallow-ignore-next-line unused-export
@@ -32,6 +35,7 @@ export const DEFAULT_NEW_TAB_UI_STATE: NewTabUiState = {
     revealAnswer: false,
     jpdbDeck: '',
     ankiDeck: '',
+    keyHintsDismissed: false,
 };
 
 export const NEW_TAB_FILTERS: Array<{ value: NewTabFilter; labelKey: UiCopyKey }> = [
@@ -59,6 +63,7 @@ export function normalizeNewTabUiState(value: Partial<NewTabUiState> | null | un
         revealAnswer: normalizeNewTabRevealAnswer(value?.revealAnswer),
         jpdbDeck: typeof value?.jpdbDeck === 'string' ? value.jpdbDeck : '',
         ankiDeck: typeof value?.ankiDeck === 'string' ? value.ankiDeck : '',
+        keyHintsDismissed: value?.keyHintsDismissed === true,
     };
 }
 

@@ -791,7 +791,9 @@ function renderSeededNewTabWord(controller: NewTabController, card: JPDBCard, op
     bindRootEvents?: boolean;
 } = {}): HTMLElement {
     const visibleWords = options.visibleWords ?? [card];
-    const root = renderEnabledNewTabRoot(controller, { appendToDocument: options.appendToDocument });
+    // Keyboard shortcuts listen at document level (0.6.151): binding events
+    // only makes sense with the root attached to the document.
+    const root = renderEnabledNewTabRoot(controller, { appendToDocument: options.appendToDocument ?? options.bindRootEvents });
     seedNewTabRenderedState(controller, {
         visibleWords,
         allWords: options.allWords,
@@ -9080,6 +9082,7 @@ describe('new tab review helpers', () => {
             navigation.previous += 1;
         };
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        document.body.append(root);
 
         try {
             const right = dispatchNewTabKeyboard(root, 'ArrowRight');
@@ -9115,6 +9118,7 @@ describe('new tab review helpers', () => {
         });
         (controller as unknown as { allWords: unknown[] }).allWords = [{}];
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        document.body.append(root);
 
         try {
             expect(dispatchNewTabKeyboard(root, '4').defaultPrevented).toBe(true);
@@ -11019,6 +11023,9 @@ describe('new tab review helpers', () => {
             toggles += 1;
         };
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        // Keyboard shortcuts listen at document level (0.6.151), so the root
+        // must be in the document for keydown to reach the handler.
+        document.body.append(root);
 
         const translation = root.querySelector<HTMLElement>('.jpdb-reader-example-translation')!;
         const clickWasNotCanceled = translation.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -11047,6 +11054,8 @@ describe('new tab review helpers', () => {
         expect(translation.getAttribute('tabindex')).toBe('0');
         expect(translation.getAttribute('aria-label')).toBe('Reveal translation');
         expect(toggles).toBe(0);
+        root.remove();
+        controller.destroy();
     });
 
     it('renders new-tab Immersion Kit source metadata once and only available controls', () => {
