@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.136] - 2026-06-12
+
+### Changed
+
+- Internal: study-page search result rendering moved into its own module (smaller controller, no behavior change). Jisho audio source-selection verified to already match Yomitan's exactly (live-checked against jisho.org); Jiten deck-based word styling parked pending observable study-deck data.
+
 ## [0.6.135] - 2026-06-12
 
 ### Changed
