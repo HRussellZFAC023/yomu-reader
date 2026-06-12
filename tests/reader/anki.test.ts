@@ -2201,3 +2201,33 @@ describe('incremental status-index refresh (edited-card mod-time sweep)', () => 
         client.destroy();
     });
 });
+
+describe('AnkiConnect media data-url cache', () => {
+    it('serves repeat media requests from the filename cache (one retrieveMediaFile)', async () => {
+        const requests = stubGmAnkiConnect({ retrieveMediaFile: 'YXVkaW8=' });
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+        const first = await client.mediaFileDataUrl('yomu.mp3');
+        const second = await client.mediaFileDataUrl(' yomu.mp3 ');
+
+        expect(first).toBe('data:audio/mpeg;base64,YXVkaW8=');
+        expect(second).toBe(first);
+        expect(requests.filter(request => request.action === 'retrieveMediaFile')).toHaveLength(1);
+    });
+
+    it('does not cache media failures, so a retry can succeed', async () => {
+        let calls = 0;
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: ({ data }: { data: string }) => {
+                JSON.parse(data);
+                calls += 1;
+                return Promise.resolve({ status: 200, response: { result: calls === 1 ? false : 'YXVkaW8=', error: null } });
+            },
+        });
+        const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+        await expect(client.mediaFileDataUrl('retry.mp3')).rejects.toThrow();
+        await expect(client.mediaFileDataUrl('retry.mp3')).resolves.toBe('data:audio/mpeg;base64,YXVkaW8=');
+        expect(calls).toBe(2);
+    });
+});
