@@ -263,7 +263,7 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeStandaloneImagePage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeImageReadingPage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
@@ -628,7 +628,7 @@ export class ReaderApp {
             getSettings: () => this.settings,
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             onToast: message => this.toast(message),
-            shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeStandaloneImagePage(),
+            shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
             enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
             fallbackCardFromText: text => this.parser.fallbackCardFromText(text),

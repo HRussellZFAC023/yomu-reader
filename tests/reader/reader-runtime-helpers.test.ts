@@ -5,6 +5,7 @@ import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
+import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
@@ -25,6 +26,28 @@ describe('reader runtime helpers', () => {
         expect(shouldShowReaderOnboarding(true, 'https://hrussellzfac023.github.io/yomu-reader/')).toBe(false);
         expect(shouldShowReaderOnboarding(true, 'https://example.com/article')).toBe(true);
         expect(shouldShowReaderOnboarding(false, 'https://example.com/article')).toBe(false);
+    });
+
+    it('treats large visible image feeds as OCR reading pages without Japanese DOM text', () => {
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        const image = document.createElement('img');
+        image.src = 'https://cdn.example.test/page.jpg';
+        image.getBoundingClientRect = () => new DOMRect(100, 20, 760, 720);
+        document.body.replaceChildren(document.createTextNode('Explore'), image);
+
+        expect(documentLooksLikeImageReadingPage()).toBe(true);
+    });
+
+    it('does not treat icon-only pages as OCR reading pages', () => {
+        vi.stubGlobal('innerWidth', 1000);
+        vi.stubGlobal('innerHeight', 800);
+        const image = document.createElement('img');
+        image.src = 'https://cdn.example.test/icon.png';
+        image.getBoundingClientRect = () => new DOMRect(20, 20, 80, 80);
+        document.body.replaceChildren(document.createTextNode('Home'), image);
+
+        expect(documentLooksLikeImageReadingPage()).toBe(false);
     });
 
     it('registers userscript menu commands and preserves page opener isolation', () => {
