@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.172
+// @version      0.6.173
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,15 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
+<<<<<<< HEAD
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-FkAPBnZTabSPWWPwVOYtrhuqAdqalnasGY4Y5HgMytg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zgo2IM66pwfai35c3OiT6Q4GzIFJNGc9sVotX2wq5As=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dToUwWaO3PeyH8F+zbR6Jdksw70IXygXxEF/9SSBkbw=
+=======
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-nu8pmyH0glnI63Lm2WpD9dueKLI6cs9PSQgZSagnM24=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-WLRHtgiHKh4aZScz1dZQrOtz4jgytTAGg8T46l5PJl8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-s/hlidp/9rIat8ISSqIGb8cqzoIJAruSXqWagG32Ywo=
+>>>>>>> a5794f2 (Release yomu reader 0.6.173)
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -4386,6 +4392,22 @@
   function hasVisibleControlLinkBox(style) {
     return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
   }
+  function stripRubyInClampedRows(root = document) {
+    let stripped = 0;
+    const words = root.querySelectorAll(".jpdb-reader-word");
+    for (const word of words) {
+      if (!word.querySelector("rt")) continue;
+      if (!isLayoutSensitiveScanElement(word.parentElement)) continue;
+      word.querySelectorAll("ruby").forEach((ruby) => {
+        ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
+        const base = ruby.querySelector(".jpdb-reader-ruby-base");
+        ruby.replaceWith(...base ? [...base.childNodes] : [...ruby.childNodes]);
+      });
+      word.normalize();
+      stripped += 1;
+    }
+    return stripped;
+  }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
     const userAgent = navigator.userAgent ?? "";
@@ -5465,7 +5487,7 @@
       diagnosticsHelp: "Print diagnostics to the console.",
       accentColor: "Accent color",
       newTab: "Study",
-      newTabEnabled: "Enable Yomu study page",
+      newTabEnabled: "Set Study as the new tab",
       newTabAnkiEnabled: "Use Anki cards in Study",
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
@@ -6964,7 +6986,7 @@ diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	学習
-newTabEnabled	よむの学習ページを有効にする
+newTabEnabled	学習ページを新しいタブに設定
 newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
@@ -35130,6 +35152,7 @@ ${glossaryKey}`;
   const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
   const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+  const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
   const ASB_SCAN_BATCH_LIMIT = 12;
   const ASB_SCAN_DRAIN_DELAY_MS = 80;
   class VisiblePageScanner {
@@ -35147,11 +35170,14 @@ ${glossaryKey}`;
     scanGeneration = 0;
     asbScanInFlight = false;
     asbDrainTimer;
+    clampSweepTimer;
     destroy() {
       this.destroyed = true;
       this.scanPending = false;
       window.clearTimeout(this.asbDrainTimer);
       this.asbDrainTimer = void 0;
+      window.clearTimeout(this.clampSweepTimer);
+      this.clampSweepTimer = void 0;
     }
     async scanVisiblePage(options = {}) {
       const silent = Boolean(options.silent);
@@ -35165,8 +35191,25 @@ ${glossaryKey}`;
         this.handleVisiblePageScanError(error, silent);
       } finally {
         this.finishScan();
+        this.scheduleClampedRubySweep();
         done();
       }
+    }
+    // UT-70: hosts that hydrate progressively (YouTube custom elements,
+    // notably on iPad Safari) apply line-clamp/ellipsis styles AFTER a scan
+    // annotated their text — the grown ruby line then gets cropped and the
+    // base text disappears. Sweep right after the scan and once more after
+    // hydration settles; rescans re-arm it, so late clamps are always caught.
+    scheduleClampedRubySweep() {
+      if (this.destroyed || typeof document === "undefined") return;
+      const sweep = () => {
+        if (this.destroyed) return;
+        const stripped = stripRubyInClampedRows(document);
+        if (stripped) log$1.info("Stripped ruby from late-clamped rows", { stripped });
+      };
+      sweep();
+      window.clearTimeout(this.clampSweepTimer);
+      this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
     }
     // asbplayer pre-renders the WHOLE track's cue HTML into its offscreen
     // cache container and moves the same DOM node onscreen when the cue is

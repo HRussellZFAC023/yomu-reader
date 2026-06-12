@@ -2112,3 +2112,26 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
         || style.borderTopStyle !== 'none'
         || style.borderBottomStyle !== 'none';
 }
+
+// UT-70: late-clamp reconciliation. Hosts that hydrate progressively
+// (YouTube custom elements on iPad Safari) can apply -webkit-line-clamp /
+// ellipsis styles AFTER we annotated, so scan-time layout sensitivity missed
+// them and the grown ruby line gets cropped — base text vanishes while the
+// furigana sliver stays. Sweep rendered words and strip ruby (keep color +
+// lookup) wherever an ancestor is, by now, a layout-sensitive text box.
+export function stripRubyInClampedRows(root: ParentNode = document): number {
+    let stripped = 0;
+    const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
+    for (const word of words) {
+        if (!word.querySelector('rt')) continue;
+        if (!isLayoutSensitiveScanElement(word.parentElement)) continue;
+        word.querySelectorAll('ruby').forEach(ruby => {
+            ruby.querySelectorAll('rt, rp').forEach(node => node.remove());
+            const base = ruby.querySelector('.jpdb-reader-ruby-base');
+            ruby.replaceWith(...(base ? [...base.childNodes] : [...ruby.childNodes]));
+        });
+        word.normalize();
+        stripped += 1;
+    }
+    return stripped;
+}

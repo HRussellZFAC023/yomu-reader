@@ -1,4 +1,5 @@
 import { Logger } from '../app/logger';
+import { runningAsBrowserExtension } from '../app/runtime-env';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
@@ -269,9 +270,10 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     return {
-        // UT-74: no form control anymore (userscripts can't override the
-        // browser new tab) — preserve the stored value instead of wiping it.
-        newTabEnabled: current.newTabEnabled,
+        // UT-74: the control only renders in extension builds (userscripts
+        // can't override the browser new tab) — read it there, preserve the
+        // stored value everywhere else.
+        newTabEnabled: runningAsBrowserExtension() ? has('newTabEnabled') : current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),

@@ -1996,11 +1996,16 @@ export class ReaderApp {
     }
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
-        if (this.isDestroyed || this.pressLookup?.source === 'middle' || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return true;
+        if (this.isDestroyed || this.pressLookup?.source === 'middle' || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
         if (!this.hasStickyModalPopover()) return false;
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
         return true;
+    }
+
+    private canUseHoverLookupPointer(event: MouseEvent | KeyboardEvent): boolean {
+        const pointerType = (event as Partial<PointerEvent>).pointerType;
+        return pointerType !== 'touch' && pointerType !== 'pen';
     }
 
     private hasStickyModalPopover(): boolean {
@@ -2106,7 +2111,7 @@ export class ReaderApp {
     }
 
     private handleHoverPointerOut(event: PointerEvent): void {
-        if (this.isDestroyed || this.hasStickyModalPopover() || event.pointerType === 'touch' || this.shouldSuppressPenHover(event)) return;
+        if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
         if (this.handleActivePopoverPointerOut(event, related)) return;
@@ -2352,6 +2357,7 @@ export class ReaderApp {
 
     private canOpenHoverLookupForWord(activeWord: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
         return this.isWordHoverActive(activeWord)
+            && this.canUseHoverLookupPointer(event)
             && this.settings.lookupOnHover
             && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
