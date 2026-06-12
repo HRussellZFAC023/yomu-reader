@@ -289,7 +289,7 @@ import {
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import { JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK } from '../settings';
-import { activeApiCredentialLabel, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { combinedApiCredentialLabel, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -2696,7 +2696,13 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         const hasJpdbKey = hasJpdbApiCredential(settings);
         const jitenOnlyApi = this.hasJitenOnlyApiCredentials(settings);
-        const hasActiveJpdbKey = hasJpdbKey && (!hasJitenApiCredential(settings) || activeApiCredentialLabel(settings) === 'JPDB');
+        // UT-61: no silent either/or — the EXPLICIT live-review mode always
+        // wins (even alongside a Jiten key), while 'auto' with dual
+        // credentials prefers the merged API queues over preempting with the
+        // live jpdb.io bridge.
+        const liveModePreempts = settings.newTabJpdbReviewMode === 'live-review'
+            || (settings.newTabJpdbReviewMode === 'auto' && !hasJitenApiCredential(settings));
+        const hasActiveJpdbKey = hasJpdbKey && liveModePreempts;
         const live = hasActiveJpdbKey && settings.jpdbMiningEnabled ? this.loadLiveJpdbReviewWords(settings) : null;
         if (live) return live;
         const apiResults = await this.loadApiReviewSourceResults(settings, options);
@@ -3912,7 +3918,9 @@ export class NewTabController {
     }
 
     private hasJitenOnlyApiCredentials(settings = this.dependencies.getSettings()): boolean {
-        return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === 'Jiten'));
+        // UT-61: "Jiten only" means exactly that — a coexisting JPDB key
+        // counts as a JPDB setup.
+        return Boolean(hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings));
     }
 
     private canUseAnkiSource(settings = this.dependencies.getSettings()): boolean {
@@ -3944,9 +3952,9 @@ export class NewTabController {
         return this.apiReviewSourceLabel();
     }
 
-    private apiReviewSourceLabel(settings = this.dependencies.getSettings()): 'JPDB' | 'Jiten' {
+    private apiReviewSourceLabel(settings = this.dependencies.getSettings()): string {
         return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings)
-            ? activeApiCredentialLabel(settings)
+            ? combinedApiCredentialLabel(settings)
             : 'JPDB';
     }
 
@@ -5549,7 +5557,9 @@ export class NewTabController {
     }
 
     private isJitenApiActive(settings: ReaderSettings): boolean {
-        return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === 'Jiten'));
+        // UT-61: Jiten features are active whenever a Jiten key exists,
+        // regardless of a coexisting JPDB key.
+        return hasJitenApiCredential(settings);
     }
 
     private shouldLoadLocalKanjiDetails(settings: ReaderSettings): boolean {

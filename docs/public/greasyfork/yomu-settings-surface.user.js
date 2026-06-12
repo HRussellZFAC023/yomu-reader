@@ -372,14 +372,12 @@
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
   const JITEN_API_KEY_PREFIX = "ak_";
-  function singleApiCredentialValue(settings) {
-    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
-  }
-  function activeApiCredentialLabel(settings) {
-    return effectiveJitenApiKey(settings) ? "Jiten" : "JPDB";
-  }
-  function apiCredentialLabelFromValue(value) {
-    return isJitenApiCredential(value) ? "Jiten" : "JPDB";
+  function combinedApiCredentialLabel(settings) {
+    const jpdb = Boolean(effectiveJpdbApiKey(settings));
+    const jiten = Boolean(effectiveJitenApiKey(settings));
+    if (jpdb && jiten) return "JPDB + Jiten";
+    if (jiten) return "Jiten";
+    return "JPDB";
   }
   function effectiveJpdbApiKey(settings) {
     const apiKey = settings.apiKey.trim();
@@ -5831,7 +5829,7 @@ recommendedJiten	jiten.moe頻度データです。
     return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
   }
   function colorSourceOptions(settings) {
-    const apiLabel = activeApiCredentialLabel(settings);
+    const apiLabel = combinedApiCredentialLabel(settings);
     return COLOR_SOURCE_OPTIONS.map(([value, label]) => [
       value,
       value === "status" ? `${apiLabel} + Anki status` : value === "jpdb" ? `${apiLabel} status` : label
@@ -7528,7 +7526,7 @@ recommendedJiten	jiten.moe頻度データです。
     `;
   }
   function kanjiKeywordSourceOptions(settings, text) {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text ? text("newTabKanjiKeywordAuto").replace("{service}", apiLabel) : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
     const apiFacts = text ? text("newTabKanjiKeywordApiFacts").replace("{service}", apiLabel) : `${apiLabel} kanji facts (JPDB / Jiten)`;
     return [
@@ -7895,7 +7893,7 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function renderDictionariesSettingsPanel(settings) {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -8184,7 +8182,7 @@ recommendedJiten	jiten.moe頻度データです。
     };
   }
   function apiCredentialLabelFromForm(form) {
-    return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
+    return combinedApiCredentialLabel(apiCredentialSettingsFromForm(form));
   }
   function localizeSettingsLabels(form, text) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));

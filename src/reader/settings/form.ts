@@ -5,7 +5,7 @@ import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
-import { apiCredentialLabelFromValue, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues, singleApiCredentialValue } from './api-credential';
+import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { renderSourceRowsList } from './form-source-rows';
@@ -308,7 +308,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
 }
 
 function kanjiKeywordSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>, text?: SettingsText): [ReaderSettings['newTabKanjiKeywordSource'], string][] {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text
         ? text('newTabKanjiKeywordAuto').replace('{service}', apiLabel)
         : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
@@ -727,7 +727,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -1038,8 +1038,8 @@ function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettin
     };
 }
 
-function apiCredentialLabelFromForm(form: HTMLFormElement): 'JPDB' | 'Jiten' {
-    return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
+function apiCredentialLabelFromForm(form: HTMLFormElement): string {
+    return combinedApiCredentialLabel(apiCredentialSettingsFromForm(form));
 }
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {

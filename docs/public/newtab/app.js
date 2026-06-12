@@ -538,14 +538,12 @@
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
   }
   const JITEN_API_KEY_PREFIX = "ak_";
-  function singleApiCredentialValue(settings) {
-    return effectiveJitenApiKey(settings) || effectiveJpdbApiKey(settings);
-  }
-  function activeApiCredentialLabel(settings) {
-    return effectiveJitenApiKey(settings) ? "Jiten" : "JPDB";
-  }
-  function apiCredentialLabelFromValue(value) {
-    return isJitenApiCredential(value) ? "Jiten" : "JPDB";
+  function combinedApiCredentialLabel(settings) {
+    const jpdb = Boolean(effectiveJpdbApiKey(settings));
+    const jiten = Boolean(effectiveJitenApiKey(settings));
+    if (jpdb && jiten) return "JPDB + Jiten";
+    if (jiten) return "Jiten";
+    return "JPDB";
   }
   function effectiveJpdbApiKey(settings) {
     const apiKey = settings.apiKey.trim();
@@ -19658,7 +19656,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return source === "auto" ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
   }
   function colorSourceOptions(settings) {
-    const apiLabel = activeApiCredentialLabel(settings);
+    const apiLabel = combinedApiCredentialLabel(settings);
     return COLOR_SOURCE_OPTIONS.map(([value, label]) => [
       value,
       value === "status" ? `${apiLabel} + Anki status` : value === "jpdb" ? `${apiLabel} status` : label
@@ -21421,7 +21419,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     `;
   }
   function kanjiKeywordSourceOptions(settings, text2) {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text2 ? text2("newTabKanjiKeywordAuto").replace("{service}", apiLabel) : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
     const apiFacts = text2 ? text2("newTabKanjiKeywordApiFacts").replace("{service}", apiLabel) : `${apiLabel} kanji facts (JPDB / Jiten)`;
     return [
@@ -21788,7 +21786,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function renderDictionariesSettingsPanel(settings) {
-    const apiLabel = apiCredentialLabelFromValue(singleApiCredentialValue(settings));
+    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
@@ -22077,7 +22075,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function apiCredentialLabelFromForm(form) {
-    return apiCredentialLabelFromValue(singleApiCredentialValue(apiCredentialSettingsFromForm(form)));
+    return combinedApiCredentialLabel(apiCredentialSettingsFromForm(form));
   }
   function localizeSettingsLabels(form, text2) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
@@ -55413,7 +55411,8 @@ ${entry.url}`),
       const settings = this.dependencies.getSettings();
       const hasJpdbKey = hasJpdbApiCredential(settings);
       const jitenOnlyApi = this.hasJitenOnlyApiCredentials(settings);
-      const hasActiveJpdbKey = hasJpdbKey && (!hasJitenApiCredential(settings) || activeApiCredentialLabel(settings) === "JPDB");
+      const liveModePreempts = settings.newTabJpdbReviewMode === "live-review" || settings.newTabJpdbReviewMode === "auto" && !hasJitenApiCredential(settings);
+      const hasActiveJpdbKey = hasJpdbKey && liveModePreempts;
       const live = hasActiveJpdbKey && settings.jpdbMiningEnabled ? this.loadLiveJpdbReviewWords(settings) : null;
       if (live) return live;
       const apiResults = await this.loadApiReviewSourceResults(settings, options);
@@ -56411,7 +56410,7 @@ ${entry.url}`),
       return settings.jpdbMiningEnabled && Boolean(status?.card);
     }
     hasJitenOnlyApiCredentials(settings = this.dependencies.getSettings()) {
-      return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === "Jiten"));
+      return Boolean(hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings));
     }
     canUseAnkiSource(settings = this.dependencies.getSettings()) {
       return settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === "function";
@@ -56436,7 +56435,7 @@ ${entry.url}`),
       return this.apiReviewSourceLabel();
     }
     apiReviewSourceLabel(settings = this.dependencies.getSettings()) {
-      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) ? activeApiCredentialLabel(settings) : "JPDB";
+      return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) ? combinedApiCredentialLabel(settings) : "JPDB";
     }
     renderCount(countSlot, label, progress = null) {
       if (!countSlot) return;
@@ -57795,7 +57794,7 @@ ${entry.url}`),
       ].map(Boolean).join(":");
     }
     isJitenApiActive(settings) {
-      return Boolean(hasJitenApiCredential(settings) && (!hasJpdbApiCredential(settings) || activeApiCredentialLabel(settings) === "Jiten"));
+      return hasJitenApiCredential(settings);
     }
     shouldLoadLocalKanjiDetails(settings) {
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;

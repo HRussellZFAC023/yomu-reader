@@ -1,7 +1,7 @@
 import { Logger } from '../app/logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
-import { activeApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
+import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, ReaderColorSource, ReaderSettings } from '../app/types';
 
@@ -97,7 +97,7 @@ export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSo
 }
 
 export function colorSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>): [SelectableReaderColorSource, string][] {
-    const apiLabel = activeApiCredentialLabel(settings);
+    const apiLabel = combinedApiCredentialLabel(settings);
     return COLOR_SOURCE_OPTIONS.map(([value, label]) => [
         value,
         value === 'status'
