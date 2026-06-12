@@ -1154,6 +1154,8 @@ export class NewTabController {
             onSwipe: action => this.handleNewTabSwipe(root, action),
         });
 
+        window.addEventListener('popstate', () => this.handleCardPopstate(root), { signal: controller.signal });
+
         const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
         window.addEventListener('online', syncQueuedGrades, { signal: controller.signal });
         window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
@@ -3286,6 +3288,9 @@ export class NewTabController {
     }
 
     private preferredStoredWordKey(preferStoredWord: boolean): string {
+        // UT-59: a #card= deep link wins over the stored session position.
+        const fromUrl = isYomuNewTabUrl(location.href) ? this.cardKeyFromLocation() : '';
+        if (fromUrl) return fromUrl;
         if (!preferStoredWord || this.shouldSkipStoredWordRestoreForJpdbApiQueue()) return '';
         const stored = this.readStoredWordKey();
         return stored?.signature === this.currentSessionSignature() ? stored.key : '';
@@ -3300,6 +3305,14 @@ export class NewTabController {
     }
 
     private showPreviousWord(): void {
+        // UT-58: stepping back right after grading IS the undo gesture.
+        if (this.canUndoLastReview()) {
+            const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+            if (root) {
+                void this.undoLastReview(root);
+                return;
+            }
+        }
         this.navigateStudyWord(-1);
     }
 
@@ -3439,6 +3452,7 @@ export class NewTabController {
 
     private renderWord(root: HTMLElement, card: JPDBCard): void {
         this.writeStoredWordKey(card);
+        this.syncCardUrl(card);
         const study = root.querySelector<HTMLElement>('[data-newtab-study]');
         if (study) study.dataset.newtabCard = this.cardSelectionKey(card);
         root.classList.remove('jpdb-reader-newtab-setup-mode', 'jpdb-reader-newtab-empty-mode');
@@ -7027,6 +7041,14 @@ export class NewTabController {
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
             if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+            // UT-57: every provider gets an undo affordance — Jiten reverses
+            // server-side, the rest re-queue locally.
+            this.lastUndoableReview = {
+                card: target.card,
+                at: Date.now(),
+                serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
+                counted: !isCorrection,
+            };
             this.advanceAfterGrade(target.root, target.card, grade);
             return true;
         } catch (error) {
@@ -7173,9 +7195,14 @@ export class NewTabController {
         if (!hasJitenApiCredential(settings)) throw new Error(this.text('addJitenApiKeyReview'));
         if (typeof this.dependencies.jiten?.reviewCard !== 'function') throw new Error(this.text('couldNotSubmitGrade'));
         await this.dependencies.jiten.reviewCard(card, grade);
-        // Community ask: keep the last Jiten review reversible (the only
-        // provider with a real undo endpoint).
-        this.lastUndoableReview = { card, at: Date.now() };
+        // Jiten reviews are server-reversible — record the undo here too so
+        // every submit path (not only gradeCurrentCard) arms the affordance.
+        this.lastUndoableReview = {
+            card,
+            at: Date.now(),
+            serverUndo: typeof this.dependencies.jiten.undoReview === 'function',
+            counted: true,
+        };
         // Parity with the JPDB path (jpdb.reviewCard refreshes internally):
         // pull the post-review state so the review summary reflects reality.
         if (typeof this.dependencies.jiten.refreshCardState === 'function') {
@@ -7206,18 +7233,21 @@ export class NewTabController {
         await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
 
-    private lastUndoableReview?: { card: JPDBCard; at: number };
+    private lastUndoableReview?: { card: JPDBCard; at: number; serverUndo: boolean; counted: boolean };
 
     private canUndoLastReview(): boolean {
         return Boolean(this.lastUndoableReview
-            && Date.now() - this.lastUndoableReview.at < NEW_TAB_UNDO_REVIEW_WINDOW_MS
-            && typeof this.dependencies.jiten?.undoReview === 'function');
+            && Date.now() - this.lastUndoableReview.at < NEW_TAB_UNDO_REVIEW_WINDOW_MS);
     }
 
     private async undoLastReview(root: HTMLElement): Promise<void> {
         const last = this.lastUndoableReview;
         if (!last || !this.canUndoLastReview()) return;
         this.lastUndoableReview = undefined;
+        if (!last.serverUndo) {
+            this.restoreLocallyUndoneCard(root, last);
+            return;
+        }
         const jiten = this.dependencies.jiten;
         try {
             await jiten?.undoReview?.(last.card);
@@ -7226,15 +7256,34 @@ export class NewTabController {
             }
             this.publishGradedCardState(last.card);
             this.dependencies.toast?.(this.text('reviewUndone'));
-            // Put the word back in front so it can be regraded immediately.
-            this.visibleWords = promoteCardByKey(this.visibleWords, cardKey(last.card));
-            this.index = 0;
-            this.state = { ...this.state, revealAnswer: false };
-            this.renderWord(root, this.visibleWords[this.index] ?? last.card);
+            this.restoreUndoneCardToFront(root, last.card);
         } catch (error) {
             log.warn('Undo review failed', error);
             this.dependencies.toast?.(this.text('undoReviewFailed'));
         }
+    }
+
+    // UT-57: JPDB's API and AnkiConnect cannot reverse a submitted review, so
+    // undo re-queues the card locally — the upstream review stands, but the
+    // card comes straight back for regrading (which counts as a correction).
+    private restoreLocallyUndoneCard(root: HTMLElement, last: NonNullable<typeof this.lastUndoableReview>): void {
+        if (last.counted) this.sessionProgress.recordReviewUndone();
+        if (!this.allWords.some(card => cardKey(card) === cardKey(last.card))) {
+            this.allWords = [normalizeNewTabCard(last.card), ...this.allWords];
+        }
+        this.dependencies.toast?.(this.text('reviewRequeuedLocally'));
+        this.restoreUndoneCardToFront(root, last.card);
+    }
+
+    private restoreUndoneCardToFront(root: HTMLElement, card: JPDBCard): void {
+        if (!this.visibleWords.some(item => cardKey(item) === cardKey(card))) {
+            this.visibleWords = [normalizeNewTabCard(card), ...this.visibleWords];
+        }
+        this.visibleWords = promoteCardByKey(this.visibleWords, cardKey(card));
+        this.index = 0;
+        this.state = { ...this.state, revealAnswer: false };
+        this.renderWord(root, this.visibleWords[this.index] ?? card);
+        this.playCardEnterTransition(root);
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {
@@ -7941,6 +7990,60 @@ export class NewTabController {
             return typeof value.signature === 'string' && typeof value.key === 'string' ? { signature: value.signature, key: value.key } : null;
         } catch {
             return null;
+        }
+    }
+
+    // UT-59: every study entry has a stable, shareable URL (#card=key).
+    // Advancing pushes history so browser back/forward walks the session;
+    // a reload restores the same card.
+    private lastSyncedCardUrlKey = '';
+    private handlingCardPopstate = false;
+
+    private syncCardUrl(card: JPDBCard): void {
+        if (this.state.mode !== 'word' || typeof history === 'undefined') return;
+        // Only the standalone study page owns its URL.
+        if (!isYomuNewTabUrl(location.href)) return;
+        const key = this.cardSelectionKey(card);
+        if (key === this.lastSyncedCardUrlKey) return;
+        const url = `#card=${encodeURIComponent(key)}`;
+        try {
+            if (!this.lastSyncedCardUrlKey || this.handlingCardPopstate) history.replaceState(null, '', url);
+            else history.pushState(null, '', url);
+        } catch {
+            // History can be unavailable (sandboxed frames) — non-fatal.
+        }
+        this.lastSyncedCardUrlKey = key;
+    }
+
+    private cardKeyFromLocation(): string {
+        try {
+            const match = /[#&]card=([^&]+)/.exec(location.hash);
+            return match ? decodeURIComponent(match[1]) : '';
+        } catch {
+            return '';
+        }
+    }
+
+    private handleCardPopstate(root: HTMLElement): void {
+        if (this.state.mode !== 'word') return;
+        const key = this.cardKeyFromLocation();
+        if (!key || key === this.lastSyncedCardUrlKey) return;
+        // UT-58: navigating back across a grade boundary undoes the grade.
+        if (this.canUndoLastReview() && this.lastUndoableReview && this.cardMatchesSelectionKey(this.lastUndoableReview.card, key)) {
+            this.handlingCardPopstate = true;
+            void this.undoLastReview(root).finally(() => { this.handlingCardPopstate = false; });
+            return;
+        }
+        const index = this.visibleWords.findIndex(card => this.cardMatchesSelectionKey(card, key));
+        if (index < 0) return;
+        this.handlingCardPopstate = true;
+        try {
+            this.index = index;
+            this.state.revealAnswer = false;
+            this.persistState();
+            this.renderWord(root, this.visibleWords[this.index]);
+        } finally {
+            this.handlingCardPopstate = false;
         }
     }
 
