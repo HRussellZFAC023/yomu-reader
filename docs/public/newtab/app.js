@@ -35959,13 +35959,42 @@ ${spelling}`);
   function withFeedScrollAnchor(mutated, mutate) {
     const anchor = feedScrollAnchorElement(mutated);
     const before = anchor?.getBoundingClientRect().top;
+    const scroller = anchor ? feedScrollerFor(anchor) : null;
     mutate();
-    if (!anchor || before === void 0 || !anchor.isConnected) return;
+    if (!anchor || before === void 0 || !anchor.isConnected || !scroller) return;
     const delta = anchor.getBoundingClientRect().top - before;
-    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+    if (Math.abs(delta) > 0.5) scroller(delta);
+  }
+  function feedScrollerFor(anchor) {
+    let current = anchor.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      let style;
+      try {
+        style = getComputedStyle(current);
+      } catch {
+        return null;
+      }
+      if ((style.overflowY === "auto" || style.overflowY === "scroll") && current.scrollHeight > current.clientHeight + 1) {
+        const scroller = current;
+        return (delta) => {
+          scroller.scrollTop += delta;
+        };
+      }
+      current = current.parentElement;
+    }
+    return (delta) => window.scrollBy(0, delta);
+  }
+  function feedHasScrolled(mutated) {
+    if (window.scrollY > 0) return true;
+    let current = mutated.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (current.scrollTop > 0) return true;
+      current = current.parentElement;
+    }
+    return false;
   }
   function feedScrollAnchorElement(mutated) {
-    if (!(window.scrollY > 0) || typeof document.elementFromPoint !== "function") return null;
+    if (!feedHasScrolled(mutated) || typeof document.elementFromPoint !== "function") return null;
     for (const ratio of [0.35, 0.55, 0.8]) {
       const probe = document.elementFromPoint(
         Math.floor(window.innerWidth / 2),

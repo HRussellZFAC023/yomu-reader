@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.163] - 2026-06-12
+
+### Fixed
+
+- Filtering no longer shifts the feed under your finger on mobile: the scroll compensation that keeps the viewport steady when cards hide now finds the actual scrolling container (m.youtube.com scrolls inside one, not the window), so it engages on phone and tablet layouts where it previously never fired.
+
 ## [0.6.162] - 2026-06-12
 
 ### Changed
