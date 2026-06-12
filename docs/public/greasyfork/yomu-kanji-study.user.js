@@ -2290,8 +2290,10 @@
       settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
+      wordColorStates: "Color words",
       furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide known words",
+      furiganaHideKnown: "Hide for chosen states",
+      furiganaHoverOnly: "Show on hover only",
       furiganaAllParsed: "All parsed words",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
@@ -3747,8 +3749,10 @@ showFloatingButton	設定ボタンを表示
 settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
+wordColorStates	色を付ける単語
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	既知語を非表示
+furiganaHideKnown	選択した状態で非表示
+furiganaHoverOnly	ホバー時のみ表示
 furiganaAllParsed	解析済みの全単語
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示

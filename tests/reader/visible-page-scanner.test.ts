@@ -291,6 +291,9 @@ describe('VisiblePageScanner', () => {
                 jitenApiKey: 'jiten-key',
                 ankiEnabled: false,
                 furiganaMode: 'known-status',
+                // UT-47: young is in the configurable "learning" group, which
+                // is not hidden by default.
+                furiganaHiddenStateGroups: ['known', 'due', 'failed', 'learning'],
             }),
             parseJapanese,
         });

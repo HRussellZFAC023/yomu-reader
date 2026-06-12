@@ -70,7 +70,7 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
 const AUDIO_SOURCE_TYPES = new Set<AudioSourceType>(AUDIO_SOURCE_TYPE_VALUES);
 const LEGACY_DEFAULT_AUDIO_SOURCE_TYPES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'text-to-speech'];
 const READER_COLOR_SOURCES = new Set<ReaderColorSource>(['auto', 'status', 'jpdb', 'anki', 'pitch', 'off']);
-const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status']);
+const EXPLICIT_FURIGANA_MODES = new Set<FuriganaMode>(['all', 'difficult-kanji', 'known-status', 'hover']);
 const OCR_ENGINE_ALIASES = new Map<string, string>([
     ['MangaOcrAdapter', 'MangaOCR'],
     ['PpOcrAdapter', 'PaddleOCR'],
@@ -287,7 +287,11 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     puckPositionX: undefined,
     puckPositionY: undefined,
     showFurigana: true,
-    furiganaMode: 'all',
+    // UT-47: auto resolves to known-status hiding once an SRS source exists
+    // (the user-requested default), difficult-kanji otherwise.
+    furiganaMode: 'auto',
+    furiganaHiddenStateGroups: ['known', 'due', 'failed'],
+    wordColorStates: 'all',
     showPitchAccent: true,
     suppressRedundantWordUi: false,
     sheetCloseButtonOnLeft: false,
@@ -621,6 +625,8 @@ function normalizeReaderDisplaySettings(value: LegacyReaderSettings | null): Par
         puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
         showFurigana: booleanSetting(value, 'showFurigana'),
         furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+        furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
+        wordColorStates: settings.wordColorStates === 'new-only' ? 'new-only' : 'all',
         hideKnownFurigana: booleanSetting(value, 'hideKnownFurigana'),
     };
 }
@@ -1011,7 +1017,16 @@ function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings>
 }
 
 function isFuriganaMode(value: unknown): value is FuriganaMode {
-    return value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'off';
+    return value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'hover' || value === 'off';
+}
+
+const FURIGANA_STATE_GROUPS: ReadonlySet<string> = new Set(['new', 'learning', 'known', 'due', 'failed']);
+
+function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['furiganaHiddenStateGroups'] {
+    if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+    const groups = value.filter((item): item is ReaderSettings['furiganaHiddenStateGroups'][number] =>
+        typeof item === 'string' && FURIGANA_STATE_GROUPS.has(item));
+    return [...new Set(groups)];
 }
 
 function legacyBooleanSettingIs(settings: Partial<ReaderSettings> | null | undefined, key: keyof ReaderSettings, expected: boolean): boolean {

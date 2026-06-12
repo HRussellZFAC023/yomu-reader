@@ -34,7 +34,16 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     applyReaderSubtitleSettings(settings, root);
     applyReaderFontSettings(settings, root);
     applyPopupFontSettings(settings, root);
-    root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status');
+    // UT-47: per-group furigana hiding, hover-only furigana and the
+    // new-words-only colour scope are all CSS-class driven so the settings
+    // preview can mirror them on its own container.
+    const hideGroups = theme.furiganaMode === 'known-status' ? new Set(settings.furiganaHiddenStateGroups) : new Set<string>();
+    for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
+        root.classList.toggle(`yomu-furi-hide-${group}`, hideGroups.has(group));
+    }
+    root.classList.toggle('jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
+    root.classList.toggle('yomu-furi-hover', theme.furiganaMode === 'hover');
+    root.classList.toggle('yomu-word-color-new-only', settings.wordColorStates === 'new-only');
     // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.
     root.classList.toggle('jpdb-reader-suppress-redundant', Boolean(settings.suppressRedundantWordUi));
     // Jiten Reader parity: one-handed reach option for the mobile sheet.

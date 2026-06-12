@@ -4731,7 +4731,7 @@ export class ReaderApp {
 
     private settingsJapaneseParsePlan(form: HTMLFormElement): NestedParsePlan | null {
         if (!this.isCurrentSettingsRoot(form)) return null;
-        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup]' });
+        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
         clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return null;
         const plan = nestedSettingsTextParsePlan(form, 640);
