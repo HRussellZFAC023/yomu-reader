@@ -6187,6 +6187,16 @@
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
       massReviewFailed: "Mass review failed.",
+      adapterStateDisabled: "Off",
+      adapterStateProbing: "Probing",
+      adapterStateUnreachable: "Unreachable",
+      adapterStateConnected: "Connected",
+      adapterStateScanning: "Scanning",
+      adapterStateSuggested: "Mapped",
+      adapterStateReady: "Ready",
+      ankiMappingConfidenceHigh: "high match",
+      ankiMappingConfidenceMedium: "fuzzy match",
+      ankiMappingConfidenceLow: "unmapped",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -7496,6 +7506,16 @@ massReviewNoWords	画面内に復習対象のJiten単語がありません。
 massReviewNoKey	一括レビューにはJiten APIキーが必要です。
 massReviewDone	{count}語を「Good」でレビューしました。
 massReviewFailed	一括レビューに失敗しました。
+adapterStateDisabled	オフ
+adapterStateProbing	接続確認中
+adapterStateUnreachable	接続不可
+adapterStateConnected	接続済み
+adapterStateScanning	スキャン中
+adapterStateSuggested	対応付け済み
+adapterStateReady	準備完了
+ankiMappingConfidenceHigh	完全一致
+ankiMappingConfidenceMedium	曖昧一致
+ankiMappingConfidenceLow	未対応
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -20743,10 +20763,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `${escapedUiText$1(language, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$1(line.message)}`;
   }
   function renderAnkiStatusHtml(line, language) {
-    const summary = `<div class="jpdb-reader-status-main">${formatSettingsStatusLine(line, language)}</div>`;
-    const actions = ankiStatusActions(line.action, language);
+    const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$1(line.state)}">${escapedUiText$1(language, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
+    const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language)}</div>`;
+    const actions = [...line.details ?? [], ...ankiStatusActions(line.action, language)];
     if (!actions.length) return summary;
     return `${summary}<ul class="jpdb-reader-status-checklist">${actions.map(renderStatusAction).join("")}</ul>`;
+  }
+  function ankiAdapterStateLabelKey(state) {
+    const keys = {
+      disabled: "adapterStateDisabled",
+      probing: "adapterStateProbing",
+      unreachable: "adapterStateUnreachable",
+      connected: "adapterStateConnected",
+      scanning: "adapterStateScanning",
+      suggested: "adapterStateSuggested",
+      ready: "adapterStateReady"
+    };
+    return keys[state];
   }
   function renderStatusAction(action) {
     const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
@@ -20783,14 +20816,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!ankiEnabled) {
       return {
         message: uiText(language, "ankiMiningDisabledStatus"),
-        tone: "pending"
+        tone: "pending",
+        state: "disabled"
       };
     }
     return {
       message: formatStatusTemplate(uiText(language, "ankiCheckingConnection"), {
         url: ankiConnectUrl.trim()
       }),
-      tone: "pending"
+      tone: "pending",
+      state: "probing"
     };
   }
   function localizeJpdbStatus(form, language) {
@@ -23898,7 +23933,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const connected = await this.dependencies.anki.isConnected();
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
         if (connected) {
-          this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success");
+          this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
           this.queueAutomaticAnkiLibraryScan(form, language);
         } else {
           this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
@@ -23934,17 +23969,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.settings = previous;
         return;
       }
-      this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending");
+      this.setAnkiStatus(form, uiText(language, "ankiScanning"), "pending", void 0, "scanning");
       try {
         const scan = await scanLibrary.call(this.dependencies.anki);
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         this.applyAnkiScanToForm(form, scan);
-        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), "success");
+        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), "success", void 0, scan.suggestedModel ? "suggested" : "ready", this.ankiScanDetails(scan, language));
         log$o.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         log$o.warn("Automatic Anki library scan failed", error);
-        this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success");
+        this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
         this.settings = previous;
       }
@@ -23972,15 +24007,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     setAnkiStatusLine(form, line) {
-      this.setAnkiStatus(form, line.message, line.tone, line.action);
-    }
-    setAnkiStatus(form, message, tone, action) {
       const status = form.querySelector("[data-anki-status]");
       if (!status) return;
-      status.dataset.statusTone = tone;
-      if (action) status.dataset.statusAction = action;
+      status.dataset.statusTone = line.tone;
+      if (line.action) status.dataset.statusAction = line.action;
       else delete status.dataset.statusAction;
-      setInnerHtml(status, renderAnkiStatusHtml({ message, tone, action }, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+      if (line.state) status.dataset.ankiAdapterState = line.state;
+      else delete status.dataset.ankiAdapterState;
+      setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+    }
+    setAnkiStatus(form, message, tone, action, state, details) {
+      this.setAnkiStatusLine(form, { message, tone, action, state, details });
     }
     async refreshDictionaryStatus(form) {
       const elements = dictionaryStatusElements(form);
@@ -24457,12 +24494,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     ankiSetupUnavailableStatus(settings, language) {
       if (canUseMobileAnkiHandoff(settings)) {
-        return { message: uiText(language, "mobileAnkiReady"), tone: "pending" };
+        return { message: uiText(language, "mobileAnkiReady"), tone: "pending", state: "ready" };
       }
       if (typeof location !== "undefined" && location.hostname && !["127.0.0.1", "localhost", "::1"].includes(location.hostname) && !hasUserscriptAnkiBridge()) {
-        return { message: uiText(language, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-unreachable" };
+        return { message: uiText(language, "ankiHostedBridgeMissing"), tone: "pending", action: "anki-unreachable", state: "unreachable" };
       }
-      return { message: this.ankiUnreachableMessage(language), tone: "pending", action: "anki-unreachable" };
+      return { message: this.ankiUnreachableMessage(language), tone: "pending", action: "anki-unreachable", state: "unreachable" };
+    }
+    // Field-mapping suggestions with their confidence, shown as the status
+    // checklist instead of hidden mapping JSON (P1 adapter state machine).
+    ankiScanDetails(scan, language) {
+      const suggestions = scan.suggestedModel?.suggestions ?? [];
+      return suggestions.filter((suggestion) => suggestion.fieldName || suggestion.confidence === "low").map((suggestion) => ({
+        label: `${suggestion.role}: ${suggestion.fieldName ?? "—"}`,
+        suffix: uiText(language, suggestion.confidence === "high" ? "ankiMappingConfidenceHigh" : suggestion.confidence === "medium" ? "ankiMappingConfidenceMedium" : "ankiMappingConfidenceLow")
+      }));
     }
     ankiConnectionErrorMessage(error, language) {
       return error instanceof Error ? error.message : uiText(language, "ankiUnreachable");

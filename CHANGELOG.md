@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.143] - 2026-06-12
+
+### Changed
+
+- Anki setup: the status line now shows an explicit state badge (Off / Probing / Unreachable / Connected / Scanning / Mapped / Ready) and, after a library scan, lists each suggested field mapping with how confident the match is (high match / fuzzy match / unmapped) — no more guessing what the automatic setup concluded.
+
 ## [0.6.142] - 2026-06-12
 
 ### Added
