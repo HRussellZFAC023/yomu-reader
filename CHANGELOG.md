@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.144] - 2026-06-12
+
+### Changed
+
+- Page scanning: a new scan now cancels the previous one between batches (fast scrolling or navigating no longer wastes time parsing regions that already left the screen), removed or changed text is skipped before parsing, and very long paragraphs no longer stall a scan turn.
+
 ## [0.6.143] - 2026-06-12
 
 ### Changed

@@ -746,3 +746,65 @@ function tokensForHostedDocsText(text: string): JPDBToken[] {
     }
     return tokens;
 }
+
+describe('abortable visible-work scheduling (P1)', () => {
+    it('stops an in-flight scan between batches when a newer scan is requested', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        let resolveFirst: ((value: JPDBToken[][]) => void) | undefined;
+        let call = 0;
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => {
+            call += 1;
+            if (call === 1) {
+                return await new Promise<JPDBToken[][]>(resolve => { resolveFirst = () => resolve(paragraphs.map(() => [])); });
+            }
+            return paragraphs.map(() => [] as JPDBToken[]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const first = scanner.scanVisiblePage({ silent: true });
+            await Promise.resolve();
+            // A newer request lands while batch 1 of the old scan is parsing.
+            const second = scanner.scanVisiblePage({ silent: true });
+            resolveFirst?.([]);
+            await Promise.all([first, second]);
+            // The queued rescan runs detached after a scheduler turn.
+            for (let waits = 0; waits < 200 && parseJapanese.mock.calls.length < 4; waits += 1) {
+                await new Promise(resolve => setTimeout(resolve, 5));
+            }
+
+            // Old scan: 1 batch then aborted (stale generation); fresh scan
+            // re-collects and parses all 3 batches => 4 total, not 6.
+            expect(parseJapanese).toHaveBeenCalledTimes(4);
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('caps parse batches by text volume so huge paragraphs do not ride in one batch', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const bigParagraph = `日本語${'の長文'.repeat(700)}`; // > 2000 chars each
+        document.body.innerHTML = Array.from({ length: 7 }, () => `<p>${bigParagraph}</p>`).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => paragraphs.map(() => [] as JPDBToken[]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const batchSizes = parseJapanese.mock.calls.map(callArgs => (callArgs[0] as string[]).length);
+            expect(batchSizes.length).toBeGreaterThan(1);
+            // Every batch respects the ~6k char budget (one oversized item may
+            // ride alone, but never with companions that overflow it).
+            for (const callArgs of parseJapanese.mock.calls) {
+                const texts = callArgs[0] as string[];
+                const chars = texts.reduce((sum, text) => sum + text.length, 0);
+                if (texts.length > 1) expect(chars).toBeLessThanOrEqual(6000);
+            }
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+});
