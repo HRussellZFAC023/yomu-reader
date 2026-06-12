@@ -8,16 +8,16 @@ YouTube (mobile usability first):
 - UT-1 P0: Content shift while scrolling on mobile — scroll position jumps as videos load in ("making YouTube basically unusable"). Suspect: filter collapsing cards above the viewport without scroll anchoring compensation; reserve space or compensate scrollTop when culling above-fold items.
 - UT-2 P0: Channel-shelf Subscribe says "subscribed" but the channel is NOT subscribed on refresh/YouTube check. Suspect: the subscribe POST silently fails (missing innertube params/consent) while the UI optimistically flips.
 - UT-3 P0: ASB-style subtitle rerender loop — flicker + page lag; pitch-accent highlight appears then disappears. Suspect: cue re-render replacing enriched HTML with unenriched parse, then re-enriching (loop); pin enriched cue HTML by content hash.
-- UT-4: "Tracks detected" status text leaks into ASB-player translations.
+- DONE 0.6.127 — UT-4 description flash: parsing turned bio newlines into <br>, escaping the nowrap-ellipsis clamp; shelf descriptions now use -webkit-line-clamp:1 with br{display:none}. Also covers the UT-8 screenshot instance (furigana overlapping inside the expanded bio).
 - DONE 0.6.125 — UT-5 'tracks detected' leak: cue without terminal punctuation let the ancestor sentence walk reach the player root and append the chrome status line; .jpdb-subtitle-status/.jpdb-subtitle-rail now carry data-jpdb-reader-surface-ignore. Regression pinned in sentence-context.test.ts with the user's literal string.
-- UT-6: Non-Japanese channel community posts still show in the feed (post cards lack video links — extend filter to community-post cards).
-- UT-7: Arabic subtitles load first, then switch to Japanese. Default-track selection should prefer ja immediately.
+- DONE 0.6.127 — UT-6 community posts: feed posts (ytd-post-renderer/backstage-post desktop+mweb, live-captured DOM) now classify on their post text (#content-text / ytmBackstagePostRendererHostContentText, buttons stripped so 続きを読む doesn't count as Japanese); channel-own /posts pages exempt; text-less image/poll posts stay visible (follow-up: poll text classification).
+- DONE 0.6.127 — UT-7 Arabic-first subs: DOM-caption mirror no longer accepts non-Japanese caption text while a Japanese YouTube track is still loading its cues (shouldAllowNonJapaneseDomCaptionFallback now requires !isJapaneseSubtitleTrack).
 
 Reader/typography:
-- UT-8: Some text partially obstructed once furigana is added (line-height/overflow on ruby; need repro page — ask for screenshot).
-- UT-9: OCR sometimes missing ruby text (ask for screenshot/sample image if non-repro).
-- UT-10: Incorrect furigana e.g. としょ rendered with an extra しょ over an empty box (ruby segment alignment when a kanji slot is empty; repro via kanji-ruby-split tests).
-- UT-11: Keyless — colorised underlines don't appear until the sentence is tapped (visible-scan enrichment not running keyless until pointer parse; should colorize on scan).
+- UT-8 furigana obstruction: the screenshot instance (channel-shelf bio) is fixed by the UT-4 clamp in 0.6.127. NEEDS INFO for other sites: ask user where else text gets obstructed (page + screenshot).
+- UT-9 OCR ruby sometimes missing: not reproduced yet. NEEDS INFO: ask for a screenshot + the image/page where ruby was missing.
+- UT-10 図書 としょ+しょ double furigana over empty box: screenshot crop doesn't identify the surface (popup? study card? kanji tab vocab list?). NEEDS INFO: ask which screen and for an uncropped screenshot.
+- UT-11 keyless underline delay (colorisation only after tapping sentence): not reproduced; provisional/keyless parse paths all push a render on completion. NEEDS INFO: ask which surface (ASB subs? page text?) and whether video was paused.
 - UT-12: Keyless — hide the state-filter dropdown options that need an API key.
 
 New tab / study page:

@@ -10834,7 +10834,7 @@ ${spelling}`);
       };
     }
     shouldAllowNonJapaneseDomCaptionFallback(selected) {
-      return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY);
+      return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY && !isJapaneseSubtitleTrack(selected));
     }
     clearDomCaptionFallbackIfExpired() {
       this.pendingDomCaption = void 0;
@@ -13047,6 +13047,8 @@ ${spelling}`);
   const FILTERABLE_VIDEO_SHELF_SELECTOR = SHELF_SELECTOR;
   const CHANNEL_LISTING_CONTENT_SELECTOR = "ytd-channel-renderer,ytd-grid-channel-renderer,ytm-channel-list-item-renderer,ytm-compact-channel-renderer";
   const SHORTS_WATCH_ITEM_SELECTOR = "ytd-shorts,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2";
+  const COMMUNITY_POST_SELECTOR = "ytd-post-renderer,ytd-backstage-post-thread-renderer,ytm-backstage-post-thread-renderer,ytm-post-renderer,ytm-backstage-post-renderer";
+  const COMMUNITY_POST_TEXT_SELECTOR = '#content-text,[class*="BackstagePostRendererHostContentText"]';
   const TITLE_SELECTORS = [
     "#video-title",
     "a#video-title",
@@ -13276,6 +13278,10 @@ ${spelling}`);
     }
     filterCandidateForCard(card) {
       if (isYouTubeAlwaysHiddenItem(card)) return hiddenYouTubeFilterCandidate(card);
+      const postText = youTubeCommunityPostText(card);
+      if (postText !== null) {
+        return visibleYouTubeFilterCandidate({ card, title: postText, videoId: "" }, postText);
+      }
       const info = readYouTubeCardInfo(card);
       return visibleYouTubeFilterCandidate(info, this.resolveTitleForFiltering(info));
     }
@@ -14394,7 +14400,25 @@ ${spelling}`);
       const normalized = normalizeYouTubeFilterItem(element);
       if (normalized) items.add(normalized);
     });
+    collectYouTubeCommunityPosts(root).forEach((item) => items.add(item));
     return [...items].filter((item) => item.isConnected);
+  }
+  function collectYouTubeCommunityPosts(root = document) {
+    if (isYouTubeChannelPostsPage()) return [];
+    return Array.from(root.querySelectorAll(COMMUNITY_POST_SELECTOR)).map((post) => post.closest("ytd-rich-item-renderer,ytm-rich-item-renderer") ?? post.closest("ytd-backstage-post-thread-renderer,ytm-backstage-post-thread-renderer,ytd-post-renderer,ytm-post-renderer") ?? post).filter((item) => item.isConnected);
+  }
+  function isYouTubeChannelPostsPage() {
+    const path = location.pathname;
+    return /\/(?:posts|community)\/?$/u.test(path) || path.startsWith("/post/");
+  }
+  function youTubeCommunityPostText(card) {
+    const post = card.matches(COMMUNITY_POST_SELECTOR) ? card : card.querySelector(COMMUNITY_POST_SELECTOR);
+    if (!post) return null;
+    const textEl = post.querySelector(COMMUNITY_POST_TEXT_SELECTOR);
+    if (!textEl) return "";
+    const clone = textEl.cloneNode(true);
+    clone.querySelectorAll("button").forEach((button) => button.remove());
+    return (clone.textContent ?? "").replace(/\s+/g, " ").trim();
   }
   function collectFilterableVideoShelves(root = document) {
     return Array.from(root.querySelectorAll(FILTERABLE_VIDEO_SHELF_SELECTOR)).filter(isFilterableVideoShelf);

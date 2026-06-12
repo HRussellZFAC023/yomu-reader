@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.127] - 2026-06-12
+
+### Fixed
+
+- YouTube channel shelf (user-reported): the one-line channel description no longer flashes into the full multi-line bio after parsing (newlines became <br> and escaped the ellipsis clamp); this also removes the furigana-overlap seen inside expanded bios.
+- YouTube feed (user-reported): community posts from non-Japanese channels are now filtered by their post text on desktop and mobile; a channel's own Posts page stays unfiltered, and the mobile 'read more' (続きを読む) button no longer counts as Japanese content.
+- Subtitles (user-reported): foreign-language captions (e.g. Arabic) are no longer mirrored while the selected Japanese track is still loading — no more wrong-language flash before Japanese subs appear.
+
 ## [0.6.126] - 2026-06-12
 
 ### Fixed

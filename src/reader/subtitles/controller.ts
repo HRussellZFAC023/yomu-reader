@@ -1206,8 +1206,13 @@ export class SubtitlePlayerController {
     }
 
     private shouldAllowNonJapaneseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
+        // While a Japanese track is still loading its cues, YouTube's own
+        // caption overlay shows whatever language the player defaulted to
+        // (e.g. Arabic); mirroring that flashes foreign subs before the
+        // Japanese ones arrive (user-reported).
         return Boolean(selected?.kind === 'youtube'
-            && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY);
+            && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY
+            && !isJapaneseSubtitleTrack(selected));
     }
 
     private clearDomCaptionFallbackIfExpired(): void {
