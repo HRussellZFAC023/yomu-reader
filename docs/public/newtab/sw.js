@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-const APP_HASH = '4443847ad510';
-=======
 const APP_HASH = '4bb708ba4726';
->>>>>>> a5794f2 (Release yomu reader 0.6.173)
 const CACHE_NAME = `yomu-newtab-${APP_HASH}`;
 const SHELL = ['./', './index.html', './app.js', './styles.css', '../yomu.user.js'];
 const CACHEABLE_PATH_SUFFIXES = [

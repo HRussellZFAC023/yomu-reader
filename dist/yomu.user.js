@@ -13,15 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-<<<<<<< HEAD
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-FkAPBnZTabSPWWPwVOYtrhuqAdqalnasGY4Y5HgMytg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zgo2IM66pwfai35c3OiT6Q4GzIFJNGc9sVotX2wq5As=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dToUwWaO3PeyH8F+zbR6Jdksw70IXygXxEF/9SSBkbw=
-=======
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-nu8pmyH0glnI63Lm2WpD9dueKLI6cs9PSQgZSagnM24=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-WLRHtgiHKh4aZScz1dZQrOtz4jgytTAGg8T46l5PJl8=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-s/hlidp/9rIat8ISSqIGb8cqzoIJAruSXqWagG32Ywo=
->>>>>>> a5794f2 (Release yomu reader 0.6.173)
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -36964,11 +36958,15 @@ ${glossaryKey}`;
       this.handleReaderWordHover(word, event);
     }
     shouldIgnoreHoverPointer(event) {
-      if (this.isDestroyed || this.pressLookup?.source === "middle" || event.pointerType === "touch" || this.shouldSuppressPenHover(event)) return true;
+      if (this.isDestroyed || this.pressLookup?.source === "middle" || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
       if (!this.hasStickyModalPopover()) return false;
       this.cancelPendingHoverLookup();
       this.cancelHoverClose();
       return true;
+    }
+    canUseHoverLookupPointer(event) {
+      const pointerType = event.pointerType;
+      return pointerType !== "touch" && pointerType !== "pen";
     }
     hasStickyModalPopover() {
       return this.activePopoverMode === "modal" && Boolean(this.activePopover);
@@ -37056,7 +37054,7 @@ ${glossaryKey}`;
       this.scheduleHoverLookup(word, event);
     }
     handleHoverPointerOut(event) {
-      if (this.isDestroyed || this.hasStickyModalPopover() || event.pointerType === "touch" || this.shouldSuppressPenHover(event)) return;
+      if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
       const related = event.relatedTarget;
       if (this.handleActivePopoverPointerOut(event, related)) return;
@@ -37257,7 +37255,7 @@ ${glossaryKey}`;
       return activeWord.isConnected && !this.isSuppressedHoverLookup(activeWord, hoverLookupKey);
     }
     canOpenHoverLookupForWord(activeWord, event) {
-      return this.isWordHoverActive(activeWord) && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
+      return this.isWordHoverActive(activeWord) && this.canUseHoverLookupPointer(event) && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
     }
     schedulePointerTextLookup(candidate, event) {
       if (this.isActivePointerTextLookup(candidate)) {
