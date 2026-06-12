@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.152] - 2026-06-12
+
+### Fixed
+
+- Mix and playlist stacks no longer clutter the filtered YouTube feed: the modern lockup-style cards (stacked collection thumbnails linking to watch?v=…&list=RD…) evaded the playlist detection because their links look like ordinary videos and their Japanese titles (ミックスリスト …) passed the language filter. They are now always treated as non-video items and hidden while filtering. (Live-verified on a signed-in feed: visible mix stacks went from several to zero.)
+
 ## [0.6.151] - 2026-06-12
 
 ### Added

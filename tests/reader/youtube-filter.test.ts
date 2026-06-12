@@ -1395,6 +1395,36 @@ describe('YouTube immersion filter', () => {
         expect(document.getElementById('f2')!.hasAttribute('is-in-first-column')).toBe(true);
     });
 
+    it('always hides lockup mix/playlist stacks regardless of title language (UT-38)', () => {
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer id="mix">
+                <yt-lockup-view-model>
+                    <yt-collection-thumbnail-view-model></yt-collection-thumbnail-view-model>
+                    <a href="/watch?v=abc12345678&list=RDabc12345678">ミックスリスト - ポップ・ミュージック</a>
+                </yt-lockup-view-model>
+            </ytd-rich-item-renderer>
+            <ytd-rich-item-renderer id="radio-link">
+                <yt-lockup-view-model>
+                    <a href="/watch?v=def12345678&list=RDdef12345678">ミックスリスト - アジアの音楽</a>
+                </yt-lockup-view-model>
+            </ytd-rich-item-renderer>
+            <ytd-rich-item-renderer id="video">
+                <yt-lockup-view-model>
+                    <a href="/watch?v=ghi12345678">日本語の動画</a>
+                </yt-lockup-view-model>
+            </ytd-rich-item-renderer>
+        `;
+        const candidates = collectYouTubeVideoCards(document.body);
+        expect(candidates.length).toBeGreaterThan(0);
+        const filter = new YoutubeImmersionFilter({ getSettings: () => DEFAULT_SETTINGS } as never);
+        const candidateFor = (id: string) => (filter as unknown as {
+            filterCandidateForCard(card: HTMLElement): { alwaysHidden: boolean };
+        }).filterCandidateForCard(document.getElementById(id)!);
+        expect(candidateFor('mix').alwaysHidden).toBe(true);
+        expect(candidateFor('radio-link').alwaysHidden).toBe(true);
+        expect(candidateFor('video').alwaysHidden).toBe(false);
+    });
+
     it('collapses unrendered shelf slots until YouTube hydrates them (UT-26 gaps)', () => {
         document.body.innerHTML = `
             <ytd-rich-shelf-renderer>

@@ -36035,10 +36035,11 @@ ${spelling}`);
   }
   function isYouTubePlaylistLikeCard(card) {
     if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
+    if (card.querySelector("yt-collection-thumbnail-view-model, ytd-playlist-thumbnail")) return true;
     const links = Array.from(card.querySelectorAll("a[href]"));
     const playlistLinks = links.filter((link) => {
       const href = link.getAttribute("href") ?? "";
-      return href.includes("/playlist?") || href.includes("/watch_videos?") || /[?&]start_radio=/.test(href) || !extractYouTubeVideoId(href) && /[?&]list=/.test(href);
+      return href.includes("/playlist?") || href.includes("/watch_videos?") || /[?&]start_radio=/.test(href) || /[?&]list=RD/.test(href) || !extractYouTubeVideoId(href) && /[?&]list=/.test(href);
     });
     if (playlistLinks.length && playlistLinks.length >= links.filter((link) => extractYouTubeVideoId(link.getAttribute("href"))).length) {
       return true;
