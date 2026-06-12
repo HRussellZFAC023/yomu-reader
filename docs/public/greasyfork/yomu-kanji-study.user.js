@@ -2120,6 +2120,8 @@
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
+      featureStudy: "Study",
+      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -2243,6 +2245,7 @@
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
+      newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -3121,6 +3124,8 @@ featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
+featureStudy	学習
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -3680,6 +3685,7 @@ newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
+newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ

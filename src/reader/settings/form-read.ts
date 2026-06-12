@@ -281,6 +281,7 @@ function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSetti
         newTabOfflineEnabled: has('newTabOfflineEnabled'),
         newTabOfflineLimit: clamped('newTabOfflineLimit', 0, 500, current.newTabOfflineLimit),
         newTabDailyGoalMinutes: clamped('newTabDailyGoalMinutes', 0, 1440, current.newTabDailyGoalMinutes),
+        newTabKanjiUnlockEnabled: has('newTabKanjiUnlockEnabled'),
         newTabKanjiAutogradeEnabled: has('newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: has('newTabKanjiAutoSubmit'),
     };

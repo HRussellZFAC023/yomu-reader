@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.131] - 2026-06-12
+
+### Added
+
+- Study page (user-requested): jpdb-style combined kanji+word queue — locked words now serve their kanji card first, and the word unlocks once the kanji is learned. A new setting, 'Study kanji before unlocking words' (on by default), lets kanji-skippers turn this off and study locked words directly; the Kanji tab stays available for isolated kanji study, and toggling never affects your progression.
+- The welcome screen now mentions the built-in study page.
+
 ## [0.6.130] - 2026-06-12
 
 ### Fixed

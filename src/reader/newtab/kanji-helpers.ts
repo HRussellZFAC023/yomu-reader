@@ -59,6 +59,13 @@ export const oldFormsFact = (fullInfo: JpdbKanjiInfo | null): string => fullInfo
 export const isStandaloneKanjiCard = (card: JPDBCard, kanji: string): boolean =>
     card.spelling === kanji && kanjiCharacters(card.spelling).length === 1 && Array.from(card.spelling).length === 1;
 
+// Synthetic kanji cards injected into the Word-tab queue by the kanji-unlock
+// flow (jpdb parity): negative vid from stableNegativeNewTabId plus a
+// single-kanji spelling identifies them so they render and grade as kanji
+// even outside the Kanji tab.
+export const isKanjiUnlockStudyCard = (card: JPDBCard): boolean =>
+    card.vid < 0 && isStandaloneKanjiCard(card, card.spelling);
+
 export const randomPublicJpdbSeedKanji = (limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT): string[] =>
     shuffleStrings(uniqueStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
 

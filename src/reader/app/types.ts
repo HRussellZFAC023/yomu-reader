@@ -313,6 +313,7 @@ export interface ReaderSettings {
     newTabOfflineEnabled: boolean;
     newTabOfflineLimit: number;
     newTabDailyGoalMinutes: number;
+    newTabKanjiUnlockEnabled: boolean;
     newTabKanjiAutogradeEnabled: boolean;
     newTabKanjiAutoSubmit: boolean;
     puckPositionX?: number;

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.130
+// @version      0.6.131
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-CT5fizihAISUFvI/SgAfsP9hP8/LhMJK2fGpfXTvhAs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-UDiZ5aYm2lcFa5S5B9Qg+zoNAVlUpuRw0v47kvJBTxw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RYo6LzBD5VADmkg3a0ymyMonwfd3eM3UGK0VXlo954U=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-P9oOFNeIZpgJ3sUBT0f4DwchI+Bi3fDv/A/1ZFVdmN0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-mFf/xLn/78Ocq9J3czR6GQt7PMc3/o6+BgEUjcmYeFg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-fjiWEpiZDwVtDeIoCyeMu0OYnVNbn4vwQDQ0Lubpg6k=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2030,6 +2030,7 @@
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
     newTabDailyGoalMinutes: 60,
+    newTabKanjiUnlockEnabled: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -2309,6 +2310,7 @@
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
+      newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5324,6 +5326,8 @@
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
+      featureStudy: "Study",
+      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -5447,6 +5451,7 @@
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
+      newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -6344,6 +6349,8 @@ featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
+featureStudy	学習
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -6903,6 +6910,7 @@ newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
+newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -32515,7 +32523,8 @@ ${glossaryKey}`;
         ["featureText", "featureTextBody"],
         ["featureImages", "featureImagesBody"],
         ["featureVideo", "featureVideoBody"],
-        ["featureControl", "featureControlBody"]
+        ["featureControl", "featureControlBody"],
+        ["featureStudy", "featureStudyBody"]
       ];
       featureKeys.forEach(([headingKey, textKey]) => {
         const card = document.createElement("div");

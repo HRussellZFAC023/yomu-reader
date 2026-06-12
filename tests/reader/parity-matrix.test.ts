@@ -129,6 +129,44 @@ describe('provider parity matrix', () => {
         expect(totalCards).toBe(1);
     });
 
+    it('replaces locked words with their kanji unlock cards in the Word queue (jpdb combined Learn parity)', () => {
+        const { controller } = matrixController({ ...DEFAULT_SETTINGS, newTabKanjiUnlockEnabled: true });
+        try {
+            const internals = controller as unknown as {
+                state: { mode: string };
+                applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[];
+            };
+            internals.state.mode = 'word';
+            const pool = [
+                matrixCard({ vid: 1, spelling: '勉強', reading: 'べんきょう', cardState: ['due'] }),
+                matrixCard({ vid: 2, spelling: '図書', reading: 'としょ', cardState: ['locked'] }),
+                matrixCard({ vid: 3, spelling: 'ばっちり', reading: 'ばっちり', cardState: ['locked'] }),
+            ];
+            const queue = internals.applyKanjiUnlockQueue(pool);
+            // The due word stays; the locked word becomes its kanji cards;
+            // the kana-only locked word studies as a word.
+            expect(queue.map(card => card.spelling)).toEqual(['勉強', '図', '書', 'ばっちり']);
+            expect(queue[1]!.vid).toBeLessThan(0);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps locked words as words when the kanji-unlock setting is off', () => {
+        const { controller } = matrixController({ ...DEFAULT_SETTINGS, newTabKanjiUnlockEnabled: false });
+        try {
+            const internals = controller as unknown as {
+                state: { mode: string };
+                applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[];
+            };
+            internals.state.mode = 'word';
+            const pool = [matrixCard({ vid: 2, spelling: '図書', reading: 'としょ', cardState: ['locked'] })];
+            expect(internals.applyKanjiUnlockQueue(pool).map(card => card.spelling)).toEqual(['図書']);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps the JPDB locked kanji card when same-priority candidates collide (locked-kanji order)', () => {
         const locked = matrixCard({ spelling: '記', reading: 'き', cardState: ['locked'], source: 'jpdb' });
         const derived = matrixCard({ spelling: '記', reading: 'き', cardState: ['locked'], source: 'anki' });

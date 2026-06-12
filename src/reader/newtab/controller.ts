@@ -132,6 +132,7 @@ import {
     fallbackSearchKanjiCard,
     firstTruthy,
     heisigFact,
+    isKanjiUnlockStudyCard,
     isStandaloneKanjiCard,
     jpdbKanjiVocabularyToNewTabCard,
     keywordCandidates,
@@ -3053,7 +3054,35 @@ export class NewTabController {
         if (filter === 'all') return cards;
         if (filter === 'local') return cards.filter(card => card.source === 'local' || card.source === 'fallback');
         if (filter !== 'study') return cards.filter(card => card.cardState.includes(filter));
-        return selectNewTabStudyPool(cards);
+        return this.applyKanjiUnlockQueue(selectNewTabStudyPool(cards));
+    }
+
+    // jpdb Learn parity: locked words sit behind their kanji, so the combined
+    // queue serves the KANJI card first; the word unlocks once the provider
+    // marks the kanji learned. "Study kanji before unlocking words" (default
+    // on) can be turned off for learners who skip kanji — locked words then
+    // study directly as words. Progression is unaffected either way: card
+    // states live at the provider, the toggle only changes queue composition.
+    private applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[] {
+        if (this.state.mode !== 'word' || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
+        const out: JPDBCard[] = [];
+        const seenKanji = new Set<string>();
+        for (const card of pool) {
+            if (!card.cardState.includes('locked') || this.shouldRenderCardAsKanji(card)) {
+                out.push(card);
+                continue;
+            }
+            const kanjiCards = kanjiCharacters(card.spelling)
+                .filter(kanji => !seenKanji.has(kanji))
+                .map(kanji => {
+                    seenKanji.add(kanji);
+                    return this.kanjiStudyCardFromSourceCard(card, kanji);
+                });
+            // Kana-only locked cards (no kanji to unlock) study as words.
+            if (kanjiCards.length) out.push(...kanjiCards);
+            else out.push(card);
+        }
+        return out;
     }
 
     private cardsForCurrentMode(cards: JPDBCard[]): JPDBCard[] {
@@ -3356,7 +3385,9 @@ export class NewTabController {
     }
 
     private shouldRenderCardAsKanji(card: JPDBCard): boolean {
-        return this.state.mode === 'kanji' || this.isLiveJpdbKanjiReviewCard(card);
+        return this.state.mode === 'kanji'
+            || this.isLiveJpdbKanjiReviewCard(card)
+            || isKanjiUnlockStudyCard(card);
     }
 
     private isLiveJpdbKanjiReviewCard(card: JPDBCard): boolean {
