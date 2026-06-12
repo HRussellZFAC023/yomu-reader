@@ -1239,6 +1239,14 @@ export class NewTabController {
             this.toggleReveal(root);
             return;
         }
+        // UT-40: U undoes the last review where an undo affordance exists
+        // (jpdb.io parity for keyboard-only reviewing).
+        if ((event.key === 'u' || event.key === 'U') && !event.metaKey && !event.ctrlKey && !event.altKey && this.canUndoLastReview()) {
+            event.preventDefault();
+            this.dismissKeyHints(root);
+            void this.undoLastReview(root);
+            return;
+        }
         this.handleGradeDigitKeydown(root, event);
     }
 
@@ -7736,13 +7744,49 @@ export class NewTabController {
             : [];
         if (!select.isConnected) return;
         const selected = this.state.ankiDeck || 'all';
+        // UT-46: per-deck due counts straight from Anki's own scheduler
+        // search — pick a deck knowing what's waiting in it.
+        const dueByDeck = await this.ankiDeckDueCounts(names.filter(Boolean));
+        if (!select.isConnected) return;
+        const withDue = (name: string, label: string): string => {
+            const due = dueByDeck.get(name);
+            return typeof due === 'number' && due > 0 ? `${label} · ${due}` : label;
+        };
         const options = [
             { id: 'all', name: this.text('allVocabularyDeck') },
-            ...names.filter(Boolean).map(name => ({ id: name, name })),
+            ...names.filter(Boolean).map(name => ({ id: name, name: withDue(name, name) })),
         ];
         if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
         replaceChildrenWith(select, options.map(option => el('option', { value: option.id, selected: option.id === selected }, option.name)));
         select.value = selected;
+    }
+
+    private ankiDeckDueCountsCache?: { at: number; promise: Promise<Map<string, number>> };
+
+    private ankiDeckDueCounts(deckNames: string[]): Promise<Map<string, number>> {
+        const invoke = this.dependencies.anki.invoke;
+        if (typeof invoke !== 'function' || !deckNames.length) return Promise.resolve(new Map());
+        const now = Date.now();
+        if (this.ankiDeckDueCountsCache && now - this.ankiDeckDueCountsCache.at < 60_000) return this.ankiDeckDueCountsCache.promise;
+        const promise = (async () => {
+            const counts = new Map<string, number>();
+            // getDeckStats answers every deck in one call where available.
+            const stats = await invoke<Record<string, { name?: string; review_count?: number; learn_count?: number; new_count?: number }>>('getDeckStats', { decks: deckNames }).catch(() => null);
+            if (stats && typeof stats === 'object' && !Array.isArray(stats) && Object.keys(stats).length) {
+                for (const value of Object.values(stats)) {
+                    if (!value || typeof value !== 'object' || typeof value.name !== 'string') continue;
+                    counts.set(value.name, Number(value.review_count ?? 0) + Number(value.learn_count ?? 0));
+                }
+                return counts;
+            }
+            await Promise.all(deckNames.slice(0, 24).map(async name => {
+                const cards = await invoke<number[]>('findCards', { query: `deck:"${name.replace(/"/g, '')}" is:due` }).catch((): number[] => []);
+                counts.set(name, Array.isArray(cards) ? cards.length : 0);
+            }));
+            return counts;
+        })().catch(() => new Map<string, number>());
+        this.ankiDeckDueCountsCache = { at: now, promise };
+        return promise;
     }
 
     private async populateDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): Promise<void> {

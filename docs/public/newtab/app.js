@@ -54092,6 +54092,12 @@ ${entry.url}`),
         this.toggleReveal(root);
         return;
       }
+      if ((event.key === "u" || event.key === "U") && !event.metaKey && !event.ctrlKey && !event.altKey && this.canUndoLastReview()) {
+        event.preventDefault();
+        this.dismissKeyHints(root);
+        void this.undoLastReview(root);
+        return;
+      }
       this.handleGradeDigitKeydown(root, event);
     }
     // UT-34: inline kbd hints exist only until the user proves they know the
@@ -59624,13 +59630,44 @@ ${entry.url}`),
       const names = typeof invoke === "function" ? await invoke("deckNames").catch(() => []) : [];
       if (!select2.isConnected) return;
       const selected = this.state.ankiDeck || "all";
+      const dueByDeck = await this.ankiDeckDueCounts(names.filter(Boolean));
+      if (!select2.isConnected) return;
+      const withDue = (name, label) => {
+        const due = dueByDeck.get(name);
+        return typeof due === "number" && due > 0 ? `${label} · ${due}` : label;
+      };
       const options = [
         { id: "all", name: this.text("allVocabularyDeck") },
-        ...names.filter(Boolean).map((name) => ({ id: name, name }))
+        ...names.filter(Boolean).map((name) => ({ id: name, name: withDue(name, name) }))
       ];
       if (!options.some((option) => option.id === selected)) options.push({ id: selected, name: selected });
       replaceChildrenWith(select2, options.map((option) => el("option", { value: option.id, selected: option.id === selected }, option.name)));
       select2.value = selected;
+    }
+    ankiDeckDueCountsCache;
+    ankiDeckDueCounts(deckNames) {
+      const invoke = this.dependencies.anki.invoke;
+      if (typeof invoke !== "function" || !deckNames.length) return Promise.resolve(/* @__PURE__ */ new Map());
+      const now = Date.now();
+      if (this.ankiDeckDueCountsCache && now - this.ankiDeckDueCountsCache.at < 6e4) return this.ankiDeckDueCountsCache.promise;
+      const promise = (async () => {
+        const counts = /* @__PURE__ */ new Map();
+        const stats = await invoke("getDeckStats", { decks: deckNames }).catch(() => null);
+        if (stats && typeof stats === "object" && !Array.isArray(stats) && Object.keys(stats).length) {
+          for (const value of Object.values(stats)) {
+            if (!value || typeof value !== "object" || typeof value.name !== "string") continue;
+            counts.set(value.name, Number(value.review_count ?? 0) + Number(value.learn_count ?? 0));
+          }
+          return counts;
+        }
+        await Promise.all(deckNames.slice(0, 24).map(async (name) => {
+          const cards = await invoke("findCards", { query: `deck:"${name.replace(/"/g, "")}" is:due` }).catch(() => []);
+          counts.set(name, Array.isArray(cards) ? cards.length : 0);
+        }));
+        return counts;
+      })().catch(() => /* @__PURE__ */ new Map());
+      this.ankiDeckDueCountsCache = { at: now, promise };
+      return promise;
     }
     async populateDeckSelector(select2, settings) {
       const key = effectiveJpdbApiKey(settings);
