@@ -2118,12 +2118,18 @@ function unwrapYouTubeWatchTitleReaderWords(): void {
 
 function isYouTubePlaylistLikeCard(card: HTMLElement): boolean {
     if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
+    // UT-38: lockup-style mix/playlist stacks (ミックスリスト …) carry a
+    // collection (stacked) thumbnail and link to watch?v=…&list=RD…, so the
+    // old href rules saw an ordinary video link and the Japanese title kept
+    // them visible.
+    if (card.querySelector('yt-collection-thumbnail-view-model, ytd-playlist-thumbnail')) return true;
     const links = Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href]'));
     const playlistLinks = links.filter(link => {
         const href = link.getAttribute('href') ?? '';
         return href.includes('/playlist?')
             || href.includes('/watch_videos?')
             || /[?&]start_radio=/.test(href)
+            || /[?&]list=RD/.test(href)
             || (!extractYouTubeVideoId(href) && /[?&]list=/.test(href));
     });
     if (playlistLinks.length && playlistLinks.length >= links.filter(link => extractYouTubeVideoId(link.getAttribute('href'))).length) {
