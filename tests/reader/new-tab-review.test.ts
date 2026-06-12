@@ -6,6 +6,7 @@ import { cardKey } from '../../src/reader/cards/utils';
 import { APP_NAME } from '../../src/reader/app/constants';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
+import { searchWordMetaItems } from '../../src/reader/newtab/search-view';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb/jpdb-review-bridge';
@@ -10683,28 +10684,6 @@ describe('new tab review helpers', () => {
 
     it('shows new-tab word detail JPDB status only when a JPDB API key exists', () => {
         let apiKey = '';
-        const controller = new NewTabController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey,
-                ankiEnabled: true,
-                immersionKitEnabled: false,
-            }),
-            anki: {} as never,
-            jpdb: {} as never,
-            jpdbKanji: {} as never,
-            kanjiVG: {} as never,
-            rtk: {} as never,
-            immersionKit: {} as never,
-            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {} as never,
-            dictionaries: {} as never,
-            lookupText: vi.fn(),
-            onSettingsChange: vi.fn(),
-            applyTheme: vi.fn(),
-            showSettings: vi.fn(),
-            dismiss: vi.fn(),
-        });
         const detail = {
             localEntries: [],
             kanjiEntries: [],
@@ -10734,9 +10713,12 @@ describe('new tab review helpers', () => {
             cardState: ['not-in-deck'],
             frequencyRank: 250,
         });
-        const metaItems = () => (controller as unknown as {
-            searchWordMetaItems(card: JPDBCard, state: 'not-in-deck', detail: unknown): string[];
-        }).searchWordMetaItems(card, 'not-in-deck', detail).map(item => {
+        const metaItems = () => searchWordMetaItems(card, 'not-in-deck', detail, {
+            ...DEFAULT_SETTINGS,
+            apiKey,
+            ankiEnabled: true,
+            immersionKitEnabled: false,
+        }).map(item => {
             const element = document.createElement('div');
             element.innerHTML = item;
             return element.textContent ?? '';

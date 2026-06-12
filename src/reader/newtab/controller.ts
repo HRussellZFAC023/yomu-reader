@@ -3,17 +3,22 @@ import {
     renderSearchKanjiResults,
     renderSearchWordResults,
     searchCardStateLabel,
+    searchLocalKanjiDefinitions,
+    searchWordDetailHtml,
+    searchWordKanjiSourceShell,
     searchWordSummaryMeta,
+    type NewTabSearchDetailViewContext,
     type NewTabSearchKanjiResult,
     type NewTabSearchViewContext,
+    type NewTabSearchWordDetailData,
 } from './search-view';
 import { primaryCardState } from '../cards/state';
 import { copyText } from '../ui/browser';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord, normalizedJapaneseCardReading } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { ANKI_SOURCE_ID, APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
-import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
+import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID } from '../app/constants';
+import { htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { isKanjiCharacter } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
@@ -48,14 +53,13 @@ import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji/origin';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from '../kanji/doodle';
-import { renderAnkiExistingSection, renderAnkiRenderedCardStudyBody } from '../anki/render';
+import { renderAnkiRenderedCardStudyBody } from '../anki/render';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates, type KanjiShapeCandidate, type KanjiStrokeAssessment } from '../kanji/stroke-grader';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import { formatLookupUrl } from '../dictionaries/display';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
-import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { speakerIcon } from '../ui/icons';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
@@ -64,10 +68,9 @@ import {
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,
     renderKanjiOrigins,
-    renderPitch,
     renderRtkInfo,
 } from '../popup/render';
-import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection } from '../sources/definition-render';
+import { kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -281,7 +284,6 @@ import {
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
-    orderedDefinitionSourceIds,
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
@@ -562,15 +564,9 @@ interface NewTabSearchResults {
     hasLocalDictionaries: boolean;
 }
 
-interface NewTabSearchWordDetail {
-    localEntries: YomitanTermEntry[];
-    kanjiEntries: YomitanKanjiEntry[];
-    metaEntries: YomitanMetaEntry[];
-    ankiLookup?: CardRenderData['ankiLookup'];
-    jpdbVocabularyInfo: JpdbVocabularyInfo | null;
+interface NewTabSearchWordDetail extends NewTabSearchWordDetailData {
     wordKanjiDetails?: NewTabSearchWordKanjiDetail[];
     wordKanjiLoading?: boolean;
-    loading?: boolean;
 }
 
 interface NewTabSearchWordKanjiDetail {
@@ -6352,30 +6348,21 @@ export class NewTabController {
     private renderSearchWordDetail(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
         this.searchWordCardCache.set(cardKey(card), card);
         mount.dataset.newtabCard = cardKey(card);
-        setInnerHtml(mount, this.searchWordDetailHtml(card, detail));
+        setInnerHtml(mount, searchWordDetailHtml(card, detail, this.searchDetailViewContext()));
         this.insertSearchWordKanjiSectionIfPresent(mount, card, detail);
         this.installSearchWordDetailEnhancements(mount, card, detail);
     }
 
-    private searchWordDetailHtml(card: JPDBCard, detail: NewTabSearchWordDetail): string {
-        const html = [
-            this.renderSearchWordHeader(card, detail),
-            this.renderSearchWordDefinitions(card, detail),
-            this.renderSearchWordLoading(detail),
-        ].filter(Boolean).join('');
-        return html || `<div class="jpdb-reader-newtab-search-message">${escapeHtml(this.text('noLocalResults'))}</div>`;
-    }
-
-    private renderSearchWordDefinitions(card: JPDBCard, detail: NewTabSearchWordDetail): string {
-        if (detail.loading) return '';
-        return this.dependencies.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo)
-            ?? this.renderSearchFallbackDefinitionSources(card, detail);
-    }
-
-    private renderSearchWordLoading(detail: NewTabSearchWordDetail): string {
-        if (!detail.loading) return '';
-        const language = this.dependencies.getSettings().interfaceLanguage;
-        return `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml(uiText(language, 'loadingDictionaryDetails'))}</div>`;
+    private searchDetailViewContext(): NewTabSearchDetailViewContext {
+        return {
+            getSettings: () => this.dependencies.getSettings(),
+            text: key => this.text(key),
+            sourceAttributes: (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
+            dictionaryLabel: name => this.dictionaryLabel(name),
+            kanjiSourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
+            renderSearchDefinitionSources: this.dependencies.renderSearchDefinitionSources,
+            renderSearchWordPills: this.dependencies.renderSearchWordPills,
+        };
     }
 
     private insertSearchWordKanjiSectionIfPresent(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
@@ -6400,18 +6387,18 @@ export class NewTabController {
 
     private renderSearchWordKanjiSection(card: JPDBCard, detail: NewTabSearchWordDetail): HTMLElement | null {
         if (!this.shouldLoadSearchWordKanjiDetails(card)) {
-            return this.renderSearchLocalKanjiDefinitions(detail);
+            return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
         }
         const characters = this.searchWordKanjiCharacters(card);
         if (!characters.length) return null;
-        const section = this.renderSearchWordKanjiSourceShell(card);
+        const section = searchWordKanjiSourceShell(card, this.searchDetailViewContext());
         if (!section) return null;
         if (detail.wordKanjiLoading) {
             section.append(el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('loadingKanjiDetails')));
             return section;
         }
         const details = detail.wordKanjiDetails ?? [];
-        if (!details.length) return this.renderSearchLocalKanjiDefinitions(detail);
+        if (!details.length) return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
         details.forEach(item => {
             const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
             const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
@@ -6434,114 +6421,6 @@ export class NewTabController {
             this.renderNewTabUchisen(kanjiDetail, item.kanji);
         });
         return section;
-    }
-
-    private renderSearchWordKanjiSourceShell(card: JPDBCard): HTMLElement | null {
-        return htmlToFirstElement(`
-            <details
-                class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-newtab-search-inline-kanji"
-                data-source="search-kanji"
-                data-newtab-search-inline-kanji="true"
-                ${this.sourceAttributes(kanjiSourceStateKey(`search-word:${cardKey(card)}:kanji`))}
-            >
-                <summary class="jpdb-reader-local-title">${escapeHtml(this.text('kanji'))}</summary>
-            </details>
-        `);
-    }
-
-    private renderSearchLocalKanjiDefinitions(detail: NewTabSearchWordDetail): HTMLElement | null {
-        return htmlToFirstElement(renderKanjiDefinitions(
-            detail.kanjiEntries,
-            (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
-            name => this.dictionaryLabel(name),
-            KANJI_DICTIONARIES_SOURCE_ID,
-            this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID),
-            this.dependencies.getSettings().interfaceLanguage,
-        ));
-    }
-
-    private renderSearchWordHeader(card: JPDBCard, detail: NewTabSearchWordDetail): string {
-        const settings = this.dependencies.getSettings();
-        const state = primaryCardState(card.cardState);
-        const metaItems = this.searchWordMetaItems(card, state, detail);
-        const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
-        const pills = this.dependencies.renderSearchWordPills?.(card, detail.metaEntries) ?? '';
-        const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
-        return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header">
-            <div class="jpdb-reader-heading">
-                <div class="jpdb-reader-title-row">
-                    <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${escapeHtml(card.spelling)}</div>
-                    ${card.reading && card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
-                    ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
-                </div>
-                ${pills}
-            </div>
-            <div class="jpdb-reader-card-tools">
-                ${pitch}
-                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="search-word-audio" data-newtab-card="${escapeHtml(cardKey(card))}" type="button" aria-label="${escapeHtml(audioTitle)}" title="${escapeHtml(audioTitle)}"${settings.audioEnabled ? '' : ' disabled'}>${speakerIcon()}</button>
-            </div>
-        </div>`;
-    }
-
-    private searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetail): string[] {
-        const settings = this.dependencies.getSettings();
-        return [
-            this.searchWordReadingMeta(card),
-            this.searchWordFrequencyMeta(card),
-            this.searchWordCardStateMeta(card, state, settings),
-            this.searchWordLookupAnkiStateMeta(card, detail, settings),
-        ].filter(Boolean);
-    }
-
-    private searchWordReadingMeta(card: JPDBCard): string {
-        const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
-        return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
-    }
-
-    private searchWordFrequencyMeta(card: JPDBCard): string {
-        return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '';
-    }
-
-    private searchWordCardStateMeta(card: JPDBCard, state: CardState, settings: ReaderSettings): string {
-        if (card.source === 'anki' || card.reviewSource === 'anki') return searchWordStateMeta('anki', state, settings.interfaceLanguage);
-        if (isJitenSrsCard(card) && hasJitenApiCredential(settings)) return searchWordStateMeta('jiten', state, settings.interfaceLanguage);
-        return hasJpdbApiCredential(settings) ? searchWordStateMeta('jpdb', state, settings.interfaceLanguage) : '';
-    }
-
-    private searchWordLookupAnkiStateMeta(card: JPDBCard, detail: NewTabSearchWordDetail, settings: ReaderSettings): string {
-        if (!settings.ankiEnabled) return '';
-        if (card.source === 'anki' || card.reviewSource === 'anki') return '';
-        return detail.ankiLookup?.primary ? searchWordStateMeta('anki', detail.ankiLookup.state, settings.interfaceLanguage) : '';
-    }
-
-    private renderSearchFallbackDefinitionSources(card: JPDBCard, detail: NewTabSearchWordDetail): string {
-        const settings = this.dependencies.getSettings();
-        const grouped = groupTermEntriesByDictionary(detail.localEntries);
-        const sourceIds = orderedDefinitionSourceIds(settings, [...grouped.keys()]);
-        const dictionarySourceIds = sourceIds.filter(sourceId => grouped.has(sourceId));
-        let renderedDictionaries = false;
-        const definitionSections = sourceIds.map(sourceId => {
-            if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
-                return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
-            }
-            if (sourceId === ANKI_SOURCE_ID) {
-                return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : '';
-            }
-            if (grouped.has(sourceId)) {
-                if (renderedDictionaries) return '';
-                renderedDictionaries = true;
-                return renderLocalDefinitionSourcesSection(
-                    dictionarySourceIds,
-                    grouped,
-                    settings,
-                    (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
-                    name => this.dictionaryLabel(name),
-                    card,
-                );
-            }
-            return '';
-        });
-        return definitionSections.filter(Boolean).join('');
     }
 
     private toggleSearchKanjiResult(button: HTMLElement, kanji: string): void {
@@ -7944,11 +7823,6 @@ function ankiAudioFilenamesFromFields(fields: Record<string, string>): string[] 
     const filenames = uniqueStrings(Object.values(fields)
         .flatMap(value => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), match => match[1]?.trim() ?? '')));
     return filenames.length ? filenames : undefined;
-}
-
-function searchWordStateMeta(source: 'jpdb' | 'jiten' | 'anki', state: string, language: ReaderSettings['interfaceLanguage']): string {
-    const label = source === 'jpdb' ? 'JPDB' : source === 'jiten' ? 'Jiten' : 'Anki';
-    return `<span><span class="jpdb-reader-state-dot ${source}-${state}"></span>${label} ${escapeHtml(searchCardStateLabel(state, language))}</span>`;
 }
 
 function uniqueConcreteSources(sources: Array<ConcreteNewTabWordSource | null>): ConcreteNewTabWordSource[] {
