@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.170
+// @version      0.6.171
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NkrLwxdfXqJHhJ3Knf8XBNpf4eVgBd5sFNh787AYwwk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-KO+WycavEteglsph85M1VLWqER8l7tUMnc9RAq5gkrk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-cRTGwPDkJwQSh9XwujTlU8GuCF0p9Ieb7Mh5nOdpfjY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-FkAPBnZTabSPWWPwVOYtrhuqAdqalnasGY4Y5HgMytg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-zgo2IM66pwfai35c3OiT6Q4GzIFJNGc9sVotX2wq5As=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-0fejvzSdy7F5J0/zjT5esRqnUOCeJP7XAUL3Qca8F50=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2916,7 +2916,13 @@
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="voice" i]',
-    ".jpdb-reader-word"
+    ".jpdb-reader-word",
+    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
+    // link, not prose — annotating it matched rare alt-form words (穏 →
+    // しずか) and dropped a reading under the glyph; the pitch diagram is
+    // per-mora letter soup.
+    ".subsection-composed-of-kanji .spelling",
+    ".subsection-pitch-accent .subsection"
   ];
   const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
   const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
@@ -5488,7 +5494,15 @@
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
-      newTabOfflineHelp: "Saves recent reviews for offline study.",
+      newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
+      newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+      studyKeysTitle: "Study page keys",
+      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
+      studyKeyReveal: "Reveal the current card",
+      studyKeyGrades: "Grade the revealed card (buttons in order)",
+      studyKeyUndo: "Undo the last review",
+      studyKeyPrevious: "Previous card (undoes right after grading)",
+      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -6979,7 +6993,15 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	最近の復習をオフライン用に保存します。
+newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
+newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+studyKeysTitle	学習ページのキー
+studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
+studyKeyReveal	現在のカードを表示
+studyKeyGrades	表示したカードを採点（ボタンの順）
+studyKeyUndo	直前のレビューを取り消す
+studyKeyPrevious	前のカード（採点直後は取り消し）
+studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー

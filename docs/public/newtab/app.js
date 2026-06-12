@@ -4280,7 +4280,13 @@
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="voice" i]',
-    ".jpdb-reader-word"
+    ".jpdb-reader-word",
+    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
+    // link, not prose — annotating it matched rare alt-form words (穏 →
+    // しずか) and dropped a reading under the glyph; the pitch diagram is
+    // per-mora letter soup.
+    ".subsection-composed-of-kanji .spelling",
+    ".subsection-pitch-accent .subsection"
   ];
   const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
   const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
@@ -5652,7 +5658,15 @@
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
-      newTabOfflineHelp: "Saves recent reviews for offline study.",
+      newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
+      newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+      studyKeysTitle: "Study page keys",
+      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
+      studyKeyReveal: "Reveal the current card",
+      studyKeyGrades: "Grade the revealed card (buttons in order)",
+      studyKeyUndo: "Undo the last review",
+      studyKeyPrevious: "Previous card (undoes right after grading)",
+      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -7143,7 +7157,15 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	最近の復習をオフライン用に保存します。
+newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
+newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+studyKeysTitle	学習ページのキー
+studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
+studyKeyReveal	現在のカードを表示
+studyKeyGrades	表示したカードを採点（ボタンの順）
+studyKeyUndo	直前のレビューを取り消す
+studyKeyPrevious	前のカード（採点直後は取り消し）
+studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -19806,7 +19828,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function readNewTabFormSettings(reader, current) {
     const { get, has, clamped } = reader;
     return {
-      newTabEnabled: has("newTabEnabled"),
+      // UT-74: no form control anymore (userscripts can't override the
+      // browser new tab) — preserve the stored value instead of wiping it.
+      newTabEnabled: current.newTabEnabled,
       newTabAnkiEnabled: has("newTabAnkiEnabled"),
       newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
       newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "anki", "dictionary"], current.newTabSource),
@@ -21392,7 +21416,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
-                        ${checkbox("newTabEnabled", "Use Yomu study page", settings.newTabEnabled)}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
@@ -21414,7 +21437,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Set this as your browser's study page, or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
                 </div>
     `;
   }
@@ -21842,8 +21866,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
+                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
+                        ${studyKeyReferenceRow("Space / Enter", "Reveal the current card", "studyKeyReveal")}
+                        ${studyKeyReferenceRow("1–9", "Grade the revealed card (buttons in order)", "studyKeyGrades")}
+                        ${studyKeyReferenceRow("U", "Undo the last review", "studyKeyUndo")}
+                        ${studyKeyReferenceRow("← / P", "Previous card (undoes right after grading)", "studyKeyPrevious")}
+                        ${studyKeyReferenceRow("→ / N", "Next card", "studyKeyNext")}
+                    </div>
+                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
+                </div>
             </fieldset>
     `;
+  }
+  function studyKeyReferenceRow(keys, description, key) {
+    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml$1(keys)}</kbd><span data-study-key="${key}">${escapeHtml$1(description)}</span></div>`;
   }
   function renderHelpSettingsPanel(settings) {
     return `
@@ -22304,8 +22342,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     form.querySelector("details[data-local-ocr] > summary")?.replaceChildren(text2("ocrCustomLocalServer"));
   }
   function localizeNewTabHelp(form, text2) {
-    const subsection = getNamedControl(form, "newTabUrl")?.closest(".jpdb-reader-settings-subsection");
-    subsection?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text2("newTabOfflineHelp"));
+    form.querySelector("[data-newtab-address-help]")?.replaceChildren(text2("newTabAddressHelp"));
+    form.querySelector("[data-study-keys-title]")?.replaceChildren(text2("studyKeysTitle"));
+    form.querySelector("[data-study-keys-help]")?.replaceChildren(text2("studyKeysHelp"));
+    form.querySelectorAll("[data-study-key]").forEach((row) => {
+      const key = row.dataset.studyKey;
+      row.replaceChildren(text2(key));
+    });
+    form.querySelector("[data-newtab-offline-help]")?.replaceChildren(text2("newTabOfflineHelp"));
     form.querySelector("[data-newtab-anki-decks-title]")?.replaceChildren(text2("newTabAnkiReviewDecks"));
     form.querySelector("[data-newtab-anki-decks-help]")?.replaceChildren(text2("newTabAnkiReviewDecksHelp"));
   }
@@ -22577,7 +22621,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "popupFontWeight",
     "enableLogging",
     "accentColor",
-    "newTabEnabled",
     "newTabAnkiEnabled",
     "newTabSource",
     "newTabJpdbReviewMode",
@@ -27002,17 +27045,12 @@ ${spelling}`);
       return element;
     }
     toggleOcrLinePinned(state, element, event) {
-      const word = event.target.closest(".jpdb-reader-word[data-vid]");
       if (element.dataset.pinned === "true") {
         this.unpinLine(element);
-        if (word) return;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
+      } else {
+        element.focus({ preventScroll: true });
+        this.pinLine(state, element);
       }
-      element.focus({ preventScroll: true });
-      this.pinLine(state, element);
-      if (word) return;
       event.preventDefault();
       event.stopPropagation();
     }
@@ -27085,7 +27123,7 @@ ${spelling}`);
       frame.className = "jpdb-ocr-video-frame";
       frame.dataset.yomuVideoFrame = "true";
       frame.alt = "";
-      positionVideoFrameImage(frame, rect);
+      positionVideoFrameImage(frame, rect, target);
       frame.addEventListener("load", () => {
         if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
       }, { once: true });
@@ -27117,7 +27155,7 @@ ${spelling}`);
           this.releaseVideoFrame(video);
           continue;
         }
-        positionVideoFrameImage(frame, video.getBoundingClientRect());
+        positionVideoFrameImage(frame, video.getBoundingClientRect(), video);
       }
     }
     scheduleRefresh(delay2) {
@@ -27787,11 +27825,26 @@ ${spelling}`);
       return void 0;
     }
   }
-  function positionVideoFrameImage(frame, rect) {
-    frame.style.left = `${rect.left}px`;
-    frame.style.top = `${rect.top}px`;
-    frame.style.width = `${rect.width}px`;
-    frame.style.height = `${rect.height}px`;
+  function positionVideoFrameImage(frame, rect, video) {
+    const content = videoContentBox(rect, video);
+    frame.style.left = `${content.left}px`;
+    frame.style.top = `${content.top}px`;
+    frame.style.width = `${content.width}px`;
+    frame.style.height = `${content.height}px`;
+  }
+  function videoContentBox(rect, video) {
+    const intrinsicWidth = video.videoWidth;
+    const intrinsicHeight = video.videoHeight;
+    if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
+    const scale = Math.min(rect.width / intrinsicWidth, rect.height / intrinsicHeight);
+    const width = intrinsicWidth * scale;
+    const height = intrinsicHeight * scale;
+    return {
+      left: rect.left + (rect.width - width) / 2,
+      top: rect.top + (rect.height - height) / 2,
+      width,
+      height
+    };
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;

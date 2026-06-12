@@ -74,3 +74,30 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
     });
 });
+
+describe('paused-video frame letterbox fit (UT-77a)', () => {
+    it('pins the snapshot to the contain-fit content box, not the element rect', () => {
+        // 16:9 video inside a square element: 100px letterbox bars top+bottom.
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        Object.defineProperty(video, 'videoWidth', { value: 1600, configurable: true });
+        Object.defineProperty(video, 'videoHeight', { value: 900, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(0, 0, 640, 460);
+        document.body.append(video);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
+        } as never);
+        controller.init();
+        video.dispatchEvent(new Event('pause'));
+
+        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        expect(frame.style.width).toBe('640px');
+        expect(frame.style.height).toBe('360px');
+        expect(frame.style.top).toBe('50px');
+        expect(frame.style.left).toBe('0px');
+        controller.destroy();
+        video.remove();
+    });
+});

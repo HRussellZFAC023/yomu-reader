@@ -2570,7 +2570,15 @@
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
-      newTabOfflineHelp: "Saves recent reviews for offline study.",
+      newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
+      newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+      studyKeysTitle: "Study page keys",
+      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
+      studyKeyReveal: "Reveal the current card",
+      studyKeyGrades: "Grade the revealed card (buttons in order)",
+      studyKeyUndo: "Undo the last review",
+      studyKeyPrevious: "Previous card (undoes right after grading)",
+      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -4042,7 +4050,15 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	最近の復習をオフライン用に保存します。
+newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
+newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+studyKeysTitle	学習ページのキー
+studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
+studyKeyReveal	現在のカードを表示
+studyKeyGrades	表示したカードを採点（ボタンの順）
+studyKeyUndo	直前のレビューを取り消す
+studyKeyPrevious	前のカード（採点直後は取り消し）
+studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -5979,7 +5995,9 @@ recommendedJiten	jiten.moe頻度データです。
   function readNewTabFormSettings(reader, current) {
     const { get, has, clamped } = reader;
     return {
-      newTabEnabled: has("newTabEnabled"),
+      // UT-74: no form control anymore (userscripts can't override the
+      // browser new tab) — preserve the stored value instead of wiping it.
+      newTabEnabled: current.newTabEnabled,
       newTabAnkiEnabled: has("newTabAnkiEnabled"),
       newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
       newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "anki", "dictionary"], current.newTabSource),
@@ -7499,7 +7517,6 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
-                        ${checkbox("newTabEnabled", "Use Yomu study page", settings.newTabEnabled)}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
@@ -7521,7 +7538,8 @@ recommendedJiten	jiten.moe頻度データです。
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Set this as your browser's study page, or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
                 </div>
     `;
   }
@@ -7949,8 +7967,22 @@ recommendedJiten	jiten.moe頻度データです。
                     ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
+                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
+                        ${studyKeyReferenceRow("Space / Enter", "Reveal the current card", "studyKeyReveal")}
+                        ${studyKeyReferenceRow("1–9", "Grade the revealed card (buttons in order)", "studyKeyGrades")}
+                        ${studyKeyReferenceRow("U", "Undo the last review", "studyKeyUndo")}
+                        ${studyKeyReferenceRow("← / P", "Previous card (undoes right after grading)", "studyKeyPrevious")}
+                        ${studyKeyReferenceRow("→ / N", "Next card", "studyKeyNext")}
+                    </div>
+                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
+                </div>
             </fieldset>
     `;
+  }
+  function studyKeyReferenceRow(keys, description, key) {
+    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml(keys)}</kbd><span data-study-key="${key}">${escapeHtml(description)}</span></div>`;
   }
   function renderHelpSettingsPanel(settings) {
     return `
@@ -8411,8 +8443,14 @@ recommendedJiten	jiten.moe頻度データです。
     form.querySelector("details[data-local-ocr] > summary")?.replaceChildren(text("ocrCustomLocalServer"));
   }
   function localizeNewTabHelp(form, text) {
-    const subsection = getNamedControl(form, "newTabUrl")?.closest(".jpdb-reader-settings-subsection");
-    subsection?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text("newTabOfflineHelp"));
+    form.querySelector("[data-newtab-address-help]")?.replaceChildren(text("newTabAddressHelp"));
+    form.querySelector("[data-study-keys-title]")?.replaceChildren(text("studyKeysTitle"));
+    form.querySelector("[data-study-keys-help]")?.replaceChildren(text("studyKeysHelp"));
+    form.querySelectorAll("[data-study-key]").forEach((row) => {
+      const key = row.dataset.studyKey;
+      row.replaceChildren(text(key));
+    });
+    form.querySelector("[data-newtab-offline-help]")?.replaceChildren(text("newTabOfflineHelp"));
     form.querySelector("[data-newtab-anki-decks-title]")?.replaceChildren(text("newTabAnkiReviewDecks"));
     form.querySelector("[data-newtab-anki-decks-help]")?.replaceChildren(text("newTabAnkiReviewDecksHelp"));
   }
@@ -8684,7 +8722,6 @@ recommendedJiten	jiten.moe頻度データです。
     "popupFontWeight",
     "enableLogging",
     "accentColor",
-    "newTabEnabled",
     "newTabAnkiEnabled",
     "newTabSource",
     "newTabJpdbReviewMode",

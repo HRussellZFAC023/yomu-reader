@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.171] - 2026-06-12
+
+### Fixed
+
+- jpdb.io "Kanji used" glyphs and the pitch-accent diagram are no longer word-annotated — the kanji link was matching rare alt-form words (穏 rendered a しずか reading under the glyph).
+- The paused-video OCR snapshot now pins to the video's real content box instead of stretching across the letterbox bars.
+- Clicking OCR'd text on a video thumbnail no longer navigates to the video — the click stays with the lookup.
+- The study-address help ("set as your browser's start/new-tab page…") is no longer overwritten by the offline-cache help; both texts are now accurate and live in their own spots.
+
+### Changed
+
+- Removed the "Enable Yomu study page" checkbox — it had no effect (a userscript cannot override the browser's new tab); the address guidance now explains the real options.
+- The Shortcuts panel now lists the fixed Study-page keys (Space/Enter reveal, 1–9 grades, U undo, ←/P previous-undo, →/N next) so every shortcut is documented in one place.
+
 ## [0.6.170] - 2026-06-12
 
 ### Added

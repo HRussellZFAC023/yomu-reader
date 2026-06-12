@@ -280,7 +280,6 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
-                        ${checkbox('newTabEnabled', 'Use Yomu study page', settings.newTabEnabled)}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
@@ -302,7 +301,8 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
                         <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
                     </div>
-                    <div class="jpdb-reader-help">Set this as your browser's study page, or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
+                    <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
                 </div>
     `;
 }
@@ -784,8 +784,23 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.massReviewVisible', 'Mass review visible words (Jiten)', settings.shortcuts.massReviewVisible)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
+                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
+                        ${studyKeyReferenceRow('Space / Enter', 'Reveal the current card', 'studyKeyReveal')}
+                        ${studyKeyReferenceRow('1–9', 'Grade the revealed card (buttons in order)', 'studyKeyGrades')}
+                        ${studyKeyReferenceRow('U', 'Undo the last review', 'studyKeyUndo')}
+                        ${studyKeyReferenceRow('← / P', 'Previous card (undoes right after grading)', 'studyKeyPrevious')}
+                        ${studyKeyReferenceRow('→ / N', 'Next card', 'studyKeyNext')}
+                    </div>
+                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
+                </div>
             </fieldset>
     `;
+}
+
+function studyKeyReferenceRow(keys: string, description: string, key: string): string {
+    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml(keys)}</kbd><span data-study-key="${key}">${escapeHtml(description)}</span></div>`;
 }
 
 function renderHelpSettingsPanel(settings: ReaderSettings): string {
@@ -1286,8 +1301,14 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
 }
 
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
-    const subsection = getNamedControl<HTMLInputElement>(form, 'newTabUrl')?.closest<HTMLElement>('.jpdb-reader-settings-subsection');
-    subsection?.querySelector<HTMLElement>(':scope > .jpdb-reader-help')?.replaceChildren(text('newTabOfflineHelp'));
+    form.querySelector<HTMLElement>('[data-newtab-address-help]')?.replaceChildren(text('newTabAddressHelp'));
+    form.querySelector<HTMLElement>('[data-study-keys-title]')?.replaceChildren(text('studyKeysTitle'));
+    form.querySelector<HTMLElement>('[data-study-keys-help]')?.replaceChildren(text('studyKeysHelp'));
+    form.querySelectorAll<HTMLElement>('[data-study-key]').forEach(row => {
+        const key = row.dataset.studyKey as Parameters<typeof text>[0];
+        row.replaceChildren(text(key));
+    });
+    form.querySelector<HTMLElement>('[data-newtab-offline-help]')?.replaceChildren(text('newTabOfflineHelp'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-title]')?.replaceChildren(text('newTabAnkiReviewDecks'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-help]')?.replaceChildren(text('newTabAnkiReviewDecksHelp'));
 }
@@ -1579,7 +1600,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
     'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
-    'enableLogging', 'accentColor', 'newTabEnabled', 'newTabAnkiEnabled', 'newTabSource',
+    'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
     'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabUrl',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
