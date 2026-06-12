@@ -213,6 +213,7 @@ export class YoutubeImmersionFilter {
     private channelShelfExpanded = false;
     private channelShelfFilter: YouTubeChannelRecommendationFilter = 'all';
     private subscriptionBusy = false;
+    private channelShelfStatusOverride = '';
     private lastBackfillAt = Number.NEGATIVE_INFINITY;
     private lastScrollAt = Number.NEGATIVE_INFINITY;
     private destroyed = true;
@@ -862,11 +863,11 @@ export class YoutubeImmersionFilter {
         elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
         if (!this.subscriptionBusy) {
-            elements.status.textContent = !renderedRecommendations.length
+            elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length
                 ? (remainingChannels
                     ? 'All shown channels are already subscribed — browse all channels for more.'
                     : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.`)
-                : readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.';
+                : readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.');
         }
 
         this.renderChannelFilters(elements.filters);
@@ -1087,21 +1088,22 @@ export class YoutubeImmersionFilter {
         const elements = this.channelShelfElements(this.ensureChannelShelf());
         if (!channels.length) {
             // Never leave the button looking dead: say why nothing happened.
-            elements.status.textContent = 'All of these channels are already subscribed.';
+            this.setChannelShelfStatus(elements, 'All of these channels are already subscribed.');
             return;
         }
         const config = readYouTubeClientConfig();
         if (!config) {
-            elements.status.textContent = 'YouTube session data is not available on this page yet.';
+            this.setChannelShelfStatus(elements, 'YouTube session data is not available on this page yet.');
             return;
         }
         if (!youTubeSapisidCookie()) {
             // Without the signed-in session cookie the subscribe write cannot
             // reach the user's account; be honest instead of faking success.
-            elements.status.textContent = 'Sign in to YouTube to subscribe to channels.';
+            this.setChannelShelfStatus(elements, 'Sign in to YouTube to subscribe to channels.');
             return;
         }
 
+        this.channelShelfStatusOverride = '';
         this.subscriptionBusy = true;
         this.setChannelShelfBusy(true);
         let subscribed = 0;
@@ -1121,10 +1123,15 @@ export class YoutubeImmersionFilter {
         }
         this.subscriptionBusy = false;
         this.setChannelShelfBusy(false);
-        elements.status.textContent = failed
+        this.setChannelShelfStatus(elements, failed
             ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.`
-            : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`;
+            : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`);
         if (subscribed) this.scheduleChannelShelfRefresh();
+    }
+
+    private setChannelShelfStatus(elements: YouTubeChannelShelfElements, status: string): void {
+        this.channelShelfStatusOverride = status;
+        elements.status.textContent = status;
     }
 
     // Show the confirmation in place first (button flips to "Subscribed", the
@@ -1162,6 +1169,7 @@ export class YoutubeImmersionFilter {
     private removeChannelShelf(): void {
         this.channelShelf?.remove();
         this.channelShelf = undefined;
+        this.channelShelfStatusOverride = '';
     }
 
     private currentChannelShelfScope(): string {
@@ -1192,6 +1200,7 @@ export class YoutubeImmersionFilter {
         this.channelShelfExpanded = false;
         this.channelShelfFilter = 'all';
         this.subscriptionBusy = false;
+        this.channelShelfStatusOverride = '';
         this.lastBackfillAt = Number.NEGATIVE_INFINITY;
         this.lastScrollAt = Number.NEGATIVE_INFINITY;
         this.setFilterActiveClass(false);
