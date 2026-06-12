@@ -31,6 +31,16 @@ export interface JpdbReviewBridgeStatus {
     card: JpdbReviewBridgeCard | null;
     message: string;
     stale?: boolean;
+    // UT-23: jpdb.io/learn exposes the due composition the API cannot —
+    // kanji reviews only exist on jpdb.io itself.
+    learnSummary?: JpdbLearnSummary;
+}
+
+export interface JpdbLearnSummary {
+    dueItems: number;
+    dueVocabulary: number;
+    dueKanji: number;
+    newItems: number;
 }
 
 type BridgeMessage =
@@ -141,15 +151,15 @@ function staleJpdbReviewBridgeStatus(): JpdbReviewBridgeStatus {
 
 export function initJpdbReviewPageBridge(): void {
     if (typeof BroadcastChannel !== 'function') return;
-    if (location.hostname !== 'jpdb.io' || !location.pathname.startsWith('/review')) return;
+    const onLearnPage = location.hostname === 'jpdb.io' && location.pathname.startsWith('/learn');
+    if (location.hostname !== 'jpdb.io' || (!location.pathname.startsWith('/review') && !onLearnPage)) return;
 
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
     const publish = () => {
-        channel.postMessage({
-            type: 'status',
-            source: 'jpdb',
-            status: parseJpdbReviewDocument(document, location.href),
-        } satisfies BridgeMessage);
+        const status = onLearnPage
+            ? jpdbLearnPageStatus(document)
+            : parseJpdbReviewDocument(document, location.href);
+        channel.postMessage({ type: 'status', source: 'jpdb', status } satisfies BridgeMessage);
     };
     const schedulePublish = debounce(publish, 160);
     channel.onmessage = event => {
@@ -186,6 +196,27 @@ export function initJpdbReviewPageBridge(): void {
             },
         } satisfies BridgeMessage);
     });
+}
+
+// UT-23: jpdb.io/learn shows "You have N due items (V vocabulary and K
+// kanji) and M new items …" — the only place kanji dues are visible.
+export function jpdbLearnPageStatus(doc: Document): JpdbReviewBridgeStatus {
+    const text = doc.body?.textContent?.replace(/\s+/g, ' ') ?? '';
+    const due = /(\d+)\s+due items?\s*\((\d+)\s+vocabulary and\s+(\d+)\s+kanji\)/i.exec(text);
+    const fresh = /(\d[\d,]*)\s+new items?/i.exec(text);
+    const learnSummary = due ? {
+        dueItems: Number(due[1]),
+        dueVocabulary: Number(due[2]),
+        dueKanji: Number(due[3]),
+        newItems: fresh ? Number(fresh[1].replace(/,/g, '')) : 0,
+    } : undefined;
+    return {
+        connected: true,
+        loginRequired: false,
+        card: null,
+        message: learnSummary ? 'JPDB learn page connected.' : 'JPDB learn page open, summary not detected.',
+        ...(learnSummary ? { learnSummary } : {}),
+    };
 }
 
 export function parseJpdbReviewDocument(doc: Document, href = ''): JpdbReviewBridgeStatus {

@@ -129,3 +129,15 @@ describe('jpdb review bridge staleness', () => {
         client.close();
     });
 });
+
+describe('jpdb learn page bridge status (UT-23)', () => {
+    it('parses the due composition from the real learn-page text', async () => {
+        const { jpdbLearnPageStatus } = await import('../../src/reader/jpdb/jpdb-review-bridge');
+        document.body.innerHTML = '<div>Your learning progress … You have 111 due items (20 vocabulary and 91 kanji) and 3,170 new items (2839 vocabulary and 331 kanji) available for review.</div>';
+        const status = jpdbLearnPageStatus(document);
+        expect(status.connected).toBe(true);
+        expect(status.learnSummary).toEqual({ dueItems: 111, dueVocabulary: 20, dueKanji: 91, newItems: 3170 });
+        document.body.innerHTML = '<div>nothing relevant</div>';
+        expect(jpdbLearnPageStatus(document).learnSummary).toBeUndefined();
+    });
+});

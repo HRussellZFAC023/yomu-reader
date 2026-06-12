@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.163
+// @version      0.6.164
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -19957,6 +19957,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
       connectSrsCta: "Connect JPDB / Jiten / Anki",
+      jpdbKanjiDueChip: "+{count} kanji on jpdb.io",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
       couldNotLoadWords: "Could not load words.",
@@ -20104,6 +20105,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
     connectSrsCta: "JPDB / Jiten / Anki と連携",
+    jpdbKanjiDueChip: "+{count} 漢字（jpdb.io）",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
     couldNotLoadWords: "単語を読み込めませんでした。",
@@ -33534,14 +33536,12 @@ ${glossaryKey}`;
   const JPDB_REVIEW_BRIDGE_HEARTBEAT_MS = 12e3;
   function initJpdbReviewPageBridge() {
     if (typeof BroadcastChannel !== "function") return;
-    if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return;
+    const onLearnPage = location.hostname === "jpdb.io" && location.pathname.startsWith("/learn");
+    if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review") && !onLearnPage) return;
     const channel = new BroadcastChannel(JPDB_REVIEW_BRIDGE_CHANNEL);
     const publish = () => {
-      channel.postMessage({
-        type: "status",
-        source: "jpdb",
-        status: parseJpdbReviewDocument(document, location.href)
-      });
+      const status = onLearnPage ? jpdbLearnPageStatus(document) : parseJpdbReviewDocument(document, location.href);
+      channel.postMessage({ type: "status", source: "jpdb", status });
     };
     const schedulePublish = debounce(publish, 160);
     channel.onmessage = (event) => {
@@ -33573,6 +33573,24 @@ ${glossaryKey}`;
         }
       });
     });
+  }
+  function jpdbLearnPageStatus(doc) {
+    const text2 = doc.body?.textContent?.replace(/\s+/g, " ") ?? "";
+    const due = /(\d+)\s+due items?\s*\((\d+)\s+vocabulary and\s+(\d+)\s+kanji\)/i.exec(text2);
+    const fresh = /(\d[\d,]*)\s+new items?/i.exec(text2);
+    const learnSummary = due ? {
+      dueItems: Number(due[1]),
+      dueVocabulary: Number(due[2]),
+      dueKanji: Number(due[3]),
+      newItems: fresh ? Number(fresh[1].replace(/,/g, "")) : 0
+    } : void 0;
+    return {
+      connected: true,
+      loginRequired: false,
+      card: null,
+      message: learnSummary ? "JPDB learn page connected." : "JPDB learn page open, summary not detected.",
+      ...learnSummary ? { learnSummary } : {}
+    };
   }
   function parseJpdbReviewDocument(doc, href = "") {
     if (reviewLoginRequired(doc)) {
