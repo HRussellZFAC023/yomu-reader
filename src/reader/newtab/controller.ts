@@ -2661,7 +2661,13 @@ export class NewTabController {
             // The in-page deck selector (study-hub parity SH-6) overrides the
             // settings default; '' follows settings.
             const selectedDeck = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS;
-            const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, options.timeoutMs, options.limit);
+            // The all-decks union lists every user deck before one bulk
+            // lookup; large accounts need more than the default 8s (the old
+            // timeout surfaced as "No reviews ready" with due cards waiting).
+            const timeoutMs = selectedDeck === JPDB_ALL_DECKS
+                ? Math.max(options.timeoutMs ?? 0, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3)
+                : options.timeoutMs;
+            const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
             if (selectedDeckCards) apiResults.push(selectedDeckCards);
         }
         const jiten = await this.loadJitenStudyBatchWords(options);

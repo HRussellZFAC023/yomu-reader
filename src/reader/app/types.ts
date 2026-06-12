@@ -124,6 +124,9 @@ export interface JPDBCard {
     meanings: JPDBMeaning[];
     cardState: CardState[];
     pitchAccent: string[];
+    // jpdb API due_at (unix seconds): the card's next scheduled review.
+    // Sorting due cards ascending reproduces jpdb's exact Learn queue order.
+    dueAt?: number | null;
     wordWithReading: string | null;
     source?: 'jpdb' | 'jiten' | 'local' | 'anki' | 'fallback';
     sentence?: string;
@@ -196,6 +199,7 @@ export type JPDBRawVocabulary = [
     string[][],
     string[] | null,
     string[] | null,
+    (number | null)?,
 ];
 
 export type JPDBRawToken = [

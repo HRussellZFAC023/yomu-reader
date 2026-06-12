@@ -19,6 +19,7 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
             meaningsPartOfSpeech,
             cardState,
             pitchAccent,
+            dueAt,
         ] = item;
         cards.push({
             vid,
@@ -34,6 +35,7 @@ export function jpdbVocabularyToCards(vocabulary: JPDBRawVocabulary[]): JPDBCard
             })),
             cardState: normalizeCardStates(cardState),
             pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+            dueAt: typeof dueAt === 'number' && Number.isFinite(dueAt) ? dueAt : null,
             wordWithReading: null,
             source: 'jpdb' as const,
         });

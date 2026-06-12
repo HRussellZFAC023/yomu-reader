@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.130] - 2026-06-12
+
+### Fixed
+
+- Study page, JPDB (user-reported): 'No reviews ready — showing practice words' with due cards waiting, and endless 'searching for words', are fixed — the all-decks listing no longer scans your decks in tiny sequential chunks (it unions every deck in parallel and resolves them in one bulk request) and gets a longer time budget.
+
+### Changed
+
+- Study page, JPDB: the review queue now sorts by jpdb's own due_at timestamp, so the order matches jpdb Learn exactly — the next word on jpdb is the next word here. Cards without a due time (new/locked) follow in deck order.
+
 ## [0.6.129] - 2026-06-12
 
 ### Added

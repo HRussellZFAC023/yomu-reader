@@ -18,13 +18,14 @@ const VOCABULARY_FIELDS = [
     'meanings_part_of_speech',
     'card_state',
     'pitch_accent',
+    'due_at',
 ];
 const DECK_FIELDS = ['id', 'name', 'vocabulary_count', 'vocabulary_known_coverage'];
 const PARSE_CACHE_SIZE = 250;
 const PARAGRAPH_PARSE_CACHE_SIZE = 800;
 const PARSE_BATCH_BYTE_LIMIT = 16_384;
 const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
-const VOCABULARY_LOOKUP_CHUNK_SIZE = 100;
+const VOCABULARY_LOOKUP_CHUNK_SIZE = 5000;
 const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1000;
 const USER_DECK_POOL_CONCURRENCY = 4;
 const JPDB_ALL_DECKS_ID = 'all';
@@ -128,12 +129,12 @@ export class JpdbClient {
         const maxCards = Math.max(1, Math.floor(limit));
         const done = log.time('listDeckCards', { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
         try {
+            // 'all' is not a real API deck id (deck/list-vocabulary answers
+            // bad_deck, verified live 2026-06-12) — list every user deck and
+            // union the pairs instead of paying a guaranteed-failing request.
+            if (id === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
             const pairs = await this.listDeckVocabularyPairsByRequestId(id);
             return await this.cardsFromDeckVocabularyPairs(pairs, maxCards, options);
-        } catch (error) {
-            if (id !== JPDB_ALL_DECKS_ID) throw error;
-            log.warn('JPDB all-decks list failed', error);
-            return await this.listCardsFromListedDecks(maxCards, options);
         } finally {
             done();
         }
@@ -230,12 +231,8 @@ export class JpdbClient {
     }
 
     private async lookupScheduledDeckCards(pairs: Array<[number, number]>, limit: number): Promise<JPDBCard[]> {
-        const cards: JPDBCard[] = [];
-        for (let index = 0; index < pairs.length && cards.length < limit; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
-            const batchCards = await this.lookupDeckVocabularyCards(pairs.slice(index, index + VOCABULARY_LOOKUP_CHUNK_SIZE));
-            cards.push(...batchCards.filter(isScheduledJpdbStudyCard));
-        }
-        return cards.slice(0, limit);
+        const cards = await this.lookupDeckVocabularyCards(pairs);
+        return orderScheduledJpdbCards(cards).slice(0, limit);
     }
 
     private async lookupDeckVocabularyCards(pairs: Array<[number, number]>): Promise<JPDBCard[]> {
@@ -265,12 +262,9 @@ export class JpdbClient {
     }
 
     private async loadUserDeckPool(): Promise<Set<string>> {
-        try {
-            return await this.fetchDeckVocabularyPairSet(JPDB_ALL_DECKS_ID);
-        } catch (error) {
-            log.warn('JPDB all-decks membership failed', error);
-            return await this.fetchListedDeckVocabularyPairSet();
-        }
+        // 'all' is not a real API deck id; the listed-decks union is the only
+        // working path (parallel per-deck listings).
+        return await this.fetchListedDeckVocabularyPairSet();
     }
 
     private async fetchListedDeckVocabularyPairSet(): Promise<Set<string>> {
@@ -283,26 +277,30 @@ export class JpdbClient {
         return pool;
     }
 
+    // All-decks listing: pairs from every user deck are unioned in parallel
+    // and resolved in bulk — the sequential per-deck scan used to blow the
+    // study page's load timeout on large accounts, which surfaced as
+    // "No reviews ready" despite due cards existing (user-reported).
     private async listCardsFromListedDecks(limit: number, options: JpdbListDeckCardsOptions): Promise<JPDBCard[]> {
         const decks = await this.listDecks();
-        const cards: JPDBCard[] = [];
-        const seen = new Set<string>();
-        for (const deck of decks) {
-            if (cards.length >= limit) break;
-            const pairs = await this.listDeckVocabularyPairs(deck.id).catch(error => {
+        const pairGroups: Array<Array<[number, number]>> = [];
+        await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
+            pairGroups[index] = await this.listDeckVocabularyPairs(deck.id).catch(error => {
                 log.warn('JPDB listed deck skipped', { deckId: deck.id }, error);
                 return [] as Array<[number, number]>;
             });
-            const deckCards = await this.cardsFromDeckVocabularyPairs(pairs, limit - cards.length, options);
-            for (const card of deckCards) {
-                const key = vocabularyPairKey(card.vid, card.sid);
+        });
+        const seen = new Set<string>();
+        const pairs: Array<[number, number]> = [];
+        for (const group of pairGroups) {
+            for (const [vid, sid] of group ?? []) {
+                const key = vocabularyPairKey(vid, sid);
                 if (seen.has(key)) continue;
                 seen.add(key);
-                cards.push(card);
-                if (cards.length >= limit) break;
+                pairs.push([vid, sid]);
             }
         }
-        return cards.slice(0, limit);
+        return await this.cardsFromDeckVocabularyPairs(pairs, limit, options);
     }
 
     private async cardsFromDeckVocabularyPairs(
@@ -315,11 +313,6 @@ export class JpdbClient {
         return options.scheduledOnly
             ? await this.lookupScheduledDeckCards(pairs, limit)
             : await this.lookupDeckVocabularyCards(pairs);
-    }
-
-    private async fetchDeckVocabularyPairSet(deckId: string): Promise<Set<string>> {
-        const pairs = await this.listDeckVocabularyPairs(deckId);
-        return new Set(pairs.map(([vid, sid]) => vocabularyPairKey(vid, sid)));
     }
 
     private async listDeckVocabularyPairs(deckId: string): Promise<Array<[number, number]>> {
@@ -471,6 +464,18 @@ function normalizePositiveInteger(value: number | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     const integer = Math.floor(value);
     return integer > 0 ? integer : null;
+}
+
+// jpdb Learn queue order: cards with a due timestamp come first, earliest
+// due first; cards without one (new/locked) keep their deck order after.
+// due_at makes the API queue EXACTLY match jpdb's own review order
+// (user-reported mismatch: jpdb's next word was missing from our queue).
+function orderScheduledJpdbCards(cards: JPDBCard[]): JPDBCard[] {
+    const scheduled = cards.filter(isScheduledJpdbStudyCard);
+    const withDue = scheduled.filter(card => typeof card.dueAt === 'number');
+    const withoutDue = scheduled.filter(card => typeof card.dueAt !== 'number');
+    withDue.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+    return [...withDue, ...withoutDue];
 }
 
 function isScheduledJpdbStudyCard(card: JPDBCard): boolean {
