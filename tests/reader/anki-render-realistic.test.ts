@@ -24,12 +24,14 @@ describe('Anki realistic rendered card QA fixtures', () => {
         expect(renderedCards.map(card => card.querySelector('.jpdb-reader-anki-rendered-card-title')?.textContent))
             .toEqual(['RRTK Recognition #7001', 'RRTK Recognition #7002']);
         expect(section.querySelector('style')).toBeNull();
-        expect(kanjiBlocks).toHaveLength(5);
-        expect(kanjiBlocks.map(block => block.textContent?.trim())).toEqual(['語', '語', '語', '語', '語']);
+        // UT-49: multi-font glyph repeats collapse to one per rendered side
+        // (the decorative @font-face fonts cannot load here, so the repeats
+        // were identical glyphs shown five times).
+        expect(kanjiBlocks).toHaveLength(3);
+        expect(kanjiBlocks.map(block => block.textContent?.trim())).toEqual(['語', '語', '語']);
         expectNoNestedScrollStyles(section);
         expectNoHugeInlineFontLeak(section);
         expect(section.innerHTML).toContain('font-size: 30px');
-        expect(section.innerHTML).toContain('font-size: 1.8rem');
     });
 
     it('renders Core 2k-style vocab media as separated image and Anki audio controls', () => {

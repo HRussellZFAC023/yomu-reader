@@ -1,6 +1,6 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
-import { escapeHtml } from '../dom';
+import { escapeHtml, setInnerHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
 import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings, ReviewGradeIntervals } from '../app/types';
@@ -301,9 +301,46 @@ function renderAnkiRenderedSides(card: AnkiRenderedCard, soundFilenames: string[
 function renderAnkiRenderedSideBody(html: string): string {
     if (!html || !hasRenderableAnkiCardContent(html)) return '';
     return `<section class="jpdb-reader-anki-rendered-side">
-        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${html}</div>
+        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${pruneRedundantAnkiGlyphRepeats(html)}</div>
     </section>`;
 }
+
+// UT-49: kanji templates often repeat the same glyph in several decorative
+// fonts (YUMIN/HGRKK/KanjiStrokeOrders @font-face from Anki media). Those
+// fonts cannot load here, so the repeats collapse into one identical glyph
+// shown N times. Keep the first occurrence of each standalone short
+// Japanese run and drop the exact duplicates (plus dead tts elements).
+export function pruneRedundantAnkiGlyphRepeats(html: string): string {
+    if (typeof document === 'undefined') return html;
+    const template = document.createElement('template');
+    setInnerHtml(template, html);
+    template.content.querySelectorAll('tts').forEach(element => element.remove());
+    const seen = new Set<string>();
+    const removable: Element[] = [];
+    for (const element of Array.from(template.content.querySelectorAll('span, font, b, strong, div'))) {
+        if (element.children.length > 0) continue;
+        const text = element.textContent?.replace(/\s+/g, '') ?? '';
+        if (!text || text.length > 4 || !JAPANESE_GLYPH_RUN_RE.test(text)) continue;
+        if (seen.has(text)) removable.push(element);
+        else seen.add(text);
+    }
+    for (const element of removable) {
+        const before = element.previousSibling;
+        if (before?.nodeType === Node.TEXT_NODE && !before.textContent?.trim()) before.remove();
+        element.remove();
+    }
+    // Repeated glyph rows leave orphaned line breaks behind.
+    template.content.querySelectorAll('br + br').forEach(element => element.remove());
+    let last = template.content.lastChild;
+    while (last && ((last.nodeType === Node.TEXT_NODE && !last.textContent?.trim()) || (last instanceof Element && last.tagName === 'BR'))) {
+        const previous = last.previousSibling;
+        last.remove();
+        last = previous;
+    }
+    return template.innerHTML;
+}
+
+const JAPANESE_GLYPH_RUN_RE = /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005\u3006\u30f6]+$/;
 
 export function renderAnkiRenderedCardStudyBody(card: AnkiRenderedCard, revealed: boolean, language: InterfaceLanguage, soundFilenames: string[] = []): string {
     const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls, STUDY_ANKI_SANITIZE);

@@ -15510,6 +15510,8 @@ ${entry.reading || ""}`;
       };
     }
     async loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
+      const fast = await this.loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey);
+      if (fast) return fast;
       const cardChunks = chunkArray(unique$1(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
       const cardsByChunk = Array.from({ length: cardChunks.length }, () => []);
       await runLimited(cardChunks, ANKI_STATUS_INDEX_CARD_CONCURRENCY, async (chunk, index) => {
@@ -15518,6 +15520,42 @@ ${entry.reading || ""}`;
         this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
       });
       return cardsByNoteId(cardsByChunk.flat());
+    }
+    async loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
+      const cardIds = unique$1(allCardIds).map(Number).filter(Number.isFinite);
+      if (!cardIds.length) return /* @__PURE__ */ new Map();
+      try {
+        const [noteIds, decks, relearning] = await Promise.all([
+          this.invoke("cardsToNotes", { cards: cardIds }),
+          this.invoke("getDecks", { cards: cardIds }),
+          this.findCardIdSet("deck:* is:learn is:review")
+        ]);
+        if (!Array.isArray(noteIds) || noteIds.length !== cardIds.length || !decks || typeof decks !== "object") return null;
+        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+        const deckByCard = /* @__PURE__ */ new Map();
+        for (const [deckName, deckCardIds] of Object.entries(decks)) {
+          for (const id of deckCardIds ?? []) deckByCard.set(Number(id), deckName);
+        }
+        const cards = cardIds.map((cardId, index) => this.syntheticStatusIndexCardInfo(cardId, Number(noteIds[index]), deckByCard.get(cardId) ?? "", sets, relearning));
+        return cardsByNoteId(cards);
+      } catch {
+        return null;
+      }
+    }
+    // queue/type synthesized so stateFromAnkiCards classifies exactly like
+    // the rendering path: relearn > due > learning > new > suspended > known.
+    syntheticStatusIndexCardInfo(cardId, noteId, deckName, sets, relearning) {
+      const queue = relearning.has(cardId) ? 3 : sets.learning.has(cardId) ? 1 : sets.new.has(cardId) ? 0 : sets.suspended.has(cardId) ? -1 : 2;
+      return {
+        cardId,
+        note: noteId,
+        deckName,
+        queue,
+        type: queue === 3 ? 3 : queue === 1 ? 1 : queue === 0 ? 0 : 2,
+        reps: 0,
+        lapses: 0,
+        isDue: sets.due.has(cardId)
+      };
     }
     statusIndexCardInfoWithDueFlag(card, sets) {
       const cardId = Number(card.cardId);
@@ -17180,9 +17218,38 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderAnkiRenderedSideBody(html) {
     if (!html || !hasRenderableAnkiCardContent(html)) return "";
     return `<section class="jpdb-reader-anki-rendered-side">
-        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${html}</div>
+        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${pruneRedundantAnkiGlyphRepeats(html)}</div>
     </section>`;
   }
+  function pruneRedundantAnkiGlyphRepeats(html) {
+    if (typeof document === "undefined") return html;
+    const template = document.createElement("template");
+    setInnerHtml(template, html);
+    template.content.querySelectorAll("tts").forEach((element2) => element2.remove());
+    const seen = /* @__PURE__ */ new Set();
+    const removable = [];
+    for (const element2 of Array.from(template.content.querySelectorAll("span, font, b, strong, div"))) {
+      if (element2.children.length > 0) continue;
+      const text2 = element2.textContent?.replace(/\s+/g, "") ?? "";
+      if (!text2 || text2.length > 4 || !JAPANESE_GLYPH_RUN_RE.test(text2)) continue;
+      if (seen.has(text2)) removable.push(element2);
+      else seen.add(text2);
+    }
+    for (const element2 of removable) {
+      const before = element2.previousSibling;
+      if (before?.nodeType === Node.TEXT_NODE && !before.textContent?.trim()) before.remove();
+      element2.remove();
+    }
+    template.content.querySelectorAll("br + br").forEach((element2) => element2.remove());
+    let last = template.content.lastChild;
+    while (last && (last.nodeType === Node.TEXT_NODE && !last.textContent?.trim() || last instanceof Element && last.tagName === "BR")) {
+      const previous = last.previousSibling;
+      last.remove();
+      last = previous;
+    }
+    return template.innerHTML;
+  }
+  const JAPANESE_GLYPH_RUN_RE = /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005\u3006\u30f6]+$/;
   function renderedAnkiAnswerIncludesQuestion(questionHtml, answerHtml) {
     const question = normalizedAnkiRenderedText(questionHtml);
     const answer = normalizedAnkiRenderedText(answerHtml);
