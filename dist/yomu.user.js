@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.143
+// @version      0.6.144
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -34906,6 +34906,7 @@ ${glossaryKey}`;
   }
   const log$1 = Logger.scope("VisiblePageScanner");
   const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
+  const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
   const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
   const ASB_SCAN_BATCH_LIMIT = 12;
@@ -34918,6 +34919,11 @@ ${glossaryKey}`;
     scanPending = false;
     scanPendingSilent = true;
     destroyed = false;
+    // P1 abortable scheduler: every scan request bumps the generation; an
+    // in-flight scan checks it between batches and stops early, so fast
+    // scrolls/navigations never keep parsing stale regions while the fresh
+    // request waits.
+    scanGeneration = 0;
     asbScanInFlight = false;
     asbDrainTimer;
     destroy() {
@@ -34928,10 +34934,12 @@ ${glossaryKey}`;
     }
     async scanVisiblePage(options = {}) {
       const silent = Boolean(options.silent);
+      this.scanGeneration++;
       if (!this.beginScan(silent)) return;
+      const generation = this.scanGeneration;
       const done = log$1.time("scanVisiblePage", { silent });
       try {
-        await this.runVisiblePageScan(silent);
+        await this.runVisiblePageScan(silent, generation);
       } catch (error) {
         this.handleVisiblePageScanError(error, silent);
       } finally {
@@ -34998,27 +35006,35 @@ ${glossaryKey}`;
       this.scanInFlight = true;
       return true;
     }
-    async runVisiblePageScan(silent) {
-      if (this.destroyed) return;
+    async runVisiblePageScan(silent, generation) {
+      if (this.isStaleScan(generation)) return;
       const targets = collectScanTargets();
       if (!targets.length) {
         this.handleEmptyVisiblePageScan(silent);
         return;
       }
-      await this.parseAndApplyTargets(targets);
+      await this.parseAndApplyTargets(targets, generation);
+      if (this.isStaleScan(generation)) return;
       this.reportVisiblePageCoverage(silent);
     }
-    async parseAndApplyTargets(targets) {
-      for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
-        if (this.destroyed) return;
-        const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
+    isStaleScan(generation) {
+      return this.destroyed || generation !== this.scanGeneration;
+    }
+    async parseAndApplyTargets(targets, generation) {
+      let cursor = 0;
+      while (cursor < targets.length) {
+        if (this.isStaleScan(generation)) return;
+        const next = nextVisibleScanParseBatch(targets, cursor);
+        cursor = next.cursor;
+        if (!next.batch.length) continue;
+        const batch = next.batch;
         const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-        if (this.destroyed) return;
+        if (this.isStaleScan(generation)) return;
         const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat()) : void 0;
         const changedRoots = await this.applyTokens(batch, parsed);
         applyAnkiColors?.(changedRoots);
         this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
-        if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+        if (cursor < targets.length) await waitForVisibleScanTurn();
       }
     }
     async applyTokens(targets, parsed) {
@@ -35138,6 +35154,24 @@ ${glossaryKey}`;
   }
   function visiblePageCoverageInsightSurface(word, key) {
     return key || word.dataset.expression || word.textContent || "";
+  }
+  function nextVisibleScanParseBatch(targets, startCursor) {
+    const batch = [];
+    let cursor = startCursor;
+    let budget = 0;
+    while (cursor < targets.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+      const target = targets[cursor];
+      if (!target || !isCurrentScanTarget(target)) {
+        cursor += 1;
+        continue;
+      }
+      const length = target.text.length;
+      if (batch.length && budget + length > VISIBLE_SCAN_PARSE_CHAR_BUDGET) break;
+      batch.push(target);
+      budget += length;
+      cursor += 1;
+    }
+    return { batch, cursor };
   }
   function renderWordPills(options) {
     const context = wordPillContext(options.card, options.overrideQuery);

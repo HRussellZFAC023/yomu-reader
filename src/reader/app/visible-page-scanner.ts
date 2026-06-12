@@ -7,6 +7,9 @@ import type { JPDBToken, ReaderSettings } from './types';
 
 const log = Logger.scope('VisiblePageScanner');
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
+// Byte cap per parse batch (P1 abortable scheduler): a handful of huge
+// paragraphs would otherwise ride in one batch and stall the apply turn.
+const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6_000;
 // Large enough that the first apply paints everything just parsed in one go —
 // small chunks made ruby/colors arrive in visible waves.
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
@@ -55,6 +58,11 @@ export class VisiblePageScanner {
     private scanPending = false;
     private scanPendingSilent = true;
     private destroyed = false;
+    // P1 abortable scheduler: every scan request bumps the generation; an
+    // in-flight scan checks it between batches and stops early, so fast
+    // scrolls/navigations never keep parsing stale regions while the fresh
+    // request waits.
+    private scanGeneration = 0;
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
 
@@ -69,10 +77,12 @@ export class VisiblePageScanner {
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
+        this.scanGeneration++;
         if (!this.beginScan(silent)) return;
+        const generation = this.scanGeneration;
         const done = log.time('scanVisiblePage', { silent });
         try {
-            await this.runVisiblePageScan(silent);
+            await this.runVisiblePageScan(silent, generation);
         } catch (error) {
             this.handleVisiblePageScanError(error, silent);
         } finally {
@@ -151,24 +161,33 @@ export class VisiblePageScanner {
         return true;
     }
 
-    private async runVisiblePageScan(silent: boolean): Promise<void> {
-        if (this.destroyed) return;
+    private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
+        if (this.isStaleScan(generation)) return;
         const targets = collectScanTargets();
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
             return;
         }
 
-        await this.parseAndApplyTargets(targets);
+        await this.parseAndApplyTargets(targets, generation);
+        if (this.isStaleScan(generation)) return;
         this.reportVisiblePageCoverage(silent);
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[]): Promise<void> {
-        for (let index = 0; index < targets.length; index += VISIBLE_SCAN_PARSE_BATCH_SIZE) {
-            if (this.destroyed) return;
-            const batch = targets.slice(index, index + VISIBLE_SCAN_PARSE_BATCH_SIZE);
+    private isStaleScan(generation: number): boolean {
+        return this.destroyed || generation !== this.scanGeneration;
+    }
+
+    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number): Promise<void> {
+        let cursor = 0;
+        while (cursor < targets.length) {
+            if (this.isStaleScan(generation)) return;
+            const next = nextVisibleScanParseBatch(targets, cursor);
+            cursor = next.cursor;
+            if (!next.batch.length) continue;
+            const batch = next.batch;
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-            if (this.destroyed) return;
+            if (this.isStaleScan(generation)) return;
             // Kick the status-color lookup off before touching the DOM so the
             // IndexedDB roundtrip overlaps the apply work.
             const applyAnkiColors = this.shouldEnrichAnkiWords()
@@ -177,7 +196,7 @@ export class VisiblePageScanner {
             const changedRoots = await this.applyTokens(batch, parsed);
             applyAnkiColors?.(changedRoots);
             this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
-            if (index + VISIBLE_SCAN_PARSE_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+            if (cursor < targets.length) await waitForVisibleScanTurn();
         }
     }
 
@@ -314,4 +333,30 @@ function countVisiblePageCoverageMiningInsight(summary: VisiblePageCoverageAccum
 
 function visiblePageCoverageInsightSurface(word: HTMLElement, key: string): string {
     return key || word.dataset.expression || word.textContent || '';
+}
+
+// Builds the next parse batch: caps by item count AND text volume, and drops
+// targets whose node left the DOM or whose text changed since collection —
+// parse-time staleness filtering, not just apply-time (P1 abortable
+// scheduler: fast scrolls stop paying for regions that no longer exist).
+function nextVisibleScanParseBatch(
+    targets: ScanTextTarget[],
+    startCursor: number,
+): { batch: ScanTextTarget[]; cursor: number } {
+    const batch: ScanTextTarget[] = [];
+    let cursor = startCursor;
+    let budget = 0;
+    while (cursor < targets.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+        const target = targets[cursor];
+        if (!target || !isCurrentScanTarget(target)) {
+            cursor += 1;
+            continue;
+        }
+        const length = target.text.length;
+        if (batch.length && budget + length > VISIBLE_SCAN_PARSE_CHAR_BUDGET) break;
+        batch.push(target);
+        budget += length;
+        cursor += 1;
+    }
+    return { batch, cursor };
 }
