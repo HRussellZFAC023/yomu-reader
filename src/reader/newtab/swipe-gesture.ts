@@ -136,6 +136,7 @@ export function installNewTabSwipeGesture(options: NewTabSwipeGestureOptions): (
                 return;
             }
             drag.dragging = true;
+            capturePointer(drag.card, event);
         }
 
         event.preventDefault();
@@ -234,6 +235,17 @@ export function newTabSwipeGrade(action: NewTabSwipeAction, options: NewTabSwipe
 
 function isPrimaryPointerDown(event: PointerEvent): boolean {
     return event.button === 0 && event.isPrimary !== false;
+}
+
+// Keep the drag alive if the pointer leaves the card (or the window) before
+// release — without capture a fast flick can drop its pointerup.
+function capturePointer(card: HTMLElement, event: Event): void {
+    if (!(typeof PointerEvent !== 'undefined' && event instanceof PointerEvent)) return;
+    try {
+        card.setPointerCapture?.(event.pointerId);
+    } catch {
+        // Capture is best-effort; the pointer may already be gone.
+    }
 }
 
 function resolveSwipeTarget(target: NewTabSwipeGestureOptions['target']): HTMLElement | null {

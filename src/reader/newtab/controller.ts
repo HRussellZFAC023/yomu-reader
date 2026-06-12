@@ -3465,7 +3465,7 @@ export class NewTabController {
 
     private stopSessionClock(): void {
         if (this.sessionClockTimer === undefined) return;
-        window.clearInterval(this.sessionClockTimer);
+        if (typeof window !== 'undefined') window.clearInterval(this.sessionClockTimer);
         this.sessionClockTimer = undefined;
     }
 
@@ -3473,7 +3473,9 @@ export class NewTabController {
         // Snow Leopard: no idle timers — the clock only runs while the Word
         // tab is actually studying (renderSessionProgress restarts it), and
         // goal time only accrues for visible word-study seconds.
-        if (this.state.mode !== 'word') {
+        // The document guard stops the clock when the environment is being
+        // torn down (jsdom test teardown) instead of throwing from the timer.
+        if (typeof document === 'undefined' || this.state.mode !== 'word') {
             this.stopSessionClock();
             return;
         }
