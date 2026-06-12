@@ -45901,7 +45901,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
     // Community ask (jpdb issue-tracker #417 class): reverse the most recent
-    // review of a word. POST /api/srs/undo-review {wordId, readingIndex}.
+    // review of a word. Called by NewTabController through its Jiten dependency.
+    // fallow-ignore-next-line unused-class-member
     async undoReview(card) {
       await this.request("srs/undo-review", jitenCardReference(card));
     }
