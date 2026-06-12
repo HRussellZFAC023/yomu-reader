@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.177] - 2026-06-12
+
+### Fixed
+
+- Mobile YouTube watch metadata, action chips, descriptions, and transcript controls now keep furigana after late hydration instead of briefly showing ruby and then losing it to the compact-row clamp cleanup.
+
 ## [0.6.176] - 2026-06-12
 
 ### Added
