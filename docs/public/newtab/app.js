@@ -39924,6 +39924,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
       connectSrsCta: "Connect JPDB / Jiten / Anki",
+      jpdbKanjiDueChip: "+{count} kanji on jpdb.io",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
       couldNotLoadWords: "Could not load words.",
@@ -40071,6 +40072,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
     connectSrsCta: "JPDB / Jiten / Anki と連携",
+    jpdbKanjiDueChip: "+{count} 漢字（jpdb.io）",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
     couldNotLoadWords: "単語を読み込めませんでした。",
@@ -56135,6 +56137,10 @@ ${entry.url}`),
         parts.push(`${summary.dueWords} ${this.text("statsWordsRow").toLowerCase()} · ${summary.dueKanji} ${this.text("kanji").toLowerCase()}`);
       }
       if (fresh) parts.push(`${fresh} ${this.text("stateNew").toLowerCase()}`);
+      const bridgedKanjiDue = this.liveJpdbStatus?.learnSummary?.dueKanji ?? 0;
+      if (bridgedKanjiDue > 0) {
+        parts.push(this.formatNewTabText("jpdbKanjiDueChip", { count: String(bridgedKanjiDue) }));
+      }
       return parts.join(" · ");
     }
     sessionProgressCards() {

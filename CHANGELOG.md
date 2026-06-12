@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.165] - 2026-06-12
+
+### Added
+
+- The study page's due summary now includes kanji reviews waiting on jpdb.io ("+N kanji on jpdb.io") whenever a jpdb.io learn or review tab is open: kanji reviews only exist on jpdb.io itself (the API has no access to them), so the page previously under-reported dues compared to jpdb Learn without saying why. The bridge that powers live reviews now also reads the Learn page's due composition.
+
 ## [0.6.164] - 2026-06-12
 
 ### Added

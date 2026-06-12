@@ -3568,6 +3568,13 @@ export class NewTabController {
             parts.push(`${summary.dueWords} ${this.text('statsWordsRow').toLowerCase()} · ${summary.dueKanji} ${this.text('kanji').toLowerCase()}`);
         }
         if (fresh) parts.push(`${fresh} ${this.text('stateNew').toLowerCase()}`);
+        // UT-23: kanji reviews only exist on jpdb.io itself (no API access).
+        // When a jpdb.io learn/review tab is bridged, surface their count so
+        // the page never silently under-reports against jpdb Learn.
+        const bridgedKanjiDue = this.liveJpdbStatus?.learnSummary?.dueKanji ?? 0;
+        if (bridgedKanjiDue > 0) {
+            parts.push(this.formatNewTabText('jpdbKanjiDueChip', { count: String(bridgedKanjiDue) }));
+        }
         return parts.join(' · ');
     }
 
