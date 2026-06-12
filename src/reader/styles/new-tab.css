@@ -9,6 +9,7 @@
 
 .jpdb-reader-newtab {
   --jpdb-reader-newtab-content-width: min(760px, 100%);
+  display: block;
   min-height: 100dvh;
   width: 100%;
   overflow-x: hidden;
@@ -3823,4 +3824,3 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     animation: none;
   }
 }
-

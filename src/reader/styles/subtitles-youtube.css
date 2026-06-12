@@ -1,5 +1,6 @@
 .jpdb-subtitle-player {
   position: fixed;
+  display: block;
   left: 0;
   bottom: 0;
   width: 100%;
@@ -1014,13 +1015,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-tools {
   align-self: start;
-  display: grid;
-  grid-template-columns: 30px auto;
+  display: flex;
   align-items: center;
   gap: 12px;
   color: var(--jpdb-reader-muted);
 }
-.jpdb-subtitle-row-copy {
+.jpdb-subtitle-row-copy,
+.jpdb-subtitle-row-peek {
   display: inline-grid;
   place-items: center;
   min-width: 30px;
@@ -1033,6 +1034,28 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none !important;
   color: var(--jpdb-reader-muted) !important;
 }
+/* UT-68a: subtle copied confirmation */
+.jpdb-subtitle-copy-flash {
+  position: relative;
+  color: var(--jpdb-reader-accent) !important;
+}
+.jpdb-subtitle-copy-flash svg { opacity: 0; }
+.jpdb-subtitle-copy-flash::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+/* UT-68c: peeked translation under the Japanese line */
+.jpdb-subtitle-row-secondary {
+  color: var(--jpdb-reader-muted);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
 .jpdb-subtitle-list-row.active {
   border-color: var(--jpdb-reader-border);
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);

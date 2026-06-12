@@ -42,6 +42,8 @@ if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-worl
 
 assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
+assertKanjiStudySplitBoundary();
+assertAnkiRenderSplitBoundary();
 if (!code.includes('fflate') || !code.includes('invalid zip data')) fail('the fflate bundled ZIP reader does not appear in the generated userscript.');
 if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
@@ -76,6 +78,56 @@ assertNewTabCacheBusting();
 assertPublishedChangelogIsReleaseOnly();
 
 console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);
+
+function assertKanjiStudySplitBoundary() {
+  const kanjiStudyLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'kanji-study');
+  if (!kanjiStudyLibrary) fail('Yomu Kanji/Study companion is missing from the Greasy Fork library manifest.');
+  const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(kanjiStudyLibrary.fileName));
+  if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(kanjiStudyLibrary.fileName)} is missing. Run npm run build first.`);
+  const companionCode = readText(libraryPath);
+  const extractedSignatures = [
+    ['KanjiOriginClient', 'class KanjiOriginClient'],
+    ['KanjiVGClient', 'class KanjiVGClient'],
+    ['RtkClient', 'class RtkClient'],
+    ['JpdbKanjiClient', 'class JpdbKanjiClient'],
+    ['buildKanjiFacts', 'function buildKanjiFacts(kanji,'],
+    ['buildKanjiOriginGraph', 'function buildKanjiOriginGraph(kanji,'],
+    ['renderRtkInfo', 'function renderRtkInfo(info,'],
+    ['installOriginGraphInteractions', 'function installOriginGraphInteractions(root)'],
+    ['renderJpdbKanjiInfo', 'function renderJpdbKanjiInfo(info,'],
+    ['renderJpdbKanjiMiningControls', 'function renderJpdbKanjiMiningControls(info,'],
+    ['renderKanjiOriginGraph', 'function renderKanjiOriginGraph(graph,'],
+    ['renderKanjiOrigins', 'function renderKanjiOrigins(facts,'],
+    ['renderKanjiPractice', 'function renderKanjiPractice(info,'],
+  ];
+
+  for (const [label, signature] of extractedSignatures) {
+    if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
+    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from dist/${greasyForkLibraryPath(kanjiStudyLibrary.fileName)}.`);
+  }
+}
+
+function assertAnkiRenderSplitBoundary() {
+  const ankiLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'anki');
+  if (!ankiLibrary) fail('Yomu Anki companion is missing from the Greasy Fork library manifest.');
+  const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(ankiLibrary.fileName));
+  if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(ankiLibrary.fileName)} is missing. Run npm run build first.`);
+  const companionCode = readText(libraryPath);
+  const extractedSignatures = [
+    ['renderAnkiActionRow', 'function renderAnkiActionRow(ankiLookup,'],
+    ['renderAnkiExistingSection', 'function renderAnkiExistingSection(ankiLookup,'],
+    ['renderAnkiNewCardPreview', 'function renderAnkiNewCardPreview(card,'],
+    ['pruneRedundantAnkiGlyphRepeats', 'function pruneRedundantAnkiGlyphRepeats(html)'],
+    ['renderAnkiRenderedCardStudyBody', 'function renderAnkiRenderedCardStudyBody(card,'],
+    ['renderReviewButtons', 'function renderReviewButtons(settings,'],
+    ['reviewButtonGrades', 'function reviewButtonGrades(settings)'],
+  ];
+
+  for (const [label, signature] of extractedSignatures) {
+    if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
+    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from dist/${greasyForkLibraryPath(ankiLibrary.fileName)}.`);
+  }
+}
 
 function assertSyncedDocsAssets() {
   for (const [sourcePath, targetPath] of [

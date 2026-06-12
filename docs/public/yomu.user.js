@@ -13,9 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-epSkf2u49FSbjbsrtP5jU7EPpHim4GsdgEgxpB8IQXM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-AaTlA/c1vVEK1GmFIRyQzvFqLwqVAyjgzTTLQGBnveE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nN16OB0BD9LJW2sppvgTVcldfma3NGkMJhkQRQQJF04=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-EXfHajorDyAlWnIBIHP5BCulXfGh4YZUK9aZhDAsTRo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-f8fZfCMukBYjWuXrrh+iMSAI+rVks4iB1LfK3ZRF9Qo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-r//sBQc1sBQRUDwhgyFK6aLw9dLqxfzLcqChrRKjM7M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-6NxdR/9AM/W/Z5Q+NH/4PbxwRFNgYtWrSIrammikRYQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1870,7 +1871,8 @@
     "subtitleNativeBlurred",
     "subtitleKaraokeMode",
     "subtitlePausePanel",
-    "subtitleAutoCopyLine"
+    "subtitleAutoCopyLine",
+    "subtitleCopyIncludeTranslation"
   ];
   const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     "ankiFrontReading",
@@ -2083,6 +2085,7 @@
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
     subtitleAutoCopyLine: false,
+    subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,
@@ -6053,6 +6056,9 @@
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
       copySubtitleLine: "Copy subtitle line",
+      subtitleCopyIncludeTranslation: "Include the translation when copying a line",
+      peekSubtitleTranslation: "Show translation",
+      hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
       subtitleCurrentLineWillAppear: "The current line appears when captions are available.",
@@ -6104,10 +6110,12 @@
       adapterStateConnected: "Connected",
       adapterStateScanning: "Scanning",
       adapterStateSuggested: "Mapped",
+      adapterStateStale: "Needs review",
       adapterStateReady: "Ready",
       ankiMappingConfidenceHigh: "high match",
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
+      ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -6762,6 +6770,9 @@ subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
 copySubtitleLine	字幕行をコピー
+subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
+peekSubtitleTranslation	翻訳を表示
+hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
@@ -7455,10 +7466,12 @@ adapterStateUnreachable	接続不可
 adapterStateConnected	接続済み
 adapterStateScanning	スキャン中
 adapterStateSuggested	対応付け済み
+adapterStateStale	要確認
 adapterStateReady	準備完了
 ankiMappingConfidenceHigh	完全一致
 ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
+ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -16427,27 +16440,6 @@ ${entry.reading || ""}`;
       Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
   }
-  function buildYomuAnkiPreviewFields(card, sentence, settings, context = {}, fieldTargetPlan) {
-    const yomuFields = buildYomuAnkiFields(card, sentence, {
-      ...context,
-      interfaceLanguage: settings.interfaceLanguage
-    });
-    if (fieldTargetPlan && !fieldTargetPlan.yomuManaged && fieldTargetPlan.fieldNames.length) {
-      const mapping2 = ankiFieldMappingForModel(settings, fieldTargetPlan.modelName, fieldTargetPlan.fieldNames);
-      const retargeted = retargetYomuFieldsToExistingModel(yomuFields, fieldTargetPlan.fieldNames, mapping2);
-      const written = Object.fromEntries(Object.entries(retargeted).filter(([, value]) => value.trim()));
-      if (Object.keys(written).length) return written;
-    }
-    const mapping = settings.ankiFieldMappings?.[settings.ankiModel.trim() || "よむ Japanese"];
-    if (!mapping || !Object.values(mapping).some((value) => value?.trim())) return yomuFields;
-    const fields = {};
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mapping[role]?.trim();
-      const value = yomuFields[yomuFieldForRole(role)];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return Object.keys(fields).length ? fields : yomuFields;
-  }
   function renderCardReading(card) {
     return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
   }
@@ -16742,9 +16734,6 @@ ${entry.reading || ""}`;
   function mobileAnkiHandoffTarget(note) {
     if (isAndroidUserAgent()) return { appName: "AnkiDroid", url: androidAnkiDroidIntentUrl(note) };
     return { appName: "AnkiMobile", url: iosAnkiMobileUrl(note) };
-  }
-  function mobileAnkiHandoffAppName() {
-    return isAndroidUserAgent() ? "AnkiDroid" : "AnkiMobile";
   }
   function isAndroidUserAgent() {
     return /Android/i.test(typeof navigator === "undefined" ? "" : navigator.userAgent);
@@ -17099,604 +17088,45 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
-  function externalLinkIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
+  function yomuSettingsDialogController() {
+    return yomuCompanions().settings?.SettingsDialogController;
   }
-  function copyIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
-        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-    </svg>`;
+  function yomuAnkiCompanion() {
+    return yomuCompanions().anki;
   }
-  function speakerIcon() {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
+  function yomuSubtitlePlayerController() {
+    return yomuCompanions().video?.SubtitlePlayerController;
   }
-  function ankiDetailsStateAttributes(options, key, initiallyOpen) {
-    return options.sourceAttributes ? options.sourceAttributes(key, initiallyOpen) : initiallyOpen ? "open" : "";
+  function yomuYoutubeImmersionFilter() {
+    return yomuCompanions().video?.YoutubeImmersionFilter;
   }
-  function ankiDeckSourceStateKey(note) {
-    return `${ANKI_SOURCE_ID}:deck:${note.deckNames.join("/") || note.modelName}`;
+  function yomuImageOcrController() {
+    return yomuCompanions().ocr?.ImageOcrController;
   }
-  const POPOVER_ANKI_SANITIZE = {
-    maxFontPx: 30,
-    maxFontPt: 22,
-    maxFontRelative: 1.8
-  };
-  const CONTEXT_SOURCE_LABEL_KEYS = {
-    video: "contextVideo",
-    image: "contextImage"
-  };
-  function renderAnkiActionRow(ankiLookup, settings) {
-    if (!settings.ankiEnabled) return "";
-    if (ankiLookup.primary) return "";
-    if (ankiLookup.state !== "not-in-deck") return "";
-    const mobileHandoff = shouldRenderMobileAnkiHandoffAction(ankiLookup, settings);
-    if (!mobileHandoff && ankiLookup.trusted === false) return "";
-    const label = mobileHandoff ? mobileAnkiHandoffButtonLabel(settings.interfaceLanguage) : uiText(settings.interfaceLanguage, "addToAnki");
-    return `<div class="jpdb-reader-row" style="--cols: 1"><button class="jpdb-reader-btn anki" data-action="anki">${escapeHtml$1(label)}</button></div>`;
+  function yomuKanjiStudyCompanion() {
+    return yomuCompanions().kanjiStudy;
   }
-  function mobileAnkiHandoffButtonLabel(language) {
-    const app = mobileAnkiHandoffAppName();
-    return language === "ja" ? formatUiText(language, "sendToMobileAnki", { app }) : ["Send", "to", app].join(" ");
+  function yomuCompanions() {
+    return globalThis.__yomuCompanions ?? {};
   }
-  function shouldRenderMobileAnkiHandoffAction(ankiLookup, settings) {
-    return canUseMobileAnkiHandoff(settings) && !ankiLookup.primary;
+  function renderAnkiActionRow(...args) {
+    return yomuAnkiCompanion()?.renderAnkiActionRow(...args) ?? "";
   }
-  function renderAnkiExistingSection(ankiLookup, storedContext, settings, options = {}) {
-    if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return "";
-    const notes = orderedExistingAnkiNotes(ankiLookup);
-    const primary = notes[0];
-    if (!primary) return "";
-    const language = settings.interfaceLanguage;
-    const aggregateState = ankiLookup.state;
-    const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
-            <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ""}</span>
-                <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
-            </summary>
-            ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ""}
-            ${notes.length === 1 ? renderAnkiExistingNote(primary, storedContext, settings, false, true, options) : notes.map((note, index) => renderAnkiExistingNote(note, index === 0 ? storedContext : null, settings, true, index === 0, options)).join("")}
-        </details>
-    `;
+  function renderAnkiExistingSection(...args) {
+    return yomuAnkiCompanion()?.renderAnkiExistingSection(...args) ?? "";
   }
-  function renderAnkiNewCardPreview(card, sentence, settings, context = {}, fieldTargetPlan) {
-    if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return "";
-    const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? "", settings, context, fieldTargetPlan);
-    const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
-    if (!fieldPreview) return "";
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
-            <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>Anki</span>
-                <small class="jpdb-reader-source-status">${escapeHtml$1(ankiNewCardSummary(settings))}</small>
-            </summary>
-            <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">
-                ${fieldPreview}
-            </div>
-        </details>
-    `;
+  function renderAnkiNewCardPreview(...args) {
+    return yomuAnkiCompanion()?.renderAnkiNewCardPreview(...args) ?? "";
   }
-  function orderedExistingAnkiNotes(ankiLookup) {
-    const notes = [];
-    const seen = /* @__PURE__ */ new Set();
-    appendUniqueAnkiNote(notes, seen, ankiLookup.primary);
-    (ankiLookup.notes ?? []).forEach((note) => appendUniqueAnkiNote(notes, seen, note));
-    return notes;
+  function renderReviewButtons(...args) {
+    return yomuAnkiCompanion()?.renderReviewButtons(...args) ?? renderReviewButtonsFallback(...args);
   }
-  function appendUniqueAnkiNote(notes, seen, note) {
-    if (!note) return;
-    const key = ankiNoteKey(note);
-    if (seen.has(key)) return;
-    seen.add(key);
-    notes.push(note);
+  function reviewButtonGrades(...args) {
+    return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? reviewButtonGradesFallback(...args);
   }
-  function ankiNoteKey(note) {
-    if (Number.isFinite(note.noteId) && note.noteId > 0) return `note:${note.noteId}`;
-    return `${note.modelName}:${note.primaryCardId || note.cardIds.join(",")}:${note.deckNames.join(",")}`;
-  }
-  function ankiExistingSectionSummary(primary, count, language, aggregateState) {
-    const summary = ankiExistingAggregateSummary(primary, aggregateState, language);
-    return count > 1 ? `${summary} · ${count} matches` : summary;
-  }
-  function renderAnkiCollisionSummary(notes, language) {
-    return `<div class="jpdb-reader-anki-match-summary" aria-label="${escapeHtml$1(uiText(language, "ankiMatches"))}">
-        ${notes.map((note) => `<div class="jpdb-reader-anki-match-summary-row">
-            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</span>
-            <small>${escapeHtml$1(ankiExistingSummary(note, language))}</small>
-        </div>`).join("")}
-    </div>`;
-  }
-  function renderAnkiExistingNote(note, storedContext, settings, collapsible, open, options) {
-    const language = settings.interfaceLanguage;
-    const preview = ankiExistingPreview(note, storedContext, language);
-    const content = `<div class="jpdb-reader-anki-existing-note-body">
-        ${preview.renderedCard}
-        ${preview.fields}
-        ${preview.pending}
-        ${preview.context}
-        ${renderAnkiNoteActions(note, language)}
-        ${!options.suppressReviewButtons && settings.enableReviews && note.primaryCardId ? renderReviewButtons(settings, note, { targetLabel: ankiCardReviewTargetLabel(note, language) }) : ""}
-    </div>`;
-    if (!collapsible) {
-      return `<div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview" data-anki-note-id="${note.noteId}">
-        ${content}
-    </div>`;
-    }
-    return `<details class="jpdb-reader-local-entry jpdb-reader-anki-card-preview jpdb-reader-anki-existing-note" data-anki-note-id="${note.noteId}" ${ankiDetailsStateAttributes(options, ankiDeckSourceStateKey(note), open)}>
-        <summary class="jpdb-reader-anki-existing-note-title">
-            <span><span class="jpdb-reader-state-dot anki-${note.state}"></span><strong>${escapeHtml$1(ankiNoteIdentityLabel(note, language))}</strong></span>
-            <small>${escapeHtml$1(preview.summary)}</small>
-        </summary>
-        ${content}
-    </details>`;
-  }
-  function ankiNewCardSummary(settings) {
-    return [
-      uiText(settings.interfaceLanguage, "ankiNewCard"),
-      settings.ankiDeck.trim() || "よむ",
-      settings.ankiModel.trim() || "よむ Japanese"
-    ].filter(Boolean).join(" · ");
-  }
-  function ankiExistingPreview(note, storedContext, language) {
-    const renderedCard = renderAnkiRenderedCard(note, language);
-    const fields = renderedCard ? "" : renderAnkiStoredFieldsFallback(note, language);
-    return {
-      summary: ankiExistingSummary(note, language),
-      renderedCard,
-      fields,
-      pending: renderedCard || fields ? "" : renderAnkiDetailsStatus(note, language),
-      context: storedContext ? renderLastMiningContext(storedContext, language) : ""
-    };
-  }
-  function renderAnkiDetailsStatus(note, language) {
-    const key = note.detailsUnavailable ? "ankiCardDetailsUnavailable" : "ankiCardDetailsPending";
-    return `<div class="jpdb-reader-help jpdb-reader-anki-details-pending" role="status">${escapeHtml$1(uiText(language, key))}</div>`;
-  }
-  function renderAnkiStoredFieldsFallback(note, language) {
-    const fields = renderAnkiFields(note, language);
-    if (!fields) return "";
-    return `<details class="jpdb-reader-anki-stored-fields" open>
-        <summary>${escapeHtml$1(uiText(language, "ankiStoredFields"))}</summary>
-        ${fields}
-    </details>`;
-  }
-  function ankiExistingSummary(note, language) {
-    return [
-      ankiStateLabel(note.state, language),
-      note.deckNames.length ? note.deckNames.join(", ") : "",
-      ankiReviewMetricsLabel(note, language)
-    ].filter(Boolean).join(" · ") || "Anki";
-  }
-  function ankiExistingAggregateSummary(primary, aggregateState, language) {
-    return [
-      ankiStateLabel(aggregateState, language),
-      primary.deckNames.length ? primary.deckNames.join(", ") : "",
-      ankiReviewMetricsLabel(primary, language)
-    ].filter(Boolean).join(" · ") || "Anki";
-  }
-  function ankiNoteIdentityLabel(note, language) {
-    return [
-      note.deckNames.length ? note.deckNames.join(", ") : "",
-      note.modelName,
-      ankiNoteKindLabel(note, language)
-    ].filter(Boolean).join(" · ") || "Anki";
-  }
-  function ankiNoteKindLabel(note, language) {
-    const fields = Object.keys(note.fields).map((name) => name.replace(/[_\s-]+/g, "").toLowerCase());
-    const model = note.modelName.replace(/[_\s-]+/g, "").toLowerCase();
-    if (fields.some((name) => /^(?:kanji|keyword|onyomi|kunyomi|on|kun|heisig|frame(?:no|number)?|stroke(?:order|diagram|count)?)$/.test(name)) || /(?:rtk|heisig|kanji)/.test(model)) {
-      return uiText(language, "kanji");
-    }
-    if (fields.some((name) => /^(?:katakana|hiragana|kana|mnemonic)$/.test(name))) return language === "ja" ? "かな" : "Kana";
-    if (fields.some((name) => /sentence|selectiontext|contextsentence/.test(name))) return language === "ja" ? "文" : "Sentence";
-    return uiText(language, "word");
-  }
-  function ankiReviewMetricsLabel(note, language) {
-    const parts = [
-      note.reps ? `${note.reps} ${uiText(language, note.reps === 1 ? "ankiReviewSingular" : "ankiReviewPlural")}` : "",
-      note.lapses ? `${note.lapses} ${uiText(language, note.lapses === 1 ? "ankiLapseSingular" : "ankiLapsePlural")}` : ""
-    ].filter(Boolean);
-    return parts.join(", ");
-  }
-  function ankiStateLabel(state, language) {
-    return cardStateLabel(state, language);
-  }
-  function renderAnkiRenderedCard(note, language) {
-    const cards = orderedRenderedCards(note);
-    if (!cards.length) return "";
-    return cards.map((card, index) => renderAnkiRenderedCardPreview(note, card, language, cards.length > 1, index)).join("");
-  }
-  function renderAnkiRenderedCardPreview(note, card, language, showHeading, index) {
-    const soundFilenames = ankiSoundFilenames(note);
-    const sides = renderAnkiRenderedSides(card, soundFilenames, language);
-    if (!sides.length) return "";
-    const content = sides.join("");
-    if (!showHeading) {
-      return `<div class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}">${content}</div>`;
-    }
-    const title = renderedCardTitle(card, index);
-    return `<details class="jpdb-reader-anki-rendered-card" data-anki-rendered-card-id="${card.cardId}"${index === 0 ? " open" : ""}>
-        <summary class="jpdb-reader-anki-rendered-card-title" title="${escapeHtml$1(title)}">${escapeHtml$1(title)}</summary>
-        ${content}
-    </details>`;
-  }
-  function orderedRenderedCards(note) {
-    const cards = note.renderedCards ?? [];
-    const primary = cards.find((card) => card.cardId === note.primaryCardId);
-    return primary ? [primary, ...cards.filter((card) => card.cardId !== primary.cardId)] : cards;
-  }
-  function renderedCardTitle(card, index) {
-    if (card.cardName) return [card.deckName, card.cardName].filter(Boolean).join(" · ");
-    return [card.deckName, `Card ${index + 1}`].filter(Boolean).join(" · ");
-  }
-  function renderAnkiRenderedSides(card, soundFilenames, language, options = POPOVER_ANKI_SANITIZE) {
-    const questionHtml = sanitizeAnkiCardHtml(card.question, soundFilenames, language, card.mediaDataUrls, options);
-    const answerHtml = sanitizeAnkiCardHtml(card.answer, soundFilenames, language, card.mediaDataUrls, options);
-    const question = renderAnkiRenderedSideBody(questionHtml);
-    const answer = renderAnkiRenderedSideBody(answerHtml);
-    if (!question) return answer ? [answer] : [];
-    if (!answer) return [question];
-    if (renderedAnkiAnswerIncludesQuestion(questionHtml, answerHtml)) return [answer];
-    return [question, answer];
-  }
-  function renderAnkiRenderedSideBody(html) {
-    if (!html || !hasRenderableAnkiCardContent(html)) return "";
-    return `<section class="jpdb-reader-anki-rendered-side">
-        <div class="jpdb-reader-anki-rendered-side-body jpdb-reader-parseable">${pruneRedundantAnkiGlyphRepeats(html)}</div>
-    </section>`;
-  }
-  function pruneRedundantAnkiGlyphRepeats(html) {
-    if (typeof document === "undefined") return html;
-    const template = document.createElement("template");
-    setInnerHtml(template, html);
-    template.content.querySelectorAll("tts").forEach((element2) => element2.remove());
-    const seen = /* @__PURE__ */ new Set();
-    const removable = [];
-    for (const element2 of Array.from(template.content.querySelectorAll("span, font, b, strong, div"))) {
-      if (element2.children.length > 0) continue;
-      const text2 = element2.textContent?.replace(/\s+/g, "") ?? "";
-      if (!text2 || text2.length > 4 || !JAPANESE_GLYPH_RUN_RE.test(text2)) continue;
-      if (seen.has(text2)) removable.push(element2);
-      else seen.add(text2);
-    }
-    for (const element2 of removable) {
-      const before = element2.previousSibling;
-      if (before?.nodeType === Node.TEXT_NODE && !before.textContent?.trim()) before.remove();
-      element2.remove();
-    }
-    template.content.querySelectorAll("br + br").forEach((element2) => element2.remove());
-    let last = template.content.lastChild;
-    while (last && (last.nodeType === Node.TEXT_NODE && !last.textContent?.trim() || last instanceof Element && last.tagName === "BR")) {
-      const previous = last.previousSibling;
-      last.remove();
-      last = previous;
-    }
-    return template.innerHTML;
-  }
-  const JAPANESE_GLYPH_RUN_RE = /^[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005\u3006\u30f6]+$/;
-  function renderedAnkiAnswerIncludesQuestion(questionHtml, answerHtml) {
-    const question = normalizedAnkiRenderedText(questionHtml);
-    const answer = normalizedAnkiRenderedText(answerHtml);
-    if (!question || !answer) return false;
-    if (answer === question) return true;
-    if (!answer.startsWith(question)) return false;
-    const remainder = answer.slice(question.length).trim();
-    return Boolean(remainder);
-  }
-  function normalizedAnkiRenderedText(html) {
-    if (typeof document === "undefined") return html.replace(/\s+/g, " ").trim();
-    const template = document.createElement("template");
-    template.innerHTML = html;
-    return template.content.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  }
-  function hasRenderableAnkiCardContent(html) {
-    if (typeof document === "undefined") return Boolean(html.trim());
-    const template = document.createElement("template");
-    template.innerHTML = html;
-    const text2 = template.content.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    if (text2) return true;
-    return Boolean(template.content.querySelector([
-      "img[src]",
-      "audio[src]",
-      "audio source[src]",
-      "video[src]",
-      "video source[src]",
-      "svg",
-      "canvas",
-      "[data-anki-media-name]",
-      ".jpdb-reader-anki-sound"
-    ].join(",")));
-  }
-  function renderAnkiFields(note, language) {
-    return renderAnkiPreviewFields(note.fields, language);
-  }
-  function renderAnkiPreviewFields(fieldsByName, language, options = {}) {
-    const fields = Object.entries(fieldsByName).map(([name, value]) => ({ name, value: value.trim() })).filter((field) => field.value).slice(0, 14);
-    if (!fields.length) return "";
-    return `<div class="jpdb-reader-anki-fields">
-        ${fields.map((field) => previewField(field.name, field.value, language, options)).join("")}
-    </div>`;
-  }
-  function previewField(label, value, language, options = {}) {
-    return `<div class="jpdb-reader-anki-field"><strong title="${escapeHtml$1(label)}">${escapeHtml$1(displayAnkiFieldLabel(label))}</strong><span>${renderFieldText(value, language, options)}</span></div>`;
-  }
-  function renderFieldText(value, language, options = {}) {
-    const html = options.renderHtml ? sanitizeAnkiCardHtml(value, [], language) : escapeHtml$1(value);
-    return html.replace(
-      /\[sound:([^\]]+)]/gi,
-      (_, filename) => renderAnkiSoundChip(filename, language)
-    );
-  }
-  function renderAnkiSoundChip(filename, language) {
-    const title = ankiAudioLabel(filename, language);
-    return `<button class="jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control" type="button" data-action="anki-media-audio" data-anki-media-name="${escapeHtml$1(filename)}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(title)}">${speakerIcon()}</button>`;
-  }
-  function renderAnkiNoteActions(note, language) {
-    if (!Number.isFinite(note.noteId) || note.noteId <= 0) return "";
-    return `<div class="jpdb-reader-anki-note-actions">
-        ${renderAnkiAudioMergeSelect(note, language)}
-        <div class="jpdb-reader-anki-note-action-row">
-            <button class="jpdb-reader-btn anki compact" data-action="anki-merge" data-note-id="${note.noteId}" title="${escapeHtml$1(uiText(language, "mergeYomuTitle"))}">${escapeHtml$1(uiText(language, "mergeYomu"))}</button>
-            <button class="jpdb-reader-btn anki compact" data-action="anki-edit" data-note-id="${note.noteId}">${escapeHtml$1(uiText(language, "editInAnki"))}</button>
-        </div>
-    </div>`;
-  }
-  function renderAnkiAudioMergeSelect(note, language) {
-    if (!noteHasAudio(note)) return "";
-    return `<label class="jpdb-reader-anki-audio-merge">
-        <span>${escapeHtml$1(uiText(language, "audio"))}</span>
-        <select data-anki-audio-merge>
-            <option value="both">${escapeHtml$1(uiText(language, "keepBothAudio"))}</option>
-            <option value="theirs">${escapeHtml$1(uiText(language, "keepAnkiAudio"))}</option>
-            <option value="ours">${escapeHtml$1(uiText(language, "useYomuAudio"))}</option>
-        </select>
-    </label>`;
-  }
-  function noteHasAudio(note) {
-    return Object.entries(note.fields).some(
-      ([name, value]) => /audio|sound|voice|pronunciation/i.test(name) || /\[sound:[^\]]+]/i.test(value)
-    );
-  }
-  function sanitizeAnkiCardHtml(value, soundFilenames, language, mediaDataUrls = {}, options = POPOVER_ANKI_SANITIZE) {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-    if (typeof document === "undefined") return escapeHtml$1(trimmed);
-    const template = document.createElement("template");
-    template.innerHTML = trimmed;
-    sanitizeAnkiCardFragment(template.content, mediaDataUrls, options);
-    installAnkiMediaFallbackButtons(template.content, language, ankiPlaybackMarkerFilenames(template.content, soundFilenames));
-    replaceAnkiSoundMarkers(template.content, language);
-    replaceAnkiPlaybackMarkers(template.content, soundFilenames, language);
-    return template.innerHTML.trim();
-  }
-  function sanitizeAnkiCardFragment(fragment, mediaDataUrls, options) {
-    fragment.querySelectorAll("script, style, link, iframe, object, embed, base, meta").forEach((node) => node.remove());
-    unwrapAnkiCardRuby(fragment);
-    fragment.querySelectorAll("*").forEach((node) => sanitizeAnkiCardElement(node, mediaDataUrls, options));
-  }
-  function unwrapAnkiCardRuby(fragment) {
-    fragment.querySelectorAll("ruby").forEach((ruby) => {
-      ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
-      ruby.replaceWith(...Array.from(ruby.childNodes));
-    });
-    stripAnkiBracketFurigana(fragment);
-  }
-  const ANKI_BRACKET_FURIGANA_RE = / ?([㐀-鿿々-〇]+)\[([぀-ヿー・]+)\]/gu;
-  function stripAnkiBracketFurigana(fragment) {
-    const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const text2 = node.nodeValue ?? "";
-      if (!text2.includes("[")) continue;
-      const replaced = text2.replace(ANKI_BRACKET_FURIGANA_RE, "$1");
-      if (replaced !== text2) node.nodeValue = replaced;
-    }
-  }
-  function sanitizeAnkiCardElement(element2, mediaDataUrls, options) {
-    for (const attr of Array.from(element2.attributes)) {
-      if (shouldRemoveAnkiCardAttribute(attr.name, attr.value)) {
-        element2.removeAttribute(attr.name);
-        continue;
-      }
-      rewriteAnkiCardMediaAttribute(element2, attr.name, attr.value, mediaDataUrls);
-    }
-    sanitizeAnkiCardInlineStyle(element2, options);
-  }
-  function rewriteAnkiCardMediaAttribute(element2, name, value, mediaDataUrls) {
-    if (!["src", "poster", "xlink:href"].includes(name.toLowerCase())) return;
-    const filename = ankiMediaFilenameFromCardUrl(value);
-    if (!filename) return;
-    const dataUrl = mediaDataUrls[filename] ?? mediaDataUrls[value.trim()];
-    element2.setAttribute("data-anki-media-name", filename);
-    if (dataUrl) element2.setAttribute(name, dataUrl);
-  }
-  function sanitizeAnkiCardInlineStyle(element2, options) {
-    if (!(element2 instanceof HTMLElement)) return;
-    const originalStyle = element2.getAttribute("style");
-    if (!originalStyle) return;
-    if (/(?:^|;)\s*font\s*:/i.test(originalStyle)) {
-      element2.setAttribute("style", capFontShorthandDeclarations(originalStyle, options));
-    }
-    if (/(?:^|;)\s*font-size\s*:/i.test(element2.getAttribute("style") ?? "")) {
-      element2.setAttribute("style", capFontSizeDeclarations(element2.getAttribute("style") ?? "", options));
-    }
-    removeNestedScrollInlineStyle(element2);
-    if (!element2.getAttribute("style")?.trim()) element2.removeAttribute("style");
-  }
-  function removeNestedScrollInlineStyle(element2) {
-    ["max-height", "overflow", "overflow-x", "overflow-y", "overscroll-behavior", "overscroll-behavior-x", "overscroll-behavior-y"].forEach((property) => element2.style.removeProperty(property));
-  }
-  function capFontShorthandDeclarations(style, options) {
-    return style.replace(/(^|;)(\s*font\s*:\s*)([^;]+)/gi, (_, separator, prefix, value) => {
-      return `${separator}${prefix}${capFontShorthandValue(value, options)}`;
-    });
-  }
-  function capFontShorthandValue(value, options) {
-    return capFontLengthTokens(value, options);
-  }
-  function capFontSizeDeclarations(style, options) {
-    return style.replace(/(^|;)(\s*font-size\s*:\s*)([^;]+)/gi, (_, separator, prefix, value) => {
-      return `${separator}${prefix}${cappedFontSizeValue(value, options)}`;
-    });
-  }
-  function cappedFontSizeValue(rawValue, options) {
-    const value = rawValue.trim();
-    const match = /^([\d.]+)\s*(px|pt|em|rem)$/i.exec(value);
-    if (!match) return value;
-    const amount = Number(match[1]);
-    const unit = match[2].toLowerCase();
-    if (!Number.isFinite(amount)) return value;
-    if (unit === "px") return `${Math.min(amount, options.maxFontPx)}px`;
-    if (unit === "pt") return `${Math.min(amount, options.maxFontPt)}pt`;
-    if (unit === "em" || unit === "rem") return `${Math.min(amount, options.maxFontRelative)}${unit}`;
-    return value;
-  }
-  function capFontLengthTokens(value, options) {
-    const capped = value.replace(/(\d+(?:\.\d+)?)(\s*)(px|pt|em|rem)\b/gi, (match, amount, _space, unit) => {
-      const cappedValue = cappedFontSizeValue(`${amount}${unit}`, options);
-      return cappedValue || match;
-    });
-    return shouldWrapViewportFontSize(capped) ? `min(${capped}, ${options.maxFontPx}px)` : capped;
-  }
-  function shouldWrapViewportFontSize(value) {
-    const trimmed = value.trim();
-    if (/^(?:clamp|min)\(/i.test(trimmed)) return false;
-    return /\b\d+(?:\.\d+)?\s*(?:vw|vh|vmin|vmax|cqw|cqh|cqi|cqb|cqmin|cqmax)\b/i.test(trimmed) || /^calc\(/i.test(trimmed) || /^max\(/i.test(trimmed);
-  }
-  function installAnkiMediaFallbackButtons(root, language, playbackMarkerFilenames = /* @__PURE__ */ new Set()) {
-    root.querySelectorAll("audio, video").forEach((media) => {
-      const filename = ankiMediaFilenameFromElement(media);
-      if (!filename) return;
-      media.setAttribute("controls", "");
-      if (media.tagName === "AUDIO" && playbackMarkerFilenames.has(filename)) return;
-      media.insertAdjacentHTML("beforebegin", renderAnkiSoundChip(filename, language));
-    });
-  }
-  function ankiMediaFilenameFromElement(media) {
-    const own = media.getAttribute("data-anki-media-name") || ankiMediaFilenameFromCardUrl(media.getAttribute("src") ?? "");
-    if (own) return own;
-    return Array.from(media.querySelectorAll("source")).map((source) => source.getAttribute("data-anki-media-name") || ankiMediaFilenameFromCardUrl(source.getAttribute("src") ?? "")).find(Boolean) ?? "";
-  }
-  function replaceAnkiSoundMarkers(root, language) {
-    replaceAnkiTextMarkers(root, /\[sound:[^\]]+]/gi, (marker) => {
-      const match = /^\[sound:([^\]]+)]$/i.exec(marker);
-      return match ? ankiSoundMarkerNode(match[1], language) : null;
-    });
-  }
-  function replaceAnkiPlaybackMarkers(root, soundFilenames, language) {
-    replaceAnkiTextMarkers(root, /\[anki:play:[^\]]+]/gi, (marker) => ankiPlaybackMarkerNode(marker, soundFilenames, language));
-  }
-  function ankiPlaybackMarkerFilenames(root, soundFilenames) {
-    const filenames = /* @__PURE__ */ new Set();
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const text2 = walker.currentNode.textContent ?? "";
-      for (const match of text2.matchAll(/\[anki:play:[^\]]+]/gi)) {
-        const filename = ankiPlaybackMarkerFilename(match[0], soundFilenames);
-        if (filename) filenames.add(filename);
-      }
-    }
-    return filenames;
-  }
-  function replaceAnkiTextMarkers(root, pattern, markerNode) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const textNodes = [];
-    while (walker.nextNode()) textNodes.push(walker.currentNode);
-    textNodes.forEach((node) => replaceAnkiTextMarkerNode(node, pattern, markerNode));
-  }
-  function replaceAnkiTextMarkerNode(node, pattern, markerNode) {
-    const parts = node.textContent?.split(new RegExp(`(${pattern.source})`, pattern.flags)) ?? [];
-    if (parts.length < 2) return;
-    const fragment = document.createDocumentFragment();
-    for (const part of parts) {
-      if (!part) continue;
-      fragment.append(markerNode(part) ?? document.createTextNode(part));
-    }
-    node.replaceWith(fragment);
-  }
-  function ankiSoundMarkerNode(value, language) {
-    const filename = value.trim();
-    if (!filename) return null;
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-audio-control";
-    chip.dataset.action = "anki-media-audio";
-    chip.dataset.ankiMediaName = filename;
-    chip.title = ankiAudioLabel(filename, language);
-    chip.setAttribute("aria-label", chip.title);
-    chip.innerHTML = speakerIcon();
-    return chip;
-  }
-  function ankiPlaybackMarkerNode(value, soundFilenames, language) {
-    const audioIndex = ankiPlaybackMarkerIndex(value);
-    if (audioIndex === null) return null;
-    const filename = ankiPlaybackMarkerFilenameAtIndex(soundFilenames, audioIndex);
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "jpdb-reader-icon-mini jpdb-reader-anki-sound jpdb-reader-anki-playback-marker jpdb-reader-audio-control";
-    chip.dataset.action = "anki-media-audio";
-    if (filename) chip.dataset.ankiMediaName = filename;
-    chip.title = filename ? ankiAudioLabel(filename, language) : uiText(language, "ankiAudioUnavailablePreview");
-    chip.setAttribute("aria-label", chip.title);
-    chip.disabled = !filename;
-    chip.innerHTML = speakerIcon();
-    return chip;
-  }
-  function ankiPlaybackMarkerFilename(value, soundFilenames) {
-    const audioIndex = ankiPlaybackMarkerIndex(value);
-    return audioIndex === null ? "" : ankiPlaybackMarkerFilenameAtIndex(soundFilenames, audioIndex);
-  }
-  function ankiPlaybackMarkerIndex(value) {
-    const match = /^\[anki:play:[^:\]]+:(\d+)]$/i.exec(value);
-    return match ? Number(match[1]) : null;
-  }
-  function ankiPlaybackMarkerFilenameAtIndex(soundFilenames, index) {
-    return soundFilenames[index] ?? soundFilenames[0] ?? "";
-  }
-  function ankiSoundFilenames(note) {
-    const filenames = Object.values(note.fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")).filter(Boolean);
-    return [...new Set(filenames)];
-  }
-  function shouldRemoveAnkiCardAttribute(name, value) {
-    const lowerName = name.toLowerCase();
-    if (lowerName.startsWith("on") || lowerName === "srcdoc") return true;
-    if (!["href", "src", "poster", "xlink:href"].includes(lowerName)) return false;
-    return isUnsafeAnkiCardUrl(value);
-  }
-  function isUnsafeAnkiCardUrl(value) {
-    const trimmed = value.trim();
-    return /^(javascript|vbscript):/i.test(trimmed) || /^data:text\/html/i.test(trimmed);
-  }
-  function renderLastMiningContext(context, language) {
-    return `<div class="jpdb-reader-anki-context"><strong>${escapeHtml$1(uiText(language, "lastSeen"))}</strong><span>${escapeHtml$1(localizedContextLabel(context, language))}</span><small>${escapeHtml$1(context.sentence)}</small></div>`;
-  }
-  function localizedContextLabel(context, language) {
-    const immersionLabel = localizedImmersionContextLabel(context);
-    if (immersionLabel) return immersionLabel;
-    const sourceLabel = localizedContextSourceLabel(context, language);
-    if (sourceLabel) return `${sourceLabel}: ${context.sourceTitle}`;
-    return context.sourceTitle || context.sourceUrl || uiText(language, "contextCurrentPage");
-  }
-  function localizedImmersionContextLabel(context) {
-    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
-  }
-  function localizedContextSourceLabel(context, language) {
-    if (!context.sourceTitle) return "";
-    if (context.sourceKind === "jpdb") return "JPDB";
-    const labelKey = CONTEXT_SOURCE_LABEL_KEYS[context.sourceKind];
-    return labelKey ? uiText(language, labelKey) : "";
-  }
-  function renderReviewButtons(settings, ankiNote = null, options = {}) {
+  function renderReviewButtonsFallback(settings, ankiNote = null, options = {}) {
     const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
-    const grades = reviewButtonGrades(settings);
+    const grades = reviewButtonGradesFallback(settings);
     const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>` : "";
     const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
     const intervalSpan = (grade) => {
@@ -17718,39 +17148,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const aria = title ? ` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"` : "";
     return `${disabled}${titleAttr}${aria}`;
   }
-  function reviewButtonGrades(settings) {
+  function reviewButtonGradesFallback(settings) {
     const language = settings.interfaceLanguage;
     return settings.twoButtonReviews ? [["fail", uiText(language, "gradeFailLabel")], ["pass", uiText(language, "gradePassLabel")]] : [["nothing", uiText(language, "gradeNothingLabel")], ["something", uiText(language, "gradeSomethingLabel")], ["hard", uiText(language, "gradeHardLabel")], ["okay", uiText(language, "gradeOkayLabel")], ["easy", uiText(language, "gradeEasyLabel")]];
-  }
-  function ankiAudioLabel(filename, language) {
-    return filename ? formatUiText(language, "ankiAudioFilenameLabel", { filename }) : uiText(language, "audio");
-  }
-  function ankiCardReviewTargetLabel(note, language) {
-    const target = ankiCardReviewTargetName(note);
-    return formatUiText(language, "gradeAnkiCardTarget", { target });
-  }
-  function ankiCardReviewTargetName(note) {
-    const primaryCard = primaryRenderedAnkiCard(note);
-    const deck = ankiReviewTargetDeck(note, primaryCard);
-    const cardLabel = ankiReviewTargetCardLabel(note, primaryCard);
-    return cardLabel.includes("#") || primaryCard?.cardName ? [deck, cardLabel].filter(Boolean).join(primaryCard?.cardName ? " · " : " ") : deck;
-  }
-  function primaryRenderedAnkiCard(note) {
-    if (!note.primaryCardId) return null;
-    return note.renderedCards?.find((card) => card.cardId === note.primaryCardId) ?? null;
-  }
-  function ankiReviewTargetDeck(note, primaryCard) {
-    return primaryCard?.deckName || note.deckNames.join(", ") || note.modelName || "Anki";
-  }
-  function ankiReviewTargetCardLabel(note, primaryCard) {
-    const cardId = note.primaryCardId ? `#${note.primaryCardId}` : "";
-    return primaryCard?.cardName ? `${primaryCard.cardName} ${cardId}`.trim() : cardId;
-  }
-  function displayAnkiFieldLabel(label) {
-    const cleaned = label.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!cleaned) return label;
-    if (!/^[A-Z0-9\s]+$/.test(cleaned) || !/[A-Z]/.test(cleaned)) return cleaned;
-    return cleaned.toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
   }
   const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
   const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
@@ -18845,6 +18245,25 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (oldest.done) break;
       cache.delete(oldest.value);
     }
+  }
+  function externalLinkIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
+  }
+  function copyIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+    </svg>`;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
   }
   function renderStudyBlock(className, content, attrs = "") {
     return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
@@ -21863,24 +21282,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     url.searchParams.set("sort", "sentence_length:asc");
     url.searchParams.set("page", String(index + 1));
     return url.toString();
-  }
-  function yomuSettingsDialogController() {
-    return yomuCompanions().settings?.SettingsDialogController;
-  }
-  function yomuSubtitlePlayerController() {
-    return yomuCompanions().video?.SubtitlePlayerController;
-  }
-  function yomuYoutubeImmersionFilter() {
-    return yomuCompanions().video?.YoutubeImmersionFilter;
-  }
-  function yomuImageOcrController() {
-    return yomuCompanions().ocr?.ImageOcrController;
-  }
-  function yomuKanjiStudyCompanion() {
-    return yomuCompanions().kanjiStudy;
-  }
-  function yomuCompanions() {
-    return globalThis.__yomuCompanions ?? {};
   }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
   const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
@@ -31253,12 +30654,10 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // Whole desktop/mobile app shell: chrome, masthead, sidebar, feeds,
-        // and content are all scanned. Interactive elements are matched by
-        // passiveInteraction so hover opens the dictionary while the click
-        // still drives the native control (subscribe, links, chips, …).
-        "ytd-app",
-        "ytm-app",
+        // Deliberately scan only watch/comment/live-chat surfaces. Feed
+        // recommendation cards are classified by the immersion filter, but
+        // wrapping their titles mutates YouTube's virtualized grid and can
+        // break filter decisions.
         "ytd-watch-metadata",
         "ytd-watch-metadata #description",
         "ytd-watch-metadata #description-inline-expander",
@@ -31705,7 +31104,7 @@ ${glossaryKey}`;
   const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
   const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
   const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
-  const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 2;
+  const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
   const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
   const SUBTITLE_SURFACE_SELECTOR = ".jpdb-subtitle-player, .jpdb-subtitle-list";
   const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
@@ -35813,6 +35212,8 @@ ${glossaryKey}`;
     pitchEnrichmentQueuedKeys = /* @__PURE__ */ new Set();
     pitchEnrichmentUrgentKeys = /* @__PURE__ */ new Set();
     pitchEnrichmentDrain;
+    pendingSubtitleRebakeTexts = /* @__PURE__ */ new Set();
+    subtitleRebakeTimer;
     pressedKeys = /* @__PURE__ */ new Set();
     hoverAnchorIds = /* @__PURE__ */ new WeakMap();
     nextHoverAnchorId = 1;
@@ -36345,6 +35746,9 @@ ${glossaryKey}`;
       this.pitchEnrichmentLocalCache.clear();
       this.resolvedFallbackVocabularyCache.clear();
       this.clearPitchEnrichmentQueue();
+      window.clearTimeout(this.subtitleRebakeTimer);
+      this.subtitleRebakeTimer = void 0;
+      this.pendingSubtitleRebakeTexts.clear();
       this.clearRenderedWordIndex();
       if (this.popoverRepositionFrame !== void 0) {
         window.cancelAnimationFrame(this.popoverRepositionFrame);
@@ -39236,6 +38640,28 @@ ${glossaryKey}`;
       const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
       void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
     }
+    // Pitch/vocabulary enrichment lands after cue html is cached; pushing the
+    // enriched sentences back through the subtitle controller re-bakes those
+    // caches so stepping back to a previous line keeps its pitch colors
+    // (UT-66) instead of re-rendering the pre-enrichment html.
+    queueSubtitleParsedHtmlRefresh(sentence) {
+      const text2 = sentence?.trim();
+      if (!text2 || this.isDestroyed) return;
+      this.pendingSubtitleRebakeTexts.add(text2);
+      if (this.subtitleRebakeTimer !== void 0) return;
+      this.subtitleRebakeTimer = window.setTimeout(() => {
+        this.subtitleRebakeTimer = void 0;
+        this.flushSubtitleParsedHtmlRefresh();
+      }, 150);
+    }
+    flushSubtitleParsedHtmlRefresh() {
+      const texts = Array.from(this.pendingSubtitleRebakeTexts);
+      this.pendingSubtitleRebakeTexts.clear();
+      if (!texts.length || this.isDestroyed) return;
+      const subtitles = this.subtitles;
+      if (typeof subtitles.refreshParsedCueTexts !== "function") return;
+      subtitles.refreshParsedCueTexts(texts);
+    }
     async enrichOcrTokensBeforeRender(tokens) {
       if (!tokens.length) return;
       this.preloadTermAudioForTokens(tokens);
@@ -39461,6 +38887,7 @@ ${glossaryKey}`;
       this.applyPublicVocabularyToRenderedWords(token.card, card, pitchClass);
       token.card = card;
       token.pitchClass = pitchClass;
+      this.queueSubtitleParsedHtmlRefresh(token.sentence);
       return true;
     }
     promoteQueuedPitchEnrichmentToken(key) {
@@ -39510,13 +38937,16 @@ ${glossaryKey}`;
     }
     async enrichPitchToken(token, options = {}) {
       const fallback = token.card;
+      const previousPitchClass = token.pitchClass ?? "";
       const card = await this.pitchEnrichedRenderedCard(fallback, options);
       const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
       if (card !== fallback) {
         this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+        this.queueSubtitleParsedHtmlRefresh(token.sentence);
         return;
       }
       this.applyPitchClassToFallbackToken(token, card, pitchClass);
+      if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
     async pitchEnrichedRenderedCard(fallback, options) {
       await this.fillCardPitchFromLocalDictionary(fallback);

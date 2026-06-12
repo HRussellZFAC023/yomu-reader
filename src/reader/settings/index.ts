@@ -116,6 +116,7 @@ const SUBTITLE_BOOLEAN_SETTING_KEYS = [
     'subtitleKaraokeMode',
     'subtitlePausePanel',
     'subtitleAutoCopyLine',
+    'subtitleCopyIncludeTranslation',
 ] as const;
 const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     'ankiFrontReading',
@@ -332,6 +333,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
     subtitleAutoCopyLine: false,
+    subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: 'auto',
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,

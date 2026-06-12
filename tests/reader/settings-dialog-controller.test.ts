@@ -928,6 +928,10 @@ describe('settings dialog keyboard dismissal', () => {
             },
         });
         expect(ankiFieldRoleValue(form, 'reading')).toBe('Kana');
+        expect(settingsElement<HTMLElement>(form, '[data-anki-status]').dataset.ankiAdapterState).toBe('stale');
+        expect(ankiStatusText(form)).toContain('Needs review');
+        expect(ankiStatusText(form)).toContain('reading: Legacy Reading');
+        expect(ankiStatusText(form)).toContain('saved field missing');
         expect(ankiFieldRoleValue(form, 'meaning')).toBe('Glossary');
     });
 

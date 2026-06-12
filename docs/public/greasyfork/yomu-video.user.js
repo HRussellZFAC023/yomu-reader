@@ -2638,6 +2638,9 @@
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
       copySubtitleLine: "Copy subtitle line",
+      subtitleCopyIncludeTranslation: "Include the translation when copying a line",
+      peekSubtitleTranslation: "Show translation",
+      hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
       subtitleCurrentLineWillAppear: "The current line appears when captions are available.",
@@ -2689,10 +2692,12 @@
       adapterStateConnected: "Connected",
       adapterStateScanning: "Scanning",
       adapterStateSuggested: "Mapped",
+      adapterStateStale: "Needs review",
       adapterStateReady: "Ready",
       ankiMappingConfidenceHigh: "high match",
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
+      ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -3328,6 +3333,9 @@ subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
 copySubtitleLine	字幕行をコピー
+subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
+peekSubtitleTranslation	翻訳を表示
+hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
@@ -4021,10 +4029,12 @@ adapterStateUnreachable	接続不可
 adapterStateConnected	接続済み
 adapterStateScanning	スキャン中
 adapterStateSuggested	対応付け済み
+adapterStateStale	要確認
 adapterStateReady	準備完了
 ankiMappingConfidenceHigh	完全一致
 ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
+ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -7629,7 +7639,25 @@ ${spelling}`);
     return Boolean(cue?.wordTimingsExact && cue.words?.length);
   }
   function normalizeCaptionText(value) {
-    return value.replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+    return decodeCaptionEntities(value).replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+  }
+  const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
+  const NAMED_CAPTION_ENTITIES = {
+    nbsp: " ",
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'"
+  };
+  function decodeCaptionEntities(value) {
+    if (!value.includes("&")) return value;
+    return value.replace(CAPTION_ENTITY_RE, (match, name) => {
+      const lower = name.toLowerCase();
+      if (lower in NAMED_CAPTION_ENTITIES) return NAMED_CAPTION_ENTITIES[lower];
+      const code = lower.startsWith("#x") ? Number.parseInt(lower.slice(2), 16) : Number.parseInt(lower.slice(1), 10);
+      return Number.isFinite(code) && code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
+    });
   }
   function escapeWithBreaks(value) {
     return withBreaks(escapeHtml(value));
@@ -9948,7 +9976,7 @@ ${spelling}`);
     }
     return { ready, batch };
   }
-  function planProvisionalSubtitleParseBatch(items, parsedHtmlCache, provisionalParsedHtmlCache, pendingProvisionalParsedHtml) {
+  function planProvisionalSubtitleParseBatch(items, parsedHtmlCache, provisionalParsedHtmlCache, pendingProvisionalParsedHtml, freshEmptyHtml = () => void 0) {
     const ready = [];
     const batch = [];
     for (const item of items) {
@@ -9960,6 +9988,11 @@ ${spelling}`);
       const provisional = provisionalParsedHtmlCache.get(item.key);
       if (provisional !== void 0) {
         ready.push(Promise.resolve({ key: item.key, html: provisional, provisional: true }));
+        continue;
+      }
+      const empty = freshEmptyHtml(item.key);
+      if (empty !== void 0) {
+        ready.push(Promise.resolve({ key: item.key, html: empty }));
         continue;
       }
       const pending = pendingProvisionalParsedHtml.get(item.key);
@@ -10269,10 +10302,15 @@ ${spelling}`);
     return Boolean(next && next !== current);
   }
   function shouldClearLoadedCue(next, current, time) {
-    return Boolean(!next && current && time > current.end + 0.12);
+    return Boolean(!next && current && (time > current.end + 0.12 || time < current.start - 0.12));
   }
-  function subtitleClipboardText(primary, secondary) {
-    return [primary?.text.trim(), secondary?.text.trim()].filter(Boolean).join("\n");
+  function subtitleClipboardText(primary, secondary, includeTranslation) {
+    return [primary?.text.trim(), includeTranslation ? secondary?.text.trim() : ""].filter(Boolean).join("\n");
+  }
+  function flashSubtitleCopyFeedback(target) {
+    const button = target.closest("button") ?? target;
+    button.classList.add("jpdb-subtitle-copy-flash");
+    window.setTimeout(() => button.classList.remove("jpdb-subtitle-copy-flash"), 1200);
   }
   function fittedSubtitleFontSize(element, fitted, minimum, apply) {
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -10344,6 +10382,7 @@ ${spelling}`);
     lastRenderedPrimaryKey = "";
     lastAppliedSubtitleHtml = "";
     parseWarmupSerial = 0;
+    lastParseWarmupAnchor = -1;
     transcriptHydrationCursor = 0;
     effectiveTranscriptPlacement = "right";
     lastAutoCopiedCueSignature = "";
@@ -10364,12 +10403,13 @@ ${spelling}`);
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
-      copy: () => {
-        void this.copySubtitle();
+      copy: (target) => {
+        void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
       },
       "copy-row": (target) => {
-        void this.copyTranscriptRow(this.rowIndexFromTarget(target));
+        void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target));
       },
+      "peek-row": (target) => this.toggleRowTranslationPeek(target),
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
@@ -10637,6 +10677,7 @@ ${spelling}`);
       this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
+      this.lastParseWarmupAnchor = -1;
       this.resetSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
@@ -10959,6 +11000,15 @@ ${spelling}`);
       const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : void 0;
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
+      else this.warmParseOnGapAnchorJump();
+    }
+    // A repeated seek that lands in another inter-cue gap changes no cue
+    // state, so afterLoadedCueStateChanged never fires; re-anchor the parse
+    // warmup whenever the playhead's upcoming cue moved anyway.
+    warmParseOnGapAnchorJump() {
+      if (this.currentCue || !this.selectedTrackId || !this.cues.length) return;
+      if (this.parseWarmupAnchorIndex() === this.lastParseWarmupAnchor) return;
+      this.warmParseAroundActiveCue();
     }
     updateLoadedCueState(cue, secondary, time) {
       return this.updateLoadedPrimaryCue(cue, time) || this.updateLoadedSecondaryCue(secondary);
@@ -10983,6 +11033,7 @@ ${spelling}`);
     }
     clearLoadedPrimaryCue() {
       this.currentCue = void 0;
+      this.lastDomCaption = "";
       return true;
     }
     updateLoadedSecondaryCue(secondary) {
@@ -11008,8 +11059,18 @@ ${spelling}`);
         this.clearDomCaptionFallbackIfExpired();
         return null;
       }
+      this.keepDomCaptionCueAlive(text);
       if (!this.isDomCaptionStable(text, performance.now())) return null;
       return { text, selected };
+    }
+    // The synthetic DOM-caption cue gets a 4s guess for its duration; lines
+    // the page keeps showing longer used to expire mid-display and could
+    // never re-apply (same text). Renew the cue while the page still shows it.
+    keepDomCaptionCueAlive(text) {
+      if (this.cues.length || !this.currentCue) return;
+      if (text !== this.lastDomCaption) return;
+      const now = this.video?.currentTime ?? 0;
+      if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
     ensureYouTubeDomCaptionFallbackActive(selected) {
       if (selected?.kind !== "youtube") return;
@@ -11073,7 +11134,12 @@ ${spelling}`);
     }
     warmDomCaptionParse(text) {
       if (!text.trim() || !this.shouldParseSubtitles()) return;
-      void this.parseCueHtmlBatch([text]).catch(() => void 0);
+      const texts = this.domCaptionCueTexts(text);
+      if (!texts.length) return;
+      void this.parseCueHtmlBatch(texts).catch(() => void 0);
+    }
+    domCaptionCueTexts(text) {
+      return normalizeSubtitleCues([{ start: 0, end: 4, text }]).map((cue) => cue.text.trim()).filter(Boolean);
     }
     applyDomCaptionFallback(text, selected) {
       this.lastDomCaption = text;
@@ -11308,6 +11374,38 @@ ${spelling}`);
       if (this.currentPrimaryParseCacheKey() !== key) return;
       this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
     }
+    // Late token enrichment (public jpdb pitch lookups, fallback-vocabulary
+    // resolution) mutates the cached token objects AFTER their cue html was
+    // baked. Re-baking the cached html keeps every re-render — Previous/Next
+    // steps, transcript rows, session restores — pre-coloured with the
+    // enriched pitch and word state instead of silently dropping it on the
+    // next cache hit (UT-66).
+    refreshParsedCueTexts(texts) {
+      if (!texts.length) return;
+      const settings = this.options.getSettings();
+      const seen = /* @__PURE__ */ new Set();
+      for (const raw of texts) {
+        const text = raw.trim();
+        if (!text) continue;
+        const key = this.parseCacheKey(text, settings);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        this.rebakeParsedCueHtml(key, text, settings);
+      }
+    }
+    rebakeParsedCueHtml(key, text, settings) {
+      const tokens = this.parsedTokenCache.get(key);
+      if (!tokens?.length) return;
+      const provisional = !this.parsedHtmlCache.has(key) && this.provisionalParsedHtmlCache.has(key);
+      const previous = provisional ? this.provisionalParsedHtmlCache.get(key) : this.parsedHtmlCache.get(key);
+      if (previous === void 0) return;
+      const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+      if (html === previous) return;
+      this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true } : {});
+      this.updateTranscriptRowsForParseKey(key, html, { provisional, force: true });
+      if (this.currentPrimaryParseCacheKey() !== key) return;
+      this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
+    }
     applyParsedPrimaryHtml(key, text, html, serial) {
       const root = this.replacePrimaryHtml(html, serial);
       this.lastRenderedPrimaryKey = key;
@@ -11344,7 +11442,8 @@ ${spelling}`);
         items,
         this.parsedHtmlCache,
         this.provisionalParsedHtmlCache,
-        this.pendingProvisionalParsedHtml
+        this.pendingProvisionalParsedHtml,
+        (key) => this.freshEmptyParsedHtml(key)
       );
       if (!batch.length) return Promise.all(ready);
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
@@ -11382,10 +11481,8 @@ ${spelling}`);
         if (tokens.length) this.parsedTokenCache.set(key, tokens);
         this.pruneParsedSubtitleCaches();
       } else {
-        if (!options.provisional) {
-          this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-          this.pruneParsedSubtitleCaches();
-        }
+        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+        this.pruneParsedSubtitleCaches();
       }
     }
     pruneParsedSubtitleCaches() {
@@ -11461,12 +11558,10 @@ ${spelling}`);
     }
     warmParseAroundActiveCue() {
       if (!this.shouldParseSubtitles() || !this.cues.length) return;
-      const active = this.activeTranscriptIndex();
-      const start = Math.max(0, active >= 0 ? active - SUBTITLE_ACTIVE_PREPARSE_BEHIND : 0);
-      const end = Math.min(
-        this.cues.length,
-        active >= 0 ? active + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1 : SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1
-      );
+      const anchor = this.parseWarmupAnchorIndex();
+      this.lastParseWarmupAnchor = anchor;
+      const start = Math.max(0, anchor - SUBTITLE_ACTIVE_PREPARSE_BEHIND);
+      const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
       const serial = ++this.parseWarmupSerial;
       const settings = this.options.getSettings();
       const texts = this.subtitleWarmupTexts(start, end, settings);
@@ -11480,6 +11575,17 @@ ${spelling}`);
         if (this.currentCue?.text.trim()) this.render();
       })();
     }
+    // A seek that lands between cues has no active cue; anchoring the warmup
+    // window at the next upcoming cue (instead of the transcript start) keeps
+    // the "active cue + lookahead warm within one turn" guarantee after long
+    // seeks in either direction.
+    parseWarmupAnchorIndex() {
+      const active = this.activeTranscriptIndex();
+      if (active >= 0) return active;
+      const time = this.video?.currentTime ?? 0;
+      const upcoming = this.cues.findIndex((cue) => cue.end >= time);
+      return upcoming >= 0 ? upcoming : Math.max(0, this.cues.length - 1);
+    }
     subtitleWarmupTexts(start, end, settings) {
       const texts = [];
       const seen = /* @__PURE__ */ new Set();
@@ -11487,11 +11593,18 @@ ${spelling}`);
         const text = this.cues[index]?.text.trim();
         if (!text) continue;
         const key = this.parseCacheKey(text, settings);
-        if (seen.has(key) || this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) continue;
+        if (seen.has(key) || this.isWarmParsedCueKey(key)) continue;
         seen.add(key);
         texts.push(text);
       }
       return texts;
+    }
+    // Keyless there is no authoritative tier, so a provisional hit is final
+    // and the cue counts as warm; keyed the provisional tier stays listed so
+    // a failed authoritative upgrade is retried by the next warmup turn.
+    isWarmParsedCueKey(key) {
+      if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
+      return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
     }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
@@ -11834,7 +11947,7 @@ ${spelling}`);
     subtitleCopyText(rowIndex) {
       const cue = rowIndex !== void 0 ? this.cues[rowIndex] : this.currentCue;
       const secondary = rowIndex !== void 0 && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
-      return subtitleClipboardText(cue, secondary);
+      return subtitleClipboardText(cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
     }
     async copyTranscriptRow(index) {
       const row = Number.isFinite(index) ? this.transcriptRows()[index] : void 0;
@@ -11844,9 +11957,45 @@ ${spelling}`);
         return;
       }
       const secondary = findAlignedCue(this.secondaryCues, row.cue);
-      const text = subtitleClipboardText(row.cue, secondary);
+      const text = subtitleClipboardText(row.cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
       if (!text) return;
       await this.writeSubtitleClipboard(text, "Subtitle clipboard copy failed");
+    }
+    // UT-68c: when the Lines list shows only Japanese, each row with an
+    // aligned translation gets an eye toggle to peek it.
+    transcriptRowPeekButton(cue, index, settings) {
+      const secondary = findAlignedCue(this.secondaryCues, cue);
+      if (!secondary?.text.trim()) return "";
+      const label = uiText(settings.interfaceLanguage, "peekSubtitleTranslation");
+      return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${subtitleIcon("eye")}</button>`;
+    }
+    toggleRowTranslationPeek(target) {
+      const button = target.closest('[data-action="peek-row"]');
+      const row = target.closest(".jpdb-subtitle-list-row");
+      if (!button || !row) return;
+      const existing = row.querySelector(".jpdb-subtitle-row-secondary");
+      const language = this.options.getSettings().interfaceLanguage;
+      if (existing) {
+        existing.remove();
+        button.setAttribute("aria-pressed", "false");
+        button.setAttribute("title", uiText(language, "peekSubtitleTranslation"));
+        button.setAttribute("aria-label", uiText(language, "peekSubtitleTranslation"));
+        setInnerHtml(button, subtitleIcon("eye"));
+        return;
+      }
+      const cue = this.transcriptRows()[this.rowIndexFromTarget(button)]?.cue;
+      const secondary = cue ? findAlignedCue(this.secondaryCues, cue) : void 0;
+      if (!secondary?.text.trim()) return;
+      const body = row.querySelector(".jpdb-subtitle-row-body") ?? row;
+      const peek = document.createElement("div");
+      peek.className = "jpdb-subtitle-row-secondary";
+      peek.lang = "en";
+      peek.textContent = secondary.text.trim();
+      body.append(peek);
+      button.setAttribute("aria-pressed", "true");
+      button.setAttribute("title", uiText(language, "hideSubtitleTranslation"));
+      button.setAttribute("aria-label", uiText(language, "hideSubtitleTranslation"));
+      setInnerHtml(button, subtitleIcon("eye-off"));
     }
     async writeSubtitleClipboard(text, failureMessage) {
       await navigator.clipboard?.writeText(text).catch((error) => log.warn(failureMessage, error));
@@ -12524,6 +12673,7 @@ ${spelling}`);
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
+                    ${this.transcriptRowPeekButton(cue, index, settings)}
                     <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
@@ -12787,7 +12937,7 @@ ${spelling}`);
       while (batch.length < batchSize) {
         const item = planned[takeNextIndex()];
         if (!item) break;
-        if (this.parsedHtmlCache.has(item.key) || this.hasFreshEmptyParsedHtml(item.key)) continue;
+        if (this.isWarmParsedCueKey(item.key)) continue;
         batch.push(item);
       }
       return batch;
@@ -12808,7 +12958,7 @@ ${spelling}`);
       const text = rows[rowIndex]?.cue.text.trim();
       if (!text) return;
       const key = this.parseCacheKey(text, settings);
-      if (seen.has(key) || this.parsedHtmlCache.has(key)) return;
+      if (seen.has(key) || this.isWarmParsedCueKey(key)) return;
       seen.add(key);
       plan.push({ rowIndex, text, key });
     }
@@ -12821,7 +12971,7 @@ ${spelling}`);
       const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
       const updatedRoots = [];
       for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
-        if (!shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
+        if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
         if (hasReaderWords) {
           target.dataset.parsedKey = key;
           if (options.provisional) target.dataset.parsedProvisional = "true";
@@ -12911,6 +13061,7 @@ ${spelling}`);
       this.lastAppliedSubtitleHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
+      this.lastParseWarmupAnchor = -1;
     }
     resetSecondarySubtitleState() {
       this.invalidateTrackSelection("secondary");
@@ -15000,9 +15151,11 @@ ${spelling}`);
   function isCurrentYouTubeShortsWatchCard(card) {
     if (!isYouTubeShortsWatchPage()) return false;
     const item = card.closest(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
-    if (isActiveYouTubeShortsReel(item)) return true;
     const currentVideoId = currentYouTubeShortsVideoId();
-    return Boolean(currentVideoId) && readYouTubeVideoId(item) === currentVideoId;
+    const itemVideoId = readYouTubeVideoId(item);
+    if (currentVideoId && itemVideoId) return itemVideoId === currentVideoId;
+    if (isActiveYouTubeShortsReel(item)) return true;
+    return false;
   }
   function isActiveYouTubeShortsReel(item) {
     if (item.hasAttribute("is-active") || item.getAttribute("aria-hidden") === "false") return true;
@@ -15038,7 +15191,10 @@ ${spelling}`);
   function nudgeYouTubeContinuationItem(continuation) {
     const rect = continuation.getBoundingClientRect();
     if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
-    if (rect.top <= window.innerHeight) return true;
+    if (rect.top <= window.innerHeight) {
+      continuation.scrollIntoView({ block: "nearest" });
+      return true;
+    }
     const previousY = window.scrollY;
     continuation.scrollIntoView({ block: "end" });
     if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);

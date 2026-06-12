@@ -16,6 +16,7 @@
   margin-top: 0;
 }
 .yomu-jpdb-page-addon {
+  display: block;
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
   font: 14px/1.45 var(--jpdb-reader-font);

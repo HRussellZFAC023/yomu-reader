@@ -31,7 +31,7 @@ export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSou
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './status-lines';
-export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusLine } from './status-lines';
+export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
 
 const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
@@ -676,6 +676,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitlePausePanel', 'Open side panel when paused', settings.subtitlePausePanel)}
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
                     ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
+                    ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
                     ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size (px)', String(settings.subtitleFontSize), 'number')}
@@ -1620,7 +1621,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
-    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleAutoCopyLine', 'subtitleMiningPause',
+    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
     'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',

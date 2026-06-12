@@ -470,6 +470,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
         subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
+        subtitleCopyIncludeTranslation: has('subtitleCopyIncludeTranslation'),
         subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),
         subtitleFontSize: clamped('subtitleFontSize', 16, 64, current.subtitleFontSize),
         subtitleBottomOffset: clamped('subtitleBottomOffset', 2, 40, current.subtitleBottomOffset),

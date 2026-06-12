@@ -1277,7 +1277,8 @@
     "subtitleNativeBlurred",
     "subtitleKaraokeMode",
     "subtitlePausePanel",
-    "subtitleAutoCopyLine"
+    "subtitleAutoCopyLine",
+    "subtitleCopyIncludeTranslation"
   ];
   const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     "ankiFrontReading",
@@ -1490,6 +1491,7 @@
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
     subtitleAutoCopyLine: false,
+    subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
     subtitleFontSize: 28,
     subtitleBottomOffset: 12,
@@ -3050,6 +3052,9 @@
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
       copySubtitleLine: "Copy subtitle line",
+      subtitleCopyIncludeTranslation: "Include the translation when copying a line",
+      peekSubtitleTranslation: "Show translation",
+      hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
       subtitleCurrentLineWillAppear: "The current line appears when captions are available.",
@@ -3101,10 +3106,12 @@
       adapterStateConnected: "Connected",
       adapterStateScanning: "Scanning",
       adapterStateSuggested: "Mapped",
+      adapterStateStale: "Needs review",
       adapterStateReady: "Ready",
       ankiMappingConfidenceHigh: "high match",
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
+      ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
       ocrNoReadableImages: "No readable images nearby.",
@@ -3740,6 +3747,9 @@ subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
 copySubtitleLine	字幕行をコピー
+subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
+peekSubtitleTranslation	翻訳を表示
+hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
@@ -4433,10 +4443,12 @@ adapterStateUnreachable	接続不可
 adapterStateConnected	接続済み
 adapterStateScanning	スキャン中
 adapterStateSuggested	対応付け済み
+adapterStateStale	要確認
 adapterStateReady	準備完了
 ankiMappingConfidenceHigh	完全一致
 ankiMappingConfidenceMedium	曖昧一致
 ankiMappingConfidenceLow	未対応
+ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
@@ -6191,6 +6203,7 @@ recommendedJiten	jiten.moe頻度データです。
       subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
       subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
       subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
+      subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
       subtitleFontSize: clamped("subtitleFontSize", 16, 64, current.subtitleFontSize),
       subtitleBottomOffset: clamped("subtitleBottomOffset", 2, 40, current.subtitleBottomOffset),
@@ -7039,6 +7052,7 @@ recommendedJiten	jiten.moe頻度データです。
       connected: "adapterStateConnected",
       scanning: "adapterStateScanning",
       suggested: "adapterStateSuggested",
+      stale: "adapterStateStale",
       ready: "adapterStateReady"
     };
     return keys[state];
@@ -7884,6 +7898,7 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("subtitlePausePanel", "Open side panel when paused", settings.subtitlePausePanel)}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
+                    ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
                     ${select("subtitleControlsMode", "Subtitle controls", settings.subtitleControlsMode, [["auto", "Compact controls"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
                     ${input("subtitleFontSize", "Subtitle font size (px)", String(settings.subtitleFontSize), "number")}
@@ -8839,6 +8854,7 @@ recommendedJiten	jiten.moe頻度データです。
     "subtitleTranscriptPlacement",
     "subtitleTranscriptAutoScroll",
     "subtitleAutoCopyLine",
+    "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",
     "subtitleControlsMode",
     "subtitleFontSize",
@@ -10288,8 +10304,14 @@ recommendedJiten	jiten.moe頻度データです。
       try {
         const scan = await scanLibrary.call(this.dependencies.anki);
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        const staleDetails = this.staleAnkiFieldMappingDetails(form, scan, language);
         this.applyAnkiScanToForm(form, scan);
-        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), "success", void 0, scan.suggestedModel ? "suggested" : "ready", this.ankiScanDetails(scan, language));
+        const state = staleDetails.length ? "stale" : scan.suggestedModel ? "suggested" : "ready";
+        const tone = staleDetails.length ? "pending" : "success";
+        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), tone, void 0, state, [
+          ...staleDetails,
+          ...this.ankiScanDetails(scan, language)
+        ]);
         log.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
@@ -10823,6 +10845,20 @@ recommendedJiten	jiten.moe頻度データです。
       return suggestions.filter((suggestion) => suggestion.fieldName || suggestion.confidence === "low").map((suggestion) => ({
         label: `${suggestion.role}: ${suggestion.fieldName ?? "—"}`,
         suffix: uiText(language, suggestion.confidence === "high" ? "ankiMappingConfidenceHigh" : suggestion.confidence === "medium" ? "ankiMappingConfidenceMedium" : "ankiMappingConfidenceLow")
+      }));
+    }
+    staleAnkiFieldMappingDetails(form, scan, language) {
+      const controls = ankiScanFormControls(form);
+      const selection = ankiScanSelection(controls, scan);
+      const modelName = selection.selectedModel?.trim();
+      if (!modelName) return [];
+      const model = scan.models.find((candidate) => candidate.modelName === modelName);
+      if (!model) return [];
+      const liveFields = new Set(model.fields);
+      const mapping = readFormSettings(new FormData(form), this.settings).ankiFieldMappings[modelName] ?? {};
+      return Object.entries(mapping).filter((entry) => isAnkiFieldMappingRole(entry[0]) && !liveFields.has(entry[1])).map(([role, fieldName]) => ({
+        label: `${role}: ${fieldName}`,
+        suffix: uiText(language, "ankiMappingStaleField")
       }));
     }
     ankiConnectionErrorMessage(error, language) {

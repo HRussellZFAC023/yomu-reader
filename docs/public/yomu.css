@@ -220,16 +220,38 @@
   cursor: crosshair !important;
 }
 
+[data-jpdb-reader-root] {
+  all: initial;
+  box-sizing: border-box;
+  color: var(--jpdb-reader-text);
+  color-scheme: normal;
+  direction: ltr;
+  font: 14px/1.45 var(--jpdb-reader-font);
+  letter-spacing: 0;
+  text-transform: none;
+  unicode-bidi: isolate;
+}
 [data-jpdb-reader-root],
-[data-jpdb-reader-root] * {
+[data-jpdb-reader-root] *,
+[data-jpdb-reader-root]::before,
+[data-jpdb-reader-root]::after,
+[data-jpdb-reader-root] *::before,
+[data-jpdb-reader-root] *::after {
   box-sizing: border-box;
 }
+[data-jpdb-reader-root] *,
+[data-jpdb-reader-root] *::before,
+[data-jpdb-reader-root] *::after {
+  background: transparent;
+}
+[data-jpdb-reader-root]:where(a),
 [data-jpdb-reader-root] :where(a) {
   border-bottom: 0;
   color: inherit;
   outline: revert;
   text-decoration: none;
 }
+[data-jpdb-reader-root]:where(button),
 [data-jpdb-reader-root] :where(button) {
   appearance: none;
   -webkit-appearance: none;
@@ -251,6 +273,7 @@
   transition: none;
   white-space: normal;
 }
+[data-jpdb-reader-root]:where(input, select, textarea),
 [data-jpdb-reader-root] :where(input, select, textarea) {
   appearance: auto;
   -webkit-appearance: auto;
@@ -267,28 +290,32 @@
   transition: none;
   width: auto;
 }
+[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6),
 [data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) {
+  background: transparent;
+  color: inherit;
   letter-spacing: normal;
   line-height: revert;
   margin: revert;
   padding: revert;
 }
+[data-jpdb-reader-root]:where(table),
 [data-jpdb-reader-root] :where(table) {
   border-collapse: revert;
   border-spacing: revert;
 }
+[data-jpdb-reader-root]:where(th, td),
 [data-jpdb-reader-root] :where(th, td) {
   border: revert;
   text-align: revert;
 }
+[data-jpdb-reader-root]:where(rt),
 [data-jpdb-reader-root] :where(rt) {
   font-size: revert;
   opacity: revert;
 }
-[data-jpdb-reader-root] button,
-[data-jpdb-reader-root] input,
-[data-jpdb-reader-root] select,
-[data-jpdb-reader-root] textarea {
+[data-jpdb-reader-root]:where(button, input, select, textarea),
+[data-jpdb-reader-root] :where(button, input, select, textarea) {
   font-family: var(--jpdb-reader-font);
   letter-spacing: 0;
   text-transform: none;
@@ -893,6 +920,7 @@
 
 .jpdb-ocr-layer {
   position: fixed;
+  display: block;
   z-index: 2147483643;
   pointer-events: none;
   box-sizing: border-box;
@@ -1113,6 +1141,9 @@
 }
 .jpdb-reader-fab {
   position: fixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 2147483645;
@@ -1166,6 +1197,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* Source: src/reader/styles/popover-core.css */
 .jpdb-reader-backdrop {
   position: fixed;
+  display: block;
   inset: 0;
   z-index: 2147483646;
   background: var(--jpdb-reader-backdrop);
@@ -1174,6 +1206,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-popover,
 .jpdb-reader-settings {
   position: fixed;
+  display: block;
   z-index: 2147483647;
   box-sizing: border-box;
   background: var(--jpdb-reader-bg);
@@ -1439,6 +1472,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 
 .jpdb-reader-onboarding {
   position: fixed;
+  display: block;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -2339,6 +2373,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   margin-top: 0;
 }
 .yomu-jpdb-page-addon {
+  display: block;
   color: var(--jpdb-reader-text);
   color-scheme: light dark;
   font: 14px/1.45 var(--jpdb-reader-font);
@@ -6171,6 +6206,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings fieldset {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
+  background: transparent;
   margin: 12px 0;
   padding: 12px;
 }
@@ -8122,6 +8158,7 @@ html.jpdb-reader-doodle-active * {
 /* Source: src/reader/styles/subtitles-youtube.css */
 .jpdb-subtitle-player {
   position: fixed;
+  display: block;
   left: 0;
   bottom: 0;
   width: 100%;
@@ -9136,13 +9173,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-tools {
   align-self: start;
-  display: grid;
-  grid-template-columns: 30px auto;
+  display: flex;
   align-items: center;
   gap: 12px;
   color: var(--jpdb-reader-muted);
 }
-.jpdb-subtitle-row-copy {
+.jpdb-subtitle-row-copy,
+.jpdb-subtitle-row-peek {
   display: inline-grid;
   place-items: center;
   min-width: 30px;
@@ -9155,6 +9192,28 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-shadow: none !important;
   color: var(--jpdb-reader-muted) !important;
 }
+/* UT-68a: subtle copied confirmation */
+.jpdb-subtitle-copy-flash {
+  position: relative;
+  color: var(--jpdb-reader-accent) !important;
+}
+.jpdb-subtitle-copy-flash svg { opacity: 0; }
+.jpdb-subtitle-copy-flash::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+/* UT-68c: peeked translation under the Japanese line */
+.jpdb-subtitle-row-secondary {
+  color: var(--jpdb-reader-muted);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
 .jpdb-subtitle-list-row.active {
   border-color: var(--jpdb-reader-border);
   background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);

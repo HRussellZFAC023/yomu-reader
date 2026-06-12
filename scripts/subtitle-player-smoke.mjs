@@ -12,8 +12,24 @@ const userscriptPath = resolve(process.env.YOMU_SMOKE_USERSCRIPT ?? 'dist/yomu.u
 const cssPath = resolve(process.env.YOMU_SMOKE_CSS ?? 'dist/yomu.css');
 const companionPaths = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
     .map(name => resolve(process.env.YOMU_SMOKE_COMPANION_DIR ?? 'dist/greasyfork', name));
+const settingsKey = 'jpdb-popup-reader-settings';
 const runYouTube = process.env.YOMU_SMOKE_YOUTUBE === '1';
 const youtubeUrl = process.env.YOMU_SMOKE_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=4604s';
+const smokeSettings = {
+    onboardingSeen: true,
+    interfaceLanguage: 'en',
+    apiKey: '',
+    jitenApiKey: '',
+    ankiEnabled: false,
+    localDictionariesEnabled: false,
+    audioEnabled: false,
+    enableLogging: false,
+    showFloatingButton: false,
+    subtitlePlayerEnabled: true,
+    subtitleOverlayVisible: true,
+    subtitleTranscriptVisible: false,
+    subtitleTranscriptAutoScroll: false,
+};
 
 const fixtureDir = mkdtempSync(join(tmpdir(), 'yomu-subtitle-smoke-'));
 const primaryPath = join(fixtureDir, 'primary.vtt');
@@ -71,10 +87,16 @@ async function readDrawerLayout(page) {
         const panel = document.querySelector('.jpdb-subtitle-list')?.getBoundingClientRect();
         const viewport = { width: window.innerWidth, height: window.innerHeight };
         const video = bestVisibleVideoRect(viewport);
+        const frame = document.querySelector('[data-yomu-video-frame], .html5-video-player, #movie_player, video')?.getBoundingClientRect();
         return {
             placement: document.querySelector('.jpdb-subtitle-player')?.dataset.transcriptPlacement,
             panel: panel?.toJSON(),
             video,
+            frame: frame?.toJSON(),
+            frameStyle: inlineStyleSnapshot(document.querySelector('[data-yomu-video-frame], .html5-video-player, #movie_player, video')),
+            videoStyle: inlineStyleSnapshot(document.querySelector('video')),
+            insetClass: document.documentElement.className,
+            insetValue: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
             viewport,
         };
 
@@ -99,6 +121,21 @@ async function readDrawerLayout(page) {
                 bottom,
                 width: Math.max(0, right - left),
                 height: Math.max(0, bottom - top),
+            };
+        }
+
+        function inlineStyleSnapshot(element) {
+            if (!element) return null;
+            return {
+                width: element.style.width,
+                maxWidth: element.style.maxWidth,
+                minWidth: element.style.minWidth,
+                height: element.style.height,
+                maxHeight: element.style.maxHeight,
+                minHeight: element.style.minHeight,
+                marginLeft: element.style.marginLeft,
+                marginRight: element.style.marginRight,
+                objectFit: element.style.objectFit,
             };
         }
     });
@@ -164,7 +201,7 @@ async function ensureSubtitlePanelOpen(page, timeout = 5000) {
         return Boolean(panel && !panel.hidden);
     });
     if (!open) {
-        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').click({ force: true });
+        await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => button.click());
     }
     await page.waitForFunction(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
@@ -192,7 +229,8 @@ async function chooseSubtitleFile(page, action, filePath) {
 async function ensureUserscript(page) {
     const hasRoot = await page.locator('.jpdb-subtitle-player').count();
     if (!hasRoot) {
-        await installUserscriptCssResource(page, cssPath);
+        const css = await installUserscriptCssResource(page, cssPath);
+        await installUserscriptBridge(page, css);
         // The subtitle player ships in the video companion (@require in real
         // installs) — inject companions before the core like a userscript
         // manager would.
@@ -202,6 +240,81 @@ async function ensureUserscript(page) {
         await addScriptTagWithCspFallback(page, userscriptPath);
     }
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 8000 });
+}
+
+async function installUserscriptBridge(page, css) {
+    await page.evaluate(({ css, settings, settingsKey }) => {
+        const storage = new Map([[settingsKey, settings]]);
+        const readStoredValue = (key, fallback) => {
+            if (storage.has(key)) return storage.get(key);
+            try {
+                const raw = localStorage.getItem(key);
+                return raw == null ? fallback : JSON.parse(raw);
+            } catch {
+                return fallback;
+            }
+        };
+        const writeStoredValue = (key, value) => {
+            storage.set(key, value);
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch {
+                // Storage may be unavailable for synthetic pages.
+            }
+        };
+        window.GM_getValue = (key, fallback) => readStoredValue(key, fallback);
+        window.GM_setValue = (key, value) => { writeStoredValue(key, value); };
+        window.GM_deleteValue = key => {
+            storage.delete(key);
+            try {
+                localStorage.removeItem(key);
+            } catch {
+                // Ignore.
+            }
+        };
+        window.GM_listValues = () => [...storage.keys()];
+        window.GM_addStyle = stylesheet => {
+            const style = document.createElement('style');
+            style.textContent = stylesheet;
+            (document.head || document.documentElement).append(style);
+            return style;
+        };
+        window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
+        window.GM_registerMenuCommand = () => undefined;
+        window.GM_xmlhttpRequest = options => {
+            const controller = new AbortController();
+            fetch(options.url, {
+                method: options.method || 'GET',
+                headers: options.headers || {},
+                body: options.data,
+                signal: controller.signal,
+            }).then(async response => {
+                const responseText = await response.text();
+                options.onload?.({
+                    status: response.status,
+                    statusText: response.statusText,
+                    response,
+                    responseText,
+                    finalUrl: response.url,
+                    responseHeaders: '',
+                });
+            }).catch(error => options.onerror?.(error));
+            return { abort: () => controller.abort() };
+        };
+        window.GM = {
+            getValue: async (key, fallback) => readStoredValue(key, fallback),
+            setValue: async (key, value) => { writeStoredValue(key, value); },
+            deleteValue: async key => { window.GM_deleteValue(key); },
+            listValues: async () => [...storage.keys()],
+            addStyle: window.GM_addStyle,
+            getResourceText: async name => window.GM_getResourceText(name),
+            registerMenuCommand: window.GM_registerMenuCommand,
+            xmlHttpRequest: window.GM_xmlhttpRequest,
+            xmlhttpRequest: window.GM_xmlhttpRequest,
+        };
+        window.GM_info = { script: { version: '0.0.0-smoke' }, scriptHandler: 'yomu-smoke' };
+        window.unsafeWindow = window;
+    }, { css, settings: smokeSettings, settingsKey });
 }
 
 async function runLocalSmoke(browser) {

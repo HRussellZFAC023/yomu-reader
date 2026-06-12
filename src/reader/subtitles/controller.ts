@@ -344,11 +344,23 @@ function shouldReplaceLoadedCue(next: SubtitleCue | undefined, current: Subtitle
 }
 
 function shouldClearLoadedCue(next: SubtitleCue | undefined, current: SubtitleCue | undefined, time: number): boolean {
-    return Boolean(!next && current && time > current.end + 0.12);
+    // Past the end (grace for boundary flicker) or before the start: the
+    // latter happens on backward seeks into a gap, where keeping the stale
+    // cue also left the parse-warmup window anchored at the old position.
+    return Boolean(!next && current && (time > current.end + 0.12 || time < current.start - 0.12));
 }
 
-function subtitleClipboardText(primary: SubtitleCue | undefined, secondary: SubtitleCue | undefined): string {
-    return [primary?.text.trim(), secondary?.text.trim()].filter(Boolean).join('\n');
+function subtitleClipboardText(primary: SubtitleCue | undefined, secondary: SubtitleCue | undefined, includeTranslation: boolean): string {
+    // UT-68: "include translation" is the user's call — jp-only copy stays
+    // clean for mining/SRS workflows.
+    return [primary?.text.trim(), includeTranslation ? secondary?.text.trim() : ''].filter(Boolean).join('\n');
+}
+
+// UT-68a: a subtle "copied" confirmation on the pressed control.
+function flashSubtitleCopyFeedback(target: HTMLElement): void {
+    const button = target.closest<HTMLElement>('button') ?? target;
+    button.classList.add('jpdb-subtitle-copy-flash');
+    window.setTimeout(() => button.classList.remove('jpdb-subtitle-copy-flash'), 1200);
 }
 
 function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
@@ -419,6 +431,7 @@ export class SubtitlePlayerController {
     private lastRenderedPrimaryKey = '';
     private lastAppliedSubtitleHtml = '';
     private parseWarmupSerial = 0;
+    private lastParseWarmupAnchor = -1;
     private transcriptHydrationCursor = 0;
     private effectiveTranscriptPlacement: ReaderSettings['subtitleTranscriptPlacement'] = 'right';
     private lastAutoCopiedCueSignature = '';
@@ -442,8 +455,9 @@ export class SubtitlePlayerController {
         cue: target => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
-        copy: () => { void this.copySubtitle(); },
-        'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)); },
+        copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
+        'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
+        'peek-row': target => this.toggleRowTranslationPeek(target),
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
@@ -734,6 +748,7 @@ export class SubtitlePlayerController {
         this.lastAppliedSubtitleHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
+        this.lastParseWarmupAnchor = -1;
         this.resetSubtitleDragOffset();
     }
 
@@ -1122,6 +1137,16 @@ export class SubtitlePlayerController {
         const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : undefined;
         const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
+        else this.warmParseOnGapAnchorJump();
+    }
+
+    // A repeated seek that lands in another inter-cue gap changes no cue
+    // state, so afterLoadedCueStateChanged never fires; re-anchor the parse
+    // warmup whenever the playhead's upcoming cue moved anyway.
+    private warmParseOnGapAnchorJump(): void {
+        if (this.currentCue || !this.selectedTrackId || !this.cues.length) return;
+        if (this.parseWarmupAnchorIndex() === this.lastParseWarmupAnchor) return;
+        this.warmParseAroundActiveCue();
     }
 
     private updateLoadedCueState(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined, time: number): boolean {
@@ -1151,6 +1176,10 @@ export class SubtitlePlayerController {
 
     private clearLoadedPrimaryCue(): boolean {
         this.currentCue = undefined;
+        // A cleared DOM-caption cue (seek, expiry) must be re-appliable even
+        // when the page still shows the identical text; the stability clock
+        // in pendingDomCaption is kept so the re-apply is immediate.
+        this.lastDomCaption = '';
         return true;
     }
 
@@ -1179,9 +1208,20 @@ export class SubtitlePlayerController {
             this.clearDomCaptionFallbackIfExpired();
             return null;
         }
+        this.keepDomCaptionCueAlive(text);
         if (!this.isDomCaptionStable(text, performance.now())) return null;
 
         return { text, selected };
+    }
+
+    // The synthetic DOM-caption cue gets a 4s guess for its duration; lines
+    // the page keeps showing longer used to expire mid-display and could
+    // never re-apply (same text). Renew the cue while the page still shows it.
+    private keepDomCaptionCueAlive(text: string): void {
+        if (this.cues.length || !this.currentCue) return;
+        if (text !== this.lastDomCaption) return;
+        const now = this.video?.currentTime ?? 0;
+        if (now >= this.currentCue.start && this.currentCue.end < now + 1) this.currentCue.end = now + 4;
     }
 
     private ensureYouTubeDomCaptionFallbackActive(selected: SubtitleTrackOption | undefined): void {
@@ -1262,7 +1302,19 @@ export class SubtitlePlayerController {
 
     private warmDomCaptionParse(text: string): void {
         if (!text.trim() || !this.shouldParseSubtitles()) return;
-        void this.parseCueHtmlBatch([text]).catch(() => undefined);
+        // Warm the texts that will actually render: applyDomCaptionFallback
+        // normalizes and sentence-splits the raw caption, so warming the raw
+        // string would cache under a key no render ever reads and the line
+        // would parse only AFTER the stability window.
+        const texts = this.domCaptionCueTexts(text);
+        if (!texts.length) return;
+        void this.parseCueHtmlBatch(texts).catch(() => undefined);
+    }
+
+    private domCaptionCueTexts(text: string): string[] {
+        return normalizeSubtitleCues([{ start: 0, end: 4, text }])
+            .map(cue => cue.text.trim())
+            .filter(Boolean);
     }
 
     private applyDomCaptionFallback(text: string, selected: SubtitleTrackOption | undefined): void {
@@ -1544,6 +1596,40 @@ export class SubtitlePlayerController {
         this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
     }
 
+    // Late token enrichment (public jpdb pitch lookups, fallback-vocabulary
+    // resolution) mutates the cached token objects AFTER their cue html was
+    // baked. Re-baking the cached html keeps every re-render — Previous/Next
+    // steps, transcript rows, session restores — pre-coloured with the
+    // enriched pitch and word state instead of silently dropping it on the
+    // next cache hit (UT-66).
+    refreshParsedCueTexts(texts: string[]): void {
+        if (!texts.length) return;
+        const settings = this.options.getSettings();
+        const seen = new Set<string>();
+        for (const raw of texts) {
+            const text = raw.trim();
+            if (!text) continue;
+            const key = this.parseCacheKey(text, settings);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            this.rebakeParsedCueHtml(key, text, settings);
+        }
+    }
+
+    private rebakeParsedCueHtml(key: string, text: string, settings: ReaderSettings): void {
+        const tokens = this.parsedTokenCache.get(key);
+        if (!tokens?.length) return;
+        const provisional = !this.parsedHtmlCache.has(key) && this.provisionalParsedHtmlCache.has(key);
+        const previous = provisional ? this.provisionalParsedHtmlCache.get(key) : this.parsedHtmlCache.get(key);
+        if (previous === undefined) return;
+        const html = withBreaks(renderTokensToHtml(text, tokens, settings));
+        if (html === previous) return;
+        this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true } : {});
+        this.updateTranscriptRowsForParseKey(key, html, { provisional, force: true });
+        if (this.currentPrimaryParseCacheKey() !== key) return;
+        this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
+    }
+
     private applyParsedPrimaryHtml(key: string, text: string, html: string, serial: number): void {
         const root = this.replacePrimaryHtml(html, serial);
         this.lastRenderedPrimaryKey = key;
@@ -1586,6 +1672,7 @@ export class SubtitlePlayerController {
             this.parsedHtmlCache,
             this.provisionalParsedHtmlCache,
             this.pendingProvisionalParsedHtml,
+            key => this.freshEmptyParsedHtml(key),
         );
         if (!batch.length) return Promise.all(ready);
         const parsed = this.options.parseJapaneseBatch
@@ -1641,10 +1728,12 @@ export class SubtitlePlayerController {
             if (tokens.length) this.parsedTokenCache.set(key, tokens);
             this.pruneParsedSubtitleCaches();
         } else {
-            if (!options.provisional) {
-                this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-                this.pruneParsedSubtitleCaches();
-            }
+            // Provisional empties are cached too: keyless they ARE the final
+            // tier (re-parsing every tick rendered word-less cues as a
+            // perpetual loading shimmer), keyed the authoritative upgrade is
+            // already in flight and overwrites this entry when it lands.
+            this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+            this.pruneParsedSubtitleCaches();
         }
     }
 
@@ -1735,14 +1824,10 @@ export class SubtitlePlayerController {
 
     private warmParseAroundActiveCue(): void {
         if (!this.shouldParseSubtitles() || !this.cues.length) return;
-        const active = this.activeTranscriptIndex();
-        const start = Math.max(0, active >= 0 ? active - SUBTITLE_ACTIVE_PREPARSE_BEHIND : 0);
-        const end = Math.min(
-            this.cues.length,
-            active >= 0
-                ? active + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1
-                : SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1,
-        );
+        const anchor = this.parseWarmupAnchorIndex();
+        this.lastParseWarmupAnchor = anchor;
+        const start = Math.max(0, anchor - SUBTITLE_ACTIVE_PREPARSE_BEHIND);
+        const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
         const serial = ++this.parseWarmupSerial;
         const settings = this.options.getSettings();
         const texts = this.subtitleWarmupTexts(start, end, settings);
@@ -1761,6 +1846,18 @@ export class SubtitlePlayerController {
         })();
     }
 
+    // A seek that lands between cues has no active cue; anchoring the warmup
+    // window at the next upcoming cue (instead of the transcript start) keeps
+    // the "active cue + lookahead warm within one turn" guarantee after long
+    // seeks in either direction.
+    private parseWarmupAnchorIndex(): number {
+        const active = this.activeTranscriptIndex();
+        if (active >= 0) return active;
+        const time = this.video?.currentTime ?? 0;
+        const upcoming = this.cues.findIndex(cue => cue.end >= time);
+        return upcoming >= 0 ? upcoming : Math.max(0, this.cues.length - 1);
+    }
+
     private subtitleWarmupTexts(start: number, end: number, settings: ReaderSettings): string[] {
         const texts: string[] = [];
         const seen = new Set<string>();
@@ -1768,11 +1865,19 @@ export class SubtitlePlayerController {
             const text = this.cues[index]?.text.trim();
             if (!text) continue;
             const key = this.parseCacheKey(text, settings);
-            if (seen.has(key) || this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) continue;
+            if (seen.has(key) || this.isWarmParsedCueKey(key)) continue;
             seen.add(key);
             texts.push(text);
         }
         return texts;
+    }
+
+    // Keyless there is no authoritative tier, so a provisional hit is final
+    // and the cue counts as warm; keyed the provisional tier stays listed so
+    // a failed authoritative upgrade is retried by the next warmup turn.
+    private isWarmParsedCueKey(key: string): boolean {
+        if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
+        return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
     }
 
     private fitSubtitleTextToVideo(): void {
@@ -2175,7 +2280,7 @@ export class SubtitlePlayerController {
     private subtitleCopyText(rowIndex: number | undefined): string {
         const cue = rowIndex !== undefined ? this.cues[rowIndex] : this.currentCue;
         const secondary = rowIndex !== undefined && cue ? findAlignedCue(this.secondaryCues, cue) : this.secondaryCue;
-        return subtitleClipboardText(cue, secondary);
+        return subtitleClipboardText(cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
     }
 
     private async copyTranscriptRow(index: number): Promise<void> {
@@ -2186,9 +2291,47 @@ export class SubtitlePlayerController {
             return;
         }
         const secondary = findAlignedCue(this.secondaryCues, row.cue);
-        const text = subtitleClipboardText(row.cue, secondary);
+        const text = subtitleClipboardText(row.cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
         if (!text) return;
         await this.writeSubtitleClipboard(text, 'Subtitle clipboard copy failed');
+    }
+
+    // UT-68c: when the Lines list shows only Japanese, each row with an
+    // aligned translation gets an eye toggle to peek it.
+    private transcriptRowPeekButton(cue: SubtitleCue, index: number, settings: ReaderSettings): string {
+        const secondary = findAlignedCue(this.secondaryCues, cue);
+        if (!secondary?.text.trim()) return '';
+        const label = uiText(settings.interfaceLanguage, 'peekSubtitleTranslation');
+        return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${subtitleIcon('eye')}</button>`;
+    }
+
+    private toggleRowTranslationPeek(target: HTMLElement): void {
+        const button = target.closest<HTMLElement>('[data-action="peek-row"]');
+        const row = target.closest<HTMLElement>('.jpdb-subtitle-list-row');
+        if (!button || !row) return;
+        const existing = row.querySelector<HTMLElement>('.jpdb-subtitle-row-secondary');
+        const language = this.options.getSettings().interfaceLanguage;
+        if (existing) {
+            existing.remove();
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('title', uiText(language, 'peekSubtitleTranslation'));
+            button.setAttribute('aria-label', uiText(language, 'peekSubtitleTranslation'));
+            setInnerHtml(button, subtitleIcon('eye'));
+            return;
+        }
+        const cue = this.transcriptRows()[this.rowIndexFromTarget(button)]?.cue;
+        const secondary = cue ? findAlignedCue(this.secondaryCues, cue) : undefined;
+        if (!secondary?.text.trim()) return;
+        const body = row.querySelector<HTMLElement>('.jpdb-subtitle-row-body') ?? row;
+        const peek = document.createElement('div');
+        peek.className = 'jpdb-subtitle-row-secondary';
+        peek.lang = 'en';
+        peek.textContent = secondary.text.trim();
+        body.append(peek);
+        button.setAttribute('aria-pressed', 'true');
+        button.setAttribute('title', uiText(language, 'hideSubtitleTranslation'));
+        button.setAttribute('aria-label', uiText(language, 'hideSubtitleTranslation'));
+        setInnerHtml(button, subtitleIcon('eye-off'));
     }
 
     private async writeSubtitleClipboard(text: string, failureMessage: string): Promise<void> {
@@ -2977,6 +3120,7 @@ export class SubtitlePlayerController {
                     <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
+                    ${this.transcriptRowPeekButton(cue, index, settings)}
                     <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, 'copySubtitleLine'))}">${subtitleIcon('copy')}</button>
                     <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
                 </div>
@@ -3284,7 +3428,7 @@ export class SubtitlePlayerController {
         while (batch.length < batchSize) {
             const item = planned[takeNextIndex()];
             if (!item) break;
-            if (this.parsedHtmlCache.has(item.key) || this.hasFreshEmptyParsedHtml(item.key)) continue;
+            if (this.isWarmParsedCueKey(item.key)) continue;
             batch.push(item);
         }
         return batch;
@@ -3313,7 +3457,7 @@ export class SubtitlePlayerController {
         const text = rows[rowIndex]?.cue.text.trim();
         if (!text) return;
         const key = this.parseCacheKey(text, settings);
-        if (seen.has(key) || this.parsedHtmlCache.has(key)) return;
+        if (seen.has(key) || this.isWarmParsedCueKey(key)) return;
         seen.add(key);
         plan.push({ rowIndex, text, key });
     }
@@ -3322,13 +3466,15 @@ export class SubtitlePlayerController {
         return isYouTubePage() ? YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS : 0;
     }
 
-    private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean } = {}): void {
+    private updateTranscriptRowsForParseKey(key: string, html: string, options: { provisional?: boolean; force?: boolean } = {}): void {
         const panel = this.updatableTranscriptPanel();
         if (!panel) return;
         const hasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
         const updatedRoots: HTMLElement[] = [];
         for (const target of this.transcriptTextTargetsForParseKey(panel, key)) {
-            if (!shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
+            // force: a rebake refreshes rows that already carry this key's
+            // final html (enrichment changed the underlying tokens).
+            if (!options.force && !shouldApplyParsedTranscriptHtml(target, key, options.provisional === true)) continue;
             if (hasReaderWords) {
                 target.dataset.parsedKey = key;
                 if (options.provisional) target.dataset.parsedProvisional = 'true';
@@ -3428,6 +3574,7 @@ export class SubtitlePlayerController {
         this.lastAppliedSubtitleHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
+        this.lastParseWarmupAnchor = -1;
     }
 
     private resetSecondarySubtitleState(): void {

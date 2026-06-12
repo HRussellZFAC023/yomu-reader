@@ -2079,13 +2079,17 @@ function isYouTubeShortsWatchPage(): boolean {
 function isCurrentYouTubeShortsWatchCard(card: HTMLElement): boolean {
     if (!isYouTubeShortsWatchPage()) return false;
     const item = card.closest<HTMLElement>(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
-    // Protect the active reel by several independent signals so the player is
-    // never blanked: YouTube's own active marker, the reel covering the
-    // viewport centre (snap feed always centres the current short), and the
-    // URL video id. Any match keeps the reel visible.
-    if (isActiveYouTubeShortsReel(item)) return true;
     const currentVideoId = currentYouTubeShortsVideoId();
-    return Boolean(currentVideoId) && readYouTubeVideoId(item) === currentVideoId;
+    const itemVideoId = readYouTubeVideoId(item);
+    if (currentVideoId && itemVideoId) return itemVideoId === currentVideoId;
+    // Protect the active reel by several independent signals so the player is
+    // never blanked: YouTube's own active marker and, when the item has no
+    // comparable URL id, the reel covering the viewport centre. URL identity
+    // wins first so restoring a previously filtered current reel cannot make
+    // the next English reel look "current" just because it snapped under the
+    // viewport centre while the real current item was collapsed.
+    if (isActiveYouTubeShortsReel(item)) return true;
+    return false;
 }
 
 function isActiveYouTubeShortsReel(item: HTMLElement): boolean {
@@ -2139,7 +2143,10 @@ function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
     // position once YouTube's intersection observer has seen it.
     const rect = continuation.getBoundingClientRect();
     if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
-    if (rect.top <= window.innerHeight) return true;
+    if (rect.top <= window.innerHeight) {
+        continuation.scrollIntoView({ block: 'nearest' });
+        return true;
+    }
     const previousY = window.scrollY;
     continuation.scrollIntoView({ block: 'end' });
     if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);

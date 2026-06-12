@@ -522,6 +522,35 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('nudges visible mobile YouTube continuation loading after filtering', async () => {
+        document.body.innerHTML = `
+            <main>
+                <ytm-video-with-context-renderer data-case="mobile-jp">
+                    <a class="media-item-headline" href="/watch?v=jp">日本語で花の名前を覚える</a>
+                </ytm-video-with-context-renderer>
+                <ytm-video-with-context-renderer data-case="mobile-english">
+                    <a class="media-item-headline" href="/watch?v=en">The best desk setup</a>
+                </ytm-video-with-context-renderer>
+                <ytm-continuation-item-renderer data-case="continuation"></ytm-continuation-item-renderer>
+            </main>
+        `;
+        const continuation = card('continuation') as HTMLElement & { scrollIntoView: (options?: ScrollIntoViewOptions) => void };
+        const scrollIntoView = vi.fn();
+        continuation.scrollIntoView = scrollIntoView;
+        Object.defineProperty(continuation, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, window.innerHeight - 80, 390, 80),
+        });
+        const { filter } = await startYoutubeFilter({
+            oEmbedTitles: { jp: '日本語で花の名前を覚える' },
+        });
+
+        expect(card('mobile-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+
+        filter.destroy();
+    });
+
     it('masks newly appended videos before the delayed filter scan collapses them', async () => {
         const { filter } = await startYoutubeFilter({
             html: '<main></main>',
@@ -1130,15 +1159,7 @@ describe('YouTube immersion filter', () => {
     });
 
     it('filters non-current Shorts watch items while leaving the snap item visible', async () => {
-        const { filter } = await startYoutubeFilter({
-            location: {
-                href: 'https://www.youtube.com/shorts/abc123',
-                origin: 'https://www.youtube.com',
-                hostname: 'www.youtube.com',
-                pathname: '/shorts/abc123',
-                search: '',
-            },
-            html: `
+        document.body.innerHTML = `
             <ytd-shorts>
                 <ytd-reel-video-renderer data-case="shorts-feed" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
                     <a id="video-title" href="/shorts/abc123">English short</a>
@@ -1150,7 +1171,28 @@ describe('YouTube immersion filter', () => {
                     <a id="video-title" href="/shorts/jp-next">東京駅で迷子になる</a>
                 </ytd-reel-video-renderer>
             </ytd-shorts>
-        `,
+        `;
+        Object.defineProperty(card('shorts-feed'), 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, -window.innerHeight, 390, window.innerHeight),
+        });
+        Object.defineProperty(card('shorts-next-en'), 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 390, window.innerHeight),
+        });
+        Object.defineProperty(card('shorts-next-jp'), 'getBoundingClientRect', {
+            configurable: true,
+            value: () => new DOMRect(0, window.innerHeight, 390, window.innerHeight),
+        });
+
+        const { filter } = await startYoutubeFilter({
+            location: {
+                href: 'https://www.youtube.com/shorts/abc123',
+                origin: 'https://www.youtube.com',
+                hostname: 'www.youtube.com',
+                pathname: '/shorts/abc123',
+                search: '',
+            },
             wait: 'flush-work',
         });
 
