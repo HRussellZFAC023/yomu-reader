@@ -269,7 +269,9 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     return {
-        newTabEnabled: has('newTabEnabled'),
+        // UT-74: no form control anymore (userscripts can't override the
+        // browser new tab) — preserve the stored value instead of wiping it.
+        newTabEnabled: current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'anki', 'dictionary'] as const, current.newTabSource),

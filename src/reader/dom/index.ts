@@ -57,6 +57,12 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     '[class*="speaker" i]',
     '[class*="voice" i]',
     '.jpdb-reader-word',
+    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
+    // link, not prose — annotating it matched rare alt-form words (穏 →
+    // しずか) and dropped a reading under the glyph; the pitch diagram is
+    // per-mora letter soup.
+    '.subsection-composed-of-kanji .spelling',
+    '.subsection-pitch-accent .subsection',
 ];
 const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
 const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];

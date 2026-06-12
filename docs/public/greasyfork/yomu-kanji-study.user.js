@@ -2253,7 +2253,15 @@
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
-      newTabOfflineHelp: "Saves recent reviews for offline study.",
+      newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
+      newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+      studyKeysTitle: "Study page keys",
+      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
+      studyKeyReveal: "Reveal the current card",
+      studyKeyGrades: "Grade the revealed card (buttons in order)",
+      studyKeyUndo: "Undo the last review",
+      studyKeyPrevious: "Previous card (undoes right after grading)",
+      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -3725,7 +3733,15 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	最近の復習をオフライン用に保存します。
+newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
+newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+studyKeysTitle	学習ページのキー
+studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
+studyKeyReveal	現在のカードを表示
+studyKeyGrades	表示したカードを採点（ボタンの順）
+studyKeyUndo	直前のレビューを取り消す
+studyKeyPrevious	前のカード（採点直後は取り消し）
+studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー

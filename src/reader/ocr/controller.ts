@@ -570,17 +570,16 @@ export class ImageOcrController {
     }
 
     private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
-        const word = (event.target as HTMLElement).closest('.jpdb-reader-word[data-vid]');
         if (element.dataset.pinned === 'true') {
             this.unpinLine(element);
-            if (word) return;
-            event.preventDefault();
-            event.stopPropagation();
-            return;
+        } else {
+            element.focus({ preventScroll: true });
+            this.pinLine(state, element);
         }
-        element.focus({ preventScroll: true });
-        this.pinLine(state, element);
-        if (word) return;
+        // UT-77b: OCR overlays often sit on top of links (video thumbnails) —
+        // the click must never fall through to the host anchor and navigate.
+        // Word lookups are unaffected: they run in the document CAPTURE
+        // phase, which has already fired by the time this bubble handler runs.
         event.preventDefault();
         event.stopPropagation();
     }
@@ -664,7 +663,7 @@ export class ImageOcrController {
         frame.className = 'jpdb-ocr-video-frame';
         frame.dataset.yomuVideoFrame = 'true';
         frame.alt = '';
-        positionVideoFrameImage(frame, rect);
+        positionVideoFrameImage(frame, rect, target);
         frame.addEventListener('load', () => {
             if (this.videoFrames.get(target) === frame) this.enqueue(frame, true);
         }, { once: true });
@@ -699,7 +698,7 @@ export class ImageOcrController {
                 this.releaseVideoFrame(video);
                 continue;
             }
-            positionVideoFrameImage(frame, video.getBoundingClientRect());
+            positionVideoFrameImage(frame, video.getBoundingClientRect(), video);
         }
     }
 
@@ -1525,11 +1524,31 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
     }
 }
 
-function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect): void {
-    frame.style.left = `${rect.left}px`;
-    frame.style.top = `${rect.top}px`;
-    frame.style.width = `${rect.width}px`;
-    frame.style.height = `${rect.height}px`;
+// UT-77a: pin the snapshot to the video's CONTENT box (contain-fit of the
+// intrinsic frame inside the element rect). Sizing to the element rect
+// stretched the capture across the letterbox bars, and a correctly-shaped
+// box keeps the OCR overlay's fractional line geometry aligned.
+function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: HTMLVideoElement): void {
+    const content = videoContentBox(rect, video);
+    frame.style.left = `${content.left}px`;
+    frame.style.top = `${content.top}px`;
+    frame.style.width = `${content.width}px`;
+    frame.style.height = `${content.height}px`;
+}
+
+function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {
+    const intrinsicWidth = video.videoWidth;
+    const intrinsicHeight = video.videoHeight;
+    if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
+    const scale = Math.min(rect.width / intrinsicWidth, rect.height / intrinsicHeight);
+    const width = intrinsicWidth * scale;
+    const height = intrinsicHeight * scale;
+    return {
+        left: rect.left + (rect.width - width) / 2,
+        top: rect.top + (rect.height - height) / 2,
+        width,
+        height,
+    };
 }
 
 function imageCacheKey(image: HTMLImageElement): string {

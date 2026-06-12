@@ -252,7 +252,10 @@ describe('settings form localization', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
-        expect(topLevelLegendForControl(form, 'newTabEnabled')).toBe('Study');
+        // UT-74: the newTabEnabled checkbox was removed (no runtime consumer;
+        // a userscript cannot override the browser new tab).
+        expect(form.querySelector('[name="newTabEnabled"]')).toBeNull();
+        expect(topLevelLegendForControl(form, 'newTabAnkiEnabled')).toBe('Study');
         expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: API/Anki, then study words');
