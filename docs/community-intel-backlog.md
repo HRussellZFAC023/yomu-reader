@@ -107,7 +107,8 @@ This is a non-prioritized backlog seed from the Jiten Discord, public JPDB resea
   - User behavior: review mistakes are common enough that users ask for a reversal path, not only a later corrective review.
   - Yomu cross-reference: Yomu has offline queued JPDB/Jiten/Anki grades and live JPDB grade routing tests, but no confirmed user-facing "undo last grade" transaction.
 
-- Add failed-card loop controls after session cap.
+- DONE 0.6.142 — failed-card session loop: failing grades (nothing/something/two-button fail) requeue the card at the back of the current session pool so it repeats until passed, jpdb-style; 'hard' still advances. Applies in review-count mode for every provider; passing grades remove as before.
+- Add failed-card loop controls after session cap (original).
   - Evidence: JPDB `#next-update-feature-voting`: "Continue showing failed cards after hitting 'Cards per review session'", including variants to keep showing failed cards until seen once or passed.
   - Yomu cross-reference: Yomu tracks session progress and queues, but no "finish misses before ending" mode was confirmed.
 

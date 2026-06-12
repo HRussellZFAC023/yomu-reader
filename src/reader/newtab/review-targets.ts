@@ -90,3 +90,11 @@ export function newTabGradeOptions(settings: ReaderSettings): Array<[JPDBGrade, 
             ['easy', uiText(settings.interfaceLanguage, 'gradeEasyLabel')],
         ];
 }
+
+
+// jpdb fail set (nothing/something + the two-button fail): these repeat in
+// the session loop. 'hard' is NOT a fail — it advances the card on every
+// provider — so this is narrower than !passingNewTabGrade.
+export function isFailedNewTabGrade(grade: JPDBGrade): boolean {
+    return grade === 'nothing' || grade === 'fail' || grade === 'something';
+}

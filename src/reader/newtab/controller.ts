@@ -188,6 +188,7 @@ import {
     type NewTabGradeFailure,
     type NewTabReviewTarget,
     type QueuedNewTabGradeTarget,
+    isFailedNewTabGrade,
 } from './review-targets';
 import {
     addNewTabDailyStudyTimeMs,
@@ -7039,7 +7040,7 @@ export class NewTabController {
             if (await this.queueOfflineGrade(target.card, grade)) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-                this.advanceAfterGrade(target.root, target.card);
+                this.advanceAfterGrade(target.root, target.card, grade);
                 return true;
             } else {
                 this.setStatus(target.root, this.text('couldNotSubmitGrade'));
@@ -7052,14 +7053,14 @@ export class NewTabController {
             this.invalidateReviewSourceCache(target.card);
             this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
             if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-            this.advanceAfterGrade(target.root, target.card);
+            this.advanceAfterGrade(target.root, target.card, grade);
             return true;
         } catch (error) {
             log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
             if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
                 this.setStatus(target.root, this.text('offlineGradeReconnect'));
                 if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-                this.advanceAfterGrade(target.root, target.card);
+                this.advanceAfterGrade(target.root, target.card, grade);
                 return true;
             }
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
@@ -7423,11 +7424,18 @@ export class NewTabController {
             : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
     }
 
-    private advanceAfterGrade(root: HTMLElement, card: JPDBCard): void {
+    private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade): void {
         const key = cardKey(card);
         const previousIndex = this.index;
         const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
         this.rememberReviewHistoryCard(card);
+        // jpdb-style failed-card loop (community ask): a failed grade keeps
+        // the card in this session's pool so it comes back around until
+        // passed, instead of disappearing until the next batch fetch.
+        if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode) {
+            this.requeueFailedCard(root, key, previousIndex);
+            return;
+        }
         this.allWords = this.allWords.filter(item => cardKey(item) !== key);
         this.visibleWords = this.studyPoolForCurrentMode();
         this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
@@ -7456,6 +7464,22 @@ export class NewTabController {
             excludeCardKeys: [key],
             preserveVisibleOrder: true,
         });
+    }
+
+    private requeueFailedCard(root: HTMLElement, gradedKey: string, previousIndex: number): void {
+        const pool = this.visibleWords.filter(item => cardKey(item) !== gradedKey);
+        const failed = this.visibleWords.find(item => cardKey(item) === gradedKey);
+        this.visibleWords = failed ? [...pool, failed] : pool;
+        this.state.revealAnswer = false;
+        this.persistState();
+        if (!pool.length) {
+            // The failed card is the only one left: show it again directly.
+            this.index = 0;
+            this.renderWord(root, this.visibleWords[0] ?? this.allWords[0]!);
+            return;
+        }
+        this.index = Math.min(previousIndex, this.visibleWords.length - 1);
+        this.renderWord(root, this.visibleWords[this.index]!);
     }
 
     private nextVisibleReviewCardKeyAfterGrade(gradedKey: string, startIndex: number): string {

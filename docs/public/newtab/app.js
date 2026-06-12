@@ -49493,6 +49493,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
       ["easy", uiText(settings.interfaceLanguage, "gradeEasyLabel")]
     ];
   }
+  function isFailedNewTabGrade(grade) {
+    return grade === "nothing" || grade === "fail" || grade === "something";
+  }
   const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
   function normalizeSearchQuery(value) {
     return value.replace(/\s+/g, " ").trim().slice(0, 80);
@@ -58516,7 +58519,7 @@ ${entry.url}`),
         if (await this.queueOfflineGrade(target.card, grade)) {
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card);
+          this.advanceAfterGrade(target.root, target.card, grade);
           return true;
         } else {
           this.setStatus(target.root, this.text("couldNotSubmitGrade"));
@@ -58529,14 +58532,14 @@ ${entry.url}`),
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
         if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-        this.advanceAfterGrade(target.root, target.card);
+        this.advanceAfterGrade(target.root, target.card, grade);
         return true;
       } catch (error) {
         log$3.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
         if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
-          this.advanceAfterGrade(target.root, target.card);
+          this.advanceAfterGrade(target.root, target.card, grade);
           return true;
         }
         this.setStatus(target.root, this.text("couldNotSubmitGrade"));
@@ -58848,11 +58851,15 @@ ${entry.url}`),
     writeQueuedGrades(queue) {
       return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
     }
-    advanceAfterGrade(root, card) {
+    advanceAfterGrade(root, card, grade) {
       const key = cardKey(card);
       const previousIndex = this.index;
       const nextKey = this.nextVisibleReviewCardKeyAfterGrade(key, previousIndex);
       this.rememberReviewHistoryCard(card);
+      if (grade && isFailedNewTabGrade(grade) && this.reviewCountMode) {
+        this.requeueFailedCard(root, key, previousIndex);
+        return;
+      }
       this.allWords = this.allWords.filter((item) => cardKey(item) !== key);
       this.visibleWords = this.studyPoolForCurrentMode();
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
@@ -58878,6 +58885,20 @@ ${entry.url}`),
         excludeCardKeys: [key],
         preserveVisibleOrder: true
       });
+    }
+    requeueFailedCard(root, gradedKey, previousIndex) {
+      const pool = this.visibleWords.filter((item) => cardKey(item) !== gradedKey);
+      const failed = this.visibleWords.find((item) => cardKey(item) === gradedKey);
+      this.visibleWords = failed ? [...pool, failed] : pool;
+      this.state.revealAnswer = false;
+      this.persistState();
+      if (!pool.length) {
+        this.index = 0;
+        this.renderWord(root, this.visibleWords[0] ?? this.allWords[0]);
+        return;
+      }
+      this.index = Math.min(previousIndex, this.visibleWords.length - 1);
+      this.renderWord(root, this.visibleWords[this.index]);
     }
     nextVisibleReviewCardKeyAfterGrade(gradedKey, startIndex) {
       for (let offset = 1; offset < this.visibleWords.length; offset += 1) {
