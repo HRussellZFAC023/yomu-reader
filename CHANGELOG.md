@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.166] - 2026-06-12
+
+### Changed
+
+- Rendered Anki card headings no longer show raw database card ids: a multi-card note reads "Deck · Template" (or "Deck · Card 2"), while grade-target labels keep the #id where it genuinely disambiguates duplicate cards.
+
 ## [0.6.165] - 2026-06-12
 
 ### Added
