@@ -1,9 +1,19 @@
-.jpdb-reader-toast {
+/* Toasts live in a fixed stack so simultaneous messages pile up readably
+   instead of overlapping at the same spot (Jiten v1.2.x toast redesign). */
+.jpdb-reader-toast-stack {
   position: fixed;
   left: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.jpdb-reader-toast {
   max-width: min(520px, calc(100vw - 24px));
   padding: 10px 12px;
   border-radius: 10px;
@@ -12,6 +22,21 @@
   border: 1px solid var(--jpdb-reader-border);
   box-shadow: 0 10px 28px var(--jpdb-reader-shadow);
   font: 13px/1.35 var(--jpdb-reader-font);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.jpdb-reader-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-toast {
+    transform: none;
+    transition: opacity 0.15s ease;
+  }
 }
 
 .jpdb-reader-settings {
