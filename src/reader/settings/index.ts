@@ -279,6 +279,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
     newTabDailyGoalMinutes: 60,
+    newTabKanjiUnlockEnabled: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: undefined,
@@ -598,6 +599,7 @@ function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial
         newTabOfflineEnabled: booleanSetting(value, 'newTabOfflineEnabled'),
         newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
         newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
+        newTabKanjiUnlockEnabled: booleanSetting(value, 'newTabKanjiUnlockEnabled'),
         newTabKanjiAutogradeEnabled: booleanSetting(value, 'newTabKanjiAutogradeEnabled'),
         newTabKanjiAutoSubmit: booleanSetting(value, 'newTabKanjiAutoSubmit'),
     };

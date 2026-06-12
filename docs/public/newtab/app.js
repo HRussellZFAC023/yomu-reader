@@ -3412,6 +3412,7 @@
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
     newTabDailyGoalMinutes: 60,
+    newTabKanjiUnlockEnabled: true,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -3694,6 +3695,7 @@
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber$3(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
       newTabDailyGoalMinutes: clampNumber$3(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
+      newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5551,6 +5553,8 @@
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
+      featureStudy: "Study",
+      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -5674,6 +5678,7 @@
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
       newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
+      newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -6571,6 +6576,8 @@ featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
+featureStudy	学習
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -7130,6 +7137,7 @@ newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
+newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -19718,6 +19726,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabOfflineEnabled: has("newTabOfflineEnabled"),
       newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
       newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
+      newTabKanjiUnlockEnabled: has("newTabKanjiUnlockEnabled"),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -21276,6 +21285,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
+                        ${checkbox("newTabKanjiUnlockEnabled", "Study kanji before unlocking words", settings.newTabKanjiUnlockEnabled)}
                         ${checkbox("newTabFrontSentenceEnabled", "Show sentence on word fronts", settings.newTabFrontSentenceEnabled)}
                         ${checkbox("newTabKanjiAutogradeEnabled", "Autograde kanji drawing", settings.newTabKanjiAutogradeEnabled)}
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
@@ -22419,6 +22429,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "newTabOfflineEnabled",
     "newTabOfflineLimit",
     "newTabDailyGoalMinutes",
+    "newTabKanjiUnlockEnabled",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",
@@ -51038,6 +51049,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   const oldFormsFact = (fullInfo) => fullInfo?.oldForms.length ? fullInfo.oldForms.join(", ") : "";
   const isStandaloneKanjiCard = (card, kanji) => card.spelling === kanji && kanjiCharacters(card.spelling).length === 1 && Array.from(card.spelling).length === 1;
+  const isKanjiUnlockStudyCard = (card) => card.vid < 0 && isStandaloneKanjiCard(card, card.spelling);
   const randomPublicJpdbSeedKanji = (limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
   const randomPublicJpdbSeedWords = (limit = NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings([...NEW_TAB_PUBLIC_JPDB_COMMON_WORDS])).slice(0, Math.max(0, limit));
   function shuffleStrings(values) {
@@ -54841,7 +54853,31 @@ ${newTabCardReading(card)}`;
       if (filter === "all") return cards;
       if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
       if (filter !== "study") return cards.filter((card) => card.cardState.includes(filter));
-      return selectNewTabStudyPool(cards);
+      return this.applyKanjiUnlockQueue(selectNewTabStudyPool(cards));
+    }
+    // jpdb Learn parity: locked words sit behind their kanji, so the combined
+    // queue serves the KANJI card first; the word unlocks once the provider
+    // marks the kanji learned. "Study kanji before unlocking words" (default
+    // on) can be turned off for learners who skip kanji — locked words then
+    // study directly as words. Progression is unaffected either way: card
+    // states live at the provider, the toggle only changes queue composition.
+    applyKanjiUnlockQueue(pool) {
+      if (this.state.mode !== "word" || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
+      const out = [];
+      const seenKanji = /* @__PURE__ */ new Set();
+      for (const card of pool) {
+        if (!card.cardState.includes("locked") || this.shouldRenderCardAsKanji(card)) {
+          out.push(card);
+          continue;
+        }
+        const kanjiCards = kanjiCharacters(card.spelling).filter((kanji) => !seenKanji.has(kanji)).map((kanji) => {
+          seenKanji.add(kanji);
+          return this.kanjiStudyCardFromSourceCard(card, kanji);
+        });
+        if (kanjiCards.length) out.push(...kanjiCards);
+        else out.push(card);
+      }
+      return out;
     }
     cardsForCurrentMode(cards) {
       return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
@@ -55094,7 +55130,7 @@ ${newTabCardReading(card)}`;
       else this.renderWordPrompt(slots, card, state);
     }
     shouldRenderCardAsKanji(card) {
-      return this.state.mode === "kanji" || this.isLiveJpdbKanjiReviewCard(card);
+      return this.state.mode === "kanji" || this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
     }
     isLiveJpdbKanjiReviewCard(card) {
       return card.reviewSource === "jpdb-live" && (card.jpdbReviewId?.startsWith("kb,") ?? false);

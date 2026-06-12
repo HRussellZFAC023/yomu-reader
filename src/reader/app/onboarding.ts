@@ -71,6 +71,7 @@ export class OnboardingController {
             ['featureImages', 'featureImagesBody'],
             ['featureVideo', 'featureVideoBody'],
             ['featureControl', 'featureControlBody'],
+            ['featureStudy', 'featureStudyBody'],
         ];
         featureKeys.forEach(([headingKey, textKey]) => {
             const card = document.createElement('div');

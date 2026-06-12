@@ -5701,12 +5701,16 @@ describe('new tab review helpers', () => {
         expect(listStudyBatchCards).toHaveBeenCalledWith(180);
     });
 
-    it('keeps locked JPDB API cards in deck order and makes them gradeable', async () => {
+    it('keeps locked JPDB API cards in deck order and makes them gradeable when kanji unlock is off', async () => {
         const locked = newTabTestCard({ spelling: '未解禁', reading: 'みかいきん', source: 'jpdb', cardState: ['locked'] });
         const due = newTabTestCard({ spelling: '復習', reading: 'ふくしゅう', source: 'jpdb', cardState: ['due'] });
         const reviewCard = vi.fn(async () => undefined);
         const controller = newTabBareController(() => ({
                 ...DEFAULT_SETTINGS,
+                // The jpdb-parity default replaces locked words with kanji
+                // unlock cards (covered in parity-matrix); this test pins the
+                // kanji-off path where locked words study directly as words.
+                newTabKanjiUnlockEnabled: false,
                 apiKey: 'jpdb-key',
                 jpdbMiningEnabled: true,
                 newTabSource: 'jpdb',
