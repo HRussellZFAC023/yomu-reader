@@ -1353,6 +1353,24 @@ function stubKanjiDoodleBrowserApis(): () => void {
     };
 }
 
+async function withKanjiStudyCompanionMissing<T>(callback: () => Promise<T>): Promise<T> {
+    const target = globalThis as typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
+    const previous = target.__yomuCompanions;
+    target.__yomuCompanions = {
+        ...(previous ?? {}),
+        kanjiStudy: undefined,
+    };
+    try {
+        return await callback();
+    } finally {
+        if (previous) {
+            target.__yomuCompanions = previous;
+        } else {
+            delete target.__yomuCompanions;
+        }
+    }
+}
+
 describe('new tab review helpers', () => {
     it('keeps new-tab source load fallback policy explicit', () => {
         expect(newTabSourceLoadPlan('auto', 3)).toEqual({
@@ -9352,6 +9370,41 @@ describe('new tab review helpers', () => {
             restoreCanvas();
             document.body.replaceChildren();
         }
+    });
+
+    it('shows a Kanji/Study companion install notice in hosted new-tab kanji drilldowns when the split library is missing', async () => {
+        await withKanjiStudyCompanionMissing(async () => {
+            const restoreCanvas = stubKanjiDoodleBrowserApis();
+            const runtime = new NewTabRuntime();
+            const card = newTabTestCard({ spelling: '漢字', reading: 'かんじ', sentence: '漢字です。' });
+            const internals = runtime as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+            };
+
+            try {
+                internals.settings = {
+                    ...DEFAULT_SETTINGS,
+                    jpdbKanjiEnabled: true,
+                    localDictionariesEnabled: false,
+                    localDictionaryShowKanji: false,
+                    rtkEnabled: true,
+                    kanjivgEnabled: true,
+                    kanjiOriginsEnabled: true,
+                    kanjiOriginGraphEnabled: true,
+                    uchisenEnabled: false,
+                };
+
+                await internals.showKanjiLookupCard(card, '漢', '漢字です。');
+                const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+
+                expect(popover.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+            } finally {
+                runtime.destroy();
+                restoreCanvas();
+                document.body.replaceChildren();
+            }
+        });
     });
 
     it('releases the settings modal background when the new-tab backdrop dismisses settings', () => {

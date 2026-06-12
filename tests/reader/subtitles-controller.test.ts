@@ -183,6 +183,21 @@ function handlePointerActivity(
         .handlePointerActivity(point);
 }
 
+function pointerEvent(
+    type: string,
+    options: Partial<Pick<PointerEvent, 'button' | 'clientX' | 'clientY' | 'pointerId' | 'pointerType'>> = {},
+): PointerEvent {
+    const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+    Object.defineProperties(event, {
+        button: { value: options.button ?? 0 },
+        clientX: { value: options.clientX ?? 120 },
+        clientY: { value: options.clientY ?? 120 },
+        pointerId: { value: options.pointerId ?? 1 },
+        pointerType: { value: options.pointerType ?? 'mouse' },
+    });
+    return event;
+}
+
 async function expectSubtitleControlsReturnToIdle(
     controller: SubtitlePlayerController,
     root: HTMLElement,
@@ -977,6 +992,69 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('temporarily moves subtitle overlay only while dragging the move handle', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{
+                clearTransientSubtitleState(): void;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 7 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 7 }));
+
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+            expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(true);
+
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 7 }));
+            expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+
+            internals.clearTransientSubtitleState();
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not move subtitle overlay from ordinary subtitle text pointer activity', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+
+            subtitleFrame.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 3 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 3 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 3 }));
+
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps subtitle controls idle when YouTube player chrome is autohidden', () => {
         let controller: SubtitlePlayerController | undefined;
         try {
@@ -1261,6 +1339,48 @@ describe('SubtitlePlayerController', () => {
 
             expect(panel.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
             expect(panel.querySelector('.jpdb-subtitle-list-row')?.textContent).toContain('今日は読む。');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('clears parsed ASBPlayer subtitle roots when the primary track is unset', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const internals = controllerInternals<{
+            tracks: unknown[];
+            selectedTrackId: string;
+            cues: Array<{ start: number; end: number; text: string; transcriptEligible?: boolean }>;
+            currentCue?: { start: number; end: number; text: string; transcriptEligible?: boolean };
+            render: () => void;
+            clearPrimaryTrack: () => void;
+        }>(controller);
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="asbplayer-subtitles-container-bottom">
+                <span class="jpdb-reader-word" data-vid="1" data-sid="1">日本語</span>を読む
+            </div>
+        `);
+
+        try {
+            internals.tracks = [{
+                id: 'file-ja',
+                kind: 'file',
+                label: '日本語',
+                cues: [{ start: 0, end: 2, text: '日本語を読む' }],
+            }];
+            internals.selectedTrackId = 'file-ja';
+            internals.cues = [{ start: 0, end: 2, text: '日本語を読む', transcriptEligible: true }];
+            internals.currentCue = internals.cues[0];
+            internals.render();
+
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toContain('日本語を読む');
+
+            internals.clearPrimaryTrack();
+
+            const asbRoot = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom')!;
+            expect(internals.selectedTrackId).toBe('');
+            expect(document.querySelector('.jpdb-subtitle-primary')).toBeNull();
+            expect(asbRoot.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(asbRoot.textContent?.replace(/\s+/g, '')).toBe('日本語を読む');
         } finally {
             controller.destroy();
         }
@@ -1999,7 +2119,7 @@ describe('SubtitlePlayerController', () => {
     it('uses visible word surface text for parsed subtitle karaoke timing', () => {
         const { controller } = createInstalledSubtitleController();
         try {
-            const subtitle = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const subtitle = document.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
             subtitle.innerHTML = `
                 <div class="jpdb-subtitle-primary">
                     <span class="jpdb-reader-word">読<rt>よ</rt>む</span><span class="jpdb-reader-word">今日</span>

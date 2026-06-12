@@ -781,6 +781,7 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.nextSubtitle', 'Next subtitle', settings.shortcuts.nextSubtitle)}
                     ${shortcutInput('shortcuts.copySubtitle', 'Copy subtitle', settings.shortcuts.copySubtitle)}
                     ${shortcutInput('shortcuts.toggleOcr', 'Toggle image reading', settings.shortcuts.toggleOcr)}
+                    ${shortcutInput('shortcuts.toggleSubtitleOverlay', 'Toggle subtitle overlay', settings.shortcuts.toggleSubtitleOverlay)}
                     ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
                     ${shortcutInput('shortcuts.massReviewVisible', 'Mass review visible words (Jiten)', settings.shortcuts.massReviewVisible)}
@@ -1644,6 +1645,7 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['shortcuts.nextSubtitle', 'nextSubtitle'],
     ['shortcuts.copySubtitle', 'copySubtitle'],
     ['shortcuts.toggleOcr', 'toggleImageReading'],
+    ['shortcuts.toggleSubtitleOverlay', 'toggleSubtitleOverlay'],
     ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
     ['shortcuts.scanImages', 'readImagesNow'],
     ['shortcuts.massReviewVisible', 'massReviewVisible'],

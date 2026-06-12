@@ -434,6 +434,7 @@ export interface ReaderSettings {
         nextSubtitle: string;
         copySubtitle: string;
         toggleOcr: string;
+        toggleSubtitleOverlay: string;
         toggleYoutubeImmersion: string;
         scanImages: string;
         massReviewVisible: string;

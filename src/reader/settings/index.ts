@@ -398,6 +398,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         nextSubtitle: 'Alt+ArrowRight',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
+        toggleSubtitleOverlay: 'Shift+H',
         toggleYoutubeImmersion: 'Alt+Y',
         scanImages: 'Alt+I',
         massReviewVisible: 'Alt+M',

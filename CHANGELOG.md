@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.174] - 2026-06-12
+
+### Added
+
+- Subtitle overlays can now be temporarily repositioned per video with a dedicated move handle, with keyboard nudging from the focused handle for deliberate adjustments.
+- Added a configurable subtitle-overlay shortcut, defaulting to Shift+H, to toggle Yomu/ASB-style subtitle lines without opening settings.
+
+### Fixed
+
+- Unsetting primary/secondary subtitle tracks now clears the current rendered Yomu/ASB-style subtitle line instead of leaving the previous line in the player.
+- Apple Pencil hover no longer rapidly opens and closes dictionary popovers over OCR/image-reader words; pen hover can scan, while lookup popovers require mouse hover or an explicit tap/click.
+- Native page ruby is preserved when a scanned word fully covers the ruby base text, avoiding split or duplicated furigana in annotated pages.
+- Kanji/Study companion features now degrade to no-op clients with a visible notice when the companion bundle is missing, instead of importing companion-only modules into the base runtime.
+
 ## [0.6.173] - 2026-06-12
 
 ### Fixed

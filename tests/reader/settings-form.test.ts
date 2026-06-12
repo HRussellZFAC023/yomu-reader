@@ -950,6 +950,7 @@ describe('settings form localization', () => {
         const pausePanel = form.querySelector<HTMLInputElement>('input[name="subtitlePausePanel"]')!;
         const previousWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousLookupWord"]')!;
         const nextWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextLookupWord"]')!;
+        const toggleSubtitles = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleSubtitleOverlay"]')!;
 
         expect(readerFontFamily.value).toBe(DEFAULT_SETTINGS.readerFontFamily);
         expect(fontFamily.value).toBe(DEFAULT_SETTINGS.popupFontFamily);
@@ -977,6 +978,8 @@ describe('settings form localization', () => {
         expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
         expect(previousWord.value).toBe('Alt+Shift+ArrowLeft');
         expect(nextWord.value).toBe('Alt+Shift+ArrowRight');
+        expect(DEFAULT_SETTINGS.shortcuts.toggleSubtitleOverlay).toBe('Shift+H');
+        expect(toggleSubtitles.value).toBe('Shift+H');
 
         readerFontFamily.value = CUSTOM_FONT_FAMILY_VALUE;
         customReaderFontFamily.value = '"Inter", system-ui, sans-serif';
@@ -988,6 +991,7 @@ describe('settings form localization', () => {
         pausePanel.checked = true;
         previousWord.value = 'Alt+H';
         nextWord.value = 'Alt+L';
+        toggleSubtitles.value = 'Ctrl+H';
 
         const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, subtitleTranscriptPlacement: 'bottom' });
 
@@ -999,6 +1003,7 @@ describe('settings form localization', () => {
         expect(saved.subtitleTranscriptPlacement).toBe('bottom');
         expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
         expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
+        expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
     });
 
     it('links proxy setup to the maintained Worker source instead of embedding stale code', () => {

@@ -773,6 +773,24 @@ function testSynchronousReaderApp(): { app: ReaderApp; restoreAnimationFrame: ()
     };
 }
 
+async function withKanjiStudyCompanionMissing<T>(callback: () => Promise<T>): Promise<T> {
+    const target = globalThis as typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
+    const previous = target.__yomuCompanions;
+    target.__yomuCompanions = {
+        ...(previous ?? {}),
+        kanjiStudy: undefined,
+    };
+    try {
+        return await callback();
+    } finally {
+        if (previous) {
+            target.__yomuCompanions = previous;
+        } else {
+            delete target.__yomuCompanions;
+        }
+    }
+}
+
 function testReaderAppWithPageScanner(html: string) {
     const app = new ReaderApp();
     const scanVisiblePage = vi.fn(async (_options?: { silent?: boolean }) => undefined);
@@ -13145,6 +13163,42 @@ describe('reader helpers', () => {
         } finally {
             vi.unstubAllGlobals();
         }
+    });
+
+    it('shows a Kanji/Study companion install notice in page-reader kanji drilldowns when the split library is missing', async () => {
+        await withKanjiStudyCompanionMissing(async () => {
+            const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+
+            try {
+                const internals = app as unknown as {
+                    settings: typeof DEFAULT_SETTINGS;
+                    showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                    parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+                };
+                internals.settings = {
+                    ...DEFAULT_SETTINGS,
+                    jpdbKanjiEnabled: true,
+                    localDictionariesEnabled: false,
+                    localDictionaryShowKanji: false,
+                    uchisenEnabled: false,
+                    rtkEnabled: true,
+                    kanjivgEnabled: true,
+                    kanjiOriginsEnabled: true,
+                    kanjiOriginGraphEnabled: true,
+                    similarKanjiWords: false,
+                };
+                internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+                await internals.showKanjiCard({ ...card, spelling: '漢字', reading: 'かんじ' }, '漢', '漢字です。');
+
+                expect(document.querySelector('.jpdb-reader-popover')?.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+            } finally {
+                restoreAnimationFrame();
+                vi.unstubAllGlobals();
+                app.destroy();
+                document.body.replaceChildren();
+            }
+        });
     });
 
     it('keeps kanji dive back navigation inside the kanji stack before returning to the word', async () => {

@@ -2767,7 +2767,9 @@
       trackStatusLoading: "loading",
       trackStatusWaiting: "waiting for captions",
       trackStatusFailed: "failed",
+      moveSubtitles: "Move subtitles",
       toggleImageReading: "Toggle image reading",
+      toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
@@ -2896,6 +2898,7 @@
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
+      kanjiStudyCompanionMissing: "Install or update the Yomu Kanji/Study companion to show JPDB, RTK, stroke order, and origin details.",
       originStructure: "Component graph",
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
@@ -3000,6 +3003,8 @@
       parsedFrom: "Parsed from",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      subtitleOverlayEnabled: "Subtitle overlay enabled.",
+      subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
@@ -3463,6 +3468,7 @@ textTrace	筆順ガイド
 hideTrace	ガイドを隠す
 showTrace	ガイドを表示
 clear	クリア
+kanjiStudyCompanionMissing	Yomu Kanji/Studyコンパニオンをインストールまたは更新すると、JPDB、RTK、筆順、由来情報を表示できます。
 originStructure	部品グラフ
 originMapLabel	2D漢字由来・部品マップ
 originShowSubcomponents	下位部品
@@ -3560,6 +3566,8 @@ selection	選択範囲
 parsedFrom	解析元
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
+subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
@@ -3938,6 +3946,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
+moveSubtitles	字幕を移動
 right	右
 left	左
 bottom	下
@@ -4092,6 +4101,7 @@ previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
+toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
