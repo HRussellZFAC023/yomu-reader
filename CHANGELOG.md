@@ -1,11 +1,27 @@
 # Changelog
 
+## [0.6.173] - 2026-06-12
+
+### Fixed
+
+- The extension-only "Set Study as the new tab" toggle no longer drags the boot module into the settings form (an import cycle that broke runtime detection in 0.6.172); the runtime probe lives in its own dependency-free module and the toggle labels are localized (en/ja).
+
 ## [0.6.172] - 2026-06-12
 
 ### Fixed
 
 - Image OCR now starts on large image-reader surfaces even when the page has no Japanese DOM text, covering image feeds and manga/gallery viewers rather than only standalone image documents.
 - OCR overlays now refresh when an inner scrolling container moves, so image-feed pages that keep `window.scrollY` fixed still keep text regions aligned.
+
+## [0.6.172] - 2026-06-12
+
+### Fixed
+
+- Disappearing/clipped text on YouTube (feed titles ending in bare "…", channel rows clipping mid-glyph, comment bodies vanishing, end-screen tiles): hosts that hydrate progressively apply their line-clamp/ellipsis styles after Yomu annotated the text, and rescans never revisit already-annotated words — so the grown furigana line stayed and the crop swallowed the base text. A clamp sweep now runs after every scan (and again once hydration settles) and strips ruby from rows that became layout-sensitive, keeping the colors and lookups. Verified end-to-end with a Playwright reproduction of the late-clamp race.
+
+### Changed
+
+- "Set Study as the new tab" is back as a real toggle in extension builds (extensions can override the new tab); userscript installs keep the guidance text instead of a checkbox that can't work.
 
 ## [0.6.171] - 2026-06-12
 

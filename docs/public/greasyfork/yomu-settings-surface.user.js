@@ -2541,7 +2541,7 @@
       diagnosticsHelp: "Print diagnostics to the console.",
       accentColor: "Accent color",
       newTab: "Study",
-      newTabEnabled: "Enable Yomu study page",
+      newTabEnabled: "Set Study as the new tab",
       newTabAnkiEnabled: "Use Anki cards in Study",
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
@@ -4021,7 +4021,7 @@ diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	学習
-newTabEnabled	よむの学習ページを有効にする
+newTabEnabled	学習ページを新しいタブに設定
 newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
@@ -5556,6 +5556,14 @@ recommendedJiten	jiten.moe頻度データです。
     const ratio = Math.max(0, Math.min(1, height / viewportHeight));
     gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
   }
+  function runningAsBrowserExtension() {
+    const global = globalThis;
+    try {
+      return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+    } catch {
+      return false;
+    }
+  }
   function externalLinkIcon() {
     return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M7 17 17 7"></path>
@@ -5995,9 +6003,10 @@ recommendedJiten	jiten.moe頻度データです。
   function readNewTabFormSettings(reader, current) {
     const { get, has, clamped } = reader;
     return {
-      // UT-74: no form control anymore (userscripts can't override the
-      // browser new tab) — preserve the stored value instead of wiping it.
-      newTabEnabled: current.newTabEnabled,
+      // UT-74: the control only renders in extension builds (userscripts
+      // can't override the browser new tab) — read it there, preserve the
+      // stored value everywhere else.
+      newTabEnabled: runningAsBrowserExtension() ? has("newTabEnabled") : current.newTabEnabled,
       newTabAnkiEnabled: has("newTabAnkiEnabled"),
       newTabAnkiDisabledDecks: get("newTabAnkiDisabledDecks").split(",").map((deck) => deck.trim()).filter(Boolean),
       newTabSource: readOption(get("newTabSource"), ["auto", "jpdb", "anki", "dictionary"], current.newTabSource),
@@ -7517,6 +7526,7 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
+                        ${runningAsBrowserExtension() ? checkbox("newTabEnabled", "Set Study as the new tab", settings.newTabEnabled) : ""}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}

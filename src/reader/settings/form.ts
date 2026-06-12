@@ -1,6 +1,7 @@
 import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, resolveUiLanguage, uiText } from '../app/i18n';
+import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
 import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
@@ -280,6 +281,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Study</div>
                     <div class="grid">
+                        ${runningAsBrowserExtension() ? checkbox('newTabEnabled', 'Set Study as the new tab', settings.newTabEnabled) : ''}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
                         ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}

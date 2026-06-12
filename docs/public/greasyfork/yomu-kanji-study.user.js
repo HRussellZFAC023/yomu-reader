@@ -2224,7 +2224,7 @@
       diagnosticsHelp: "Print diagnostics to the console.",
       accentColor: "Accent color",
       newTab: "Study",
-      newTabEnabled: "Enable Yomu study page",
+      newTabEnabled: "Set Study as the new tab",
       newTabAnkiEnabled: "Use Anki cards in Study",
       newTabAnkiReviewDecks: "Anki review decks",
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
@@ -3704,7 +3704,7 @@ diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	学習
-newTabEnabled	よむの学習ページを有効にする
+newTabEnabled	学習ページを新しいタブに設定
 newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。

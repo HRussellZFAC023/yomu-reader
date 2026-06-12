@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, type ScanTextTarget } from '../dom/index';
+import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, stripRubyInClampedRows, type ScanTextTarget } from '../dom/index';
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
@@ -14,6 +14,7 @@ const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6_000;
 // small chunks made ruby/colors arrive in visible waves.
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
 interface VisibleScanParseOptions {
@@ -65,6 +66,7 @@ export class VisiblePageScanner {
     private scanGeneration = 0;
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
+    private clampSweepTimer: number | undefined;
 
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
@@ -73,6 +75,8 @@ export class VisiblePageScanner {
         this.scanPending = false;
         window.clearTimeout(this.asbDrainTimer);
         this.asbDrainTimer = undefined;
+        window.clearTimeout(this.clampSweepTimer);
+        this.clampSweepTimer = undefined;
     }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
@@ -87,8 +91,26 @@ export class VisiblePageScanner {
             this.handleVisiblePageScanError(error, silent);
         } finally {
             this.finishScan();
+            this.scheduleClampedRubySweep();
             done();
         }
+    }
+
+    // UT-70: hosts that hydrate progressively (YouTube custom elements,
+    // notably on iPad Safari) apply line-clamp/ellipsis styles AFTER a scan
+    // annotated their text — the grown ruby line then gets cropped and the
+    // base text disappears. Sweep right after the scan and once more after
+    // hydration settles; rescans re-arm it, so late clamps are always caught.
+    private scheduleClampedRubySweep(): void {
+        if (this.destroyed || typeof document === 'undefined') return;
+        const sweep = (): void => {
+            if (this.destroyed) return;
+            const stripped = stripRubyInClampedRows(document);
+            if (stripped) log.info('Stripped ruby from late-clamped rows', { stripped });
+        };
+        sweep();
+        window.clearTimeout(this.clampSweepTimer);
+        this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
     }
 
     // asbplayer pre-renders the WHOLE track's cue HTML into its offscreen
