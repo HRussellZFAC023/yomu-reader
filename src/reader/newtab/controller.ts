@@ -1,4 +1,12 @@
 import { filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards, type BrowseFilter, type BrowseSortKey } from './browse-view';
+import {
+    renderSearchKanjiResults,
+    renderSearchWordResults,
+    searchCardStateLabel,
+    searchWordSummaryMeta,
+    type NewTabSearchKanjiResult,
+    type NewTabSearchViewContext,
+} from './search-view';
 import { primaryCardState } from '../cards/state';
 import { copyText } from '../ui/browser';
 import type { CardRenderData } from '../cards/render-data';
@@ -160,7 +168,6 @@ import {
     normalizeSearchQuery,
     preferMultiCharacterVocabulary,
     queryHasJapanese,
-    searchKanjiInlineWordMeta,
     searchSuggestionFromCard,
     searchWordResultOrder,
     newTabDueSummary,
@@ -169,7 +176,6 @@ import {
 } from './card-selection';
 import {
     ankiCardKindLabel,
-    ankiReviewSourceLabel,
     isJitenSrsCard,
     isPositiveJpdbCard,
     isReviewSource,
@@ -263,7 +269,6 @@ import {
     NEW_TAB_STUDY_INTERACTIVE_SELECTOR,
     NEW_TAB_WORD_LIMIT,
     NEW_TAB_WORD_STATE_CLASSES,
-    SEARCH_CARD_STATE_LABEL_KEYS,
     SESSION_WORD_KEY,
 } from './controller-config';
 import {
@@ -328,11 +333,6 @@ function newTabShortParseOptions(): NewTabParseContentOptions {
 
 function shouldCacheParsedNewTabSentenceTokens(tokens: JPDBToken[]): boolean {
     return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
-}
-
-function searchCardStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
-    const key = SEARCH_CARD_STATE_LABEL_KEYS[state];
-    return key ? uiText(language, key) : state.replace(/-/g, ' ');
 }
 
 export interface NewTabControllerDependencies {
@@ -557,14 +557,6 @@ interface NewTabSearchResults {
     kanji: NewTabSearchKanjiResult[];
     suggestions: NewTabSearchSuggestion[];
     hasLocalDictionaries: boolean;
-}
-
-interface NewTabSearchKanjiResult {
-    character: string;
-    keyword: string;
-    readings: string[];
-    meanings: string[];
-    words: JPDBCard[];
 }
 
 interface NewTabSearchWordDetail {
@@ -6783,8 +6775,8 @@ export class NewTabController {
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
             this.renderExternalSearchLinks(results.query, !results.hasLocalDictionaries || resultCount === 0),
-            results.kanji.length ? this.renderSearchKanjiResults(results.kanji) : null,
-            results.words.length ? this.renderSearchWordResults(results.words) : null,
+            results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
+            results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
             resultCount ? null : this.renderSearchNoResults(results),
         );
         void this.enrichSearchWordStatusRows(root, results, this.searchGeneration);
@@ -6804,7 +6796,7 @@ export class NewTabController {
 
     private updateSearchWordStatusRow(root: HTMLElement, card: JPDBCard, ankiLookup: CardRenderData['ankiLookup']): void {
         const key = cardKey(card);
-        const meta = this.searchWordSummaryMeta(card, ankiLookup).join(' · ');
+        const meta = searchWordSummaryMeta(card, this.searchViewContext(), ankiLookup).join(' · ');
         root.querySelectorAll<HTMLElement>('[data-search-word-meta]').forEach(element => {
             if (element.dataset.searchWordMeta !== key) return;
             element.hidden = !meta;
@@ -6844,81 +6836,11 @@ export class NewTabController {
             : null;
     }
 
-    private renderSearchWordResults(cards: JPDBCard[]): HTMLElement {
-        return el('section', { class: 'jpdb-reader-newtab-search-section' },
-            el('h2', {}, this.text('words')),
-            el('div', { class: 'jpdb-reader-newtab-search-list' },
-                cards.map(card => this.renderSearchWordResult(card)),
-            ),
-        );
-    }
-
-    private renderSearchWordResult(card: JPDBCard): HTMLElement {
-        const meaning = firstCardMeaning(card);
-        const meta = this.searchWordSummaryMeta(card).join(' · ');
-        return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
-            el('button', {
-                type: 'button',
-                class: 'jpdb-reader-newtab-search-card jpdb-reader-newtab-search-word',
-                dataset: { newtabAction: 'search-result-word', newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
-                'aria-expanded': 'false',
-            },
-            el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' }, card.spelling),
-            el('span', { class: 'jpdb-reader-newtab-search-meta', dataset: { searchWordMeta: cardKey(card) }, hidden: !meta }, meta),
-            meaning ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, meaning) : null),
-            el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
-        );
-    }
-
-    private searchWordSummaryMeta(card: JPDBCard, ankiLookup?: CardRenderData['ankiLookup']): string[] {
-        return [
-            newTabCardOptionalReading(card),
-            this.searchWordPooledStatusLabel(card, ankiLookup),
-            card.frequencyRank ? `#${card.frequencyRank}` : '',
-        ].filter(Boolean);
-    }
-
-    private searchWordPooledStatusLabel(card: JPDBCard, ankiLookup?: CardRenderData['ankiLookup']): string {
-        const language = this.language();
-        if (card.source === 'local') return uiText(language, 'dictionary');
-        if (card.source === 'anki' || card.reviewSource === 'anki') {
-            const state = primaryCardState(card.cardState);
-            const label = ankiReviewSourceLabel(card, language);
-            return state === 'known' ? label : `${label} ${searchCardStateLabel(state, language)}`;
-        }
-        if (ankiLookup?.primary) return `Anki ${searchCardStateLabel(ankiLookup.state, language)}`;
-        const state = primaryCardState(card.cardState);
-        return state === 'not-in-deck' ? '' : searchCardStateLabel(state, language);
-    }
-
-    private renderSearchKanjiResults(results: NewTabSearchKanjiResult[]): HTMLElement {
-        return el('section', { class: 'jpdb-reader-newtab-search-section' },
-            el('h2', {}, this.text('kanji')),
-            el('div', { class: 'jpdb-reader-newtab-search-kanji-grid' },
-                results.map(result => this.renderSearchKanjiResult(result)),
-            ),
-        );
-    }
-
-    private renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
-        const detail = [
-            result.keyword,
-            result.meanings.filter(meaning => meaning !== result.keyword).slice(0, 2).join(', '),
-            result.readings.slice(0, 3).join(' · '),
-        ].filter(Boolean).join(' · ');
-        const words = searchKanjiInlineWordMeta(result.words);
-        return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
-            el('button', {
-                type: 'button',
-                class: 'jpdb-reader-newtab-search-card jpdb-reader-newtab-search-kanji-card',
-                dataset: { newtabAction: 'search-result-kanji', kanji: result.character },
-                'aria-expanded': 'false',
-            },
-            el('span', { class: 'jpdb-reader-newtab-search-kanji-char', lang: 'ja' }, result.character),
-            detail ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, detail) : null,
-            words ? el('span', { class: 'jpdb-reader-newtab-search-meta', lang: 'ja' }, words) : null),
-            el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
-        );
+    private searchViewContext(): NewTabSearchViewContext {
+        return {
+            language: this.language(),
+            text: key => this.text(key),
+        };
     }
 
     private renderSearchNoResults(results: NewTabSearchResults): HTMLElement {
