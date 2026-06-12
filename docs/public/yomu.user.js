@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.128
+// @version      0.6.129
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NIYjIPXcNb2kr+uDTT3NS53GuqYERVuFg73twBvSXMg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ZCG01XMYy+EGGAVgDPr0RJBL69/bgf7PIbCFkul6lvI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-IhecWlZR+Q9o1tgVXzE87HkXyhCvWGF+MAYX3E1LS0I=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-CT5fizihAISUFvI/SgAfsP9hP8/LhMJK2fGpfXTvhAs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-UDiZ5aYm2lcFa5S5B9Qg+zoNAVlUpuRw0v47kvJBTxw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RYo6LzBD5VADmkg3a0ymyMonwfd3eM3UGK0VXlo954U=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2029,6 +2029,7 @@
     newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
+    newTabDailyGoalMinutes: 60,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -2307,6 +2308,7 @@
       newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5444,6 +5446,7 @@
       newTabKanjiAutoSubmit: "Auto-submit kanji grade",
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
+      newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -6899,6 +6902,7 @@ newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
+newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -19730,6 +19734,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsKnown: "Known",
       sessionDone: "Done",
       sessionLeft: "Left",
+      dailyGoalUnit: "min",
+      dailyGoalReached: "Goal reached",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -19862,6 +19868,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsKnown: "既知",
     sessionDone: "完了",
     sessionLeft: "残り",
+    dailyGoalUnit: "分",
+    dailyGoalReached: "目標達成",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",

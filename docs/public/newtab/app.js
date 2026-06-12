@@ -3411,6 +3411,7 @@
     newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
+    newTabDailyGoalMinutes: 60,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -3692,6 +3693,7 @@
       newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber$3(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabDailyGoalMinutes: clampNumber$3(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -5671,6 +5673,7 @@
       newTabKanjiAutoSubmit: "Auto-submit kanji grade",
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
+      newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -7126,6 +7129,7 @@ newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
+newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -19713,6 +19717,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       newTabFrontSentenceEnabled: has("newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: has("newTabOfflineEnabled"),
       newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
+      newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -21276,6 +21281,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
                         ${checkbox("newTabOfflineEnabled", "Cache Study for offline use", settings.newTabOfflineEnabled)}
                         ${input("newTabOfflineLimit", "Offline review cache limit", String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
+                        ${input("newTabDailyGoalMinutes", "Daily study goal (minutes, 0 = off)", String(settings.newTabDailyGoalMinutes), "number", { min: 0, max: 1440, step: 5 })}
                         <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml$1(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
@@ -22412,6 +22418,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "newTabKanjiAutoSubmit",
     "newTabOfflineEnabled",
     "newTabOfflineLimit",
+    "newTabDailyGoalMinutes",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",
@@ -39413,6 +39420,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsKnown: "Known",
       sessionDone: "Done",
       sessionLeft: "Left",
+      dailyGoalUnit: "min",
+      dailyGoalReached: "Goal reached",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
       drawKanji: "Draw kanji",
@@ -39545,6 +39554,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsKnown: "既知",
     sessionDone: "完了",
     sessionLeft: "残り",
+    dailyGoalUnit: "分",
+    dailyGoalReached: "目標達成",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
     drawKanji: "漢字を書く",
@@ -51530,6 +51541,43 @@ ${newTabCardReading(card)}`;
   function padStopwatchPart(value) {
     return String(value).padStart(2, "0");
   }
+  const NEW_TAB_DAILY_STUDY_TIME_KEY = "jpdb-reader-newtab-daily-study-time";
+  function newTabDailyStudyTimeMs(today) {
+    const stored = readNewTabDailyStudyTime();
+    return stored && stored.date === today ? stored.ms : 0;
+  }
+  function addNewTabDailyStudyTimeMs(deltaMs, today) {
+    const ms = Math.max(0, newTabDailyStudyTimeMs(today) + Math.max(0, deltaMs));
+    writeNewTabDailyStudyTime({ date: today, ms });
+    return ms;
+  }
+  function formatNewTabDailyGoalLabel(studiedMs, goalMinutes, labels) {
+    if (!(goalMinutes > 0)) return "";
+    const minutes = Math.floor(studiedMs / 6e4);
+    const base = `${Math.min(minutes, 9999)}/${goalMinutes} ${labels.unit}`;
+    return minutes >= goalMinutes ? `${base} ✓ ${labels.reached}` : base;
+  }
+  function readNewTabDailyStudyTime() {
+    try {
+      const raw = localStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return typeof parsed?.date === "string" && Number.isFinite(parsed?.ms) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function writeNewTabDailyStudyTime(value) {
+    try {
+      localStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
+    } catch {
+    }
+  }
+  function newTabLocalDateKey(now = /* @__PURE__ */ new Date()) {
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
   const NEW_TAB_WORD_STATE_CLASSES = [
     "new",
     "learning",
@@ -52690,6 +52738,7 @@ ${newTabCardReading(card)}`;
     reviewCountMode = false;
     reviewHistoryCards = [];
     sessionProgress = new NewTabSessionProgressTracker();
+    sessionClockTimer;
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
     deckSelectorDecks;
@@ -52807,6 +52856,7 @@ ${newTabCardReading(card)}`;
       return isNew || !root.querySelector("[data-newtab-study]") || root.dataset.newtabLanguage !== this.resolvedLanguage() || root.dataset.standaloneNewtab === "true";
     }
     destroy() {
+      this.stopSessionClock();
       this.stateChannel.close();
       this.unsubscribeJpdbBridge();
       this.rootEventController?.abort();
@@ -55070,13 +55120,47 @@ ${newTabCardReading(card)}`;
           completed: this.text("sessionDone"),
           left: this.text("sessionLeft"),
           due: this.text("statsDue")
-        }) : ""
+        }) : this.sessionElapsedLabel(),
+        this.dailyGoalLabel()
       ].filter(Boolean);
+      this.ensureSessionClock();
       if (!labels.length) {
         this.renderCount(slots.count, "", null);
         return;
       }
       this.renderCount(slots.count, labels.join(" · "), snapshot);
+    }
+    // The session stopwatch was previously only stamped at render time, so it
+    // looked frozen (user-reported "session timer missing"); a 1s clock keeps
+    // it ticking and accumulates visible-tab time into the daily goal.
+    sessionElapsedLabel() {
+      return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
+    }
+    dailyGoalLabel() {
+      const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;
+      if (!(goal > 0)) return "";
+      return formatNewTabDailyGoalLabel(newTabDailyStudyTimeMs(newTabLocalDateKey()), goal, {
+        unit: this.text("dailyGoalUnit"),
+        reached: this.text("dailyGoalReached")
+      });
+    }
+    ensureSessionClock() {
+      if (this.sessionClockTimer !== void 0 || typeof window === "undefined") return;
+      this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1e3);
+    }
+    stopSessionClock() {
+      if (this.sessionClockTimer === void 0) return;
+      window.clearInterval(this.sessionClockTimer);
+      this.sessionClockTimer = void 0;
+    }
+    tickSessionClock() {
+      if (document.hidden) return;
+      addNewTabDailyStudyTimeMs(1e3, newTabLocalDateKey());
+      if (this.state.mode !== "word") return;
+      const root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
+      const card = this.visibleWords[this.index];
+      if (!root || !card) return;
+      this.renderSessionProgress(this.studySlots(root), card);
     }
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
     // count of unseen items — only shown when it adds information beyond the

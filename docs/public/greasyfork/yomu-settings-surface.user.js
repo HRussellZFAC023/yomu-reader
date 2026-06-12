@@ -1426,6 +1426,7 @@
     newTabFrontSentenceEnabled: true,
     newTabOfflineEnabled: true,
     newTabOfflineLimit: 50,
+    newTabDailyGoalMinutes: 60,
     newTabKanjiAutogradeEnabled: true,
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
@@ -1707,6 +1708,7 @@
       newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
       newTabOfflineLimit: clampNumber$1(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+      newTabDailyGoalMinutes: clampNumber$1(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
       newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit")
     };
@@ -2530,6 +2532,7 @@
       newTabKanjiAutoSubmit: "Auto-submit kanji grade",
       newTabOfflineEnabled: "Cache Study for offline use",
       newTabOfflineLimit: "Offline review cache limit",
+      newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Saves recent reviews for offline study.",
       newTabJpdbDeck: "Study JPDB deck",
@@ -3966,6 +3969,7 @@ newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
+newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	最近の復習をオフライン用に保存します。
 newTabJpdbDeck	学習のJPDBデッキ
@@ -5887,6 +5891,7 @@ recommendedJiten	jiten.moe頻度データです。
       newTabFrontSentenceEnabled: has("newTabFrontSentenceEnabled"),
       newTabOfflineEnabled: has("newTabOfflineEnabled"),
       newTabOfflineLimit: clamped("newTabOfflineLimit", 0, 500, current.newTabOfflineLimit),
+      newTabDailyGoalMinutes: clamped("newTabDailyGoalMinutes", 0, 1440, current.newTabDailyGoalMinutes),
       newTabKanjiAutogradeEnabled: has("newTabKanjiAutogradeEnabled"),
       newTabKanjiAutoSubmit: has("newTabKanjiAutoSubmit")
     };
@@ -7384,6 +7389,7 @@ recommendedJiten	jiten.moe頻度データです。
                         ${checkbox("newTabKanjiAutoSubmit", "Submit kanji grade after autograde", settings.newTabKanjiAutoSubmit)}
                         ${checkbox("newTabOfflineEnabled", "Cache Study for offline use", settings.newTabOfflineEnabled)}
                         ${input("newTabOfflineLimit", "Offline review cache limit", String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
+                        ${input("newTabDailyGoalMinutes", "Daily study goal (minutes, 0 = off)", String(settings.newTabDailyGoalMinutes), "number", { min: 0, max: 1440, step: 5 })}
                         <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
@@ -8520,6 +8526,7 @@ recommendedJiten	jiten.moe頻度データです。
     "newTabKanjiAutoSubmit",
     "newTabOfflineEnabled",
     "newTabOfflineLimit",
+    "newTabDailyGoalMinutes",
     "newTabUrl",
     "wordColorNew",
     "wordColorLearning",

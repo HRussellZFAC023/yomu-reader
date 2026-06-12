@@ -183,7 +183,12 @@ import {
     type QueuedNewTabGradeTarget,
 } from './review-targets';
 import {
+    addNewTabDailyStudyTimeMs,
+    formatNewTabDailyGoalLabel,
+    formatNewTabSessionElapsed,
     formatNewTabSessionProgressLabel,
+    newTabDailyStudyTimeMs,
+    newTabLocalDateKey,
     newTabSessionProgressRatio,
     NewTabSessionProgressTracker,
     type NewTabSessionProgressSnapshot,
@@ -618,6 +623,7 @@ export class NewTabController {
     private reviewCountMode = false;
     private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionProgress = new NewTabSessionProgressTracker();
+    private sessionClockTimer?: number;
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private fallbackStudyNotice = false;
     private deckSelectorDecks?: { key: string; promise: Promise<JPDBDeck[]> };
@@ -757,6 +763,7 @@ export class NewTabController {
     }
 
     destroy(): void {
+        this.stopSessionClock();
         this.stateChannel.close();
         this.unsubscribeJpdbBridge();
         this.rootEventController?.abort();
@@ -3372,13 +3379,52 @@ export class NewTabController {
                 completed: this.text('sessionDone'),
                 left: this.text('sessionLeft'),
                 due: this.text('statsDue'),
-            }) : '',
+            }) : this.sessionElapsedLabel(),
+            this.dailyGoalLabel(),
         ].filter(Boolean);
+        this.ensureSessionClock();
         if (!labels.length) {
             this.renderCount(slots.count, '', null);
             return;
         }
         this.renderCount(slots.count, labels.join(' · '), snapshot);
+    }
+
+    // The session stopwatch was previously only stamped at render time, so it
+    // looked frozen (user-reported "session timer missing"); a 1s clock keeps
+    // it ticking and accumulates visible-tab time into the daily goal.
+    private sessionElapsedLabel(): string {
+        return formatNewTabSessionElapsed(this.sessionProgress.snapshot([]).elapsedMs);
+    }
+
+    private dailyGoalLabel(): string {
+        const goal = this.dependencies.getSettings().newTabDailyGoalMinutes;
+        if (!(goal > 0)) return '';
+        return formatNewTabDailyGoalLabel(newTabDailyStudyTimeMs(newTabLocalDateKey()), goal, {
+            unit: this.text('dailyGoalUnit'),
+            reached: this.text('dailyGoalReached'),
+        });
+    }
+
+    private ensureSessionClock(): void {
+        if (this.sessionClockTimer !== undefined || typeof window === 'undefined') return;
+        this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1000);
+    }
+
+    private stopSessionClock(): void {
+        if (this.sessionClockTimer === undefined) return;
+        window.clearInterval(this.sessionClockTimer);
+        this.sessionClockTimer = undefined;
+    }
+
+    private tickSessionClock(): void {
+        if (document.hidden) return;
+        addNewTabDailyStudyTimeMs(1000, newTabLocalDateKey());
+        if (this.state.mode !== 'word') return;
+        const root = document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
+        const card = this.visibleWords[this.index];
+        if (!root || !card) return;
+        this.renderSessionProgress(this.studySlots(root), card);
     }
 
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
