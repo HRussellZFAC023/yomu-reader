@@ -43,6 +43,14 @@ const CHANNEL_LISTING_CONTENT_SELECTOR = 'ytd-channel-renderer,ytd-grid-channel-
 
 const SHORTS_WATCH_ITEM_SELECTOR = 'ytd-shorts,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2';
 
+// Community posts surfaced in feeds (home/subscriptions). Captured live
+// 2026-06-12: desktop posts carry their text in
+// yt-formatted-string#content-text; mweb posts in
+// div.ytmBackstagePostRendererHostContentText, whose truncated-text contains
+// a 続きを読む button that must NOT count as Japanese content.
+const COMMUNITY_POST_SELECTOR = 'ytd-post-renderer,ytd-backstage-post-thread-renderer,ytm-backstage-post-thread-renderer,ytm-post-renderer,ytm-backstage-post-renderer';
+const COMMUNITY_POST_TEXT_SELECTOR = '#content-text,[class*="BackstagePostRendererHostContentText"]';
+
 const TITLE_SELECTORS = [
     '#video-title',
     'a#video-title',
@@ -359,6 +367,14 @@ export class YoutubeImmersionFilter {
 
     private filterCandidateForCard(card: HTMLElement): YouTubeFilterCandidate {
         if (isYouTubeAlwaysHiddenItem(card)) return hiddenYouTubeFilterCandidate(card);
+        const postText = youTubeCommunityPostText(card);
+        if (postText !== null) {
+            // Posts classify on their own content text; the card textContent
+            // fallback would see Japanese UI chrome (時間前, 続きを読む) and
+            // keep every post visible. Text-less posts (image/poll only)
+            // surface an empty title and are skipped, not hidden.
+            return visibleYouTubeFilterCandidate({ card, title: postText, videoId: '' }, postText);
+        }
         const info = readYouTubeCardInfo(card);
         return visibleYouTubeFilterCandidate(info, this.resolveTitleForFiltering(info));
     }
@@ -1739,7 +1755,36 @@ function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
         const normalized = normalizeYouTubeFilterItem(element);
         if (normalized) items.add(normalized);
     });
+    collectYouTubeCommunityPosts(root).forEach(item => items.add(item));
     return [...items].filter(item => item.isConnected);
+}
+
+// Feed community posts are filterable; a channel's own posts page is a
+// deliberate destination (filtering there blanks the page the user chose).
+function collectYouTubeCommunityPosts(root: ParentNode = document): HTMLElement[] {
+    if (isYouTubeChannelPostsPage()) return [];
+    return Array.from(root.querySelectorAll<HTMLElement>(COMMUNITY_POST_SELECTOR))
+        .map(post => post.closest<HTMLElement>('ytd-rich-item-renderer,ytm-rich-item-renderer')
+            ?? post.closest<HTMLElement>('ytd-backstage-post-thread-renderer,ytm-backstage-post-thread-renderer,ytd-post-renderer,ytm-post-renderer')
+            ?? post)
+        .filter(item => item.isConnected);
+}
+
+function isYouTubeChannelPostsPage(): boolean {
+    const path = location.pathname;
+    return /\/(?:posts|community)\/?$/u.test(path) || path.startsWith('/post/');
+}
+
+function youTubeCommunityPostText(card: HTMLElement): string | null {
+    const post = card.matches(COMMUNITY_POST_SELECTOR) ? card : card.querySelector<HTMLElement>(COMMUNITY_POST_SELECTOR);
+    if (!post) return null;
+    const textEl = post.querySelector<HTMLElement>(COMMUNITY_POST_TEXT_SELECTOR);
+    if (!textEl) return '';
+    const clone = textEl.cloneNode(true) as HTMLElement;
+    // "Read more" buttons (続きを読む on mweb) live inside the text container
+    // and would register as Japanese content.
+    clone.querySelectorAll('button').forEach(button => button.remove());
+    return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
 function collectFilterableVideoShelves(root: ParentNode = document): HTMLElement[] {

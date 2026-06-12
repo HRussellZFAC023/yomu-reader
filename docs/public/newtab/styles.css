@@ -14087,8 +14087,20 @@ html[dark] .jpdb-youtube-channel-shelf,
     white-space: nowrap;
 }
 
+/* Parsing the description turns its newlines into <br> elements, which
+   escape a nowrap-ellipsis clamp and flash the full multi-line bio into the
+   row (user-reported). A line-clamp box stays one line regardless. */
 .jpdb-youtube-channel-description {
+    display: -webkit-box;
     margin-top: 2px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    white-space: normal;
+}
+
+.jpdb-youtube-channel-description br {
+    display: none;
 }
 
 .jpdb-youtube-channel-tags {

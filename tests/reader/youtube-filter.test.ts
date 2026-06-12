@@ -929,6 +929,60 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('filters non-Japanese community posts in the feed by their post text', async () => {
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-item-renderer data-case="post-en">
+                    <ytd-post-renderer><yt-formatted-string id="content-text">Mexico have beaten South Africa 2-0 to win the opening game.</yt-formatted-string></ytd-post-renderer>
+                </ytd-rich-item-renderer>
+                <ytd-rich-item-renderer data-case="post-ja">
+                    <ytd-post-renderer><yt-formatted-string id="content-text">新しい動画を公開しました！見てね</yt-formatted-string></ytd-post-renderer>
+                </ytd-rich-item-renderer>
+                <ytm-backstage-post-thread-renderer data-case="post-mweb-en">
+                    <ytm-backstage-post-renderer>
+                        <div class="ytmBackstagePostRendererHostContentText">A backlash is growing in Japan over the use of popular anime <button>...続きを読む</button></div>
+                    </ytm-backstage-post-renderer>
+                </ytm-backstage-post-thread-renderer>
+                <ytd-rich-item-renderer data-case="post-imageonly">
+                    <ytd-post-renderer></ytd-post-renderer>
+                </ytd-rich-item-renderer>
+            </main>
+        `;
+        const { filter } = await startYoutubeFilter({ oEmbedTitles: {} });
+
+        expect(card('post-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(card('post-ja').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        // The mweb "read more" button text (続きを読む) must not count as
+        // Japanese post content.
+        expect(card('post-mweb-en').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        // Image/poll-only posts have no text to judge: leave them visible.
+        expect(card('post-imageonly').classList.contains('jpdb-youtube-filtered')).toBe(false);
+
+        filter.destroy();
+    });
+
+    it('leaves a channel own posts page unfiltered', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/@BBCNews/posts',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/@BBCNews/posts',
+            search: '',
+        });
+        document.body.innerHTML = `
+            <main>
+                <ytd-backstage-post-thread-renderer data-case="own-page-post">
+                    <ytd-backstage-post-renderer><yt-formatted-string id="content-text">An English-only update post.</yt-formatted-string></ytd-backstage-post-renderer>
+                </ytd-backstage-post-thread-renderer>
+            </main>
+        `;
+        const { filter } = await startYoutubeFilter({ oEmbedTitles: {} });
+
+        expect(card('own-page-post').classList.contains('jpdb-youtube-filtered')).toBe(false);
+
+        filter.destroy();
+    });
+
     it('compensates the scroll position when a card above the viewport collapses (iOS has no scroll anchoring)', async () => {
         renderYouTubeCards();
         const englishCard = card('english');
