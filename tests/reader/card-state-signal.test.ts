@@ -76,6 +76,31 @@ describe('card state signal bus', () => {
         unsubscribe();
     });
 
+    it('carries provider deck metadata for cross-tab rendered-word styling', () => {
+        const { listeners } = stubGmValueChange();
+        const received: JPDBCard[] = [];
+        const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
+        const listener = [...listeners.values()][0]!;
+
+        listener('yomu:card-state-signal', undefined, signalValue('decked', {
+            source: 'jiten',
+            deckNames: ['Yomu E2E Seed'],
+            sourceDeckName: 'Yomu E2E Seed',
+            jpdbDeckMembership: 'Part of the Yomu E2E Seed deck',
+            ankiDeckNames: ['Mining'],
+        }), true);
+
+        expect(received[0]).toMatchObject({
+            source: 'jiten',
+            deckNames: ['Yomu E2E Seed'],
+            sourceDeckName: 'Yomu E2E Seed',
+            jpdbDeckMembership: 'Part of the Yomu E2E Seed deck',
+            ankiDeckNames: ['Mining'],
+        });
+
+        unsubscribe();
+    });
+
     it('removes the GM listener on unsubscribe and survives publishing without GM storage', () => {
         const { listeners, removed } = stubGmValueChange();
         const unsubscribe = subscribeToCardStateSignals(() => undefined);

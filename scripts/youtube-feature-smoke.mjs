@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from './lib/smoke-harness.mjs';
@@ -7,8 +7,9 @@ import { dragTranscriptResizeHandle } from './lib/subtitle-layout-test-utils.mjs
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
+const DEFAULT_COMPANION_DIR = existsSync(resolve('dist/greasyfork')) ? 'dist/greasyfork' : 'docs/public/greasyfork';
 const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
-    .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? 'dist/greasyfork', name));
+    .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? DEFAULT_COMPANION_DIR, name));
 const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -17,6 +18,7 @@ const HOME_URL = 'https://www.youtube.com/';
 const MOBILE_HOME_URL = 'https://m.youtube.com/';
 const SHORTS_GALLERY_URL = 'https://www.youtube.com/feed/shorts';
 const SHORTS_WATCH_URL = 'https://www.youtube.com/shorts/watch-en';
+const LONG_CHANNEL_PREVIEW_DESCRIPTION = 'This actual YouTube channel description is intentionally long enough to mimic a hydrated channel profile bio and must not replace the compact Yomu recommendation summary.';
 
 const baseSettings = {
     onboardingSeen: true,
@@ -77,6 +79,17 @@ function youtubeHomeHtml() {
     #video-title-link { display: block; margin-top: 12px; color: #f1f1f1; text-decoration: none; font-size: 18px; line-height: 1.35; font-weight: 600; }
     .meta { color: #aaa; margin-top: 6px; }
   </style>
+  <script>
+    window.ytcfg = {
+      get: key => ({
+        INNERTUBE_API_KEY: 'test-key',
+        INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+        INNERTUBE_CLIENT_NAME: '1',
+        INNERTUBE_CLIENT_VERSION: 'test-version',
+        VISITOR_DATA: 'visitor',
+      })[key],
+    };
+  </script>
 </head>
 <body>
   <ytd-app>
@@ -541,6 +554,8 @@ async function installUserscriptContext(context) {
             xmlHttpRequest: window.GM_xmlhttpRequest,
         };
         window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
+            const channelDescriptions = Array.from(document.querySelectorAll('.jpdb-youtube-channel-description'))
+                .map(element => element.textContent?.trim() || '');
             return {
                 cards: queryCount('ytd-rich-item-renderer'),
                 readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
@@ -548,6 +563,11 @@ async function installUserscriptContext(context) {
                 englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
                 visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
                 noticeText: elementText('.jpdb-youtube-filter-bar'),
+                channelNames: Array.from(document.querySelectorAll('.jpdb-youtube-channel-name'))
+                    .map(element => element.textContent?.trim() || ''),
+                channelDescriptions,
+                longChannelPreviewDescriptions: channelDescriptions
+                    .filter(text => text.includes('actual YouTube channel description')),
             };
         };
         window.__yomuFeatureReadMobileHomeState = function yomuFeatureReadMobileHomeState() {
@@ -654,6 +674,22 @@ async function installRoutes(page) {
         }),
         contentType: 'application/json',
     }));
+    await page.route('https://www.youtube.com/youtubei/v1/navigation/resolve_url**', route => route.fulfill({
+        body: JSON.stringify({ endpoint: { browseEndpoint: { browseId: 'UC12345678901234567890' } } }),
+        contentType: 'application/json',
+    }));
+    await page.route('https://www.youtube.com/youtubei/v1/browse**', route => route.fulfill({
+        body: JSON.stringify({
+            metadata: {
+                channelMetadataRenderer: {
+                    title: 'Hydrated Preview Channel',
+                    description: LONG_CHANNEL_PREVIEW_DESCRIPTION,
+                    avatar: { thumbnails: [{ url: 'https://yt.example/avatar.jpg', width: 88 }] },
+                },
+            },
+        }),
+        contentType: 'application/json',
+    }));
 }
 
 const YOUTUBE_OEMBED_TITLES = {
@@ -684,6 +720,10 @@ async function runHomepageCheck(page) {
     await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('ytd-rich-item-renderer[data-case="jp"]', { timeout: 10000 });
     await page.waitForTimeout(1200);
+    await page.waitForFunction(() => {
+        const state = window.__yomuFeatureReadHomepageState();
+        return state.channelNames.includes('Hydrated Preview Channel');
+    }, null, { timeout: 10000 });
 
     const beforeReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(beforeReveal.cards >= 4, 'YouTube homepage recommendations did not render', beforeReveal);
@@ -691,6 +731,9 @@ async function runHomepageCheck(page) {
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
     assert(beforeReveal.noticeText.includes('hid'), 'YouTube filter notice did not summarize hidden videos', beforeReveal);
+    assert(beforeReveal.longChannelPreviewDescriptions.length === 0, 'YouTube channel suggestions rendered the long hydrated channel bio', beforeReveal);
+    assert(beforeReveal.channelDescriptions.some(description => /videos around N[1-5]/u.test(description)),
+        'YouTube channel suggestions did not keep the compact recommendation descriptions', beforeReveal);
 
     await page.locator('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]').click();
     await page.waitForTimeout(800);

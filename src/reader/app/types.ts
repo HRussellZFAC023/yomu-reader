@@ -137,6 +137,8 @@ export interface JPDBCard {
     reviewSource?: 'jpdb-api' | 'jpdb-live' | 'jiten-api' | 'anki' | 'dictionary';
     jitenWordId?: number;
     jitenReadingIndex?: number;
+    // Provider-neutral deck/list membership names for rendered-word styling.
+    deckNames?: string[];
     ankiCardId?: number;
     ankiNoteId?: number;
     ankiDeckNames?: string[];

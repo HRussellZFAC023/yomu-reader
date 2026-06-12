@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -10,8 +10,9 @@ const localUrl = process.env.YOMU_SMOKE_LOCAL_URL ?? 'http://127.0.0.1:5173/yomu
 const fixtureVideoUrl = process.env.YOMU_SMOKE_VIDEO_URL ?? 'http://127.0.0.1:8766/tutorial.mp4';
 const userscriptPath = resolve(process.env.YOMU_SMOKE_USERSCRIPT ?? 'dist/yomu.user.js');
 const cssPath = resolve(process.env.YOMU_SMOKE_CSS ?? 'dist/yomu.css');
+const defaultCompanionDir = existsSync(resolve('dist/greasyfork')) ? 'dist/greasyfork' : 'docs/public/greasyfork';
 const companionPaths = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
-    .map(name => resolve(process.env.YOMU_SMOKE_COMPANION_DIR ?? 'dist/greasyfork', name));
+    .map(name => resolve(process.env.YOMU_SMOKE_COMPANION_DIR ?? defaultCompanionDir, name));
 const settingsKey = 'jpdb-popup-reader-settings';
 const runYouTube = process.env.YOMU_SMOKE_YOUTUBE === '1';
 const youtubeUrl = process.env.YOMU_SMOKE_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=4604s';
@@ -335,6 +336,7 @@ async function runLocalSmoke(browser) {
     });
     await page.evaluate((src) => {
         const video = document.querySelector('video');
+        document.querySelector('[data-stage]')?.classList.add('has-video');
         video.src = src;
         video.muted = true;
         video.controls = true;

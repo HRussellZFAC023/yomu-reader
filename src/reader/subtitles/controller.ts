@@ -1522,7 +1522,7 @@ export class SubtitlePlayerController {
         const emptyCached = this.freshEmptyParsedHtml(key);
         if (emptyCached) return emptyCached;
         if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text, settings, key);
-        const pending = this.pendingParsedHtml.get(key);
+        const pending = this.pendingParsedCueHtml(key, 'authoritative');
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text, subtitleParseOptions(settings));
@@ -1546,7 +1546,7 @@ export class SubtitlePlayerController {
         if (cached) {
             return cached;
         }
-        const pending = this.pendingProvisionalParsedHtml.get(key);
+        const pending = this.pendingParsedCueHtml(key, 'provisional');
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
@@ -1649,8 +1649,14 @@ export class SubtitlePlayerController {
 
         const { ready, batch } = planSubtitleParseBatch(
             items,
-            key => this.parsedHtmlCache.get(key) ?? this.freshEmptyParsedHtml(key),
-            key => this.pendingParsedHtml.get(key),
+            // Keyless there is nothing to upgrade to, so a provisional hit is
+            // final here too — without it the transcript-tail warmup
+            // (allowProvisional: false) re-parsed every already-parsed cue a
+            // second time through the local tokenizer.
+            key => this.parsedHtmlCache.get(key)
+                ?? this.freshEmptyParsedHtml(key)
+                ?? (this.hasAuthoritativeParseTier() ? undefined : this.provisionalParsedHtmlCache.get(key)),
+            key => this.pendingParsedCueHtml(key, 'authoritative'),
         );
         if (!batch.length) return Promise.all(ready);
         if (!this.options.parseJapaneseBatch) {
@@ -1669,9 +1675,9 @@ export class SubtitlePlayerController {
         this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
         const { ready, batch } = planProvisionalSubtitleParseBatch(
             items,
-            this.parsedHtmlCache,
-            this.provisionalParsedHtmlCache,
-            this.pendingProvisionalParsedHtml,
+            key => this.parsedHtmlCache.get(key),
+            key => this.provisionalParsedHtmlCache.get(key),
+            key => this.pendingParsedCueHtml(key, 'provisional'),
             key => this.freshEmptyParsedHtml(key),
         );
         if (!batch.length) return Promise.all(ready);
@@ -1878,6 +1884,16 @@ export class SubtitlePlayerController {
     private isWarmParsedCueKey(key: string): boolean {
         if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
         return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
+    }
+
+    // Keyless both tiers produce the same local-tokenizer result, so an
+    // in-flight parse on EITHER tier satisfies the other — without this the
+    // overlay warmup and the transcript-tail warmup tokenized the same cue
+    // twice whenever their windows overlapped.
+    private pendingParsedCueHtml(key: string, tier: 'authoritative' | 'provisional'): Promise<string> | undefined {
+        const own = tier === 'provisional' ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedHtml.get(key);
+        if (own || this.hasAuthoritativeParseTier()) return own;
+        return tier === 'provisional' ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
 
     private fitSubtitleTextToVideo(): void {

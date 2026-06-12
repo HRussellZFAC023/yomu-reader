@@ -274,6 +274,26 @@ describe('JitenApiClient', () => {
         ]);
     });
 
+    it('carries Jiten deck membership fields through reader parse tokens', async () => {
+        const fetchMock = createFetchMock({
+            vocabulary: [
+                jitenVocabulary({
+                    deckNames: ['Mining'],
+                    studyDecks: [{ name: 'Yomu E2E Seed' }],
+                    lookupDecks: [{ title: 'Drama backlog' }],
+                }),
+            ],
+            tokens: [[
+                { wordId: 1, readingIndex: 0, start: 0, end: 2, length: 2 },
+            ]],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const tokens = await client.parse(['読む']);
+
+        expect(tokens[0]?.[0]?.card.deckNames).toEqual(['Mining', 'Yomu E2E Seed', 'Drama backlog']);
+    });
+
     it('returns false when validating a rejected or missing API key', async () => {
         const rejectedFetch = createFetchMock({ error_message: 'Unauthorized' }, 401);
         const rejectedClient = new JitenApiClient(() => 'bad-token', { fetchImpl: rejectedFetch });

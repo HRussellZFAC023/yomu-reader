@@ -43,6 +43,7 @@ import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidat
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
+import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY } from '../../src/reader/app/main-helpers';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
@@ -23340,7 +23341,7 @@ describe('reader helpers', () => {
         try {
             background = internals.enrichPitchWords(backgroundTokens);
             await waitForExpect(() => {
-                expect(publicPitch).toHaveBeenCalledTimes(2);
+                expect(publicPitch).toHaveBeenCalledTimes(BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY);
             });
 
             await internals.enrichPitchWords([testTokenForCard(urgentCard)], { urgent: true });
@@ -24680,6 +24681,9 @@ describe('reader helpers', () => {
             });
 
             expect(target.classList.contains('anki-known')).toBe(true);
+            expect(target.classList.contains('anki-deck-member')).toBe(true);
+            expect(target.classList.contains('anki-deck-mining')).toBe(true);
+            expect(target.classList.contains('yomu-deck-member')).toBe(false);
             expect(container.querySelectorAll('.jpdb-reader-word.anki-known')).toHaveLength(1);
             expect(querySelectorAll.mock.calls.map(call => call[0])).not.toContain('.jpdb-reader-word[data-vid][data-sid]');
         } finally {

@@ -55,15 +55,32 @@ describe('Jiten token rendering', () => {
         expect(html).toContain('jpdb-reader-has-furi');
         expect(html).toContain('<rt class="jpdb-reader-furi">よ</rt>');
     });
+
+    it('stamps Jiten deck membership on rendered words for deck-based styling', () => {
+        const html = renderJitenToken('読む', 'young', { furiganaMode: 'all' }, {
+            deckNames: ['Yomu E2E Seed'],
+        });
+
+        document.body.innerHTML = html;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        expect(word.classList.contains('yomu-deck-member')).toBe(true);
+        expect(word.classList.contains('jiten-deck-member')).toBe(true);
+        expect(word.classList.contains('yomu-deck-yomu-e2e-seed')).toBe(true);
+        expect(word.classList.contains('jiten-deck-yomu-e2e-seed')).toBe(true);
+        expect(word.dataset.deckMember).toBe('true');
+        expect(word.dataset.deckSource).toBe('jiten');
+        expect(word.dataset.deckNames).toBe('Yomu E2E Seed');
+    });
 });
 
-function renderJitenToken(surface: string, state: CardState, settings: Partial<ReaderSettings>): string {
-    return renderTokensToHtml(surface, [jitenToken(surface, state)], { ...JITEN_SETTINGS, ...settings });
+function renderJitenToken(surface: string, state: CardState, settings: Partial<ReaderSettings>, cardOverrides: Partial<JPDBCard> = {}): string {
+    return renderTokensToHtml(surface, [jitenToken(surface, state, cardOverrides)], { ...JITEN_SETTINGS, ...settings });
 }
 
-function jitenToken(surface: string, state: CardState): JPDBToken {
+function jitenToken(surface: string, state: CardState, cardOverrides: Partial<JPDBCard> = {}): JPDBToken {
     return {
-        card: jitenCard(state),
+        card: { ...jitenCard(state), ...cardOverrides },
         start: 0,
         end: surface.length,
         length: surface.length,

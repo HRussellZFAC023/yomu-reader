@@ -7,7 +7,11 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
-import { allYouTubeChannelRecommendations, YOUTUBE_CHANNEL_RECOMMENDATION_COUNT } from '../../src/reader/subtitles/youtube-channel-recommendations';
+import {
+    allYouTubeChannelRecommendations,
+    YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
+    youtubeChannelRecommendationDescription,
+} from '../../src/reader/subtitles/youtube-channel-recommendations';
 import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
@@ -778,6 +782,77 @@ describe('YouTube immersion filter', () => {
         const filtered = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
         expect(filtered.textContent).toContain('しまじろうチャンネル');
         expect(filtered.querySelector<HTMLButtonElement>('[data-filter="kids"]')?.getAttribute('aria-pressed')).toBe('true');
+
+        filter.destroy();
+    });
+
+    it('keeps channel suggestion descriptions shortened after preview hydration', async () => {
+        const longPreviewDescription = 'Actual YouTube channel bio with several lines of profile copy that should never replace the compact recommendation summary.';
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+            search: '',
+        });
+        vi.stubGlobal('ytcfg', {
+            get: (key: string) => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+                INNERTUBE_CLIENT_NAME: '1',
+                INNERTUBE_CLIENT_VERSION: 'test-version',
+                VISITOR_DATA: 'visitor',
+            } as Record<string, unknown>)[key],
+        });
+        vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+            const url = input instanceof Request ? input.url : String(input);
+            if (url.includes('/oembed')) {
+                const watchUrl = new URL(new URL(url).searchParams.get('url') ?? 'https://www.youtube.com/watch');
+                const videoId = watchUrl.searchParams.get('v') ?? '';
+                return {
+                    ok: true,
+                    json: async () => ({ title: videoId === 'jp' || videoId === 'modern' ? '東京カフェで朝ごはん' : 'Desk setup tour' }),
+                };
+            }
+            if (url.includes('/youtubei/v1/navigation/resolve_url')) {
+                return {
+                    ok: true,
+                    json: async () => ({ endpoint: { browseEndpoint: { browseId: 'UC12345678901234567890' } } }),
+                };
+            }
+            if (url.includes('/youtubei/v1/browse')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        metadata: {
+                            channelMetadataRenderer: {
+                                title: 'Hydrated Preview Channel',
+                                description: longPreviewDescription,
+                                avatar: { thumbnails: [{ url: 'https://yt.example/avatar.jpg', width: 88 }] },
+                            },
+                        },
+                    }),
+                };
+            }
+            return { ok: false, json: async () => ({}) };
+        }));
+
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        for (let i = 0; i < 30 && !document.querySelector('.jpdb-youtube-channel-name')?.textContent?.includes('Hydrated Preview Channel'); i += 1) {
+            await flushPendingFilterWork();
+        }
+
+        const row = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
+            .find(candidate => candidate.querySelector('.jpdb-youtube-channel-name')?.textContent?.trim() === 'Hydrated Preview Channel');
+        expect(row).not.toBeUndefined();
+        const channel = allYouTubeChannelRecommendations().find(candidate => candidate.handle === row!.dataset.yomuChannelHandle);
+        expect(channel).not.toBeUndefined();
+        const description = row!.querySelector<HTMLElement>('.jpdb-youtube-channel-description')?.textContent?.trim();
+
+        expect(description).toBe(youtubeChannelRecommendationDescription(channel!));
+        expect(description).not.toBe(longPreviewDescription);
+        expect(description).toMatch(/videos around N[1-5]/u);
 
         filter.destroy();
     });

@@ -7,6 +7,7 @@ import {
     shouldRenderRuby,
 } from '../dom/index';
 import { cardStateLabel } from './i18n';
+import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 import { normalizeOcrRenderedText } from '../ocr/rendered-text';
@@ -160,7 +161,27 @@ export function applyAnkiLookupToRenderedWord(
     word.classList.add(`anki-${ankiLookup.state}`);
     word.dataset.ankiState = ankiLookup.state;
     word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(', ') ?? '';
+    applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
     word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ''}`;
+}
+
+function applyAnkiDeckMembershipToRenderedWord(word: HTMLElement, deckNames: string[]): void {
+    if (!deckNames.length) return;
+    word.classList.add(...cardDeckMembershipClassNames({
+        vid: 0,
+        sid: 0,
+        rid: 0,
+        spelling: '',
+        reading: '',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'anki',
+        ankiDeckNames: deckNames,
+    }).filter(className => !className.startsWith('yomu-')));
 }
 
 function shouldApplyPublicVocabularyFurigana(

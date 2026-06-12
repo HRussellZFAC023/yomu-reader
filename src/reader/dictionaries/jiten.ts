@@ -101,6 +101,13 @@ interface JitenRawVocabulary {
     reviewIntervals?: unknown;
     srsIntervals?: unknown;
     ratingIntervals?: unknown;
+    deckNames?: unknown;
+    decks?: unknown;
+    studyDecks?: unknown;
+    userStudyDecks?: unknown;
+    readerStudyDecks?: unknown;
+    lookupDecks?: unknown;
+    sourceDeckName?: string | null;
 }
 
 interface JitenStudyBatchResponse {
@@ -552,6 +559,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
     const reading = cleanJitenAnnotatedReading(vocabulary.reading);
     const pitchAccent = jitenPitchAccentPatterns(vocabulary.pitchAccents, reading);
     const reviewGradeIntervals = jitenReviewGradeIntervals(vocabulary);
+    const deckNames = jitenVocabularyDeckNames(vocabulary);
     return {
         vid: vocabulary.wordId,
         sid: vocabulary.readingIndex,
@@ -571,6 +579,7 @@ function jitenCardFromVocabulary(vocabulary: JitenRawVocabulary): JPDBCard {
         reviewSource: 'jiten-api',
         jitenWordId: vocabulary.wordId,
         jitenReadingIndex: vocabulary.readingIndex,
+        ...(deckNames.length ? { deckNames } : {}),
         ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
     };
 }
@@ -605,9 +614,34 @@ function jitenCardFromStudyCard(card: JitenStudyCardDto): JPDBCard | null {
         reviewSource: 'jiten-api',
         jitenWordId: wordId,
         jitenReadingIndex: readingIndex,
+        ...(typeof card.sourceDeckName === 'string' && card.sourceDeckName.trim() ? { deckNames: [card.sourceDeckName.trim()] } : {}),
         ...(reviewGradeIntervals ? { reviewGradeIntervals } : {}),
         ...(typeof card.sourceDeckName === 'string' && card.sourceDeckName.trim() ? { sourceDeckName: card.sourceDeckName.trim() } : {}),
     };
+}
+
+function jitenVocabularyDeckNames(vocabulary: JitenRawVocabulary): string[] {
+    return uniqueJitenText([
+        ...jitenDeckNamesFromValue(vocabulary.deckNames),
+        ...jitenDeckNamesFromValue(vocabulary.decks),
+        ...jitenDeckNamesFromValue(vocabulary.studyDecks),
+        ...jitenDeckNamesFromValue(vocabulary.userStudyDecks),
+        ...jitenDeckNamesFromValue(vocabulary.readerStudyDecks),
+        ...jitenDeckNamesFromValue(vocabulary.lookupDecks),
+        typeof vocabulary.sourceDeckName === 'string' ? vocabulary.sourceDeckName : '',
+    ]);
+}
+
+function jitenDeckNamesFromValue(value: unknown): string[] {
+    if (typeof value === 'string') return [value];
+    if (Array.isArray(value)) return value.flatMap(jitenDeckNamesFromValue);
+    if (!isJsonRecord(value)) return [];
+    return [
+        firstRecordString(value, ['name', 'title', 'deckName', 'sourceDeckName']) ?? '',
+        ...jitenDeckNamesFromValue(value.deck),
+        ...jitenDeckNamesFromValue(value.studyDeck),
+        ...jitenDeckNamesFromValue(value.userStudyDeck),
+    ];
 }
 
 function jitenStudyCardPitchAccent(card: JitenStudyCardDto, reading: string): string[] {

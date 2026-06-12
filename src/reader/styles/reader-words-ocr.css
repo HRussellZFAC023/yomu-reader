@@ -71,6 +71,10 @@
   background: linear-gradient(transparent 58%, var(--jpdb-reader-mining-insight-color) 58%) !important;
 }
 
+.jpdb-reader-word:is(.jpdb-deck-member, .jiten-deck-member, .anki-deck-member) {
+  text-decoration-style: double !important;
+}
+
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
   background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important;
