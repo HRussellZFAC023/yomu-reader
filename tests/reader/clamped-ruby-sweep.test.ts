@@ -41,4 +41,24 @@ describe('stripRubyInClampedRows', () => {
         expect(document.querySelector('rt')).toBeNull();
         document.body.innerHTML = '';
     });
+
+    it('keeps furigana in mobile YouTube watch metadata and description rows', () => {
+        document.body.innerHTML = `
+            <ytm-slim-video-metadata-section-renderer>
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    ${annotatedWord('しちょう', '視聴')} 2026/06/12
+                </div>
+            </ytm-slim-video-metadata-section-renderer>
+            <ytm-video-description-transcript-section-renderer>
+                <div style="display:-webkit-box;-webkit-line-clamp:1;overflow:hidden;max-height:24px">
+                    ${annotatedWord('もじ', '文字')}起こしを表示
+                </div>
+            </ytm-video-description-transcript-section-renderer>
+        `;
+
+        expect(stripRubyInClampedRows(document)).toBe(0);
+        expect(document.querySelector('ytm-slim-video-metadata-section-renderer rt')?.textContent).toBe('しちょう');
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer rt')?.textContent).toBe('もじ');
+        document.body.innerHTML = '';
+    });
 });

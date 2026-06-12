@@ -26930,6 +26930,56 @@ describe('reader helpers', () => {
         expect(document.querySelectorAll('ytd-watch-metadata h1 rt')).toHaveLength(0);
     });
 
+    it('scans mobile YouTube watch metadata, actions, and transcript controls with stable furigana', () => {
+        const targets = collectYouTubeTargets(`
+            <ytm-watch-metadata>
+                <ytm-slim-video-metadata-section-renderer>
+                    <h1 id="title">日本語タイトル</h1>
+                    <div class="slim-video-metadata-info" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        52,551回視聴 2026/06/12
+                    </div>
+                    <ytm-button-renderer>
+                        <button><span>質問する</span></button>
+                    </ytm-button-renderer>
+                </ytm-slim-video-metadata-section-renderer>
+                <ytm-expandable-video-description-body-renderer>
+                    <p>説明文です</p>
+                    <ytm-video-description-transcript-section-renderer>
+                        <button class="yt-spec-button-shape-next">文字起こしを表示</button>
+                    </ytm-video-description-transcript-section-renderer>
+                </ytm-expandable-video-description-body-renderer>
+            </ytm-watch-metadata>
+        `, 'https://m.youtube.com/watch?v=TAorfFcb8_g', undefined);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '52,551回視聴 2026/06/12',
+            '質問する',
+            '説明文です',
+            '文字起こしを表示',
+        ]));
+        expect(targets.map(target => target.text)).not.toContain('日本語タイトル');
+
+        const metadata = targets.find(target => target.text.startsWith('52,551回視聴'));
+        const question = targets.find(target => target.text === '質問する');
+        expect(metadata && 'layoutSensitive' in metadata ? metadata.layoutSensitive : true).toBe(false);
+        expect(question && 'layoutSensitive' in question ? question.layoutSensitive : true).toBe(false);
+        expect(question && 'passiveInteraction' in question ? question.passiveInteraction : false).toBe(true);
+
+        applyTokensToScanTarget(question!, [{
+            card: { ...card, cardState: ['known'], spelling: '質問', reading: 'しつもん' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しつもん', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '質問する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        expect(document.querySelector('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')).toBeNull();
+        expect(readerWordSurfaceText(document.querySelector('ytm-button-renderer .jpdb-reader-word.jpdb-known')!)).toBe('質問');
+        expect(document.querySelector('ytm-button-renderer rt')?.textContent).toBe('しつもん');
+    });
+
     it('keeps YouTube comment controls clickable while comment text remains active', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-comment-view-model>

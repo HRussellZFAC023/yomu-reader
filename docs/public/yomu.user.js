@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.176
+// @version      0.6.177
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -3073,6 +3073,38 @@
     '[tabindex]:not([tabindex="-1"])'
   ].join(",");
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+  const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    "ytd-watch-metadata",
+    "ytd-comments",
+    "ytd-comment-view-model",
+    "ytd-comment-thread-renderer",
+    "ytd-comment-replies-renderer",
+    "ytm-watch-metadata",
+    "ytm-slim-video-metadata-section-renderer",
+    "ytm-slim-owner-renderer",
+    "ytm-expandable-video-description-body-renderer",
+    "ytm-video-description-header-renderer",
+    "ytm-video-description-transcript-section-renderer",
+    "ytm-structured-description-content-renderer",
+    "ytm-metadata-row-container-renderer",
+    "ytm-comment-section-renderer",
+    "ytm-comment-thread-renderer",
+    "ytm-comment-renderer"
+  ].join(",");
+  const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    "ytd-watch-metadata h1",
+    "ytd-watch-metadata #title",
+    "ytm-watch-metadata h1",
+    "ytm-watch-metadata #title",
+    "ytm-slim-video-metadata-section-renderer h1",
+    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title",
+    "ytd-rich-item-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-video-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model"
+  ].join(",");
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
     ...PROSE_TAGS,
@@ -3423,12 +3455,16 @@
   }
   function isLayoutSensitiveScanElement(element2) {
     if (element2 && isInsideOwnedReaderRoot(element2)) return false;
+    if (element2 && isStableCompactRubySurface(element2)) return false;
     let current = element2;
     while (current && current !== document.body && current !== document.documentElement) {
       if (isLayoutSensitiveTextBox(current)) return true;
       current = current.parentElement;
     }
     return false;
+  }
+  function isStableCompactRubySurface(element2) {
+    return Boolean(element2.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR) && !element2.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
   }
   const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element2) {
@@ -4369,6 +4405,7 @@
   }
   function isGeometryFragileText(element2, text2) {
     if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
+    if (isStableCompactRubySurface(element2)) return false;
     const metrics = fragileTextMetrics(element2, text2);
     if (fragileByTypography(element2, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
@@ -30287,8 +30324,14 @@ ${glossaryKey}`;
     "ytd-compact-video-renderer",
     "ytd-rich-item-renderer",
     "ytd-video-renderer",
+    "ytm-button-renderer",
+    "ytm-toggle-button-renderer",
+    "ytm-subscribe-button-renderer",
+    "ytm-chip-cloud-chip-renderer",
+    "ytm-compact-link-renderer",
     "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model"
+    "ytm-shorts-lockup-view-model",
+    ".yt-spec-button-shape-next"
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
@@ -30304,7 +30347,11 @@ ${glossaryKey}`;
     // The watch-page <h1> feeds YouTube's SPA document title; wrapping it can
     // break SPA navigation, so keep the title itself untouched.
     "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title"
+    "ytd-watch-metadata #title",
+    "ytm-watch-metadata h1",
+    "ytm-watch-metadata #title",
+    "ytm-slim-video-metadata-section-renderer h1",
+    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title"
   ].join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
   const GENERIC_PROSE_ROOTS = [
@@ -30784,6 +30831,17 @@ ${glossaryKey}`;
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
+        "ytm-watch-metadata",
+        "ytm-slim-video-metadata-section-renderer",
+        "ytm-slim-owner-renderer",
+        "ytm-expandable-video-description-body-renderer",
+        "ytm-video-description-header-renderer",
+        "ytm-video-description-transcript-section-renderer",
+        "ytm-structured-description-content-renderer",
+        "ytm-metadata-row-container-renderer",
+        "ytm-comment-section-renderer",
+        "ytm-comment-thread-renderer",
+        "ytm-comment-renderer",
         "ytd-comments",
         "ytd-comment-view-model",
         "ytd-comment-thread-renderer",

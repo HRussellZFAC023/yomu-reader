@@ -150,6 +150,38 @@ const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
     '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    'ytd-watch-metadata',
+    'ytd-comments',
+    'ytd-comment-view-model',
+    'ytd-comment-thread-renderer',
+    'ytd-comment-replies-renderer',
+    'ytm-watch-metadata',
+    'ytm-slim-video-metadata-section-renderer',
+    'ytm-slim-owner-renderer',
+    'ytm-expandable-video-description-body-renderer',
+    'ytm-video-description-header-renderer',
+    'ytm-video-description-transcript-section-renderer',
+    'ytm-structured-description-content-renderer',
+    'ytm-metadata-row-container-renderer',
+    'ytm-comment-section-renderer',
+    'ytm-comment-thread-renderer',
+    'ytm-comment-renderer',
+].join(',');
+const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    'ytd-watch-metadata h1',
+    'ytd-watch-metadata #title',
+    'ytm-watch-metadata h1',
+    'ytm-watch-metadata #title',
+    'ytm-slim-video-metadata-section-renderer h1',
+    'ytm-slim-video-metadata-section-renderer .slim-video-metadata-title',
+    'ytd-rich-item-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-video-renderer',
+    'ytm-rich-item-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-shorts-lockup-view-model',
+].join(',');
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
     ...PROSE_TAGS,
@@ -716,12 +748,18 @@ function isFragmentPassiveInteractionElement(element: Element, options: Fragment
 
 function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
     if (element && isInsideOwnedReaderRoot(element)) return false;
+    if (element && isStableCompactRubySurface(element)) return false;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (isLayoutSensitiveTextBox(current)) return true;
         current = current.parentElement;
     }
     return false;
+}
+
+function isStableCompactRubySurface(element: HTMLElement): boolean {
+    return Boolean(element.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR)
+        && !element.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
 }
 
 // Roughly three text lines: a clipped box taller than this is a page shell or
@@ -1990,6 +2028,7 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
 // colour-only via the layoutSensitive flag so ruby can never break the row.
 function isGeometryFragileText(element: HTMLElement, text: string): boolean {
     if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
+    if (isStableCompactRubySurface(element)) return false;
     const metrics = fragileTextMetrics(element, text);
     if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;

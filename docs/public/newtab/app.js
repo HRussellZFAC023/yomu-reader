@@ -2994,6 +2994,38 @@
     '[tabindex]:not([tabindex="-1"])'
   ].join(",");
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+  const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    "ytd-watch-metadata",
+    "ytd-comments",
+    "ytd-comment-view-model",
+    "ytd-comment-thread-renderer",
+    "ytd-comment-replies-renderer",
+    "ytm-watch-metadata",
+    "ytm-slim-video-metadata-section-renderer",
+    "ytm-slim-owner-renderer",
+    "ytm-expandable-video-description-body-renderer",
+    "ytm-video-description-header-renderer",
+    "ytm-video-description-transcript-section-renderer",
+    "ytm-structured-description-content-renderer",
+    "ytm-metadata-row-container-renderer",
+    "ytm-comment-section-renderer",
+    "ytm-comment-thread-renderer",
+    "ytm-comment-renderer"
+  ].join(",");
+  const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
+    "ytd-watch-metadata h1",
+    "ytd-watch-metadata #title",
+    "ytm-watch-metadata h1",
+    "ytm-watch-metadata #title",
+    "ytm-slim-video-metadata-section-renderer h1",
+    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title",
+    "ytd-rich-item-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-video-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model"
+  ].join(",");
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
     ...PROSE_TAGS,
@@ -3213,12 +3245,16 @@
   }
   function isLayoutSensitiveScanElement(element) {
     if (element && isInsideOwnedReaderRoot(element)) return false;
+    if (element && isStableCompactRubySurface(element)) return false;
     let current = element;
     while (current && current !== document.body && current !== document.documentElement) {
       if (isLayoutSensitiveTextBox(current)) return true;
       current = current.parentElement;
     }
     return false;
+  }
+  function isStableCompactRubySurface(element) {
+    return Boolean(element.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR) && !element.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
   }
   const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element) {

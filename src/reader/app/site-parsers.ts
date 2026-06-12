@@ -65,8 +65,14 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'ytd-compact-video-renderer',
     'ytd-rich-item-renderer',
     'ytd-video-renderer',
+    'ytm-button-renderer',
+    'ytm-toggle-button-renderer',
+    'ytm-subscribe-button-renderer',
+    'ytm-chip-cloud-chip-renderer',
+    'ytm-compact-link-renderer',
     'ytm-video-with-context-renderer',
     'ytm-shorts-lockup-view-model',
+    '.yt-spec-button-shape-next',
 ].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
@@ -83,6 +89,10 @@ const YOUTUBE_TEXT_EXCLUDE = [
     // break SPA navigation, so keep the title itself untouched.
     'ytd-watch-metadata h1',
     'ytd-watch-metadata #title',
+    'ytm-watch-metadata h1',
+    'ytm-watch-metadata #title',
+    'ytm-slim-video-metadata-section-renderer h1',
+    'ytm-slim-video-metadata-section-renderer .slim-video-metadata-title',
 ].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
@@ -564,6 +574,17 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
+            'ytm-watch-metadata',
+            'ytm-slim-video-metadata-section-renderer',
+            'ytm-slim-owner-renderer',
+            'ytm-expandable-video-description-body-renderer',
+            'ytm-video-description-header-renderer',
+            'ytm-video-description-transcript-section-renderer',
+            'ytm-structured-description-content-renderer',
+            'ytm-metadata-row-container-renderer',
+            'ytm-comment-section-renderer',
+            'ytm-comment-thread-renderer',
+            'ytm-comment-renderer',
             'ytd-comments',
             'ytd-comment-view-model',
             'ytd-comment-thread-renderer',
