@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.189] - 2026-06-13
+
+### Fixed
+
+- Opening the popup dictionary now temporarily suppresses native browser `title` tooltips on the active lookup word's page ancestor path, so host-page title tooltips no longer cover the dictionary. Unrelated page titles are left alone and every suppressed title is restored when the popup closes.
+
 ## [0.6.188] - 2026-06-13
 
 ### Added

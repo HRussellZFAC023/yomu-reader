@@ -28,7 +28,7 @@ export class NativeTitleGuard {
 
     private suppressRelatedTitles(popover: HTMLElement, anchor?: HTMLElement): void {
         this.suppressElementAndDescendants(popover);
-        this.suppressReaderOwnedTitles(anchor);
+        this.suppressAnchorTitlePath(anchor);
     }
 
     private observePopover(popover: HTMLElement, anchor?: HTMLElement): void {
@@ -40,7 +40,7 @@ export class NativeTitleGuard {
                 }
                 mutation.addedNodes.forEach(node => this.suppressNodeTitles(node));
             }
-            this.suppressReaderOwnedTitles(anchor);
+            this.suppressAnchorTitlePath(anchor);
         });
         this.observer.observe(popover, {
             attributes: true,
@@ -48,6 +48,7 @@ export class NativeTitleGuard {
             childList: true,
             subtree: true,
         });
+        this.observeAnchorTitlePath(anchor);
     }
 
     private suppressNodeTitles(node: Node): void {
@@ -59,23 +60,38 @@ export class NativeTitleGuard {
         element.querySelectorAll<HTMLElement>('[title]').forEach(item => this.suppressElement(item));
     }
 
-    private suppressReaderOwnedTitles(anchor: HTMLElement | undefined): void {
+    private suppressAnchorTitlePath(anchor: HTMLElement | undefined): void {
         if (!anchor) return;
-        const readerRoot = anchor.closest<HTMLElement>('[data-jpdb-reader-root]');
-        if (readerRoot) {
-            this.suppressAnchorPath(anchor, readerRoot);
-            return;
-        }
-        if (anchor.classList.contains('jpdb-reader-word')) this.suppressElement(anchor);
+        for (const element of this.anchorTitlePath(anchor)) this.suppressElement(element);
     }
 
-    private suppressAnchorPath(anchor: HTMLElement, root: HTMLElement): void {
-        let current: HTMLElement | null = anchor;
-        while (current && current !== root.parentElement && current !== document.body && current !== document.documentElement) {
-            this.suppressElement(current);
-            if (current === root) break;
-            current = current.parentElement;
+    private observeAnchorTitlePath(anchor: HTMLElement | undefined): void {
+        if (!this.observer || !anchor) return;
+        for (const element of this.anchorTitlePath(anchor)) {
+            this.observer.observe(element, {
+                attributes: true,
+                attributeFilter: ['title'],
+            });
         }
+    }
+
+    private anchorTitlePath(anchor: HTMLElement): HTMLElement[] {
+        const path: HTMLElement[] = [];
+        let current: HTMLElement | null = anchor;
+        while (current) {
+            path.push(current);
+            if (current === document.body || current === document.documentElement) break;
+            current = this.nextTitleAncestor(current);
+        }
+        return path;
+    }
+
+    private nextTitleAncestor(element: HTMLElement): HTMLElement | null {
+        if (element.parentElement) return element.parentElement;
+        const root = element.getRootNode();
+        return typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host instanceof HTMLElement
+            ? root.host
+            : null;
     }
 
     private suppressElement(element: HTMLElement): void {

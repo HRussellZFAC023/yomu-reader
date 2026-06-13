@@ -35,11 +35,12 @@ describe('NativeTitleGuard', () => {
         expect(button.title).toBe('Play audio');
     });
 
-    it('leaves host-page title attributes alone', () => {
+    it('temporarily removes host-page title attributes from the active anchor path only', () => {
         document.body.innerHTML = `
             <h1 title="Native page title">
                 <span id="word">実際</span>
             </h1>
+            <aside id="unrelated" title="Unrelated native title">別の見出し</aside>
             <div id="popover" title="Lookup">
                 <button title="Play audio">Audio</button>
             </div>
@@ -48,17 +49,20 @@ describe('NativeTitleGuard', () => {
         const popover = document.querySelector<HTMLElement>('#popover')!;
         const anchor = document.querySelector<HTMLElement>('#word')!;
         const title = document.querySelector<HTMLElement>('h1')!;
+        const unrelated = document.querySelector<HTMLElement>('#unrelated')!;
         const button = popover.querySelector<HTMLButtonElement>('button')!;
 
         guard.suppressForPopover(popover, anchor);
 
-        expect(title.title).toBe('Native page title');
+        expect(title.hasAttribute('title')).toBe(false);
+        expect(unrelated.title).toBe('Unrelated native title');
         expect(popover.hasAttribute('title')).toBe(false);
         expect(button.hasAttribute('title')).toBe(false);
 
         guard.restore();
 
         expect(title.title).toBe('Native page title');
+        expect(unrelated.title).toBe('Unrelated native title');
         expect(popover.title).toBe('Lookup');
         expect(button.title).toBe('Play audio');
     });
@@ -91,5 +95,21 @@ describe('NativeTitleGuard', () => {
         expect(button.hasAttribute('title')).toBe(false);
         guard.restore();
         expect(button.title).toBe('New action');
+    });
+
+    it('suppresses active-path titles added after the popover is mounted', async () => {
+        document.body.innerHTML = '<h1 id="title"><span id="word">実際</span></h1><div id="popover"></div>';
+        const guard = new NativeTitleGuard();
+        const popover = document.querySelector<HTMLElement>('#popover')!;
+        const anchor = document.querySelector<HTMLElement>('#word')!;
+        const title = document.querySelector<HTMLElement>('#title')!;
+
+        guard.suppressForPopover(popover, anchor);
+        title.title = 'Late native title';
+        await Promise.resolve();
+
+        expect(title.hasAttribute('title')).toBe(false);
+        guard.restore();
+        expect(title.title).toBe('Late native title');
     });
 });

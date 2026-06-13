@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.188
+// @version      0.6.189
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -32524,7 +32524,7 @@ ${glossaryKey}`;
     }
     suppressRelatedTitles(popover, anchor) {
       this.suppressElementAndDescendants(popover);
-      this.suppressReaderOwnedTitles(anchor);
+      this.suppressAnchorTitlePath(anchor);
     }
     observePopover(popover, anchor) {
       if (typeof MutationObserver === "undefined") return;
@@ -32535,7 +32535,7 @@ ${glossaryKey}`;
           }
           mutation.addedNodes.forEach((node) => this.suppressNodeTitles(node));
         }
-        this.suppressReaderOwnedTitles(anchor);
+        this.suppressAnchorTitlePath(anchor);
       });
       this.observer.observe(popover, {
         attributes: true,
@@ -32543,6 +32543,7 @@ ${glossaryKey}`;
         childList: true,
         subtree: true
       });
+      this.observeAnchorTitlePath(anchor);
     }
     suppressNodeTitles(node) {
       if (node instanceof HTMLElement) this.suppressElementAndDescendants(node);
@@ -32551,22 +32552,33 @@ ${glossaryKey}`;
       this.suppressElement(element2);
       element2.querySelectorAll("[title]").forEach((item) => this.suppressElement(item));
     }
-    suppressReaderOwnedTitles(anchor) {
+    suppressAnchorTitlePath(anchor) {
       if (!anchor) return;
-      const readerRoot = anchor.closest("[data-jpdb-reader-root]");
-      if (readerRoot) {
-        this.suppressAnchorPath(anchor, readerRoot);
-        return;
-      }
-      if (anchor.classList.contains("jpdb-reader-word")) this.suppressElement(anchor);
+      for (const element2 of this.anchorTitlePath(anchor)) this.suppressElement(element2);
     }
-    suppressAnchorPath(anchor, root) {
-      let current = anchor;
-      while (current && current !== root.parentElement && current !== document.body && current !== document.documentElement) {
-        this.suppressElement(current);
-        if (current === root) break;
-        current = current.parentElement;
+    observeAnchorTitlePath(anchor) {
+      if (!this.observer || !anchor) return;
+      for (const element2 of this.anchorTitlePath(anchor)) {
+        this.observer.observe(element2, {
+          attributes: true,
+          attributeFilter: ["title"]
+        });
       }
+    }
+    anchorTitlePath(anchor) {
+      const path = [];
+      let current = anchor;
+      while (current) {
+        path.push(current);
+        if (current === document.body || current === document.documentElement) break;
+        current = this.nextTitleAncestor(current);
+      }
+      return path;
+    }
+    nextTitleAncestor(element2) {
+      if (element2.parentElement) return element2.parentElement;
+      const root = element2.getRootNode();
+      return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
     }
     suppressElement(element2) {
       if (element2.closest(".jpdb-reader-modal-nav")) return;
