@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.187] - 2026-06-13
+
+### Fixed
+
+- Apple Pencil / pen hover once again opens hover lookups on iPad when hover lookup is enabled. Pen contact still suppresses immediate hover re-open briefly, so a real tap or touch-down does not produce the old rapid open/close behavior.
+
 ## [0.6.186] - 2026-06-13
 
 ### Fixed

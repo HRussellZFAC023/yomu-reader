@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.186
+// @version      0.6.187
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -37068,7 +37068,7 @@ ${glossaryKey}`;
     }
     canUseHoverLookupPointer(event) {
       const pointerType = event.pointerType;
-      return pointerType !== "touch" && pointerType !== "pen";
+      return pointerType !== "touch";
     }
     hasStickyModalPopover() {
       return this.activePopoverMode === "modal" && Boolean(this.activePopover);
