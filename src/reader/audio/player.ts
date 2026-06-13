@@ -99,6 +99,12 @@ interface SoftChimeNote {
     gain: number;
 }
 
+interface TextToSpeechVoiceChoice {
+    deckId?: string;
+    deckKey?: string;
+    voice: SpeechSynthesisVoice | null;
+}
+
 const AUDIO_CANDIDATE_CACHE_TTL_MS = 10 * 60 * 1000;
 const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -418,7 +424,7 @@ export class AudioPlayer {
         if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, 'noTextToRead'));
 
         this.stopCurrent();
-        await this.playTextToSpeech(trimmed, voiceName);
+        await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName, settings));
         if (requestId !== this.playRequestId) this.stopCurrent();
     }
 
@@ -552,7 +558,7 @@ export class AudioPlayer {
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         const { source } = sourceEntry;
-        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
+        if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
 
         const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -560,9 +566,10 @@ export class AudioPlayer {
         return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
 
-    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+    private async playFromTextToSpeechSource(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-        await this.playTextToSpeech(source.type === 'text-to-speech-reading' ? card.reading : card.spelling, source.voice);
+        const text = source.type === 'text-to-speech-reading' ? card.reading : card.spelling;
+        await this.playTextToSpeech(text, source.voice, this.textToSpeechSourceBagKey(source, card, settings));
         return this.isPlaybackCurrent(requestId, isCurrent);
     }
 
@@ -789,21 +796,78 @@ export class AudioPlayer {
         return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
 
-    private playTextToSpeech(text: string, voiceName: string): Promise<void> {
+    private playTextToSpeech(text: string, voiceName: string, deckKey?: string): Promise<void> {
         const settings = this.getSettings();
         if (!('speechSynthesis' in window)) throw new Error(uiText(settings.interfaceLanguage, 'textToSpeechUnavailable'));
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ja-JP';
             const voices = speechSynthesis.getVoices();
-            utterance.voice = (voiceName ? voices.find(voice => voice.name === voiceName) : undefined)
-                ?? voices.find(voice => voice.lang.toLowerCase().startsWith('ja'))
-                ?? null;
-            utterance.onend = () => resolve();
-            utterance.onerror = () => reject(new Error(uiText(settings.interfaceLanguage, 'textToSpeechFailed')));
+            const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+            utterance.voice = choice.voice;
+            utterance.onend = () => {
+                this.markTextToSpeechVoicePlayed(choice);
+                resolve();
+            };
+            utterance.onerror = () => {
+                this.markTextToSpeechVoiceSkipped(choice);
+                reject(new Error(uiText(settings.interfaceLanguage, 'textToSpeechFailed')));
+            };
             this.utterance = utterance;
             speechSynthesis.speak(utterance);
         });
+    }
+
+    private textToSpeechVoiceChoice(voices: SpeechSynthesisVoice[], voiceName: string, deckKey?: string): TextToSpeechVoiceChoice {
+        const selectedVoiceName = voiceName.trim();
+        if (selectedVoiceName) {
+            return {
+                voice: voices.find(voice => voice.name === selectedVoiceName)
+                    ?? this.firstJapaneseTextToSpeechVoice(voices),
+            };
+        }
+
+        const japaneseVoices = textToSpeechJapaneseVoices(voices);
+        if (!deckKey || japaneseVoices.length < 2) {
+            return { voice: japaneseVoices[0]?.voice ?? null };
+        }
+
+        const entries = japaneseVoices.map(({ voice }, index) => ({
+            deckId: textToSpeechVoiceDeckId(voice, index),
+            voice,
+        }));
+        const byId = new Map(entries.map(entry => [entry.deckId, entry.voice]));
+        const deckId = this.shuffledAudio.order(deckKey, entries.map(entry => entry.deckId))
+            .find(id => byId.has(id));
+        return {
+            deckId,
+            deckKey,
+            voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null,
+        };
+    }
+
+    private firstJapaneseTextToSpeechVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+        return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
+    }
+
+    private markTextToSpeechVoicePlayed(choice: TextToSpeechVoiceChoice): void {
+        if (choice.deckKey && choice.deckId) this.shuffledAudio.markPlayed(choice.deckKey, choice.deckId);
+    }
+
+    private markTextToSpeechVoiceSkipped(choice: TextToSpeechVoiceChoice): void {
+        if (choice.deckKey && choice.deckId) this.shuffledAudio.markSkipped(choice.deckKey, choice.deckId);
+    }
+
+    private textToSpeechSourceBagKey(source: AudioSourceSetting, card: JPDBCard, settings: ReaderSettings): string | undefined {
+        return settings.audioSelectionMode === 'random' && !source.voice.trim()
+            ? getAudioBagKey(source, card)
+            : undefined;
+    }
+
+    private textToSpeechTextBagKey(text: string, voiceName: string, settings: ReaderSettings): string | undefined {
+        return settings.audioSelectionMode === 'random' && !voiceName.trim()
+            ? ['text-to-speech', text].join('\u0001')
+            : undefined;
     }
 
     private async playMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
@@ -841,6 +905,20 @@ export class AudioPlayer {
         }
         return true;
     }
+}
+
+function textToSpeechJapaneseVoices(voices: SpeechSynthesisVoice[]): Array<{ voice: SpeechSynthesisVoice }> {
+    return voices
+        .filter(voice => voice.lang.toLowerCase().startsWith('ja'))
+        .map(voice => ({ voice }));
+}
+
+function textToSpeechVoiceDeckId(voice: SpeechSynthesisVoice, index: number): string {
+    return [
+        voice.name,
+        voice.lang,
+        String(index),
+    ].join('\u0000');
 }
 
 class AudioSourcePreparationRace {

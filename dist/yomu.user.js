@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.185
+// @version      0.6.186
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rAqJB+TjjeMf9neI9WP2X0bYPtjhBGsL84KZhnOLsJM=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Pd4fpz4u2AX1Us26S99Fr+oi1cWpBg0eO8k6rBxAuTE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-VxCHSqIkGW/1uQWKfo3mcrKFjOlPYXAl7rEpdtrdYRU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-q1nH3CS5pZIieuhMVKxIEd8eTMNH09M4Z/7h1STfhsU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Zch6EIMWfd/pRtyOhLCyhATNfvl3qoFb/FTVyyolmzc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -9374,7 +9374,7 @@ recommendedJiten	jiten.moe頻度データです。
       const trimmed = text2.trim();
       if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, "noTextToRead"));
       this.stopCurrent();
-      await this.playTextToSpeech(trimmed, voiceName);
+      await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName, settings));
       if (requestId !== this.playRequestId) this.stopCurrent();
     }
     async playJpdbAudio(audioIds, options = {}) {
@@ -9467,15 +9467,16 @@ recommendedJiten	jiten.moe頻度データです。
     }
     async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
       const { source } = sourceEntry;
-      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
+      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
       return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
-    async playFromTextToSpeechSource(source, card, requestId, isCurrent) {
+    async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
+      const text2 = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
+      await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings));
       return this.isPlaybackCurrent(requestId, isCurrent);
     }
     async playFromAudioCandidates(candidates, sourceType, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio) {
@@ -9650,19 +9651,64 @@ recommendedJiten	jiten.moe頻度データです。
       const settings = this.getSettings();
       return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
-    playTextToSpeech(text2, voiceName) {
+    playTextToSpeech(text2, voiceName, deckKey) {
       const settings = this.getSettings();
       if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
       return new Promise((resolve, reject) => {
         const utterance = new SpeechSynthesisUtterance(text2);
         utterance.lang = "ja-JP";
         const voices = speechSynthesis.getVoices();
-        utterance.voice = (voiceName ? voices.find((voice) => voice.name === voiceName) : void 0) ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("ja")) ?? null;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
+        const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        utterance.voice = choice.voice;
+        utterance.onend = () => {
+          this.markTextToSpeechVoicePlayed(choice);
+          resolve();
+        };
+        utterance.onerror = () => {
+          this.markTextToSpeechVoiceSkipped(choice);
+          reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
+        };
         this.utterance = utterance;
         speechSynthesis.speak(utterance);
       });
+    }
+    textToSpeechVoiceChoice(voices, voiceName, deckKey) {
+      const selectedVoiceName = voiceName.trim();
+      if (selectedVoiceName) {
+        return {
+          voice: voices.find((voice) => voice.name === selectedVoiceName) ?? this.firstJapaneseTextToSpeechVoice(voices)
+        };
+      }
+      const japaneseVoices = textToSpeechJapaneseVoices(voices);
+      if (!deckKey || japaneseVoices.length < 2) {
+        return { voice: japaneseVoices[0]?.voice ?? null };
+      }
+      const entries = japaneseVoices.map(({ voice }, index) => ({
+        deckId: textToSpeechVoiceDeckId(voice, index),
+        voice
+      }));
+      const byId = new Map(entries.map((entry) => [entry.deckId, entry.voice]));
+      const deckId = this.shuffledAudio.order(deckKey, entries.map((entry) => entry.deckId)).find((id) => byId.has(id));
+      return {
+        deckId,
+        deckKey,
+        voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null
+      };
+    }
+    firstJapaneseTextToSpeechVoice(voices) {
+      return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
+    }
+    markTextToSpeechVoicePlayed(choice) {
+      if (choice.deckKey && choice.deckId) this.shuffledAudio.markPlayed(choice.deckKey, choice.deckId);
+    }
+    markTextToSpeechVoiceSkipped(choice) {
+      if (choice.deckKey && choice.deckId) this.shuffledAudio.markSkipped(choice.deckKey, choice.deckId);
+    }
+    textToSpeechSourceBagKey(source, card, settings) {
+      return settings.audioSelectionMode === "random" && !source.voice.trim() ? getAudioBagKey(source, card) : void 0;
+    }
+    textToSpeechTextBagKey(text2, voiceName, settings) {
+      return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
       if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
@@ -9694,6 +9740,16 @@ recommendedJiten	jiten.moe頻度データです。
       }
       return true;
     }
+  }
+  function textToSpeechJapaneseVoices(voices) {
+    return voices.filter((voice) => voice.lang.toLowerCase().startsWith("ja")).map((voice) => ({ voice }));
+  }
+  function textToSpeechVoiceDeckId(voice, index) {
+    return [
+      voice.name,
+      voice.lang,
+      String(index)
+    ].join("\0");
   }
   class AudioSourcePreparationRace {
     constructor(sources, prepare) {

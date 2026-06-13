@@ -2043,6 +2043,66 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
     });
 
+    it('pauses transcript auto-follow after a manual scroll and resumes after the window', () => {
+        const nowDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        let now = 10_000;
+        const scrollSpy = vi.fn();
+        Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (cb: FrameRequestCallback) => { cb(now); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+
+        try {
+            const { controller } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleTranscriptAutoScroll: true,
+            });
+            const internals = controllerInternals<{
+                transcriptPanel: HTMLElement;
+                panelMode: 'lines' | 'tracks';
+                noteTranscriptScroll: () => void;
+                scrollTranscriptToActive: () => void;
+            }>(controller);
+            internals.panelMode = 'lines';
+            internals.transcriptPanel.hidden = false;
+            internals.transcriptPanel.innerHTML = '<div class="jpdb-subtitle-list-scroll"><div class="jpdb-subtitle-list-row active" data-row-index="5"></div></div>';
+
+            // Baseline: advancing the active cue snaps the list to it.
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(1);
+
+            // The auto-scroll's own scroll event (inside the programmatic
+            // window) must NOT be counted as a manual scroll.
+            internals.noteTranscriptScroll();
+            now += 100;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // A real manual scroll (past the programmatic window) pauses follow:
+            // the next cue advance must NOT yank the list back.
+            now += 400;
+            internals.noteTranscriptScroll();
+            now += 100;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // After the resume window with no further manual scrolling, follow
+            // resumes.
+            now += 4000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(3);
+        } finally {
+            if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        }
+    });
+
     it('ignores stale secondary cues after moving the same track to Japanese', async () => {
         vi.useFakeTimers();
         const scrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');

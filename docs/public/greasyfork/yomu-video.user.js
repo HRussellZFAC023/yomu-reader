@@ -10599,6 +10599,8 @@ ${spelling}`);
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
+  const TRANSCRIPT_MANUAL_SCROLL_RESUME_MS = 4e3;
+  const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
@@ -10710,6 +10712,12 @@ ${spelling}`);
     lastTranscriptSignature = "";
     transcriptScrollFrame;
     transcriptHydrateFrame;
+    // Manual-scroll override for transcript auto-follow: a user scroll pauses
+    // the snap-to-active so advancing to the next cue does not yank the list
+    // back; programmatic scrollIntoView calls are ignored for a short window so
+    // they are not mistaken for user scrolls.
+    transcriptUserScrollAt = 0;
+    transcriptProgrammaticScrollUntil = 0;
     transcriptInsetRealignFrame;
     transcriptPanelAnimationFrame;
     transcriptPanelHideTimer;
@@ -12417,6 +12425,7 @@ ${spelling}`);
     seekToCueObject(cue, options = {}) {
       const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
       this.seekVideoTo(Math.max(0, cue.start + padding));
+      this.transcriptUserScrollAt = 0;
       this.currentCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
@@ -13206,19 +13215,29 @@ ${spelling}`);
     }
     scrollTranscriptToActive() {
       if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+      if (performance.now() - this.transcriptUserScrollAt < TRANSCRIPT_MANUAL_SCROLL_RESUME_MS) return;
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
       this.transcriptScrollFrame = requestAnimationFrame(() => {
         this.transcriptScrollFrame = void 0;
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
-        active?.scrollIntoView?.({ block: "center", inline: "nearest" });
+        if (!active) return;
+        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+        active.scrollIntoView?.({ block: "center", inline: "nearest" });
       });
+    }
+    noteTranscriptScroll() {
+      if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
+      this.transcriptUserScrollAt = performance.now();
     }
     bindTranscriptScroller() {
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller || scroller.dataset.transcriptHydrationBound === "true") return;
       scroller.dataset.transcriptHydrationBound = "true";
-      scroller.addEventListener("scroll", () => this.scheduleTranscriptHydration(), { passive: true });
+      scroller.addEventListener("scroll", () => {
+        this.noteTranscriptScroll();
+        this.scheduleTranscriptHydration();
+      }, { passive: true });
     }
     bindTranscriptResizeHandle() {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
