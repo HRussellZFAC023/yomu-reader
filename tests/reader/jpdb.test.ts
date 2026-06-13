@@ -14252,6 +14252,126 @@ describe('reader helpers', () => {
         });
     });
 
+    it('preserves native YouTube Shorts sizing when side transcripts are open on desktop', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=short123') as unknown as Location,
+        });
+
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="primary"><div id="primary-inner"><div id="movie_player"><video></video></div></div></div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const video = document.querySelector('video') as HTMLVideoElement;
+            const setSize = vi.fn();
+            moviePlayer.setSize = setSize;
+            Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1080 });
+            Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1920 });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                const changed = adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(440, 80, 360, 640),
+                    margin: 12,
+                });
+
+                expect(changed).toBe(false);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(false);
+                expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('');
+                expect(primary.style.width).toBe('');
+                expect(primaryInner.style.width).toBe('');
+                expect(moviePlayer.style.width).toBe('');
+                expect(setSize).not.toHaveBeenCalled();
+            } finally {
+                adapter.clear(video);
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+        });
+    });
+
+    it('clears a previous YouTube side inset after navigating to a desktop Short', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="primary"><div id="primary-inner"><div id="movie_player"><video></video></div></div></div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const video = document.querySelector('video') as HTMLVideoElement;
+            const setSize = vi.fn();
+            moviePlayer.setSize = setSize;
+            Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1920 });
+            Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1080 });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 0, 1200, 675),
+                    margin: 12,
+                });
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                expect(primary.style.width).toBe('1080px');
+                expect(setSize).toHaveBeenCalledWith(1080, 675);
+
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: new URL('https://www.youtube.com/shorts/short123') as unknown as Location,
+                });
+                Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1080 });
+                Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1920 });
+
+                expect(adapter.apply({
+                    video,
+                    side: 'right',
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(440, 80, 360, 640),
+                    margin: 12,
+                })).toBe(true);
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(false);
+                expect(primary.style.width).toBe('');
+                expect(primaryInner.style.width).toBe('');
+                expect(moviePlayer.style.width).toBe('');
+                expect(setSize).toHaveBeenCalledTimes(1);
+            } finally {
+                adapter.clear(video);
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+        });
+    });
+
     it('can defer video layout resize events while inset updates are still changing', async () => {
         vi.useFakeTimers();
         const onResize = vi.fn();

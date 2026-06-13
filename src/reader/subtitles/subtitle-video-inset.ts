@@ -35,6 +35,9 @@ export class SubtitleVideoInsetAdapter {
     }
 
     apply(options: ApplySubtitleVideoInsetOptions): boolean {
+        if (shouldPreserveYouTubeNativePlayerSize(options)) {
+            return this.clear(options.video);
+        }
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) return false;
 
@@ -391,6 +394,28 @@ function canResizeYouTubePlayer(
     height: number,
 ): player is { setSize: (width: number, height: number) => void } {
     return Boolean(player?.setSize && width > 0 && height > 0);
+}
+
+function shouldPreserveYouTubeNativePlayerSize(options: ApplySubtitleVideoInsetOptions): boolean {
+    return options.side !== 'bottom'
+        && isYouTubePage()
+        && isYouTubeShortsLikePlayer(options.video, options.videoRect);
+}
+
+function isYouTubeShortsLikePlayer(video: HTMLVideoElement | undefined, videoRect: DOMRect): boolean {
+    if (location.pathname.startsWith('/shorts/')) return true;
+    if (video?.closest('ytd-shorts, ytd-reel-video-renderer, shorts-page, shorts-video')) return true;
+    if (document.querySelector('ytd-watch-flexy[is-shorts], ytd-watch-flexy[is-short], ytd-watch-flexy[shorts]')) return true;
+    return isPortraitYouTubeVideo(video, videoRect);
+}
+
+function isPortraitYouTubeVideo(video: HTMLVideoElement | undefined, playerRect: DOMRect): boolean {
+    const mediaWidth = video?.videoWidth ?? 0;
+    const mediaHeight = video?.videoHeight ?? 0;
+    if (mediaWidth > 0 && mediaHeight > 0) return mediaHeight > mediaWidth * 1.08;
+    const videoRect = video?.getBoundingClientRect();
+    if (usableVideoRect(videoRect)) return videoRect.height > videoRect.width * 1.08;
+    return usableVideoRect(playerRect) && playerRect.height > playerRect.width * 1.08;
 }
 
 function clearYouTubePlayerContainerInset(element: HTMLElement): void {
