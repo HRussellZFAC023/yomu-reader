@@ -134,6 +134,83 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
+    it('measures generated highlights against the detected page background before preserving them', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(255, 255, 255); color: rgb(20, 20, 20);">
+                <span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban" style="color: rgb(20, 20, 20); text-decoration-color: rgb(53, 158, 255);">読む</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const realGetComputedStyle = window.getComputedStyle.bind(window);
+        const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElt) => {
+            const style = realGetComputedStyle(element, pseudoElt);
+            if (element !== word) return style;
+            return new Proxy(style, {
+                get(target, property, receiver) {
+                    if (property === 'backgroundColor') {
+                        return word.style.getPropertyValue('--jpdb-reader-highlight-backdrop') === 'rgb(255, 255, 255)'
+                            ? 'rgb(230, 245, 235)'
+                            : 'rgb(92, 100, 112)';
+                    }
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        });
+
+        try {
+            refreshReaderWordContrastForWord(word);
+        } finally {
+            spy.mockRestore();
+        }
+
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight');
+        const underline = word.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(255, 255, 255)');
+        expect(contrastRatio(highlight, '#ffffff')).toBeGreaterThanOrEqual(1.45);
+        expect(contrastRatio(highlight, '#ffffff')).toBeLessThan(2);
+        expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
+    });
+
+    it('uses the dark host page canvas when the reader theme backdrop starts light', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(24, 27, 32); color: rgb(242, 244, 248);">
+                <span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban" style="color: rgb(242, 244, 248); text-decoration-color: rgb(53, 158, 255);">読む</span>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const realGetComputedStyle = window.getComputedStyle.bind(window);
+        const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElt) => {
+            const style = realGetComputedStyle(element, pseudoElt);
+            if (element !== word) return style;
+            return new Proxy(style, {
+                get(target, property, receiver) {
+                    if (property === 'backgroundColor') {
+                        return word.style.getPropertyValue('--jpdb-reader-highlight-backdrop') === 'rgb(24, 27, 32)'
+                            ? 'rgb(58, 82, 72)'
+                            : 'rgb(230, 245, 235)';
+                    }
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        });
+
+        try {
+            refreshReaderWordContrastForWord(word);
+        } finally {
+            spy.mockRestore();
+        }
+
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight');
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const underline = word.style.getPropertyValue('--jpdb-reader-word-accessible-underline');
+        expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 27, 32)');
+        expect(contrastRatio(highlight, '#181b20')).toBeGreaterThanOrEqual(1.45);
+        expect(contrastRatio(highlight, '#181b20')).toBeLessThan(2.5);
+        expect(contrastRatio(text, '#181b20')).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(text, highlight)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
+    });
+
     it('keeps generated furigana readable without changing native page text', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">

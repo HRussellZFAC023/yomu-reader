@@ -10094,6 +10094,18 @@ ${scopedInner}
         done();
       }
     }
+    async hasTermDictionaries() {
+      const done = log$x.time("Term dictionary presence check");
+      try {
+        const db = await this.db();
+        return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
+      } catch (error) {
+        log$x.warn("Term dictionary presence check failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
     async listRandomTerms(limit, preferences = [], options = {}) {
       const done = log$x.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
@@ -11203,6 +11215,11 @@ ${item.sequence ?? ""}`;
   }
   function dictionaryTypeFromCounts(counts = {}) {
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
+  }
+  function hasTermDictionaryRows(info) {
+    const count = Number(info.counts?.terms);
+    if (Number.isFinite(count)) return count > 0;
+    return info.type === void 0 || info.type === "terms";
   }
   const DICTIONARY_TYPE_COUNT_PRIORITY = [
     { key: "terms", type: "terms" },
@@ -22301,13 +22318,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
   ];
+  const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
-    { panel: "api", label: "API", active: true },
-    { panel: "newTab", label: "Study" },
-    { panel: "appearance", label: "Appearance" },
+    { panel: "appearance", label: "Appearance", active: true },
+    { panel: "api", label: "API" },
     { panel: "dictionaries", label: "Sources", labelKey: "sources" },
     { panel: "media", label: "Media" },
     { panel: "mining", label: "Mining" },
+    { panel: "newTab", label: "Study" },
     { panel: "shortcuts", label: "Shortcuts" },
     { panel: "help", label: "Help" }
   ];
@@ -22431,7 +22449,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
     const jpdbStatus = renderJpdbStatusLine(settings);
     return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>API</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
@@ -24128,7 +24146,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function activeSettingsPanel(form) {
-    return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? "api";
+    return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? DEFAULT_SETTINGS_PANEL;
   }
   function normalizeSettingsPanel(panel) {
     if (panel === "basics" || panel === "jpdb") return "api";
@@ -27311,6 +27329,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    localTermDictionaryAvailability;
     enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
@@ -27391,6 +27410,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.localCardCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
+      this.localTermDictionaryAvailability = void 0;
     }
     localCardFromEntry(entry) {
       const id = -stablePositiveHashId(`${entry.dictionary}
@@ -27480,6 +27500,7 @@ ${spelling}`);
     }
     async parseLocalDictionaryText(text2, options) {
       const { dictionaries, getSettings } = this.dependencies;
+      if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
         log$n.warn("Local dictionary parse failed", { length: text2.length }, error);
@@ -27501,6 +27522,17 @@ ${spelling}`);
           sentence: text2
         };
       });
+    }
+    async hasLocalTermDictionaries() {
+      if (!this.canUseLocalDictionaryFallback()) return false;
+      const store = this.dependencies.dictionaries;
+      if (typeof store.hasTermDictionaries !== "function") return true;
+      this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
+        this.localTermDictionaryAvailability = void 0;
+        log$n.warn("Local term dictionary availability check failed", { error });
+        return true;
+      });
+      return this.localTermDictionaryAvailability;
     }
     parseSegmentedText(text2) {
       return segmentJapaneseText(text2).map((segment) => {
@@ -32214,7 +32246,7 @@ ${spelling}`);
   function applySubtitleNativeTrackModes(state) {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-    const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
+    const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
@@ -32228,6 +32260,7 @@ ${spelling}`);
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
+    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
@@ -32244,6 +32277,55 @@ ${spelling}`);
   }
   function isSelectedSubtitleTrack(option, state) {
     return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
+  }
+  function suppressGenericCaptionPlayerUi(video) {
+    for (const player of genericCaptionPlayersForVideo(video)) {
+      try {
+        player.toggleCaptions?.(false);
+      } catch {
+      }
+    }
+    suppressPressedCaptionButtons(video);
+  }
+  function genericCaptionPlayersForVideo(video) {
+    const players = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const candidate of genericCaptionPlayerCandidates()) {
+      if (!isGenericCaptionPlayer(candidate)) continue;
+      if (seen.has(candidate)) continue;
+      if (video && candidate.media instanceof HTMLMediaElement && candidate.media !== video) continue;
+      seen.add(candidate);
+      players.push(candidate);
+    }
+    return players;
+  }
+  function genericCaptionPlayerCandidates() {
+    const typedWindow = window;
+    return [
+      typedWindow.player,
+      typedWindow.plyr,
+      ...Array.isArray(typedWindow.players) ? typedWindow.players : []
+    ];
+  }
+  function isGenericCaptionPlayer(value) {
+    if (!value || typeof value !== "object") return false;
+    const player = value;
+    return typeof player.toggleCaptions === "function" && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === "number");
+  }
+  function suppressPressedCaptionButtons(video) {
+    const scope = genericCaptionButtonScope(video);
+    const buttons = Array.from(scope.querySelectorAll(
+      '[data-plyr="captions"][aria-pressed="true"], [data-plyr="captions"].plyr__control--pressed'
+    ));
+    for (const button of buttons) {
+      try {
+        button.click();
+      } catch {
+      }
+    }
+  }
+  function genericCaptionButtonScope(video) {
+    return video?.closest('.plyr, [class*="player" i], [class*="video" i]') ?? document;
   }
   function mutationNodes(mutation, options = {}) {
     const nodes = [
@@ -35327,6 +35409,8 @@ ${spelling}`);
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
+        suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+        video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
         currentCueText: this.currentCue?.text,
         youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,

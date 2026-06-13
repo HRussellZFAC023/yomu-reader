@@ -14,6 +14,8 @@ describe('OnboardingController', () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
+            interfaceLanguage: 'en',
+            theme: 'light',
             youtubeImmersionEnabled: true,
             preferJapaneseSiteLanguage: true,
         };
@@ -32,15 +34,25 @@ describe('OnboardingController', () => {
         const youtubeFilter = document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]');
         const siteLanguage = document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]');
         const accentColor = document.querySelector<HTMLInputElement>('input[name="accentColor"]');
+        const themeSwitch = document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]');
         const defaultAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]');
         const blueAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#2563eb"]');
+        const featureItems = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li'));
         expect(youtubeFilter?.checked).toBe(true);
         expect(siteLanguage?.checked).toBe(true);
         expect(accentColor?.value).toBe(DEFAULT_SETTINGS.accentColor);
+        expect(themeSwitch?.getAttribute('aria-checked')).toBe('false');
+        expect(themeSwitch?.title).toBe('Switch to dark theme');
+        expect(themeSwitch?.getAttribute('aria-labelledby')).toBe('jpdb-reader-onboarding-theme-label');
         expect(defaultAccentSwatch?.getAttribute('aria-pressed')).toBe('true');
+        expect(featureItems).toHaveLength(5);
+        expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
         youtubeFilter!.checked = false;
         siteLanguage!.checked = false;
+        themeSwitch!.click();
+        expect(settings.theme).toBe('dark');
+        expect(themeSwitch?.getAttribute('aria-checked')).toBe('true');
         blueAccentSwatch!.click();
         expect(accentColor?.value).toBe('#2563eb');
         expect(settings.accentColor).toBe('#2563eb');
@@ -52,12 +64,14 @@ describe('OnboardingController', () => {
         expect(settings.onboardingSeen).toBe(true);
         expect(settings.youtubeImmersionEnabled).toBe(false);
         expect(settings.preferJapaneseSiteLanguage).toBe(false);
+        expect(settings.theme).toBe('dark');
         expect(settings.accentColor).toBe('#336699');
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
             youtubeImmersionEnabled: false,
             preferJapaneseSiteLanguage: false,
+            theme: 'dark',
             accentColor: '#336699',
         });
     });

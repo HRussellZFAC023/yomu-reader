@@ -22,6 +22,7 @@ export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
     private languageSelect?: HTMLSelectElement;
+    private themeSwitch?: HTMLButtonElement;
     private accentColorInput?: HTMLInputElement;
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
@@ -66,8 +67,8 @@ export class OnboardingController {
             '',
             uiText(this.options.getSettings().interfaceLanguage, 'onboardingCopy'),
         );
-        const featureGrid = document.createElement('div');
-        featureGrid.className = 'jpdb-reader-onboarding-grid';
+        const featureList = document.createElement('ul');
+        featureList.className = 'jpdb-reader-onboarding-features';
         const featureKeys: Array<[UiCopyKey, UiCopyKey]> = [
             ['featureText', 'featureTextBody'],
             ['featureImages', 'featureImagesBody'],
@@ -76,12 +77,12 @@ export class OnboardingController {
             ['featureStudy', 'featureStudyBody'],
         ];
         featureKeys.forEach(([headingKey, textKey]) => {
-            const card = document.createElement('div');
-            card.append(
+            const item = document.createElement('li');
+            item.append(
                 element('strong', '', uiText(this.options.getSettings().interfaceLanguage, headingKey)),
                 element('span', '', uiText(this.options.getSettings().interfaceLanguage, textKey)),
             );
-            featureGrid.append(card);
+            featureList.append(item);
         });
 
         const language = document.createElement('label');
@@ -101,6 +102,10 @@ export class OnboardingController {
             this.languageSelect?.append(option);
         });
         language.append(languageText, this.languageSelect);
+
+        const preferences = document.createElement('div');
+        preferences.className = 'jpdb-reader-onboarding-preferences';
+        preferences.append(language, this.createThemeToggle());
 
         const accentPicker = document.createElement('fieldset');
         accentPicker.className = 'jpdb-reader-onboarding-accent';
@@ -134,7 +139,7 @@ export class OnboardingController {
 
         const basics = document.createElement('div');
         basics.className = 'jpdb-reader-onboarding-basics';
-        basics.append(language, accentPicker);
+        basics.append(preferences, accentPicker);
 
         const immersionOptions = document.createElement('fieldset');
         immersionOptions.className = 'jpdb-reader-onboarding-options';
@@ -167,7 +172,8 @@ export class OnboardingController {
             this.localize(language);
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureGrid);
+        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
+        this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
@@ -181,6 +187,7 @@ export class OnboardingController {
         const copy = panel.querySelector('p');
         copy?.replaceChildren(uiText(language, 'onboardingCopy'));
         panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
+        panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, 'theme'));
         panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
@@ -203,24 +210,25 @@ export class OnboardingController {
             const option = this.languageSelect?.querySelector<HTMLOptionElement>(`option[value="${value}"]`);
             if (option) option.textContent = text;
         });
-        const cards = Array.from(panel.querySelectorAll('.jpdb-reader-onboarding-grid > div'));
-        const cardKeys = [
+        const features = Array.from(panel.querySelectorAll('.jpdb-reader-onboarding-features > li'));
+        const featureKeys = [
             ['featureText', 'featureTextBody'],
             ['featureImages', 'featureImagesBody'],
             ['featureVideo', 'featureVideoBody'],
             ['featureControl', 'featureControlBody'],
             ['featureStudy', 'featureStudyBody'],
         ] as const;
-        cards.forEach((card, index) => {
-            const [headingKey, bodyKey] = cardKeys[index] ?? cardKeys[0];
-            card.querySelector('strong')?.replaceChildren(uiText(language, headingKey));
-            card.querySelector('span')?.replaceChildren(uiText(language, bodyKey));
+        features.forEach((feature, index) => {
+            const [headingKey, bodyKey] = featureKeys[index] ?? featureKeys[0];
+            feature.querySelector('strong')?.replaceChildren(uiText(language, headingKey));
+            feature.querySelector('span')?.replaceChildren(uiText(language, bodyKey));
         });
         panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, 'onboardingAddApiKey'));
         panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, 'onboardingUseWithoutApiKey'));
         const closeButton = panel.querySelector('[data-onboarding-action="close"]');
         closeButton?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
         closeButton?.setAttribute('title', uiText(language, 'closeOnboarding'));
+        this.syncThemeSwitch();
     }
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
@@ -257,7 +265,7 @@ export class OnboardingController {
 
     private openPostOnboardingSettings(openSettings: boolean | 'dictionaries'): void {
         if (openSettings === 'dictionaries') this.options.showSettings('dictionaries');
-        else if (openSettings) this.options.showSettings();
+        else if (openSettings) this.options.showSettings('api');
     }
 
     private close(): void {
@@ -266,9 +274,56 @@ export class OnboardingController {
         this.panel = undefined;
         this.backdrop = undefined;
         this.languageSelect = undefined;
+        this.themeSwitch = undefined;
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
+    }
+
+    private createThemeToggle(): HTMLElement {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'jpdb-reader-onboarding-theme';
+        const title = document.createElement('span');
+        title.className = 'jpdb-reader-theme-title';
+        title.id = 'jpdb-reader-onboarding-theme-label';
+        title.dataset.onboardingCopy = 'theme';
+        title.textContent = uiText(this.options.getSettings().interfaceLanguage, 'theme');
+
+        const chrome = document.createElement('div');
+        chrome.className = 'VPNavBarAppearance appearance jpdb-reader-theme-appearance';
+        this.themeSwitch = button('');
+        this.themeSwitch.className = 'VPSwitch VPSwitchAppearance jpdb-reader-theme-switch';
+        this.themeSwitch.dataset.onboardingThemeSwitch = 'true';
+        this.themeSwitch.setAttribute('role', 'switch');
+        this.themeSwitch.setAttribute('aria-labelledby', title.id);
+        this.themeSwitch.setAttribute('aria-describedby', title.id);
+        setInnerHtml(this.themeSwitch, themeSwitchChrome());
+        this.themeSwitch.addEventListener('click', () => this.toggleTheme());
+        chrome.append(this.themeSwitch);
+        wrapper.append(title, chrome);
+        return wrapper;
+    }
+
+    private toggleTheme(): void {
+        const current = this.options.getSettings();
+        const theme = this.effectiveTheme(current.theme) === 'dark' ? 'light' : 'dark';
+        this.options.setSettings({ ...current, theme });
+        this.syncThemeSwitch();
+    }
+
+    private syncThemeSwitch(): void {
+        if (!this.themeSwitch) return;
+        const language = this.options.getSettings().interfaceLanguage;
+        const theme = this.effectiveTheme(this.options.getSettings().theme);
+        const label = uiText(language, theme === 'dark' ? 'switchToLightTheme' : 'switchToDarkTheme');
+        this.themeSwitch.setAttribute('aria-label', label);
+        this.themeSwitch.setAttribute('aria-checked', String(theme === 'dark'));
+        this.themeSwitch.title = label;
+    }
+
+    private effectiveTheme(value: ReaderSettings['theme'] | undefined): 'dark' | 'light' {
+        if (value === 'dark' || value === 'light') return value;
+        return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
 
     private applyAccentChoice(value: string | undefined): void {
@@ -339,4 +394,8 @@ function onboardingAccentLabel(language: InterfaceLanguage, color: string): stri
 
 function closeIcon(): string {
     return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
+}
+
+function themeSwitchChrome(): string {
+    return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
 }

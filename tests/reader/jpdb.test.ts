@@ -5925,6 +5925,25 @@ describe('reader helpers', () => {
         expect(tokens.find(token => token.card.spelling === '下')?.card.source).toBe('fallback');
     });
 
+    it('skips local term matching when dictionaries are enabled but no term dictionaries are installed', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([]);
+        const hasTermDictionaries = vi.fn().mockResolvedValue(false);
+        const tokens = await parseSegmentedFallbackTokens([
+            { segment: '日本語', index: 0, isWordLike: true },
+            { segment: 'を', index: 3, isWordLike: true },
+            { segment: '読む', index: 4, isWordLike: true },
+        ], '日本語を読む', {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches, hasTermDictionaries } as never,
+        });
+
+        expect(tokenSpellings(tokens)).toEqual(['日本語', 'を', '読む']);
+        expect(tokens.every(token => token.card.source === 'fallback')).toBe(true);
+        expect(hasTermDictionaries).toHaveBeenCalledTimes(1);
+        expect(findTermMatches).not.toHaveBeenCalled();
+    });
+
     it('prefers an inflected fallback span over a shorter overlapping local match', async () => {
         const findTermMatches = vi.fn().mockResolvedValue([{
             entry: {
@@ -28071,6 +28090,70 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.dataset.cardSource).toBe('jpdb');
+        expect(word.querySelector('rt')?.textContent).toBe('かんれんどうが');
+        expectRenderedPitchWord(word, 'heiban');
+    });
+
+    it('scans YouTube chip cloud tabs as passive ruby targets', () => {
+        const targets = collectYouTubeTargets(`
+            <iron-selector id="chips" role="tablist" selected-attribute="selected">
+                <yt-chip-cloud-chip-renderer selected="">
+                    <div id="chip-shape-container">
+                        <chip-shape>
+                            <button role="tab" aria-selected="true">
+                                <div class="ytChipShapeChip ytChipShapeActive ytChipShapeOnlyTextPadding">
+                                    <div>すべて</div>
+                                    <yt-touch-feedback-shape aria-hidden="true"><div>押下中</div></yt-touch-feedback-shape>
+                                </div>
+                            </button>
+                        </chip-shape>
+                    </div>
+                </yt-chip-cloud-chip-renderer>
+                <yt-chip-cloud-chip-renderer>
+                    <div id="chip-shape-container">
+                        <chip-shape>
+                            <button role="tab" aria-selected="false">
+                                <div class="ytChipShapeChip ytChipShapeInactive ytChipShapeOnlyTextPadding"><div>関連動画</div></div>
+                            </button>
+                        </chip-shape>
+                    </div>
+                </yt-chip-cloud-chip-renderer>
+                <yt-chip-cloud-chip-renderer>
+                    <div id="chip-shape-container">
+                        <chip-shape>
+                            <button role="tab" aria-selected="false">
+                                <div class="ytChipShapeChip ytChipShapeInactive ytChipShapeOnlyTextPadding"><div>最近アップロードされた動画</div></div>
+                            </button>
+                        </chip-shape>
+                    </div>
+                </yt-chip-cloud-chip-renderer>
+            </iron-selector>
+        `, YOUTUBE_WATCH_TEST_URL, 10);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            'すべて',
+            '関連動画',
+            '最近アップロードされた動画',
+        ]));
+        expect(targets.map(target => target.text)).not.toContain('押下中');
+
+        const related = targets.find(target => target.text === '関連動画')!;
+        expect('passiveInteraction' in related && related.passiveInteraction).toBe(true);
+        applyTokensToScanTarget(related, [{
+            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが', source: 'jpdb' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: '関連動画',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = Array.from(document.querySelectorAll<HTMLElement>('yt-chip-cloud-chip-renderer .jpdb-reader-word'))
+            .find(candidate => readerWordSurfaceText(candidate) === '関連動画')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.tabIndex).toBe(-1);
         expect(word.dataset.cardSource).toBe('jpdb');
         expect(word.querySelector('rt')?.textContent).toBe('かんれんどうが');
         expectRenderedPitchWord(word, 'heiban');

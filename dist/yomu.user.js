@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.194
+// @version      0.6.195
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -15,8 +15,8 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-sdCj3J2sqWlhglpaOBsQ1Mu286JykYHrA0wbN+2pRus=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Df7KsqUG9RS4ncd9sAnbwxKCPrk2Ogx/Hzq1dnH3Tsk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TEd9j+Xrgrq9Ax4NjcVKXazrqkoYePiZm0xt1ifQjkk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dGG9ajpyTUxinI73K7ukzHKQ39n/XNdpy1lcxJpb/YU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ssh2jVgRHX59IpGHfNTfSUtltSOzuczKyr2YefrRDeQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Gvc9oZxPuXyHNIWiBqMknbgld+LVv2dQKE4fq2iCTwQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -12517,6 +12517,18 @@ ${scopedInner}
         done();
       }
     }
+    async hasTermDictionaries() {
+      const done = log$l.time("Term dictionary presence check");
+      try {
+        const db = await this.db();
+        return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
+      } catch (error) {
+        log$l.warn("Term dictionary presence check failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
     async listRandomTerms(limit, preferences = [], options = {}) {
       const done = log$l.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
@@ -13626,6 +13638,11 @@ ${item.sequence ?? ""}`;
   }
   function dictionaryTypeFromCounts(counts = {}) {
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
+  }
+  function hasTermDictionaryRows(info) {
+    const count = Number(info.counts?.terms);
+    if (Number.isFinite(count)) return count > 0;
+    return info.type === void 0 || info.type === "terms";
   }
   const DICTIONARY_TYPE_COUNT_PRIORITY = [
     { key: "terms", type: "terms" },
@@ -24673,6 +24690,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    localTermDictionaryAvailability;
     enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
@@ -24753,6 +24771,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.localCardCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
+      this.localTermDictionaryAvailability = void 0;
     }
     localCardFromEntry(entry) {
       const id = -stablePositiveHashId(`${entry.dictionary}
@@ -24842,6 +24861,7 @@ ${spelling}`);
     }
     async parseLocalDictionaryText(text2, options) {
       const { dictionaries, getSettings } = this.dependencies;
+      if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
         log$b.warn("Local dictionary parse failed", { length: text2.length }, error);
@@ -24863,6 +24883,17 @@ ${spelling}`);
           sentence: text2
         };
       });
+    }
+    async hasLocalTermDictionaries() {
+      if (!this.canUseLocalDictionaryFallback()) return false;
+      const store = this.dependencies.dictionaries;
+      if (typeof store.hasTermDictionaries !== "function") return true;
+      this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
+        this.localTermDictionaryAvailability = void 0;
+        log$b.warn("Local term dictionary availability check failed", { error });
+        return true;
+      });
+      return this.localTermDictionaryAvailability;
     }
     parseSegmentedText(text2) {
       return segmentJapaneseText(text2).map((segment) => {
@@ -30839,18 +30870,16 @@ ${glossaryKey}`;
     "#more",
     "#less",
     // YouTube wraps its controls in custom elements; treat them as passive so
-    // their labels (subscribe, like, chips, video titles) open the dictionary
+    // their labels (subscribe, like, video titles) open the dictionary
     // on hover without swallowing the native click.
     "yt-button-shape",
     "tp-yt-paper-button",
     "ytd-subscribe-button-renderer",
     "ytd-toggle-button-renderer",
     "ytd-button-renderer",
-    "yt-chip-cloud-chip-renderer",
     "ytm-button-renderer",
     "ytm-toggle-button-renderer",
     "ytm-subscribe-button-renderer",
-    "ytm-chip-cloud-chip-renderer",
     "ytm-compact-link-renderer",
     ".yt-spec-button-shape-next"
   ].join(",");
@@ -31355,6 +31384,10 @@ ${glossaryKey}`;
         "ytd-watch-metadata ytd-button-renderer",
         "ytd-watch-metadata ytd-subscribe-button-renderer",
         "ytd-watch-metadata ytd-toggle-button-renderer",
+        "ytd-feed-filter-chip-bar-renderer",
+        "yt-chip-cloud-renderer",
+        "yt-chip-cloud-chip-renderer",
+        "iron-selector#chips",
         "ytd-search",
         "ytd-two-column-search-results-renderer",
         "ytd-section-list-renderer",
@@ -31367,6 +31400,9 @@ ${glossaryKey}`;
         "ytd-watch-next-secondary-results-renderer",
         "ytd-rich-grid-renderer",
         "ytd-rich-section-renderer",
+        "ytd-feed-filter-chip-bar-renderer",
+        "yt-chip-cloud-renderer",
+        "yt-chip-cloud-chip-renderer",
         "ytd-reel-shelf-renderer",
         "ytd-reel-item-renderer",
         "ytd-reel-video-renderer",
@@ -31374,11 +31410,15 @@ ${glossaryKey}`;
         "yt-lockup-metadata-view-model",
         "ytm-mobile-topbar-renderer",
         "ytm-pivot-bar-renderer",
+        "ytm-chip-cloud-renderer",
+        "ytm-chip-cloud-chip-renderer",
         "ytm-rich-grid-renderer",
         "ytm-rich-item-renderer",
         "ytm-video-with-context-renderer",
         "ytm-compact-video-renderer",
         "ytm-video-card-renderer",
+        "ytm-chip-cloud-renderer",
+        "ytm-chip-cloud-chip-renderer",
         "ytm-shorts-lockup-view-model",
         "ytm-shorts-lockup-view-model-v2",
         "ytm-single-column-watch-next-results-renderer",
@@ -33071,6 +33111,7 @@ ${glossaryKey}`;
     panel;
     backdrop;
     languageSelect;
+    themeSwitch;
     accentColorInput;
     youtubeImmersionInput;
     preferJapaneseSiteLanguageInput;
@@ -33108,8 +33149,8 @@ ${glossaryKey}`;
         "",
         uiText(this.options.getSettings().interfaceLanguage, "onboardingCopy")
       );
-      const featureGrid = document.createElement("div");
-      featureGrid.className = "jpdb-reader-onboarding-grid";
+      const featureList = document.createElement("ul");
+      featureList.className = "jpdb-reader-onboarding-features";
       const featureKeys = [
         ["featureText", "featureTextBody"],
         ["featureImages", "featureImagesBody"],
@@ -33118,12 +33159,12 @@ ${glossaryKey}`;
         ["featureStudy", "featureStudyBody"]
       ];
       featureKeys.forEach(([headingKey, textKey]) => {
-        const card = document.createElement("div");
-        card.append(
+        const item = document.createElement("li");
+        item.append(
           element("strong", "", uiText(this.options.getSettings().interfaceLanguage, headingKey)),
           element("span", "", uiText(this.options.getSettings().interfaceLanguage, textKey))
         );
-        featureGrid.append(card);
+        featureList.append(item);
       });
       const language = document.createElement("label");
       language.className = "jpdb-reader-onboarding-language";
@@ -33142,6 +33183,9 @@ ${glossaryKey}`;
         this.languageSelect?.append(option);
       });
       language.append(languageText, this.languageSelect);
+      const preferences = document.createElement("div");
+      preferences.className = "jpdb-reader-onboarding-preferences";
+      preferences.append(language, this.createThemeToggle());
       const accentPicker = document.createElement("fieldset");
       accentPicker.className = "jpdb-reader-onboarding-accent";
       const accentLegend = document.createElement("legend");
@@ -33173,7 +33217,7 @@ ${glossaryKey}`;
       accentPicker.append(accentLegend, swatches, customAccent);
       const basics = document.createElement("div");
       basics.className = "jpdb-reader-onboarding-basics";
-      basics.append(language, accentPicker);
+      basics.append(preferences, accentPicker);
       const immersionOptions = document.createElement("fieldset");
       immersionOptions.className = "jpdb-reader-onboarding-options";
       const immersionLegend = document.createElement("legend");
@@ -33202,7 +33246,8 @@ ${glossaryKey}`;
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
-      this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureGrid);
+      this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
+      this.syncThemeSwitch();
       this.syncAccentPicker(this.accentColorInput.value);
       document.body.append(this.backdrop, this.panel);
       this.panel.focus();
@@ -33215,6 +33260,7 @@ ${glossaryKey}`;
       const copy = panel.querySelector("p");
       copy?.replaceChildren(uiText(language, "onboardingCopy"));
       panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
+      panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
       panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
       panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
       panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
@@ -33237,24 +33283,25 @@ ${glossaryKey}`;
         const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
         if (option) option.textContent = text2;
       });
-      const cards = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-grid > div"));
-      const cardKeys = [
+      const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
+      const featureKeys = [
         ["featureText", "featureTextBody"],
         ["featureImages", "featureImagesBody"],
         ["featureVideo", "featureVideoBody"],
         ["featureControl", "featureControlBody"],
         ["featureStudy", "featureStudyBody"]
       ];
-      cards.forEach((card, index) => {
-        const [headingKey, bodyKey] = cardKeys[index] ?? cardKeys[0];
-        card.querySelector("strong")?.replaceChildren(uiText(language, headingKey));
-        card.querySelector("span")?.replaceChildren(uiText(language, bodyKey));
+      features.forEach((feature, index) => {
+        const [headingKey, bodyKey] = featureKeys[index] ?? featureKeys[0];
+        feature.querySelector("strong")?.replaceChildren(uiText(language, headingKey));
+        feature.querySelector("span")?.replaceChildren(uiText(language, bodyKey));
       });
       panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, "onboardingAddApiKey"));
       panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, "onboardingUseWithoutApiKey"));
       const closeButton = panel.querySelector('[data-onboarding-action="close"]');
       closeButton?.setAttribute("aria-label", uiText(language, "closeOnboarding"));
       closeButton?.setAttribute("title", uiText(language, "closeOnboarding"));
+      this.syncThemeSwitch();
     }
     async complete(openSettings) {
       const done = log$4.time("Onboarding complete", { openSettings });
@@ -33288,7 +33335,7 @@ ${glossaryKey}`;
     }
     openPostOnboardingSettings(openSettings) {
       if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
-      else if (openSettings) this.options.showSettings();
+      else if (openSettings) this.options.showSettings("api");
     }
     close() {
       this.panel?.remove();
@@ -33296,9 +33343,51 @@ ${glossaryKey}`;
       this.panel = void 0;
       this.backdrop = void 0;
       this.languageSelect = void 0;
+      this.themeSwitch = void 0;
       this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
       this.preferJapaneseSiteLanguageInput = void 0;
+    }
+    createThemeToggle() {
+      const wrapper = document.createElement("div");
+      wrapper.className = "jpdb-reader-onboarding-theme";
+      const title = document.createElement("span");
+      title.className = "jpdb-reader-theme-title";
+      title.id = "jpdb-reader-onboarding-theme-label";
+      title.dataset.onboardingCopy = "theme";
+      title.textContent = uiText(this.options.getSettings().interfaceLanguage, "theme");
+      const chrome = document.createElement("div");
+      chrome.className = "VPNavBarAppearance appearance jpdb-reader-theme-appearance";
+      this.themeSwitch = button("");
+      this.themeSwitch.className = "VPSwitch VPSwitchAppearance jpdb-reader-theme-switch";
+      this.themeSwitch.dataset.onboardingThemeSwitch = "true";
+      this.themeSwitch.setAttribute("role", "switch");
+      this.themeSwitch.setAttribute("aria-labelledby", title.id);
+      this.themeSwitch.setAttribute("aria-describedby", title.id);
+      setInnerHtml(this.themeSwitch, themeSwitchChrome());
+      this.themeSwitch.addEventListener("click", () => this.toggleTheme());
+      chrome.append(this.themeSwitch);
+      wrapper.append(title, chrome);
+      return wrapper;
+    }
+    toggleTheme() {
+      const current = this.options.getSettings();
+      const theme = this.effectiveTheme(current.theme) === "dark" ? "light" : "dark";
+      this.options.setSettings({ ...current, theme });
+      this.syncThemeSwitch();
+    }
+    syncThemeSwitch() {
+      if (!this.themeSwitch) return;
+      const language = this.options.getSettings().interfaceLanguage;
+      const theme = this.effectiveTheme(this.options.getSettings().theme);
+      const label = uiText(language, theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
+      this.themeSwitch.setAttribute("aria-label", label);
+      this.themeSwitch.setAttribute("aria-checked", String(theme === "dark"));
+      this.themeSwitch.title = label;
+    }
+    effectiveTheme(value) {
+      if (value === "dark" || value === "light") return value;
+      return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
     applyAccentChoice(value) {
       const current = this.options.getSettings();
@@ -33359,6 +33448,9 @@ ${glossaryKey}`;
   }
   function closeIcon() {
     return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
+  }
+  function themeSwitchChrome() {
+    return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
   }
   const JAPANESE_LANGUAGE = "ja";
   const JAPANESE_COUNTRY = "JP";
@@ -34485,13 +34577,14 @@ ${glossaryKey}`;
       activeWords.push(word);
       activeBackgrounds.push(background);
     }
-    const savedVars = activeWords.map((word) => {
+    const savedVars = activeWords.map((word, i) => {
       const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
         name,
         value: word.style.getPropertyValue(name),
         priority: word.style.getPropertyPriority(name)
       }));
       RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+      word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i].css);
       return saved;
     });
     const measurements = activeWords.map((word) => {
@@ -35778,12 +35871,18 @@ ${glossaryKey}`;
         if (!next.batch.length) continue;
         const batch = next.batch;
         const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-        if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
+        if (parsed.some((tokens2) => tokens2.length > 0)) parsedAnyTokens = true;
         if (this.isStaleScan(generation)) return parsedAnyTokens;
-        const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat()) : void 0;
+        const tokens = parsed.flat();
+        const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+        if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+        const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
         const changedRoots = await this.applyTokens(batch, parsed);
         applyAnkiColors?.(changedRoots);
-        this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
+        this.preloadParsed(parsed, changedRoots, {
+          skipAnki: Boolean(applyAnkiColors),
+          skipPitch: pitchStartedBeforeApply
+        });
         if (cursor < targets.length) await waitForVisibleScanTurn();
       }
       return parsedAnyTokens;
@@ -35814,7 +35913,7 @@ ${glossaryKey}`;
       if (this.destroyed) return;
       const tokens = parsed.flat();
       this.dependencies.preloadParsedTokens(tokens);
-      void this.dependencies.enrichPitchWords(tokens);
+      if (!options.skipPitch) void this.dependencies.enrichPitchWords(tokens);
       if (!options.skipAnki && this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
     }
     shouldEnrichAnkiWords() {
@@ -35861,6 +35960,9 @@ ${glossaryKey}`;
   }
   function waitForVisibleScanTurn() {
     return new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+  function shouldStartPitchEnrichmentBeforeApply(tokens) {
+    return tokens.some((token) => token.card.source === "fallback" && token.card.spelling.trim() && !token.rubies.length);
   }
   function scanParseOptions(_settings, _targets = []) {
     return {

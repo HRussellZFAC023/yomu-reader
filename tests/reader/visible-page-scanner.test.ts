@@ -90,6 +90,52 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('starts fallback pitch and ruby enrichment before applying visible page tokens', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
+        const fallbackToken = testToken('先生いつもありがとうございます。', '先生', 0, 2);
+        const order: string[] = [];
+        const parseJapanese = vi.fn(async () => [[fallbackToken]]);
+        const pauseMutationObserver = vi.fn(callback => {
+            order.push('apply');
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            return callback();
+        });
+        const enrichPitchWords = vi.fn((tokens: JPDBToken[]) => {
+            order.push('pitch');
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            tokens[0]!.card = {
+                ...tokens[0]!.card,
+                source: 'jpdb',
+                reading: 'せんせい',
+                cardState: ['known'],
+                pitchAccent: ['LHHH'],
+            };
+            tokens[0]!.rubies = [{ text: 'せんせい', start: 0, end: 2, length: 2 }];
+            tokens[0]!.pitchClass = 'atamadaka';
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+            pauseMutationObserver,
+            enrichPitchWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(order).toEqual(['pitch', 'apply']);
+            expect(enrichPitchWords).toHaveBeenCalledTimes(1);
+            expect(word.classList.contains('jpdb-known')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('せんせい');
+        } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('skips stale target writes when visible text changes while parsing', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>日本語の文です。</p>';

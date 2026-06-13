@@ -235,8 +235,9 @@ describe('settings form localization', () => {
 
         applySettingsSearch(form, '');
 
-        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="api"]')?.getAttribute('aria-selected')).toBe('true');
-        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="api"]')?.hidden).toBe(false);
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('true');
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="appearance"]')?.hidden).toBe(false);
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="api"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="audio"]')?.hidden).toBe(true);
     });
 
@@ -248,11 +249,17 @@ describe('settings form localization', () => {
 
         expect(tablist.getAttribute('role')).toBe('tablist');
         expect(buttons.every(button => button.getAttribute('role') === 'tab')).toBe(true);
-        expect(buttons.map(button => button.dataset.panel)).toContain('api');
-        expect(buttons.map(button => button.dataset.panel)).toContain('newTab');
-        expect(buttons.map(button => button.dataset.panel)).toContain('appearance');
+        expect(buttons.map(button => button.dataset.panel)).toEqual([
+            'appearance',
+            'api',
+            'dictionaries',
+            'media',
+            'mining',
+            'newTab',
+            'shortcuts',
+            'help',
+        ]);
         expect(buttons.map(button => button.dataset.panel)).not.toContain('reading');
-        expect(buttons.map(button => button.dataset.panel)).toContain('dictionaries');
         expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.textContent).toBe('Sources');
         expect(buttons.find(button => button.dataset.panel === 'appearance')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-reader');
         expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-kanji');
@@ -260,6 +267,8 @@ describe('settings form localization', () => {
         expect(buttons[0]?.getAttribute('aria-selected')).toBe('true');
         expect(buttons[0]?.tabIndex).toBe(0);
         expect(buttons.slice(1).every(button => button.getAttribute('aria-selected') === 'false' && button.tabIndex === -1)).toBe(true);
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="appearance"]')?.hidden).toBe(false);
+        expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(true);
     });
 
     it('gives Study settings their own top-level section', () => {
@@ -1682,6 +1691,7 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         document.body.append(form);
         localizeSettingsForm(form, 'ja');
+        activateSettingsPanel(form, 'api');
         const label = form.querySelector<HTMLInputElement>('input[name="jpdbMiningEnabled"]')!.closest('label')!;
         const labelText = label.querySelector<HTMLElement>(':scope > .jpdb-reader-settings-label-text');
 

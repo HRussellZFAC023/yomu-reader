@@ -64,13 +64,14 @@ const FONT_FAMILY_PRESETS = [
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: 'fontPresetJapaneseSerif', fallbackLabel: 'Japanese serif' },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: 'fontPresetSystemUi', fallbackLabel: 'System UI' },
 ] as const satisfies readonly { value: string; labelKey: Parameters<typeof uiText>[1]; fallbackLabel: string }[];
+const DEFAULT_SETTINGS_PANEL = 'appearance';
 const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
-    { panel: 'api', label: 'API', active: true },
-    { panel: 'newTab', label: 'Study' },
-    { panel: 'appearance', label: 'Appearance' },
+    { panel: 'appearance', label: 'Appearance', active: true },
+    { panel: 'api', label: 'API' },
     { panel: 'dictionaries', label: 'Sources', labelKey: 'sources' },
     { panel: 'media', label: 'Media' },
     { panel: 'mining', label: 'Mining' },
+    { panel: 'newTab', label: 'Study' },
     { panel: 'shortcuts', label: 'Shortcuts' },
     { panel: 'help', label: 'Help' },
 ];
@@ -201,7 +202,7 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
 function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
     const jpdbStatus = renderJpdbStatusLine(settings);
     return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>API</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
@@ -1959,7 +1960,7 @@ function applySettingsPanelState(form: HTMLFormElement, normalizedPanel: string)
 }
 
 function activeSettingsPanel(form: HTMLFormElement): string {
-    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? 'api';
+    return form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? DEFAULT_SETTINGS_PANEL;
 }
 
 function normalizeSettingsPanel(panel: string): string {

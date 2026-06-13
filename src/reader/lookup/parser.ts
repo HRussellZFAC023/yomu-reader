@@ -74,6 +74,7 @@ export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<string>>();
+    private localTermDictionaryAvailability?: Promise<boolean>;
     private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
@@ -172,6 +173,7 @@ export class ReaderParser {
         this.localCardCache.clear();
         this.localParseCache.clear();
         this.localPitchCache.clear();
+        this.localTermDictionaryAvailability = undefined;
     }
 
     localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
@@ -268,6 +270,7 @@ export class ReaderParser {
 
     private async parseLocalDictionaryText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
         const { dictionaries, getSettings } = this.dependencies;
+        if (!await this.hasLocalTermDictionaries()) return [];
         const settings = getSettings();
         const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch(error => {
             log.warn('Local dictionary parse failed', { length: text.length }, error);
@@ -295,6 +298,20 @@ export class ReaderParser {
                 sentence: text,
             };
         });
+    }
+
+    private async hasLocalTermDictionaries(): Promise<boolean> {
+        if (!this.canUseLocalDictionaryFallback()) return false;
+        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
+            hasTermDictionaries?: () => Promise<boolean>;
+        };
+        if (typeof store.hasTermDictionaries !== 'function') return true;
+        this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch(error => {
+            this.localTermDictionaryAvailability = undefined;
+            log.warn('Local term dictionary availability check failed', { error });
+            return true;
+        });
+        return this.localTermDictionaryAvailability;
     }
 
     private parseSegmentedText(text: string): JPDBToken[] {
