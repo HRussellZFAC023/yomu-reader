@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- YouTube Shorts and other portrait YouTube videos on desktop keep their native player size when the side transcript panel is open, instead of being stretched/cropped by the transcript layout resize.
 - Fixed CI: the pitch-underline smoke script was not wired into `package.json`, causing the `fallow:dead-code` check to fail.
 
 ## [0.6.193] - 2026-06-13
