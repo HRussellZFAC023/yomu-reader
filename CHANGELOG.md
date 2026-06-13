@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.184] - 2026-06-13
+
+### Fixed
+
+- Hardened the settings dialog import-queue regression test so the release workflow can publish the verified YouTube, ASB-player, JPDB, and settings fixes without CI timing out under load.
+
 ## [0.6.183] - 2026-06-13
 
 ### Fixed
