@@ -375,6 +375,8 @@ export class ReaderApp {
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private disposeHostThemeObserver?: () => void;
     private hostThemeEnforceTimer?: number;
+    private themeContrastRefreshFrame?: number;
+    private themeContrastRefreshTimer?: number;
     private setImmersionTranslationBlurred = (blurred: boolean): void => {
         if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
         this.settings = {
@@ -890,6 +892,21 @@ export class ReaderApp {
         applyReaderTheme(settings);
         this.syncHostTheme(settings);
         refreshReaderWordContrast(document);
+        this.scheduleDeferredThemeContrastRefresh();
+    }
+
+    private scheduleDeferredThemeContrastRefresh(): void {
+        window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
+        window.clearTimeout(this.themeContrastRefreshTimer);
+        this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
+            this.themeContrastRefreshFrame = undefined;
+            if (this.isDestroyed) return;
+            refreshReaderWordContrast(document);
+            this.themeContrastRefreshTimer = window.setTimeout(() => {
+                this.themeContrastRefreshTimer = undefined;
+                if (!this.isDestroyed) refreshReaderWordContrast(document);
+            }, 80);
+        });
     }
 
     private initHostThemeSync(): void {
@@ -1201,6 +1218,8 @@ export class ReaderApp {
         this.abortController.abort();
         this.disposeHostThemeObserver?.();
         window.clearTimeout(this.hostThemeEnforceTimer);
+        window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
+        window.clearTimeout(this.themeContrastRefreshTimer);
         this.autoScanObserver?.disconnect();
         this.ocr.destroy();
         this.subtitles.destroy();

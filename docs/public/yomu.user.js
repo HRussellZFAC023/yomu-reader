@@ -36151,6 +36151,8 @@ ${glossaryKey}`;
     settings = DEFAULT_SETTINGS;
     disposeHostThemeObserver;
     hostThemeEnforceTimer;
+    themeContrastRefreshFrame;
+    themeContrastRefreshTimer;
     setImmersionTranslationBlurred = (blurred) => {
       if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
       this.settings = {
@@ -36634,6 +36636,20 @@ ${glossaryKey}`;
       applyReaderTheme(settings);
       this.syncHostTheme(settings);
       refreshReaderWordContrast(document);
+      this.scheduleDeferredThemeContrastRefresh();
+    }
+    scheduleDeferredThemeContrastRefresh() {
+      window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
+      window.clearTimeout(this.themeContrastRefreshTimer);
+      this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
+        this.themeContrastRefreshFrame = void 0;
+        if (this.isDestroyed) return;
+        refreshReaderWordContrast(document);
+        this.themeContrastRefreshTimer = window.setTimeout(() => {
+          this.themeContrastRefreshTimer = void 0;
+          if (!this.isDestroyed) refreshReaderWordContrast(document);
+        }, 80);
+      });
     }
     initHostThemeSync() {
       if (this.disposeHostThemeObserver || !isThemeSyncHost()) return;
@@ -36899,6 +36915,8 @@ ${glossaryKey}`;
       this.abortController.abort();
       this.disposeHostThemeObserver?.();
       window.clearTimeout(this.hostThemeEnforceTimer);
+      window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
+      window.clearTimeout(this.themeContrastRefreshTimer);
       this.autoScanObserver?.disconnect();
       this.ocr.destroy();
       this.subtitles.destroy();

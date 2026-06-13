@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import 'fake-indexeddb/auto';
 
+import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
+import { ReaderApp } from '../../src/reader/app/main';
 import { contrastRatio } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme } from '../../src/reader/theme/reader-theme';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
@@ -342,6 +345,54 @@ describe('reader theme', () => {
         // All three siblings still get an accessible color against the dark bg.
         for (const word of document.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
             expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('');
+        }
+    });
+
+    it('rechecks page word contrast after hosted theme listeners finish toggling the page canvas', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            bindEvents(): void;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            theme: 'dark',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'jpdb',
+            wordTextColorSource: 'jpdb',
+        };
+        document.body.innerHTML = `
+            <p id="hosted-theme-wrap" style="background: rgb(24, 27, 32); color: rgb(242, 244, 248);">
+                <span class="jpdb-reader-word jpdb-known" style="background: rgb(58, 82, 72); color: rgb(242, 244, 248); text-decoration-color: rgb(123, 216, 143);">読む</span>
+            </p>
+        `;
+        const host = document.querySelector<HTMLElement>('#hosted-theme-wrap')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        internals.bindEvents();
+        window.addEventListener(SETTINGS_CHANGE_EVENT, () => {
+            host.style.background = 'rgb(255, 255, 255)';
+            host.style.color = 'rgb(23, 26, 31)';
+            word.style.background = 'rgb(190, 222, 198)';
+            word.style.color = 'rgb(23, 26, 31)';
+            word.style.textDecorationColor = 'rgb(74, 130, 86)';
+        }, { once: true });
+
+        try {
+            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { preview: true, settings: { theme: 'light' } } }));
+
+            expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(24, 27, 32)');
+
+            await vi.advanceTimersByTimeAsync(100);
+
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(true);
+            expect(word.style.getPropertyValue('--jpdb-reader-page-bg')).toBe('rgb(255, 255, 255)');
+            expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(255, 255, 255)');
+            expect(contrastRatio(word.style.getPropertyValue('--jpdb-reader-word-accessible-color'), '#ffffff')).toBeGreaterThanOrEqual(4.5);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
         }
     });
 
