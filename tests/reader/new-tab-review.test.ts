@@ -5061,8 +5061,11 @@ describe('new tab review helpers', () => {
         });
 
         const jpdb = rows.find(row => row.name === 'JPDB');
+        const jiten = rows.find(row => row.name === 'Jiten');
         expect(jpdb).toBeTruthy();
         expect(jpdb?.enabled).toBe(false);
+        expect(jiten).toBeTruthy();
+        expect(jiten?.enabled).toBe(true);
     });
 
     it('keeps auto JPDB review cards strict for a tiny queue', async () => {

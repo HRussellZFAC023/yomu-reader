@@ -37,17 +37,26 @@ export interface SettingsSourceRow {
 
 export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
     const builtInRows: SettingsSourceRow[] = [
         {
-            id: apiSource.id,
-            name: apiSource.name,
-            alias: apiSource.name,
+            id: JPDB_DEFINITION_SOURCE_ID,
+            name: 'JPDB',
+            alias: 'JPDB',
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
             prefix: 'jpdbDefinitions',
             readonly: true,
-            help: uiText(language, apiSource.helpKey),
+            help: uiText(language, 'sourceHelpJpdb'),
+        },
+        {
+            id: JITEN_DEFINITION_SOURCE_ID,
+            name: 'Jiten',
+            alias: 'Jiten',
+            enabled: settings.jitenDefinitionsEnabled,
+            priority: settings.jitenDefinitionsPriority,
+            prefix: 'jitenDefinitions',
+            readonly: true,
+            help: uiText(language, 'sourceHelpJiten'),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -132,7 +141,7 @@ export function frequencySourceRows(settings: ReaderSettings): SettingsSourceRow
 
 export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
+    const apiSource = activeKanjiFactSource(settings);
     const readingsComponentsName = apiSource.name === 'Jiten' ? uiText(language, 'sourceNameJitenKanjiFacts') : uiText(language, 'readingsComponents');
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter(preference => preference.type === 'kanji').map(preference => ({
         id: kanjiDictionarySourceId(preference.name),
@@ -221,15 +230,26 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
     ].sort(compareSourceRows);
 }
 
+function activeKanjiFactSource(settings: ReaderSettings): { name: 'JPDB' | 'Jiten' } {
+    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings)
+        ? { name: 'Jiten' }
+        : { name: 'JPDB' };
+}
+
 export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryNames: string[]): string[] {
     const preferences = new Map(settings.dictionaryPreferences.map(item => [item.name, item]));
-    const apiSource = activeApiDefinitionSource(settings);
     const sources = [
         {
-            id: apiSource.id,
+            id: JPDB_DEFINITION_SOURCE_ID,
             enabled: settings.jpdbDefinitionsEnabled,
             priority: settings.jpdbDefinitionsPriority,
-            name: apiSource.name,
+            name: 'JPDB',
+        },
+        {
+            id: JITEN_DEFINITION_SOURCE_ID,
+            enabled: settings.jitenDefinitionsEnabled,
+            priority: settings.jitenDefinitionsPriority,
+            name: 'Jiten',
         },
         {
             id: ANKI_SOURCE_ID,
@@ -271,12 +291,6 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
         .filter(source => source.enabled)
         .sort(compareSourceOrder)
         .map(source => source.id);
-}
-
-function activeApiDefinitionSource(settings: ReaderSettings): { id: string; name: 'JPDB' | 'Jiten'; helpKey: UiCopyKey } {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings)
-        ? { id: JITEN_DEFINITION_SOURCE_ID, name: 'Jiten', helpKey: 'sourceHelpJiten' }
-        : { id: JPDB_DEFINITION_SOURCE_ID, name: 'JPDB', helpKey: 'sourceHelpJpdb' };
 }
 
 export function orderedKanjiSourceIds(settings: ReaderSettings): string[] {

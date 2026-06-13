@@ -295,9 +295,6 @@ const SUBTITLE_TICK_ACTIVE_MS = 250;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
-// How long a manual transcript scroll pauses auto-follow before snapping back
-// to the active cue resumes.
-const TRANSCRIPT_MANUAL_SCROLL_RESUME_MS = 4000;
 // Window after a programmatic scroll during which scroll events are treated as
 // self-induced (scrollIntoView fires async), not as a user scroll.
 const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
@@ -3398,8 +3395,8 @@ export class SubtitlePlayerController {
         if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
         // Respect a manual scroll: don't yank the list back to the active row
         // while the viewer is reading elsewhere. Auto-follow resumes after the
-        // resume window with no further manual scrolling.
-        if (performance.now() - this.transcriptUserScrollAt < TRANSCRIPT_MANUAL_SCROLL_RESUME_MS) return;
+        // configurable resume window with no further manual scrolling.
+        if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return;
         if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
         this.transcriptScrollFrame = requestAnimationFrame(() => {
             this.transcriptScrollFrame = undefined;
@@ -3416,6 +3413,11 @@ export class SubtitlePlayerController {
     private noteTranscriptScroll(): void {
         if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
         this.transcriptUserScrollAt = performance.now();
+    }
+
+    private transcriptAutoScrollResumeMs(): number {
+        const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
+        return (Number.isFinite(seconds) ? Math.max(1, seconds) : 4) * 1000;
     }
 
     private bindTranscriptScroller(): void {

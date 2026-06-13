@@ -371,6 +371,7 @@ const COPY = {
         subtitlePausePanel: 'Open side panel when paused',
         subtitleTranscriptPlacement: 'Transcript panel position',
         subtitleTranscriptAutoScroll: 'Scroll transcript with playback',
+        subtitleTranscriptAutoScrollResumeSeconds: 'Resume transcript auto-scroll after manual scroll (s)',
         subtitleAutoCopyLine: 'Auto-copy each subtitle line as it plays',
         subtitleMiningPause: 'Pause video when mining subtitle',
         subtitleControlsMode: 'Subtitle controls',
@@ -1875,6 +1876,7 @@ subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
+subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後に自動スクロールを再開するまで (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール

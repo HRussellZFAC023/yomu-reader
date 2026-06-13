@@ -1888,6 +1888,14 @@
     "jpdbPageWordEnhancementsEnabled",
     "jpdbPageKanjiEnhancementsEnabled"
   ];
+  const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
+    "jpdbDefinitionsEnabled",
+    "jitenDefinitionsEnabled"
+  ];
+  const API_DEFINITION_NUMBER_SETTING_RANGES = {
+    jpdbDefinitionsPriority: { min: 0, max: 999 },
+    jitenDefinitionsPriority: { min: 0, max: 999 }
+  };
   const MINING_BOOLEAN_SETTING_KEYS = [
     "jpdbMiningEnabled",
     "dictionarySourcesInitiallyExpanded"
@@ -1984,6 +1992,8 @@
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
+    jitenDefinitionsEnabled: true,
+    jitenDefinitionsPriority: 1,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -2109,6 +2119,7 @@
     subtitlePausePanel: false,
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
+    subtitleTranscriptAutoScrollResumeSeconds: 4,
     subtitleAutoCopyLine: false,
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
@@ -2332,7 +2343,8 @@
   function normalizeLookupSettings(value) {
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber$3(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      ...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
+      ...normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES),
       ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
@@ -5533,6 +5545,7 @@
       subtitlePausePanel: "Open side panel when paused",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+      subtitleTranscriptAutoScrollResumeSeconds: "Resume transcript auto-scroll after manual scroll (s)",
       subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
@@ -7031,6 +7044,7 @@ subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
+subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後に自動スクロールを再開するまで (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
@@ -20674,7 +20688,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode);
-    const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
+    const apiDefinitionRowsPresent = {
+      jpdb: hasSourceRow(has, "jpdbDefinitions"),
+      jiten: hasSourceRow(has, "jitenDefinitions")
+    };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
     const apiCredentials = readApiCredentialsFromFormData(data);
@@ -20682,7 +20699,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...current,
       ...apiCredentials,
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
-      ...readJpdbFormSettings(reader, current, jpdbDefinitionsRowPresent),
+      ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
       ...readKanjiAddonFormSettings(reader, current),
       ...readAudioFormSettings(reader, current, audioSources),
       ...readColorFormSettings(reader, current),
@@ -20722,15 +20739,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isColorSourceSettingName(value) {
     return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
   }
-  function hasJpdbDefinitionsRow(has) {
-    return has("jpdbDefinitions.name") || has("jpdbDefinitions.priority") || has("jpdbDefinitions.enabled");
+  function hasSourceRow(has, prefix) {
+    return has(`${prefix}.name`) || has(`${prefix}.priority`) || has(`${prefix}.enabled`);
   }
-  function readJpdbFormSettings(reader, current, definitionsRowPresent) {
+  function readApiDefinitionFormSettings(reader, current, rowsPresent) {
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
-      jpdbDefinitionsEnabled: definitionsRowPresent ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
+      jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
+      jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
+      jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
       jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
@@ -20987,6 +21006,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       subtitlePausePanel: has("subtitlePausePanel"),
       subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
       subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
+      subtitleTranscriptAutoScrollResumeSeconds: clamped("subtitleTranscriptAutoScrollResumeSeconds", 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
       subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
       subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
@@ -21923,17 +21943,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   };
   function definitionSourceRows(settings) {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
     const builtInRows = [
       {
-        id: apiSource.id,
-        name: apiSource.name,
-        alias: apiSource.name,
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: "JPDB",
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
         prefix: "jpdbDefinitions",
         readonly: true,
-        help: uiText(language, apiSource.helpKey)
+        help: uiText(language, "sourceHelpJpdb")
+      },
+      {
+        id: JITEN_DEFINITION_SOURCE_ID,
+        name: "Jiten",
+        alias: "Jiten",
+        enabled: settings.jitenDefinitionsEnabled,
+        priority: settings.jitenDefinitionsPriority,
+        prefix: "jitenDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpJiten")
       },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
@@ -22011,7 +22040,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
+    const apiSource = activeKanjiFactSource(settings);
     const readingsComponentsName = apiSource.name === "Jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter((preference) => preference.type === "kanji").map((preference) => ({
       id: kanjiDictionarySourceId(preference.name),
@@ -22099,15 +22128,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     ].sort(compareSourceRows);
   }
+  function activeKanjiFactSource(settings) {
+    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
+  }
   function orderedDefinitionSourceIds(settings, dictionaryNames) {
     const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
-    const apiSource = activeApiDefinitionSource(settings);
     const sources = [
       {
-        id: apiSource.id,
+        id: JPDB_DEFINITION_SOURCE_ID,
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
-        name: apiSource.name
+        name: "JPDB"
+      },
+      {
+        id: JITEN_DEFINITION_SOURCE_ID,
+        enabled: settings.jitenDefinitionsEnabled,
+        priority: settings.jitenDefinitionsPriority,
+        name: "Jiten"
       },
       {
         id: ANKI_SOURCE_ID,
@@ -22144,9 +22181,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       })
     ];
     return sources.filter((source) => source.enabled).sort(compareSourceOrder).map((source) => source.id);
-  }
-  function activeApiDefinitionSource(settings) {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { id: JITEN_DEFINITION_SOURCE_ID, name: "Jiten", helpKey: "sourceHelpJiten" } : { id: JPDB_DEFINITION_SOURCE_ID, name: "JPDB", helpKey: "sourceHelpJpdb" };
   }
   function orderedKanjiSourceIds(settings) {
     return kanjiSourceRows(settings).filter((row) => row.enabled).filter((row) => row.id !== KANJI_SIMILAR_WORDS_SOURCE_ID).filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).filter((row) => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some((preference) => preference.type === "kanji")).map((row) => row.id);
@@ -22776,6 +22810,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
                     ${checkbox("subtitlePausePanel", "Open side panel when paused", settings.subtitlePausePanel)}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
+                    ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
@@ -22827,12 +22862,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function renderDictionariesSettingsPanel(settings) {
-    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
-                    ${checkbox("jpdbDefinitionsEnabled", `Show ${apiLabel} definitions`, settings.jpdbDefinitionsEnabled)}
+                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
                     ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
                     ${checkbox("dictionarySourcesInitiallyExpanded", "Open popup sources by default", settings.dictionarySourcesInitiallyExpanded)}
                     ${input("localDictionaryMaxResults", "Dictionary result limit", String(settings.localDictionaryMaxResults), "number")}
@@ -23130,8 +23164,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeSettingsLabels(form, text2) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
-    const apiLabel = apiCredentialLabelFromForm(form);
-    setControlLabel(form, "jpdbDefinitionsEnabled", text2("jpdbDefinitionsEnabled").replace("JPDB", apiLabel));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text2("jpdbSettings");
     const jitenSettings = form.querySelector('label a[href*="jiten.moe/settings"]');
@@ -23717,6 +23749,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "subtitlePausePanel",
     "subtitleTranscriptPlacement",
     "subtitleTranscriptAutoScroll",
+    "subtitleTranscriptAutoScrollResumeSeconds",
     "subtitleAutoCopyLine",
     "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",
@@ -32993,7 +33026,6 @@ ${spelling}`);
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
-  const TRANSCRIPT_MANUAL_SCROLL_RESUME_MS = 4e3;
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
@@ -35609,7 +35641,7 @@ ${spelling}`);
     }
     scrollTranscriptToActive() {
       if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
-      if (performance.now() - this.transcriptUserScrollAt < TRANSCRIPT_MANUAL_SCROLL_RESUME_MS) return;
+      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return;
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
       this.transcriptScrollFrame = requestAnimationFrame(() => {
         this.transcriptScrollFrame = void 0;
@@ -35623,6 +35655,10 @@ ${spelling}`);
     noteTranscriptScroll() {
       if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
       this.transcriptUserScrollAt = performance.now();
+    }
+    transcriptAutoScrollResumeMs() {
+      const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
+      return (Number.isFinite(seconds) ? Math.max(1, seconds) : 4) * 1e3;
     }
     bindTranscriptScroller() {
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
@@ -42946,7 +42982,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return (info?.meanings ?? []).slice(0, 6);
   }
   function shouldPreferCardMeanings(card) {
-    return card.source !== "local" && card.source !== "anki" && card.source !== "fallback";
+    return !card.source || card.source === "jpdb";
   }
   function cardDefinitionMeanings(card, info) {
     const cardMeanings = card.meanings.slice(0, 6).map((meaning) => meaning.glosses.join("; ").trim()).filter(Boolean);
@@ -44154,7 +44190,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+      if (!settings.jpdbDefinitionsEnabled || isJitenBackedCard(card)) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
@@ -44162,7 +44198,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || !this.dependencies.jiten) return Promise.resolve(null);
+      if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || typeof this.dependencies.jiten?.lookupVocabularyInfo !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfo(card).catch((error) => {
         log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
@@ -44364,6 +44400,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         ankiConnectUrl: settings.ankiConnectUrl,
         ankiMobileHandoff: settings.ankiMobileHandoff,
         jpdbDefinitions: settings.jpdbDefinitionsEnabled,
+        jitenDefinitions: settings.jitenDefinitionsEnabled,
         apiMining: isApiMiningEnabled(settings),
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -44422,7 +44459,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }).join("");
   }
   function jitenDefinitionMeaningGroups(card, info) {
-    const definitions = info?.definitions.length ? info.definitions.flatMap((definition) => jitenDefinitionMeaningTexts(definition).map((meaning) => ({ meaning, partsOfSpeech: definition.partsOfSpeech }))) : card.meanings.map((meaning) => ({ meaning: normalizeJitenMeaningText(meaning.glosses.join("; ")), partsOfSpeech: meaning.partOfSpeech }));
+    const definitions = info?.definitions.length ? info.definitions.flatMap((definition) => jitenDefinitionMeaningTexts(definition).map((meaning) => ({ meaning, partsOfSpeech: definition.partsOfSpeech }))) : isJitenDefinitionCard(card) ? card.meanings.map((meaning) => ({ meaning: normalizeJitenMeaningText(meaning.glosses.join("; ")), partsOfSpeech: meaning.partOfSpeech })) : [];
     const groups = /* @__PURE__ */ new Map();
     for (const definition of definitions) {
       const meaning = definition.meaning.trim();
@@ -44434,6 +44471,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       groups.set(key, group);
     }
     return Array.from(groups.values()).filter((group) => group.meanings.length).slice(0, 6);
+  }
+  function isJitenDefinitionCard(card) {
+    return card.source === "jiten" || Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex);
   }
   function jitenDefinitionMeaningTexts(definition) {
     const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));

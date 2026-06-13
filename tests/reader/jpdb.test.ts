@@ -9093,8 +9093,9 @@ describe('reader helpers', () => {
     it('uses the JPDB source row checkbox when saving JPDB definitions', () => {
         const settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false };
 
-        expect(definitionSourceRows(settings).map(row => row.name)).toContain('JPDB');
+        expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['JPDB', 'Jiten']));
         expect(renderDictionarySourceRows(settings)).toContain('JPDB meanings from the current card.');
+        expect(renderDictionarySourceRows(settings)).toContain('Jiten meanings, examples, and related vocabulary from the current card.');
 
         const data = new FormData();
         data.set('jpdbDefinitionsEnabled', 'on');
@@ -9107,6 +9108,13 @@ describe('reader helpers', () => {
 
         data.set('jpdbDefinitions.enabled', 'on');
         expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
+
+        data.set('jitenDefinitions.name', 'Jiten');
+        data.set('jitenDefinitions.priority', '1');
+        expect(readFormSettings(data, settings).jitenDefinitionsEnabled).toBe(false);
+
+        data.set('jitenDefinitions.enabled', 'on');
+        expect(readFormSettings(data, settings).jitenDefinitionsEnabled).toBe(true);
     });
 
     it('keeps the Immersion Kit media toggle and definition source row tied together', () => {

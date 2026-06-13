@@ -246,6 +246,8 @@ export interface ReaderSettings {
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
     jpdbDefinitionsPriority: number;
+    jitenDefinitionsEnabled: boolean;
+    jitenDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;
@@ -370,6 +372,8 @@ export interface ReaderSettings {
     subtitlePausePanel: boolean;
     subtitleTranscriptPlacement: SubtitleTranscriptPlacement;
     subtitleTranscriptAutoScroll: boolean;
+    // Seconds a manual transcript scroll pauses auto-follow before it resumes.
+    subtitleTranscriptAutoScrollResumeSeconds: number;
     subtitleAutoCopyLine: boolean;
     subtitleCopyIncludeTranslation: boolean;
     subtitleControlsMode: SubtitleControlsMode;

@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest';
+import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
+import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
+
+function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    return {
+        vid: 1,
+        sid: 1,
+        rid: 0,
+        spelling: '読む',
+        reading: 'よむ',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+        cardState: ['new'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jpdb',
+        ...overrides,
+    };
+}
+
+function renderSources(sourceCard: JPDBCard, settings: ReaderSettings = DEFAULT_SETTINGS): string {
+    return renderDefinitionSourcesStack({
+        card: sourceCard,
+        entries: [],
+        settings,
+        sourceAttributes: key => `data-source-state-key="${key}"`,
+        dictionaryLabel: name => name,
+        noDefinitionsHtml: () => '<p>No definitions</p>',
+        renderTranslationSource: () => '',
+        renderGrammarSource: () => '',
+        renderImmersionSource: () => '',
+    });
+}
+
+describe('definition source stack', () => {
+    it('keeps JPDB and Jiten as separate enabled default source IDs', () => {
+        expect(orderedDefinitionSourceIds(DEFAULT_SETTINGS, [])).toEqual(expect.arrayContaining([
+            JPDB_DEFINITION_SOURCE_ID,
+            JITEN_DEFINITION_SOURCE_ID,
+        ]));
+    });
+
+    it('does not render Jiten from JPDB card meanings when both sources are enabled', () => {
+        const html = renderSources(card({ source: 'jpdb' }));
+
+        expect(html).toContain('data-source="jpdb"');
+        expect(html).not.toContain('data-source="jiten"');
+    });
+
+    it('does not render JPDB from Jiten card meanings when both sources are enabled', () => {
+        const html = renderSources(card({
+            source: 'jiten',
+            jitenWordId: 10,
+            jitenReadingIndex: 0,
+        }));
+
+        expect(html).toContain('data-source="jiten"');
+        expect(html).not.toContain('data-source="jpdb"');
+    });
+});

@@ -29,7 +29,7 @@ function jpdbDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null)
 }
 
 function shouldPreferCardMeanings(card: JPDBCard): boolean {
-    return card.source !== 'local' && card.source !== 'anki' && card.source !== 'fallback';
+    return !card.source || card.source === 'jpdb';
 }
 
 function cardDefinitionMeanings(card: JPDBCard, info: JpdbVocabularyInfo | null): string[] {
