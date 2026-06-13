@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.186] - 2026-06-13
+
+### Fixed
+
+- Manually scrolling the subtitle Lines panel no longer gets yanked back to the active line when the video advances to the next cue. Auto-follow pauses for a few seconds after a manual scroll and resumes on its own (or immediately when you click a line or use Previous/Next). The list's own snap-to-active scroll is no longer mistaken for a manual scroll.
+
 ## [0.6.185] - 2026-06-13
 
 ### Fixed

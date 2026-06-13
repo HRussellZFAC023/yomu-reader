@@ -295,6 +295,12 @@ const SUBTITLE_TICK_ACTIVE_MS = 250;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
+// How long a manual transcript scroll pauses auto-follow before snapping back
+// to the active cue resumes.
+const TRANSCRIPT_MANUAL_SCROLL_RESUME_MS = 4000;
+// Window after a programmatic scroll during which scroll events are treated as
+// self-induced (scrollIntoView fires async), not as a user scroll.
+const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
 const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2000;
 const DOM_CAPTION_STABLE_DELAY_MS = 180;
 const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = 'youtube-dom-caption-fallback';
@@ -445,6 +451,12 @@ export class SubtitlePlayerController {
     private lastTranscriptSignature = '';
     private transcriptScrollFrame?: number;
     private transcriptHydrateFrame?: number;
+    // Manual-scroll override for transcript auto-follow: a user scroll pauses
+    // the snap-to-active so advancing to the next cue does not yank the list
+    // back; programmatic scrollIntoView calls are ignored for a short window so
+    // they are not mistaken for user scrolls.
+    private transcriptUserScrollAt = 0;
+    private transcriptProgrammaticScrollUntil = 0;
     private transcriptInsetRealignFrame?: number;
     private transcriptPanelAnimationFrame?: number;
     private transcriptPanelHideTimer?: number;
@@ -2465,6 +2477,9 @@ export class SubtitlePlayerController {
     private seekToCueObject(cue: SubtitleCue, options: { exact?: boolean } = {}): void {
         const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
         this.seekVideoTo(Math.max(0, cue.start + padding));
+        // Deliberate navigation (line click, Previous/Next) re-engages
+        // auto-follow even if the viewer had manually scrolled moments ago.
+        this.transcriptUserScrollAt = 0;
         this.currentCue = cue;
         this.secondaryCue = this.secondaryCues.find(item => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
         this.render();
@@ -3381,20 +3396,36 @@ export class SubtitlePlayerController {
 
     private scrollTranscriptToActive(): void {
         if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+        // Respect a manual scroll: don't yank the list back to the active row
+        // while the viewer is reading elsewhere. Auto-follow resumes after the
+        // resume window with no further manual scrolling.
+        if (performance.now() - this.transcriptUserScrollAt < TRANSCRIPT_MANUAL_SCROLL_RESUME_MS) return;
         if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
         this.transcriptScrollFrame = requestAnimationFrame(() => {
             this.transcriptScrollFrame = undefined;
             if (this.destroyed) return;
             const active = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-row.active');
-            active?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+            if (!active) return;
+            // Mark the self-induced scroll so its scroll events are not counted
+            // as a manual scroll that would pause auto-follow.
+            this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+            active.scrollIntoView?.({ block: 'center', inline: 'nearest' });
         });
+    }
+
+    private noteTranscriptScroll(): void {
+        if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
+        this.transcriptUserScrollAt = performance.now();
     }
 
     private bindTranscriptScroller(): void {
         const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
         if (!scroller || scroller.dataset.transcriptHydrationBound === 'true') return;
         scroller.dataset.transcriptHydrationBound = 'true';
-        scroller.addEventListener('scroll', () => this.scheduleTranscriptHydration(), { passive: true });
+        scroller.addEventListener('scroll', () => {
+            this.noteTranscriptScroll();
+            this.scheduleTranscriptHydration();
+        }, { passive: true });
     }
 
     private bindTranscriptResizeHandle(): void {

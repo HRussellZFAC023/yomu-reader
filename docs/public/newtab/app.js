@@ -32993,6 +32993,8 @@ ${spelling}`);
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
+  const TRANSCRIPT_MANUAL_SCROLL_RESUME_MS = 4e3;
+  const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
   const DOM_CAPTION_STABLE_DELAY_MS = 180;
   const YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY = "youtube-dom-caption-fallback";
@@ -33104,6 +33106,12 @@ ${spelling}`);
     lastTranscriptSignature = "";
     transcriptScrollFrame;
     transcriptHydrateFrame;
+    // Manual-scroll override for transcript auto-follow: a user scroll pauses
+    // the snap-to-active so advancing to the next cue does not yank the list
+    // back; programmatic scrollIntoView calls are ignored for a short window so
+    // they are not mistaken for user scrolls.
+    transcriptUserScrollAt = 0;
+    transcriptProgrammaticScrollUntil = 0;
     transcriptInsetRealignFrame;
     transcriptPanelAnimationFrame;
     transcriptPanelHideTimer;
@@ -34811,6 +34819,7 @@ ${spelling}`);
     seekToCueObject(cue, options = {}) {
       const padding = options.exact ? 0 : this.options.getSettings().subtitleSeekPadding;
       this.seekVideoTo(Math.max(0, cue.start + padding));
+      this.transcriptUserScrollAt = 0;
       this.currentCue = cue;
       this.secondaryCue = this.secondaryCues.find((item) => cue.start >= item.start - 0.35 && cue.start <= item.end + 0.35);
       this.render();
@@ -35600,19 +35609,29 @@ ${spelling}`);
     }
     scrollTranscriptToActive() {
       if (!this.options.getSettings().subtitleTranscriptAutoScroll || !this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
+      if (performance.now() - this.transcriptUserScrollAt < TRANSCRIPT_MANUAL_SCROLL_RESUME_MS) return;
       if (this.transcriptScrollFrame) cancelAnimationFrame(this.transcriptScrollFrame);
       this.transcriptScrollFrame = requestAnimationFrame(() => {
         this.transcriptScrollFrame = void 0;
         if (this.destroyed) return;
         const active = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-row.active");
-        active?.scrollIntoView?.({ block: "center", inline: "nearest" });
+        if (!active) return;
+        this.transcriptProgrammaticScrollUntil = performance.now() + TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS;
+        active.scrollIntoView?.({ block: "center", inline: "nearest" });
       });
+    }
+    noteTranscriptScroll() {
+      if (performance.now() < this.transcriptProgrammaticScrollUntil) return;
+      this.transcriptUserScrollAt = performance.now();
     }
     bindTranscriptScroller() {
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller || scroller.dataset.transcriptHydrationBound === "true") return;
       scroller.dataset.transcriptHydrationBound = "true";
-      scroller.addEventListener("scroll", () => this.scheduleTranscriptHydration(), { passive: true });
+      scroller.addEventListener("scroll", () => {
+        this.noteTranscriptScroll();
+        this.scheduleTranscriptHydration();
+      }, { passive: true });
     }
     bindTranscriptResizeHandle() {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -39805,7 +39824,7 @@ ${spelling}`);
       const trimmed = text2.trim();
       if (!trimmed) throw new Error(uiText(settings.interfaceLanguage, "noTextToRead"));
       this.stopCurrent();
-      await this.playTextToSpeech(trimmed, voiceName);
+      await this.playTextToSpeech(trimmed, voiceName, this.textToSpeechTextBagKey(trimmed, voiceName, settings));
       if (requestId !== this.playRequestId) this.stopCurrent();
     }
     async playJpdbAudio(audioIds, options = {}) {
@@ -39898,15 +39917,16 @@ ${spelling}`);
     }
     async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
       const { source } = sourceEntry;
-      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, requestId, isCurrent);
+      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
       return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
     }
-    async playFromTextToSpeechSource(source, card, requestId, isCurrent) {
+    async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      await this.playTextToSpeech(source.type === "text-to-speech-reading" ? card.reading : card.spelling, source.voice);
+      const text2 = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
+      await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings));
       return this.isPlaybackCurrent(requestId, isCurrent);
     }
     async playFromAudioCandidates(candidates, sourceType, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio) {
@@ -40081,19 +40101,64 @@ ${spelling}`);
       const settings = this.getSettings();
       return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
-    playTextToSpeech(text2, voiceName) {
+    playTextToSpeech(text2, voiceName, deckKey) {
       const settings = this.getSettings();
       if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
       return new Promise((resolve, reject) => {
         const utterance = new SpeechSynthesisUtterance(text2);
         utterance.lang = "ja-JP";
         const voices = speechSynthesis.getVoices();
-        utterance.voice = (voiceName ? voices.find((voice) => voice.name === voiceName) : void 0) ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("ja")) ?? null;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
+        const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        utterance.voice = choice.voice;
+        utterance.onend = () => {
+          this.markTextToSpeechVoicePlayed(choice);
+          resolve();
+        };
+        utterance.onerror = () => {
+          this.markTextToSpeechVoiceSkipped(choice);
+          reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
+        };
         this.utterance = utterance;
         speechSynthesis.speak(utterance);
       });
+    }
+    textToSpeechVoiceChoice(voices, voiceName, deckKey) {
+      const selectedVoiceName = voiceName.trim();
+      if (selectedVoiceName) {
+        return {
+          voice: voices.find((voice) => voice.name === selectedVoiceName) ?? this.firstJapaneseTextToSpeechVoice(voices)
+        };
+      }
+      const japaneseVoices = textToSpeechJapaneseVoices(voices);
+      if (!deckKey || japaneseVoices.length < 2) {
+        return { voice: japaneseVoices[0]?.voice ?? null };
+      }
+      const entries = japaneseVoices.map(({ voice }, index) => ({
+        deckId: textToSpeechVoiceDeckId(voice, index),
+        voice
+      }));
+      const byId = new Map(entries.map((entry) => [entry.deckId, entry.voice]));
+      const deckId = this.shuffledAudio.order(deckKey, entries.map((entry) => entry.deckId)).find((id) => byId.has(id));
+      return {
+        deckId,
+        deckKey,
+        voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null
+      };
+    }
+    firstJapaneseTextToSpeechVoice(voices) {
+      return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
+    }
+    markTextToSpeechVoicePlayed(choice) {
+      if (choice.deckKey && choice.deckId) this.shuffledAudio.markPlayed(choice.deckKey, choice.deckId);
+    }
+    markTextToSpeechVoiceSkipped(choice) {
+      if (choice.deckKey && choice.deckId) this.shuffledAudio.markSkipped(choice.deckKey, choice.deckId);
+    }
+    textToSpeechSourceBagKey(source, card, settings) {
+      return settings.audioSelectionMode === "random" && !source.voice.trim() ? getAudioBagKey(source, card) : void 0;
+    }
+    textToSpeechTextBagKey(text2, voiceName, settings) {
+      return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
     }
     async playMissingAudioFallback(settings, requestId, isCurrent) {
       if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
@@ -40125,6 +40190,16 @@ ${spelling}`);
       }
       return true;
     }
+  }
+  function textToSpeechJapaneseVoices(voices) {
+    return voices.filter((voice) => voice.lang.toLowerCase().startsWith("ja")).map((voice) => ({ voice }));
+  }
+  function textToSpeechVoiceDeckId(voice, index) {
+    return [
+      voice.name,
+      voice.lang,
+      String(index)
+    ].join("\0");
   }
   class AudioSourcePreparationRace {
     constructor(sources, prepare) {

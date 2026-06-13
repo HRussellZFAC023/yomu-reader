@@ -7764,6 +7764,50 @@ describe('reader helpers', () => {
         }
     });
 
+    it('rotates automatic browser TTS voices when audio is shuffled', async () => {
+        const spokenVoices: string[] = [];
+        class FakeSpeechSynthesisUtterance {
+            lang = '';
+            voice: SpeechSynthesisVoice | null = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+
+            constructor(public text: string) {}
+        }
+        const voices = [
+            { name: 'Kyoko', lang: 'ja-JP', default: true },
+            { name: 'Otoya', lang: 'ja-JP', default: false },
+        ] as SpeechSynthesisVoice[];
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        vi.stubGlobal('SpeechSynthesisUtterance', FakeSpeechSynthesisUtterance);
+        vi.stubGlobal('speechSynthesis', {
+            cancel: vi.fn(),
+            getVoices: vi.fn(() => voices),
+            speak: vi.fn((utterance: FakeSpeechSynthesisUtterance) => {
+                spokenVoices.push(utterance.voice?.name ?? '');
+                utterance.onend?.();
+            }),
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'text-to-speech', url: '', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(spokenVoices).toEqual(['Otoya', 'Kyoko']);
+        } finally {
+            randomSpy.mockRestore();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('plays text-to-speech sources from the term or kana reading field', async () => {
         const spoken: string[] = [];
         mockSpeechSynthesis(spoken, [{ name: 'Kyoko', lang: 'ja-JP', default: true }] as SpeechSynthesisVoice[]);
