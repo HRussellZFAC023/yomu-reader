@@ -54,6 +54,7 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     'option',
     'svg',
     'use',
+    '[aria-hidden="true"]',
     '[contenteditable="true"]',
     '[role="checkbox"]',
     '[role="radio"]',
@@ -79,7 +80,6 @@ const SKIP_SELECTOR = [
     'summary',
     'rt',
     'rp',
-    '[aria-hidden="true"]',
 ].join(',');
 const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
@@ -108,7 +108,6 @@ const FRAGMENT_SKIP_SELECTOR = [
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     'button',
     'summary',
-    '[aria-hidden="true"]',
     '[data-jpdb-reader-root]',
 ].join(',');
 const HARD_FRAGMENT_SKIP_SELECTOR = [
@@ -2468,18 +2467,20 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
-            if (box.dataset.yomuRubyRoom === 'true') continue;
             if (!boxActuallyCrops(box)) continue;
+            const roomHeight = rubyRoomHeight(box);
+            if (previousRubyRoomHeight(box) >= roomHeight) continue;
             box.dataset.yomuRubyRoom = 'true';
+            box.dataset.yomuRubyRoomHeight = String(roomHeight);
             const style = safeComputedStyle(box);
-            makeRoomForRubyInBox(box, style);
+            makeRoomForRubyInBox(box, style, roomHeight);
             adjusted += 1;
         }
     }
     return adjusted;
 }
 
-function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration): void {
+function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {
     if (hasLineClamp(style)) {
         // -webkit-line-clamp itself limits LINES; the crop comes from a height
         // cap sized for plain lines. Lifting it keeps the host's "N lines"
@@ -2489,7 +2490,7 @@ function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration): voi
         return;
     }
 
-    const contentHeight = `${rubyRoomHeight(box)}px`;
+    const contentHeight = `${roomHeight}px`;
     if (hasDefiniteCssSize(style.height)) {
         box.style.setProperty('height', contentHeight, 'important');
     }
@@ -2528,6 +2529,11 @@ function rubyBottomOverflow(box: HTMLElement): number {
         overflow = Math.max(overflow, baseRect.bottom - boxRect.bottom);
     }
     return Math.max(0, overflow);
+}
+
+function previousRubyRoomHeight(box: HTMLElement): number {
+    const value = Number(box.dataset.yomuRubyRoomHeight ?? '');
+    return Number.isFinite(value) ? value : 0;
 }
 
 function baseVisibleInBox(baseRect: DOMRect, boxRect: DOMRect): boolean {

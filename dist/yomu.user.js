@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.190
+// @version      0.6.191
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WlPqpYldBw2ZdIsJHXLJKmcz1T6a2G/D1xrgdp5Gc7E=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-I3UvR1tFoC4YNkLHuhOTUjCHhm/GZkR/Bp9sTbAZ8mA=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2df4FXl+FuRxyl+1Az4f1D5jrw+Ird6t6Gle9nZdVaM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-4TVPpr8FIU9ygkulI2NaAGehkipoIlJkkwnIwiHjB/s=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-OPqHnzhDXLH31C/Wgb8X2GEhjbCmbHmrMmoZoklEtyo=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3043,6 +3043,7 @@
     "option",
     "svg",
     "use",
+    '[aria-hidden="true"]',
     '[contenteditable="true"]',
     '[role="checkbox"]',
     '[role="radio"]',
@@ -3066,8 +3067,7 @@
     "button",
     "summary",
     "rt",
-    "rp",
-    '[aria-hidden="true"]'
+    "rp"
   ].join(",");
   const PITCH_CLASSES = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"]);
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
@@ -3092,7 +3092,6 @@
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     "button",
     "summary",
-    '[aria-hidden="true"]',
     "[data-jpdb-reader-root]"
   ].join(",");
   const HARD_FRAGMENT_SKIP_SELECTOR = [
@@ -4789,23 +4788,25 @@
     for (const word of words) {
       if (!word.querySelector("rt")) continue;
       for (const box of cropCapableBoxes(word.parentElement)) {
-        if (box.dataset.yomuRubyRoom === "true") continue;
         if (!boxActuallyCrops(box)) continue;
+        const roomHeight = rubyRoomHeight(box);
+        if (previousRubyRoomHeight(box) >= roomHeight) continue;
         box.dataset.yomuRubyRoom = "true";
+        box.dataset.yomuRubyRoomHeight = String(roomHeight);
         const style = safeComputedStyle(box);
-        makeRoomForRubyInBox(box, style);
+        makeRoomForRubyInBox(box, style, roomHeight);
         adjusted += 1;
       }
     }
     return adjusted;
   }
-  function makeRoomForRubyInBox(box, style) {
+  function makeRoomForRubyInBox(box, style, roomHeight) {
     if (hasLineClamp(style)) {
       box.style.setProperty("max-height", "none", "important");
       if (hasDefiniteCssSize(style.height)) box.style.setProperty("height", "auto", "important");
       return;
     }
-    const contentHeight = `${rubyRoomHeight(box)}px`;
+    const contentHeight = `${roomHeight}px`;
     if (hasDefiniteCssSize(style.height)) {
       box.style.setProperty("height", contentHeight, "important");
     }
@@ -4840,6 +4841,10 @@
       overflow = Math.max(overflow, baseRect.bottom - boxRect.bottom);
     }
     return Math.max(0, overflow);
+  }
+  function previousRubyRoomHeight(box) {
+    const value = Number(box.dataset.yomuRubyRoomHeight ?? "");
+    return Number.isFinite(value) ? value : 0;
   }
   function baseVisibleInBox(baseRect, boxRect) {
     return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
@@ -30798,15 +30803,7 @@ ${glossaryKey}`;
     ".ytp-chrome-bottom",
     ".ytp-tooltip",
     "tp-yt-paper-tooltip",
-    '[role="slider"]',
-    // The watch-page <h1> feeds YouTube's SPA document title; wrapping it can
-    // break SPA navigation, so keep the title itself untouched.
-    "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title",
-    "ytm-watch-metadata h1",
-    "ytm-watch-metadata #title",
-    "ytm-slim-video-metadata-section-renderer h1",
-    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title"
+    '[role="slider"]'
   ].join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
   const GENERIC_PROSE_ROOTS = [
@@ -31282,16 +31279,28 @@ ${glossaryKey}`;
         // Watch, feed, sidebar, live-chat, and player settings text. UI
         // and card roots are collected as passive hover targets so native
         // YouTube clicks keep working.
-        "ytd-watch-metadata",
-        "ytd-watch-metadata #description",
+        "ytd-masthead",
+        "ytd-mini-guide-renderer",
+        "ytd-guide-renderer",
+        "ytd-watch-metadata h1",
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
+        "ytd-watch-metadata a[href]",
+        "ytd-watch-metadata button",
+        'ytd-watch-metadata [role="button"]',
+        "ytd-watch-metadata yt-button-shape",
+        "ytd-watch-metadata ytd-button-renderer",
+        "ytd-watch-metadata ytd-subscribe-button-renderer",
+        "ytd-watch-metadata ytd-toggle-button-renderer",
         "ytd-search",
         "ytd-two-column-search-results-renderer",
         "ytd-section-list-renderer",
         "ytd-item-section-renderer",
+        "ytd-rich-item-renderer",
         "ytd-video-renderer",
+        "ytd-compact-video-renderer",
+        "ytd-grid-video-renderer",
         "#related",
         "ytd-watch-next-secondary-results-renderer",
         "ytd-rich-grid-renderer",
@@ -31301,7 +31310,13 @@ ${glossaryKey}`;
         "ytd-reel-video-renderer",
         "yt-lockup-view-model",
         "yt-lockup-metadata-view-model",
+        "ytm-mobile-topbar-renderer",
+        "ytm-pivot-bar-renderer",
         "ytm-rich-grid-renderer",
+        "ytm-rich-item-renderer",
+        "ytm-video-with-context-renderer",
+        "ytm-compact-video-renderer",
+        "ytm-video-card-renderer",
         "ytm-shorts-lockup-view-model",
         "ytm-shorts-lockup-view-model-v2",
         "ytm-single-column-watch-next-results-renderer",
@@ -31310,7 +31325,6 @@ ${glossaryKey}`;
         ".ytp-settings-menu",
         ".ytp-panel",
         ".ytp-panel-menu",
-        "ytm-watch-metadata",
         "ytm-slim-video-metadata-section-renderer",
         "ytm-slim-owner-renderer",
         "ytm-expandable-video-description-body-renderer",

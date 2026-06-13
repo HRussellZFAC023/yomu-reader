@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.191] - 2026-06-13
+
+### Fixed
+
+- YouTube watch titles, mobile watch titles, home/search/sidebar/Shorts titles, metadata, and visible button labels are parsed for JPDB ruby, color, and pitch again instead of being excluded or stripped by the YouTube filter. Decorative hidden touch-feedback chrome stays ignored generically through `aria-hidden`.
+- Long YouTube titles and other cropped text rows now keep furigana visible by growing every clipped ancestor that needs ruby room, including stale or nested clipped rows.
+
 ## [0.6.190] - 2026-06-13
 
 ### Performance
