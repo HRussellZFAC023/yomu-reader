@@ -16,6 +16,11 @@ import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 interface PointerTextCardInternals {
     showCard: (card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: unknown) => Promise<void>;
     renderedWordSentence(word: HTMLElement): string | undefined;
+    renderedWordDisplayContext(
+        word: HTMLElement,
+        options: { trigger?: 'click' | 'hover' },
+        insideReaderPopup: boolean,
+    ): { sentence?: string; trigger: 'modal' | 'hover' };
     showPointerTextCard(
         card: JPDBCard,
         sentence: string,
@@ -173,6 +178,35 @@ describe('reader sentence context', () => {
         try {
             expect(internals.renderedWordSentence(document.querySelector<HTMLElement>('.jpdb-reader-word')!))
                 .toBe(title);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('uses the token sentence for hover context without running rich sentence extraction', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as PointerTextCardInternals;
+        document.body.innerHTML = `
+            <section>
+                <p>前置きの長い説明文です。<span class="jpdb-reader-word" data-sentence="今日は日本語を読む。" data-expression="日本語">日本語</span>の練習をします。</p>
+            </section>
+        `;
+        internals.renderedWordSentence = vi.fn(() => {
+            throw new Error('hover should not run rich sentence extraction');
+        });
+
+        try {
+            const context = internals.renderedWordDisplayContext(
+                document.querySelector<HTMLElement>('.jpdb-reader-word')!,
+                { trigger: 'hover' },
+                false,
+            );
+
+            expect(context).toEqual(expect.objectContaining({
+                trigger: 'hover',
+                sentence: '今日は日本語を読む。',
+            }));
+            expect(internals.renderedWordSentence).not.toHaveBeenCalled();
         } finally {
             app.destroy();
         }

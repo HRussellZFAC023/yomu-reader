@@ -11,6 +11,34 @@
     warn: "#a15c00",
     error: "#b91c1c"
   };
+  initialWindowMethod("dispatchEvent");
+  initialWindowMethod("addEventListener");
+  initialWindowMethod("removeEventListener");
+  function initialWindowMethod(key) {
+    if (typeof window === "undefined") return void 0;
+    return readMethod(window, key);
+  }
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function pageCompartmentValue(value, options = {}) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto || typeof window === "undefined") return value;
+    try {
+      return cloneInto(value, window, options);
+    } catch {
+      return value;
+    }
+  }
   let trustedHtmlPolicy;
   function setInnerHtml(element, html) {
     if (!assignInnerHtml(element, html)) element.textContent = html;
@@ -49,7 +77,15 @@
     try {
       const existing = factory.getPolicy?.("yomu-reader");
       if (existing && typeof existing.createHTML === "function") return existing;
-      return factory.createPolicy?.("yomu-reader", { createHTML: (html) => html }) ?? null;
+      const options = { createHTML: (html) => html };
+      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+      return null;
+    }
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
     } catch {
       return null;
     }
@@ -307,25 +343,6 @@
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const ANKI_SOURCE_ID = "__anki__";
-  initialWindowMethod("dispatchEvent");
-  initialWindowMethod("addEventListener");
-  initialWindowMethod("removeEventListener");
-  function initialWindowMethod(key) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key);
-  }
-  function readMethod(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
     label: "JPDB",

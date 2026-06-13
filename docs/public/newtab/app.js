@@ -265,6 +265,280 @@
   };
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  function createWindowEvent(type, init = {}) {
+    const documentEvent = createDocumentEvent(type, init);
+    if (documentEvent) return documentEvent;
+    const EventConstructor = eventConstructor(window, "Event") ?? eventConstructor(globalThis, "Event");
+    if (EventConstructor) {
+      try {
+        return new EventConstructor(type, init);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window event: ${type}`);
+  }
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function cloneCustomEventDetail(detail) {
+    if (detail === void 0 || typeof window === "undefined") return detail;
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function removeWindowEventListener(type, listener, options) {
+    const target = window;
+    const directRemove = readMethod(target, "removeEventListener");
+    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function initialWindowMethod(key) {
+    if (typeof window === "undefined") return void 0;
+    return readMethod(window, key);
+  }
+  function dispatchWithPrototypeMethod(target, directDispatch, event) {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      const result = callEventTargetMethod(prototypeDispatch, target, event);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+      if (prototypeRemove === directRemove) continue;
+      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("Event");
+      event.initEvent(type, Boolean(init.bubbles), Boolean(init.cancelable));
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+    return methods;
+  }
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
+  }
+  function readProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callRemoveEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("removeEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key, descriptor) {
+    try {
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+    } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+  }
+  function pageCompartmentValue(value, options = {}) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto || typeof window === "undefined") return value;
+    try {
+      return cloneInto(value, window, options);
+    } catch {
+      return value;
+    }
+  }
+  function safeWindowPropertyDescriptor(key) {
+    try {
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key);
+    } catch {
+      return void 0;
+    }
+  }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
+    }
+  }
   let trustedHtmlPolicy;
   function setInnerHtml(element, html) {
     if (!assignInnerHtml(element, html)) element.textContent = html;
@@ -338,7 +612,15 @@
     try {
       const existing = factory.getPolicy?.("yomu-reader");
       if (existing && typeof existing.createHTML === "function") return existing;
-      return factory.createPolicy?.("yomu-reader", { createHTML: (html) => html }) ?? null;
+      const options = { createHTML: (html) => html };
+      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+      return null;
+    }
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
     } catch {
       return null;
     }
@@ -1222,283 +1504,6 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowEvent(type, init = {}) {
-    const documentEvent = createDocumentEvent(type, init);
-    if (documentEvent) return documentEvent;
-    const EventConstructor = eventConstructor(window, "Event") ?? eventConstructor(globalThis, "Event");
-    if (EventConstructor) {
-      try {
-        return new EventConstructor(type, init);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window event: ${type}`);
-  }
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
-  }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      return detail;
-    }
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key);
-  }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function createDocumentEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("Event");
-      event.initEvent(type, Boolean(init.bubbles), Boolean(init.cancelable));
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-    return methods;
-  }
-  function readMethod(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-    return readMethod(source, key);
-  }
-  function readProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key, descriptor) {
-    try {
-      const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
-  }
-  function pageCompartmentDescriptor(descriptor, _target) {
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return descriptor;
-    try {
-      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return descriptor;
-    }
-  }
-  function safeWindowPropertyDescriptor(key) {
-    try {
-      const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
-    }
-  }
   const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -2005,6 +2010,8 @@
   };
   const LEGACY_DEFAULT_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "Yomu", "yomu"]);
   const LEGACY_DEFAULT_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["よむ Japanese", "Yomu Japanese"]);
+  const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = "Alt+ArrowLeft";
+  const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
   const DEFAULT_SETTINGS = {
     apiKey: "",
     jitenApiKey: "",
@@ -2218,8 +2225,8 @@
       closePopup: "Escape",
       previousLookupWord: "Alt+Shift+ArrowLeft",
       nextLookupWord: "Alt+Shift+ArrowRight",
-      previousSubtitle: "Alt+ArrowLeft",
-      nextSubtitle: "Alt+ArrowRight",
+      previousSubtitle: "A",
+      nextSubtitle: "D",
       copySubtitle: "Alt+C",
       toggleOcr: "Alt+O",
       toggleSubtitleOverlay: "Shift+H",
@@ -2372,7 +2379,17 @@
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
+    migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
+  }
+  function migrateLegacySubtitleLineShortcuts(shortcuts, savedShortcuts) {
+    if (!savedShortcuts) return;
+    if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
+      shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
+    }
+    if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
+      shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
+    }
   }
   function normalizeLookupSettings(value) {
     return {
@@ -19286,6 +19303,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function hasVideoPlaybackSignal(video) {
     return video.readyState > 0 || Boolean(video.currentSrc || video.src) || Number.isFinite(video.duration);
   }
+  function isEditableTarget(target) {
+    const element = target instanceof Element ? target : null;
+    if (!element) return false;
+    if (element.closest("input, textarea, select")) return true;
+    const editable = element.closest("[contenteditable]");
+    return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
+  }
   async function copyText(text2) {
     if (navigator.clipboard?.writeText) {
       try {
@@ -29009,7 +29033,7 @@ ${spelling}`);
     return element instanceof HTMLImageElement ? element : element.closest("img");
   }
   function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
+    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
   }
   function isVisibleOcrImage(image) {
     return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
@@ -30617,7 +30641,7 @@ ${spelling}`);
       applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
       applyGenericVideoInsetIfNeeded(options, metrics);
       resizeYouTubePlayer(metrics.width, metrics.height);
-      dispatchVideoLayoutResize();
+      dispatchVideoLayoutResize(options.resizeEventMode ?? "immediate");
       return true;
     }
     clear(video) {
@@ -30791,9 +30815,12 @@ ${spelling}`);
     setStylePropertyIfChanged(element, "min-height", "0px");
   }
   function applySideYouTubePlayerContainerInset(element, side, width, inset) {
-    const rect = element.getBoundingClientRect();
-    const baseRect = youtubePlayerContainerBaseRects.get(element) ?? { left: rect.left, right: rect.right };
-    if (!youtubePlayerContainerBaseRects.has(element)) youtubePlayerContainerBaseRects.set(element, baseRect);
+    let baseRect = youtubePlayerContainerBaseRects.get(element);
+    if (!baseRect) {
+      const rect = element.getBoundingClientRect();
+      baseRect = { left: rect.left, right: rect.right };
+      youtubePlayerContainerBaseRects.set(element, baseRect);
+    }
     const widthValue = `${width}px`;
     setStylePropertyIfChanged(element, "width", widthValue);
     setStylePropertyIfChanged(element, "max-width", widthValue);
@@ -30856,8 +30883,8 @@ ${spelling}`);
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
-  function dispatchVideoLayoutResize() {
-    dispatchWindowEvent(createWindowEvent("resize"));
+  function dispatchVideoLayoutResize(mode = "immediate") {
+    if (mode === "immediate") dispatchWindowEvent(createWindowEvent("resize"));
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
       pendingVideoLayoutResize = void 0;
@@ -33065,7 +33092,10 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
-  const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
+  const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
+  const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
+  const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
+  const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
@@ -33185,6 +33215,8 @@ ${spelling}`);
     lastTranscriptSignature = "";
     transcriptScrollFrame;
     transcriptHydrateFrame;
+    transcriptDeferredRenderFrame;
+    transcriptDeferredRenderTimer;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -33312,6 +33344,7 @@ ${spelling}`);
       this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
       this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
+      this.clearDeferredTranscriptPanelRender();
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.clearTranscriptPanelAnimation();
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
@@ -33554,7 +33587,7 @@ ${spelling}`);
       this.videoResizeObserver.observe(video);
       video.addEventListener("loadedmetadata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
-      video.addEventListener("pause", () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
+      video.addEventListener("pause", () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
       const handlePlaybackStarted = () => {
         this.pausePanelDismissed = false;
         if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
@@ -34344,10 +34377,18 @@ ${spelling}`);
       }
     }
     pruneParsedSubtitleCaches() {
-      this.pruneParsedSubtitleCache(this.parsedHtmlCache);
-      this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache);
-      while (this.emptyParsedHtmlCache.size > 180) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? "");
-      while (this.parsedTokenCache.size > 180) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? "");
+      const limit = this.parsedSubtitleCacheLimit();
+      this.pruneParsedSubtitleCache(this.parsedHtmlCache, limit);
+      this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache, limit);
+      while (this.emptyParsedHtmlCache.size > SUBTITLE_PARSE_CACHE_MIN_ENTRIES) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? "");
+      while (this.parsedTokenCache.size > limit) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? "");
+    }
+    parsedSubtitleCacheLimit() {
+      const transcriptRows = this.cues.filter((cue) => cue.transcriptEligible !== false).length;
+      return Math.min(
+        SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
+        Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM)
+      );
     }
     hasAuthoritativeParseTier() {
       const settings = this.options.getSettings();
@@ -34378,8 +34419,8 @@ ${spelling}`);
         return void 0;
       }
     }
-    pruneParsedSubtitleCache(cache) {
-      while (cache.size > 180) this.deleteParsedSubtitleKey(cache.keys().next().value ?? "");
+    pruneParsedSubtitleCache(cache, limit = this.parsedSubtitleCacheLimit()) {
+      while (cache.size > limit) this.deleteParsedSubtitleKey(cache.keys().next().value ?? "");
     }
     deleteParsedSubtitleKey(key) {
       if (!key) return;
@@ -34865,16 +34906,20 @@ ${spelling}`);
     handleKeydown(event) {
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
-      if (matchesShortcut(event, settings.shortcuts.previousSubtitle)) {
+      if (isEditableTarget(event.target)) return;
+      const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
+      const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
+      if (previousSubtitle || nextSubtitle) {
+        if (!this.canUseSubtitleNavigationShortcut()) return;
         event.preventDefault();
-        this.seekSubtitle(-1);
-      } else if (matchesShortcut(event, settings.shortcuts.nextSubtitle)) {
-        event.preventDefault();
-        this.seekSubtitle(1);
-      } else if (matchesShortcut(event, settings.shortcuts.copySubtitle)) {
+        this.seekSubtitle(previousSubtitle ? -1 : 1);
+      } else if (matchesShortcut(event, settings.shortcuts.copySubtitle) && this.subtitleCopyText(void 0)) {
         event.preventDefault();
         void this.copySubtitle();
       }
+    }
+    canUseSubtitleNavigationShortcut() {
+      return Boolean(this.video && this.videoHasPlayerAffordances());
     }
     seekSubtitle(direction) {
       if (!this.video) return;
@@ -35454,6 +35499,10 @@ ${spelling}`);
       this.transcriptPanelAnimationFrame = clearWindowAnimationFrame(this.transcriptPanelAnimationFrame);
       this.transcriptPanelHideTimer = clearWindowTimeout(this.transcriptPanelHideTimer);
     }
+    clearDeferredTranscriptPanelRender() {
+      this.transcriptDeferredRenderFrame = clearWindowAnimationFrame(this.transcriptDeferredRenderFrame);
+      this.transcriptDeferredRenderTimer = clearWindowTimeout(this.transcriptDeferredRenderTimer);
+    }
     openLinesPanel(options = {}) {
       if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
       const persist = options.persist ?? true;
@@ -35465,6 +35514,14 @@ ${spelling}`);
         this.options.getSettings().subtitleTranscriptVisible = true;
         this.options.onSettingsChange();
       }
+      if (options.deferRender) {
+        this.renderTranscriptPanelPreview();
+        this.positionTranscriptPanel({ realignAfterInset: true });
+        this.syncControls();
+        this.scheduleDeferredTranscriptPanelRender();
+        return;
+      }
+      this.clearDeferredTranscriptPanelRender();
       this.renderTranscriptPanel(true);
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
@@ -35528,6 +35585,7 @@ ${spelling}`);
       if (!options.autoPause) this.pausePanelDismissed = false;
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = "tracks";
+      this.clearDeferredTranscriptPanelRender();
       this.showTranscriptPanelElement();
       if (persist) {
         this.options.getSettings().subtitleTranscriptVisible = false;
@@ -35545,6 +35603,7 @@ ${spelling}`);
     closeTranscriptPanel(options = {}) {
       if (!this.transcriptPanel) return;
       const persist = options.persist ?? true;
+      this.clearDeferredTranscriptPanelRender();
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -35566,14 +35625,14 @@ ${spelling}`);
         this.syncPauseTranscriptPanel();
       }, 0));
     }
-    syncPauseTranscriptPanel() {
+    syncPauseTranscriptPanel(options = {}) {
       const settings = this.options.getSettings();
       if (!settings.subtitlePausePanel || !this.video || !this.video.paused || this.video.ended || !this.hasTranscriptSurface()) {
         this.closePauseTranscriptPanel();
         return;
       }
       if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
-      this.openLinesPanel({ persist: false, autoPause: true });
+      this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
     closePauseTranscriptPanel() {
       if (!this.pausePanelOpen) return;
@@ -35588,11 +35647,49 @@ ${spelling}`);
     renderTranscriptPanel(force = false) {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
+      this.clearDeferredTranscriptPanelRender();
       const state = this.transcriptPanelRenderState();
       if (this.canRefreshTranscriptPanel(force, state)) return;
       this.lastTranscriptSignature = state.signature;
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
       this.afterTranscriptPanelRender(state);
+    }
+    renderTranscriptPanelPreview() {
+      const panel = this.renderableTranscriptPanel();
+      if (!panel) return;
+      const fullState = this.transcriptPanelRenderState();
+      const state = this.transcriptPanelPreviewState(fullState);
+      this.lastTranscriptSignature = "";
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
+      this.afterTranscriptPanelRender(state, { warmupRows: fullState.rows });
+    }
+    transcriptPanelPreviewState(state) {
+      const rowCount = state.rows.length;
+      if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
+      const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
+      const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
+      const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
+      const previewEnd = Math.min(rowCount, previewStart + 3);
+      return {
+        rows: state.rows.slice(previewStart, previewEnd),
+        currentRowIndex: state.currentRowIndex,
+        signature: `preview:${state.signature}:${previewStart}`,
+        rowIndexOffset: previewStart,
+        totalRowCount: rowCount
+      };
+    }
+    scheduleDeferredTranscriptPanelRender() {
+      this.clearDeferredTranscriptPanelRender();
+      this.transcriptDeferredRenderFrame = requestAnimationFrame(() => {
+        this.transcriptDeferredRenderFrame = void 0;
+        this.transcriptDeferredRenderTimer = window.setTimeout(() => {
+          this.transcriptDeferredRenderTimer = void 0;
+          if (this.destroyed || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
+          this.renderTranscriptPanel(true);
+          this.positionTranscriptPanel({ realignAfterInset: true });
+          this.syncControls();
+        }, 0);
+      });
     }
     renderableTranscriptPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
@@ -35626,13 +35723,15 @@ ${spelling}`);
     renderTranscriptPanelHtml(state) {
       const settings = this.options.getSettings();
       const language = settings.interfaceLanguage;
+      const rowCount = state.totalRowCount ?? state.rows.length;
+      const rowIndexOffset = state.rowIndexOffset ?? 0;
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
                     <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({
         mode: "lines",
-        count: state.rows.length,
+        count: rowCount,
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
@@ -35641,25 +35740,25 @@ ${spelling}`);
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls("lines", this.hasTranscriptSurface(), language)}
-                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
                     ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
-                ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
     }
-    afterTranscriptPanelRender(state) {
+    afterTranscriptPanelRender(state, options = {}) {
       this.indexTranscriptTextTargets();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel();
       this.scrollTranscriptToActive();
       this.scheduleTranscriptHydration(state.currentRowIndex);
-      this.scheduleTranscriptCacheWarmup(state.rows, state.currentRowIndex);
+      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.rows, state.currentRowIndex);
       this.syncPanelState();
     }
     renderTranscriptRow(row, index, currentIndex) {
@@ -36198,10 +36297,10 @@ ${spelling}`);
       this.syncTranscriptPlacementClass();
       this.syncTranscriptResizeHandle(layout);
       this.syncDrawerButtons(this.hasVisibleSubtitleLines());
-      if (!options.skipInset) {
-        const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
-        if (options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
-      }
+      const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
+        resizeEventMode: options.skipInset ? "settled" : "immediate"
+      });
+      if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
       const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
@@ -36280,16 +36379,16 @@ ${spelling}`);
       }
       return this.transcriptLayoutReferenceRect;
     }
-    applyVideoInsetForTranscriptLayout(layout, videoRect = this.videoLayoutRect()) {
+    applyVideoInsetForTranscriptLayout(layout, videoRect = this.videoLayoutRect(), options = {}) {
       if (!this.video) {
         this.clearVideoInsetForTranscriptPanel();
         return false;
       }
       if (layout.placement === "bottom") {
-        return this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect);
+        return this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect, options);
       }
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-      return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
+      return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
       return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
@@ -36331,7 +36430,7 @@ ${spelling}`);
       this.transcriptLayoutReferenceViewport = "";
       return this.videoInset.clear(this.video);
     }
-    applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect()) {
+    applyPageVideoInset(side, playerSize, panelSize, videoRect = this.videoLayoutRect(), options = {}) {
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
         return false;
@@ -36343,7 +36442,8 @@ ${spelling}`);
         playerSize,
         panelSize: panelSize ?? ((side === "bottom" ? panelRect?.height : panelRect?.width) ?? 0),
         videoRect,
-        margin: TRANSCRIPT_PANEL_MARGIN
+        margin: TRANSCRIPT_PANEL_MARGIN,
+        resizeEventMode: options.resizeEventMode
       });
     }
   }
@@ -45905,6 +46005,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
   const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
   const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+  const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
   const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
   const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
   const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
@@ -46012,7 +46113,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!container || container.dataset.immersionLazyBound === "true") return;
       container.dataset.immersionLazyBound = "true";
       const canLoad = () => this.canStartLazyLoad(popover, container);
-      const scheduleLoad = () => {
+      const scheduleLoad = (delayMs) => {
         if (!canLoad()) return;
         if (container.dataset.immersionLoadState === "scheduled") return;
         this.clearLazyLoadTimer(container);
@@ -46030,12 +46131,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           }).catch(() => {
             if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
           });
-        }, IMMERSION_LAZY_LOAD_DELAY_MS);
+        }, delayMs);
         this.lazyLoadTimers.set(container, timer);
       };
       const maybeLoad = () => {
         if (!canLoad()) return;
-        if (isImmersionNearVisibleArea(popover, container)) scheduleLoad();
+        scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
       };
       const handleToggle = () => {
         if (!container.open) {

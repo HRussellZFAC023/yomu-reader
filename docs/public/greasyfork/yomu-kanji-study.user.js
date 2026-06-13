@@ -764,13 +764,7 @@
   }
   function cloneCustomEventDetail(detail) {
     if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      return detail;
-    }
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
   }
   function dispatchWindowEvent(event) {
     const target = window;
@@ -958,12 +952,15 @@
     }
   }
   function pageCompartmentDescriptor(descriptor, _target) {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+  }
+  function pageCompartmentValue(value, options = {}) {
     const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return descriptor;
+    if (!cloneInto || typeof window === "undefined") return value;
     try {
-      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+      return cloneInto(value, window, options);
     } catch {
-      return descriptor;
+      return value;
     }
   }
   function safeWindowPropertyDescriptor(key) {
@@ -1981,7 +1978,15 @@
     try {
       const existing = factory.getPolicy?.("yomu-reader");
       if (existing && typeof existing.createHTML === "function") return existing;
-      return factory.createPolicy?.("yomu-reader", { createHTML: (html) => html }) ?? null;
+      const options = { createHTML: (html) => html };
+      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+      return null;
+    }
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
     } catch {
       return null;
     }

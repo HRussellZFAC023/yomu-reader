@@ -265,6 +265,40 @@ describe('SubtitlePlayerController', () => {
         document.body.innerHTML = '';
     });
 
+    it('uses A and D for subtitle line shortcuts without hijacking editable targets', () => {
+        const { controller } = createSubtitleController(makeSubtitleSettings());
+        const internals = controllerInternals<{
+            handleKeydown: (event: KeyboardEvent) => void;
+            seekSubtitle: (direction: -1 | 1) => void;
+            video?: HTMLVideoElement;
+        }>(controller);
+        const seekSubtitle = vi.fn();
+        internals.seekSubtitle = seekSubtitle;
+
+        const idleEvent = new KeyboardEvent('keydown', { key: 'd', bubbles: true, cancelable: true });
+        internals.handleKeydown(idleEvent);
+
+        expect(seekSubtitle).not.toHaveBeenCalled();
+        expect(idleEvent.defaultPrevented).toBe(false);
+
+        internals.video = attachVideo(controller);
+        const nextEvent = new KeyboardEvent('keydown', { key: 'd', bubbles: true, cancelable: true });
+        internals.handleKeydown(nextEvent);
+
+        expect(seekSubtitle).toHaveBeenCalledWith(1);
+        expect(nextEvent.defaultPrevented).toBe(true);
+
+        seekSubtitle.mockClear();
+        const comment = document.createElement('div');
+        comment.setAttribute('contenteditable', 'true');
+        const commentEvent = new KeyboardEvent('keydown', { key: 'd', bubbles: true, cancelable: true });
+        Object.defineProperty(commentEvent, 'target', { value: comment });
+        internals.handleKeydown(commentEvent);
+
+        expect(seekSubtitle).not.toHaveBeenCalled();
+        expect(commentEvent.defaultPrevented).toBe(false);
+    });
+
     it('renders one rail toggle for the subtitle side panel', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -915,6 +949,68 @@ describe('SubtitlePlayerController', () => {
             expect(onSettingsChange).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
+        }
+    });
+
+    it('shows the pause-opened transcript immediately and defers the full row render', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            subtitlePausePanel: true,
+            subtitleTranscriptVisible: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: vi.fn(),
+        });
+
+        try {
+            (controller as unknown as { install: () => void }).install();
+            vi.stubGlobal('ResizeObserver', class {
+                observe(): void {}
+                disconnect(): void {}
+            });
+            const video = document.createElement('video');
+            let paused = false;
+            Object.defineProperties(video, {
+                paused: { configurable: true, get: () => paused },
+                ended: { configurable: true, value: false },
+            });
+            const cues = Array.from({ length: 5 }, (_, index) => ({
+                start: index,
+                end: index + 0.8,
+                text: `一時停止した行${index}`,
+                transcriptEligible: true,
+            }));
+            const internals = controller as unknown as {
+                video: HTMLVideoElement;
+                cues: typeof cues;
+                currentCue: typeof cues[number];
+                observeVideoLayout: (video: HTMLVideoElement) => void;
+            };
+            internals.video = video;
+            internals.cues = cues;
+            internals.currentCue = cues[2];
+            internals.observeVideoLayout(video);
+
+            paused = true;
+            video.dispatchEvent(new Event('pause'));
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.hidden).toBe(false);
+            expect(panel.querySelectorAll('.jpdb-subtitle-list-row')).toHaveLength(3);
+            expect(panel.textContent).toContain('一時停止した行2');
+
+            await vi.advanceTimersByTimeAsync(20);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(panel.querySelectorAll('.jpdb-subtitle-list-row')).toHaveLength(5);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
         }
     });
 
@@ -2103,51 +2199,80 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('reuses the latched reference rect during a resize drag instead of re-measuring without inset', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
-        try {
-            const video = attachVideo(controller, { rect: new DOMRect(0, 0, 960, 540) });
-            const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
-            const internals = controllerInternals<{
-                video: HTMLVideoElement;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                openLinesPanel: () => void;
-                positionTranscriptPanel: (options?: { skipInset?: boolean }) => void;
-                transcriptLayoutReferenceVideoRect: (w: number, h: number) => DOMRect;
-                transcriptLayoutReferenceRect?: DOMRect;
-            }>(controller);
-            internals.video = video;
-            internals.cues = [cue];
-            internals.currentCue = cue;
-            internals.openLinesPanel();
+        withViewport(1600, 900, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                const video = attachVideo(controller, { rect: new DOMRect(0, 0, 960, 540) });
+                const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+                const internals = controllerInternals<{
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                    positionTranscriptPanel: (options?: { skipInset?: boolean }) => void;
+                    transcriptLayoutReferenceVideoRect: (w: number, h: number) => DOMRect;
+                    transcriptLayoutReferenceRect?: DOMRect;
+                    transcriptPanelSize: { sideWidth?: number };
+                    applyVideoInsetForTranscriptLayout: (
+                        layout: { width: number },
+                        rect: DOMRect,
+                        options?: { resizeEventMode?: 'immediate' | 'settled' },
+                    ) => boolean;
+                }>(controller);
+                internals.video = video;
+                internals.cues = [cue];
+                internals.currentCue = cue;
+                internals.openLinesPanel();
 
-            // Count the expensive measure-without-inset reference computation.
-            const realReference = internals.transcriptLayoutReferenceVideoRect.bind(internals);
-            let referenceMeasures = 0;
-            internals.transcriptLayoutReferenceVideoRect = (w: number, h: number) => {
-                referenceMeasures += 1;
-                return realReference(w, h);
-            };
+                // Count the expensive measure-without-inset reference computation.
+                const realReference = internals.transcriptLayoutReferenceVideoRect.bind(internals);
+                let referenceMeasures = 0;
+                internals.transcriptLayoutReferenceVideoRect = (w: number, h: number) => {
+                    referenceMeasures += 1;
+                    return realReference(w, h);
+                };
+                const realInset = internals.applyVideoInsetForTranscriptLayout.bind(internals);
+                const dragInsetWidths: number[] = [];
+                const dragResizeEventModes: Array<'immediate' | 'settled' | undefined> = [];
+                internals.applyVideoInsetForTranscriptLayout = (layout, rect, options) => {
+                    dragInsetWidths.push(Math.round(layout.width));
+                    dragResizeEventModes.push(options?.resizeEventMode);
+                    return realInset(layout, rect, options);
+                };
 
-            // Prime the latched reference rect (as a real first layout would).
-            internals.positionTranscriptPanel();
-            expect(referenceMeasures).toBeGreaterThan(0);
-            expect(internals.transcriptLayoutReferenceRect).toBeTruthy();
+                // Prime the latched reference rect (as a real first layout would).
+                internals.positionTranscriptPanel();
+                expect(referenceMeasures).toBeGreaterThan(0);
+                expect(internals.transcriptLayoutReferenceRect).toBeTruthy();
 
-            // Resize-drag frames (skipInset) must NOT re-measure: they reuse the
-            // latched reference, avoiding the inset style-toggle + double layout.
-            const beforeDrag = referenceMeasures;
-            internals.positionTranscriptPanel({ skipInset: true });
-            internals.positionTranscriptPanel({ skipInset: true });
-            internals.positionTranscriptPanel({ skipInset: true });
-            expect(referenceMeasures).toBe(beforeDrag);
+                // Resize-drag frames (skipInset) must NOT re-measure: they reuse the
+                // latched reference, avoiding the inset style-toggle + double layout.
+                // They still need to re-apply the video inset, otherwise the YouTube
+                // video frame stays fixed while the side panel grows and only snaps
+                // after pointer-up. Drag frames also defer the synthetic resize
+                // event nudge so YouTube/mobile listeners are not spammed.
+                dragInsetWidths.length = 0;
+                dragResizeEventModes.length = 0;
+                const beforeDrag = referenceMeasures;
+                internals.transcriptPanelSize.sideWidth = 520;
+                internals.positionTranscriptPanel({ skipInset: true });
+                internals.transcriptPanelSize.sideWidth = 580;
+                internals.positionTranscriptPanel({ skipInset: true });
+                internals.transcriptPanelSize.sideWidth = 640;
+                internals.positionTranscriptPanel({ skipInset: true });
+                expect(referenceMeasures).toBe(beforeDrag);
+                expect(dragInsetWidths).toEqual([520, 580, 640]);
+                expect(dragResizeEventModes).toEqual(['settled', 'settled', 'settled']);
 
-            // A normal (non-drag) reposition still re-measures.
-            internals.positionTranscriptPanel();
-            expect(referenceMeasures).toBe(beforeDrag + 1);
-        } finally {
-            controller.destroy();
-        }
+                // A normal (non-drag) reposition still re-measures.
+                dragResizeEventModes.length = 0;
+                internals.positionTranscriptPanel();
+                expect(referenceMeasures).toBe(beforeDrag + 1);
+                expect(dragResizeEventModes).toEqual(['immediate']);
+            } finally {
+                controller.destroy();
+            }
+        });
     });
 
     it('pauses transcript auto-follow after a manual scroll and resumes after the window', () => {
@@ -3073,6 +3198,41 @@ describe('SubtitlePlayerController', () => {
 
         expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withApi));
         expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withDictionary));
+    });
+
+    it('keeps parsed transcript cache entries for long tracks instead of evicting after 180 rows', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const { controller } = createSubtitleController(settings);
+        const cues = Array.from({ length: 260 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const internals = controllerInternals<{
+            cues: typeof cues;
+            parsedHtmlCache: Map<string, string>;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            pruneParsedSubtitleCaches: () => void;
+        }>(controller);
+        internals.cues = cues;
+
+        for (let index = 0; index < 240; index++) {
+            internals.parsedHtmlCache.set(
+                internals.parseCacheKey(`字幕${index}`, settings),
+                `<span class="jpdb-reader-word">字幕${index}</span>`,
+            );
+        }
+
+        internals.pruneParsedSubtitleCaches();
+
+        expect(internals.parsedHtmlCache.size).toBe(240);
+        expect(internals.parsedHtmlCache.has(internals.parseCacheKey('字幕0', settings))).toBe(true);
+        expect(internals.parsedHtmlCache.has(internals.parseCacheKey('字幕239', settings))).toBe(true);
     });
 
     it('batches active subtitle warmup instead of parsing cues one by one', async () => {

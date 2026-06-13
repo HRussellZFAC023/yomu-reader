@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { isEditableTarget } from '../../src/reader/ui/browser';
 
 interface ReaderShortcutInternals {
     settings: ReaderSettings;
@@ -12,6 +13,18 @@ interface ReaderShortcutInternals {
 }
 
 describe('reader shortcuts', () => {
+    it('treats rich text editors as editable shortcut targets', () => {
+        const comment = document.createElement('div');
+        comment.setAttribute('contenteditable', 'plaintext-only');
+        comment.innerHTML = '<span>Typing a comment</span>';
+
+        expect(isEditableTarget(comment.querySelector('span'))).toBe(true);
+
+        comment.setAttribute('contenteditable', 'false');
+
+        expect(isEditableTarget(comment.querySelector('span'))).toBe(false);
+    });
+
     it('toggles the subtitle overlay with the configured shortcut', () => {
         const app = new ReaderApp();
         const internals = app as unknown as ReaderShortcutInternals;

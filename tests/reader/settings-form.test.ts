@@ -1012,7 +1012,7 @@ describe('settings form localization', () => {
         expect(saved.popoverBackdropEnabled).toBe(false);
     });
 
-    it('persists font presets, custom font stacks, pause panel, and word navigation shortcuts', () => {
+    it('persists font presets, custom font stacks, pause panel, and navigation shortcuts', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const readerFontFamily = form.querySelector<HTMLSelectElement>('select[name="readerFontFamily"]')!;
@@ -1025,6 +1025,8 @@ describe('settings form localization', () => {
         const pausePanel = form.querySelector<HTMLInputElement>('input[name="subtitlePausePanel"]')!;
         const previousWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousLookupWord"]')!;
         const nextWord = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextLookupWord"]')!;
+        const previousSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.previousSubtitle"]')!;
+        const nextSubtitle = form.querySelector<HTMLInputElement>('input[name="shortcuts.nextSubtitle"]')!;
         const toggleSubtitles = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleSubtitleOverlay"]')!;
 
         expect(readerFontFamily.value).toBe(DEFAULT_SETTINGS.readerFontFamily);
@@ -1053,6 +1055,8 @@ describe('settings form localization', () => {
         expect(form.querySelector('select[name="subtitleTranscriptPlacement"]')).toBeNull();
         expect(previousWord.value).toBe('Alt+Shift+ArrowLeft');
         expect(nextWord.value).toBe('Alt+Shift+ArrowRight');
+        expect(previousSubtitle.value).toBe('A');
+        expect(nextSubtitle.value).toBe('D');
         expect(DEFAULT_SETTINGS.shortcuts.toggleSubtitleOverlay).toBe('Shift+H');
         expect(toggleSubtitles.value).toBe('Shift+H');
 
@@ -1066,6 +1070,8 @@ describe('settings form localization', () => {
         pausePanel.checked = true;
         previousWord.value = 'Alt+H';
         nextWord.value = 'Alt+L';
+        previousSubtitle.value = 'Shift+A';
+        nextSubtitle.value = 'Shift+D';
         toggleSubtitles.value = 'Ctrl+H';
 
         const saved = readFormSettings(new FormData(form), { ...DEFAULT_SETTINGS, subtitleTranscriptPlacement: 'bottom' });
@@ -1078,7 +1084,35 @@ describe('settings form localization', () => {
         expect(saved.subtitleTranscriptPlacement).toBe('bottom');
         expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
         expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
+        expect(saved.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(saved.shortcuts.nextSubtitle).toBe('Shift+D');
         expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
+    });
+
+    it('migrates the old default subtitle line shortcuts to A and D only when still default-looking', () => {
+        const migrated = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Alt+ArrowLeft',
+                nextSubtitle: 'Alt+ArrowRight',
+            },
+        });
+
+        expect(migrated.shortcuts.previousSubtitle).toBe('A');
+        expect(migrated.shortcuts.nextSubtitle).toBe('D');
+
+        const customized = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                previousSubtitle: 'Shift+A',
+                nextSubtitle: 'Shift+D',
+            },
+        });
+
+        expect(customized.shortcuts.previousSubtitle).toBe('Shift+A');
+        expect(customized.shortcuts.nextSubtitle).toBe('Shift+D');
     });
 
     it('renders Study shortcuts as configurable shortcut inputs', () => {

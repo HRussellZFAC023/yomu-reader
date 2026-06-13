@@ -72,11 +72,11 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
 
   <div class="yomu-shot-grid">
     <figure>
-      <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+      <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" data-yomu-ocr="ignore" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
       <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
     </figure>
     <figure>
-      <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+      <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" data-yomu-ocr="ignore" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
       <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
     </figure>
   </div>

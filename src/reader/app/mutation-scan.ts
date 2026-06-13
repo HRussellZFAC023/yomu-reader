@@ -12,6 +12,16 @@ const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded']);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+const PAGE_TEXT_MUTATION_IGNORE_SELECTOR = [
+    '#movie_player',
+    '.html5-video-player',
+    '.ytp-caption-window-container',
+    '.caption-window',
+    '.ytp-chrome-top',
+    '.ytp-chrome-bottom',
+    '.ytp-tooltip',
+    '.ytp-popup',
+].join(',');
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     '.result.vocabulary',
     '.result.kanji',
@@ -51,12 +61,21 @@ export function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 }
 
 export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {
+    if (mutationInsidePageTextIgnoreSurface(mutation)) return false;
     if (mutation.type === 'characterData') return nodeTextMayContainJapanese(mutation.target);
     if (mutation.type === 'attributes') {
         if (!TEXT_REVEAL_ATTRIBUTES.has(mutation.attributeName ?? '')) return false;
         return nodeTextMayContainJapanese(mutation.target);
     }
     return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+}
+
+function mutationInsidePageTextIgnoreSurface(mutation: MutationRecord): boolean {
+    const nodes = [
+        mutation.target,
+        ...Array.from(mutation.addedNodes),
+    ];
+    return nodes.some(node => Boolean(mutationNodeElement(node)?.closest(PAGE_TEXT_MUTATION_IGNORE_SELECTOR)));
 }
 
 function nodeTextMayContainJapanese(node: Node): boolean {

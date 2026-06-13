@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.193] - 2026-06-13
+
+### Performance
+
+- Hovering words is snappier (live-profiled on a signed-in YouTube watch page). The dictionary popover no longer re-scans the whole popover for native `title` tooltips on every reposition (it's set up once at mount and kept current by its observer) — repositioning got dramatically cheaper. The page-word contrast pass memoizes the page-background computation per parent instead of walking each word's ancestors with `getComputedStyle`, so hovering words in dense text no longer recomputes the same background per sibling.
+- The dictionary popover fades in with a subtle ~110ms opacity animation (opacity only — no layout shift; respects `prefers-reduced-motion`).
+
+### Fixed
+
+- ImmersionKit examples now load in the popover even when the immersion section sits below the visible popover fold. Loading was gated on the section scrolling into view, so on tall cards the examples often never appeared until you scrolled; the open section for the looked-up word now loads on a short debounce regardless of fold position (in-view sections load faster, and abort-on-close still prevents redundant requests while moving between words).
+
 ## [0.6.192] - 2026-06-13
 
 ### Fixed

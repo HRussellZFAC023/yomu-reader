@@ -36,6 +36,7 @@ import {
     subtitleVideoLayoutTarget,
     transcriptAvoidanceTarget,
     type SubtitleVideoInsetAdapter,
+    type SubtitleVideoInsetResizeEventMode,
     type SubtitleVideoInsetSide,
 } from './subtitle-video-inset';
 import {
@@ -103,6 +104,7 @@ import {
 } from './subtitle-track-options';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
+import { isEditableTarget } from '../ui/browser';
 import {
     canParseSubtitleTranscriptRows,
     authoritativeSubtitleParseOptions,
@@ -206,6 +208,7 @@ interface SubtitlePlayerOptions {
 interface TranscriptPanelOptions {
     persist?: boolean;
     autoPause?: boolean;
+    deferRender?: boolean;
 }
 
 function isYouTubeTheaterMode(): boolean {
@@ -293,7 +296,10 @@ const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
 const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
-const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
+const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
+const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5000;
+const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
+const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
 // Cues near the playhead must colorise immediately; only the whole-transcript
@@ -341,6 +347,8 @@ interface TranscriptPanelRenderState {
     rows: TranscriptRow[];
     currentRowIndex: number;
     signature: string;
+    rowIndexOffset?: number;
+    totalRowCount?: number;
 }
 
 interface TranscriptRowHydrationTarget {
@@ -456,6 +464,8 @@ export class SubtitlePlayerController {
     private lastTranscriptSignature = '';
     private transcriptScrollFrame?: number;
     private transcriptHydrateFrame?: number;
+    private transcriptDeferredRenderFrame?: number;
+    private transcriptDeferredRenderTimer?: number;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -581,6 +591,7 @@ export class SubtitlePlayerController {
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
+        this.clearDeferredTranscriptPanelRender();
         this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
         this.clearTranscriptPanelAnimation();
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
@@ -858,7 +869,7 @@ export class SubtitlePlayerController {
         this.videoResizeObserver.observe(video);
         video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
-        video.addEventListener('pause', () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
+        video.addEventListener('pause', () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
         const handlePlaybackStarted = () => {
             this.pausePanelDismissed = false;
             // Same deferred path as pause: syncPauseTranscriptPanel sees the
@@ -1825,10 +1836,19 @@ export class SubtitlePlayerController {
     }
 
     private pruneParsedSubtitleCaches(): void {
-        this.pruneParsedSubtitleCache(this.parsedHtmlCache);
-        this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache);
-        while (this.emptyParsedHtmlCache.size > 180) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? '');
-        while (this.parsedTokenCache.size > 180) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? '');
+        const limit = this.parsedSubtitleCacheLimit();
+        this.pruneParsedSubtitleCache(this.parsedHtmlCache, limit);
+        this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache, limit);
+        while (this.emptyParsedHtmlCache.size > SUBTITLE_PARSE_CACHE_MIN_ENTRIES) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? '');
+        while (this.parsedTokenCache.size > limit) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? '');
+    }
+
+    private parsedSubtitleCacheLimit(): number {
+        const transcriptRows = this.cues.filter(cue => cue.transcriptEligible !== false).length;
+        return Math.min(
+            SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
+            Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM),
+        );
     }
 
     private hasAuthoritativeParseTier(): boolean {
@@ -1864,8 +1884,8 @@ export class SubtitlePlayerController {
         }
     }
 
-    private pruneParsedSubtitleCache(cache: Map<string, string>): void {
-        while (cache.size > 180) this.deleteParsedSubtitleKey(cache.keys().next().value ?? '');
+    private pruneParsedSubtitleCache(cache: Map<string, string>, limit = this.parsedSubtitleCacheLimit()): void {
+        while (cache.size > limit) this.deleteParsedSubtitleKey(cache.keys().next().value ?? '');
     }
 
     private deleteParsedSubtitleKey(key: string): void {
@@ -2449,16 +2469,21 @@ export class SubtitlePlayerController {
     private handleKeydown(event: KeyboardEvent): void {
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
-        if (matchesShortcut(event, settings.shortcuts.previousSubtitle)) {
+        if (isEditableTarget(event.target)) return;
+        const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
+        const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
+        if (previousSubtitle || nextSubtitle) {
+            if (!this.canUseSubtitleNavigationShortcut()) return;
             event.preventDefault();
-            this.seekSubtitle(-1);
-        } else if (matchesShortcut(event, settings.shortcuts.nextSubtitle)) {
-            event.preventDefault();
-            this.seekSubtitle(1);
-        } else if (matchesShortcut(event, settings.shortcuts.copySubtitle)) {
+            this.seekSubtitle(previousSubtitle ? -1 : 1);
+        } else if (matchesShortcut(event, settings.shortcuts.copySubtitle) && this.subtitleCopyText(undefined)) {
             event.preventDefault();
             void this.copySubtitle();
         }
+    }
+
+    private canUseSubtitleNavigationShortcut(): boolean {
+        return Boolean(this.video && this.videoHasPlayerAffordances());
     }
 
     private seekSubtitle(direction: -1 | 1): void {
@@ -3133,6 +3158,11 @@ export class SubtitlePlayerController {
         this.transcriptPanelHideTimer = clearWindowTimeout(this.transcriptPanelHideTimer);
     }
 
+    private clearDeferredTranscriptPanelRender(): void {
+        this.transcriptDeferredRenderFrame = clearWindowAnimationFrame(this.transcriptDeferredRenderFrame);
+        this.transcriptDeferredRenderTimer = clearWindowTimeout(this.transcriptDeferredRenderTimer);
+    }
+
     private openLinesPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
         const persist = options.persist ?? true;
@@ -3144,6 +3174,14 @@ export class SubtitlePlayerController {
             this.options.getSettings().subtitleTranscriptVisible = true;
             this.options.onSettingsChange();
         }
+        if (options.deferRender) {
+            this.renderTranscriptPanelPreview();
+            this.positionTranscriptPanel({ realignAfterInset: true });
+            this.syncControls();
+            this.scheduleDeferredTranscriptPanelRender();
+            return;
+        }
+        this.clearDeferredTranscriptPanelRender();
         this.renderTranscriptPanel(true);
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
@@ -3218,6 +3256,7 @@ export class SubtitlePlayerController {
         if (!options.autoPause) this.pausePanelDismissed = false;
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = 'tracks';
+        this.clearDeferredTranscriptPanelRender();
         this.showTranscriptPanelElement();
         if (persist) {
             this.options.getSettings().subtitleTranscriptVisible = false;
@@ -3237,6 +3276,7 @@ export class SubtitlePlayerController {
     private closeTranscriptPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel) return;
         const persist = options.persist ?? true;
+        this.clearDeferredTranscriptPanelRender();
         if (!options.autoPause) {
             this.pausePanelOpen = false;
             // An explicit close while paused must stick: otherwise the "open panel
@@ -3268,14 +3308,14 @@ export class SubtitlePlayerController {
         }, 0));
     }
 
-    private syncPauseTranscriptPanel(): void {
+    private syncPauseTranscriptPanel(options: { deferRender?: boolean } = {}): void {
         const settings = this.options.getSettings();
         if (!settings.subtitlePausePanel || !this.video || !this.video.paused || this.video.ended || !this.hasTranscriptSurface()) {
             this.closePauseTranscriptPanel();
             return;
         }
         if (this.pausePanelDismissed || this.isTranscriptPanelOpen()) return;
-        this.openLinesPanel({ persist: false, autoPause: true });
+        this.openLinesPanel({ persist: false, autoPause: true, deferRender: options.deferRender });
     }
 
     private closePauseTranscriptPanel(): void {
@@ -3293,11 +3333,52 @@ export class SubtitlePlayerController {
     private renderTranscriptPanel(force = false): void {
         const panel = this.renderableTranscriptPanel();
         if (!panel) return;
+        this.clearDeferredTranscriptPanelRender();
         const state = this.transcriptPanelRenderState();
         if (this.canRefreshTranscriptPanel(force, state)) return;
         this.lastTranscriptSignature = state.signature;
         setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
         this.afterTranscriptPanelRender(state);
+    }
+
+    private renderTranscriptPanelPreview(): void {
+        const panel = this.renderableTranscriptPanel();
+        if (!panel) return;
+        const fullState = this.transcriptPanelRenderState();
+        const state = this.transcriptPanelPreviewState(fullState);
+        this.lastTranscriptSignature = '';
+        setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
+        this.afterTranscriptPanelRender(state, { warmupRows: fullState.rows });
+    }
+
+    private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
+        const rowCount = state.rows.length;
+        if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
+        const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
+        const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
+        const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
+        const previewEnd = Math.min(rowCount, previewStart + 3);
+        return {
+            rows: state.rows.slice(previewStart, previewEnd),
+            currentRowIndex: state.currentRowIndex,
+            signature: `preview:${state.signature}:${previewStart}`,
+            rowIndexOffset: previewStart,
+            totalRowCount: rowCount,
+        };
+    }
+
+    private scheduleDeferredTranscriptPanelRender(): void {
+        this.clearDeferredTranscriptPanelRender();
+        this.transcriptDeferredRenderFrame = requestAnimationFrame(() => {
+            this.transcriptDeferredRenderFrame = undefined;
+            this.transcriptDeferredRenderTimer = window.setTimeout(() => {
+                this.transcriptDeferredRenderTimer = undefined;
+                if (this.destroyed || !this.isTranscriptPanelOpen() || this.panelMode !== 'lines') return;
+                this.renderTranscriptPanel(true);
+                this.positionTranscriptPanel({ realignAfterInset: true });
+                this.syncControls();
+            }, 0);
+        });
     }
 
     private renderableTranscriptPanel(): HTMLElement | null {
@@ -3336,13 +3417,15 @@ export class SubtitlePlayerController {
     private renderTranscriptPanelHtml(state: TranscriptPanelRenderState): string {
         const settings = this.options.getSettings();
         const language = settings.interfaceLanguage;
+        const rowCount = state.totalRowCount ?? state.rows.length;
+        const rowIndexOffset = state.rowIndexOffset ?? 0;
         return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
                     <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, 'subtitlesTitle'))}</strong>
                     <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
                         mode: 'lines',
-                        count: state.rows.length,
+                        count: rowCount,
                         tracks: this.tracks,
                         selectedTrackId: this.selectedTrackId,
                         secondaryTrackId: this.secondaryTrackId,
@@ -3351,28 +3434,28 @@ export class SubtitlePlayerController {
                 </div>
                 <div class="jpdb-subtitle-drawer-actions">
                     ${renderPanelModeControls('lines', this.hasTranscriptSurface(), language)}
-                    ${renderPanelNavigationControls(Boolean(this.video && state.rows.length), language)}
+                    ${renderPanelNavigationControls(Boolean(this.video && rowCount), language)}
                     ${renderPanelPlacementControls(this.effectiveTranscriptPlacement, language)}
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
             <div class="jpdb-subtitle-list-scroll">
                 ${state.rows.length
-                    ? state.rows.map((row, index) => this.renderTranscriptRow(row, index, state.currentRowIndex)).join('')
+                    ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join('')
                     : this.renderTranscriptWaitingState()}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>
         `;
     }
 
-    private afterTranscriptPanelRender(state: TranscriptPanelRenderState): void {
+    private afterTranscriptPanelRender(state: TranscriptPanelRenderState, options: { warmupRows?: TranscriptRow[] } = {}): void {
         this.indexTranscriptTextTargets();
         this.bindTranscriptScroller();
         this.bindTranscriptResizeHandle();
         this.positionTranscriptPanel();
         this.scrollTranscriptToActive();
         this.scheduleTranscriptHydration(state.currentRowIndex);
-        this.scheduleTranscriptCacheWarmup(state.rows, state.currentRowIndex);
+        this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.rows, state.currentRowIndex);
         this.syncPanelState();
     }
 
@@ -3985,8 +4068,8 @@ export class SubtitlePlayerController {
         const viewportWidth = Math.max(320, window.innerWidth);
         const viewportHeight = Math.max(240, window.innerHeight);
         const settings = this.options.getSettings();
-        // During a resize drag (skipInset) the player isn't growing, so reuse
-        // the already-latched reference rect instead of re-running the
+        // During a resize drag (skipInset) reuse the already-latched reference
+        // rect instead of re-running the
         // measureWithoutInset path every frame — that path toggles inset styles
         // and forces two synchronous layouts, the bulk of resize-drag jank.
         const reuseDragRect = options.skipInset && this.transcriptLayoutReferenceRect;
@@ -4011,10 +4094,10 @@ export class SubtitlePlayerController {
         this.syncTranscriptPlacementClass();
         this.syncTranscriptResizeHandle(layout);
         this.syncDrawerButtons(this.hasVisibleSubtitleLines());
-        if (!options.skipInset) {
-            const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect);
-            if (options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
-        }
+        const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
+            resizeEventMode: options.skipInset ? 'settled' : 'immediate',
+        });
+        if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
@@ -4121,16 +4204,20 @@ export class SubtitlePlayerController {
         return this.transcriptLayoutReferenceRect;
     }
 
-    private applyVideoInsetForTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
+    private applyVideoInsetForTranscriptLayout(
+        layout: TranscriptPanelLayout,
+        videoRect = this.videoLayoutRect(),
+        options: { resizeEventMode?: SubtitleVideoInsetResizeEventMode } = {},
+    ): boolean {
         if (!this.video) {
             this.clearVideoInsetForTranscriptPanel();
             return false;
         }
         if (layout.placement === 'bottom') {
-            return this.applyPageVideoInset('bottom', layout.top - videoRect.top - layout.margin, layout.height, videoRect);
+            return this.applyPageVideoInset('bottom', layout.top - videoRect.top - layout.margin, layout.height, videoRect, options);
         }
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
-        return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect);
+        return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
@@ -4187,7 +4274,13 @@ export class SubtitlePlayerController {
         return this.videoInset.clear(this.video);
     }
 
-    private applyPageVideoInset(side: SubtitleVideoInsetSide, playerSize: number, panelSize?: number, videoRect = this.videoLayoutRect()): boolean {
+    private applyPageVideoInset(
+        side: SubtitleVideoInsetSide,
+        playerSize: number,
+        panelSize?: number,
+        videoRect = this.videoLayoutRect(),
+        options: { resizeEventMode?: SubtitleVideoInsetResizeEventMode } = {},
+    ): boolean {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
             return false;
@@ -4200,6 +4293,7 @@ export class SubtitlePlayerController {
             panelSize: panelSize ?? ((side === 'bottom' ? panelRect?.height : panelRect?.width) ?? 0),
             videoRect,
             margin: TRANSCRIPT_PANEL_MARGIN,
+            resizeEventMode: options.resizeEventMode,
         });
     }
 }

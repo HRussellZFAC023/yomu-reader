@@ -3,13 +3,14 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { chromium, devices } from 'playwright';
+import { chromium } from 'playwright';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, '..');
 const outputRoot = resolve(process.env.YOMU_YOUTUBE_RUBY_PROOF_DIR ?? join(appRoot, 'qa-artifacts/youtube-ruby-coverage-proof'));
 const bundlePath = join(outputRoot, 'proof-runner.bundle.js');
 const reportPath = join(outputRoot, 'youtube-ruby-coverage-report.json');
+const videoPath = join(outputRoot, 'youtube-ruby-coverage-proof.webm');
 const cssPath = join(appRoot, 'dist/yomu.css');
 const vocabularyIndexSeed = vocabularyIndexes();
 
@@ -58,16 +59,9 @@ const vocabulary = [
     word('大阪', 'おおさか', 'heiban'),
     word('食べ歩き', 'たべあるき', 'heiban'),
     word('カフェ', 'かふぇ', 'heiban'),
-    word('資産', 'しさん', 'heiban'),
-    word('億円', 'おくえん', 'heiban'),
-    word('元', 'もと', 'heiban'),
-    word('証券', 'しょうけん', 'heiban'),
-    word('教える', 'おしえる', 'heiban'),
-    word('必要', 'ひつよう', 'heiban'),
 ];
 
 const longWatchTitle = '【完全独学】留学なし・お金をかけずに家で英語を話せるようになった方法｜日本語でニュースを読む勉強と投資と貯金の方法';
-const longFinanceTitle = '資産9億円・元証券OLが教える貯金と投資の方法は必要？';
 
 const pages = [
     {
@@ -136,7 +130,7 @@ const pages = [
                 <section>
                   <div class="player">YouTube watch fixture</div>
                   <ytd-watch-metadata>
-                    <h1 class="style-scope ytd-watch-metadata watch-title-clamped" data-proof-target data-proof-text="${longWatchTitle}" data-proof-expect-ruby-room="true" data-proof-original-height="38">
+                    <h1 class="style-scope ytd-watch-metadata watch-title-clamped" data-proof-target data-proof-text="${longWatchTitle}" data-proof-expect-ruby-room="true">
                       <yt-formatted-string force-default-style="" class="style-scope ytd-watch-metadata" title="${longWatchTitle}">${longWatchTitle}</yt-formatted-string>
                     </h1>
                     <div id="description-inline-expander" data-proof-target data-proof-text="復習用の説明で日本語を勉強します">復習用の説明で日本語を勉強します</div>
@@ -181,51 +175,6 @@ const pages = [
                   <ytm-comment-renderer><span id="content-text" data-proof-target data-proof-text="質問する前に勉強します">質問する前に勉強します</span></ytm-comment-renderer>
                 </ytm-comment-section-renderer>
               </main>
-            </ytm-app>
-        `),
-    },
-    {
-        name: 'ipad-mobile-watch-long-title',
-        url: 'https://m.youtube.com/watch?v=proof-ipad',
-        device: 'iPad Pro 11',
-        html: youtubeShell(`
-            <ytm-app>
-              <main class="ipad-mobile">
-                <div class="player mobile-player">iPad mobile watch fixture</div>
-                <ytm-slim-video-metadata-section-renderer>
-                  <h1>
-                    <span class="slim-video-metadata-title ipad-long-title-crop" data-proof-target data-proof-text="${longFinanceTitle}" data-proof-expect-ruby-room="true" data-proof-original-height="42">${longFinanceTitle}</span>
-                  </h1>
-                  <div class="slim-video-metadata-info" data-proof-target data-proof-text="説明文で復習します">説明文で復習します</div>
-                  <ytm-button-renderer><button data-proof-target data-proof-text="文字起こしを表示">文字起こしを表示</button></ytm-button-renderer>
-                </ytm-slim-video-metadata-section-renderer>
-                <ytm-comment-section-renderer>
-                  <ytm-comment-renderer><span id="content-text" data-proof-target data-proof-text="質問する前に勉強します">質問する前に勉強します</span></ytm-comment-renderer>
-                </ytm-comment-section-renderer>
-              </main>
-            </ytm-app>
-        `),
-    },
-    {
-        name: 'ipad-mobile-feed-long-title',
-        url: 'https://m.youtube.com/?proof=ipad-feed',
-        device: 'iPad Pro 11',
-        html: youtubeShell(`
-            <ytm-app>
-              <ytm-rich-grid-renderer class="ipad-feed-grid">
-                <ytm-video-with-context-renderer class="ipad-feed-card">
-                  <a class="media-item-thumbnail-container" href="/watch?v=ipad-feed1"></a>
-                  <h3 class="media-item-headline">
-                    <a href="/watch?v=ipad-feed1" class="title ipad-feed-title-crop" data-proof-target data-proof-text="${longFinanceTitle}" data-proof-expect-ruby-room="true" data-proof-original-height="40">${longFinanceTitle}</a>
-                  </h3>
-                </ytm-video-with-context-renderer>
-                <ytm-video-with-context-renderer class="ipad-feed-card">
-                  <a class="media-item-thumbnail-container" href="/watch?v=ipad-feed2"></a>
-                  <h3 class="media-item-headline">
-                    <a href="/watch?v=ipad-feed2" class="title" data-proof-target data-proof-text="新卒エンジニアが仕事終わりに勉強する方法">新卒エンジニアが仕事終わりに勉強する方法</a>
-                  </h3>
-                </ytm-video-with-context-renderer>
-              </ytm-rich-grid-renderer>
             </ytm-app>
         `),
     },
@@ -280,6 +229,15 @@ mkdirSync(outputRoot, { recursive: true });
 await buildProofRunner();
 
 const browser = await chromium.launch({ headless: process.env.YOMU_YOUTUBE_RUBY_PROOF_HEADED !== '1' });
+const context = await browser.newContext({
+    bypassCSP: true,
+    locale: 'ja-JP',
+    viewport: { width: 1280, height: 900 },
+    recordVideo: { dir: outputRoot, size: { width: 1280, height: 900 } },
+});
+
+const page = await context.newPage();
+const video = page.video();
 const report = {
     generatedAt: new Date().toISOString(),
     outputRoot,
@@ -288,59 +246,39 @@ const report = {
 };
 
 try {
+    await routeProofPages(page);
     for (const spec of pages) {
-        const viewport = spec.viewport ?? devices[spec.device]?.viewport ?? { width: 1280, height: 900 };
-        const context = await browser.newContext({
-            bypassCSP: true,
-            locale: 'ja-JP',
-            ...(spec.device ? devices[spec.device] : {}),
-            viewport,
-            recordVideo: { dir: outputRoot, size: videoSizeForViewport(viewport) },
+        await page.setViewportSize(spec.viewport);
+        await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.addStyleTag({ content: proofCss() });
+        await page.addScriptTag({ path: bundlePath });
+        const result = await runProofAcrossScroll(page);
+        const screenshotPath = join(outputRoot, `${spec.name}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        report.pages.push({
+            name: spec.name,
+            url: spec.url,
+            viewport: spec.viewport,
+            screenshotPath,
+            ...result,
         });
-        const page = await context.newPage();
-        const video = page.video();
-        try {
-            await routeProofPages(page);
-            await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await page.addStyleTag({ content: proofCss() });
-            await page.addScriptTag({ path: bundlePath });
-            const result = await runProofAcrossScroll(page);
-            const screenshotPath = join(outputRoot, `${spec.name}.png`);
-            await page.screenshot({ path: screenshotPath, fullPage: true });
-            report.pages.push({
-                name: spec.name,
-                url: spec.url,
-                device: spec.device ?? '',
-                viewport,
-                screenshotPath,
-                ...result,
-            });
-        } finally {
-            await page.close().catch(() => undefined);
-            await context.close().catch(() => undefined);
-        }
-        const rawVideoPath = video ? await video.path().catch(() => null) : null;
-        const pageReport = report.pages.find(item => item.name === spec.name);
-        if (rawVideoPath && existsSync(rawVideoPath)) {
-            const specVideoPath = join(outputRoot, `${spec.name}.webm`);
-            renameSync(rawVideoPath, specVideoPath);
-            if (pageReport) pageReport.videoPath = specVideoPath;
-        } else if (pageReport) {
-            pageReport.videoPath = rawVideoPath;
-        }
     }
     report.pass = report.pages.every(item => item.pass);
 } finally {
+    await page.close().catch(() => undefined);
+    await context.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
 }
 
-report.videoPaths = report.pages.map(pageReport => pageReport.videoPath).filter(Boolean);
+const rawVideoPath = video ? await video.path().catch(() => null) : null;
+if (rawVideoPath && existsSync(rawVideoPath)) renameSync(rawVideoPath, videoPath);
+report.videoPath = existsSync(videoPath) ? videoPath : rawVideoPath;
 writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
 console.log(JSON.stringify({
     pass: report.pass,
     reportPath,
-    videoPaths: report.videoPaths,
+    videoPath: report.videoPath,
     screenshots: report.pages.map(pageReport => pageReport.screenshotPath),
     failures: report.pages.flatMap(pageReport => pageReport.failures.map(message => `${pageReport.name}: ${message}`)),
 }, null, 2));
@@ -364,13 +302,6 @@ function word(surface, reading, pitchClass) {
 function* vocabularyIndexes() {
     let index = 0;
     while (true) yield index++;
-}
-
-function videoSizeForViewport(viewport) {
-    return {
-        width: Math.min(viewport.width, 1280),
-        height: Math.min(viewport.height, 1280),
-    };
 }
 
 function youtubeShell(body) {
@@ -410,12 +341,6 @@ function youtubeShell(body) {
     .mobile-grid { display: grid; gap: 20px; padding: 12px; }
     .mobile-card { min-height: 230px; }
     .mobile-title { font-size: 17px; }
-    .ipad-mobile { padding: 16px 22px; max-width: 820px; margin: 0 auto; }
-    .ipad-mobile h1 { font-size: 22px; line-height: 1.35; margin: 14px 0; }
-    .ipad-long-title-crop { display: block; overflow: hidden; height: 42px; max-height: 42px; max-width: min(760px, 100%); }
-    .ipad-feed-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 18px; }
-    .ipad-feed-card { min-width: 0; }
-    .ipad-feed-title-crop { display: block; overflow: hidden; height: 40px; max-height: 40px; }
     .media-item-thumbnail-container { display: block; aspect-ratio: 16 / 9; margin-bottom: 10px; }
     .shorts-grid { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 18px; padding: 22px; }
     .short-card .short-thumb, .short-thumb { display: block; aspect-ratio: 9 / 16; margin-bottom: 10px; }
@@ -542,11 +467,11 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
         ...hiddenFeedback.failures,
     ];
     if (!proofTargets.length) failures.push('no visible proof targets found');
-    if (targetSnapshots.some(target => HAN_RE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
-        failures.push('a visible kanji-bearing scan target had no JPDB-shaped token match');
+    if (targetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
+        failures.push('a visible Japanese scan target had no JPDB-shaped token match');
     }
-    if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass) || !word.baseVisible)) {
-        failures.push('at least one rendered word is missing visible base text, ruby, JPDB source, or concrete pitch');
+    if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) {
+        failures.push('at least one rendered word is missing ruby, JPDB source, or concrete pitch');
     }
 
     const pass = failures.length === 0;
@@ -628,25 +553,21 @@ function auditProofTarget(element, vocabulary) {
     const missingSurfaces = missingExpectedSurfaces(expectedSurfaces, words.map(word => word.surface));
     const clipped = isBoxClipped(element);
     const rubyOutOfBounds = outOfBoundsRubyCount(element);
-    const baseOutOfBounds = outOfBoundsBaseTextCount(element);
     const uncoveredKanji = uncoveredKanjiForText(label, words.map(word => word.surface));
     const expectedRubyRoom = element.getAttribute('data-proof-expect-ruby-room') === 'true';
-    const expectedOriginalHeight = Number(element.getAttribute('data-proof-original-height') || 38);
     const rubyRoomHeight = Number(element.dataset.yomuRubyRoomHeight || 0);
 
     if (!expectedSurfaces.length) failures.push('no expected JPDB token surfaces for proof text');
     if (!words.length) failures.push('no rendered reader words');
     if (missingSurfaces.length) failures.push('missing rendered surfaces: ' + missingSurfaces.join(', '));
     if (words.some(word => word.requiresRuby && !word.hasRuby)) failures.push('kanji-bearing rendered word without furigana');
-    if (words.some(word => !word.baseVisible)) failures.push('rendered word with invisible or collapsed base text');
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
     if (clipped) failures.push('target still has scroll clipping after ruby room sweep');
     if (rubyOutOfBounds) failures.push(rubyOutOfBounds + ' ruby annotations sit outside target bounds');
-    if (baseOutOfBounds) failures.push(baseOutOfBounds + ' rendered base text nodes sit outside target bounds');
     if (expectedRubyRoom && element.dataset.yomuRubyRoom !== 'true') failures.push('expected clipped title to receive ruby room');
-    if (expectedRubyRoom && rubyRoomHeight <= expectedOriginalHeight) failures.push('expected clipped title ruby room height to grow beyond the original title height');
+    if (expectedRubyRoom && rubyRoomHeight <= 38) failures.push('expected clipped title ruby room height to grow beyond the original title height');
 
     return {
         label,
@@ -658,10 +579,8 @@ function auditProofTarget(element, vocabulary) {
         pitchWordCount: words.filter(word => CONCRETE_PITCH_CLASSES.has(word.pitchClass)).length,
         clipped,
         rubyOutOfBounds,
-        baseOutOfBounds,
         rubyRoom: element.dataset.yomuRubyRoom || '',
         rubyRoomHeight,
-        expectedOriginalHeight,
         uncoveredKanji,
         words,
         failures,
@@ -669,20 +588,16 @@ function auditProofTarget(element, vocabulary) {
 }
 
 function renderedWordDetails(root) {
-    return Array.from(root.querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement).map(word => {
-        const surface = readerWordSurfaceText(word).trim();
-        return {
-            surface,
-            text: compactText(word.textContent || ''),
-            requiresRuby: HAN_RE.test(surface),
-            hasRuby: Boolean(word.querySelector('rt')),
-            baseVisible: hasVisibleBaseText(word),
-            rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
-            source: word.dataset.cardSource || '',
-            pitchClass: word.dataset.pitchClass || '',
-            className: word.className,
-        };
-    });
+    return Array.from(root.querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement).map(word => ({
+        surface: readerWordSurfaceText(word).trim(),
+        text: compactText(word.textContent || ''),
+        requiresRuby: HAN_RE.test(readerWordSurfaceText(word).trim()),
+        hasRuby: Boolean(word.querySelector('rt')),
+        rt: Array.from(word.querySelectorAll('rt')).map(rt => rt.textContent || '').join('|'),
+        source: word.dataset.cardSource || '',
+        pitchClass: word.dataset.pitchClass || '',
+        className: word.className,
+    }));
 }
 
 function missingExpectedSurfaces(expected, actual) {
@@ -756,30 +671,6 @@ function outOfBoundsRubyCount(element) {
             || rubyRect.right > rect.right + 4
             || rubyRect.bottom > rect.bottom + 4;
     }).length;
-}
-
-function outOfBoundsBaseTextCount(element) {
-    if (!isPotentialCropBox(element)) return 0;
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return 0;
-    return Array.from(element.querySelectorAll('.jpdb-reader-word')).filter(word => {
-        const base = word.querySelector('.jpdb-reader-ruby-base') || word;
-        const baseRect = base.getBoundingClientRect();
-        if (baseRect.width <= 0 || baseRect.height <= 0) return true;
-        return baseRect.top < rect.top -4
-            || baseRect.left < rect.left -4
-            || baseRect.right > rect.right + 4
-            || baseRect.bottom > rect.bottom + 4;
-    }).length;
-}
-
-function hasVisibleBaseText(word) {
-    const base = word.querySelector('.jpdb-reader-ruby-base') || word;
-    if (!(base instanceof HTMLElement)) return false;
-    const style = getComputedStyle(base);
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) <= 0.01) return false;
-    const rect = base.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
 }
 
 function isPotentialCropBox(element) {

@@ -2792,15 +2792,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
   .jpdb-reader-ruby-base {
-  background: var(
-    --jpdb-reader-example-target-bg,
-    var(--jpdb-reader-accent-soft)
-  ) !important;
-  border-radius: 0.22em;
-  box-shadow: inset 0 -0.1em 0
-    var(--jpdb-reader-example-target-underline, color-mix(in srgb, var(--jpdb-reader-accent) 58%, transparent)) !important;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .jpdb-reader-newtab-immersion
@@ -2823,14 +2816,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-sentence
   .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
   .jpdb-reader-ruby-base {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%,
-    var(--jpdb-reader-video-target-backdrop)
-  ) !important;
-  box-shadow:
-    0 0.08em 0 color-mix(in srgb, var(--jpdb-reader-black) 58%, transparent),
-    inset 0 -0.12em 0 color-mix(in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 74%, transparent) !important;
+  background: transparent !important;
+  box-shadow: none !important;
   text-decoration-color: transparent !important;
 }
 
@@ -2901,19 +2888,23 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab-immersion
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target,
-:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
-  .jpdb-reader-newtab-immersion
-  .jpdb-reader-example-card.has-image
-  .jpdb-reader-example-sentence
-  .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
-  .jpdb-reader-ruby-base {
+  .jpdb-reader-word.jpdb-reader-example-target {
   background: var(
     --jpdb-reader-example-target-bg,
     var(--jpdb-reader-accent-soft)
   ) !important;
   box-shadow: inset 0 -0.1em 0
     var(--jpdb-reader-example-target-underline, color-mix(in srgb, var(--jpdb-reader-accent) 58%, transparent)) !important;
+  text-decoration-color: transparent !important;
+}
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light)
+  .jpdb-reader-newtab-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-sentence
+  .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
+  .jpdb-reader-ruby-base {
+  background: transparent !important;
+  box-shadow: none !important;
   text-decoration-color: transparent !important;
 }
 

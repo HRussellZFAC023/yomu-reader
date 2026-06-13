@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from '../settings/index';
 import { gmStorageGet, gmStorageGetSync } from './storage';
-import { pageCompartmentDescriptor } from '../platform/window-events';
+import { pageCompartmentDescriptor, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 
 const JAPANESE_LANGUAGE = 'ja';
@@ -85,8 +85,17 @@ function applyPageContextJapanesePreferences(enabled: boolean): void {
 }
 
 function sameRealmUnsafeWindow(): Window | undefined {
+    if (hasExtensionRuntime()) return undefined;
     const pageWindow = (globalThis as { unsafeWindow?: Window }).unsafeWindow;
     return pageWindow && pageWindow === window ? pageWindow : undefined;
+}
+
+function hasExtensionRuntime(): boolean {
+    const root = globalThis as {
+        browser?: { runtime?: { id?: string } };
+        chrome?: { runtime?: { id?: string } };
+    };
+    return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
 }
 
 function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {
@@ -127,11 +136,24 @@ function createTrustedScript(code: string): any {
 
         let policy = factory.getPolicy?.('yomu-reader-script');
         if (!policy) {
-            policy = factory.createPolicy?.('yomu-reader-script', { createScript: (s: string) => s });
+            const options = { createScript: (s: string) => s };
+            policy = createTrustedScriptPolicy(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true }))
+                ?? createTrustedScriptPolicy(factory, options);
         }
         return policy && typeof policy.createScript === 'function' ? policy.createScript(code) : code;
     } catch {
         return code;
+    }
+}
+
+function createTrustedScriptPolicy(
+    factory: { createPolicy?: (name: string, options: { createScript: (value: string) => string }) => { createScript?: (value: string) => unknown } | undefined },
+    options: { createScript: (value: string) => string },
+): { createScript?: (value: string) => unknown } | undefined {
+    try {
+        return factory.createPolicy?.('yomu-reader-script', options);
+    } catch {
+        return undefined;
     }
 }
 
@@ -141,6 +163,7 @@ function injectedPagePreferenceSource(enabled: boolean): string {
         `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
         `const preferenceState = ${preferenceState.toString()};`,
         `const rememberDescriptor = ${rememberDescriptor.toString()};`,
+        `const crossRealmDescriptor = ${crossRealmDescriptor.toString()};`,
         `const defineGetter = ${defineGetter.toString()};`,
         `const defineValue = ${defineValue.toString()};`,
         `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
@@ -287,7 +310,7 @@ function restoreJapanesePreferences(state: JapanesePreferenceState): void {
     state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
         try {
-            if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, pageCompartmentDescriptor(snapshot.descriptor, snapshot.target));
+            if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, crossRealmDescriptor(snapshot.descriptor, snapshot.target));
             else delete (snapshot.target as Record<PropertyKey, unknown>)[snapshot.key];
         } catch {
             // Some browser host objects are immutable after first definition; leave them as-is.
@@ -441,6 +464,16 @@ function rememberDescriptor(state: JapanesePreferenceState, target: object | nul
     });
 }
 
+function crossRealmDescriptor(descriptor: PropertyDescriptor, target: object): PropertyDescriptor {
+    try {
+        return typeof pageCompartmentDescriptor === 'function'
+            ? pageCompartmentDescriptor(descriptor, target)
+            : descriptor;
+    } catch {
+        return descriptor;
+    }
+}
+
 function defineGetter(state: JapanesePreferenceState, target: object | null | undefined, key: PropertyKey, getter: () => unknown): void {
     if (!target) return;
     rememberDescriptor(state, target, key);
@@ -448,7 +481,7 @@ function defineGetter(state: JapanesePreferenceState, target: object | null | un
         // Firefox Xray: a sandbox getter must be cloned into the page
         // compartment or the define throws "Not allowed to define
         // cross-origin object" and the spoof silently never applies.
-        Object.defineProperty(target, key, pageCompartmentDescriptor({
+        Object.defineProperty(target, key, crossRealmDescriptor({
             configurable: true,
             get: getter,
         }, target));
@@ -466,7 +499,7 @@ function defineValue(state: JapanesePreferenceState, target: object | null | und
 function defineUntrackedValue(target: object | null | undefined, key: PropertyKey, value: unknown): void {
     if (!target) return;
     try {
-        Object.defineProperty(target, key, pageCompartmentDescriptor({
+        Object.defineProperty(target, key, crossRealmDescriptor({
             configurable: true,
             writable: true,
             value,

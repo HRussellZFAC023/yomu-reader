@@ -61,6 +61,7 @@ const baseSettings = {
     subtitleOverlayVisible: true,
     subtitleSecondaryVisible: true,
     subtitleNativeBlurred: true,
+    subtitlePausePanel: true,
     subtitleTranscriptVisible: false,
     subtitleTranscriptAutoScroll: false,
     subtitleTranscriptPlacement: 'right',
@@ -234,6 +235,16 @@ async function runScenario(browser, scenario) {
         await page.evaluate(() => window.__yomuProfileStartPlayback?.());
         await page.waitForTimeout(2600);
         profile.steps.push(await finishStep(page, client, playbackStart, 'afterPlaybackStart'));
+
+        await resetPagePerf(page);
+        const autoPauseStart = await beginStep(client);
+        const autoPauseInteraction = await exerciseAutoPausePanel(page);
+        const autoPauseStep = await finishStep(page, client, autoPauseStart, 'autoPausePanelOpen');
+        autoPauseStep.interaction = autoPauseInteraction;
+        profile.steps.push(autoPauseStep);
+
+        await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+        await page.waitForTimeout(260);
 
         await resetPagePerf(page);
         const sidePanelStart = await beginStep(client);
@@ -643,6 +654,57 @@ async function ensureSubtitlePanelOpen(page) {
     }, null, { timeout: 12000 });
 }
 
+async function exerciseAutoPausePanel(page) {
+    await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+    await page.waitForTimeout(260);
+    return await page.evaluate(async () => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const player = document.querySelector('#movie_player');
+        const video = document.querySelector('video');
+        const before = {
+            panelOpen: Boolean(panel && !panel.hidden),
+            playerWidth: player?.getBoundingClientRect().width ?? 0,
+            videoWidth: video?.getBoundingClientRect().width ?? 0,
+        };
+        const started = performance.now();
+        window.__yomuProfileStopPlayback?.();
+        const sameTask = {
+            visible: Boolean(panel && !panel.hidden),
+            rows: panel?.querySelectorAll('.jpdb-subtitle-list-row').length ?? 0,
+            entering: panel?.classList.contains('jpdb-subtitle-panel-entering') ?? false,
+            playerWidth: player?.getBoundingClientRect().width ?? 0,
+            videoWidth: video?.getBoundingClientRect().width ?? 0,
+        };
+        while (performance.now() - started < 500 && (!panel || panel.hidden)) {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        const visibleAt = performance.now();
+        const firstPaint = {
+            visible: Boolean(panel && !panel.hidden),
+            rows: panel?.querySelectorAll('.jpdb-subtitle-list-row').length ?? 0,
+            entering: panel?.classList.contains('jpdb-subtitle-panel-entering') ?? false,
+            playerWidth: player?.getBoundingClientRect().width ?? 0,
+            videoWidth: video?.getBoundingClientRect().width ?? 0,
+        };
+        await new Promise(resolve => setTimeout(resolve, 60));
+        const afterDeferred = {
+            visible: Boolean(panel && !panel.hidden),
+            rows: panel?.querySelectorAll('.jpdb-subtitle-list-row').length ?? 0,
+            entering: panel?.classList.contains('jpdb-subtitle-panel-entering') ?? false,
+            playerWidth: player?.getBoundingClientRect().width ?? 0,
+            videoWidth: video?.getBoundingClientRect().width ?? 0,
+        };
+        return {
+            before,
+            sameTask,
+            firstPaint,
+            afterDeferred,
+            visibleMs: Math.round((visibleAt - started) * 10) / 10,
+            totalMs: Math.round((performance.now() - started) * 10) / 10,
+        };
+    });
+}
+
 async function resizeSubtitlePanel(page) {
     await ensureSubtitlePanelOpen(page);
     const handle = page.locator('.jpdb-subtitle-resize').first();
@@ -653,24 +715,58 @@ async function resizeSubtitlePanel(page) {
     const startY = box.y + box.height / 2;
     const before = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
-        return panel ? panel.getBoundingClientRect().width : 0;
+        const player = document.querySelector('#movie_player');
+        const video = document.querySelector('video');
+        return {
+            panel: panel ? panel.getBoundingClientRect().width : 0,
+            player: player ? player.getBoundingClientRect().width : 0,
+            video: video ? video.getBoundingClientRect().width : 0,
+        };
     });
+    const during = [];
     const startedAt = Date.now();
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     for (let index = 1; index <= 8; index += 1) {
         await page.mouse.move(startX - index * 16, startY, { steps: 1 });
+        if (index === 4 || index === 8) {
+            during.push(await page.evaluate(() => {
+                const panel = document.querySelector('.jpdb-subtitle-list');
+                const player = document.querySelector('#movie_player');
+                const video = document.querySelector('video');
+                return {
+                    panel: panel ? panel.getBoundingClientRect().width : 0,
+                    player: player ? player.getBoundingClientRect().width : 0,
+                    video: video ? video.getBoundingClientRect().width : 0,
+                };
+            }));
+        }
     }
     await page.mouse.up();
     await page.waitForTimeout(180);
     const after = await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
-        return panel ? panel.getBoundingClientRect().width : 0;
+        const player = document.querySelector('#movie_player');
+        const video = document.querySelector('video');
+        return {
+            panel: panel ? panel.getBoundingClientRect().width : 0,
+            player: player ? player.getBoundingClientRect().width : 0,
+            video: video ? video.getBoundingClientRect().width : 0,
+        };
     });
     return {
-        resized: Math.abs(after - before) > 4,
-        beforeWidth: Math.round(before),
-        afterWidth: Math.round(after),
+        resized: Math.abs(after.panel - before.panel) > 4,
+        beforeWidth: Math.round(before.panel),
+        afterWidth: Math.round(after.panel),
+        beforePlayerWidth: Math.round(before.player),
+        afterPlayerWidth: Math.round(after.player),
+        beforeVideoWidth: Math.round(before.video),
+        afterVideoWidth: Math.round(after.video),
+        during: during.map(sample => ({
+            panel: Math.round(sample.panel),
+            player: Math.round(sample.player),
+            video: Math.round(sample.video),
+        })),
         durationMs: Date.now() - startedAt,
     };
 }
@@ -759,6 +855,8 @@ async function readPageState(page) {
             ocrRubyWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => word.querySelector('.jpdb-ocr-furi, rt')).length,
             ocrPitchWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u.test(word.className)).length,
             panelOpen: Boolean(document.querySelector('.jpdb-subtitle-list') && !document.querySelector('.jpdb-subtitle-list')?.hidden),
+            panelRows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+            panelEntering: document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-panel-entering') ?? false,
             videoTime: document.querySelector('video')?.currentTime ?? 0,
         };
     });
@@ -901,6 +999,14 @@ function youtubeWatchHtml() {
         currentTime = (currentTime + 0.25) % 10;
         video.dispatchEvent(new Event('timeupdate'));
       }, 250);
+      video.dispatchEvent(new Event('play'));
+      video.dispatchEvent(new Event('playing'));
+    };
+    window.__yomuProfileStopPlayback = () => {
+      if (!playbackTimer) return;
+      window.clearInterval(playbackTimer);
+      playbackTimer = 0;
+      video.dispatchEvent(new Event('pause'));
     };
     window.__yomuProfileStartHostRehydrate = ({ intervalMs = 200 } = {}) => {
       if (rehydrateTimer) return;

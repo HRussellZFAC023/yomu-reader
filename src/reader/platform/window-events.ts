@@ -37,13 +37,7 @@ type FirefoxCloneInto = (value: unknown, targetScope: object, options?: { cloneF
 
 function cloneCustomEventDetail<T>(detail: T): T {
     if (detail === undefined || typeof window === 'undefined') return detail;
-    const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
-    if (!cloneInto) return detail;
-    try {
-        return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true }) as T;
-    } catch {
-        return detail;
-    }
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
 }
 
 export function dispatchWindowEvent(event: Event): boolean {
@@ -337,12 +331,16 @@ function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'remo
 // page's Xray-waived window ("Not allowed to define cross-origin object as
 // property"); the descriptor must be cloned into the page compartment first.
 export function pageCompartmentDescriptor(descriptor: PropertyDescriptor, _target: object): PropertyDescriptor {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+
+export function pageCompartmentValue<T>(value: T, options: { cloneFunctions?: boolean; wrapReflectors?: boolean } = {}): T {
     const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
-    if (!cloneInto) return descriptor;
+    if (!cloneInto || typeof window === 'undefined') return value;
     try {
-        return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }) as PropertyDescriptor;
+        return cloneInto(value, window, options) as T;
     } catch {
-        return descriptor;
+        return value;
     }
 }
 

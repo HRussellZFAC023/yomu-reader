@@ -29,6 +29,23 @@
   padding: 14px;
   container-type: inline-size;
   scrollbar-gutter: stable;
+  /* Subtle fade-in on appear. Opacity-only (no transform/position transition)
+     so it never shifts layout and never slides between words; it also masks the
+     one-frame pre-position flash. Auto-completes to opacity 1, so the popover
+     can never get stuck invisible. ~110ms reads as instant-with-polish, which
+     keeps fast word-to-word hovering feeling immediate. */
+  animation: jpdb-reader-popover-in 0.11s ease-out both;
+}
+
+@keyframes jpdb-reader-popover-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-popover {
+    animation: none;
+  }
 }
 
 .jpdb-reader-popover

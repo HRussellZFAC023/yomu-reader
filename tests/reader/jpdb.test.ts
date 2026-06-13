@@ -43,7 +43,7 @@ import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidat
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
-import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY } from '../../src/reader/app/main-helpers';
+import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, allowsFrequentVisibleAutoScan } from '../../src/reader/app/main-helpers';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
@@ -3332,7 +3332,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word.jpdb-reader-has-furi${pitchClassSelector} { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
         expect(normalizedCss).toContain(`.jpdb-reader-word.jpdb-reader-has-furi${pitchClassSelector} .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, var(--jpdb-reader-highlight-backdrop) ) !important; box-shadow:`);
         expect(normalizedCss).toContain('0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 56%, transparent)');
-        expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important; border-radius: 0.22em;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedCss).toContain(':is(.jpdb-reader-popover, .yomu-jpdb-page-addon) [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary { color: var(--subtitle-color); font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);');
         expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${underlineSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
@@ -3385,8 +3385,8 @@ describe('reader helpers', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
         expect(normalizedNewTabCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)); box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
         expect(normalizedNewTabCss).toContain('@media (pointer: coarse) { .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode) .jpdb-reader-newtab-shell { padding-bottom: max(116px, calc(24px + env(safe-area-inset-bottom))); } .jpdb-reader-language-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; }');
         // Immersion Kit controls stay compact on touch (user-reported: 44px
         // stacked controls wasted study-card space).
@@ -3404,8 +3404,8 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-target { padding: 0 0.08em; border-radius: 0.22em; background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) );');
         expect(normalizedImmersionCss).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg)); box-shadow: 0 6px 16px var(--jpdb-reader-shadow), inset 0 0 0 1px var(--jpdb-reader-ocr-inset);');
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { --jpdb-reader-word-underline: transparent; background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
-        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
-        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: color-mix( in srgb, var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%, var(--jpdb-reader-video-target-backdrop) ) !important;');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 6px; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-media { width: min(100%, 720px); overflow: visible; }');
     });
@@ -6615,6 +6615,43 @@ describe('reader helpers', () => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
         } finally {
             controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('skips explicitly ignored OCR images without disabling nearby image OCR', async () => {
+        const ignored = createFallbackOcrImage('スクリーンショット');
+        ignored.dataset.yomuOcr = 'ignore';
+        const readable = createFallbackOcrImage('日本語');
+        readable.getBoundingClientRect = () => testDomRect({ left: 20, top: 420, width: 500, height: 300 });
+        document.body.replaceChildren(ignored, readable);
+        stubInstantIntersectionObserver();
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: true,
+                ocrProvider: 'google-lens' as const,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                const labels = Array.from(document.querySelectorAll('.jpdb-ocr-line'), line => line.getAttribute('aria-label'));
+                expect(labels).toEqual(['日本語']);
+            });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
             document.body.replaceChildren();
         }
     });
@@ -10694,6 +10731,26 @@ describe('reader helpers', () => {
         }
     });
 
+    it('loads the open Immersion Kit source even when it sits below the popover fold', async () => {
+        vi.useFakeTimers();
+        try {
+            const { search, controller, popover, container } = lazyImmersionSearchFixture(true);
+            // The immersion section is open but rendered below the visible
+            // popover area; gating on visibility used to mean it never loaded
+            // until the user scrolled (the main "not working" case).
+            popover.getBoundingClientRect = () => new DOMRect(0, 0, 360, 120);
+            container.getBoundingClientRect = () => new DOMRect(0, 600, 360, 200);
+
+            controller.installLazyLoad(popover, card);
+            await vi.advanceTimersByTimeAsync(300);
+
+            expect(search).toHaveBeenCalledTimes(1);
+        } finally {
+            document.body.replaceChildren();
+            vi.useRealTimers();
+        }
+    });
+
     it('cancels scheduled lazy Immersion Kit popup searches when the source closes', async () => {
         vi.useFakeTimers();
         try {
@@ -13921,13 +13978,21 @@ describe('reader helpers', () => {
             const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
             const setSize = vi.fn();
             moviePlayer.setSize = setSize;
+            let primaryRectCalls = 0;
+            let primaryInnerRectCalls = 0;
             Object.defineProperty(primary, 'getBoundingClientRect', {
                 configurable: true,
-                value: () => new DOMRect(0, 0, 1200, 675),
+                value: () => {
+                    primaryRectCalls += 1;
+                    return new DOMRect(0, 0, 1200, 675);
+                },
             });
             Object.defineProperty(primaryInner, 'getBoundingClientRect', {
                 configurable: true,
-                value: () => new DOMRect(0, 0, 1200, 675),
+                value: () => {
+                    primaryInnerRectCalls += 1;
+                    return new DOMRect(0, 0, 1200, 675);
+                },
             });
 
             const adapter = createSubtitleVideoInsetAdapter();
@@ -13949,6 +14014,23 @@ describe('reader helpers', () => {
                 expect(primaryInner.style.width).toBe('1080px');
                 expect(primaryInner.style.maxWidth).toBe('1080px');
                 expect(setSize).toHaveBeenCalledWith(1080, 675);
+                expect(primaryRectCalls).toBe(1);
+                expect(primaryInnerRectCalls).toBe(1);
+
+                adapter.apply({
+                    side: 'right',
+                    playerSize: 1040,
+                    panelSize: 460,
+                    videoRect: new DOMRect(0, 0, 1200, 675),
+                    margin: 12,
+                });
+
+                expect(primary.style.width).toBe('1040px');
+                expect(primary.style.marginRight).toBe('72px');
+                expect(primaryInner.style.width).toBe('1040px');
+                expect(setSize).toHaveBeenLastCalledWith(1040, 675);
+                expect(primaryRectCalls).toBe(1);
+                expect(primaryInnerRectCalls).toBe(1);
             } finally {
                 adapter.clear();
                 Object.defineProperty(window, 'location', {
@@ -13963,6 +14045,43 @@ describe('reader helpers', () => {
             expect(primary.style.width).toBe('');
             expect(primaryInner.style.width).toBe('');
         });
+    });
+
+    it('can defer video layout resize events while inset updates are still changing', async () => {
+        vi.useFakeTimers();
+        const onResize = vi.fn();
+        window.addEventListener('resize', onResize);
+        const adapter = createSubtitleVideoInsetAdapter();
+        try {
+            adapter.apply({
+                side: 'right',
+                playerSize: 1080,
+                panelSize: 420,
+                videoRect: new DOMRect(0, 0, 1200, 675),
+                margin: 12,
+                resizeEventMode: 'settled',
+            });
+            expect(onResize).not.toHaveBeenCalled();
+
+            adapter.apply({
+                side: 'right',
+                playerSize: 1040,
+                panelSize: 460,
+                videoRect: new DOMRect(0, 0, 1200, 675),
+                margin: 12,
+                resizeEventMode: 'settled',
+            });
+            await vi.advanceTimersByTimeAsync(79);
+            expect(onResize).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(1);
+            expect(onResize).toHaveBeenCalledTimes(1);
+        } finally {
+            window.removeEventListener('resize', onResize);
+            adapter.clear();
+            await vi.runOnlyPendingTimersAsync();
+            vi.useRealTimers();
+        }
     });
 
     it('keeps the hosted empty video frame at normal aspect ratio with a bottom drawer', () => {
@@ -24840,6 +24959,88 @@ describe('reader helpers', () => {
         }
     });
 
+    it('scopes hover Anki and pitch updates to the hovered rendered word', () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 786,
+            sid: 4,
+            rid: 0,
+            spelling: '即時',
+            reading: 'そくじ',
+            source: 'jpdb',
+            pitchAccent: ['LH'],
+        };
+        const target = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown',
+        });
+        const duplicate = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck jpdb-pitch-unknown',
+        });
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const parsePopoverJapanese = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            activePopoverAnchor?: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese: typeof parsePopoverJapanese;
+            renderCompletedCardPopover(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                data: CardRenderData,
+                anchor?: HTMLElement,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.activePopoverAnchor = target;
+        internals.settings = { ...DEFAULT_SETTINGS, ankiEnabled: true, wordTextColorSource: 'anki' };
+        internals.parsePopoverJapanese = parsePopoverJapanese;
+
+        try {
+            internals.renderCompletedCardPopover(popover, lookupCard, '即時に出ます。', 'hover', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: {
+                    state: 'known',
+                    notes: [],
+                    primary: {
+                        noteId: 86,
+                        primaryCardId: 87,
+                        cardIds: [87],
+                        state: 'known',
+                        deckNames: ['Mining'],
+                        modelName: 'Imported Core',
+                        fields: { Word: lookupCard.spelling },
+                        tags: [],
+                        reps: 4,
+                        lapses: 0,
+                    },
+                },
+                jpdbDecks: [],
+                ankiDecks: ['Mining'],
+                jpdbVocabularyInfo: null,
+            }, target);
+
+            expect(target.classList.contains('anki-known')).toBe(true);
+            expect(target.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(target.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expect(target.dataset.pitchClass).toBe('heiban');
+            expect(duplicate.classList.contains('anki-known')).toBe(false);
+            expect(duplicate.classList.contains('jpdb-pitch-unknown')).toBe(true);
+            expect(duplicate.dataset.pitchClass).toBeUndefined();
+        } finally {
+            target.remove();
+            duplicate.remove();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('updates one rendered Anki word without scanning every rendered word in the document', () => {
         const app = new ReaderApp();
         const container = document.createElement('div');
@@ -26975,6 +27176,25 @@ describe('reader helpers', () => {
         expect(mutationMayContainJapaneseText(mutation)).toBe(true);
     });
 
+    it('ignores YouTube player caption mutations for page text rescans', () => {
+        document.body.innerHTML = `
+            <div id="movie_player">
+                <div class="ytp-caption-window-container">
+                    <span id="caption">字幕が出ます。</span>
+                </div>
+            </div>
+        `;
+        const caption = document.getElementById('caption')!;
+        const mutation = {
+            type: 'childList',
+            target: caption,
+            addedNodes: Array.from(caption.childNodes),
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayContainJapaneseText(mutation)).toBe(false);
+    });
+
     it('does not recreate JPDB page addons for attribute-only JPDB mutations', () => {
         const result = document.createElement('div');
         result.className = 'result vocabulary';
@@ -27190,6 +27410,7 @@ describe('reader helpers', () => {
             '今夜も配信見なかったごめんね。',
         ]));
         expect(targets.some(target => target.text.includes('118,245') || target.text.includes('チャンネル登録'))).toBe(false);
+        expect(targets.every(target => target.singlePassScan === true)).toBe(true);
 
         const title = targets.find(target => target.text === '新卒エンジニア、仕事終わりにプログラミング勉強をする！！');
         const description = targets.find(target => target.text.startsWith('Webアプリ開発'));
@@ -27222,6 +27443,32 @@ describe('reader helpers', () => {
         expect(Array.from(document.querySelectorAll<HTMLElement>('ytd-watch-metadata .jpdb-reader-word'))
             .some(word => readerWordSurfaceText(word) === '視聴')).toBe(false);
         expect(document.querySelector('ytd-watch-metadata #description-inline-expander .jpdb-reader-word.jpdb-known')?.textContent).toBe('アプリ');
+    });
+
+    it('keeps frequent visible page auto-scans off on YouTube watch pages', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+
+        try {
+            expect(allowsFrequentVisibleAutoScan()).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+
+        vi.stubGlobal('location', {
+            href: 'https://news.web.nhk/news/easy/example.html',
+            origin: 'https://news.web.nhk',
+            hostname: 'news.web.nhk',
+        });
+
+        try {
+            expect(allowsFrequentVisibleAutoScan()).toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('scans stable mobile YouTube descriptions and watch chrome as passive ruby targets', () => {

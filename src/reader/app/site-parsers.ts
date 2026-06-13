@@ -24,6 +24,7 @@ export interface SiteParserProfile {
     plainScan?: boolean;
     scanLimit?: number;
     heading?: boolean;
+    singlePassScan?: boolean;
     matches(url: URL): boolean;
 }
 
@@ -640,6 +641,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         includeUiChrome: true,
         passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
+        singlePassScan: true,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -891,9 +893,13 @@ function addUniqueSiteScanTarget(
 }
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget, options: { passiveInteraction?: boolean }): FragmentTextTarget {
-    const profiledTarget = !options.passiveInteraction ? { ...target, parserId: profile.id } : {
+    const baseTarget = {
         ...target,
         parserId: profile.id,
+        singlePassScan: profile.singlePassScan || undefined,
+    };
+    const profiledTarget = !options.passiveInteraction ? baseTarget : {
+        ...baseTarget,
         passiveInteraction: true,
     };
     const normalizedTarget = profile.plainScan ? plainScanTarget(profiledTarget) : profiledTarget;

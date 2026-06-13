@@ -1470,6 +1470,7 @@ function pointerEventImageAtPoint(event: Event & Pick<PointerEvent, 'clientX' | 
 
 function isIgnoredOcrImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest('[data-jpdb-reader-root]')
+        || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]')
         || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
 }
 

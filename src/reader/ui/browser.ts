@@ -96,7 +96,10 @@ function hasVideoPlaybackSignal(video: HTMLVideoElement): boolean {
 
 export function isEditableTarget(target: EventTarget | null): boolean {
     const element = target instanceof Element ? target : null;
-    return Boolean(element?.closest('input, textarea, select, [contenteditable="true"]'));
+    if (!element) return false;
+    if (element.closest('input, textarea, select')) return true;
+    const editable = element.closest('[contenteditable]');
+    return Boolean(editable && editable.getAttribute('contenteditable')?.toLowerCase() !== 'false');
 }
 
 export async function copyText(text: string): Promise<void> {
