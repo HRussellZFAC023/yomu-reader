@@ -19,6 +19,8 @@ import {
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/keyless-popover.html';
 const SENTENCE = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
+const NATIVE_SENTENCE_TITLE = `${SENTENCE} / Native title fallback`;
+const UNRELATED_NATIVE_TITLE = 'Unrelated native title';
 
 const keylessSettings = {
     onboardingSeen: true,
@@ -50,7 +52,7 @@ const server = await startLoopbackServer((request, response) => {
     }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>keyless popover smoke</title></head>
-<body><main><p data-smoke-sentence>${SENTENCE}</p></main></body></html>`);
+<body><main><p data-smoke-sentence title="${NATIVE_SENTENCE_TITLE}">${SENTENCE}</p><p data-unrelated-title title="${UNRELATED_NATIVE_TITLE}"> unrelated </p></main></body></html>`);
 }, 'Could not bind keyless popover smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
@@ -88,11 +90,22 @@ try {
     const popoverText = (await page.locator('.jpdb-reader-popover').innerText()).trim();
     assert(popoverText.includes('タップ'), 'Popover opened but does not show the clicked word', { popoverText });
     assert(popoverLatencyMs < 3_000, 'Popover waited on a hung public expansion lookup', { popoverLatencyMs });
+    const suppressedTitles = await page.evaluate(() => ({
+        sentenceHasTitle: document.querySelector('[data-smoke-sentence]')?.hasAttribute('title') ?? true,
+        sentenceStoredTitle: document.querySelector('[data-smoke-sentence]')?.getAttribute('data-jpdb-reader-native-title') ?? '',
+        unrelatedTitle: document.querySelector('[data-unrelated-title]')?.getAttribute('title') ?? '',
+    }));
+    assert(!suppressedTitles.sentenceHasTitle, 'Active sentence native title was not suppressed while the popover was open', suppressedTitles);
+    assert(suppressedTitles.sentenceStoredTitle === NATIVE_SENTENCE_TITLE, 'Suppressed native title was not preserved for restore', suppressedTitles);
+    assert(suppressedTitles.unrelatedTitle === UNRELATED_NATIVE_TITLE, 'Unrelated native title was suppressed', suppressedTitles);
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'keyless-word-popover-smoke.png'), fullPage: false });
 
     // Adjacent coverage: a kanji word must keep working through the same click path.
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3_000 });
+    const restoredTitle = await page.locator('[data-smoke-sentence]').getAttribute('title');
+    assert(restoredTitle === NATIVE_SENTENCE_TITLE, 'Active sentence native title was not restored after the popover closed', { restoredTitle });
     const kanjiWord = page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '単語' }).first();
     assert(await kanjiWord.count() === 1, 'Keyless parse did not render a 単語 reader word');
     await kanjiWord.click();
