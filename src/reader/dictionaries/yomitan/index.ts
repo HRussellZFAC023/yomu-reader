@@ -523,6 +523,8 @@ export class YomitanDictionaryStore {
         }
     }
 
+    // Lookup parsing checks term dictionary availability through this injected store.
+    // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries(): Promise<boolean> {
         const done = log.time('Term dictionary presence check');
         try {
