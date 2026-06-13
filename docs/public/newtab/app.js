@@ -3394,10 +3394,9 @@
     const tokensWithSentence = tokens.map((token) => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
       const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
       for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
-      if (singleFragmentPlans.length === tokens.length) return;
       return;
     }
     for (let index = tokens.length - 1; index >= 0; index--) {
@@ -5769,6 +5768,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
@@ -6463,6 +6463,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
@@ -8252,7 +8253,7 @@ ${candidate.depth}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$5(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -8283,7 +8284,7 @@ ${candidate.depth}`;
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
@@ -8349,7 +8350,7 @@ ${candidate.depth}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$3(value)) return "";
+    if (!isRecord$4(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -8716,7 +8717,7 @@ ${candidate.depth}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
@@ -27584,6 +27585,30 @@ ${spelling}`);
     "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
     "local-service": localServiceProviderLabel
   };
+  const VIDEO_FRAME_PLAYER_SELECTOR = [
+    "#movie_player",
+    ".html5-video-player",
+    "ytd-player",
+    "#player",
+    "#player-container",
+    "#player-container-outer",
+    "[data-yomu-video-frame]"
+  ].join(",");
+  const VIDEO_FRAME_THUMBNAIL_SELECTOR = [
+    "ytd-thumbnail",
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-compact-video-renderer",
+    "ytm-video-card-renderer",
+    "ytm-video-with-context-renderer",
+    "ytm-shorts-lockup-view-model",
+    "ytm-shorts-lockup-view-model-v2",
+    'a[href*="/watch"]',
+    'a[href*="/shorts/"]'
+  ].join(",");
   function shouldSkipOcrRequest(state, userRequested) {
     return state.autoSkipped && !userRequested;
   }
@@ -28047,6 +28072,7 @@ ${spelling}`);
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
+      if (isLikelyPausedVideoThumbnail(target)) return;
       const rect = target.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
@@ -28064,18 +28090,19 @@ ${spelling}`);
       document.body.append(frame);
       this.videoFrames.set(target, frame);
       const resume = this.createVideoFrameResumeControl(target);
-      document.body.append(resume);
       this.videoFrameControls.set(target, resume);
       positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
     }
     createVideoFrameResumeControl(video) {
       const language = this.options.getSettings().interfaceLanguage;
+      const label = uiText(language, "ocrPlayVideo");
       const button = document.createElement("button");
       button.type = "button";
       button.className = "jpdb-ocr-video-frame-resume";
-      button.textContent = `▶ ${uiText(language, "ocrResumeVideo")}`;
-      button.setAttribute("aria-label", uiText(language, "ocrResumeVideo"));
+      setInnerHtml(button, playVideoIcon());
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -28098,7 +28125,8 @@ ${spelling}`);
       const frame = this.videoFrames.get(target);
       if (!frame) return;
       this.videoFrames.delete(target);
-      this.videoFrameControls.get(target)?.remove();
+      const control = this.videoFrameControls.get(target);
+      if (control) removeVideoFrameResumeControl(control);
       this.videoFrameControls.delete(target);
       const state = this.states.get(frame);
       if (state) {
@@ -28791,6 +28819,10 @@ ${spelling}`);
       return void 0;
     }
   }
+  function isLikelyPausedVideoThumbnail(video) {
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
+    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_SELECTOR));
+  }
   function positionVideoFrameImage(frame, rect, video) {
     const content = videoContentBox(rect, video);
     frame.style.left = `${content.left}px`;
@@ -28799,9 +28831,45 @@ ${spelling}`);
     frame.style.height = `${content.height}px`;
   }
   function positionVideoFrameResumeControl(control, rect, video) {
+    if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
+    attachVideoFrameResumeControlFallback(control);
     const content = videoContentBox(rect, video);
     control.style.left = `${content.left + content.width - 12}px`;
     control.style.top = `${content.top + 12}px`;
+  }
+  function attachVideoFrameResumeControlToSubtitleRail(control) {
+    const rail = document.querySelector('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+    if (!rail?.isConnected) return false;
+    const oldRoot = subtitlePlayerRoot(control);
+    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+    control.style.left = "";
+    control.style.top = "";
+    const panelButton = rail.querySelector(".jpdb-subtitle-panel-toggle");
+    if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
+    updateSubtitleRailResumeState(oldRoot);
+    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+    return true;
+  }
+  function attachVideoFrameResumeControlFallback(control) {
+    const oldRoot = subtitlePlayerRoot(control);
+    if (control.parentElement !== document.body) document.body.append(control);
+    control.classList.add("jpdb-ocr-video-frame-resume-fallback");
+    updateSubtitleRailResumeState(oldRoot);
+  }
+  function removeVideoFrameResumeControl(control) {
+    const root = subtitlePlayerRoot(control);
+    control.remove();
+    updateSubtitleRailResumeState(root);
+  }
+  function subtitlePlayerRoot(control) {
+    return control.closest(".jpdb-subtitle-player");
+  }
+  function updateSubtitleRailResumeState(root) {
+    if (!root) return;
+    root.classList.toggle("jpdb-ocr-video-frame-resume-active", Boolean(root.querySelector(".jpdb-ocr-video-frame-resume")));
+  }
+  function playVideoIcon() {
+    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;
@@ -30483,6 +30551,7 @@ ${spelling}`);
     if (pendingVideoLayoutResize !== void 0) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
       pendingVideoLayoutResize = void 0;
+      if (typeof window === "undefined") return;
       dispatchWindowEvent(createWindowEvent("resize"));
     }, 80);
   }
@@ -30929,7 +30998,7 @@ ${spelling}`);
     const record = value;
     const code = normalizedYouTubeLanguageCode(record.languageCode);
     if (!code) return null;
-    return { code, label: firstYouTubeCaptionTrackLabel(record, code) || code };
+    return { code, label: firstYouTubeCaptionTrackLabel(record, code) || code, raw: value };
   }
   function translatedYouTubeCaptionTrack(source, language) {
     const url = new URL(source.url, location.href);
@@ -30943,7 +31012,7 @@ ${spelling}`);
       url: url.toString(),
       raw: {
         source: source.raw,
-        translationLanguage: language
+        translationLanguage: language.raw
       },
       sourceType: "translation",
       sourceLanguage: source.language,
@@ -31062,15 +31131,43 @@ ${spelling}`);
     });
     if (exact) return exact;
     if (track.sourceType === "translation") {
-      return rawTracks.find((raw) => {
+      const source = rawTracks.find((raw) => {
         const parsed = parseYouTubeCaptionTrack(raw);
         return parsed?.language && track.sourceLanguage && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.sourceLanguage);
-      }) ?? null;
+      }) ?? youtubePlayerTranslationSource(track);
+      return source ? translatedYouTubePlayerTrack(track, source) : null;
     }
     return rawTracks.find((raw) => {
       const parsed = parseYouTubeCaptionTrack(raw);
       return parsed?.language && track.language && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.language);
     }) ?? null;
+  }
+  function translatedYouTubePlayerTrack(track, source) {
+    const translationLanguage = youtubePlayerTranslationLanguage(track);
+    if (!translationLanguage) return source;
+    if (!isRecord$3(source)) return track.youtubeTrack ?? source;
+    return {
+      ...source,
+      translationLanguage
+    };
+  }
+  function youtubePlayerTranslationLanguage(track) {
+    const raw = track.youtubeTrack;
+    if (isRecord$3(raw) && raw.translationLanguage) return raw.translationLanguage;
+    const languageCode = track.targetLanguage || track.language;
+    if (!languageCode) return null;
+    return {
+      languageCode,
+      languageName: { simpleText: languageCode }
+    };
+  }
+  function youtubePlayerTranslationSource(track) {
+    const raw = track.youtubeTrack;
+    if (!isRecord$3(raw)) return null;
+    return raw.source ?? null;
+  }
+  function isRecord$3(value) {
+    return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
     if (track.kind !== "youtube") return null;
@@ -31394,10 +31491,33 @@ ${spelling}`);
       track.cues = cues;
       return { track, cues };
     }
+    const translatedSource = await loadYouTubeTranslationSourceFallback(track, options);
+    if (translatedSource.length) {
+      track.cues = translatedSource;
+      return { track, cues: translatedSource };
+    }
     const fallback = await loadFirstUsableYouTubeSibling(track, options.tracks, youtubeOptions);
     if (fallback) return fallback;
     track.cues = [];
     return { track, cues: [] };
+  }
+  async function loadYouTubeTranslationSourceFallback(track, options) {
+    if (track.sourceType !== "translation") return [];
+    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    const targetLanguage = normalizedTrackLanguage(track.targetLanguage || track.language);
+    if (!sourceTrack || !sourceLanguage || !targetLanguage || sourceLanguage === targetLanguage) return [];
+    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    if (!sourceCues.length) return [];
+    return translateSubtitleCues(sourceCues, sourceTrack.language || sourceTrack.sourceLanguage || sourceLanguage, targetLanguage);
+  }
+  function findYouTubeTranslationSourceTrack(track, tracks) {
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    if (!sourceLanguage) return null;
+    return tracks.find((candidate) => candidate.kind === "youtube" && candidate !== track && candidate.sourceType !== "translation" && Boolean(candidate.url) && normalizedTrackLanguage(candidate.language || candidate.sourceLanguage) === sourceLanguage) ?? null;
+  }
+  function normalizedTrackLanguage(language) {
+    return (language ?? "").trim().toLowerCase();
   }
   function ensureTextTrackReadable(track) {
     if (track.mode === "disabled") track.mode = "hidden";

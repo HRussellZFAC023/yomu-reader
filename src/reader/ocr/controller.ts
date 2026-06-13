@@ -82,6 +82,30 @@ const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settin
     'cloud-vision': settings => settings.ocrCloudVisionApiKey.trim() ? 'cloud-vision' : null,
     'local-service': localServiceProviderLabel,
 };
+const VIDEO_FRAME_PLAYER_SELECTOR = [
+    '#movie_player',
+    '.html5-video-player',
+    'ytd-player',
+    '#player',
+    '#player-container',
+    '#player-container-outer',
+    '[data-yomu-video-frame]',
+].join(',');
+const VIDEO_FRAME_THUMBNAIL_SELECTOR = [
+    'ytd-thumbnail',
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-grid-video-renderer',
+    'ytm-rich-item-renderer',
+    'ytm-compact-video-renderer',
+    'ytm-video-card-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+    'a[href*="/watch"]',
+    'a[href*="/shorts/"]',
+].join(',');
 
 export { normalizeOcrResult, parseGoogleLensUploadHtml };
 export type { OcrResult };
@@ -665,6 +689,7 @@ export class ImageOcrController {
         if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === 'off') return;
+        if (isLikelyPausedVideoThumbnail(target)) return;
         const rect = target.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
         if (!isNearViewport(target, 0) || isHiddenByCss(target)) return;
@@ -683,9 +708,9 @@ export class ImageOcrController {
         this.videoFrames.set(target, frame);
         // Paused-frame escape hatch: recognized text areas swallow clicks for
         // lookups, so on text-dense frames the player itself becomes hard to
-        // reach — a visible resume control always works.
+        // reach. Keep playback control in the existing video rail when it is
+        // available, with a compact fallback for pages without that rail.
         const resume = this.createVideoFrameResumeControl(target);
-        document.body.append(resume);
         this.videoFrameControls.set(target, resume);
         positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
@@ -693,11 +718,13 @@ export class ImageOcrController {
 
     private createVideoFrameResumeControl(video: HTMLVideoElement): HTMLElement {
         const language = this.options.getSettings().interfaceLanguage;
+        const label = uiText(language, 'ocrPlayVideo');
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'jpdb-ocr-video-frame-resume';
-        button.textContent = `▶ ${uiText(language, 'ocrResumeVideo')}`;
-        button.setAttribute('aria-label', uiText(language, 'ocrResumeVideo'));
+        setInnerHtml(button, playVideoIcon());
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
@@ -725,7 +752,8 @@ export class ImageOcrController {
         const frame = this.videoFrames.get(target);
         if (!frame) return;
         this.videoFrames.delete(target);
-        this.videoFrameControls.get(target)?.remove();
+        const control = this.videoFrameControls.get(target);
+        if (control) removeVideoFrameResumeControl(control);
         this.videoFrameControls.delete(target);
         const state = this.states.get(frame);
         if (state) {
@@ -1576,6 +1604,11 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
     }
 }
 
+function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
+    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_SELECTOR));
+}
+
 // UT-77a: pin the snapshot to the video's CONTENT box (contain-fit of the
 // intrinsic frame inside the element rect). Sizing to the element rect
 // stretched the capture across the letterbox bars, and a correctly-shaped
@@ -1589,9 +1622,51 @@ function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: 
 }
 
 function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
+    if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
+    attachVideoFrameResumeControlFallback(control);
     const content = videoContentBox(rect, video);
     control.style.left = `${content.left + content.width - 12}px`;
     control.style.top = `${content.top + 12}px`;
+}
+
+function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement): boolean {
+    const rail = document.querySelector<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+    if (!rail?.isConnected) return false;
+    const oldRoot = subtitlePlayerRoot(control);
+    control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
+    control.style.left = '';
+    control.style.top = '';
+    const panelButton = rail.querySelector<HTMLElement>('.jpdb-subtitle-panel-toggle');
+    if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
+    updateSubtitleRailResumeState(oldRoot);
+    updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+    return true;
+}
+
+function attachVideoFrameResumeControlFallback(control: HTMLElement): void {
+    const oldRoot = subtitlePlayerRoot(control);
+    if (control.parentElement !== document.body) document.body.append(control);
+    control.classList.add('jpdb-ocr-video-frame-resume-fallback');
+    updateSubtitleRailResumeState(oldRoot);
+}
+
+function removeVideoFrameResumeControl(control: HTMLElement): void {
+    const root = subtitlePlayerRoot(control);
+    control.remove();
+    updateSubtitleRailResumeState(root);
+}
+
+function subtitlePlayerRoot(control: HTMLElement): HTMLElement | null {
+    return control.closest<HTMLElement>('.jpdb-subtitle-player');
+}
+
+function updateSubtitleRailResumeState(root: HTMLElement | null): void {
+    if (!root) return;
+    root.classList.toggle('jpdb-ocr-video-frame-resume-active', Boolean(root.querySelector('.jpdb-ocr-video-frame-resume')));
+}
+
+function playVideoIcon(): string {
+    return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
 }
 
 function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {

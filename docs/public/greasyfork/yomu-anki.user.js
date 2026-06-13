@@ -1183,6 +1183,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
@@ -1877,6 +1878,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示

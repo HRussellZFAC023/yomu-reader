@@ -962,10 +962,9 @@ function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: 
     const tokensWithSentence = tokens.map(token => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length && !tokens.some(token => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length && !tokens.some(token => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
         const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
         for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
-        if (singleFragmentPlans.length === tokens.length) return;
         return;
     }
     for (let index = tokens.length - 1; index >= 0; index--) {

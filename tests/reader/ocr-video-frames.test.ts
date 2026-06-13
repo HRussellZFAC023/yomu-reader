@@ -4,6 +4,10 @@ import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
+afterEach(() => {
+    document.body.replaceChildren();
+});
+
 // UT-27: pausing a visible video snapshots the frame into an OCR-able image
 // pinned over the player; resuming playback removes it again.
 describe('paused-video OCR frames', () => {
@@ -17,7 +21,7 @@ describe('paused-video OCR frames', () => {
 
     function createController(overrides: Partial<ReaderSettings> = {}): ImageOcrController {
         controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ...overrides }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ...overrides }),
             parseJapanese: vi.fn(async () => []),
             onToast: vi.fn(),
             captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
@@ -73,6 +77,27 @@ describe('paused-video OCR frames', () => {
         controller!.destroy();
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
     });
+
+    it('ignores YouTube hover-preview thumbnail videos', () => {
+        createController();
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <ytd-thumbnail>
+                    <a href="/watch?v=preview">
+                        <video></video>
+                    </a>
+                </ytd-thumbnail>
+            </ytd-rich-item-renderer>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+    });
 });
 
 describe('paused-video frame letterbox fit (UT-77a)', () => {
@@ -86,7 +111,7 @@ describe('paused-video frame letterbox fit (UT-77a)', () => {
         document.body.append(video);
 
         const controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
             captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
         } as never);
         controller.init();
@@ -111,7 +136,7 @@ describe('paused-video resume control', () => {
         video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
         document.body.append(video);
         const controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
             captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
         } as never);
         controller.init();
@@ -119,6 +144,9 @@ describe('paused-video resume control', () => {
 
         const resume = document.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-resume');
         expect(resume).not.toBeNull();
+        expect(resume!.textContent?.trim()).toBe('');
+        expect(resume!.getAttribute('title')).toBe('Play video');
+        expect(resume!.classList.contains('jpdb-ocr-video-frame-resume-fallback')).toBe(true);
         expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
 
         resume!.click();
@@ -126,6 +154,45 @@ describe('paused-video resume control', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
         controller.destroy();
         video.remove();
+    });
+
+    it('mounts the play control inside the subtitle rail when present', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-rail">
+                    <button type="button" data-action="previous">‹</button>
+                    <button type="button" data-action="next">›</button>
+                    <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel"></button>
+                </div>
+            </div>
+        `;
+        const rail = document.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const panel = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-panel-toggle')!;
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+        document.body.append(video);
+        const controller = new ImageOcrController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
+        } as never);
+        controller.init();
+
+        video.dispatchEvent(new Event('pause'));
+
+        const resume = document.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-resume')!;
+        expect(resume.parentElement).toBe(rail);
+        expect(resume.nextElementSibling).toBe(panel);
+        expect(resume.classList.contains('jpdb-ocr-video-frame-resume-fallback')).toBe(false);
+        expect(resume.textContent?.trim()).toBe('');
+        expect(root.classList.contains('jpdb-ocr-video-frame-resume-active')).toBe(true);
+
+        resume.click();
+        expect(root.classList.contains('jpdb-ocr-video-frame-resume-active')).toBe(false);
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+        controller.destroy();
+        document.body.replaceChildren();
     });
 });
 
@@ -137,8 +204,8 @@ describe('paused-video seek refresh', () => {
         document.body.append(video);
         let captures = 0;
         const controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
-            captureVideoFrame: () => `data:image/jpeg;base64,Zg==#${++captures}`,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => `data:image/jpeg;base64,${++captures === 1 ? 'Zg==' : 'Zw=='}`,
         } as never);
         controller.init();
         video.dispatchEvent(new Event('pause'));

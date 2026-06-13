@@ -69,7 +69,7 @@ import { discoverYouTubeCaptionTracks, getYouTubeCaptionTracks, getYouTubeVideoI
 import { applySubtitleNativeTrackModes } from '../../src/reader/subtitles/subtitle-native-track-modes';
 import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenData, parseUchisenImages, parseUchisenKanjiKeyword } from '../../src/reader/dictionaries/uchisen';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../src/reader/subtitles/subtitle-track-metadata';
-import { loadSubtitleTrackCues } from '../../src/reader/subtitles/subtitle-track-loader';
+import { loadSubtitleTrackCues, type SubtitleTrackLoadable } from '../../src/reader/subtitles/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../src/reader/subtitles/subtitle-rendering';
 import { planTranscriptHydrationIndexes } from '../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../src/reader/userscript/index';
@@ -21570,6 +21570,69 @@ describe('reader helpers', () => {
         expect(secondYoutube.cues).toMatchObject([{ start: 4, end: 5.5, text: '字幕' }]);
     });
 
+    it('recovers YouTube auto-translated tracks when translated timedtext is empty', async () => {
+        const sourceTrack: SubtitleTrackLoadable = {
+            id: 'youtube-en',
+            kind: 'youtube' as const,
+            label: 'English (en) · auto-generated',
+            language: 'en',
+            sourceType: 'asr' as const,
+            sourceLanguage: 'en',
+            url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en',
+        };
+        const translatedTrack: SubtitleTrackLoadable = {
+            id: 'youtube-ja-from-en',
+            kind: 'youtube' as const,
+            label: '日本語 (ja) · auto-translated from English',
+            language: 'ja',
+            sourceType: 'translation' as const,
+            sourceLanguage: 'en',
+            targetLanguage: 'ja',
+            url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en&tlang=ja',
+        };
+        const requestedUrls: string[] = [];
+        const originalFetch = globalThis.fetch;
+        const translateFetch = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            expect(url).toContain('translate.googleapis.com');
+            expect(url).toContain('sl=en');
+            expect(url).toContain('tl=ja');
+            return new Response(JSON.stringify({ sentences: [{ trans: '今日は読む。' }] }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            });
+        });
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: translateFetch,
+        });
+
+        try {
+            const result = await loadSubtitleTrackCues(translatedTrack, {
+                tracks: [sourceTrack, translatedTrack],
+                transcriptEligible: true,
+                requestText: async url => {
+                    requestedUrls.push(url);
+                    const parsed = new URL(url);
+                    if (parsed.searchParams.get('tlang') === 'ja') return '';
+                    return '<transcript><text start="1" dur="2">Today I read.</text></transcript>';
+                },
+            });
+
+            expect(requestedUrls.some(url => new URL(url).searchParams.get('tlang') === 'ja')).toBe(true);
+            expect(requestedUrls.some(url => new URL(url).searchParams.get('lang') === 'en' && !new URL(url).searchParams.has('tlang'))).toBe(true);
+            expect(translateFetch).toHaveBeenCalledTimes(1);
+            expect(result.track).toBe(translatedTrack);
+            expect(result.cues).toMatchObject([{ start: 1, end: 3, text: '今日は読む。' }]);
+            expect(translatedTrack.cues).toMatchObject([{ start: 1, end: 3, text: '今日は読む。' }]);
+        } finally {
+            Object.defineProperty(globalThis, 'fetch', {
+                configurable: true,
+                value: originalFetch,
+            });
+        }
+    });
+
     it('falls back to Android InnerTube tracks when YouTube web timedtext is empty', async () => {
         const { requestedUrls, restore } = stubYouTubeAndroidFallbackEnvironment({
             hl: 'en',
@@ -25769,7 +25832,7 @@ describe('reader helpers', () => {
         expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['青空']);
     });
 
-    it('keeps single-fragment words when another token crosses inline fragments', () => {
+    it('renders mixed single-fragment and cross-fragment words in one pass', () => {
         document.body.innerHTML = '<p>言語は文法<span>的</span>です。</p>';
         const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
         expect(target.text).toBe('言語は文法的です。');
@@ -25793,13 +25856,14 @@ describe('reader helpers', () => {
                 pitchClass: '',
                 sentence: target.text,
             },
-        ], DEFAULT_SETTINGS);
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        expect(Array.from(document.querySelectorAll('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['言語']);
-        expect(document.body.textContent).toContain('文法的です。');
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['言語', '文法的']);
+        expect(words.map(word => word.querySelector('rt')?.textContent ?? '')).toEqual(['げんご', 'ぶんぽうてき']);
     });
 
-    it('rescans raw Japanese left in a partially rendered block', () => {
+    it('does not leave cross-fragment tokens raw in a partially rendered block', () => {
         document.body.innerHTML = '<p>言語は文法<span>的</span>です。</p>';
         const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
         applyTokensToScanTarget(target, [
@@ -25823,8 +25887,9 @@ describe('reader helpers', () => {
             },
         ], DEFAULT_SETTINGS);
 
+        expect(Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word')).map(word => readerWordSurfaceText(word))).toEqual(['言語', '文法的']);
         const remainingTargets = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
-        expect(remainingTargets.map(item => item.text)).toContain('は文法的です。');
+        expect(remainingTargets.map(item => item.text).join('\n')).not.toContain('文法的');
     });
 
     it('keeps parsed dictionary hyperlink text passive so link clicks can pass through', () => {
@@ -27187,6 +27252,52 @@ describe('reader helpers', () => {
         expect(texts).not.toContain('次へ');
         expect(texts).not.toContain('戻る');
         expect(targets.every(target => 'parserId' in target && target.parserId === 'jiten-parser')).toBe(true);
+    });
+
+    it('renders Jiten highlighted sentence words even when a token crosses inline spans', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
+        document.body.innerHTML = `
+            <main id="app">
+                <blockquote>
+                    <div lang="ja" class="md:text-lg text-sm transition-filter duration-200 flex-1">
+                        <span class="text-primary-500 font-bold">席</span>へと<span class="text-primary-500 font-bold">受け</span>取る。
+                    </div>
+                </blockquote>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://jiten.moe/parse?text=%E5%B8%AD');
+        rectSpy.mockRestore();
+        expect(targets.map(target => target.text)).toContain('席へと受け取る。');
+
+        const target = targets.find(item => item.text === '席へと受け取る。')!;
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, cardState: ['known'], spelling: '席', reading: 'せき' },
+                start: 0,
+                end: 1,
+                length: 1,
+                rubies: [{ text: 'せき', start: 0, end: 1, length: 1 }],
+                pitchClass: '',
+                sentence: target.text,
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: '受け取る', reading: 'うけとる' },
+                start: 3,
+                end: 7,
+                length: 4,
+                rubies: [
+                    { text: 'う', start: 3, end: 4, length: 1 },
+                    { text: 'と', start: 5, end: 6, length: 1 },
+                ],
+                pitchClass: '',
+                sentence: target.text,
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['席', '受け取る']);
+        expect(Array.from(document.querySelectorAll('rt.jpdb-reader-furi')).map(rt => rt.textContent)).toEqual(['せき', 'う', 'と']);
     });
 
     it('scans major dictionary result pages with domain-scoped parser profiles', () => {

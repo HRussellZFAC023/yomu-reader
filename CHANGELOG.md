@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.182] - 2026-06-13
+
+### Added
+
+- Playwright smoke coverage for YouTube auto-translated caption tracks whose translated timedtext endpoint returns no rows.
+
+### Fixed
+
+- YouTube auto-translated subtitle tracks no longer leave the Lines panel stuck at "0 lines" / "Loading subtitle lines" when the translated timedtext response is empty: Yomu now translates usable source captions itself, and preserves YouTube's native `translationLanguage` when falling back to DOM captions.
+- Jiten/example sentences with a highlighted word split across inline elements now keep the ruby/furigana render instead of dropping into plain text.
+- Paused-video OCR controls now live in the subtitle rail when available, use a compact play icon fallback elsewhere, and ignore YouTube hover-preview thumbnail videos.
+
 ## [0.6.181] - 2026-06-13
 
 ### Changed
