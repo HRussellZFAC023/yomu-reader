@@ -36693,8 +36693,8 @@ ${spelling}`);
     subscribedChannelHandles = /* @__PURE__ */ new Set();
     channelShelfRefreshTimer;
     lastShelfBackfillAt = 0;
-    lastAdvancedShortPath = "";
-    lastShortAdvanceAt = 0;
+    lastAdvancedShortKey = "";
+    lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
     // Already-subscribed channels never belong in the suggestions; the pool
     // backfills the compact view so subscribing keeps the shelf full.
     get compactChannelRecommendations() {
@@ -36821,7 +36821,7 @@ ${spelling}`);
     applyFilterDecision(decision) {
       if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
         this.showCard(decision.candidate.card);
-        if (decision.kind === "hide") this.advancePastFilteredShort();
+        if (decision.kind === "hide") this.advancePastFilteredShort(decision.candidate.videoId || decision.candidate.filterText);
         return;
       }
       if (decision.kind === "skip") {
@@ -36889,18 +36889,23 @@ ${spelling}`);
         else this.showCard(section);
       });
     }
-    advancePastFilteredShort() {
-      const shortPath = location.pathname;
-      if (this.lastAdvancedShortPath === shortPath) return;
+    advancePastFilteredShort(shortKey = currentYouTubeShortsVideoId() || location.pathname) {
+      const advanceKey = `${location.pathname}:${shortKey}`;
+      if (this.lastAdvancedShortKey === advanceKey) return;
       const now = performance.now();
-      if (now - this.lastShortAdvanceAt < YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS) return;
+      const throttleRemaining = YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS - (now - this.lastShortAdvanceAt);
+      if (throttleRemaining > 0) {
+        this.schedule(Math.ceil(throttleRemaining) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
+        return;
+      }
       const next = document.querySelector(
         'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"], shorts-carousel .ytShortsCarouselShortsA11yNavButton:not([disabled]):last-child'
       );
       if (!next) return;
-      this.lastAdvancedShortPath = shortPath;
+      this.lastAdvancedShortKey = advanceKey;
       this.lastShortAdvanceAt = now;
       next.click();
+      this.schedule(YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
     }
     // m.youtube.com shorts player (2026): the active reel lives in a JS
     // carousel (shorts-page > shorts-carousel) with no per-item card elements,
@@ -36925,7 +36930,7 @@ ${spelling}`);
         alwaysHidden: false
       };
       const decision = classifyYouTubeFilterCandidates([candidate], { revealed: this.revealed }).decisions[0];
-      if (decision?.kind === "hide") this.advancePastFilteredShort();
+      if (decision?.kind === "hide") this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
     restoreCurrentShortsWatchItem() {
       if (!isYouTubeShortsWatchPage()) return;
@@ -37493,6 +37498,8 @@ ${spelling}`);
       this.channelShelfStatusOverride = "";
       this.lastBackfillAt = Number.NEGATIVE_INFINITY;
       this.lastScrollAt = Number.NEGATIVE_INFINITY;
+      this.lastAdvancedShortKey = "";
+      this.lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
       this.setFilterActiveClass(false);
     }
     resolveTitleForFiltering(info) {
