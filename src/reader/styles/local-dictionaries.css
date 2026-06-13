@@ -21,7 +21,11 @@
   color-scheme: light dark;
   font: 14px/1.45 var(--jpdb-reader-font);
   margin: 14px 0;
-  max-width: min(100%, 760px);
+  /* Use the room the page actually has: grow past a narrow host column when
+     the viewport allows, capped at a readable measure (user: the addon was
+     "smaller than it needs to be" on wide jiten.moe layouts). */
+  width: min(max(100%, 72vw), 980px);
+  max-width: calc(100vw - 48px);
   padding: 0 0 2px;
 }
 .yomu-jpdb-page-addon .jpdb-reader-definition-stack {

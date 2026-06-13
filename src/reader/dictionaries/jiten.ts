@@ -698,7 +698,11 @@ function jitenKnownStateToCardStates(states: unknown): CardState[] {
     const mapped = jitenStateNumbers(states)
         .map(state => JITEN_CARD_STATE_MAP[state])
         .filter((state): state is CardState => Boolean(state));
-    return mapped.length ? mapped : ['mature'];
+    // No/unknown state means Jiten does not track the word for this user —
+    // that is NOT "mature": the old default silently colored untracked words
+    // as known and (worse) suppressed their furigana via the known-hidden
+    // group. Neutral keeps colors honest and the ruby visible.
+    return mapped.length ? mapped : ['not-in-deck'];
 }
 
 const JITEN_CARD_STATE_MAP: Record<number, CardState> = {

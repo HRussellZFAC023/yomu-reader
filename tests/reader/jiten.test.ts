@@ -262,7 +262,9 @@ describe('JitenApiClient', () => {
         const states = (await client.parse(['読む 書く 見る 待つ 消す 学ぶ 知る 外す 返す']))[0]?.map(token => token.card.cardState);
 
         expect(states).toEqual([
-            ['mature'],
+            // empty knownState = Jiten does not track the word — NOT mature:
+            // the old default suppressed furigana via the known-hidden group.
+            ['not-in-deck'],
             ['new'],
             ['young'],
             ['mature'],
