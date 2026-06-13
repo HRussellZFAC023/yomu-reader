@@ -121,10 +121,6 @@ try {
             && word.dataset.pitchClass !== 'unknown'
             && !word.classList.contains('jpdb-pitch-unknown');
     }, wordSelector, { timeout: 20_000 });
-    await page.evaluate(selector => {
-        const word = document.querySelector(selector);
-        if (word instanceof HTMLElement) word.classList.add('jpdb-reader-example-target');
-    }, wordSelector);
     await page.waitForTimeout(120);
 
     const pitchRequestCount = requests.filter(request => request.kind === 'jpdb-public-pitch').length;
@@ -146,6 +142,7 @@ try {
 
     const fixed = analysis.largestInternalGap <= 2
         && analysis.coverage >= 0.92
+        && geometry.textDecorationSkipInk === 'none'
         && !rubyDecorations.hasDecoratedChildren;
     const report = {
         ok: EXPECT_MODE === 'broken' ? !fixed : fixed,
@@ -329,6 +326,7 @@ async function wordGeometry(page, selector) {
             textDecorationColor: style.textDecorationColor,
             textDecorationThickness: style.textDecorationThickness,
             textUnderlineOffset: style.textUnderlineOffset,
+            textDecorationSkipInk: style.textDecorationSkipInk,
         };
     }, selector);
 }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const BASE_CSS = readFileSync('src/reader/styles/base.css', 'utf8');
+const KANJI_CSS = readFileSync('src/reader/styles/kanji.css', 'utf8');
 const LOCAL_DICTIONARIES_CSS = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
 const NEW_TAB_CSS = readFileSync('src/reader/styles/new-tab.css', 'utf8');
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
@@ -32,9 +33,15 @@ describe('settings CSS', () => {
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root], [data-jpdb-reader-root] *, [data-jpdb-reader-root]::before, [data-jpdb-reader-root]::after, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { box-sizing: border-box; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root] *, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { background: transparent; color: inherit; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(button), [data-jpdb-reader-root] :where(button) { appearance: none;');
-        expect(normalizedBaseCss).toContain('height: auto; line-height: normal; margin: 0; padding: 0; text-align: inherit;');
+        expect(normalizedBaseCss).toContain('height: auto; min-height: 0; width: auto; min-width: 0; max-width: none; line-height: normal; margin: 0; padding: 0; text-align: inherit;');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(input, select, textarea), [data-jpdb-reader-root] :where(input, select, textarea) { appearance: auto;');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6), [data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) { background: transparent; color: inherit;');
+    });
+
+    it('keeps host page button widths out of shared popover controls', () => {
+        const normalizedKanjiCss = normalizeCss(KANJI_CSS);
+
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: auto; min-width: 0; max-width: 100%;');
     });
 
     it('redeclares layout for root surfaces after the host-page reset', () => {
@@ -61,6 +68,7 @@ describe('settings CSS', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-search-suggestion-term, .jpdb-reader-newtab-search-suggestion-detail { min-width: 0; max-width: 100%; overflow: visible; overflow-wrap: anywhere; white-space: normal; }');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
         expect(normalizedSettingsCss).toContain('display: block; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center; font-size: 28px;');
-        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');
+        expect(normalizedSettingsCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
     });
 });

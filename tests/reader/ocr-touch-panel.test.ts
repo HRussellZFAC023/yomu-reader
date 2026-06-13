@@ -437,7 +437,7 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain('color: inherit !important;');
         expect(normalizedCss).toContain('pointer-events: auto; cursor: pointer;');
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
-        expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
+        expect(normalizedCss).toContain('text-decoration-color: transparent !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedCss).toContain('--jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));');
         expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);

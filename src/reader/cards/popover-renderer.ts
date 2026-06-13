@@ -69,7 +69,7 @@ export interface CardPopoverRendererDependencies {
     getSettings: () => ReaderSettings;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     renderWordHistory: (language: InterfaceLanguage, trigger: 'modal' | 'hover') => string;
-    renderWordPills: (card: JPDBCard, jpdbUrl: string, metaEntries?: YomitanMetaEntry[], overrideQuery?: string, trigger?: 'modal' | 'hover') => string;
+    renderWordPills: (card: JPDBCard, jpdbUrl: string, metaEntries?: YomitanMetaEntry[], overrideQuery?: string, trigger?: 'modal' | 'hover', ankiLookup?: CardRenderData['ankiLookup']) => string;
     renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, extraSections?: Record<string, string>) => string;
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
@@ -150,7 +150,7 @@ export class CardPopoverRenderer {
         return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}

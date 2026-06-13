@@ -28,6 +28,7 @@ const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
 const VOCABULARY_LOOKUP_CHUNK_SIZE = 5000;
 const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1000;
 const USER_DECK_POOL_CONCURRENCY = 4;
+const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
 const JPDB_ALL_DECKS_ID = 'all';
 const log = Logger.scope('JpdbClient');
 const utf8Encoder = new TextEncoder();
@@ -39,6 +40,10 @@ interface JpdbDeckVocabularyResponse {
 
 interface JpdbVocabularyLookupResponse {
     vocabulary_info?: unknown[];
+}
+
+interface ListedDeckVocabularyRequestOptions {
+    pacer?: JpdbRequestPacer;
 }
 
 export interface JpdbListDeckCardsOptions {
@@ -270,8 +275,9 @@ export class JpdbClient {
     private async fetchListedDeckVocabularyPairSet(): Promise<Set<string>> {
         const decks = await this.listDecks();
         const pool = new Set<string>();
+        const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
         await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async deck => {
-            const pairs = await this.listDeckVocabularyPairs(deck.id).catch((): Array<[number, number]> => []);
+            const pairs = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch((): Array<[number, number]> => []);
             for (const [vid, sid] of pairs) pool.add(vocabularyPairKey(vid, sid));
         });
         return pool;
@@ -284,8 +290,9 @@ export class JpdbClient {
     private async listCardsFromListedDecks(limit: number, options: JpdbListDeckCardsOptions): Promise<JPDBCard[]> {
         const decks = await this.listDecks();
         const pairGroups: Array<Array<[number, number]>> = [];
+        const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
         await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
-            pairGroups[index] = await this.listDeckVocabularyPairs(deck.id).catch(error => {
+            pairGroups[index] = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch(error => {
                 log.warn('JPDB listed deck skipped', { deckId: deck.id }, error);
                 return [] as Array<[number, number]>;
             });
@@ -315,11 +322,12 @@ export class JpdbClient {
             : await this.lookupDeckVocabularyCards(pairs);
     }
 
-    private async listDeckVocabularyPairs(deckId: string): Promise<Array<[number, number]>> {
-        return this.listDeckVocabularyPairsByRequestId(normalizeDeckRequestId(deckId));
+    private async listDeckVocabularyPairs(deckId: string, options: ListedDeckVocabularyRequestOptions = {}): Promise<Array<[number, number]>> {
+        return this.listDeckVocabularyPairsByRequestId(normalizeDeckRequestId(deckId), options);
     }
 
-    private async listDeckVocabularyPairsByRequestId(id: string | number): Promise<Array<[number, number]>> {
+    private async listDeckVocabularyPairsByRequestId(id: string | number, options: ListedDeckVocabularyRequestOptions = {}): Promise<Array<[number, number]>> {
+        await options.pacer?.wait();
         const response = await this.api.request<JpdbDeckVocabularyResponse>('deck/list-vocabulary', {
             id,
             fetch_occurences: false,
@@ -464,6 +472,41 @@ function normalizePositiveInteger(value: number | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     const integer = Math.floor(value);
     return integer > 0 ? integer : null;
+}
+
+class JpdbRequestPacer {
+    private nextStart = 0;
+    private queue = Promise.resolve();
+
+    constructor(private readonly gapMs: number) {}
+
+    async wait(): Promise<void> {
+        if (!(this.gapMs > 0)) return;
+        let release!: () => void;
+        const previous = this.queue;
+        this.queue = new Promise(resolve => {
+            release = resolve;
+        });
+        await previous;
+        const now = Date.now();
+        const waitMs = Math.max(0, this.nextStart - now);
+        this.nextStart = Math.max(now, this.nextStart) + this.gapMs;
+        release();
+        if (waitMs > 0) await wait(waitMs);
+    }
+}
+
+function listedDeckVocabularyRequestGapMs(): number {
+    return isTestRuntime() ? 0 : LISTED_DECK_VOCABULARY_REQUEST_GAP_MS;
+}
+
+function wait(ms: number): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function isTestRuntime(): boolean {
+    return typeof process !== 'undefined'
+        && (process.env?.VITEST === 'true' || process.env?.NODE_ENV === 'test');
 }
 
 // jpdb Learn queue order: cards with a due timestamp come first, earliest

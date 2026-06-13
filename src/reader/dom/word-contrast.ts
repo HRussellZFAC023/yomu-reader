@@ -144,22 +144,24 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
     word.style.removeProperty('--jpdb-reader-word-contrast-shadow');
 
-    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor);
+    const preserveHostPaint = word.classList.contains('jpdb-reader-passive-word');
+    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
 
     const sourceText = cssColorToHex(m.color, accessibleRgba);
     const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+    const textSource = word.classList.contains('jpdb-reader-passive-word') ? nativeText : (sourceText ?? nativeText);
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(sourceText ?? nativeText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(textSource, accessibleHex, TEXT_CONTRAST));
     if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, accessibleHex, TEXT_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
 }
 
-function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string): {
+function resolveAccessibleHighlight(word: HTMLElement, background: PageBackground, wordBgColor: string, preserveHostPaint = false): {
     accessibleHex: string;
     accessibleRgba: NonNullable<ReturnType<typeof cssColorToRgba>>;
 } {
@@ -169,7 +171,7 @@ function resolveAccessibleHighlight(word: HTMLElement, background: PageBackgroun
     const paintBackgroundHex = rgbaToHex(rgba);
 
     let accessibleHighlightColor: string | null = null;
-    if (hasPaint) {
+    if (hasPaint && !preserveHostPaint) {
         accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
         word.style.setProperty('--jpdb-reader-word-accessible-highlight', accessibleHighlightColor);
     } else {

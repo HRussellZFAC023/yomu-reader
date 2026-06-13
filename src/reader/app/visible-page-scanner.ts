@@ -1,4 +1,13 @@
-import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, makeRoomForRubyInCroppedRows, type ScanTextTarget } from '../dom/index';
+import {
+    applyTokensToScanTarget,
+    collectTextTargetsIn,
+    isCurrentScanTarget,
+    makeRoomForRubyInCroppedRows,
+    type FragmentTextTarget,
+    type ScanTextTarget,
+    type TextFragment,
+    type TextTarget,
+} from '../dom/index';
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
@@ -10,10 +19,21 @@ const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 // Byte cap per parse batch (P1 abortable scheduler): a handful of huge
 // paragraphs would otherwise ride in one batch and stall the apply turn.
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6_000;
+const VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET = 3_200;
+const VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET = 2_000;
 const VISIBLE_SCAN_TARGET_COLLECTION_LIMIT = 120;
+const VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT = 120;
+const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT = 60;
+const VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE = 1_800;
+const VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE = 900;
+const VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE = 700;
+const VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL = 280;
 // Large enough that the first apply paints everything just parsed in one go —
 // small chunks made ruby/colors arrive in visible waves.
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
+const VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE = 24;
+const VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE = 12;
+const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
 const ASB_SCAN_BATCH_LIMIT = 12;
@@ -109,7 +129,7 @@ export class VisiblePageScanner {
     private scheduleClampedRubySweep(): void {
         if (this.destroyed || typeof document === 'undefined') return;
         const sweep = (): void => {
-            if (this.destroyed) return;
+            if (this.destroyed || typeof document === 'undefined') return;
             const adjusted = makeRoomForRubyInCroppedRows(document);
             if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
         };
@@ -169,7 +189,7 @@ export class VisiblePageScanner {
                 ? await this.prepareAnkiColorsBeforeSubtitleRender(tokens)
                 : undefined;
             if (this.destroyed) return false;
-            const changedRoots = await this.applyTokens(targets, parsed);
+            const changedRoots = await this.applyTokens(targets, parsed, this.dependencies.getSettings());
             applyAnkiColors?.(changedRoots);
             if (this.dependencies.prepareSubtitleTokensBeforeRender) {
                 if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
@@ -205,15 +225,17 @@ export class VisiblePageScanner {
 
     private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
         if (this.isStaleScan(generation)) return;
-        const targets = collectScanTargets(VISIBLE_SCAN_TARGET_COLLECTION_LIMIT);
+        const settings = this.dependencies.getSettings();
+        const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
+        const targets = chunkLongScanTargets(collectScanTargets(targetCollectionLimit), settings);
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
             return;
         }
 
-        const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation);
+        const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
-        if (parsedAnyTokens && targets.length >= VISIBLE_SCAN_TARGET_COLLECTION_LIMIT && canContinueVisibleScan(targets)) {
+        if (parsedAnyTokens && targets.length >= targetCollectionLimit && canContinueVisibleScan(targets)) {
             this.queueContinuationScan(silent);
             return;
         }
@@ -224,12 +246,13 @@ export class VisiblePageScanner {
         return this.destroyed || generation !== this.scanGeneration;
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number): Promise<boolean> {
+    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
         let cursor = 0;
         let parsedAnyTokens = false;
+        const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
         while (cursor < targets.length) {
             if (this.isStaleScan(generation)) return parsedAnyTokens;
-            const next = nextVisibleScanParseBatch(targets, cursor);
+            const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
             cursor = next.cursor;
             if (!next.batch.length) continue;
             const batch = next.batch;
@@ -244,7 +267,7 @@ export class VisiblePageScanner {
             const applyAnkiColors = this.shouldEnrichAnkiWords()
                 ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
                 : undefined;
-            const changedRoots = await this.applyTokens(batch, parsed);
+            const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings);
             applyAnkiColors?.(changedRoots);
             this.preloadParsed(parsed, changedRoots, {
                 skipAnki: Boolean(applyAnkiColors),
@@ -255,24 +278,26 @@ export class VisiblePageScanner {
         return parsedAnyTokens;
     }
 
-    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<ParentNode[]> {
+    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings): Promise<ParentNode[]> {
         const allChangedRoots = new Set<ParentNode>();
-        for (let index = 0; index < targets.length; index += VISIBLE_SCAN_APPLY_BATCH_SIZE) {
+        const applyBatchSize = visibleScanApplyBatchSize(scanStartSettings);
+        for (let index = 0; index < targets.length; index += applyBatchSize) {
             if (this.destroyed) return [...allChangedRoots];
             const start = index;
-            const batch = targets.slice(start, start + VISIBLE_SCAN_APPLY_BATCH_SIZE);
+            const batch = targets.slice(start, start + applyBatchSize);
             this.dependencies.pauseMutationObserver(() => {
                 if (this.destroyed) return;
                 const changedRoots = new Set<ParentNode>();
-                batch.forEach((target, offset) => {
+                const applyPlans = scanApplyPlans(batch, parsed, start);
+                applyPlans.forEach(({ target, tokens }) => {
                     if (this.destroyed) return;
                     if (!isCurrentScanTarget(target)) return;
-                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
+                    applyTokensToScanTarget(target, tokens, this.dependencies.getSettings());
                     changedRoots.add(target.parent);
                 });
                 changedRoots.forEach(root => allChangedRoots.add(root));
             });
-            if (index + VISIBLE_SCAN_APPLY_BATCH_SIZE < targets.length) await waitForVisibleScanTurn();
+            if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
         // One contrast pass per unique root after all chunks — running it per
         // chunk forced repeated style recalcs on the same containers.
@@ -340,6 +365,34 @@ function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
 }
 
+function visibleScanParseCharBudget(settings: ReaderSettings): number {
+    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_PARSE_CHAR_BUDGET;
+    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
+}
+
+function visibleScanTargetCollectionLimit(settings: ReaderSettings): number {
+    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_COLLECTION_LIMIT;
+    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
+}
+
+function visibleScanTargetTextChunkSize(settings: ReaderSettings): number {
+    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE;
+    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE;
+}
+
+function visibleScanApplyBatchSize(settings: ReaderSettings): number {
+    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_APPLY_BATCH_SIZE;
+    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
+}
+
+function isNarrowVisibleScanViewport(): boolean {
+    return typeof window !== 'undefined' && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
+}
+
+function hasJpdbParseApiKey(settings: ReaderSettings): boolean {
+    return Boolean(settings.apiKey.trim());
+}
+
 function shouldStartPitchEnrichmentBeforeApply(tokens: JPDBToken[]): boolean {
     return tokens.some(token => token.card.source === 'fallback'
         && token.card.spelling.trim()
@@ -357,6 +410,163 @@ function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] 
 
 function canContinueVisibleScan(targets: ScanTextTarget[]): boolean {
     return targets.some(target => !target.singlePassScan);
+}
+
+function chunkLongScanTargets(targets: ScanTextTarget[], settings: ReaderSettings): ScanTextTarget[] {
+    return targets.flatMap(target => chunkLongScanTarget(target, settings));
+}
+
+function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): ScanTextTarget[] {
+    const chunkSize = visibleScanTargetTextChunkSize(settings);
+    if (target.text.length <= chunkSize) return [target];
+    return isFragmentTextTarget(target)
+        ? chunkLongFragmentTarget(target, chunkSize)
+        : chunkLongTextTarget(target, chunkSize);
+}
+
+function chunkLongTextTarget(target: TextTarget, chunkSize: number): ScanTextTarget[] {
+    const range = textTargetTrimmedSourceRange(target);
+    if (!range) return [target];
+    return chunkTextRanges(target.text, chunkSize)
+        .map(([start, end]) => textTargetChunk(target, range.start + start, range.start + end))
+        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
+}
+
+function textTargetChunk(target: TextTarget, start: number, end: number): FragmentTextTarget | null {
+    if (end <= start) return null;
+    const text = target.node.data.slice(start, end);
+    if (!text) return null;
+    return {
+        text,
+        parent: target.parent,
+        fragments: [{
+            node: target.node,
+            start,
+            end,
+            hasNativeRuby: Boolean(target.hasNativeRuby),
+            layoutSensitive: target.layoutSensitive,
+            passiveInteraction: target.passiveInteraction,
+        }],
+        layoutSensitive: target.layoutSensitive,
+        passiveInteraction: target.passiveInteraction,
+        singlePassScan: target.singlePassScan,
+    };
+}
+
+function textTargetTrimmedSourceRange(target: TextTarget): { start: number; end: number } | null {
+    const start = target.node.data.indexOf(target.text);
+    return start < 0 ? null : { start, end: start + target.text.length };
+}
+
+function chunkLongFragmentTarget(target: FragmentTextTarget, chunkSize: number): ScanTextTarget[] {
+    return chunkTextRanges(target.text, chunkSize)
+        .map(([start, end]) => fragmentTargetChunk(target, start, end))
+        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
+}
+
+function fragmentTargetChunk(target: FragmentTextTarget, start: number, end: number): FragmentTextTarget | null {
+    const fragments = fragmentRange(target.fragments, start, end);
+    if (!fragments.length) return null;
+    return {
+        ...target,
+        text: target.text.slice(start, end),
+        fragments,
+    };
+}
+
+function fragmentRange(fragments: TextFragment[], start: number, end: number): TextFragment[] {
+    const result: TextFragment[] = [];
+    let cursor = 0;
+    for (const fragment of fragments) {
+        const length = fragment.end - fragment.start;
+        const fragmentStart = cursor;
+        const fragmentEnd = cursor + length;
+        const overlapStart = Math.max(start, fragmentStart);
+        const overlapEnd = Math.min(end, fragmentEnd);
+        if (overlapEnd > overlapStart) {
+            result.push({
+                ...fragment,
+                start: fragment.start + overlapStart - fragmentStart,
+                end: fragment.start + overlapEnd - fragmentStart,
+            });
+        }
+        cursor = fragmentEnd;
+        if (cursor >= end) break;
+    }
+    return result;
+}
+
+function chunkTextRanges(text: string, chunkSize: number): Array<[number, number]> {
+    const ranges: Array<[number, number]> = [];
+    let start = 0;
+    while (start < text.length) {
+        const end = nextChunkEnd(text, start, chunkSize);
+        ranges.push([start, end]);
+        start = end;
+    }
+    return ranges;
+}
+
+function nextChunkEnd(text: string, start: number, chunkSize: number): number {
+    const hardEnd = Math.min(text.length, start + chunkSize);
+    if (hardEnd >= text.length) return text.length;
+    if (text.length - hardEnd < VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL) return text.length;
+    return chunkBoundaryBefore(text, start, hardEnd, chunkSize) ?? hardEnd;
+}
+
+function chunkBoundaryBefore(text: string, start: number, hardEnd: number, chunkSize: number): number | null {
+    const softStart = Math.max(start + Math.floor(chunkSize * 0.6), start + 1);
+    for (let index = hardEnd; index > softStart; index -= 1) {
+        if (/[。！？!?]/u.test(text[index - 1] ?? '')) return index;
+    }
+    for (let index = hardEnd; index > softStart; index -= 1) {
+        if (/[、，,\n\r\s]/u.test(text[index - 1] ?? '')) return index;
+    }
+    return null;
+}
+
+interface ScanApplyPlan {
+    target: ScanTextTarget;
+    tokens: JPDBToken[];
+}
+
+function scanApplyPlans(batch: ScanTextTarget[], parsed: JPDBToken[][], start: number): ScanApplyPlan[] {
+    return batch
+        .map((target, offset) => ({ target, tokens: parsed[start + offset] ?? [] }))
+        .sort((a, b) => compareScanTargetsForApply(a.target, b.target));
+}
+
+function compareScanTargetsForApply(a: ScanTextTarget, b: ScanTextTarget): number {
+    const nodeA = scanTargetApplyNode(a);
+    const nodeB = scanTargetApplyNode(b);
+    if (!nodeA || !nodeB) return 0;
+    if (nodeA === nodeB) {
+        return scanTargetEndOffset(b) - scanTargetEndOffset(a)
+            || scanTargetStartOffset(b) - scanTargetStartOffset(a);
+    }
+    const position = nodeA.compareDocumentPosition(nodeB);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) return -1;
+    return 0;
+}
+
+function scanTargetApplyNode(target: ScanTextTarget): Text | null {
+    if (!isFragmentTextTarget(target)) return target.node;
+    return target.fragments[target.fragments.length - 1]?.node ?? null;
+}
+
+function scanTargetStartOffset(target: ScanTextTarget): number {
+    return isFragmentTextTarget(target) ? target.fragments[0]?.start ?? 0 : 0;
+}
+
+function scanTargetEndOffset(target: ScanTextTarget): number {
+    return isFragmentTextTarget(target)
+        ? target.fragments[target.fragments.length - 1]?.end ?? 0
+        : target.node.data.length;
+}
+
+function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {
+    return 'fragments' in target;
 }
 
 function visiblePageCoverageSummary(): VisiblePageCoverageSummary {
@@ -413,6 +623,7 @@ function visiblePageCoverageInsightSurface(word: HTMLElement, key: string): stri
 function nextVisibleScanParseBatch(
     targets: ScanTextTarget[],
     startCursor: number,
+    charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET,
 ): { batch: ScanTextTarget[]; cursor: number } {
     const batch: ScanTextTarget[] = [];
     let cursor = startCursor;
@@ -424,7 +635,7 @@ function nextVisibleScanParseBatch(
             continue;
         }
         const length = target.text.length;
-        if (batch.length && budget + length > VISIBLE_SCAN_PARSE_CHAR_BUDGET) break;
+        if (batch.length && budget + length > charBudget) break;
         batch.push(target);
         budget += length;
         cursor += 1;

@@ -18,6 +18,17 @@ const AUDIO_EXTENSION_TYPES: Record<string, string> = {
     webm: 'audio/webm',
 };
 
+const IMAGE_EXTENSION_TYPES: Record<string, string> = {
+    apng: 'image/apng',
+    avif: 'image/avif',
+    gif: 'image/gif',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    png: 'image/png',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+};
+
 export async function createPageMediaUrl(blob: Blob, sourceUrl = ''): Promise<string> {
     const typed = withUsableMediaType(blob, sourceUrl);
     if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
@@ -28,7 +39,7 @@ function withUsableMediaType(blob: Blob, sourceUrl: string): Blob {
     const type = (blob.type || '').toLowerCase();
     if (type && type !== 'application/octet-stream' && type !== 'binary/octet-stream') return blob;
     const extension = sourceUrl.split(/[?#]/)[0]?.split('.').pop()?.toLowerCase() ?? '';
-    return new Blob([blob], { type: AUDIO_EXTENSION_TYPES[extension] ?? 'audio/mpeg' });
+    return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? 'audio/mpeg' });
 }
 
 export function revokePageMediaUrl(url: string): void {

@@ -626,7 +626,7 @@ function renderUchisenImageOrEmpty(model: UchisenCarouselRenderModel): string {
         ? model.item.story
         : uiText(model.language, 'noStoryAvailable');
     const alt = formatUchisenTemplate(uiText(model.language, 'uchisenMnemonicFor'), { kanji: model.kanji });
-    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image></div>
+    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image src="${escapeHtml(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
         <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
 }
 
@@ -642,18 +642,33 @@ function attachRenderedUchisenImage(
     const image = container.querySelector<HTMLImageElement>('[data-uchisen-image]');
     if (!image || !item) return;
     const srcUrl = item.url;
+    let blobSettled = false;
+    let directFailed = false;
+    const removeBrokenDirectImage = () => {
+        directFailed = true;
+        if (blobSettled && image.isConnected) image.remove();
+    };
+    image.addEventListener('error', removeBrokenDirectImage);
     requestBlobUrl(srcUrl, 9000, proxyUrl)
         .then(url => {
             if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
                 revokePageMediaUrl(url);
                 return;
             }
+            blobSettled = true;
+            image.removeEventListener('error', removeBrokenDirectImage);
             cleanup();
             setCurrentImageUrl(url);
+            image.addEventListener('error', () => {
+                if (image.isConnected) image.remove();
+            }, { once: true });
             image.src = url;
         })
         .catch(() => {
-            if (image.isConnected) image.remove();
+            if (!image.isConnected || currentImages[index]?.url !== srcUrl) return;
+            blobSettled = true;
+            if (directFailed) image.remove();
+            else if (image.getAttribute('src') !== srcUrl) image.src = srcUrl;
         });
 }
 

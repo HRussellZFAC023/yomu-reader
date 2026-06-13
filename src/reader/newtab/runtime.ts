@@ -244,13 +244,14 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger, ankiLookup) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             inert: trigger === 'hover',
+            ankiLookup,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -534,11 +535,12 @@ export class NewTabRuntime {
             }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
             renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, null, { includeStudySources: false }),
-            renderSearchWordPills: (card, metaEntries) => renderWordPills({
+            renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
                 settings: this.settings,
                 metaEntries,
+                ankiLookup,
                 isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
@@ -716,7 +718,7 @@ export class NewTabRuntime {
                 if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
                 if (renderedPitchKey === card.pitchAccent.join('|')) return;
                 renderedPitchKey = card.pitchAccent.join('|');
-                this.updateDeferredLookupPitch(popover, card, metaEntriesValue);
+                this.updateDeferredLookupPitch(popover, card, metaEntriesValue, currentAnkiLookup);
             });
         }
         void renderData.all.then(data => {
@@ -843,19 +845,20 @@ export class NewTabRuntime {
         this.repositionLookupPopover();
     }
 
-    private updateDeferredLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+    private updateDeferredLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult): void {
         this.applyPitchAccentToRenderedWords(card);
-        this.updateLookupWordPills(popover, card, metaEntries);
+        this.updateLookupWordPills(popover, card, metaEntries, ankiLookup);
         this.updateLookupPitch(popover, card, metaEntries);
         this.repositionLookupPopover();
     }
 
-    private updateLookupWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+    private updateLookupWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult): void {
         updateHeadingWordPills(popover, {
             card,
             jpdbUrl: jpdbVocabularyUrl(card),
             settings: this.settings,
             metaEntries,
+            ankiLookup,
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         });

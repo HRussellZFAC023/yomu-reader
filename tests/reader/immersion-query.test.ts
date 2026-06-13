@@ -8,6 +8,7 @@ import {
     queryHasKanji,
     queryKey,
     queryLength,
+    shouldFilterImmersionExamplesBySurface,
     shouldRequireOriginalSurfaceMatch,
     uniqueImmersionQueries,
 } from '../../src/reader/immersion/query';
@@ -74,6 +75,16 @@ describe('shouldRequireOriginalSurfaceMatch', () => {
 
     it('does not require a match for kana-only queries regardless of length', () => {
         expect(shouldRequireOriginalSurfaceMatch('よむことができる')).toBe(false);
+    });
+});
+
+describe('shouldFilterImmersionExamplesBySurface', () => {
+    it('filters even single-kanji queries to avoid fuzzy API matches', () => {
+        expect(shouldFilterImmersionExamplesBySurface('多')).toBe(true);
+    });
+
+    it('does not filter kana-only queries', () => {
+        expect(shouldFilterImmersionExamplesBySurface('たぶん')).toBe(false);
     });
 });
 

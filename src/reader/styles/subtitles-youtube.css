@@ -213,9 +213,11 @@
   box-shadow: none;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: .15em;
+  --jpdb-reader-word-underline-thickness: .08em;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: .08em !important;
   text-underline-offset: .15em !important;
   white-space: nowrap;
@@ -261,7 +263,7 @@
   box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
@@ -321,6 +323,8 @@
   text-decoration-line: underline !important;
 }
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
+  --jpdb-reader-word-underline-offset: .12em;
+  --jpdb-reader-word-underline-thickness: .12em;
   text-decoration-thickness: .12em !important;
   text-underline-offset: .12em !important;
   /* No pitch class yet means no semantic color yet — stay invisible instead
@@ -529,17 +533,17 @@
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-subtitle-rail {
   position: absolute;
@@ -1120,9 +1124,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-text .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
+  --jpdb-reader-word-underline-offset: .16em;
+  --jpdb-reader-word-underline-thickness: .08em;
   color: inherit;
   background: transparent;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent);
+  text-decoration-color: transparent;
   box-shadow: none;
   text-decoration-thickness: .08em;
   text-underline-offset: .16em;

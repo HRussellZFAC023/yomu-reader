@@ -4,6 +4,9 @@
   --jpdb-reader-word-highlight-source: transparent;
   --jpdb-reader-word-highlight-shadow-source: none;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
+  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-style: solid;
+  --jpdb-reader-word-underline-thickness: 2px;
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
@@ -21,7 +24,7 @@
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
-  position: static;
+  position: relative;
   display: inline;
   white-space: nowrap;
   word-break: keep-all;
@@ -31,19 +34,23 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   text-decoration-line: underline !important;
-  text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
-  text-decoration-thickness: 2px !important;
-  text-underline-offset: 0.16em !important;
+  text-decoration-style: var(--jpdb-reader-word-underline-style) !important;
+  text-decoration-color: transparent !important;
+  text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
+  text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
+  text-decoration-skip-ink: none !important;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 
 .jpdb-reader-word::after {
-  content: none;
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
+  border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
+  pointer-events: none;
 }
 
 /* Long annotated prose may wrap even when the host says nowrap — but never
@@ -62,6 +69,24 @@
   white-space: normal;
 }
 
+/* Hosted docs cards are links, so their annotated text is passive; still let
+   the card prose wrap inside its own grid cell. */
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
+}
+
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .jpdb-reader-word.jpdb-reader-passive-word {
   cursor: inherit;
 }
@@ -72,6 +97,7 @@
 }
 
 .jpdb-reader-word:is(.jpdb-deck-member, .jiten-deck-member, .anki-deck-member) {
+  --jpdb-reader-word-underline-style: double;
   text-decoration-style: double !important;
 }
 
@@ -134,6 +160,7 @@
   --jpdb-reader-status-color: var(--jpdb-reader-state-frequent);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-frequent-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-frequent-soft);
+  --jpdb-reader-word-underline-style: dotted;
   text-decoration-style: dotted !important;
 }
 .jpdb-reader-word.jpdb-unparsed {
@@ -143,6 +170,7 @@
   --jpdb-reader-status-color: var(--jpdb-reader-state-unparsed);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-unparsed-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-unparsed-soft);
+  --jpdb-reader-word-underline-style: dashed;
   text-decoration-style: dashed !important;
 }
 .jpdb-reader-word.anki-new {
@@ -581,6 +609,7 @@
    own colour and loses Yomu underline/highlight marking. */
 .yomu-word-color-new-only
   .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
+  --jpdb-reader-word-underline: transparent;
   color: inherit !important;
   background: transparent !important;
   text-decoration: none !important;
@@ -839,13 +868,12 @@
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: 0.12em;
+  --jpdb-reader-word-underline-thickness: 0.12em;
   box-shadow: none !important;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 0.12em !important;
   text-underline-offset: 0.12em !important;
   color: inherit !important;
@@ -937,12 +965,11 @@
   background: transparent !important;
   box-shadow: none;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: 0.15em;
+  --jpdb-reader-word-underline-thickness: 0.08em;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 0.08em !important;
   text-underline-offset: 0.15em !important;
   color: inherit !important;
@@ -986,6 +1013,7 @@
    redundant words keep lookup behavior but render as plain page text — no
    state color, underline, or highlight. */
 html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
+  --jpdb-reader-word-underline: transparent;
   --jpdb-reader-jpdb-color: transparent;
   --jpdb-reader-jpdb-readable: inherit;
   --jpdb-reader-jpdb-soft: transparent;

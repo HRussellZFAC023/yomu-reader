@@ -65,6 +65,7 @@ export const LOOKUP_PILL_COLOR_TOKENS = {
     'wiktionary-ja': { bg: '#374151', border: '#9ca3af', text: CORE_COLOR_TOKENS.white },
     'immersion-kit': { bg: '#0e7490', border: '#22d3ee', text: CORE_COLOR_TOKENS.white },
     uchisen: { bg: '#9a3412', border: '#fb923c', text: CORE_COLOR_TOKENS.white },
+    anki: { bg: '#2f6da8', border: '#68a6e6', text: CORE_COLOR_TOKENS.white },
     copy: { bg: '#7e3fbf', border: '#a064e5', text: CORE_COLOR_TOKENS.white },
 } as const;
 

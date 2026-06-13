@@ -261,16 +261,19 @@
   overflow-wrap: break-word;
 }
 .jpdb-reader-settings .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-pitch-decoration,
+    color-mix(in srgb, var(--jpdb-reader-accent) 45%, transparent)
+  );
+  --jpdb-reader-word-underline-offset: 0.18em;
+  --jpdb-reader-word-underline-thickness: 1px;
   display: inline !important;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal !important;
   color: inherit !important;
   background: transparent !important;
-  text-decoration-color: var(
-    --jpdb-reader-source-pitch-decoration,
-    color-mix(in srgb, var(--jpdb-reader-accent) 45%, transparent)
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 1px !important;
   text-underline-offset: 0.18em !important;
 }
@@ -2174,6 +2177,12 @@
   user-select: none;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-word-accessible-underline,
+    var(--jpdb-reader-word-decoration-source, transparent)
+  );
+  --jpdb-reader-word-underline-offset: .14em;
+  --jpdb-reader-word-underline-thickness: .09em;
   color: var(
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, currentColor)
@@ -2183,10 +2192,7 @@
     var(--jpdb-reader-word-highlight-source, transparent)
   ) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
-  text-decoration-color: var(
-    --jpdb-reader-word-accessible-underline,
-    var(--jpdb-reader-word-decoration-source, transparent)
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: .09em !important;
   text-underline-offset: .14em !important;
 }

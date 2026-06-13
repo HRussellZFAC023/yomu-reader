@@ -26,6 +26,10 @@ export function shouldRequireOriginalSurfaceMatch(value: string): boolean {
     return queryHasKanji(value) && queryLength(value) >= 3;
 }
 
+export function shouldFilterImmersionExamplesBySurface(query: string): boolean {
+    return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
+}
+
 export function immersionSentenceContainsQuery(sentence: string, query: string): boolean {
     const normalizedSentence = normalizeImmersionSurface(sentence);
     const normalizedQuery = normalizeImmersionSurface(query);

@@ -238,8 +238,10 @@ export class AudioPlayer {
             return { state: result, errors };
         }
 
-        const realAudioSources = sources.filter(source => !isTextToSpeechFallbackSource(source));
-        const realAudioResult = await this.playGreedyAudioSources(orderAudioSources(realAudioSources, settings.audioSelectionMode, card, this.shuffledAudio), context);
+        const realAudioSources = orderAudioSources(sources.filter(source => !isTextToSpeechFallbackSource(source)), settings.audioSelectionMode, card, this.shuffledAudio);
+        const realAudioResult = settings.audioSelectionMode === 'random'
+            ? await this.playOrderedSources(realAudioSources, context)
+            : await this.playGreedyAudioSources(realAudioSources, context);
         if (realAudioResult !== 'miss') return { state: realAudioResult, errors };
 
         const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);

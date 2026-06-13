@@ -244,33 +244,38 @@ function renderStatsHeatmapDay(point: StatsDailyPoint, maxValue: number, metric:
 function renderStatsLearningProgress(context: NewTabStatsRenderContext): HTMLElement {
     const { source, text } = context;
     const cards = source.cards;
+    const learningCount = cards.learning + cards.failed;
     const knownPct = cards.total > 0 ? formatPercent(cards.known / cards.total) : '';
-    return el('section', { class: 'jpdb-reader-stats-panel jpdb-reader-stats-progress' },
-        el('div', { class: 'jpdb-reader-stats-panel-heading' },
-            el('h2', {}, text('statsLearningProgress')),
+    const knownRatio = cards.total > 0 ? (cards.known / cards.total) * 100 : 0;
+    const learningRatio = cards.total > 0 ? (learningCount / cards.total) * 100 : 0;
+    return el('section', { class: 'jpdb-reader-stats-progress', 'aria-label': text('statsLearningProgress') },
+        el('div', { class: 'jpdb-reader-stats-progress-grid' },
+            renderStatsProgressItem(text('statsWordsRow'), formatCompactNumber(cards.total)),
+            renderStatsProgressItem(text('statsLearningColumn'), formatCompactNumber(learningCount)),
+            renderStatsProgressItem(
+                text('statsKnownColumn'),
+                knownPct ? `${formatCompactNumber(cards.known)} (${knownPct})` : formatCompactNumber(cards.known),
+            ),
         ),
-        el('table', { class: 'jpdb-reader-stats-progress-table' },
-            el('thead', {},
-                el('tr', {},
-                    el('th', {}, ''),
-                    el('th', {}, ''),
-                    el('th', {}, text('statsLearningColumn')),
-                    el('th', {}, text('statsKnownColumn')),
-                ),
-            ),
-            el('tbody', {},
-                el('tr', {},
-                    el('th', { scope: 'row' }, text('statsWordsRow')),
-                    el('td', {}, formatCompactNumber(cards.total)),
-                    el('td', {}, formatCompactNumber(cards.learning + cards.failed)),
-                    el('td', {}, knownPct ? `${formatCompactNumber(cards.known)} (${knownPct})` : formatCompactNumber(cards.known)),
-                ),
-            ),
+        el('div', { class: 'jpdb-reader-stats-progress-rail', 'aria-hidden': 'true' },
+            el('span', { class: 'is-learning', style: `width:${formatProgressRailWidth(learningRatio)}%` }),
+            el('span', { class: 'is-known', style: `width:${formatProgressRailWidth(knownRatio)}%` }),
         ),
         el('p', { class: 'jpdb-reader-stats-progress-total' },
             `${text('statsTotalKnownVocabulary')}: ${formatCompactNumber(cards.known)}`,
         ),
     );
+}
+
+function renderStatsProgressItem(label: string, value: string): HTMLElement {
+    return el('div', { class: 'jpdb-reader-stats-progress-item' },
+        el('span', { class: 'jpdb-reader-stats-progress-item-label' }, label),
+        el('strong', {}, value),
+    );
+}
+
+function formatProgressRailWidth(value: number): string {
+    return Math.max(0, Math.min(100, value)).toFixed(2).replace(/\.?0+$/u, '');
 }
 
 function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement {

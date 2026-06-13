@@ -4,11 +4,22 @@ import { getUserscriptHttpRequest } from '../userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
 const RATE_LIMIT_BACKOFF_MS = 30_000;
+const CONNECTION_FAILURE_BACKOFF_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+const RETRYABLE_READ_DELAY_MS = 1_500;
+const RETRYABLE_READ_ATTEMPTS = 2;
+const RETRYABLE_API_READ_ENDPOINTS = new Set([
+    'deck/list-vocabulary',
+    'list-user-decks',
+    'lookup-vocabulary',
+    'parse',
+    'ping',
+]);
 const log = Logger.scope('JpdbApi');
 
 export class JpdbApiClient {
     private retryAfter = 0;
+    private connectionRetryAfter = 0;
     private rejectedToken = '';
 
     constructor(
@@ -26,7 +37,7 @@ export class JpdbApiClient {
         this.assertCanRequest(token, endpoint);
 
         const done = log.time('request', { endpoint, hasBody: Boolean(body) });
-        const response = await postJson(url, token, body, this.getProxyUrl());
+        const response = await this.postJsonWithReadRetry(url, token, body, endpoint);
         done();
         this.assertSuccessfulResponse(response, endpoint, token);
         if (this.rejectedToken === token) this.rejectedToken = '';
@@ -46,6 +57,10 @@ export class JpdbApiClient {
             log.warn('JPDB rate-limit backoff', { endpoint, retryAfterMs: this.retryAfter - Date.now() });
             throw new Error('JPDB is rate limited. Try again in a moment.');
         }
+        if (Date.now() < this.connectionRetryAfter) {
+            log.warn('JPDB connection backoff', { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
+            throw new Error('JPDB connection is cooling down. Try again in a moment.');
+        }
     }
 
     private assertSuccessfulResponse(response: JsonPostResponse, endpoint: string, token: string): void {
@@ -63,6 +78,33 @@ export class JpdbApiClient {
             log.warn('JPDB request failed', { endpoint, status: response.status });
             throw new Error(`JPDB request failed (${response.status}).`);
         }
+    }
+
+    private async postJsonWithReadRetry(url: string, token: string, body: Record<string, unknown> | undefined, endpoint: string): Promise<JsonPostResponse> {
+        const maxAttempts = isRetryableApiReadEndpoint(url)
+            ? RETRYABLE_READ_ATTEMPTS
+            : 1;
+        let lastError: unknown;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                return await postJson(url, token, body, this.getProxyUrl());
+            } catch (error) {
+                lastError = error;
+                if (attempt >= maxAttempts || !isJpdbConnectionFailure(error)) {
+                    if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
+                    throw normalizeJpdbTransportError(error);
+                }
+                log.warn('JPDB read request failed; retrying', { endpoint, attempt, maxAttempts }, error);
+                await delay(retryableReadDelayMs());
+            }
+        }
+        if (isJpdbConnectionFailure(lastError)) this.backOffAfterConnectionFailure(endpoint, lastError);
+        throw normalizeJpdbTransportError(lastError);
+    }
+
+    private backOffAfterConnectionFailure(endpoint: string, error: unknown): void {
+        this.connectionRetryAfter = Date.now() + CONNECTION_FAILURE_BACKOFF_MS;
+        log.warn('JPDB connection failed; backing off', { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
     }
 }
 
@@ -243,4 +285,36 @@ function endpointLabel(url: string): string {
     } catch {
         return url;
     }
+}
+
+function isRetryableApiReadEndpoint(url: string): boolean {
+    return RETRYABLE_API_READ_ENDPOINTS.has(endpointLabel(url));
+}
+
+function isJpdbConnectionFailure(error: unknown): boolean {
+    if (!error) return true;
+    const message = error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+            ? error
+            : String((error as { message?: unknown }).message ?? '');
+    return !message
+        || /(?:network|connection|reset|closed|failed to fetch|load failed|timed out|timeout|PR_END_OF_FILE|NS_ERROR)/i.test(message);
+}
+
+function normalizeJpdbTransportError(error: unknown): Error {
+    return error instanceof Error ? error : new Error('JPDB request failed.');
+}
+
+function retryableReadDelayMs(): number {
+    return isTestRuntime() ? 0 : RETRYABLE_READ_DELAY_MS;
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function isTestRuntime(): boolean {
+    return typeof process !== 'undefined'
+        && (process.env?.VITEST === 'true' || process.env?.NODE_ENV === 'test');
 }
