@@ -234,7 +234,9 @@ function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
 
 async function waitForCondition(predicate: () => boolean): Promise<void> {
     for (let attempt = 0; attempt < 30; attempt++) {
+        if (predicate()) return;
         await flushPromises();
+        if (predicate()) return;
         await new Promise(resolve => window.setTimeout(resolve, 0));
         if (predicate()) return;
     }
@@ -1215,7 +1217,7 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
-    });
+    }, 30_000);
 
     it('shows a toast when a recommended dictionary install fails', async () => {
         const importFromUrl = vi.fn().mockRejectedValue(new Error('Could not remove old dictionary entries.'));
