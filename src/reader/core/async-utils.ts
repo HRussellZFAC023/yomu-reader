@@ -13,3 +13,41 @@ export async function runLimited<T>(
         }
     }));
 }
+
+// Result-returning bounded map: like Promise.all(items.map(worker)) but with at
+// most `concurrency` workers in flight, preserving input order. Used to keep
+// IndexedDB-backed enrichment fan-out from flooding the main thread.
+export async function mapLimited<T, R>(
+    items: readonly T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R> | R,
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    await runLimited(items, concurrency, async (item, index) => {
+        results[index] = await worker(item, index);
+    });
+    return results;
+}
+
+// Shared concurrency gate: serializes work across DIFFERENT call sites (e.g.
+// every cue being warmed in parallel) so the aggregate in-flight count stays
+// bounded, not just the per-call fan-out.
+export class ConcurrencyGate {
+    private active = 0;
+    private readonly queue: Array<() => void> = [];
+
+    constructor(private readonly limit: number) {}
+
+    async run<R>(task: () => Promise<R> | R): Promise<R> {
+        if (this.active >= this.limit) {
+            await new Promise<void>(resolve => this.queue.push(resolve));
+        }
+        this.active += 1;
+        try {
+            return await task();
+        } finally {
+            this.active -= 1;
+            this.queue.shift()?.();
+        }
+    }
+}

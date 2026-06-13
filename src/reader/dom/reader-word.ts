@@ -22,6 +22,12 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
 }
 
 export function readerWordSurfaceText(element: Element): string {
+    const surface = readerWordChildSurfaceText(element);
+    if (surface || !isReaderWordElement(element)) return surface;
+    return element.dataset.surface ?? '';
+}
+
+function readerWordChildSurfaceText(element: Element): string {
     let text = '';
     element.childNodes.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -31,9 +37,13 @@ export function readerWordSurfaceText(element: Element): string {
         if (node.nodeType !== Node.ELEMENT_NODE) return;
         const child = node as Element;
         if (isSurfaceIgnoredElement(child)) return;
-        text += readerWordSurfaceText(child);
+        text += readerWordChildSurfaceText(child);
     });
     return text;
+}
+
+function isReaderWordElement(element: Element): element is HTMLElement {
+    return element instanceof HTMLElement && element.classList.contains('jpdb-reader-word');
 }
 
 export function readerWordAtPointInScope(

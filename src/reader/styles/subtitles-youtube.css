@@ -144,6 +144,7 @@
   paint-order: stroke fill;
 }
 .jpdb-subtitle-secondary {
+  --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted);
   display: block;
   width: fit-content;
   max-width: 100%;
@@ -153,7 +154,7 @@
   padding: 0;
   border: 0 !important;
   background: transparent !important;
-  color: var(--jpdb-reader-video-text-muted);
+  color: var(--jpdb-subtitle-secondary-color);
   font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);
   min-height: 24px;
   text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
@@ -162,12 +163,16 @@
   overflow-wrap: anywhere;
 }
 .jpdb-subtitle-secondary-blurred {
-  filter: blur(5px);
-  opacity: .8;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 6px var(--jpdb-subtitle-secondary-color), 0 0 9px var(--jpdb-reader-video-shadow-heavy);
+  opacity: .82;
 }
 .jpdb-subtitle-secondary-blurred:hover,
 .jpdb-subtitle-secondary-blurred:focus-visible {
-  filter: none;
+  color: var(--jpdb-subtitle-secondary-color) !important;
+  -webkit-text-fill-color: var(--jpdb-subtitle-secondary-color);
+  text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   opacity: 1;
 }
 .jpdb-subtitle-karaoke-word {
@@ -1264,6 +1269,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     top: 12px;
     right: 16px;
   }
+  .jpdb-reader-onboarding-basics { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }

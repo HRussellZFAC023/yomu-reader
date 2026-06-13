@@ -83,7 +83,14 @@ import {
     subtitleSourceContextKey,
     videoSummary,
 } from './subtitle-player-context';
-import { renderSubtitleKaraokeCue, renderSubtitlePrimary, renderSubtitleSecondary } from './subtitle-rendering';
+import {
+    SUBTITLE_SECONDARY_BLURRED_CLASS,
+    SUBTITLE_SECONDARY_CLEAR_CLASS,
+    renderSubtitleKaraokeCue,
+    renderSubtitlePrimary,
+    renderSubtitleSecondary,
+    syncSubtitleSecondaryBlurState,
+} from './subtitle-rendering';
 import {
     compareNativeOverlaySubtitleTrackOptions,
     isStalePageSubtitleTrack,
@@ -150,7 +157,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-cre
 // UT-48: parsed cue html survives reloads via sessionStorage (same-tab,
 // same video session). Keys are hashed — raw parse keys embed whole cue
 // texts and would blow past storage key-size sanity.
-const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v1:';
+const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v2:';
 const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function subtitleSessionParseHash(key: string): string {
@@ -191,6 +198,7 @@ interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: SubtitleParseOptions) => Promise<JPDBToken[]>;
     parseJapaneseBatch?: (texts: string[], options?: SubtitleParseOptions) => Promise<JPDBToken[][]>;
+    beforeRenderTokens?: (tokens: JPDBToken[]) => void | Promise<void>;
     afterParseTokens?: (tokens: JPDBToken[], roots?: ParentNode[]) => void;
     onSettingsChange: () => void;
 }
@@ -280,9 +288,9 @@ const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
 const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
 const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
 const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
-const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
+const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 4;
 const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
-const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
+const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
@@ -514,7 +522,7 @@ export class SubtitlePlayerController {
         'toggle-pause-panel': () => this.togglePausePanelMode(),
         'primary-track': target => { void this.choosePrimaryTrack(this.trackIdFromTarget(target)); },
         'secondary-track': target => { void this.chooseSecondaryTrack(this.trackIdFromTarget(target)); },
-        'toggle-native-blur': () => this.toggleNativeSubtitleBlur(),
+        'toggle-native-blur': target => this.toggleNativeSubtitleBlur(target.closest<HTMLElement>('.jpdb-subtitle-secondary')),
     };
 
     init(): void {
@@ -851,13 +859,15 @@ export class SubtitlePlayerController {
         video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('pause', () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
-        video.addEventListener('play', () => {
+        const handlePlaybackStarted = () => {
             this.pausePanelDismissed = false;
             // Same deferred path as pause: syncPauseTranscriptPanel sees the
             // playing video and closes the auto-opened panel after the paint.
             if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
             this.scheduleAlignToVideo();
-        }, this.eventOptions({ passive: true }));
+        };
+        video.addEventListener('play', handlePlaybackStarted, this.eventOptions({ passive: true }));
+        video.addEventListener('playing', handlePlaybackStarted, this.eventOptions({ passive: true }));
         this.scheduleAlignToVideo();
     }
 
@@ -1367,7 +1377,7 @@ export class SubtitlePlayerController {
         // would parse only AFTER the stability window.
         const texts = this.domCaptionCueTexts(text);
         if (!texts.length) return;
-        void this.parseCueHtmlBatch(texts).catch(() => undefined);
+        void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true }).catch(() => undefined);
     }
 
     private domCaptionCueTexts(text: string): string[] {
@@ -1507,7 +1517,7 @@ export class SubtitlePlayerController {
         }
 
         try {
-            const html = await this.parseCueHtml(text, settings);
+            const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true });
             this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
             // Keep plain selectable subtitles if JPDB is unavailable.
@@ -1572,7 +1582,7 @@ export class SubtitlePlayerController {
         ].join(':');
     }
 
-    private async parseCueHtml(text: string, settings = this.options.getSettings(), options: { allowProvisional?: boolean } = {}): Promise<string> {
+    private async parseCueHtml(text: string, settings = this.options.getSettings(), options: { allowProvisional?: boolean; enrichBeforeRender?: boolean } = {}): Promise<string> {
         const key = this.parseCacheKey(text, settings);
         const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
         if (cached) {
@@ -1580,11 +1590,12 @@ export class SubtitlePlayerController {
         }
         const emptyCached = this.freshEmptyParsedHtml(key);
         if (emptyCached) return emptyCached;
-        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text, settings, key);
+        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text, settings, key, options);
         const pending = this.pendingParsedCueHtml(key, 'authoritative');
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text, subtitleParseOptions(settings));
+            if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             this.rememberParsedCueHtml(key, html, tokens);
             return html;
@@ -1597,7 +1608,7 @@ export class SubtitlePlayerController {
         }
     }
 
-    private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string): Promise<string> {
+    private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string, options: { enrichBeforeRender?: boolean } = {}): Promise<string> {
         const restored = this.restoreSessionParsedCueHtml(key);
         if (restored) return restored;
         this.ensureAuthoritativeParsedCueHtml(text, settings, key);
@@ -1609,6 +1620,7 @@ export class SubtitlePlayerController {
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
+            if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             this.rememberParsedCueHtml(key, html, tokens, { provisional: true });
             return html;
@@ -1702,9 +1714,9 @@ export class SubtitlePlayerController {
         return text ? this.parseCacheKey(text, this.options.getSettings()) : '';
     }
 
-    private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: { allowProvisional?: boolean } = {}): Promise<ParsedSubtitleHtmlResult[]> {
+    private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: { allowProvisional?: boolean; enrichBeforeRender?: boolean } = {}): Promise<ParsedSubtitleHtmlResult[]> {
         const items = uniqueSubtitleParseTexts(texts).map(text => ({ text, key: this.parseCacheKey(text, settings) }));
-        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings);
+        if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
 
         const { ready, batch } = planSubtitleParseBatch(
             items,
@@ -1726,11 +1738,15 @@ export class SubtitlePlayerController {
         }
 
         const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), subtitleParseOptions(settings));
-        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings);
+        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
         return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
     }
 
-    private async parseCueHtmlBatchWithProvisionalFallback(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
+    private async parseCueHtmlBatchWithProvisionalFallback(
+        items: SubtitleParseBatchItem[],
+        settings: ReaderSettings,
+        options: { enrichBeforeRender?: boolean } = {},
+    ): Promise<ParsedSubtitleHtmlResult[]> {
         this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
         const { ready, batch } = planProvisionalSubtitleParseBatch(
             items,
@@ -1743,7 +1759,7 @@ export class SubtitlePlayerController {
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.text), provisionalSubtitleParseOptions())
             : Promise.all(batch.map(item => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
-        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true });
+        const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
         return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
     }
 
@@ -1751,14 +1767,20 @@ export class SubtitlePlayerController {
         batch: SubtitleParseBatchItem[],
         parsed: Promise<JPDBToken[][]>,
         settings: ReaderSettings,
-        options: { provisional?: boolean } = {},
+        options: { provisional?: boolean; enrichBeforeRender?: boolean } = {},
     ): Promise<ParsedSubtitleHtmlResult>[] {
-        return batch.map((item, index) => parsed.then(tokens => {
+        return batch.map((item, index) => parsed.then(async tokens => {
             const tokenList = tokens[index] ?? [];
+            if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, options);
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
+    }
+
+    private async beforeRenderParsedTokens(tokens: JPDBToken[]): Promise<void> {
+        if (!tokens.length || !this.options.beforeRenderTokens) return;
+        await this.options.beforeRenderTokens(tokens);
     }
 
     private async resolveParsedHtmlBatch(
@@ -1903,7 +1925,7 @@ export class SubtitlePlayerController {
                 // parsed immediately; the provisional path already enqueues the
                 // authoritative upgrade, and the shared pending maps dedupe this
                 // work against transcript-panel hydration.
-                await this.parseCueHtmlBatch(texts, settings);
+                await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true });
             } catch {
             }
             if (serial !== this.parseWarmupSerial) return;
@@ -3127,12 +3149,25 @@ export class SubtitlePlayerController {
         this.syncControls();
     }
 
-    private toggleNativeSubtitleBlur(): void {
+    private toggleNativeSubtitleBlur(target?: HTMLElement | null): void {
         const settings = this.options.getSettings();
         settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
+        const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
         this.options.onSettingsChange();
-        this.render();
+        if (!appliedInline) this.render();
         log.info('Native subtitle blur toggled', { blurred: settings.subtitleNativeBlurred });
+    }
+
+    private applyNativeSubtitleBlurState(nativeBlurred: boolean, language: ReaderSettings['interfaceLanguage'], target?: HTMLElement | null): boolean {
+        const targets = target
+            ? [target]
+            : Array.from(this.subtitleEl?.querySelectorAll<HTMLElement>('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
+        if (!targets.length) return false;
+        for (const button of targets) syncSubtitleSecondaryBlurState(button, nativeBlurred, language);
+        this.lastAppliedSubtitleHtml = this.lastAppliedSubtitleHtml
+            .split(nativeBlurred ? SUBTITLE_SECONDARY_CLEAR_CLASS : SUBTITLE_SECONDARY_BLURRED_CLASS)
+            .join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS);
+        return true;
     }
 
     private togglePausePanelMode(): void {
@@ -3604,7 +3639,7 @@ export class SubtitlePlayerController {
 
     private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
         try {
-            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings);
+            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, { enrichBeforeRender: true });
             if (serial !== this.transcriptHydrationSerial) return;
             for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
         } catch {
@@ -3669,7 +3704,10 @@ export class SubtitlePlayerController {
                 const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
                 if (!batch.length) continue;
                 try {
-                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, { allowProvisional: false });
+                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, {
+                        allowProvisional: false,
+                        enrichBeforeRender: true,
+                    });
                     if (serial !== this.transcriptCacheWarmupSerial) return;
                     for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
                 } catch {
@@ -3947,11 +3985,23 @@ export class SubtitlePlayerController {
         const viewportWidth = Math.max(320, window.innerWidth);
         const viewportHeight = Math.max(240, window.innerHeight);
         const settings = this.options.getSettings();
-        const referenceVideoRect = this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
+        // During a resize drag (skipInset) the player isn't growing, so reuse
+        // the already-latched reference rect instead of re-running the
+        // measureWithoutInset path every frame — that path toggles inset styles
+        // and forces two synchronous layouts, the bulk of resize-drag jank.
+        const reuseDragRect = options.skipInset && this.transcriptLayoutReferenceRect;
+        const referenceVideoRect = reuseDragRect
+            ? this.transcriptLayoutReferenceRect!
+            : this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
+        // During a drag the player isn't moving, so reuse the reference rect's
+        // top instead of re-measuring the live player rect (youtubeVisiblePlayerRect
+        // does 5 querySelectorAll + getBoundingClientRect) every frame — live
+        // profiling showed getBoundingClientRect dominating resize-drag time.
+        const anchorTop = reuseDragRect ? referenceVideoRect.top : this.transcriptAnchorRect().top;
         const layout = this.transcriptDrawerLayout({
             viewportWidth,
             viewportHeight,
-            anchorTop: this.transcriptAnchorRect().top,
+            anchorTop,
             compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
             preferredPlacement: settings.subtitleTranscriptPlacement,
             size: this.transcriptPanelSize,

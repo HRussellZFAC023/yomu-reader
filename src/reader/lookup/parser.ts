@@ -1,4 +1,5 @@
 import { JpdbClient } from '../jpdb/jpdb';
+import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -11,6 +12,12 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
 const LOCAL_MATCH_LIMIT = 40;
+// Cap concurrent IndexedDB-backed enrichment (pitch meta + per-kanji readings)
+// ACROSS all in-flight cue parses. Keyless YouTube warmup parses several cues
+// at once, each fanning out over up to LOCAL_MATCH_LIMIT matches; without a
+// shared gate that was thousands of concurrent IndexedDB requests at cold
+// start, starving the main thread so cues rendered late / half-enriched.
+const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
@@ -67,6 +74,7 @@ export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<string>>();
+    private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
 
     constructor(private dependencies: ReaderParserDependencies) {}
@@ -265,12 +273,18 @@ export class ReaderParser {
             log.warn('Local dictionary parse failed', { length: text.length }, error);
             return [];
         });
-        return Promise.all(matches.map(async match => {
+        // The card (identity/state) is synchronous; only the pitch + ruby
+        // enrichment hits IndexedDB. Gate that enrichment through a shared
+        // concurrency limiter so parsing many cues at once (keyless warmup)
+        // cannot flood IndexedDB and stall the main thread.
+        return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async match => {
             const card = this.localCardFromEntry(match.entry);
-            const pitch = await this.localPitchPattern(card, options);
-            if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
             const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : '';
-            const rubies = reading ? await this.localRubySegments(match.surface, reading, match.start, match.end) : [];
+            const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+            if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+            const rubies = reading
+                ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end))
+                : [];
             return {
                 card,
                 start: match.start,
@@ -280,7 +294,7 @@ export class ReaderParser {
                 pitchClass: pitch ? getPitchClass([pitch], card.reading) : '',
                 sentence: text,
             };
-        }));
+        });
     }
 
     private parseSegmentedText(text: string): JPDBToken[] {

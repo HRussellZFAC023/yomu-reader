@@ -97,6 +97,11 @@
     return words.length;
   }
   function readerWordSurfaceText(element) {
+    const surface = readerWordChildSurfaceText(element);
+    if (surface || !isReaderWordElement(element)) return surface;
+    return element.dataset.surface ?? "";
+  }
+  function readerWordChildSurfaceText(element) {
     let text = "";
     element.childNodes.forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -106,9 +111,12 @@
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const child = node;
       if (isSurfaceIgnoredElement(child)) return;
-      text += readerWordSurfaceText(child);
+      text += readerWordChildSurfaceText(child);
     });
     return text;
+  }
+  function isReaderWordElement(element) {
+    return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
   }
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
@@ -2448,6 +2456,8 @@
       onboardingEyebrow: "Japanese, wherever it appears",
       onboardingCopy: "Make Japanese text, subtitles, and images tappable while you read.",
       onboardingLanguage: "Settings language",
+      onboardingAccentColor: "Accent color",
+      customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
       onboardingAddApiKey: "Add API key",
       onboardingAddLocalDictionaries: "Add local dictionaries",
@@ -2482,6 +2492,7 @@
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
+      sources: "Sources",
       media: "Media",
       mining: "Mining",
       shortcuts: "Shortcuts",
@@ -3502,6 +3513,8 @@ welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
 onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingAccentColor	アクセントカラー
+customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -3524,6 +3537,7 @@ settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
 dictionaries	辞書
+sources	ソース
 localWordSingular	項目
 localWordPlural	項目
 kanji	漢字
@@ -3994,6 +4008,7 @@ show	表示
 hide	隠す
 appearance	外観
 reading	読解
+sources	ソース
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -5657,9 +5672,9 @@ recommendedJiten	jiten.moe頻度データです。
     return {
       api: "jpdb-reader-settings-panel-api",
       newTab: "jpdb-reader-settings-panel-newtab",
-      appearance: "jpdb-reader-settings-panel-appearance",
+      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
       reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
-      dictionaries: "jpdb-reader-settings-panel-dictionaries",
+      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
       media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
       mining: "jpdb-reader-settings-panel-mining",
       shortcuts: "jpdb-reader-settings-panel-shortcuts",
@@ -6876,7 +6891,7 @@ recommendedJiten	jiten.moe頻度データです。
                             ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
                             ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding via API", settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
                             ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings.ankiCaptureScreenshot)}
-                            <div class="jpdb-reader-settings-wide">${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}</div>
+                            ${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}
                             ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
                             <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${ankiStatus.html}</div>
                         </div>
@@ -7400,8 +7415,7 @@ recommendedJiten	jiten.moe頻度データです。
     { panel: "api", label: "API", active: true },
     { panel: "newTab", label: "Study" },
     { panel: "appearance", label: "Appearance" },
-    { panel: "reading", label: "Reading" },
-    { panel: "dictionaries", label: "Dictionaries" },
+    { panel: "dictionaries", label: "Sources", labelKey: "sources" },
     { panel: "media", label: "Media" },
     { panel: "mining", label: "Mining" },
     { panel: "shortcuts", label: "Shortcuts" },
@@ -7486,12 +7500,12 @@ recommendedJiten	jiten.moe頻度データです。
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
+            ${renderDictionariesSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
             ${renderYoutubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
             ${renderHelpSettingsPanel(settings)}
             </div>
@@ -7869,7 +7883,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderReaderSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox("parseSelection", "Look up selected text", settings.parseSelection)}
@@ -7905,7 +7919,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderKanjiSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
@@ -8021,8 +8035,8 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderDictionariesSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
-                <legend>Dictionaries</legend>
+            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
+                <legend>Sources</legend>
                 <div class="grid">
                     ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
                     ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
@@ -9225,7 +9239,10 @@ recommendedJiten	jiten.moe頻度データです。
     return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? "api";
   }
   function normalizeSettingsPanel(panel) {
-    return panel === "basics" || panel === "jpdb" ? "api" : panel;
+    if (panel === "basics" || panel === "jpdb") return "api";
+    if (panel === "reading" || panel === "reader") return "appearance";
+    if (panel === "kanji") return "dictionaries";
+    return panel;
   }
   function normalizeSettingsSearchText(value) {
     return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
@@ -9990,7 +10007,9 @@ recommendedJiten	jiten.moe頻度データです。
     bindLivePreview(form) {
       const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
       form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
-        this.dependencies.applyAccentColor(event.currentTarget.value);
+        const accentColor = event.currentTarget.value;
+        this.dependencies.applyAccentColor(accentColor);
+        publishSettingsChange({ accentColor }, { preview: true });
       });
       form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
         input2.addEventListener("input", () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
@@ -10010,7 +10029,7 @@ recommendedJiten	jiten.moe頻度データです。
         this.settings.theme = next;
         applyThemePreview();
         this.syncThemeSwitch(form);
-        publishThemeSettingsChange(next, { preview: true });
+        publishSettingsChange({ theme: next }, { preview: true });
       });
       window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
         if (this.currentForm !== form || !form.isConnected) return;
@@ -11137,8 +11156,8 @@ recommendedJiten	jiten.moe頻度データです。
     const record = value;
     return record.formatName === "yomu-reader-settings" || record.formatName === "jpdb-popup-reader-settings" ? record.storage : null;
   }
-  function publishThemeSettingsChange(theme, options = {}) {
-    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
+  function publishSettingsChange(settings, options = {}) {
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;

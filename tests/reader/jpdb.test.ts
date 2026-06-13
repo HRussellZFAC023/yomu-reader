@@ -15,7 +15,7 @@ import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/lookup/d
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { DictionarySourceStateController } from '../../src/reader/sources/state';
-import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, nearestReadableSentenceForElement, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom/index';
+import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom/index';
 import { FloatingButtonController } from '../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion/kit';
 import type { JitenApiClient } from '../../src/reader/dictionaries/jiten';
@@ -26954,6 +26954,8 @@ describe('reader helpers', () => {
 
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributes).toBe(true);
         expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).toContain('open');
+        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).not.toContain('class');
+        expect(AUTO_SCAN_OBSERVER_OPTIONS.attributeFilter).not.toContain('style');
         expect(mutationMayContainJapaneseText(mutation)).toBe(true);
     });
 
@@ -26988,6 +26990,64 @@ describe('reader helpers', () => {
 
         expect(mutationMayContainJapaneseText(mutation)).toBe(false);
         expect(mutationMayAffectJpdbPageEnhancements(mutation)).toBe(false);
+    });
+
+    it('recognizes host text restorations after reader-word rendering as churn', () => {
+        document.body.innerHTML = '<yt-attributed-string id="content-text">先生いつもありがとうございました。</yt-attributed-string>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true });
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '先生', reading: 'せんせい' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'せんせい', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '先生いつもありがとうございました。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const host = document.querySelector<HTMLElement>('#content-text')!;
+        const removedNodes = Array.from(host.childNodes);
+        host.textContent = '先生いつもありがとうございました。';
+        const mutation = {
+            type: 'childList',
+            target: host,
+            addedNodes: Array.from(host.childNodes),
+            removedNodes,
+        } as unknown as MutationRecord;
+
+        expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+        expect(mutationLooksLikeReaderRenderRejection(mutation)).toBe(true);
+        expect(readerRenderRejectionRescanDelay(mutation)).toBeGreaterThan(0);
+    });
+
+    it('repairs damaged reader ruby when the host leaves only furigana behind', () => {
+        document.body.innerHTML = '<yt-attributed-string id="content-text">質や正確性にはばらつきがあります。</yt-attributed-string>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true });
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '質', reading: 'しつ' },
+            start: 0,
+            end: 1,
+            length: 1,
+            rubies: [{ text: 'しつ', start: 0, end: 1, length: 1 }],
+            pitchClass: '',
+            sentence: '質や正確性にはばらつきがあります。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const host = document.querySelector<HTMLElement>('#content-text')!;
+        const word = host.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const rubyBase = word.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        const removedNodes = [rubyBase.firstChild!];
+        rubyBase.textContent = '';
+        const mutation = {
+            type: 'childList',
+            target: rubyBase,
+            addedNodes: [],
+            removedNodes,
+        } as unknown as MutationRecord;
+
+        expect(mutationLooksLikeReaderRenderRejection(mutation)).toBe(true);
+        expect(readerRenderRejectionRescanDelay(mutation)).toBeGreaterThan(0);
+        expect(host.textContent).toBe('質や正確性にはばらつきがあります。');
     });
 
     it('refreshes JPDB page addons for target visibility changes', () => {
@@ -27144,7 +27204,7 @@ describe('reader helpers', () => {
         expect(document.querySelectorAll('ytd-watch-metadata h1 rt')).toHaveLength(0);
     });
 
-    it('scans mobile YouTube watch metadata, actions, and transcript controls with stable furigana', () => {
+    it('scans stable mobile YouTube descriptions and watch chrome as passive ruby targets', () => {
         const targets = collectYouTubeTargets(`
             <ytm-watch-metadata>
                 <ytm-slim-video-metadata-section-renderer>
@@ -27173,13 +27233,24 @@ describe('reader helpers', () => {
         ]));
         expect(targets.map(target => target.text)).not.toContain('日本語タイトル');
 
-        const metadata = targets.find(target => target.text.startsWith('52,551回視聴'));
-        const question = targets.find(target => target.text === '質問する');
-        expect(metadata && 'layoutSensitive' in metadata ? metadata.layoutSensitive : true).toBe(false);
-        expect(question && 'layoutSensitive' in question ? question.layoutSensitive : true).toBe(false);
-        expect(question && 'passiveInteraction' in question ? question.passiveInteraction : false).toBe(true);
+        expect(document.querySelector('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')).toBeNull();
 
-        applyTokensToScanTarget(question!, [{
+        const metadata = targets.find(target => target.text === '52,551回視聴 2026/06/12')!;
+        const question = targets.find(target => target.text === '質問する')!;
+        const transcript = targets.find(target => target.text === '文字起こしを表示')!;
+        for (const target of [question, transcript]) {
+            expect('passiveInteraction' in target && target.passiveInteraction).toBe(true);
+        }
+        applyTokensToScanTarget(metadata, [{
+            card: { ...card, cardState: ['known'], spelling: '視聴', reading: 'しちょう' },
+            start: metadata.text.indexOf('視聴'),
+            end: metadata.text.indexOf('視聴') + 2,
+            length: 2,
+            rubies: [{ text: 'しちょう', start: metadata.text.indexOf('視聴'), end: metadata.text.indexOf('視聴') + 2, length: 2 }],
+            pitchClass: '',
+            sentence: metadata.text,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(question, [{
             card: { ...card, cardState: ['known'], spelling: '質問', reading: 'しつもん' },
             start: 0,
             end: 2,
@@ -27188,13 +27259,23 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '質問する',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(transcript, [{
+            card: { ...card, cardState: ['known'], spelling: '文字', reading: 'もじ' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'もじ', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '文字起こしを表示',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        expect(document.querySelector('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')).toBeNull();
-        expect(readerWordSurfaceText(document.querySelector('ytm-button-renderer .jpdb-reader-word.jpdb-known')!)).toBe('質問');
-        expect(document.querySelector('ytm-button-renderer rt')?.textContent).toBe('しつもん');
+        expect(document.querySelector('.slim-video-metadata-info rt')?.textContent).toBe('しちょう');
+        expect(readerWordSurfaceText(document.querySelector('ytm-button-renderer .jpdb-reader-word')!)).toBe('質問');
+        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word')?.getAttribute('data-jpdb-reader-passive')).toBe('true');
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer rt')?.textContent).toBe('もじ');
     });
 
-    it('keeps YouTube comment controls clickable while comment text remains active', () => {
+    it('keeps YouTube comment controls passive while comment text remains active', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-comment-view-model>
                 <yt-attributed-string id="content-text">今夜も配信見なかったごめんね。</yt-attributed-string>
@@ -27223,17 +27304,17 @@ describe('reader helpers', () => {
             start: 0,
             end: 2,
             length: 2,
-            rubies: [],
+            rubies: [{ text: 'つづき', start: 0, end: 2, length: 2 }],
             pitchClass: '',
             sentence: '続きを読む',
-        }], DEFAULT_SETTINGS);
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
         const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
         expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(moreWord.tabIndex).toBe(-1);
+        expect(moreWord.querySelector('rt')?.textContent).toBe('つづ');
     });
 
     it('scans long YouTube watch comment threads without mutating the video title', () => {
@@ -27257,7 +27338,7 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toContain('コメント119です');
     });
 
-    it('scans Japanese YouTube live chat and passive chat UI text', () => {
+    it('scans Japanese YouTube live chat without wrapping chat UI controls', () => {
         const targets = collectYouTubeTargets(`
             <yt-live-chat-app>
                 <yt-live-chat-text-message-renderer>
@@ -27273,7 +27354,8 @@ describe('reader helpers', () => {
             '今日はライブで日本語を聞いています。',
             '返信',
         ]));
-        expect(targets.find(target => target.text === '返信')?.passiveInteraction).toBe(true);
+        const reply = targets.find(target => target.text === '返信')!;
+        expect('passiveInteraction' in reply && reply.passiveInteraction).toBe(true);
     });
 
     it('scans YouTube player settings submenu labels as passive ruby targets', () => {
@@ -27319,26 +27401,23 @@ describe('reader helpers', () => {
             '再生速度',
             '画質',
         ]));
-        const stableVolume = targets.find(target => target.text === '一定音量');
-        expect(stableVolume?.passiveInteraction).toBe(true);
-
-        applyTokensToScanTarget(stableVolume!, [{
-            card: { ...card, vid: 1042, sid: 1042, spelling: '一定音量', reading: 'いっていおんりょう', cardState: ['new'] },
+        const playbackSpeed = targets.find(target => target.text === '再生速度')!;
+        expect('passiveInteraction' in playbackSpeed && playbackSpeed.passiveInteraction).toBe(true);
+        applyTokensToScanTarget(playbackSpeed, [{
+            card: { ...card, cardState: ['known'], spelling: '再生', reading: 'さいせい' },
             start: 0,
-            end: 4,
-            length: 4,
-            rubies: [{ text: 'いっていおんりょう', start: 0, end: 4, length: 4 }],
-            pitchClass: 'heiban',
-            sentence: '一定音量',
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'さいせい', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '再生速度',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
         const word = document.querySelector<HTMLElement>('.ytp-menuitem-label .jpdb-reader-word')!;
         expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(readerWordSurfaceText(word)).toBe('一定音量');
-        expect(word.querySelector('rt')?.textContent).toBe('いっていおんりょう');
+        expect(word.querySelector('rt')?.textContent).toBe('さいせい');
     });
 
-    it('scans YouTube homepage and suggested video titles as passive hover targets', () => {
+    it('scans YouTube homepage and suggested video titles as passive ruby targets', () => {
         const targets = collectYouTubeTargets(`
             <ytd-app>
                 <ytd-rich-grid-renderer>
@@ -27370,7 +27449,63 @@ describe('reader helpers', () => {
             '東京散歩',
             '関連動画の発行ニュース',
         ]));
-        expect(targets.every(target => target.passiveInteraction === true)).toBe(true);
+        for (const title of targets) {
+            expect('passiveInteraction' in title && title.passiveInteraction).toBe(true);
+        }
+        const related = targets.find(target => target.text === '関連動画の発行ニュース')!;
+        applyTokensToScanTarget(related, [{
+            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
+            pitchClass: '',
+            sentence: '関連動画の発行ニュース',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt')?.textContent).toBe('かんれんどうが');
+    });
+
+    it('scans modern YouTube lockup titles as passive ruby targets', () => {
+        const targets = collectYouTubeTargets(`
+            <yt-lockup-view-model>
+                <a class="ytLockupViewModelContentImage" href="/watch?v=news"></a>
+                <div class="ytLockupMetadataViewModelMetadata">
+                    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=news">
+                        【LIVE】朝のニュース（Japan News Digest Live）最新情報など
+                    </a>
+                </div>
+            </yt-lockup-view-model>
+            <ytm-shorts-lockup-view-model>
+                <a class="shortsLockupViewModelHostEndpoint" href="/shorts/mobile">
+                    <h3 class="shortsLockupViewModelHostMetadataTitle">日本語が難しい理由</h3>
+                </a>
+            </ytm-shorts-lockup-view-model>
+        `, 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC', 10);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '【LIVE】朝のニュース（Japan News Digest Live）最新情報など',
+            '日本語が難しい理由',
+        ]));
+        for (const target of targets) {
+            expect('passiveInteraction' in target && target.passiveInteraction).toBe(true);
+        }
+
+        const lockup = targets.find(target => target.text.startsWith('【LIVE】'))!;
+        applyTokensToScanTarget(lockup, [{
+            card: { ...card, cardState: ['known'], spelling: '朝', reading: 'あさ' },
+            start: lockup.text.indexOf('朝'),
+            end: lockup.text.indexOf('朝') + 1,
+            length: 1,
+            rubies: [{ text: 'あさ', start: lockup.text.indexOf('朝'), end: lockup.text.indexOf('朝') + 1, length: 1 }],
+            pitchClass: '',
+            sentence: lockup.text,
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('yt-lockup-view-model .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt')?.textContent).toBe('あさ');
     });
 
     it('falls back to generic scanning for parser sites that opt into page text', () => {

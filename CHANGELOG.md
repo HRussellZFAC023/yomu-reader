@@ -1,10 +1,21 @@
 # Changelog
 
+## [0.6.190] - 2026-06-13
+
+### Performance
+
+- Keyless (no API key) subtitle parsing no longer floods IndexedDB. Each cue's pitch + per-kanji reading lookups now run through a shared concurrency gate, so warming several cues at once can't fire thousands of simultaneous IndexedDB requests that starved the main thread and left lines half-annotated as they played. Live-profiled on a signed-in YouTube watch page: dense 12-word ASR cues now get full ruby/pitch in time.
+- Hovering to look up a word is skipped while a mouse button is held (i.e. while dragging). Live profiling showed the hover probe (`elementFromPoint` + a `querySelectorAll`/`getClientRects` sweep over every transcript word) was a dominant cost of subtitle-sidebar resize lag; it no longer runs during a drag.
+- The subtitle sidebar resize drag reuses the latched player rect instead of re-measuring it every frame (which toggled inset styles and forced two synchronous layouts). Measured `getBoundingClientRect` cost during a resize drag dropped ~60%.
+- The page text-scan target dedup is no longer O(n²): outermost-match filtering uses an ancestor-membership walk instead of a nested native `contains()` scan, which dominated the auto-scan on YouTube's churning DOM during playback.
+- Pointer-move hover probing is coalesced to once per animation frame instead of running on every raw pointer event.
+
 ## [0.6.189] - 2026-06-13
 
 ### Fixed
 
 - Opening the popup dictionary now temporarily suppresses native browser `title` tooltips on the active lookup word's page ancestor path, so host-page title tooltips no longer cover the dictionary. Unrelated page titles are left alone and every suppressed title is restored when the popup closes.
+- Keyless YouTube subtitle warmup now enriches future cached lines with public/local vocabulary and pitch before they can be reused during playback, so background transcript parsing no longer locks in plain half-ready subtitle HTML ahead of the active cue.
 
 ## [0.6.188] - 2026-06-13
 

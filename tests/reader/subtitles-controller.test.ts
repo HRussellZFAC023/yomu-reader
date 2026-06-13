@@ -14,7 +14,7 @@ import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitles/subt
 // one test cannot satisfy another test's parse expectations.
 afterEach(() => {
     for (const key of Object.keys(sessionStorage)) {
-        if (key.startsWith('yomu:subtitle-parse:v1:')) sessionStorage.removeItem(key);
+        if (key.startsWith('yomu:subtitle-parse:')) sessionStorage.removeItem(key);
     }
 });
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
@@ -86,6 +86,7 @@ function createSubtitleController<TSettings extends ReaderSettings>(
         getSettings: () => settings,
         parseJapanese: hooks.parseJapanese ?? (async () => []),
         ...(hooks.parseJapaneseBatch ? { parseJapaneseBatch: hooks.parseJapaneseBatch } : {}),
+        ...(hooks.beforeRenderTokens ? { beforeRenderTokens: hooks.beforeRenderTokens } : {}),
         ...(hooks.afterParseTokens ? { afterParseTokens: hooks.afterParseTokens } : {}),
         onSettingsChange: hooks.onSettingsChange ?? (() => undefined),
     });
@@ -302,6 +303,7 @@ describe('SubtitlePlayerController', () => {
             expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-player:not(.jpdb-subtitle-has-video-frame) .jpdb-subtitle-rail');
         } finally {
             controller.destroy();
+            vi.unstubAllGlobals();
         }
     });
 
@@ -993,10 +995,16 @@ describe('SubtitlePlayerController', () => {
                 cues: Array<typeof cue>;
                 currentCue: typeof cue;
                 openLinesPanel: () => void;
+                observeVideoLayout: (video: HTMLVideoElement) => void;
             };
             internals.video = video;
             internals.cues = [cue];
             internals.currentCue = cue;
+            vi.stubGlobal('ResizeObserver', class {
+                observe(): void {}
+                disconnect(): void {}
+            });
+            internals.observeVideoLayout(video);
 
             internals.openLinesPanel();
 
@@ -1028,6 +1036,13 @@ describe('SubtitlePlayerController', () => {
             expect(panel.textContent).toContain('自動で隠す');
             expect(reopenedButton.getAttribute('aria-pressed')).toBe('true');
             expect(reopenedButton.getAttribute('aria-label')).toBe('Keep panel open while playing');
+
+            Object.defineProperty(video, 'paused', { configurable: true, value: false });
+            video.dispatchEvent(new Event('playing'));
+            await vi.advanceTimersByTimeAsync(16);
+            await vi.advanceTimersByTimeAsync(0);
+            await vi.advanceTimersByTimeAsync(181);
+            expect(panel.hidden).toBe(true);
         } finally {
             controller.destroy();
         }
@@ -1581,9 +1596,53 @@ describe('SubtitlePlayerController', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss)
-            .toContain('.jpdb-subtitle-secondary { display: block; width: fit-content; max-width: 100%;');
+            .toContain('.jpdb-subtitle-secondary { --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted); display: block; width: fit-content; max-width: 100%;');
         expect(normalizedCss)
             .toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
+    });
+
+    it('reveals blurred secondary subtitles without the mobile-expensive CSS filter', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-subtitle-secondary-blurred { color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: 0 0 6px var(--jpdb-subtitle-secondary-color), 0 0 9px var(--jpdb-reader-video-shadow-heavy); opacity: .82; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-secondary-blurred:hover, .jpdb-subtitle-secondary-blurred:focus-visible { color: var(--jpdb-subtitle-secondary-color) !important; -webkit-text-fill-color: var(--jpdb-subtitle-secondary-color);');
+        expect(normalizedCss).not.toContain('filter: blur(5px);');
+    });
+
+    it('toggles native subtitle blur in place without reparsing or rebuilding the line', () => {
+        const parseJapanese = vi.fn(async () => []);
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleSecondaryVisible: true,
+            subtitleNativeBlurred: true,
+        }, { parseJapanese, onSettingsChange });
+        const internals = controllerInternals<{
+            render: () => void;
+            secondaryCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+        }>(controller);
+
+        try {
+            internals.secondaryCue = { start: 0, end: 2, text: 'English translation', transcriptEligible: true };
+            internals.render();
+
+            const button = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-secondary')!;
+            parseJapanese.mockClear();
+
+            button.click();
+
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-subtitle-secondary')).toBe(button);
+            expect(button.classList.contains('jpdb-subtitle-secondary-clear')).toBe(true);
+            expect(button.classList.contains('jpdb-subtitle-secondary-blurred')).toBe(false);
+
+            internals.render();
+
+            expect(document.querySelector('.jpdb-subtitle-secondary')).toBe(button);
+        } finally {
+            controller.destroy();
+        }
     });
 
     it('hides idle subtitle rails on touch screens instead of keeping them pinned at 72% opacity', () => {
@@ -2041,6 +2100,54 @@ describe('SubtitlePlayerController', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
+    });
+
+    it('reuses the latched reference rect during a resize drag instead of re-measuring without inset', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const video = attachVideo(controller, { rect: new DOMRect(0, 0, 960, 540) });
+            const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+            const internals = controllerInternals<{
+                video: HTMLVideoElement;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+                openLinesPanel: () => void;
+                positionTranscriptPanel: (options?: { skipInset?: boolean }) => void;
+                transcriptLayoutReferenceVideoRect: (w: number, h: number) => DOMRect;
+                transcriptLayoutReferenceRect?: DOMRect;
+            }>(controller);
+            internals.video = video;
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            internals.openLinesPanel();
+
+            // Count the expensive measure-without-inset reference computation.
+            const realReference = internals.transcriptLayoutReferenceVideoRect.bind(internals);
+            let referenceMeasures = 0;
+            internals.transcriptLayoutReferenceVideoRect = (w: number, h: number) => {
+                referenceMeasures += 1;
+                return realReference(w, h);
+            };
+
+            // Prime the latched reference rect (as a real first layout would).
+            internals.positionTranscriptPanel();
+            expect(referenceMeasures).toBeGreaterThan(0);
+            expect(internals.transcriptLayoutReferenceRect).toBeTruthy();
+
+            // Resize-drag frames (skipInset) must NOT re-measure: they reuse the
+            // latched reference, avoiding the inset style-toggle + double layout.
+            const beforeDrag = referenceMeasures;
+            internals.positionTranscriptPanel({ skipInset: true });
+            internals.positionTranscriptPanel({ skipInset: true });
+            internals.positionTranscriptPanel({ skipInset: true });
+            expect(referenceMeasures).toBe(beforeDrag);
+
+            // A normal (non-drag) reposition still re-measures.
+            internals.positionTranscriptPanel();
+            expect(referenceMeasures).toBe(beforeDrag + 1);
+        } finally {
+            controller.destroy();
+        }
     });
 
     it('pauses transcript auto-follow after a manual scroll and resumes after the window', () => {
@@ -3006,6 +3113,46 @@ describe('SubtitlePlayerController', () => {
         expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
     });
 
+    it('enriches priority YouTube subtitle batches before rendering cached html', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=priority') as unknown as Location,
+        });
+
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                furiganaMode: 'all' as const,
+                localDictionariesEnabled: false,
+            };
+            const token = makeSubtitleToken('本', { cardState: ['known'] });
+            const parseJapaneseBatch = vi.fn(async () => [[token]]);
+            const beforeRenderTokens = vi.fn(async (tokens: JPDBToken[]) => {
+                tokens[0].card.reading = 'ほん';
+                tokens[0].card.pitchAccent = ['HL'];
+                tokens[0].pitchClass = 'atamadaka';
+            });
+            const { controller } = createSubtitleController(settings, { parseJapaneseBatch, beforeRenderTokens });
+            const internals = controller as unknown as {
+                parseCueHtmlBatch: (texts: string[], settings: ReaderSettings, options?: { enrichBeforeRender?: boolean }) => Promise<Array<{ html: string }>>;
+            };
+
+            const parsed = await internals.parseCueHtmlBatch(['本'], settings, { enrichBeforeRender: true });
+
+            expect(beforeRenderTokens).toHaveBeenCalledWith([token]);
+            expect(parsed[0]?.html).toContain('jpdb-pitch-atamadaka');
+            expect(parsed[0]?.html).toContain('<rt class="jpdb-reader-furi">ほん</rt>');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('continues parsing transcript rows beyond the visible hydration window', async () => {
         const originalRequestAnimationFrame = window.requestAnimationFrame;
         window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
@@ -3651,9 +3798,54 @@ describe('SubtitlePlayerController', () => {
         await internals.warmTranscriptParseCache(rows, 0, settings, 1);
 
         expect(parseJapanese).not.toHaveBeenCalled();
-        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3']);
+        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['字幕0', '字幕1', '字幕2', '字幕3', '字幕4', '字幕5', '字幕6', '字幕7']);
         expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(SUBTITLE_PARSE_OPTIONS);
-        expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕4', '字幕5', '字幕6', '字幕7']);
+        expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕8']);
+    });
+
+    it('enriches transcript background warmup html before caching future subtitle lines', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            furiganaMode: 'all' as const,
+        };
+        const token = makeSubtitleToken('本', { cardState: ['known'] });
+        const parseJapaneseBatch = vi.fn(async () => [[token]]);
+        const beforeRenderTokens = vi.fn(async (tokens: JPDBToken[]) => {
+            tokens[0].card.reading = 'ほん';
+            tokens[0].card.pitchAccent = ['HL'];
+            tokens[0].pitchClass = 'atamadaka';
+        });
+        const { controller } = createSubtitleController(settings, {
+            parseJapanese: async () => [],
+            parseJapaneseBatch,
+            beforeRenderTokens,
+        });
+        const rows = [{ cue: { start: 0, end: 1, text: '本', transcriptEligible: true }, cueIndex: 0 }];
+        type WarmupRows = typeof rows;
+        type WarmupSettings = typeof settings;
+        const internals = controller as unknown as {
+            transcriptCacheWarmupSerial: number;
+            warmTranscriptParseCache: (
+                rows: WarmupRows,
+                preferredIndex: number,
+                settings: WarmupSettings,
+                serial: number,
+            ) => Promise<void>;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parsedHtmlCache: Map<string, string>;
+        };
+
+        internals.transcriptCacheWarmupSerial = 1;
+        await internals.warmTranscriptParseCache(rows, 0, settings, 1);
+
+        const html = internals.parsedHtmlCache.get(internals.parseCacheKey('本', settings)) ?? '';
+        expect(beforeRenderTokens).toHaveBeenCalledWith([token]);
+        expect(html).toContain('jpdb-pitch-atamadaka');
+        expect(html).toContain('<rt class="jpdb-reader-furi">ほん</rt>');
     });
 
     it('reuses pending transcript cue parses across batch hydration requests', async () => {
@@ -3782,7 +3974,7 @@ describe('subtitle parse session persistence (UT-48)', () => {
         };
         const html = await firstInternals.parseCueHtml('読む', settings, { allowProvisional: false });
         expect(html).toContain('jpdb-reader-word');
-        expect(Object.keys(sessionStorage).some(key => key.startsWith('yomu:subtitle-parse:v1:'))).toBe(true);
+        expect(Object.keys(sessionStorage).some(key => key.startsWith('yomu:subtitle-parse:'))).toBe(true);
 
         const secondParse = vi.fn(async () => [token]);
         const second = new SubtitlePlayerController({

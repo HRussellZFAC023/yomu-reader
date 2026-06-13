@@ -2109,6 +2109,8 @@
       onboardingEyebrow: "Japanese, wherever it appears",
       onboardingCopy: "Make Japanese text, subtitles, and images tappable while you read.",
       onboardingLanguage: "Settings language",
+      onboardingAccentColor: "Accent color",
+      customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
       onboardingAddApiKey: "Add API key",
       onboardingAddLocalDictionaries: "Add local dictionaries",
@@ -2143,6 +2145,7 @@
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
+      sources: "Sources",
       media: "Media",
       mining: "Mining",
       shortcuts: "Shortcuts",
@@ -3163,6 +3166,8 @@ welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
 onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingAccentColor	アクセントカラー
+customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -3185,6 +3190,7 @@ settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
 dictionaries	辞書
+sources	ソース
 localWordSingular	項目
 localWordPlural	項目
 kanji	漢字
@@ -3655,6 +3661,7 @@ show	表示
 hide	隠す
 appearance	外観
 reading	読解
+sources	ソース
 media	メディア
 mining	採掘
 shortcuts	ショートカット

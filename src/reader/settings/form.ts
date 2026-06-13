@@ -68,8 +68,7 @@ const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: Setting
     { panel: 'api', label: 'API', active: true },
     { panel: 'newTab', label: 'Study' },
     { panel: 'appearance', label: 'Appearance' },
-    { panel: 'reading', label: 'Reading' },
-    { panel: 'dictionaries', label: 'Dictionaries' },
+    { panel: 'dictionaries', label: 'Sources', labelKey: 'sources' },
     { panel: 'media', label: 'Media' },
     { panel: 'mining', label: 'Mining' },
     { panel: 'shortcuts', label: 'Shortcuts' },
@@ -157,12 +156,12 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
+            ${renderDictionariesSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
             ${renderYoutubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
             ${renderHelpSettingsPanel(settings)}
             </div>
@@ -594,7 +593,7 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox('parseSelection', 'Look up selected text', settings.parseSelection)}
@@ -632,7 +631,7 @@ function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
 
 function renderKanjiSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
@@ -756,8 +755,8 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
-                <legend>Dictionaries</legend>
+            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
+                <legend>Sources</legend>
                 <div class="grid">
                     ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
                     ${checkbox('localDictionariesEnabled', 'Show imported dictionary definitions', settings.localDictionariesEnabled)}
@@ -1963,7 +1962,10 @@ function activeSettingsPanel(form: HTMLFormElement): string {
 }
 
 function normalizeSettingsPanel(panel: string): string {
-    return panel === 'basics' || panel === 'jpdb' ? 'api' : panel;
+    if (panel === 'basics' || panel === 'jpdb') return 'api';
+    if (panel === 'reading' || panel === 'reader') return 'appearance';
+    if (panel === 'kanji') return 'dictionaries';
+    return panel;
 }
 
 function normalizeSettingsSearchText(value: string): string {

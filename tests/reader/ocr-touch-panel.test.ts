@@ -20,6 +20,7 @@ function createOcrImageControllerFixture(options: {
     box?: OcrLineFixtureBox;
     settings?: Partial<ReaderSettings>;
     parseJapanese?: ImageOcrControllerOptions['parseJapanese'];
+    parseJapaneseBatch?: ImageOcrControllerOptions['parseJapaneseBatch'];
     shouldAutoScan?: ImageOcrControllerOptions['shouldAutoScan'];
 } = {}): {
     sentence: string;
@@ -51,6 +52,7 @@ function createOcrImageControllerFixture(options: {
             ...options.settings,
         }),
         parseJapanese,
+        ...(options.parseJapaneseBatch ? { parseJapaneseBatch: options.parseJapaneseBatch } : {}),
         onToast: vi.fn(),
         shouldAutoScan: options.shouldAutoScan ?? (() => true),
     });
@@ -245,6 +247,55 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('batches OCR line parsing when a batch parser is available', async () => {
+        stubInstantIntersectionObserver();
+        const image = document.createElement('img');
+        image.src = '/ocr-multi-line.png';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+            { text: '本を読む', box: { left: 0.1, top: 0.4, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+        const parseJapanese = vi.fn(async () => []);
+        const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [parsedToken(text)]));
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: false,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese,
+            parseJapaneseBatch,
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')).toHaveLength(2);
+            });
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(parseJapaneseBatch).toHaveBeenCalledWith(['日本語', '本を読む'], expect.objectContaining({
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+            }));
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('fills unparsed OCR text with fallback reader words so hover lookup and enrichment can attach', async () => {
         stubInstantIntersectionObserver();
         const sentence = '日本語を読む';
@@ -259,7 +310,10 @@ describe('OCR sentence focus', () => {
         document.body.replaceChildren(image);
         const enrichTokensBeforeRender = vi.fn(async (tokens: JPDBToken[]) => {
             tokens.forEach(token => {
-                if (token.card.spelling === '日本語') token.card.reading = 'にほんご';
+                if (token.card.spelling !== '日本語') return;
+                token.card.reading = 'にほんご';
+                token.card.cardState = ['known'];
+                token.pitchClass = 'heiban';
             });
         });
 
@@ -306,7 +360,10 @@ describe('OCR sentence focus', () => {
                 expect.objectContaining({ card: expect.objectContaining({ spelling: '日本語', source: 'fallback' }) }),
                 expect.objectContaining({ card: expect.objectContaining({ spelling: '読む', source: 'fallback' }) }),
             ]));
-            expect(document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            const enriched = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-expression="日本語"]')!;
+            expect(enriched.classList.contains('jpdb-known')).toBe(true);
+            expect(enriched.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(enriched.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -410,7 +467,7 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
     });
 
-    it('normalizes late-added OCR furigana so it stays hidden until OCR hover or focus', () => {
+    it('normalizes late-added OCR furigana so active and visible OCR lines can show it immediately', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-reader-has-furi';
         word.innerHTML = '<ruby>日本語<rt class="jpdb-reader-furi">にほんご</rt></ruby>';
@@ -422,8 +479,7 @@ describe('OCR sentence focus', () => {
         expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('aria-hidden')).toBe('true');
         expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('日本語');
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus) .jpdb-ocr-furi');
-        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active, .jpdb-ocr-line-visible) .jpdb-ocr-furi');
     });
 
     it('keeps multi-ruby OCR words inside one stylable reader word span', () => {

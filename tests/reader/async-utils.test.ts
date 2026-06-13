@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runLimited } from '../../src/reader/core/async-utils';
+import { ConcurrencyGate, mapLimited, runLimited } from '../../src/reader/core/async-utils';
 
 async function measureMaxConcurrentWorkers<T>(items: T[], concurrency: number): Promise<number> {
     let active = 0;
@@ -63,5 +63,60 @@ describe('runLimited', () => {
             results.push(item * 2);
         });
         expect(results.sort((a, b) => a - b)).toEqual([2, 4, 6]);
+    });
+});
+
+describe('mapLimited', () => {
+    it('returns results in input order regardless of completion order', async () => {
+        const delays = [30, 5, 20, 1];
+        const out = await mapLimited(delays, 2, async (ms, i) => {
+            await new Promise<void>(resolve => setTimeout(resolve, ms));
+            return i;
+        });
+        expect(out).toEqual([0, 1, 2, 3]);
+    });
+
+    it('caps concurrency while collecting results', async () => {
+        let active = 0;
+        let maxActive = 0;
+        const out = await mapLimited([1, 2, 3, 4, 5, 6], 2, async value => {
+            active++;
+            maxActive = Math.max(maxActive, active);
+            await new Promise<void>(resolve => setTimeout(resolve, 1));
+            active--;
+            return value * 10;
+        });
+        expect(maxActive).toBeLessThanOrEqual(2);
+        expect(out).toEqual([10, 20, 30, 40, 50, 60]);
+    });
+});
+
+describe('ConcurrencyGate', () => {
+    it('bounds concurrent tasks across independent call sites', async () => {
+        // Models the keyless parse flood: many cues, each fanning out over
+        // several enrichment tasks, all sharing ONE gate so the aggregate
+        // in-flight count stays bounded instead of thousands at once.
+        const gate = new ConcurrencyGate(3);
+        let active = 0;
+        let maxActive = 0;
+        const task = () => gate.run(async () => {
+            active++;
+            maxActive = Math.max(maxActive, active);
+            await new Promise<void>(resolve => setTimeout(resolve, 2));
+            active--;
+        });
+        // 5 "cues" × 8 "matches" = 40 tasks launched concurrently.
+        await Promise.all(Array.from({ length: 40 }, () => task()));
+        expect(maxActive).toBeLessThanOrEqual(3);
+        expect(active).toBe(0);
+    });
+
+    it('runs all queued tasks and propagates results + errors', async () => {
+        const gate = new ConcurrencyGate(2);
+        const values = await Promise.all([1, 2, 3].map(n => gate.run(() => n * 2)));
+        expect(values).toEqual([2, 4, 6]);
+        await expect(gate.run(() => { throw new Error('boom'); })).rejects.toThrow('boom');
+        // Gate is not wedged after an error: a later task still runs.
+        await expect(gate.run(() => 'ok')).resolves.toBe('ok');
     });
 });

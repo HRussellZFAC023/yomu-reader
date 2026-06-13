@@ -53,6 +53,39 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('raises fixed-height clipped boxes instead of only changing max-height', () => {
+        document.body.innerHTML = `
+            <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockOverflow(title, 36, 22);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('36px');
+        expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
+        document.body.innerHTML = '';
+    });
+
+    it('raises every nested clipped ancestor around ruby text', () => {
+        document.body.innerHTML = `
+            <a id="outer" style="display:block;overflow:hidden;height:42px;line-height:21px">
+                <span id="inner" style="display:block;overflow:hidden;max-height:21px">
+                    ${annotatedWord()}の長い動画タイトル
+                </span>
+            </a>
+        `;
+        const outer = document.querySelector<HTMLElement>('#outer')!;
+        const inner = document.querySelector<HTMLElement>('#inner')!;
+        mockOverflow(inner, 34, 21);
+        mockOverflow(outer, 58, 42);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(2);
+        expect(inner.style.maxHeight).toBe('34px');
+        expect(outer.style.height).toBe('58px');
+        expect(outer.querySelector('rt')?.textContent).toBe('しんそつ');
+        document.body.innerHTML = '';
+    });
+
     it('leaves boxes alone when the ruby already fits', () => {
         document.body.innerHTML = `
             <div id="fits" style="display:-webkit-box;-webkit-line-clamp:4;overflow:hidden">${annotatedWord('べんきょう', '勉強')}します</div>

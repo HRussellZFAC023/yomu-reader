@@ -339,6 +339,14 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.jpdb-reader-onboarding-basics {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) minmax(220px, 1fr);
+  gap: 12px;
+  align-items: start;
+  max-width: 620px;
+  margin: 20px 0 16px;
+}
 .jpdb-reader-onboarding-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -371,6 +379,9 @@
   font-weight: 750;
   font-size: 13px;
 }
+.jpdb-reader-onboarding-basics .jpdb-reader-onboarding-language {
+  margin: 0;
+}
 .jpdb-reader-onboarding-language select {
   width: 100%;
   box-sizing: border-box;
@@ -381,6 +392,73 @@
   color: var(--jpdb-reader-text);
   padding: 8px 10px;
   font: 750 14px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-reader-onboarding-accent {
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface);
+}
+.jpdb-reader-onboarding-accent legend {
+  padding: 0 4px;
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+.jpdb-reader-onboarding-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jpdb-reader-onboarding-swatch {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
+  border-radius: 999px;
+  background: var(--jpdb-reader-onboarding-swatch);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-white) 68%, transparent);
+  cursor: pointer;
+}
+.jpdb-reader-onboarding-swatch:hover,
+.jpdb-reader-onboarding-swatch:focus-visible {
+  border-color: var(--jpdb-reader-accent);
+  box-shadow:
+    0 0 0 3px var(--jpdb-reader-accent-soft),
+    inset 0 0 0 2px color-mix(in srgb, var(--jpdb-reader-white) 76%, transparent);
+  outline: none;
+}
+.jpdb-reader-onboarding-swatch.selected {
+  border-color: var(--jpdb-reader-accent);
+  box-shadow:
+    0 0 0 3px var(--jpdb-reader-accent-soft),
+    inset 0 0 0 2px var(--jpdb-reader-accent-text);
+}
+.jpdb-reader-onboarding-custom-accent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--jpdb-reader-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+.jpdb-reader-onboarding-custom-accent input[type="color"] {
+  width: 52px;
+  min-width: 52px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-bg);
+  cursor: pointer;
 }
 .jpdb-reader-onboarding-options {
   display: grid;

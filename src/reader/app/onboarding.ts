@@ -2,10 +2,11 @@ import { APP_NAME } from './constants';
 import { setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
-import { defaultDictionaryLookupLinks, saveSettings } from '../settings/index';
+import { defaultDictionaryLookupLinks, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 
 const log = Logger.scope('Onboarding');
+const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
 
 interface OnboardingOptions {
     getSettings: () => ReaderSettings;
@@ -21,6 +22,7 @@ export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
     private languageSelect?: HTMLSelectElement;
+    private accentColorInput?: HTMLInputElement;
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
 
@@ -100,6 +102,40 @@ export class OnboardingController {
         });
         language.append(languageText, this.languageSelect);
 
+        const accentPicker = document.createElement('fieldset');
+        accentPicker.className = 'jpdb-reader-onboarding-accent';
+        const accentLegend = document.createElement('legend');
+        accentLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingAccentColor');
+        const swatches = document.createElement('div');
+        swatches.className = 'jpdb-reader-onboarding-swatches';
+        ONBOARDING_ACCENT_SWATCHES.forEach(color => {
+            const swatch = button('');
+            swatch.className = 'jpdb-reader-onboarding-swatch';
+            swatch.dataset.onboardingAccent = color;
+            swatch.style.setProperty('--jpdb-reader-onboarding-swatch', color);
+            swatch.setAttribute('aria-label', onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color));
+            swatch.title = onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color);
+            swatch.addEventListener('click', () => this.applyAccentChoice(color));
+            swatches.append(swatch);
+        });
+        const customAccent = document.createElement('label');
+        customAccent.className = 'jpdb-reader-onboarding-custom-accent';
+        const customAccentText = document.createElement('span');
+        customAccentText.dataset.onboardingCopy = 'customAccentColor';
+        customAccentText.textContent = uiText(this.options.getSettings().interfaceLanguage, 'customAccentColor');
+        this.accentColorInput = document.createElement('input');
+        this.accentColorInput.type = 'color';
+        this.accentColorInput.name = 'accentColor';
+        this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
+        this.accentColorInput.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'onboardingAccentColor'));
+        this.accentColorInput.addEventListener('input', () => this.applyAccentChoice(this.accentColorInput?.value));
+        customAccent.append(customAccentText, this.accentColorInput);
+        accentPicker.append(accentLegend, swatches, customAccent);
+
+        const basics = document.createElement('div');
+        basics.className = 'jpdb-reader-onboarding-basics';
+        basics.append(language, accentPicker);
+
         const immersionOptions = document.createElement('fieldset');
         immersionOptions.className = 'jpdb-reader-onboarding-options';
         const immersionLegend = document.createElement('legend');
@@ -131,7 +167,8 @@ export class OnboardingController {
             this.localize(language);
         });
 
-        this.panel.append(closeButton, eyebrow, title, copy, language, immersionOptions, actions, featureGrid);
+        this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureGrid);
+        this.syncAccentPicker(this.accentColorInput.value);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
     }
@@ -147,6 +184,16 @@ export class OnboardingController {
         panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
+        panel.querySelector('.jpdb-reader-onboarding-accent legend')?.replaceChildren(uiText(language, 'onboardingAccentColor'));
+        panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, 'customAccentColor'));
+        this.accentColorInput?.setAttribute('aria-label', uiText(language, 'onboardingAccentColor'));
+        panel.querySelectorAll<HTMLButtonElement>('[data-onboarding-accent]').forEach(button => {
+            const color = button.dataset.onboardingAccent;
+            if (!color) return;
+            const label = onboardingAccentLabel(language, color);
+            button.setAttribute('aria-label', label);
+            button.title = label;
+        });
         const options: Array<[string, string]> = [
             ['auto', uiText(language, 'automatic')],
             ['en', uiText(language, 'english')],
@@ -162,6 +209,7 @@ export class OnboardingController {
             ['featureImages', 'featureImagesBody'],
             ['featureVideo', 'featureVideoBody'],
             ['featureControl', 'featureControlBody'],
+            ['featureStudy', 'featureStudyBody'],
         ] as const;
         cards.forEach((card, index) => {
             const [headingKey, bodyKey] = cardKeys[index] ?? cardKeys[0];
@@ -203,6 +251,7 @@ export class OnboardingController {
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
+            accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor),
         };
     }
 
@@ -217,8 +266,28 @@ export class OnboardingController {
         this.panel = undefined;
         this.backdrop = undefined;
         this.languageSelect = undefined;
+        this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
+    }
+
+    private applyAccentChoice(value: string | undefined): void {
+        const current = this.options.getSettings();
+        const accentColor = sanitizeAccentColor(value, current.accentColor);
+        this.options.setSettings({ ...current, accentColor });
+        if (this.accentColorInput && this.accentColorInput.value !== accentColor) {
+            this.accentColorInput.value = accentColor;
+        }
+        this.syncAccentPicker(accentColor);
+    }
+
+    private syncAccentPicker(color: string): void {
+        const selectedColor = sanitizeAccentColor(color);
+        this.panel?.querySelectorAll<HTMLButtonElement>('[data-onboarding-accent]').forEach(button => {
+            const selected = sanitizeAccentColor(button.dataset.onboardingAccent) === selectedColor;
+            button.classList.toggle('selected', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
     }
 }
 
@@ -262,6 +331,10 @@ function checkboxLabel(input: HTMLInputElement, text: string): HTMLLabelElement 
 
 function onboardingCopyId(name: string): string {
     return `jpdb-reader-onboarding-${name}`;
+}
+
+function onboardingAccentLabel(language: InterfaceLanguage, color: string): string {
+    return `${uiText(language, 'onboardingAccentColor')} ${color.toUpperCase()}`;
 }
 
 function closeIcon(): string {

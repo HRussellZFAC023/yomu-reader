@@ -63,22 +63,11 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'ytd-toggle-button-renderer',
     'ytd-button-renderer',
     'yt-chip-cloud-chip-renderer',
-    'ytd-guide-entry-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-compact-radio-renderer',
-    'ytd-compact-playlist-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-reel-video-renderer',
-    'ytd-video-renderer',
     'ytm-button-renderer',
     'ytm-toggle-button-renderer',
     'ytm-subscribe-button-renderer',
     'ytm-chip-cloud-chip-renderer',
     'ytm-compact-link-renderer',
-    'ytm-compact-video-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    '.ytp-menuitem',
     '.yt-spec-button-shape-next',
 ].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
@@ -583,11 +572,23 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
+            'ytd-search',
+            'ytd-two-column-search-results-renderer',
+            'ytd-section-list-renderer',
+            'ytd-item-section-renderer',
+            'ytd-video-renderer',
             '#related',
             'ytd-watch-next-secondary-results-renderer',
             'ytd-rich-grid-renderer',
             'ytd-rich-section-renderer',
+            'ytd-reel-shelf-renderer',
+            'ytd-reel-item-renderer',
+            'ytd-reel-video-renderer',
+            'yt-lockup-view-model',
+            'yt-lockup-metadata-view-model',
             'ytm-rich-grid-renderer',
+            'ytm-shorts-lockup-view-model',
+            'ytm-shorts-lockup-view-model-v2',
             'ytm-single-column-watch-next-results-renderer',
             'ytm-item-section-renderer',
             '.ytp-popup',
@@ -848,10 +849,23 @@ function passiveInteractionRoots(root: Element, selector: string): Element[] {
         ...(root.matches(selector) ? [root] : []),
         ...Array.from(root.querySelectorAll(selector)),
     ];
-    return candidates.filter((candidate, index) => {
-        if (candidates.indexOf(candidate) !== index) return false;
-        return !candidates.some(other => other !== candidate && other.contains(candidate));
-    });
+    if (candidates.length <= 1) return candidates;
+    // Keep only the outermost matches (drop any candidate contained by another).
+    // querySelectorAll already returns unique, document-ordered descendants, so
+    // this is an ancestor-membership walk — O(n·depth) — instead of the old
+    // O(n²) nested native `contains`, which dominated the page auto-scan on
+    // YouTube's churning DOM during playback (live-profiled).
+    const candidateSet = new Set<Element>(candidates);
+    const result: Element[] = [];
+    for (const candidate of candidates) {
+        let containedByCandidate = false;
+        for (let ancestor = candidate.parentElement; ancestor; ancestor = ancestor.parentElement) {
+            if (candidateSet.has(ancestor)) { containedByCandidate = true; break; }
+            if (ancestor === root) break;
+        }
+        if (!containedByCandidate) result.push(candidate);
+    }
+    return result;
 }
 
 function addUniqueSiteScanTarget(

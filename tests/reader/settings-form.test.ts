@@ -251,7 +251,11 @@ describe('settings form localization', () => {
         expect(buttons.map(button => button.dataset.panel)).toContain('api');
         expect(buttons.map(button => button.dataset.panel)).toContain('newTab');
         expect(buttons.map(button => button.dataset.panel)).toContain('appearance');
-        expect(buttons.map(button => button.dataset.panel)).toContain('reading');
+        expect(buttons.map(button => button.dataset.panel)).not.toContain('reading');
+        expect(buttons.map(button => button.dataset.panel)).toContain('dictionaries');
+        expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.textContent).toBe('Sources');
+        expect(buttons.find(button => button.dataset.panel === 'appearance')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-reader');
+        expect(buttons.find(button => button.dataset.panel === 'dictionaries')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-kanji');
         expect(buttons.find(button => button.dataset.panel === 'media')?.getAttribute('aria-controls')).toContain('jpdb-reader-settings-panel-audio');
         expect(buttons[0]?.getAttribute('aria-selected')).toBe('true');
         expect(buttons[0]?.tabIndex).toBe(0);
@@ -276,14 +280,17 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
     });
 
-    it('splits the old Basics bucket into API, Appearance, and Reading sections', () => {
+    it('splits the old Basics bucket into API, Appearance, and Sources sections', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('API');
         expect(topLevelLegendForControl(form, 'accentColor')).toBe('Appearance');
         expect(topLevelLegendForControl(form, 'lookupOnHover')).toBe('Reader');
+        expect(form.querySelector<HTMLElement>('[name="lookupOnHover"]')?.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]')?.dataset.settingsPanel).toBe('appearance');
+        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')?.dataset.settingsPanel).toBe('dictionaries');
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="basics"]')).toBeNull();
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="reading"]')).toBeNull();
 
         activateSettingsPanel(form, 'basics');
 
@@ -294,6 +301,16 @@ describe('settings form localization', () => {
 
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="api"]')?.getAttribute('aria-selected')).toBe('true');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(false);
+
+        activateSettingsPanel(form, 'reading');
+
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('true');
+        expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-reader')?.hidden).toBe(false);
+
+        activateSettingsPanel(form, 'kanji');
+
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.getAttribute('aria-selected')).toBe('true');
+        expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-kanji')?.hidden).toBe(false);
     });
 
     it('renders and saves coexisting JPDB and Jiten API keys (UT-56)', () => {
@@ -700,6 +717,8 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist a { color: var(--jpdb-reader-accent-readable);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-word { display: inline !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
+        expect(normalizedCss).toContain('display: block; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center;');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
     });
@@ -851,6 +870,7 @@ describe('settings form localization', () => {
         const form = renderSettingsTestForm(current);
         const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
 
+        expect(kanjiPanel.dataset.settingsPanel).toBe('dictionaries');
         expect(kanjiPanel.textContent).not.toContain('Show kanji facts and component graph');
         expect(kanjiPanel.textContent).not.toContain('Show component graph');
         expect(kanjiPanel.textContent).not.toContain('Show radical images');
@@ -1273,6 +1293,10 @@ describe('settings form localization', () => {
 
         expect(labelForControl(form, 'ankiMobileHandoff')).toContain('Mobile Anki add-note fallback');
         expect(labelForControl(form, 'ankiMobileHandoff')).not.toContain('AnkiConnect is unavailable');
+        const connectionGrid = form.querySelector('.jpdb-reader-anki-connection-grid');
+        const mobileHandoffLabel = form.querySelector('input[name="ankiMobileHandoff"]')?.closest('label');
+        expect(mobileHandoffLabel?.parentElement).toBe(connectionGrid);
+        expect(mobileHandoffLabel?.parentElement?.classList.contains('jpdb-reader-settings-wide')).toBe(false);
         expect(optionText(form, 'ankiDeck', 'Default')).toBe('Default');
         expect(form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.textContent).toBe('Check AnkiConnect');
         expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Create Yomu note type');
@@ -1331,7 +1355,7 @@ describe('settings form localization', () => {
         expect(topLevelLegendForControl(form, 'youtubeImmersionEnabled')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'preferJapaneseSiteLanguage')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'ankiEnabled')).toBe('Anki');
-        expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('Dictionaries');
+        expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('Sources');
         expect(topLevelLegendForControl(form, 'shortcuts.openSettings')).toBe('Shortcuts');
         expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
     });

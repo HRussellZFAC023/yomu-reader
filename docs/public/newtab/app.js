@@ -11,6 +11,32 @@
       }
     }));
   }
+  async function mapLimited(items, concurrency, worker) {
+    const results = new Array(items.length);
+    await runLimited(items, concurrency, async (item, index) => {
+      results[index] = await worker(item, index);
+    });
+    return results;
+  }
+  class ConcurrencyGate {
+    constructor(limit) {
+      this.limit = limit;
+    }
+    active = 0;
+    queue = [];
+    async run(task) {
+      if (this.active >= this.limit) {
+        await new Promise((resolve) => this.queue.push(resolve));
+      }
+      this.active += 1;
+      try {
+        return await task();
+      } finally {
+        this.active -= 1;
+        this.queue.shift()?.();
+      }
+    }
+  }
   const CARD_STATES$1 = /* @__PURE__ */ new Set([
     "new",
     "learning",
@@ -332,6 +358,11 @@
     return words.length;
   }
   function readerWordSurfaceText$1(element) {
+    const surface = readerWordChildSurfaceText(element);
+    if (surface || !isReaderWordElement(element)) return surface;
+    return element.dataset.surface ?? "";
+  }
+  function readerWordChildSurfaceText(element) {
     let text2 = "";
     element.childNodes.forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -341,9 +372,12 @@
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const child = node;
       if (isSurfaceIgnoredElement(child)) return;
-      text2 += readerWordSurfaceText$1(child);
+      text2 += readerWordChildSurfaceText(child);
     });
     return text2;
+  }
+  function isReaderWordElement(element) {
+    return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
   }
   function sentenceAroundSurface(value, surface = "", fallback = "") {
     const text2 = cleanReadableSentence(value);
@@ -3051,38 +3085,6 @@
     '[tabindex]:not([tabindex="-1"])'
   ].join(",");
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-  const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    "ytd-watch-metadata",
-    "ytd-comments",
-    "ytd-comment-view-model",
-    "ytd-comment-thread-renderer",
-    "ytd-comment-replies-renderer",
-    "ytm-watch-metadata",
-    "ytm-slim-video-metadata-section-renderer",
-    "ytm-slim-owner-renderer",
-    "ytm-expandable-video-description-body-renderer",
-    "ytm-video-description-header-renderer",
-    "ytm-video-description-transcript-section-renderer",
-    "ytm-structured-description-content-renderer",
-    "ytm-metadata-row-container-renderer",
-    "ytm-comment-section-renderer",
-    "ytm-comment-thread-renderer",
-    "ytm-comment-renderer"
-  ].join(",");
-  const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title",
-    "ytm-watch-metadata h1",
-    "ytm-watch-metadata #title",
-    "ytm-slim-video-metadata-section-renderer h1",
-    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title",
-    "ytd-rich-item-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-video-renderer",
-    "ytm-rich-item-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model"
-  ].join(",");
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
     ...PROSE_TAGS,
@@ -3129,6 +3131,9 @@
     "TR",
     "UL"
   ]);
+  const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
+  const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
+  const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
     const state = {
       targets: [],
@@ -3302,16 +3307,12 @@
   }
   function isLayoutSensitiveScanElement(element) {
     if (element && isInsideOwnedReaderRoot(element)) return false;
-    if (element && isStableCompactRubySurface(element)) return false;
     let current = element;
     while (current && current !== document.body && current !== document.documentElement) {
       if (isLayoutSensitiveTextBox(current)) return true;
       current = current.parentElement;
     }
     return false;
-  }
-  function isStableCompactRubySurface(element) {
-    return Boolean(element.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR) && !element.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
   }
   const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element) {
@@ -3408,6 +3409,7 @@
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     if (!safeTokens.length) return;
     target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    markRenderedScanTarget(target);
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
     const fragment2 = document.createDocumentFragment();
@@ -3436,12 +3438,29 @@
   function appendPlainTextBeforeToken(fragment2, text2, start, end) {
     if (end > start) fragment2.append(document.createTextNode(text2.slice(start, end)));
   }
+  function markRenderedScanTarget(target) {
+    const text2 = normalizedRenderedHostText(target.text);
+    if (!text2 || !HAS_JAPANESE.test(text2) || !target.parent.isConnected) return;
+    const previous = renderedScanHosts.get(target.parent);
+    const now = Date.now();
+    const keepBackoff = previous && previous.text === text2 && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
+    renderedScanHosts.set(target.parent, {
+      text: text2,
+      markedAt: now,
+      lastRejectedAt: keepBackoff ? previous.lastRejectedAt : void 0,
+      rejectionCount: keepBackoff ? previous.rejectionCount : void 0
+    });
+  }
+  function normalizedRenderedHostText(text2) {
+    return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+  }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!hasFragmentTokenWork(target, tokens)) return;
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    markRenderedScanTarget(target);
   }
   function hasFragmentTokenWork(target, tokens) {
     return Boolean(tokens.length && target.fragments.length);
@@ -3929,6 +3948,7 @@
   }
   function renderToken(surface, token, settings, options = {}) {
     const span = createReaderWordSpan(token, options);
+    span.dataset.surface = surface;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
@@ -3999,11 +4019,12 @@
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
     const cardState = ` data-card-state="${escapeHtml$1(state)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -5185,6 +5206,8 @@
       onboardingEyebrow: "Japanese, wherever it appears",
       onboardingCopy: "Make Japanese text, subtitles, and images tappable while you read.",
       onboardingLanguage: "Settings language",
+      onboardingAccentColor: "Accent color",
+      customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
       onboardingAddApiKey: "Add API key",
       onboardingAddLocalDictionaries: "Add local dictionaries",
@@ -5219,6 +5242,7 @@
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
+      sources: "Sources",
       media: "Media",
       mining: "Mining",
       shortcuts: "Shortcuts",
@@ -6258,6 +6282,8 @@ welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
 onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingAccentColor	アクセントカラー
+customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -6280,6 +6306,7 @@ settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
 dictionaries	辞書
+sources	ソース
 localWordSingular	項目
 localWordPlural	項目
 kanji	漢字
@@ -6750,6 +6777,7 @@ show	表示
 hide	隠す
 appearance	外観
 reading	読解
+sources	ソース
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -20428,9 +20456,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return {
       api: "jpdb-reader-settings-panel-api",
       newTab: "jpdb-reader-settings-panel-newtab",
-      appearance: "jpdb-reader-settings-panel-appearance",
+      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
       reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
-      dictionaries: "jpdb-reader-settings-panel-dictionaries",
+      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
       media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
       mining: "jpdb-reader-settings-panel-mining",
       shortcuts: "jpdb-reader-settings-panel-shortcuts",
@@ -21634,7 +21662,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                             ${checkbox("ankiEnabled", "Enable Anki mining", settings.ankiEnabled)}
                             ${checkbox("ankiMineWithJpdb", "Also add to Anki when adding via API", settings.jpdbMiningEnabled && settings.ankiMineWithJpdb, { disabled: !settings.jpdbMiningEnabled })}
                             ${checkbox("ankiCaptureScreenshot", "Attach context image when possible", settings.ankiCaptureScreenshot)}
-                            <div class="jpdb-reader-settings-wide">${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}</div>
+                            ${checkbox("ankiMobileHandoff", "Mobile Anki add-note fallback", settings.ankiMobileHandoff)}
                             ${input("ankiConnectUrl", "AnkiConnect URL", settings.ankiConnectUrl)}
                             <div class="jpdb-reader-settings-wide jpdb-reader-help jpdb-reader-status-line" data-anki-status data-status-tone="${ankiStatus.tone}" role="status" aria-live="polite">${ankiStatus.html}</div>
                         </div>
@@ -22242,8 +22270,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { panel: "api", label: "API", active: true },
     { panel: "newTab", label: "Study" },
     { panel: "appearance", label: "Appearance" },
-    { panel: "reading", label: "Reading" },
-    { panel: "dictionaries", label: "Dictionaries" },
+    { panel: "dictionaries", label: "Sources", labelKey: "sources" },
     { panel: "media", label: "Media" },
     { panel: "mining", label: "Mining" },
     { panel: "shortcuts", label: "Shortcuts" },
@@ -22328,12 +22355,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
+            ${renderDictionariesSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
             ${renderVideoSettingsPanel(settings)}
             ${renderYoutubeSettingsPanel(settings)}
             ${renderMiningSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings)}
             ${renderShortcutSettingsPanel(settings)}
             ${renderHelpSettingsPanel(settings)}
             </div>
@@ -22711,7 +22738,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderReaderSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox("parseSelection", "Look up selected text", settings.parseSelection)}
@@ -22747,7 +22774,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderKanjiSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="reading" data-legend-key="kanji" hidden>
+            <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
                 <legend>Kanji</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
@@ -22863,8 +22890,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderDictionariesSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
-                <legend>Dictionaries</legend>
+            <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
+                <legend>Sources</legend>
                 <div class="grid">
                     ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
                     ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
@@ -24067,7 +24094,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? "api";
   }
   function normalizeSettingsPanel(panel) {
-    return panel === "basics" || panel === "jpdb" ? "api" : panel;
+    if (panel === "basics" || panel === "jpdb") return "api";
+    if (panel === "reading" || panel === "reader") return "appearance";
+    if (panel === "kanji") return "dictionaries";
+    return panel;
   }
   function normalizeSettingsSearchText(value) {
     return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
@@ -24832,7 +24862,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     bindLivePreview(form) {
       const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
       form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
-        this.dependencies.applyAccentColor(event.currentTarget.value);
+        const accentColor = event.currentTarget.value;
+        this.dependencies.applyAccentColor(accentColor);
+        publishSettingsChange({ accentColor }, { preview: true });
       });
       form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
         input2.addEventListener("input", () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
@@ -24852,7 +24884,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.settings.theme = next;
         applyThemePreview();
         this.syncThemeSwitch(form);
-        publishThemeSettingsChange(next, { preview: true });
+        publishSettingsChange({ theme: next }, { preview: true });
       });
       window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
         if (this.currentForm !== form || !form.isConnected) return;
@@ -25979,8 +26011,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const record = value;
     return record.formatName === "yomu-reader-settings" || record.formatName === "jpdb-popup-reader-settings" ? record.storage : null;
   }
-  function publishThemeSettingsChange(theme, options = {}) {
-    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
+  function publishSettingsChange(settings, options = {}) {
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
   }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;
@@ -27206,6 +27238,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return stableHash32(value).toString(36);
   }
   const LOCAL_MATCH_LIMIT = 40;
+  const LOCAL_ENRICHMENT_CONCURRENCY = 12;
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
@@ -27241,6 +27274,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
@@ -27414,12 +27448,12 @@ ${spelling}`);
         log$n.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return Promise.all(matches.map(async (match) => {
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
         const card = this.localCardFromEntry(match.entry);
-        const pitch = await this.localPitchPattern(card, options);
-        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
-        const rubies = reading ? await this.localRubySegments(match.surface, reading, match.start, match.end) : [];
+        const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+        const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
         return {
           card,
           start: match.start,
@@ -27429,7 +27463,7 @@ ${spelling}`);
           pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
           sentence: text2
         };
-      }));
+      });
     }
     parseSegmentedText(text2) {
       return segmentJapaneseText(text2).map((segment) => {
@@ -28255,6 +28289,10 @@ ${spelling}`);
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
+      const texts = lines.map((line) => line.text);
+      if (this.options.parseJapaneseBatch) {
+        return this.options.parseJapaneseBatch(texts, options).then((parsed) => texts.map((_, index) => parsed[index] ?? [])).catch(() => texts.map(() => []));
+      }
       return Promise.all(lines.map((line) => this.options.parseJapanese(line.text, options).catch(() => {
         return [];
       })));
@@ -32205,8 +32243,17 @@ ${spelling}`);
     if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
     return karaokeActive ? { text: input2.text, html: "" } : void 0;
   }
+  const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
+  const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
+  function syncSubtitleSecondaryBlurState(button, nativeBlurred, language = "en") {
+    button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
+    button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+    const label = uiText(language, "toggleNativeSubtitleBlur");
+    button.setAttribute("title", label);
+    button.setAttribute("aria-label", label);
+  }
   function renderSubtitleSecondary(text2, nativeBlurred, language = "en") {
-    const blurClass = nativeBlurred ? "jpdb-subtitle-secondary-blurred" : "jpdb-subtitle-secondary-clear";
+    const blurClass = nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
     const label = uiText(language, "toggleNativeSubtitleBlur");
     return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}">${escapeWithBreaks(text2)}</button>`;
   }
@@ -32916,7 +32963,7 @@ ${spelling}`);
     if (placement === "bottom") return "ArrowDown";
     return placement === "left" ? "ArrowLeft" : "ArrowRight";
   }
-  const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = "yomu:subtitle-parse:v1:";
+  const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = "yomu:subtitle-parse:v2:";
   const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
   function subtitleSessionParseHash(key) {
     let h1 = 2166136261;
@@ -33013,9 +33060,9 @@ ${spelling}`);
   const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
   const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
   const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
-  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 1;
+  const TRANSCRIPT_BACKGROUND_HYDRATION_BATCH = 4;
   const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
-  const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 4;
+  const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 1500;
@@ -33209,7 +33256,7 @@ ${spelling}`);
       "secondary-track": (target) => {
         void this.chooseSecondaryTrack(this.trackIdFromTarget(target));
       },
-      "toggle-native-blur": () => this.toggleNativeSubtitleBlur()
+      "toggle-native-blur": (target) => this.toggleNativeSubtitleBlur(target.closest(".jpdb-subtitle-secondary"))
     };
     init() {
       this.destroy();
@@ -33508,11 +33555,13 @@ ${spelling}`);
       video.addEventListener("loadedmetadata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => this.schedulePauseTranscriptPanelSync(), this.eventOptions({ passive: true }));
-      video.addEventListener("play", () => {
+      const handlePlaybackStarted = () => {
         this.pausePanelDismissed = false;
         if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
         this.scheduleAlignToVideo();
-      }, this.eventOptions({ passive: true }));
+      };
+      video.addEventListener("play", handlePlaybackStarted, this.eventOptions({ passive: true }));
+      video.addEventListener("playing", handlePlaybackStarted, this.eventOptions({ passive: true }));
       this.scheduleAlignToVideo();
     }
     addNativeTrack(track) {
@@ -33934,7 +33983,7 @@ ${spelling}`);
       if (!text2.trim() || !this.shouldParseSubtitles()) return;
       const texts = this.domCaptionCueTexts(text2);
       if (!texts.length) return;
-      void this.parseCueHtmlBatch(texts).catch(() => void 0);
+      void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true }).catch(() => void 0);
     }
     domCaptionCueTexts(text2) {
       return normalizeSubtitleCues([{ start: 0, end: 4, text: text2 }]).map((cue) => cue.text.trim()).filter(Boolean);
@@ -34050,7 +34099,7 @@ ${spelling}`);
         return;
       }
       try {
-        const html = await this.parseCueHtml(text2, settings);
+        const html = await this.parseCueHtml(text2, settings, { enrichBeforeRender: true });
         this.applyParsedPrimaryHtml(key, text2, html, serial);
       } catch {
       }
@@ -34106,11 +34155,12 @@ ${spelling}`);
       }
       const emptyCached = this.freshEmptyParsedHtml(key);
       if (emptyCached) return emptyCached;
-      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text2, settings, key);
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseProvisionalCueHtml(text2, settings, key, options);
       const pending = this.pendingParsedCueHtml(key, "authoritative");
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2, subtitleParseOptions());
+        if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
         this.rememberParsedCueHtml(key, html, tokens);
         return html;
@@ -34122,7 +34172,7 @@ ${spelling}`);
         this.pendingParsedHtml.delete(key);
       }
     }
-    async parseProvisionalCueHtml(text2, settings, key) {
+    async parseProvisionalCueHtml(text2, settings, key, options = {}) {
       const restored = this.restoreSessionParsedCueHtml(key);
       if (restored) return restored;
       this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
@@ -34134,6 +34184,7 @@ ${spelling}`);
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text2, provisionalSubtitleParseOptions());
+        if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
         this.rememberParsedCueHtml(key, html, tokens, { provisional: true });
         return html;
@@ -34217,7 +34268,7 @@ ${spelling}`);
     }
     async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
       const items = uniqueSubtitleParseTexts(texts).map((text2) => ({ text: text2, key: this.parseCacheKey(text2, settings) }));
-      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings);
+      if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
       const { ready, batch } = planSubtitleParseBatch(
         items,
         // Keyless there is nothing to upgrade to, so a provisional hit is
@@ -34235,10 +34286,10 @@ ${spelling}`);
         }))]);
       }
       const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), subtitleParseOptions());
-      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings);
+      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
       return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
     }
-    async parseCueHtmlBatchWithProvisionalFallback(items, settings) {
+    async parseCueHtmlBatchWithProvisionalFallback(items, settings, options = {}) {
       this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
       const { ready, batch } = planProvisionalSubtitleParseBatch(
         items,
@@ -34249,16 +34300,21 @@ ${spelling}`);
       );
       if (!batch.length) return Promise.all(ready);
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
-      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true });
+      const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
       return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
     }
     renderParsedHtmlBatch(batch, parsed, settings, options = {}) {
-      return batch.map((item, index) => parsed.then((tokens) => {
+      return batch.map((item, index) => parsed.then(async (tokens) => {
         const tokenList = tokens[index] ?? [];
+        if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, options);
         return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
+    }
+    async beforeRenderParsedTokens(tokens) {
+      if (!tokens.length || !this.options.beforeRenderTokens) return;
+      await this.options.beforeRenderTokens(tokens);
     }
     async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache) {
       const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
@@ -34370,7 +34426,7 @@ ${spelling}`);
       if (!texts.length) return;
       void (async () => {
         try {
-          await this.parseCueHtmlBatch(texts, settings);
+          await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true });
         } catch {
         }
         if (serial !== this.parseWarmupSerial) return;
@@ -35413,12 +35469,20 @@ ${spelling}`);
       this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
     }
-    toggleNativeSubtitleBlur() {
+    toggleNativeSubtitleBlur(target) {
       const settings = this.options.getSettings();
       settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
+      const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
       this.options.onSettingsChange();
-      this.render();
+      if (!appliedInline) this.render();
       log$k.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
+    }
+    applyNativeSubtitleBlurState(nativeBlurred, language, target) {
+      const targets = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
+      if (!targets.length) return false;
+      for (const button of targets) syncSubtitleSecondaryBlurState(button, nativeBlurred, language);
+      this.lastAppliedSubtitleHtml = this.lastAppliedSubtitleHtml.split(nativeBlurred ? SUBTITLE_SECONDARY_CLEAR_CLASS : SUBTITLE_SECONDARY_BLURRED_CLASS).join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS);
+      return true;
     }
     togglePausePanelMode() {
       const settings = this.options.getSettings();
@@ -35819,7 +35883,7 @@ ${spelling}`);
     }
     async hydrateTranscriptRowTargets(targets, settings, serial) {
       try {
-        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings);
+        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings, { enrichBeforeRender: true });
         if (serial !== this.transcriptHydrationSerial) return;
         for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
       } catch {
@@ -35878,7 +35942,10 @@ ${spelling}`);
           const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
           if (!batch.length) continue;
           try {
-            const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings, { allowProvisional: false });
+            const parsed = await this.parseCueHtmlBatch(batch.map((item) => item.text), settings, {
+              allowProvisional: false,
+              enrichBeforeRender: true
+            });
             if (serial !== this.transcriptCacheWarmupSerial) return;
             for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
           } catch {
@@ -36115,11 +36182,13 @@ ${spelling}`);
       const viewportWidth = Math.max(320, window.innerWidth);
       const viewportHeight = Math.max(240, window.innerHeight);
       const settings = this.options.getSettings();
-      const referenceVideoRect = this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
+      const reuseDragRect = options.skipInset && this.transcriptLayoutReferenceRect;
+      const referenceVideoRect = reuseDragRect ? this.transcriptLayoutReferenceRect : this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
+      const anchorTop = reuseDragRect ? referenceVideoRect.top : this.transcriptAnchorRect().top;
       const layout = this.transcriptDrawerLayout({
         viewportWidth,
         viewportHeight,
-        anchorTop: this.transcriptAnchorRect().top,
+        anchorTop,
         compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
         preferredPlacement: settings.subtitleTranscriptPlacement,
         size: this.transcriptPanelSize

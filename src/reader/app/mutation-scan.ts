@@ -5,7 +5,7 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-hidden', 'aria-expanded'],
+    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded'],
 };
 const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const MUTATION_TEXT_SCAN_LIMIT = 4000;

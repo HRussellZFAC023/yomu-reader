@@ -846,7 +846,7 @@
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.jpdb-ocr-line:is(:hover, :focus) .jpdb-ocr-furi {
+.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active, .jpdb-ocr-line-visible) .jpdb-ocr-furi {
   opacity: 0.9;
   text-shadow:
     0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
