@@ -292,6 +292,17 @@ async function installInstrumentation(context) {
         const JapaneseText = /[\u3040-\u30ff\u3400-\u9fff]/u;
         const NativeMutationObserver = window.MutationObserver;
         const perf = {
+            initAt: performance.now(),
+            domContentLoadedAt: null,
+            firstJapaneseTextAt: null,
+            firstReaderWordAt: null,
+            firstRubyAt: null,
+            firstSubtitleRubyAt: null,
+            firstPageRubyAt: null,
+            firstOcrRubyAt: null,
+            firstReaderWordDetail: null,
+            firstRubyDetail: null,
+            events: [],
             mutationCallbacks: 0,
             mutationRecords: 0,
             addedJapaneseMutations: 0,
@@ -306,9 +317,14 @@ async function installInstrumentation(context) {
         window.__yomuProfilePerf = perf;
         window.__yomuProfileResetPerf = () => {
             for (const key of Object.keys(perf)) {
-                if (key !== 'resets') perf[key] = 0;
+                if (key === 'resets') continue;
+                if (Array.isArray(perf[key])) perf[key] = [];
+                else if (/At$|Detail$/.test(key)) perf[key] = null;
+                else perf[key] = 0;
             }
+            perf.initAt = performance.now();
             perf.resets += 1;
+            sampleRubyMilestones();
         };
 
         window.MutationObserver = class ProfiledMutationObserver extends NativeMutationObserver {
@@ -317,6 +333,7 @@ async function installInstrumentation(context) {
                     perf.mutationCallbacks += 1;
                     perf.mutationRecords += mutations.length;
                     for (const mutation of mutations) recordMutation(mutation);
+                    sampleRubyMilestones();
                     callback(mutations, observer);
                 });
             }
@@ -335,10 +352,63 @@ async function installInstrumentation(context) {
             // Longtask is Chromium-only and absent in a few synthetic contexts.
         }
 
+        const milestoneObserver = new NativeMutationObserver(sampleRubyMilestones);
+        const startMilestoneObserver = () => {
+            try {
+                milestoneObserver.observe(document, { subtree: true, childList: true, characterData: true });
+                sampleRubyMilestones();
+            } catch {
+                // Document may be in an early transient state at document-start.
+            }
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                recordMilestone('domContentLoadedAt');
+                sampleRubyMilestones();
+            }, { once: true });
+        } else {
+            recordMilestone('domContentLoadedAt');
+        }
+        startMilestoneObserver();
+        requestAnimationFrame(sampleRubyMilestones);
+
         function recordMutation(mutation) {
             if ([...mutation.addedNodes].some(nodeContainsJapanese)) perf.addedJapaneseMutations += 1;
             perf.addedReaderWords += countReaderWords(mutation.addedNodes);
             perf.removedReaderWords += countReaderWords(mutation.removedNodes);
+        }
+
+        function sampleRubyMilestones() {
+            if (document.readyState !== 'loading') recordMilestone('domContentLoadedAt');
+            const bodyText = document.body?.textContent || '';
+            if (JapaneseText.test(bodyText)) recordMilestone('firstJapaneseTextAt', textDetail(bodyText));
+            const firstWord = document.querySelector('.jpdb-reader-word');
+            if (firstWord) recordMilestone('firstReaderWordAt', elementDetail(firstWord), 'firstReaderWordDetail');
+            const firstRuby = document.querySelector('.jpdb-reader-word rt, .jpdb-reader-word .jpdb-reader-furi, .jpdb-reader-word .jpdb-reader-ruby');
+            if (firstRuby) recordMilestone('firstRubyAt', elementDetail(firstRuby), 'firstRubyDetail');
+            if (document.querySelector('.jpdb-subtitle-player .jpdb-reader-word rt, .jpdb-subtitle-list .jpdb-reader-word rt')) recordMilestone('firstSubtitleRubyAt');
+            if (document.querySelector('ytd-watch-metadata .jpdb-reader-word rt, ytd-comment-view-model .jpdb-reader-word rt, #secondary .jpdb-reader-word rt')) recordMilestone('firstPageRubyAt');
+            if (document.querySelector('.jpdb-ocr-line .jpdb-reader-word rt, .jpdb-ocr-line .jpdb-ocr-furi')) recordMilestone('firstOcrRubyAt');
+        }
+
+        function recordMilestone(key, detail, detailKey) {
+            if (perf[key] !== null) return;
+            const t = performance.now();
+            perf[key] = Math.round(t * 10) / 10;
+            if (detailKey) perf[detailKey] = detail ?? null;
+            perf.events.push({ name: key, t: perf[key], detail: detail ?? undefined });
+        }
+
+        function elementDetail(element) {
+            return {
+                tag: element.tagName,
+                className: element.className || '',
+                text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+            };
+        }
+
+        function textDetail(text) {
+            return { text: text.replace(/\s+/g, ' ').trim().slice(0, 80) };
         }
 
         function nodeContainsJapanese(node) {

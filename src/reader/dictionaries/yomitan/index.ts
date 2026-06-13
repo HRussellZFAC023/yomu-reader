@@ -523,6 +523,19 @@ export class YomitanDictionaryStore {
         }
     }
 
+    async hasTermDictionaries(): Promise<boolean> {
+        const done = log.time('Term dictionary presence check');
+        try {
+            const db = await this.db();
+            return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
+        } catch (error) {
+            log.warn('Term dictionary presence check failed', { error });
+            throw error;
+        } finally {
+            done();
+        }
+    }
+
     async listRandomTerms(limit: number, preferences: DictionaryPreference[] = [], options: GlossaryCursorSearchOptions = {}): Promise<YomitanTermEntry[]> {
         const done = log.time('Random term listing', { limit, dictionaries: preferences.length });
         try {
@@ -1863,6 +1876,12 @@ function dictionaryCountsFromSummary(summary: Pick<ImportSummary, 'terms' | 'kan
 
 function dictionaryTypeFromCounts(counts: Record<string, unknown> = {}): YomitanDictionaryInfo['type'] {
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? 'terms';
+}
+
+function hasTermDictionaryRows(info: YomitanDictionaryInfo): boolean {
+    const count = Number(info.counts?.terms);
+    if (Number.isFinite(count)) return count > 0;
+    return info.type === undefined || info.type === 'terms';
 }
 
 const DICTIONARY_TYPE_COUNT_PRIORITY: Array<{ key: string; type: YomitanDictionaryInfo['type'] }> = [

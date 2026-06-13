@@ -2856,6 +2856,8 @@ export class SubtitlePlayerController {
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
+            suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+            video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
             currentCueText: this.currentCue?.text,
             youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,

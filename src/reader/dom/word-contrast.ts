@@ -94,13 +94,14 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
         activeBackgrounds.push(background);
     }
 
-    const savedVars = activeWords.map(word => {
+    const savedVars = activeWords.map((word, i) => {
         const saved = RENDERED_WORD_CONTRAST_VARS.map(name => ({
             name,
             value: word.style.getPropertyValue(name),
             priority: word.style.getPropertyPriority(name),
         }));
         RENDERED_WORD_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+        word.style.setProperty('--jpdb-reader-highlight-backdrop', activeBackgrounds[i].css);
         return saved;
     });
 

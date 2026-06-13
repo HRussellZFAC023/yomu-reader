@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.195] - 2026-06-13
+
+### Added
+
+- The first-run welcome splash now includes the same dark/light theme toggle used elsewhere, so new users can switch appearance before finishing setup.
+
+### Changed
+
+- Settings now opens with Appearance first, followed by API, Sources, Media, Mining, Study, Shortcuts, and Help.
+- The welcome splash layout now matches the rest of Yomu's UI more closely: setup controls are grouped as form rows, the decorative gradient is gone, and the feature cards have been replaced with a compact feature list.
+
 ## [0.6.194] - 2026-06-13
 
 ### Added

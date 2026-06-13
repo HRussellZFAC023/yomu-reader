@@ -236,14 +236,20 @@ export class VisiblePageScanner {
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
             if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
             if (this.isStaleScan(generation)) return parsedAnyTokens;
+            const tokens = parsed.flat();
+            const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+            if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
             // Kick the status-color lookup off before touching the DOM so the
             // IndexedDB roundtrip overlaps the apply work.
             const applyAnkiColors = this.shouldEnrichAnkiWords()
-                ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat())
+                ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
                 : undefined;
             const changedRoots = await this.applyTokens(batch, parsed);
             applyAnkiColors?.(changedRoots);
-            this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
+            this.preloadParsed(parsed, changedRoots, {
+                skipAnki: Boolean(applyAnkiColors),
+                skipPitch: pitchStartedBeforeApply,
+            });
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
         return parsedAnyTokens;
@@ -274,11 +280,11 @@ export class VisiblePageScanner {
         return [...allChangedRoots];
     }
 
-    private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = [], options: { skipAnki?: boolean } = {}): void {
+    private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = [], options: { skipAnki?: boolean; skipPitch?: boolean } = {}): void {
         if (this.destroyed) return;
         const tokens = parsed.flat();
         this.dependencies.preloadParsedTokens(tokens);
-        void this.dependencies.enrichPitchWords(tokens);
+        if (!options.skipPitch) void this.dependencies.enrichPitchWords(tokens);
         if (!options.skipAnki && this.shouldEnrichAnkiWords()) void this.dependencies.enrichAnkiWords(tokens, changedRoots);
     }
 
@@ -332,6 +338,12 @@ export class VisiblePageScanner {
 
 function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
+}
+
+function shouldStartPitchEnrichmentBeforeApply(tokens: JPDBToken[]): boolean {
+    return tokens.some(token => token.card.source === 'fallback'
+        && token.card.spelling.trim()
+        && !token.rubies.length);
 }
 
 function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {

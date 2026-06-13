@@ -1604,7 +1604,7 @@ async function auditOnboardingMobile(browser, server) {
         };
     });
     assertAudit(snapshot.title === 'よむ', 'onboarding title is missing');
-    assertAudit(/tappable dictionary cards|タップできる辞書カード|辞書カード/.test(snapshot.copy), 'onboarding does not explain the core value');
+    assertAudit(/Japanese text, subtitles, and images|本文、字幕、画像/.test(snapshot.copy), 'onboarding does not explain the core value');
     assertAudit(snapshot.languageVisible, 'onboarding language choice is not visible');
     assertAudit(snapshot.actionRects.length >= 2, 'onboarding actions are missing');
     assertAudit(

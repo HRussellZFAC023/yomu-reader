@@ -1265,12 +1265,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
     border-radius: 16px 16px 0 0;
     padding: 54px 20px calc(24px + env(safe-area-inset-bottom));
   }
+  .jpdb-reader-onboarding h2 { font-size: 40px; }
   .jpdb-reader-onboarding-close {
     top: 12px;
     right: 16px;
   }
   .jpdb-reader-onboarding-basics { grid-template-columns: 1fr; }
-  .jpdb-reader-onboarding-grid { grid-template-columns: 1fr; }
+  .jpdb-reader-onboarding-features { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }

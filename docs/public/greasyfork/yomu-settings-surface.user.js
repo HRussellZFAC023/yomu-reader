@@ -7439,13 +7439,14 @@ recommendedJiten	jiten.moe頻度データです。
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
   ];
+  const DEFAULT_SETTINGS_PANEL = "appearance";
   const SETTINGS_TABS = [
-    { panel: "api", label: "API", active: true },
-    { panel: "newTab", label: "Study" },
-    { panel: "appearance", label: "Appearance" },
+    { panel: "appearance", label: "Appearance", active: true },
+    { panel: "api", label: "API" },
     { panel: "dictionaries", label: "Sources", labelKey: "sources" },
     { panel: "media", label: "Media" },
     { panel: "mining", label: "Mining" },
+    { panel: "newTab", label: "Study" },
     { panel: "shortcuts", label: "Shortcuts" },
     { panel: "help", label: "Help" }
   ];
@@ -7569,7 +7570,7 @@ recommendedJiten	jiten.moe頻度データです。
   function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
     const jpdbStatus = renderJpdbStatusLine(settings);
     return `
-            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api">
+            <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
                 <legend>API</legend>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
@@ -9266,7 +9267,7 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function activeSettingsPanel(form) {
-    return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? "api";
+    return form.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? DEFAULT_SETTINGS_PANEL;
   }
   function normalizeSettingsPanel(panel) {
     if (panel === "basics" || panel === "jpdb") return "api";
