@@ -98,6 +98,23 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
         expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
     });
+
+    it('still snapshots the m.youtube main player even when wrapped in a /watch link', () => {
+        // Regression (v0.6.182): the mobile main player is wrapped by a generic
+        // <a href="/watch"> with no ytd-thumbnail/renderer container. The broad
+        // link selector misclassified it as a hover-preview thumbnail, so pausing
+        // skipped the OCR snapshot ("the auto doesn't work on pause").
+        createController();
+        document.body.innerHTML = '<a href="/watch?v=main"><video></video></a>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        // Player-sized: spans most of the (jsdom 1024-wide) viewport.
+        video.getBoundingClientRect = () => new DOMRect(0, 0, 900, 506);
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
+    });
 });
 
 describe('paused-video frame letterbox fit (UT-77a)', () => {

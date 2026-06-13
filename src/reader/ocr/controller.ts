@@ -91,7 +91,9 @@ const VIDEO_FRAME_PLAYER_SELECTOR = [
     '#player-container-outer',
     '[data-yomu-video-frame]',
 ].join(',');
-const VIDEO_FRAME_THUMBNAIL_SELECTOR = [
+// Strong thumbnail containers: a video inside one of these is unambiguously a
+// feed/preview tile, never the main player.
+const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
     'ytd-thumbnail',
     'ytd-rich-item-renderer',
     'ytd-video-renderer',
@@ -103,6 +105,11 @@ const VIDEO_FRAME_THUMBNAIL_SELECTOR = [
     'ytm-video-with-context-renderer',
     'ytm-shorts-lockup-view-model',
     'ytm-shorts-lockup-view-model-v2',
+].join(',');
+// Weak link wrappers: these also wrap the MAIN player on m.youtube.com, so a
+// video matched ONLY by these is treated as a thumbnail only when it is not
+// player-sized (see isLikelyPausedVideoThumbnail).
+const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
     'a[href*="/watch"]',
     'a[href*="/shorts/"]',
 ].join(',');
@@ -1606,7 +1613,26 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
 
 function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
     if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_SELECTOR));
+    // A real feed/preview tile container is unambiguous.
+    if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
+    // Otherwise only generic watch/shorts link wrappers are left — these also
+    // wrap the MAIN player on m.youtube.com, so a player-sized video here is the
+    // real player, not a hover-preview. Misclassifying it skipped the OCR pause
+    // snapshot on mobile entirely (regression v0.6.182).
+    if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
+    return !isPrimaryPlayerSizedVideo(video);
+}
+
+function isPrimaryPlayerSizedVideo(video: HTMLVideoElement): boolean {
+    const rect = video.getBoundingClientRect();
+    if (rect.width < 280 || rect.height < 160) return false;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return rect.width >= 480 && rect.height >= 270;
+    // Spans most of the viewport width (mobile full-bleed player) or covers a
+    // large share of the viewport area (desktop/theater) → the primary player.
+    return rect.width >= viewportWidth * 0.6
+        || rect.width * rect.height >= viewportWidth * viewportHeight * 0.25;
 }
 
 // UT-77a: pin the snapshot to the video's CONTENT box (contain-fit of the

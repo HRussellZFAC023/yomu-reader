@@ -580,20 +580,34 @@ function isLikelyGenericPlayerFrame(element: HTMLElement): boolean {
     return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text);
 }
 
+const PLAYER_CHROME_SELECTOR = [
+    'button',
+    '[role="button"]',
+    '[role="slider"]',
+    '[role="progressbar"]',
+    '[aria-label*="play" i]',
+    '[aria-label*="pause" i]',
+    '[class*="control" i]',
+    '[class*="controls" i]',
+    '[class*="play" i]',
+    '[class*="pause" i]',
+    '[class*="progress" i]',
+].join(',');
+// This 11-selector subtree scan runs per ancestor while resolving the generic
+// video layout target, which happens repeatedly during a resize drag. Memoize
+// per element with a short TTL: a positive result is stable for the page's
+// life, and a brief stale window for negatives is acceptable (the next align
+// re-checks) in exchange for not re-scanning the subtree on every pointer move.
+const PLAYER_CHROME_CACHE_TTL_MS = 2000;
+const playerChromeCache = new WeakMap<HTMLElement, { value: boolean; at: number }>();
+
 function hasLikelyPlayerChrome(element: HTMLElement): boolean {
-    return Boolean(element.querySelector([
-        'button',
-        '[role="button"]',
-        '[role="slider"]',
-        '[role="progressbar"]',
-        '[aria-label*="play" i]',
-        '[aria-label*="pause" i]',
-        '[class*="control" i]',
-        '[class*="controls" i]',
-        '[class*="play" i]',
-        '[class*="pause" i]',
-        '[class*="progress" i]',
-    ].join(',')));
+    const now = Date.now();
+    const cached = playerChromeCache.get(element);
+    if (cached && (cached.value || now - cached.at < PLAYER_CHROME_CACHE_TTL_MS)) return cached.value;
+    const value = Boolean(element.querySelector(PLAYER_CHROME_SELECTOR));
+    playerChromeCache.set(element, { value, at: now });
+    return value;
 }
 
 function rectsHaveMatchingSize(a: DOMRect, b: DOMRect, tolerance: number): boolean {

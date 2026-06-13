@@ -1342,6 +1342,27 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('skips the document-wide drag-handle scan each tick when no asbplayer overlay exists', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const internals = controllerInternals<{ syncAsbPlayerSubtitleMoveHandles: () => void }>(controller);
+            const querySpy = vi.spyOn(document, 'querySelectorAll');
+
+            // No .asbplayer-subtitles-container-bottom in the DOM: the per-tick
+            // sync must do at most the single roots probe, never the extra
+            // document-wide handle-cleanup scan (regression v0.6.176 ran both
+            // every ~250ms on every video on every site).
+            internals.syncAsbPlayerSubtitleMoveHandles();
+
+            const handleScans = querySpy.mock.calls
+                .filter(call => String(call[0]).includes('yomu-asb-subtitle-drag-handle'));
+            expect(handleScans).toHaveLength(0);
+            querySpy.mockRestore();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('does not move ASBPlayer subtitle overlays from ordinary subtitle text pointer activity', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         try {
