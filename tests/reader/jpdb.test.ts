@@ -6913,6 +6913,46 @@ describe('reader helpers', () => {
         }
     });
 
+    it('preloads the next shuffled audio source instead of the first configured source', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0,
+            objectUrl: 'blob:http://localhost/random-preload-source',
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/first.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/second.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            player.preload(card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: true });
+            await waitForExpect(() => expect(requested).toEqual(['http://x.test/second.mp3']));
+
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/second.mp3']);
+            expect(played).toEqual(['blob:http://localhost/random-preload-source']);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps JPDB word audio as a fallback when shuffled recorded audio is available', async () => {
         const played: string[] = [];
         const requested: string[] = [];
@@ -7228,6 +7268,76 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             document.body.replaceChildren();
+        }
+    });
+
+    it('prepares hover-card audio only when hover autoplay is allowed', () => {
+        const app = new ReaderApp();
+        const preload = vi.fn();
+        const anchor = document.createElement('span');
+        document.body.append(anchor);
+        const internals = app as unknown as {
+            audio: { preload: typeof preload };
+            settings: typeof DEFAULT_SETTINGS;
+            maybePreloadLookupCardAudio(card: JPDBCard, options: { trigger?: 'modal' | 'hover'; autoPlay?: boolean }, anchor?: HTMLElement): void;
+        };
+        internals.audio = { preload };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            audioEnableDefaultSources: false,
+            suppressAutoAudioOnVideo: false,
+        };
+
+        try {
+            internals.maybePreloadLookupCardAudio(card, { trigger: 'hover' }, anchor);
+            internals.maybePreloadLookupCardAudio(card, { trigger: 'hover', autoPlay: false }, anchor);
+
+            expect(preload).toHaveBeenNthCalledWith(1, card, {
+                sourceLimit: 1,
+                candidateLimit: 1,
+                prepareAudio: true,
+            });
+            expect(preload).toHaveBeenNthCalledWith(2, card, {
+                sourceLimit: 1,
+                candidateLimit: 1,
+                prepareAudio: false,
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('allows playable audio preparation after candidate-only warmup', () => {
+        const app = new ReaderApp();
+        const preload = vi.fn(() => true);
+        const internals = app as unknown as {
+            audio: { preload: typeof preload };
+            preloadReaderCardAudio(card: JPDBCard, options: { prepareAudio?: boolean }): boolean;
+        };
+        internals.audio = { preload };
+
+        try {
+            expect(internals.preloadReaderCardAudio(card, { prepareAudio: false })).toBe(true);
+            expect(internals.preloadReaderCardAudio(card, { prepareAudio: true })).toBe(true);
+            expect(internals.preloadReaderCardAudio(card, { prepareAudio: false })).toBe(false);
+
+            expect(preload).toHaveBeenCalledTimes(2);
+            expect(preload).toHaveBeenNthCalledWith(1, card, {
+                sourceLimit: 1,
+                candidateLimit: 1,
+                prepareAudio: false,
+            });
+            expect(preload).toHaveBeenNthCalledWith(2, card, {
+                sourceLimit: 1,
+                candidateLimit: 1,
+                prepareAudio: true,
+            });
+        } finally {
+            app.destroy();
         }
     });
 
@@ -12310,6 +12420,60 @@ describe('reader helpers', () => {
         }
     });
 
+    it('preloads the next shuffled candidate from multi-url audio responses', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0,
+            objectUrl: 'blob:http://localhost/random-preload-candidate',
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    resolveUserscriptTextResponse(details, JSON.stringify({
+                        audioSources: [
+                            { url: 'http://x.test/first-candidate.mp3' },
+                            { url: 'http://x.test/second-candidate.mp3' },
+                        ],
+                    }));
+                    return;
+                }
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom-json', url: 'http://x.test/source?term={term}', voice: '', enabled: true },
+                ],
+            }));
+
+            player.preload(card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: true });
+            await waitForExpect(() => expect(requested).toEqual([
+                'http://x.test/source?term=%E9%A3%9F%E3%81%B9%E3%82%8B',
+                'http://x.test/second-candidate.mp3',
+            ]));
+
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'http://x.test/source?term=%E9%A3%9F%E3%81%B9%E3%82%8B',
+                'http://x.test/second-candidate.mp3',
+            ]);
+            expect(played).toEqual(['blob:http://localhost/random-preload-candidate']);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('can warm audio candidates without downloading playable blobs', async () => {
         const played: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
@@ -12333,7 +12497,7 @@ describe('reader helpers', () => {
                 ],
             }));
 
-            player.preload(card, { prepareAudio: false });
+            expect(player.preload(card, { prepareAudio: false })).toBe(true);
             await Promise.resolve();
 
             expect(blobRequests).toBe(0);
@@ -12345,6 +12509,47 @@ describe('reader helpers', () => {
         } finally {
             restoreObjectUrls();
             restoreMedia();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('skips remote custom JSON lookups for candidate-only background preloads', async () => {
+        const requested: string[] = [];
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    resolveUserscriptTextResponse(details, JSON.stringify({
+                        audioSources: [{ url: 'http://x.test/audio.mp3' }],
+                    }));
+                    return;
+                }
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom-json', url: 'http://x.test/source?term={term}', voice: '', enabled: true },
+                ],
+            }));
+
+            expect(player.preload(card, { prepareAudio: false })).toBe(false);
+            await Promise.resolve();
+
+            expect(requested).toEqual([]);
+
+            expect(player.preload(card, { prepareAudio: true })).toBe(true);
+            await waitForExpect(() => expect(requested).toEqual([
+                'http://x.test/source?term=%E9%A3%9F%E3%81%B9%E3%82%8B',
+                'http://x.test/audio.mp3',
+            ]));
+        } finally {
             vi.unstubAllGlobals();
         }
     });

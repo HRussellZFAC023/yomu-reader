@@ -935,6 +935,82 @@
   stroke: none;
 }
 
+.jpdb-ocr-video-frame-status {
+  position: fixed;
+  z-index: 2147483644;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.22));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, rgb(15, 18, 24)) 86%, transparent);
+  color: var(--jpdb-reader-text, #fff);
+  box-shadow: 0 12px 30px var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.35));
+  backdrop-filter: blur(14px);
+  font: 750 12px/1.2 var(--jpdb-reader-font, system-ui);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jpdb-ocr-video-frame-status::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-accent, #7c9cff);
+}
+
+.jpdb-ocr-video-frame-status-loading::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--jpdb-reader-accent, #7c9cff) 28%, transparent);
+  border-top-color: var(--jpdb-reader-accent, #7c9cff);
+  background: transparent;
+  animation: jpdb-ocr-video-frame-status-spin 850ms linear infinite;
+}
+
+.jpdb-ocr-video-frame-status-ready {
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-known, #31c48d) 42%, var(--jpdb-reader-border, rgba(255, 255, 255, 0.22)));
+}
+
+.jpdb-ocr-video-frame-status-ready::before {
+  background: var(--jpdb-reader-state-known, #31c48d);
+}
+
+.jpdb-ocr-video-frame-status-empty,
+.jpdb-ocr-video-frame-status-failed {
+  color: var(--jpdb-reader-muted, #a8b0bd);
+}
+
+.jpdb-ocr-video-frame-status-failed {
+  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed, #f87171) 45%, var(--jpdb-reader-border, rgba(255, 255, 255, 0.22)));
+}
+
+.jpdb-ocr-video-frame-status-empty::before {
+  background: var(--jpdb-reader-muted, #a8b0bd);
+}
+
+.jpdb-ocr-video-frame-status-failed::before {
+  background: var(--jpdb-reader-state-failed, #f87171);
+}
+
+@keyframes jpdb-ocr-video-frame-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-ocr-video-frame-status-loading::before {
+    animation: none;
+  }
+}
+
 .jpdb-subtitle-player.jpdb-ocr-video-frame-resume-active .jpdb-subtitle-rail {
   opacity: 1 !important;
   pointer-events: auto !important;

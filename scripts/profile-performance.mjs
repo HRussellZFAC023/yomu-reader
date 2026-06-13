@@ -150,6 +150,22 @@ await page.exposeFunction('__yomuProfileRequest', profileBridgeRequest);
 
 async function profileBridgeRequest(request) {
     const started = performance.now();
+    const mocked = !LIVE
+        ? await profileRouteResponse(bridgeProfileRoute(request), new URL(request.url))
+        : null;
+    if (mocked) {
+        const result = bridgeResultFromProfileResponse(mocked);
+        requests.push({
+            method: request.method,
+            url: request.url,
+            status: mocked.status ?? 200,
+            start: started,
+            end: performance.now(),
+            viaUserscriptBridge: true,
+            mocked: true,
+        });
+        return result;
+    }
     const response = await fetch(request.url, {
         method: request.method,
         headers: request.headers,
@@ -172,6 +188,35 @@ async function profileBridgeRequest(request) {
     };
 }
 
+function bridgeProfileRoute(request) {
+    return {
+        request: () => ({
+            method: () => request.method,
+            url: () => request.url,
+            postData: () => bridgeRequestPostData(request),
+        }),
+    };
+}
+
+function bridgeRequestPostData(request) {
+    const body = gmRequestFetchBody(request);
+    if (body == null) return '';
+    if (typeof body === 'string') return body;
+    if (Buffer.isBuffer(body)) return body.toString('utf8');
+    return String(body);
+}
+
+function bridgeResultFromProfileResponse(response) {
+    const body = response.body ?? response.responseText ?? '';
+    const buffer = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+    return {
+        status: response.status ?? 200,
+        responseText: buffer.toString('utf8'),
+        bytes: [...buffer],
+        contentType: response.contentType ?? response.headers?.['content-type'] ?? '',
+    };
+}
+
 await page.addInitScript(({ settings, settingsKey }) => {
     localStorage.setItem(settingsKey, JSON.stringify(settings));
     window.__yomuProfileEvents = [];
@@ -186,14 +231,12 @@ await page.addInitScript(({ settings, settingsKey }) => {
     };
 }, { settings, settingsKey: SETTINGS_KEY });
 
-if (LIVE) {
-    await addGmStorageBridgeInitScript(page, {
-        key: SETTINGS_KEY,
-        value: settings,
-        css: '',
-        requestBridgeName: '__yomuProfileRequest',
-    });
-}
+await addGmStorageBridgeInitScript(page, {
+    key: SETTINGS_KEY,
+    value: settings,
+    css: '',
+    requestBridgeName: '__yomuProfileRequest',
+});
 
 if (!LIVE) await page.route('**/*', mockProfileRoute);
 
@@ -497,14 +540,14 @@ async function hoverCloseDebugSnapshot(page) {
 
 async function openProfileTarget(page, url) {
     const attempts = [];
-    const primary = await tryOpenAndPrepareProfilePage(page, url.toString(), 'newtab', attempts);
-    if (primary.ready) return { source: 'newtab', url: url.toString(), attempts };
-
     if (!LIVE) {
         const fixtureUrl = new URL(PROFILE_FIXTURE_PATH, ORIGIN);
         const fixture = await tryOpenAndPrepareProfilePage(page, fixtureUrl.toString(), 'fixture', attempts);
         if (fixture.ready) return { source: 'fixture', url: fixtureUrl.toString(), attempts };
     }
+
+    const primary = await tryOpenAndPrepareProfilePage(page, url.toString(), 'newtab', attempts);
+    if (primary.ready) return { source: 'newtab', url: url.toString(), attempts };
 
     return {
         skipped: true,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.193
+// @version      0.6.194
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-8w84W/MgaNglcmgi2Q+Z2sxw8qshE4aIdWeR/WLO2CE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-EkXGFrCKn5kayshkhEWZ34QpkmeEr7jgv2R/5hDuUN0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Q2/rr7bNZQfLKho6i+t9k3oxUFZ7CSvmo/OfOMKmP9U=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-K80cHeMthRfARgjzaPHdOpY2y7QbA20lgUIt6GS3k50=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-sdCj3J2sqWlhglpaOBsQ1Mu286JykYHrA0wbN+2pRus=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Df7KsqUG9RS4ncd9sAnbwxKCPrk2Ogx/Hzq1dnH3Tsk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TEd9j+Xrgrq9Ax4NjcVKXazrqkoYePiZm0xt1ifQjkk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-8526NcJE/mzwWKLRFJ9sjBB2BFnqCSbPdI/yjppG8iM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6157,6 +6157,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
+      ocrVideoPauseFrames: "Read paused video frames",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       cloudVision: "Google Cloud Vision",
@@ -6518,6 +6519,10 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
+      ocrPausedFrameScanning: "Reading paused frame...",
+      ocrPausedFrameReady: "Text ready",
+      ocrPausedFrameNoText: "No text found",
+      ocrPausedFrameFailed: "Could not read text",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -7223,6 +7228,10 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameReady	テキスト準備完了
+ocrPausedFrameNoText	テキストが見つかりません
+ocrPausedFrameFailed	テキストを読み取れませんでした
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -7660,6 +7669,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
+ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
@@ -8100,6 +8110,29 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function preloadableAudioSources(sources, settings) {
     return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
+  }
+  function cheapCandidatePreloadAudioSources(sources, card) {
+    return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+  }
+  function canResolveAudioCandidatesWithoutNetwork(source, card) {
+    switch (source.type) {
+      case "custom":
+      case "jpod101":
+        return true;
+      case "jiten-tts":
+        return hasJitenAudioReference(card);
+      default:
+        return false;
+    }
+  }
+  function hasJitenAudioReference(card) {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+  }
+  function isPositiveFiniteInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+  }
+  function isFiniteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
   }
   function audioPreloadLimits$1(options) {
     return {
@@ -9518,11 +9551,18 @@ recommendedJiten	jiten.moe頻度データです。
     }
     preload(card, options = {}) {
       const settings = this.getSettings();
-      if (!settings.audioEnabled) return;
+      if (!settings.audioEnabled) return false;
       const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits$1(options);
-      const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
-      if (!sources.length) return;
-      for (const source of sources) {
+      const candidateSources = preloadableAudioSources(getOrderedAudioSources(settings), settings);
+      const preloadedSources = prepareAudio ? candidateSources : cheapCandidatePreloadAudioSources(candidateSources, card);
+      const sources = orderAudioSources(
+        preloadedSources,
+        settings.audioSelectionMode,
+        card,
+        this.shuffledAudio
+      ).slice(0, sourceLimit);
+      if (!sources.length) return false;
+      for (const { source } of sources) {
         void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl).then((candidates) => {
           const triedUrls = /* @__PURE__ */ new Set();
           for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
@@ -9533,6 +9573,7 @@ recommendedJiten	jiten.moe頻度データです。
           }
         }).catch(() => void 0);
       }
+      return true;
     }
     stop() {
       this.playRequestId++;
@@ -37389,28 +37430,43 @@ ${glossaryKey}`;
       return null;
     }
     preloadHoverWordAudio(word) {
-      this.preloadReaderWordAudio(word, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
+      const card = this.preloadableReaderWordCard(word);
+      if (!card) return;
+      this.preloadReaderCardAudio(card, {
+        sourceLimit: 1,
+        candidateLimit: 1,
+        prepareAudio: this.shouldPrepareHoverWordAudio(card, word)
+      });
       if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
     }
     preloadReaderWordAudio(word, options = {}) {
       if (!this.canPreloadReaderAudio()) return false;
       const card = this.preloadableReaderWordCard(word);
       if (!card) return false;
-      if (!this.reservePreloadedTermAudio(card)) return false;
-      this.audio.preload(card, audioPreloadLimits(options));
+      return this.preloadReaderCardAudio(card, options);
+    }
+    preloadReaderCardAudio(card, options = {}) {
+      const limits = audioPreloadLimits(options);
+      const key = cardKey(card);
+      if (this.preloadedTermAudioKeys.has(key) && !limits.prepareAudio) return false;
+      if (!this.audio.preload(card, limits)) return false;
+      this.rememberPreloadedTermAudioKey(key);
       return true;
+    }
+    shouldPrepareHoverWordAudio(card, word) {
+      return canAttemptReaderAutoAudio({
+        anchor: word,
+        settings: this.settings,
+        subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
+        trigger: "hover",
+        userGesture: false
+      }) && isUsefulImmersionPreloadQuery(card.spelling);
     }
     canPreloadReaderAudio() {
       return this.settings.audioEnabled;
     }
     canPreloadBackgroundReaderAudio() {
       return this.settings.audioEnabled && this.settings.autoPlayAudio;
-    }
-    reservePreloadedTermAudio(card) {
-      const key = cardKey(card);
-      if (this.preloadedTermAudioKeys.has(key)) return false;
-      this.rememberPreloadedTermAudioKey(key);
-      return true;
     }
     preloadableReaderWordCard(word) {
       const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
@@ -38804,7 +38860,7 @@ ${glossaryKey}`;
       this.rememberCardMiningContext(card, sentence, anchor, options);
       const fallbackAnkiLookup = this.fallbackCardAnkiLookup();
       this.lastAnkiLookup = fallbackAnkiLookup;
-      this.maybePreloadLookupCardAudio(card, options);
+      this.maybePreloadLookupCardAudio(card, options, anchor);
       let renderData;
       const loadRenderData = () => {
         renderData ??= this.cardRenderData.load(card);
@@ -38928,13 +38984,25 @@ ${glossaryKey}`;
         isCurrent: context.trigger === "hover" ? context.isCurrentHoverCard : void 0
       });
     }
-    maybePreloadLookupCardAudio(card, options) {
+    maybePreloadLookupCardAudio(card, options, anchor) {
       if (!this.canPreloadReaderAudio()) return;
       this.audio.preload(card, {
         sourceLimit: 1,
         candidateLimit: 1,
-        prepareAudio: options.trigger !== "hover"
+        prepareAudio: this.shouldPrepareLookupCardAudio(card, options, anchor)
       });
+    }
+    shouldPrepareLookupCardAudio(card, options, anchor) {
+      const trigger = cardDisplayTrigger(options);
+      if (trigger !== "hover") return true;
+      if (options.autoPlay === false) return false;
+      return canAttemptReaderAutoAudio({
+        anchor,
+        settings: this.settings,
+        subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
+        trigger,
+        userGesture: Boolean(options.userGesture)
+      }) && isUsefulImmersionPreloadQuery(card.spelling);
     }
     shouldAutoPlayInitialCard(card, context) {
       return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor);
@@ -40184,11 +40252,7 @@ ${glossaryKey}`;
     }
     preloadTermAudioForToken(token) {
       if (!isUsefulImmersionPreloadQuery(token.card.spelling)) return false;
-      const key = cardKey(token.card);
-      if (this.preloadedTermAudioKeys.has(key)) return false;
-      this.rememberPreloadedTermAudioKey(key);
-      this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
-      return true;
+      return this.preloadReaderCardAudio(token.card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
     }
     rememberPreloadedTermAudioKey(key) {
       this.preloadedTermAudioKeys.add(key);

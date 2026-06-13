@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
+import { waitForExpect } from './test-utils';
 
 afterEach(() => {
     document.body.replaceChildren();
@@ -51,6 +52,51 @@ describe('paused-video OCR frames', () => {
 
         video.dispatchEvent(new Event('play'));
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+    });
+
+    it('shows paused-frame OCR status while reading and when text is ready', async () => {
+        createController();
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+        expect(status).not.toBeNull();
+        expect(status!.dataset.status).toBe('loading');
+        expect(status!.textContent).toBe('Reading paused frame...');
+
+        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
+        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
+        frame.dataset.ocrLines = JSON.stringify([
+            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        frame.dispatchEvent(new Event('load'));
+
+        await waitForExpect(() => {
+            expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect(status!.dataset.status).toBe('ready');
+            expect(status!.textContent).toBe('Text ready');
+        });
+    });
+
+    it('shows paused-frame OCR status when no text is found', async () => {
+        createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' });
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+
+        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
+        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
+        frame.dataset.ocrLines = '[]';
+        frame.dispatchEvent(new Event('load'));
+
+        await waitForExpect(() => {
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(status.dataset.status).toBe('empty');
+            expect(status.textContent).toBe('No text found');
+        });
     });
 
     it('does not snapshot when the feature or OCR is disabled', () => {

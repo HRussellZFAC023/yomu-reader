@@ -1941,7 +1941,13 @@ export class ReaderApp {
     }
 
     private preloadHoverWordAudio(word: HTMLElement): void {
-        this.preloadReaderWordAudio(word, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
+        const card = this.preloadableReaderWordCard(word);
+        if (!card) return;
+        this.preloadReaderCardAudio(card, {
+            sourceLimit: 1,
+            candidateLimit: 1,
+            prepareAudio: this.shouldPrepareHoverWordAudio(card, word),
+        });
         if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
     }
 
@@ -1949,9 +1955,26 @@ export class ReaderApp {
         if (!this.canPreloadReaderAudio()) return false;
         const card = this.preloadableReaderWordCard(word);
         if (!card) return false;
-        if (!this.reservePreloadedTermAudio(card)) return false;
-        this.audio.preload(card, audioPreloadLimits(options));
+        return this.preloadReaderCardAudio(card, options);
+    }
+
+    private preloadReaderCardAudio(card: JPDBCard, options: ReaderAudioPreloadOptions = {}): boolean {
+        const limits = audioPreloadLimits(options);
+        const key = cardKey(card);
+        if (this.preloadedTermAudioKeys.has(key) && !limits.prepareAudio) return false;
+        if (!this.audio.preload(card, limits)) return false;
+        this.rememberPreloadedTermAudioKey(key);
         return true;
+    }
+
+    private shouldPrepareHoverWordAudio(card: JPDBCard, word: HTMLElement): boolean {
+        return canAttemptReaderAutoAudio({
+            anchor: word,
+            settings: this.settings,
+            subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
+            trigger: 'hover',
+            userGesture: false,
+        }) && isUsefulImmersionPreloadQuery(card.spelling);
     }
 
     private canPreloadReaderAudio(): boolean {
@@ -1960,13 +1983,6 @@ export class ReaderApp {
 
     private canPreloadBackgroundReaderAudio(): boolean {
         return this.settings.audioEnabled && this.settings.autoPlayAudio;
-    }
-
-    private reservePreloadedTermAudio(card: JPDBCard): boolean {
-        const key = cardKey(card);
-        if (this.preloadedTermAudioKeys.has(key)) return false;
-        this.rememberPreloadedTermAudioKey(key);
-        return true;
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
@@ -3813,7 +3829,7 @@ export class ReaderApp {
         this.rememberCardMiningContext(card, sentence, anchor, options);
         const fallbackAnkiLookup = this.fallbackCardAnkiLookup();
         this.lastAnkiLookup = fallbackAnkiLookup;
-        this.maybePreloadLookupCardAudio(card, options);
+        this.maybePreloadLookupCardAudio(card, options, anchor);
         let renderData: CardRenderDataLoad | undefined;
         const loadRenderData = (): CardRenderDataLoad => {
             renderData ??= this.cardRenderData.load(card);
@@ -4000,13 +4016,26 @@ export class ReaderApp {
         });
     }
 
-    private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions): void {
+    private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions, anchor?: HTMLElement): void {
         if (!this.canPreloadReaderAudio()) return;
         this.audio.preload(card, {
             sourceLimit: 1,
             candidateLimit: 1,
-            prepareAudio: options.trigger !== 'hover',
+            prepareAudio: this.shouldPrepareLookupCardAudio(card, options, anchor),
         });
+    }
+
+    private shouldPrepareLookupCardAudio(card: JPDBCard, options: CardDisplayOptions, anchor?: HTMLElement): boolean {
+        const trigger = cardDisplayTrigger(options);
+        if (trigger !== 'hover') return true;
+        if (options.autoPlay === false) return false;
+        return canAttemptReaderAutoAudio({
+            anchor,
+            settings: this.settings,
+            subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
+            trigger,
+            userGesture: Boolean(options.userGesture),
+        }) && isUsefulImmersionPreloadQuery(card.spelling);
     }
 
     private shouldAutoPlayInitialCard(
@@ -5540,11 +5569,7 @@ export class ReaderApp {
 
     private preloadTermAudioForToken(token: JPDBToken): boolean {
         if (!isUsefulImmersionPreloadQuery(token.card.spelling)) return false;
-        const key = cardKey(token.card);
-        if (this.preloadedTermAudioKeys.has(key)) return false;
-        this.rememberPreloadedTermAudioKey(key);
-        this.audio.preload(token.card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
-        return true;
+        return this.preloadReaderCardAudio(token.card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
     }
 
     private rememberPreloadedTermAudioKey(key: string): void {
