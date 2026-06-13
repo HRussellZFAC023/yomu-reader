@@ -51,9 +51,9 @@ function settingsTabControls(panel: string): string {
     return {
         api: 'jpdb-reader-settings-panel-api',
         newTab: 'jpdb-reader-settings-panel-newtab',
-        appearance: 'jpdb-reader-settings-panel-appearance',
+        appearance: 'jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader',
         reading: 'jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji',
-        dictionaries: 'jpdb-reader-settings-panel-dictionaries',
+        dictionaries: 'jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji',
         media: 'jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube',
         mining: 'jpdb-reader-settings-panel-mining',
         shortcuts: 'jpdb-reader-settings-panel-shortcuts',

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.189
+// @version      0.6.190
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-af6BYKmIatAe+0OvQRoq9x0D1sVqIJ3HdUUfMVtH1ak=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-RJ5dtYJQeDz+VUUCpvEv4jSnn6vmgM5qE2HqW3upKQ8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-1ArZcJdmlfUhMXzq8qodi2LKzJ2z961BNbkTYGvw+/A=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-r5M30muywlMwRDzw89bNuBNOQv3Es21ONqcoT8uX7yw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WlPqpYldBw2ZdIsJHXLJKmcz1T6a2G/D1xrgdp5Gc7E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-I3UvR1tFoC4YNkLHuhOTUjCHhm/GZkR/Bp9sTbAZ8mA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2df4FXl+FuRxyl+1Az4f1D5jrw+Ird6t6Gle9nZdVaM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-4TVPpr8FIU9ygkulI2NaAGehkipoIlJkkwnIwiHjB/s=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -378,6 +378,11 @@
     return words.length;
   }
   function readerWordSurfaceText(element2) {
+    const surface = readerWordChildSurfaceText(element2);
+    if (surface || !isReaderWordElement(element2)) return surface;
+    return element2.dataset.surface ?? "";
+  }
+  function readerWordChildSurfaceText(element2) {
     let text2 = "";
     element2.childNodes.forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -387,9 +392,12 @@
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const child = node;
       if (isSurfaceIgnoredElement(child)) return;
-      text2 += readerWordSurfaceText(child);
+      text2 += readerWordChildSurfaceText(child);
     });
     return text2;
+  }
+  function isReaderWordElement(element2) {
+    return element2 instanceof HTMLElement && element2.classList.contains("jpdb-reader-word");
   }
   function readerWordAtPointInScope(scope, x, y, accepts = () => true) {
     let best = null;
@@ -3130,38 +3138,6 @@
     '[tabindex]:not([tabindex="-1"])'
   ].join(",");
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-  const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    "ytd-watch-metadata",
-    "ytd-comments",
-    "ytd-comment-view-model",
-    "ytd-comment-thread-renderer",
-    "ytd-comment-replies-renderer",
-    "ytm-watch-metadata",
-    "ytm-slim-video-metadata-section-renderer",
-    "ytm-slim-owner-renderer",
-    "ytm-expandable-video-description-body-renderer",
-    "ytm-video-description-header-renderer",
-    "ytm-video-description-transcript-section-renderer",
-    "ytm-structured-description-content-renderer",
-    "ytm-metadata-row-container-renderer",
-    "ytm-comment-section-renderer",
-    "ytm-comment-thread-renderer",
-    "ytm-comment-renderer"
-  ].join(",");
-  const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    "ytd-watch-metadata h1",
-    "ytd-watch-metadata #title",
-    "ytm-watch-metadata h1",
-    "ytm-watch-metadata #title",
-    "ytm-slim-video-metadata-section-renderer h1",
-    "ytm-slim-video-metadata-section-renderer .slim-video-metadata-title",
-    "ytd-rich-item-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-video-renderer",
-    "ytm-rich-item-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model"
-  ].join(",");
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
     ...PROSE_TAGS,
@@ -3208,6 +3184,12 @@
     "TR",
     "UL"
   ]);
+  const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
+  const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
+  const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15e3;
+  const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
+  const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4e3, 1e4];
+  const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   function getSelectionText() {
     const selection = window.getSelection();
     return selection?.toString().replace(/\s+/g, " ").trim() ?? "";
@@ -3517,16 +3499,12 @@
   }
   function isLayoutSensitiveScanElement(element2) {
     if (element2 && isInsideOwnedReaderRoot(element2)) return false;
-    if (element2 && isStableCompactRubySurface(element2)) return false;
     let current = element2;
     while (current && current !== document.body && current !== document.documentElement) {
       if (isLayoutSensitiveTextBox(current)) return true;
       current = current.parentElement;
     }
     return false;
-  }
-  function isStableCompactRubySurface(element2) {
-    return Boolean(element2.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR) && !element2.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
   }
   const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element2) {
@@ -3623,6 +3601,7 @@
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
     if (!safeTokens.length) return;
     target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    markRenderedScanTarget(target);
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
     const fragment = document.createDocumentFragment();
@@ -3651,12 +3630,130 @@
   function appendPlainTextBeforeToken(fragment, text2, start, end) {
     if (end > start) fragment.append(document.createTextNode(text2.slice(start, end)));
   }
+  function markRenderedScanTarget(target) {
+    const text2 = normalizedRenderedHostText(target.text);
+    if (!text2 || !HAS_JAPANESE$1.test(text2) || !target.parent.isConnected) return;
+    const previous = renderedScanHosts.get(target.parent);
+    const now = Date.now();
+    const keepBackoff = previous && previous.text === text2 && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
+    renderedScanHosts.set(target.parent, {
+      text: text2,
+      markedAt: now,
+      lastRejectedAt: keepBackoff ? previous.lastRejectedAt : void 0,
+      rejectionCount: keepBackoff ? previous.rejectionCount : void 0
+    });
+  }
+  function readerRenderRejectionRescanDelay(mutation) {
+    const rejection = classifyReaderRenderRejection(mutation);
+    if (!rejection) return null;
+    if (rejection.repair) unwrapReaderWords(rejection.match.element);
+    return nextRenderedScanHostRescanDelay(rejection.match.host);
+  }
+  function classifyReaderRenderRejection(mutation) {
+    if (mutation.type !== "childList") return null;
+    const element2 = mutationTargetElement(mutation.target);
+    if (!element2) return null;
+    const match = closestRenderedScanHost(element2);
+    if (!match || Date.now() - match.host.markedAt > RENDERED_SCAN_HOST_REJECTION_WINDOW_MS) return null;
+    if (nodesContainReaderWord(mutation.removedNodes) && restoredHostTextMatches(match.element, match.host.text, mutation.addedNodes)) {
+      return { match, repair: false };
+    }
+    if (mutationTouchesReaderWordContent(mutation) && renderedHostContainsDamagedReaderWord(match.element)) {
+      return { match, repair: true };
+    }
+    return null;
+  }
+  function nextRenderedScanHostRescanDelay(host) {
+    const now = Date.now();
+    const previousCount = host.lastRejectedAt !== void 0 && now - host.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS ? host.rejectionCount ?? 0 : 0;
+    host.lastRejectedAt = now;
+    host.rejectionCount = previousCount + 1;
+    return RENDERED_SCAN_HOST_RESCAN_DELAYS_MS[Math.min(previousCount, RENDERED_SCAN_HOST_RESCAN_DELAYS_MS.length - 1)];
+  }
+  function closestRenderedScanHost(element2) {
+    let current = null;
+    if (element2 instanceof HTMLElement) current = element2;
+    else if (element2.parentElement instanceof HTMLElement) current = element2.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const host = renderedScanHosts.get(current);
+      if (host) return { element: current, host };
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function restoredHostTextMatches(element2, previousText, addedNodes) {
+    const currentText = normalizedRenderedHostSurfaceText(element2);
+    if (textMatchesRenderedHost(currentText, previousText)) return true;
+    const addedText = normalizedRenderedHostText(Array.from(addedNodes, (node) => node.textContent ?? "").join(""));
+    return textMatchesRenderedHost(addedText, previousText);
+  }
+  function textMatchesRenderedHost(candidate, previousText) {
+    return Boolean(candidate && previousText && (candidate.includes(previousText) || previousText.includes(candidate)));
+  }
+  function normalizedRenderedHostText(text2) {
+    return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+  }
+  function normalizedRenderedHostSurfaceText(element2) {
+    return normalizedRenderedHostText(readerWordSurfaceText(element2) || element2.textContent || "");
+  }
+  function nodesContainReaderWord(nodes) {
+    return Array.from(nodes).some(nodeContainsReaderWord);
+  }
+  function nodeContainsReaderWord(node) {
+    if (node instanceof Element) {
+      return node.matches(READER_WORD_SELECTOR$1) || Boolean(node.querySelector(READER_WORD_SELECTOR$1));
+    }
+    if (node instanceof DocumentFragment) return Boolean(node.querySelector(READER_WORD_SELECTOR$1));
+    return false;
+  }
+  function mutationTouchesReaderWordContent(mutation) {
+    const target = mutationTargetElement(mutation.target);
+    return Boolean(target?.closest(READER_WORD_SELECTOR$1)) || nodesContainReaderWordMarkup(mutation.removedNodes) || nodesContainReaderWordMarkup(mutation.addedNodes);
+  }
+  function nodesContainReaderWordMarkup(nodes) {
+    return Array.from(nodes).some(nodeContainsReaderWordMarkup);
+  }
+  function nodeContainsReaderWordMarkup(node) {
+    if (node.nodeType === Node.TEXT_NODE) return true;
+    if (!(node instanceof Element || node instanceof DocumentFragment)) return false;
+    const root = node;
+    return Boolean(root instanceof Element && root.matches(".jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp")) || Boolean(root.querySelector?.(".jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp"));
+  }
+  function renderedHostContainsDamagedReaderWord(host) {
+    return Array.from(host.querySelectorAll(READER_WORD_SELECTOR$1)).some(renderedWordLooksDamaged);
+  }
+  function renderedWordLooksDamaged(word) {
+    if (!word.classList.contains("jpdb-reader-has-furi")) return false;
+    const expected = normalizedRenderedHostText(word.dataset.surface ?? "");
+    const surface = normalizedRenderedHostText(readerWordDomSurfaceText(word));
+    if (expected && !textMatchesRenderedHost(surface, expected)) return true;
+    const hasFuri = Boolean(word.querySelector(".jpdb-reader-furi,rt"));
+    const hasBase = Boolean(word.querySelector(".jpdb-reader-ruby-base,rb"));
+    return hasFuri && (!hasBase || !surface);
+  }
+  function readerWordDomSurfaceText(element2) {
+    let text2 = "";
+    element2.childNodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text2 += node.textContent ?? "";
+        return;
+      }
+      if (!(node instanceof Element) || node.matches("rt,rp")) return;
+      text2 += readerWordDomSurfaceText(node);
+    });
+    return text2;
+  }
+  function mutationTargetElement(target) {
+    if (target.nodeType === Node.ELEMENT_NODE) return target;
+    return target.parentElement;
+  }
   function applyTokensToFragmentTarget(target, tokens, settings) {
     if (!hasFragmentTokenWork(target, tokens)) return;
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    markRenderedScanTarget(target);
   }
   function hasFragmentTokenWork(target, tokens) {
     return Boolean(tokens.length && target.fragments.length);
@@ -4144,6 +4241,7 @@
   }
   function renderToken(surface, token, settings, options = {}) {
     const span = createReaderWordSpan(token, options);
+    span.dataset.surface = surface;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
@@ -4214,11 +4312,12 @@
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
     const cardState = ` data-card-state="${escapeHtml$1(state)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -4512,7 +4611,6 @@
   }
   function isGeometryFragileText(element2, text2) {
     if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
-    if (isStableCompactRubySurface(element2)) return false;
     const metrics = fragileTextMetrics(element2, text2);
     if (fragileByTypography(element2, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
@@ -4690,32 +4788,61 @@
     const words = root.querySelectorAll(".jpdb-reader-word");
     for (const word of words) {
       if (!word.querySelector("rt")) continue;
-      const box = nearestCropCapableBox(word.parentElement);
-      if (!box || box.dataset.yomuRubyRoom === "true") continue;
-      if (!boxActuallyCrops(box)) continue;
-      box.dataset.yomuRubyRoom = "true";
-      const style = safeComputedStyle(box);
-      if (hasLineClamp(style)) {
-        box.style.setProperty("max-height", "none", "important");
-      } else {
-        box.style.setProperty("max-height", `${box.scrollHeight}px`, "important");
+      for (const box of cropCapableBoxes(word.parentElement)) {
+        if (box.dataset.yomuRubyRoom === "true") continue;
+        if (!boxActuallyCrops(box)) continue;
+        box.dataset.yomuRubyRoom = "true";
+        const style = safeComputedStyle(box);
+        makeRoomForRubyInBox(box, style);
+        adjusted += 1;
       }
-      adjusted += 1;
     }
     return adjusted;
   }
-  function nearestCropCapableBox(element2) {
+  function makeRoomForRubyInBox(box, style) {
+    if (hasLineClamp(style)) {
+      box.style.setProperty("max-height", "none", "important");
+      if (hasDefiniteCssSize(style.height)) box.style.setProperty("height", "auto", "important");
+      return;
+    }
+    const contentHeight = `${rubyRoomHeight(box)}px`;
+    if (hasDefiniteCssSize(style.height)) {
+      box.style.setProperty("height", contentHeight, "important");
+    }
+    if (hasDefiniteCssSize(style.maxHeight) || !hasDefiniteCssSize(style.height)) {
+      box.style.setProperty("max-height", contentHeight, "important");
+    }
+  }
+  function cropCapableBoxes(element2) {
+    const boxes = [];
     let current = element2;
     while (current && current !== document.body && current !== document.documentElement) {
-      if (current.dataset.jpdbReaderRoot) return null;
+      if (current.dataset.jpdbReaderRoot) break;
       const style = safeComputedStyle(current);
-      if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return current;
+      if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) boxes.push(current);
       current = current.parentElement;
     }
-    return null;
+    return boxes;
   }
   function boxActuallyCrops(box) {
-    return box.scrollHeight > box.clientHeight + 1;
+    return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1;
+  }
+  function rubyRoomHeight(box) {
+    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box)));
+  }
+  function rubyBottomOverflow(box) {
+    const boxRect = box.getBoundingClientRect();
+    let overflow = 0;
+    for (const ruby of box.querySelectorAll("ruby")) {
+      const base = ruby.querySelector(".jpdb-reader-ruby-base") ?? ruby;
+      const baseRect = base.getBoundingClientRect();
+      if (!baseVisibleInBox(baseRect, boxRect)) continue;
+      overflow = Math.max(overflow, baseRect.bottom - boxRect.bottom);
+    }
+    return Math.max(0, overflow);
+  }
+  function baseVisibleInBox(baseRect, boxRect) {
+    return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
   }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
@@ -5681,6 +5808,8 @@
       onboardingEyebrow: "Japanese, wherever it appears",
       onboardingCopy: "Make Japanese text, subtitles, and images tappable while you read.",
       onboardingLanguage: "Settings language",
+      onboardingAccentColor: "Accent color",
+      customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
       onboardingAddApiKey: "Add API key",
       onboardingAddLocalDictionaries: "Add local dictionaries",
@@ -5715,6 +5844,7 @@
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
+      sources: "Sources",
       media: "Media",
       mining: "Mining",
       shortcuts: "Shortcuts",
@@ -6754,6 +6884,8 @@ welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
 onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingAccentColor	アクセントカラー
+customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingAddApiKey	APIキーを追加
 onboardingAddLocalDictionaries	ローカル辞書を追加
@@ -6776,6 +6908,7 @@ settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
 dictionaries	辞書
+sources	ソース
 localWordSingular	項目
 localWordPlural	項目
 kanji	漢字
@@ -7246,6 +7379,7 @@ show	表示
 hide	隠す
 appearance	外観
 reading	読解
+sources	ソース
 media	メディア
 mining	採掘
 shortcuts	ショートカット
@@ -9862,6 +9996,32 @@ recommendedJiten	jiten.moe頻度データです。
         await worker(items[index], index);
       }
     }));
+  }
+  async function mapLimited(items, concurrency, worker) {
+    const results = new Array(items.length);
+    await runLimited(items, concurrency, async (item, index) => {
+      results[index] = await worker(item, index);
+    });
+    return results;
+  }
+  class ConcurrencyGate {
+    constructor(limit) {
+      this.limit = limit;
+    }
+    active = 0;
+    queue = [];
+    async run(task) {
+      if (this.active >= this.limit) {
+        await new Promise((resolve) => this.queue.push(resolve));
+      }
+      this.active += 1;
+      try {
+        return await task();
+      } finally {
+        this.active -= 1;
+        this.queue.shift()?.();
+      }
+    }
   }
   const POS_LABELS = {
     adj: "adjective",
@@ -24411,6 +24571,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return cards;
   }
   const LOCAL_MATCH_LIMIT = 40;
+  const LOCAL_ENRICHMENT_CONCURRENCY = 12;
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
@@ -24446,6 +24607,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
@@ -24619,12 +24781,12 @@ ${spelling}`);
         log$b.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return Promise.all(matches.map(async (match) => {
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
         const card = this.localCardFromEntry(match.entry);
-        const pitch = await this.localPitchPattern(card, options);
-        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
         const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
-        const rubies = reading ? await this.localRubySegments(match.surface, reading, match.start, match.end) : [];
+        const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+        const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
         return {
           card,
           start: match.start,
@@ -24634,7 +24796,7 @@ ${spelling}`);
           pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
           sentence: text2
         };
-      }));
+      });
     }
     parseSegmentedText(text2) {
       return segmentJapaneseText(text2).map((segment) => {
@@ -30618,22 +30780,11 @@ ${glossaryKey}`;
     "ytd-toggle-button-renderer",
     "ytd-button-renderer",
     "yt-chip-cloud-chip-renderer",
-    "ytd-guide-entry-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-compact-radio-renderer",
-    "ytd-compact-playlist-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-reel-video-renderer",
-    "ytd-video-renderer",
     "ytm-button-renderer",
     "ytm-toggle-button-renderer",
     "ytm-subscribe-button-renderer",
     "ytm-chip-cloud-chip-renderer",
     "ytm-compact-link-renderer",
-    "ytm-compact-video-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    ".ytp-menuitem",
     ".yt-spec-button-shape-next"
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
@@ -31136,11 +31287,23 @@ ${glossaryKey}`;
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
+        "ytd-search",
+        "ytd-two-column-search-results-renderer",
+        "ytd-section-list-renderer",
+        "ytd-item-section-renderer",
+        "ytd-video-renderer",
         "#related",
         "ytd-watch-next-secondary-results-renderer",
         "ytd-rich-grid-renderer",
         "ytd-rich-section-renderer",
+        "ytd-reel-shelf-renderer",
+        "ytd-reel-item-renderer",
+        "ytd-reel-video-renderer",
+        "yt-lockup-view-model",
+        "yt-lockup-metadata-view-model",
         "ytm-rich-grid-renderer",
+        "ytm-shorts-lockup-view-model",
+        "ytm-shorts-lockup-view-model-v2",
         "ytm-single-column-watch-next-results-renderer",
         "ytm-item-section-renderer",
         ".ytp-popup",
@@ -31374,10 +31537,21 @@ ${glossaryKey}`;
       ...root.matches(selector) ? [root] : [],
       ...Array.from(root.querySelectorAll(selector))
     ];
-    return candidates.filter((candidate, index) => {
-      if (candidates.indexOf(candidate) !== index) return false;
-      return !candidates.some((other) => other !== candidate && other.contains(candidate));
-    });
+    if (candidates.length <= 1) return candidates;
+    const candidateSet = new Set(candidates);
+    const result = [];
+    for (const candidate of candidates) {
+      let containedByCandidate = false;
+      for (let ancestor = candidate.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        if (candidateSet.has(ancestor)) {
+          containedByCandidate = true;
+          break;
+        }
+        if (ancestor === root) break;
+      }
+      if (!containedByCandidate) result.push(candidate);
+    }
+    return result;
   }
   function addUniqueSiteScanTarget(profile, target, context, options = {}) {
     const nodes = textNodesForFragmentTarget(target);
@@ -32386,7 +32560,7 @@ ${glossaryKey}`;
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ["class", "style", "hidden", "open", "aria-hidden", "aria-expanded"]
+    attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded"]
   };
   const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const MUTATION_TEXT_SCAN_LIMIT = 4e3;
@@ -32784,6 +32958,7 @@ ${glossaryKey}`;
     return targets.map((target) => target.text).join("\n\n");
   }
   const log$4 = Logger.scope("Onboarding");
+  const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
   function selectedOnboardingLanguage(value, fallback) {
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
   }
@@ -32794,6 +32969,7 @@ ${glossaryKey}`;
     panel;
     backdrop;
     languageSelect;
+    accentColorInput;
     youtubeImmersionInput;
     preferJapaneseSiteLanguageInput;
     async showIfNeeded() {
@@ -32864,6 +33040,38 @@ ${glossaryKey}`;
         this.languageSelect?.append(option);
       });
       language.append(languageText, this.languageSelect);
+      const accentPicker = document.createElement("fieldset");
+      accentPicker.className = "jpdb-reader-onboarding-accent";
+      const accentLegend = document.createElement("legend");
+      accentLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor");
+      const swatches = document.createElement("div");
+      swatches.className = "jpdb-reader-onboarding-swatches";
+      ONBOARDING_ACCENT_SWATCHES.forEach((color) => {
+        const swatch = button("");
+        swatch.className = "jpdb-reader-onboarding-swatch";
+        swatch.dataset.onboardingAccent = color;
+        swatch.style.setProperty("--jpdb-reader-onboarding-swatch", color);
+        swatch.setAttribute("aria-label", onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color));
+        swatch.title = onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color);
+        swatch.addEventListener("click", () => this.applyAccentChoice(color));
+        swatches.append(swatch);
+      });
+      const customAccent = document.createElement("label");
+      customAccent.className = "jpdb-reader-onboarding-custom-accent";
+      const customAccentText = document.createElement("span");
+      customAccentText.dataset.onboardingCopy = "customAccentColor";
+      customAccentText.textContent = uiText(this.options.getSettings().interfaceLanguage, "customAccentColor");
+      this.accentColorInput = document.createElement("input");
+      this.accentColorInput.type = "color";
+      this.accentColorInput.name = "accentColor";
+      this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
+      this.accentColorInput.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor"));
+      this.accentColorInput.addEventListener("input", () => this.applyAccentChoice(this.accentColorInput?.value));
+      customAccent.append(customAccentText, this.accentColorInput);
+      accentPicker.append(accentLegend, swatches, customAccent);
+      const basics = document.createElement("div");
+      basics.className = "jpdb-reader-onboarding-basics";
+      basics.append(language, accentPicker);
       const immersionOptions = document.createElement("fieldset");
       immersionOptions.className = "jpdb-reader-onboarding-options";
       const immersionLegend = document.createElement("legend");
@@ -32892,7 +33100,8 @@ ${glossaryKey}`;
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
-      this.panel.append(closeButton, eyebrow, title, copy, language, immersionOptions, actions, featureGrid);
+      this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureGrid);
+      this.syncAccentPicker(this.accentColorInput.value);
       document.body.append(this.backdrop, this.panel);
       this.panel.focus();
     }
@@ -32907,6 +33116,16 @@ ${glossaryKey}`;
       panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
       panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
       panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
+      panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
+      panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
+      this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
+      panel.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
+        const color = button2.dataset.onboardingAccent;
+        if (!color) return;
+        const label = onboardingAccentLabel(language, color);
+        button2.setAttribute("aria-label", label);
+        button2.title = label;
+      });
       const options = [
         ["auto", uiText(language, "automatic")],
         ["en", uiText(language, "english")],
@@ -32921,7 +33140,8 @@ ${glossaryKey}`;
         ["featureText", "featureTextBody"],
         ["featureImages", "featureImagesBody"],
         ["featureVideo", "featureVideoBody"],
-        ["featureControl", "featureControlBody"]
+        ["featureControl", "featureControlBody"],
+        ["featureStudy", "featureStudyBody"]
       ];
       cards.forEach((card, index) => {
         const [headingKey, bodyKey] = cardKeys[index] ?? cardKeys[0];
@@ -32960,7 +33180,8 @@ ${glossaryKey}`;
         youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
         preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
         dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
-        interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage)
+        interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
+        accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
       };
     }
     openPostOnboardingSettings(openSettings) {
@@ -32973,8 +33194,26 @@ ${glossaryKey}`;
       this.panel = void 0;
       this.backdrop = void 0;
       this.languageSelect = void 0;
+      this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
       this.preferJapaneseSiteLanguageInput = void 0;
+    }
+    applyAccentChoice(value) {
+      const current = this.options.getSettings();
+      const accentColor = sanitizeAccentColor(value, current.accentColor);
+      this.options.setSettings({ ...current, accentColor });
+      if (this.accentColorInput && this.accentColorInput.value !== accentColor) {
+        this.accentColorInput.value = accentColor;
+      }
+      this.syncAccentPicker(accentColor);
+    }
+    syncAccentPicker(color) {
+      const selectedColor = sanitizeAccentColor(color);
+      this.panel?.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
+        const selected = sanitizeAccentColor(button2.dataset.onboardingAccent) === selectedColor;
+        button2.classList.toggle("selected", selected);
+        button2.setAttribute("aria-pressed", String(selected));
+      });
     }
   }
   function normalizeLanguage(value, fallback) {
@@ -33012,6 +33251,9 @@ ${glossaryKey}`;
   }
   function onboardingCopyId(name) {
     return `jpdb-reader-onboarding-${name}`;
+  }
+  function onboardingAccentLabel(language, color) {
+    return `${uiText(language, "onboardingAccentColor")} ${color.toUpperCase()}`;
   }
   function closeIcon() {
     return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
@@ -35835,6 +36077,8 @@ ${glossaryKey}`;
     nativeTitleGuard = new NativeTitleGuard();
     lastPointerPosition;
     hoverPopoverPointerPosition;
+    hoverPointerMoveFrame;
+    pendingHoverPointerMove;
     popoverRepositionFrame;
     settingsPreviewOriginalAccent;
     settingsPreviewOriginalLanguage;
@@ -35852,6 +36096,7 @@ ${glossaryKey}`;
     nestedParseContentCache = /* @__PURE__ */ new Map();
     pitchEnrichmentLocalCache = /* @__PURE__ */ new Map();
     resolvedFallbackVocabularyCache = /* @__PURE__ */ new Map();
+    fallbackVocabularyResolutionCache = /* @__PURE__ */ new Map();
     renderedWordIndex = /* @__PURE__ */ new Map();
     renderedWordIndexFullyScanned = false;
     pitchEnrichmentQueue = [];
@@ -35860,6 +36105,7 @@ ${glossaryKey}`;
     pitchEnrichmentDrain;
     pendingSubtitleRebakeTexts = /* @__PURE__ */ new Set();
     subtitleRebakeTimer;
+    cachedPublicVocabularyHydrationTimer;
     pressedKeys = /* @__PURE__ */ new Set();
     hoverAnchorIds = /* @__PURE__ */ new WeakMap();
     nextHoverAnchorId = 1;
@@ -35880,6 +36126,7 @@ ${glossaryKey}`;
         getSettings: () => this.settings,
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+        beforeRenderTokens: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
         afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
         onSettingsChange: () => void saveSettings(this.settings)
       });
@@ -35909,6 +36156,7 @@ ${glossaryKey}`;
       return new Controller({
         getSettings: () => this.settings,
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
+        parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onToast: (message) => this.toast(message),
         shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
         enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
@@ -36089,8 +36337,11 @@ ${glossaryKey}`;
       this.nestedParseContentCache.clear();
       this.pitchEnrichmentLocalCache.clear();
       this.resolvedFallbackVocabularyCache.clear();
+      this.fallbackVocabularyResolutionCache.clear();
       this.clearPitchEnrichmentQueue();
       this.pitchEnrichmentUrgentKeys.clear();
+      window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+      this.cachedPublicVocabularyHydrationTimer = void 0;
       this.pressedKeys.clear();
       window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
       this.nearbyReaderAudioPreloadTimer = void 0;
@@ -36159,7 +36410,10 @@ ${glossaryKey}`;
       applyPreferredJapaneseSiteLanguage(settings.preferJapaneseSiteLanguage);
     }
     publishThemeSettingsChange() {
-      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: { theme: this.settings.theme } }));
+      this.publishSettingsChange({ theme: this.settings.theme });
+    }
+    publishSettingsChange(settings) {
+      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
     }
     async refreshDictionaryStyles() {
       await this.dictionaryStyles.refresh();
@@ -36177,7 +36431,10 @@ ${glossaryKey}`;
       this.pitchEnrichmentLocalCache.clear();
       this.nestedParseContentCache.clear();
       this.resolvedFallbackVocabularyCache.clear();
+      this.fallbackVocabularyResolutionCache.clear();
       this.clearPitchEnrichmentQueue();
+      window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+      this.cachedPublicVocabularyHydrationTimer = void 0;
       this.scheduleJpdbPageEnhancements(80);
       this.scheduleVisiblePageReparse(120);
     }
@@ -36391,15 +36648,23 @@ ${glossaryKey}`;
       this.nestedParseContentCache.clear();
       this.pitchEnrichmentLocalCache.clear();
       this.resolvedFallbackVocabularyCache.clear();
+      this.fallbackVocabularyResolutionCache.clear();
       this.clearPitchEnrichmentQueue();
       window.clearTimeout(this.subtitleRebakeTimer);
       this.subtitleRebakeTimer = void 0;
+      window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+      this.cachedPublicVocabularyHydrationTimer = void 0;
       this.pendingSubtitleRebakeTexts.clear();
       this.clearRenderedWordIndex();
       if (this.popoverRepositionFrame !== void 0) {
         window.cancelAnimationFrame(this.popoverRepositionFrame);
         this.popoverRepositionFrame = void 0;
       }
+      if (this.hoverPointerMoveFrame !== void 0) {
+        window.cancelAnimationFrame(this.hoverPointerMoveFrame);
+        this.hoverPointerMoveFrame = void 0;
+      }
+      this.pendingHoverPointerMove = void 0;
       this.activePopoverResizeObserver?.disconnect();
       this.nativeTitleGuard.restore();
       this.floatingButton.destroy();
@@ -36424,15 +36689,26 @@ ${glossaryKey}`;
       this.autoScanObserver?.disconnect();
       this.autoScanObserver = new MutationObserver((mutations) => {
         const canScanText = this.canParseJapanese();
-        if (canScanText && mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-        else if (mutations.every(mutationInsideReaderRoot)) return;
-        else if (canScanText && mutations.some(mutationMayContainJapaneseText)) {
+        const scanMutations = [];
+        let renderRejectionDelay = null;
+        for (const mutation of mutations) {
+          const delay2 = readerRenderRejectionRescanDelay(mutation);
+          if (delay2 !== null) {
+            renderRejectionDelay = Math.max(renderRejectionDelay ?? 0, delay2);
+            continue;
+          }
+          scanMutations.push(mutation);
+        }
+        if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true });
+        if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
+        else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
+        else if (canScanText && scanMutations.some(mutationMayContainJapaneseText)) {
           this.pageHasJapaneseText = true;
           this.scheduleAutoScan(450);
         }
         if (isJitenHost()) {
           if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
-        } else if (isPageEnhancementHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) {
+        } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
           this.scheduleJpdbPageEnhancements(500);
         }
       });
@@ -36535,7 +36811,7 @@ ${glossaryKey}`;
         this.handleHoverPointer(event);
       }, { capture: true });
       document.addEventListener("pointermove", (event) => {
-        this.handleHoverPointer(event);
+        this.queueHoverPointerMove(event);
       }, { capture: true });
       document.addEventListener("pointerout", (event) => {
         this.handleHoverPointerOut(event);
@@ -36545,7 +36821,7 @@ ${glossaryKey}`;
           this.handleHoverPointer(event);
         }, { capture: true });
         document.addEventListener("mousemove", (event) => {
-          this.handleHoverPointer(event);
+          this.queueHoverPointerMove(event);
         }, { capture: true });
         document.addEventListener("mouseout", (event) => {
           this.handleHoverPointerOut(event);
@@ -37081,6 +37357,21 @@ ${glossaryKey}`;
     canHoverLookupReaderWord(word) {
       return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
     }
+    // pointermove fires far faster than the display refreshes; the hover path
+    // does forced-layout reads (caretPositionFromPoint) + querySelectorAll +
+    // getClientRects, so running it per raw event janks the main thread and
+    // delays the lookup popover (notably over OCR overlays). Coalesce to one
+    // hover probe per animation frame using the latest pointer position.
+    queueHoverPointerMove(event) {
+      this.pendingHoverPointerMove = event;
+      if (this.hoverPointerMoveFrame !== void 0) return;
+      this.hoverPointerMoveFrame = requestAnimationFrame(() => {
+        this.hoverPointerMoveFrame = void 0;
+        const pending = this.pendingHoverPointerMove;
+        this.pendingHoverPointerMove = void 0;
+        if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
+      });
+    }
     handleHoverPointer(event) {
       if (this.shouldIgnoreHoverPointer(event)) return;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
@@ -37096,6 +37387,10 @@ ${glossaryKey}`;
     }
     shouldIgnoreHoverPointer(event) {
       if (this.isDestroyed || this.pressLookup?.source === "middle" || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
+      if (event.buttons) {
+        this.cancelPendingHoverLookup();
+        return true;
+      }
       if (!this.hasStickyModalPopover()) return false;
       this.cancelPendingHoverLookup();
       this.cancelHoverClose();
@@ -39323,11 +39618,29 @@ ${glossaryKey}`;
       const fallbackTokens = tokens.filter((token) => token.card.source === "fallback");
       if (!fallbackTokens.length) return;
       await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async (token) => {
-        const resolved = await this.resolveLookupCardForInitialRender(token.card).catch(() => token.card);
-        if (resolved === token.card || resolved.source === "fallback") return;
-        token.card = resolved;
-        token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
+        const fallback = token.card;
+        const resolved = await this.resolveFallbackVocabularyForPriorityRender(fallback);
+        if (resolved === fallback || resolved.source === "fallback") return;
+        this.applyResolvedFallbackVocabularyToToken(token, fallback, resolved);
       });
+    }
+    async resolveFallbackVocabularyForPriorityRender(fallback) {
+      if (fallback.source !== "fallback") return fallback;
+      const cached = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+      if (cached) return cached;
+      const key = cardKey(fallback);
+      const existing = this.fallbackVocabularyResolutionCache.get(key);
+      if (existing) return existing;
+      const lookup = this.resolveLookupCard(fallback).catch(() => fallback).finally(() => {
+        this.fallbackVocabularyResolutionCache.delete(key);
+      });
+      this.fallbackVocabularyResolutionCache.set(key, lookup);
+      return lookup;
+    }
+    applyResolvedFallbackVocabularyToToken(token, fallback, resolved) {
+      this.rememberResolvedFallbackVocabulary(fallback, resolved);
+      token.card = resolved;
+      token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
     }
     async enrichOcrRenderedTokens(tokens, root) {
       if (!tokens.length) return;
@@ -39854,13 +40167,25 @@ ${glossaryKey}`;
     }
     scheduleCachedPublicVocabularyHydration(root) {
       this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
-      [120, 500, 1500, 5e3, 1e4].forEach((delay2) => {
-        window.setTimeout(() => {
-          if (this.isDestroyed) return;
-          if (root instanceof Element && !root.isConnected) return;
-          this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+      if (this.cachedPublicVocabularyHydrationTimer !== void 0) return;
+      const delays = [120, 500, 1500, 5e3, 1e4];
+      let index = 0;
+      const scheduleNext = () => {
+        const delay2 = delays[index++];
+        if (delay2 === void 0) {
+          this.cachedPublicVocabularyHydrationTimer = void 0;
+          return;
+        }
+        this.cachedPublicVocabularyHydrationTimer = window.setTimeout(() => {
+          if (this.isDestroyed) {
+            this.cachedPublicVocabularyHydrationTimer = void 0;
+            return;
+          }
+          this.applyCachedPublicVocabularyToRenderedFallbackWords(document);
+          scheduleNext();
         }, delay2);
-      });
+      };
+      scheduleNext();
     }
     applyPublicVocabularyToRenderedWord(word, card, pitchClass) {
       this.renderedWordIndex.get(renderedWordElementKey(word))?.delete(word);
@@ -40293,19 +40618,21 @@ ${glossaryKey}`;
         this.clearSettingsPreviewOriginals();
         return;
       }
-      const shouldPublishThemeRestore = this.settingsPreviewOriginalTheme !== void 0;
+      const restoredSettings = {};
       if (this.settingsPreviewOriginalAccent !== void 0) {
         this.applyAccentColor(this.settingsPreviewOriginalAccent);
         this.applyWordColors();
+        restoredSettings.accentColor = this.settingsPreviewOriginalAccent;
       }
       if (this.settingsPreviewOriginalLanguage !== void 0) {
         this.settings.interfaceLanguage = this.settingsPreviewOriginalLanguage;
       }
       if (this.settingsPreviewOriginalTheme !== void 0) {
         this.settings.theme = this.settingsPreviewOriginalTheme;
+        restoredSettings.theme = this.settingsPreviewOriginalTheme;
       }
       this.applyTheme();
-      if (shouldPublishThemeRestore) this.publishThemeSettingsChange();
+      if (Object.keys(restoredSettings).length) this.publishSettingsChange(restoredSettings);
       this.clearSettingsPreviewOriginals();
     }
     clearSettingsPreviewOriginals() {

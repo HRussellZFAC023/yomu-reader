@@ -457,6 +457,27 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
+    it('publishes shared accent preview changes', () => {
+        const events: Array<CustomEvent<{ preview?: boolean; settings?: { accentColor?: unknown } }>> = [];
+        const controller = new AbortController();
+        window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
+            events.push(event as CustomEvent<{ preview?: boolean; settings?: { accentColor?: unknown } }>);
+        }, { signal: controller.signal });
+        const { dependencies, form } = createSettingsDialog();
+        const input = form.querySelector<HTMLInputElement>('input[name="accentColor"]')!;
+
+        try {
+            input.value = '#123456';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            expect(dependencies.applyAccentColor).toHaveBeenCalledWith('#123456');
+            expect(events.at(-1)?.detail.settings?.accentColor).toBe('#123456');
+            expect(events.at(-1)?.detail.preview).toBe(true);
+        } finally {
+            controller.abort();
+        }
+    });
+
     it('maps quick setup presets onto complete reader and subtitle color controls', () => {
         const { dependencies, form } = createSettingsDialog();
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;

@@ -49,6 +49,7 @@ interface OcrRenderableMediaMutationSummary {
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
     parseJapanese: (text: string, options?: ReaderParserParseOptions) => Promise<JPDBToken[]>;
+    parseJapaneseBatch?: (texts: string[], options?: ReaderParserParseOptions) => Promise<JPDBToken[][]>;
     onToast: (message: string) => void;
     shouldAutoScan?: () => boolean;
     enrichTokensBeforeRender?: (tokens: JPDBToken[]) => void | Promise<void>;
@@ -592,6 +593,12 @@ export class ImageOcrController {
 
     private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {
         const options = ocrParseOptions();
+        const texts = lines.map(line => line.text);
+        if (this.options.parseJapaneseBatch) {
+            return this.options.parseJapaneseBatch(texts, options)
+                .then(parsed => texts.map((_, index) => parsed[index] ?? []))
+                .catch(() => texts.map(() => []));
+        }
         return Promise.all(lines.map(line => this.options.parseJapanese(line.text, options).catch(() => {
             return [];
         })));

@@ -82,8 +82,19 @@ function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActi
     return karaokeActive ? { text: input.text, html: '' } : undefined;
 }
 
+export const SUBTITLE_SECONDARY_BLURRED_CLASS = 'jpdb-subtitle-secondary-blurred';
+export const SUBTITLE_SECONDARY_CLEAR_CLASS = 'jpdb-subtitle-secondary-clear';
+
+export function syncSubtitleSecondaryBlurState(button: HTMLElement, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): void {
+    button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
+    button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+    const label = uiText(language, 'toggleNativeSubtitleBlur');
+    button.setAttribute('title', label);
+    button.setAttribute('aria-label', label);
+}
+
 export function renderSubtitleSecondary(text: string, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): string {
-    const blurClass = nativeBlurred ? 'jpdb-subtitle-secondary-blurred' : 'jpdb-subtitle-secondary-clear';
+    const blurClass = nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
     const label = uiText(language, 'toggleNativeSubtitleBlur');
     return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}">${escapeWithBreaks(text)}</button>`;
 }

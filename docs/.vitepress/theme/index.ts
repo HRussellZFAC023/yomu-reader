@@ -10,7 +10,7 @@ import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
 type HostedThemePreference = 'auto' | 'dark' | 'light';
-type HostedSettingsChangeDetail = { preview?: unknown; settings?: { theme?: unknown } };
+type HostedSettingsChangeDetail = { preview?: unknown; settings?: Record<string, unknown> };
 type HostedYomuRuntimeWindow = typeof window & {
     __yomuDevRuntime?: boolean;
     __yomuReaderAppInitialized?: boolean;
@@ -57,6 +57,7 @@ let languageToggleObserver: MutationObserver | undefined;
 let accentSyncBound = false;
 let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
+let hostedSettingsEventPatch: Record<string, any> = {};
 let themeClassObserver: MutationObserver | undefined;
 let hostedRuntimeIntentController: AbortController | undefined;
 let hostedRuntimeIntentTarget: HTMLElement | undefined;
@@ -1031,12 +1032,13 @@ function effectiveInterfaceLanguage(): InterfaceLanguage {
 }
 
 function readInterfaceLanguage(): string {
-    return readStoredSettings().interfaceLanguage;
+    return readEffectiveHostedSettings().interfaceLanguage;
 }
 
 function saveInterfaceLanguage(language: InterfaceLanguage): void {
     const settings = readStoredSettings();
     settings.interfaceLanguage = language;
+    hostedSettingsEventPatch = { ...hostedSettingsEventPatch, interfaceLanguage: language };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { language } }));
 }
@@ -1305,6 +1307,10 @@ function readStoredSettings(): Record<string, any> {
     return parseHostedSettings(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
 }
 
+function readEffectiveHostedSettings(): Record<string, any> {
+    return { ...readStoredSettings(), ...hostedSettingsEventPatch };
+}
+
 function parseHostedSettings(value: string): Record<string, any> {
     try {
         return hostedSettingsRecord(JSON.parse(value));
@@ -1328,13 +1334,18 @@ function installHostedThemeSync(isDark: Ref<boolean>): void {
     if (hostedThemeSyncBound) return;
     hostedThemeSyncBound = true;
     window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
-        const change = settingsThemeFromEvent(event);
+        const change = settingsFromChangeEvent(event);
         if (!change) return;
-        if (!change.preview) writeStoredThemePreference(change.theme);
-        syncHostedThemeFromSettings(change.theme);
+        rememberHostedSettingsChange(change.settings, !change.preview);
+        const theme = hostedThemePreferenceFromValue(change.settings.theme);
+        if (!theme) return;
+        syncHostedThemeFromSettings(theme);
     });
     window.addEventListener('storage', event => {
-        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) syncHostedThemeFromSettings();
+        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) {
+            hostedSettingsEventPatch = {};
+            syncHostedThemeFromSettings();
+        }
     });
     window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (readStoredThemePreference() === 'auto') syncHostedThemeFromSettings();
@@ -1354,10 +1365,7 @@ function setHostedThemePreference(theme: HostedThemePreference): void {
 }
 
 function writeStoredThemePreference(theme: HostedThemePreference): Record<string, any> {
-    const settings = readStoredSettings();
-    settings.theme = theme;
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    return settings;
+    return writeStoredSettingsPatch({ theme });
 }
 
 function syncHostedThemeFromSettings(theme: unknown = readStoredThemePreference()): void {
@@ -1379,19 +1387,41 @@ function writeVitePressAppearancePreference(preference: HostedThemePreference, e
     });
 }
 
-function settingsThemeFromEvent(event: Event): { theme: HostedThemePreference; preview: boolean } | undefined {
+function settingsFromChangeEvent(event: Event): { settings: Record<string, unknown>; preview: boolean } | undefined {
     const detail = hostedSettingsChangeDetail(event);
-    const theme = hostedThemePreferenceFromValue(detail.settings?.theme);
-    if (!theme) return undefined;
-    return { theme, preview: detail.preview === true };
+    if (!isHostedSettingsRecord(detail.settings)) return undefined;
+    return { settings: detail.settings, preview: detail.preview === true };
 }
 
 function hostedSettingsChangeDetail(event: Event): HostedSettingsChangeDetail {
     return (event as CustomEvent<HostedSettingsChangeDetail>).detail ?? {};
 }
 
+function rememberHostedSettingsChange(settings: Record<string, unknown>, persist: boolean): void {
+    const patch = hostedSettingsPatch(settings);
+    if (!Object.keys(patch).length) return;
+    hostedSettingsEventPatch = { ...hostedSettingsEventPatch, ...patch };
+    if (persist) writeStoredSettingsPatch(patch);
+}
+
+function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, any> {
+    const patch: Record<string, any> = {};
+    const theme = hostedThemePreferenceFromValue(settings.theme);
+    const accentColor = hostedAccentFromValue(settings.accentColor);
+    if (theme) patch.theme = theme;
+    if (accentColor) patch.accentColor = accentColor;
+    return patch;
+}
+
+function writeStoredSettingsPatch(patch: Record<string, any>): Record<string, any> {
+    const settings = { ...readStoredSettings(), ...patch };
+    hostedSettingsEventPatch = { ...hostedSettingsEventPatch, ...patch };
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    return settings;
+}
+
 function readStoredThemePreference(): HostedThemePreference {
-    return normalizeHostedThemePreference(readStoredSettings().theme);
+    return normalizeHostedThemePreference(readEffectiveHostedSettings().theme);
 }
 
 function normalizeHostedThemePreference(value: unknown, fallback: HostedThemePreference | undefined = 'auto'): HostedThemePreference {
@@ -1415,14 +1445,21 @@ function installHostedAccentSync(): void {
     accentSyncBound = true;
     window.addEventListener(SETTINGS_CHANGE_EVENT, syncHostedAccent);
     window.addEventListener('storage', event => {
-        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) syncHostedAccent();
+        if (event.key === SETTINGS_STORAGE_KEY || event.key === null) {
+            hostedSettingsEventPatch = {};
+            syncHostedAccent();
+        }
     });
     themeClassObserver = new MutationObserver(syncHostedAccent);
     themeClassObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 }
 
-function syncHostedAccent(): void {
-    const accent = sanitizeHostedAccent(readStoredSettings().accentColor);
+function syncHostedAccent(source?: unknown): void {
+    if (source instanceof Event) {
+        const change = settingsFromChangeEvent(source);
+        if (change) rememberHostedSettingsChange(change.settings, !change.preview);
+    }
+    const accent = sanitizeHostedAccent(readEffectiveHostedSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
     const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
@@ -1454,11 +1491,15 @@ function syncHostedAccent(): void {
 }
 
 function sanitizeHostedAccent(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
-    if (typeof value !== 'string') return fallback;
+    return hostedAccentFromValue(value) ?? fallback;
+}
+
+function hostedAccentFromValue(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
     const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-    return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : fallback;
+    return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : undefined;
 }
 
 function readableTextOn(background: string): typeof DOC_COLOR_TOKENS.readableInk | typeof DOC_COLOR_TOKENS.white {

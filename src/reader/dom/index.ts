@@ -3,7 +3,7 @@ import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
 import { escapeHtml, setInnerHtml } from './html';
-import { sentenceAroundRange, sentenceAroundSurface } from './reader-word';
+import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
@@ -154,38 +154,6 @@ const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
     '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-const STABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    'ytd-watch-metadata',
-    'ytd-comments',
-    'ytd-comment-view-model',
-    'ytd-comment-thread-renderer',
-    'ytd-comment-replies-renderer',
-    'ytm-watch-metadata',
-    'ytm-slim-video-metadata-section-renderer',
-    'ytm-slim-owner-renderer',
-    'ytm-expandable-video-description-body-renderer',
-    'ytm-video-description-header-renderer',
-    'ytm-video-description-transcript-section-renderer',
-    'ytm-structured-description-content-renderer',
-    'ytm-metadata-row-container-renderer',
-    'ytm-comment-section-renderer',
-    'ytm-comment-thread-renderer',
-    'ytm-comment-renderer',
-].join(',');
-const UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR = [
-    'ytd-watch-metadata h1',
-    'ytd-watch-metadata #title',
-    'ytm-watch-metadata h1',
-    'ytm-watch-metadata #title',
-    'ytm-slim-video-metadata-section-renderer h1',
-    'ytm-slim-video-metadata-section-renderer .slim-video-metadata-title',
-    'ytd-rich-item-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-video-renderer',
-    'ytm-rich-item-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-].join(',');
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
     ...PROSE_TAGS,
@@ -304,6 +272,20 @@ interface FragmentTextCollectionState {
     excludeSelector: string;
     options: FragmentTextTargetCollectionOptions;
 }
+
+interface RenderedScanHost {
+    text: string;
+    markedAt: number;
+    lastRejectedAt?: number;
+    rejectionCount?: number;
+}
+
+const READER_WORD_SELECTOR = '.jpdb-reader-word';
+const RENDERED_SCAN_HOST_MAX_TEXT = 1000;
+const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
+const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
+const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4000, 10000];
+const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
 
 export function getSelectionText(): string {
     const selection = window.getSelection();
@@ -758,18 +740,12 @@ function isFragmentPassiveInteractionElement(element: Element, options: Fragment
 
 function isLayoutSensitiveScanElement(element: HTMLElement | null): boolean {
     if (element && isInsideOwnedReaderRoot(element)) return false;
-    if (element && isStableCompactRubySurface(element)) return false;
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
         if (isLayoutSensitiveTextBox(current)) return true;
         current = current.parentElement;
     }
     return false;
-}
-
-function isStableCompactRubySurface(element: HTMLElement): boolean {
-    return Boolean(element.closest(STABLE_COMPACT_RUBY_SURFACE_SELECTOR)
-        && !element.closest(UNSTABLE_COMPACT_RUBY_SURFACE_SELECTOR));
 }
 
 // Roughly three text lines: a clipped box taller than this is a page shell or
@@ -916,6 +892,7 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     if (!safeTokens.length) return;
 
     target.node.replaceWith(renderTokenizedTextFragment(target, safeTokens, settings));
+    markRenderedScanTarget(target);
 }
 
 function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
@@ -947,6 +924,153 @@ function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, st
     if (end > start) fragment.append(document.createTextNode(text.slice(start, end)));
 }
 
+function markRenderedScanTarget(target: ScanTextTarget): void {
+    const text = normalizedRenderedHostText(target.text);
+    if (!text || !HAS_JAPANESE.test(text) || !target.parent.isConnected) return;
+    const previous = renderedScanHosts.get(target.parent);
+    const now = Date.now();
+    const keepBackoff = previous
+        && previous.text === text
+        && previous.lastRejectedAt !== undefined
+        && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
+    renderedScanHosts.set(target.parent, {
+        text,
+        markedAt: now,
+        lastRejectedAt: keepBackoff ? previous.lastRejectedAt : undefined,
+        rejectionCount: keepBackoff ? previous.rejectionCount : undefined,
+    });
+}
+
+export function mutationLooksLikeReaderRenderRejection(mutation: MutationRecord): boolean {
+    return classifyReaderRenderRejection(mutation) !== null;
+}
+
+export function readerRenderRejectionRescanDelay(mutation: MutationRecord): number | null {
+    const rejection = classifyReaderRenderRejection(mutation);
+    if (!rejection) return null;
+    if (rejection.repair) unwrapReaderWords(rejection.match.element);
+    return nextRenderedScanHostRescanDelay(rejection.match.host);
+}
+
+function classifyReaderRenderRejection(mutation: MutationRecord): { match: { element: HTMLElement; host: RenderedScanHost }; repair: boolean } | null {
+    if (mutation.type !== 'childList') return null;
+    const element = mutationTargetElement(mutation.target);
+    if (!element) return null;
+    const match = closestRenderedScanHost(element);
+    if (!match || Date.now() - match.host.markedAt > RENDERED_SCAN_HOST_REJECTION_WINDOW_MS) return null;
+    if (nodesContainReaderWord(mutation.removedNodes) && restoredHostTextMatches(match.element, match.host.text, mutation.addedNodes)) {
+        return { match, repair: false };
+    }
+    if (mutationTouchesReaderWordContent(mutation) && renderedHostContainsDamagedReaderWord(match.element)) {
+        return { match, repair: true };
+    }
+    return null;
+}
+
+function nextRenderedScanHostRescanDelay(host: RenderedScanHost): number {
+    const now = Date.now();
+    const previousCount = host.lastRejectedAt !== undefined && now - host.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS
+        ? host.rejectionCount ?? 0
+        : 0;
+    host.lastRejectedAt = now;
+    host.rejectionCount = previousCount + 1;
+    return RENDERED_SCAN_HOST_RESCAN_DELAYS_MS[Math.min(previousCount, RENDERED_SCAN_HOST_RESCAN_DELAYS_MS.length - 1)];
+}
+
+function closestRenderedScanHost(element: Element): { element: HTMLElement; host: RenderedScanHost } | null {
+    let current: HTMLElement | null = null;
+    if (element instanceof HTMLElement) current = element;
+    else if (element.parentElement instanceof HTMLElement) current = element.parentElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+        const host = renderedScanHosts.get(current);
+        if (host) return { element: current, host };
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function restoredHostTextMatches(element: Element, previousText: string, addedNodes: NodeList | Node[]): boolean {
+    const currentText = normalizedRenderedHostSurfaceText(element);
+    if (textMatchesRenderedHost(currentText, previousText)) return true;
+    const addedText = normalizedRenderedHostText(Array.from(addedNodes, node => node.textContent ?? '').join(''));
+    return textMatchesRenderedHost(addedText, previousText);
+}
+
+function textMatchesRenderedHost(candidate: string, previousText: string): boolean {
+    return Boolean(candidate && previousText && (candidate.includes(previousText) || previousText.includes(candidate)));
+}
+
+function normalizedRenderedHostText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+}
+
+function normalizedRenderedHostSurfaceText(element: Element): string {
+    return normalizedRenderedHostText(readerWordSurfaceText(element) || element.textContent || '');
+}
+
+function nodesContainReaderWord(nodes: NodeList | Node[]): boolean {
+    return Array.from(nodes).some(nodeContainsReaderWord);
+}
+
+function nodeContainsReaderWord(node: Node): boolean {
+    if (node instanceof Element) {
+        return node.matches(READER_WORD_SELECTOR) || Boolean(node.querySelector(READER_WORD_SELECTOR));
+    }
+    if (node instanceof DocumentFragment) return Boolean(node.querySelector(READER_WORD_SELECTOR));
+    return false;
+}
+
+function mutationTouchesReaderWordContent(mutation: MutationRecord): boolean {
+    const target = mutationTargetElement(mutation.target);
+    return Boolean(target?.closest(READER_WORD_SELECTOR))
+        || nodesContainReaderWordMarkup(mutation.removedNodes)
+        || nodesContainReaderWordMarkup(mutation.addedNodes);
+}
+
+function nodesContainReaderWordMarkup(nodes: NodeList | Node[]): boolean {
+    return Array.from(nodes).some(nodeContainsReaderWordMarkup);
+}
+
+function nodeContainsReaderWordMarkup(node: Node): boolean {
+    if (node.nodeType === Node.TEXT_NODE) return true;
+    if (!(node instanceof Element || node instanceof DocumentFragment)) return false;
+    const root = node as Element | DocumentFragment;
+    return Boolean(root instanceof Element && root.matches('.jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp'))
+        || Boolean(root.querySelector?.('.jpdb-reader-ruby-base,.jpdb-reader-furi,ruby,rt,rp'));
+}
+
+function renderedHostContainsDamagedReaderWord(host: HTMLElement): boolean {
+    return Array.from(host.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR)).some(renderedWordLooksDamaged);
+}
+
+function renderedWordLooksDamaged(word: HTMLElement): boolean {
+    if (!word.classList.contains('jpdb-reader-has-furi')) return false;
+    const expected = normalizedRenderedHostText(word.dataset.surface ?? '');
+    const surface = normalizedRenderedHostText(readerWordDomSurfaceText(word));
+    if (expected && !textMatchesRenderedHost(surface, expected)) return true;
+    const hasFuri = Boolean(word.querySelector('.jpdb-reader-furi,rt'));
+    const hasBase = Boolean(word.querySelector('.jpdb-reader-ruby-base,rb'));
+    return hasFuri && (!hasBase || !surface);
+}
+
+function readerWordDomSurfaceText(element: Element): string {
+    let text = '';
+    element.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent ?? '';
+            return;
+        }
+        if (!(node instanceof Element) || node.matches('rt,rp')) return;
+        text += readerWordDomSurfaceText(node);
+    });
+    return text;
+}
+
+function mutationTargetElement(target: Node): Element | null {
+    if (target.nodeType === Node.ELEMENT_NODE) return target as Element;
+    return target.parentElement;
+}
+
 function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (!hasFragmentTokenWork(target, tokens)) return;
 
@@ -955,6 +1079,7 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
     applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    markRenderedScanTarget(target);
 }
 
 function hasFragmentTokenWork(target: FragmentTextTarget, tokens: JPDBToken[]): boolean {
@@ -1633,6 +1758,7 @@ function renderToken(
     options: TokenRenderOptions = {},
 ): HTMLElement {
     const span = createReaderWordSpan(token, options);
+    span.dataset.surface = surface;
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
 
     const hasRuby = shouldRenderRuby(surface, token, settings, options.allowRuby, options.preserveTokenRubies);
@@ -1722,11 +1848,12 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
     const cardState = ` data-card-state="${escapeHtml(state)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {
@@ -2079,12 +2206,11 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
     return isFragileUiContext(element, text);
 }
 
-// UT-52: geometry-fragile text (compact rows, tight headings, inline
-// controls — e.g. YouTube channel names) is no longer skipped; it is still
-// collected so UI chrome can receive the same ruby/color treatment as prose.
+// UT-52: geometry-fragile text (compact rows, tight headings, inline controls)
+// is no longer skipped; it is still collected so UI chrome can receive the
+// same ruby/color treatment as prose.
 function isGeometryFragileText(element: HTMLElement, text: string): boolean {
     if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
-    if (isStableCompactRubySurface(element)) return false;
     const metrics = fragileTextMetrics(element, text);
     if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
     if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
@@ -2334,41 +2460,76 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
 // detection stays measurement-based (computed styles + actual overflow, no
 // per-site lists); the room is the smallest honest fix per box kind:
 // line-clamp boxes keep their line count but lose the plain-text max-height,
-// other clipped boxes get their max-height raised to the real content height.
+// other clipped boxes get their active height cap raised to the real content
+// height.
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
     let adjusted = 0;
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        const box = nearestCropCapableBox(word.parentElement);
-        if (!box || box.dataset.yomuRubyRoom === 'true') continue;
-        if (!boxActuallyCrops(box)) continue;
-        box.dataset.yomuRubyRoom = 'true';
-        const style = safeComputedStyle(box);
-        if (hasLineClamp(style)) {
-            // -webkit-line-clamp itself limits LINES; the crop comes from the
-            // accompanying max-height sized for plain lines. Lifting it keeps
-            // the host's "N lines" semantics with taller ruby lines.
-            box.style.setProperty('max-height', 'none', 'important');
-        } else {
-            box.style.setProperty('max-height', `${box.scrollHeight}px`, 'important');
+        for (const box of cropCapableBoxes(word.parentElement)) {
+            if (box.dataset.yomuRubyRoom === 'true') continue;
+            if (!boxActuallyCrops(box)) continue;
+            box.dataset.yomuRubyRoom = 'true';
+            const style = safeComputedStyle(box);
+            makeRoomForRubyInBox(box, style);
+            adjusted += 1;
         }
-        adjusted += 1;
     }
     return adjusted;
 }
 
-function nearestCropCapableBox(element: HTMLElement | null): HTMLElement | null {
+function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration): void {
+    if (hasLineClamp(style)) {
+        // -webkit-line-clamp itself limits LINES; the crop comes from a height
+        // cap sized for plain lines. Lifting it keeps the host's "N lines"
+        // semantics with taller ruby lines.
+        box.style.setProperty('max-height', 'none', 'important');
+        if (hasDefiniteCssSize(style.height)) box.style.setProperty('height', 'auto', 'important');
+        return;
+    }
+
+    const contentHeight = `${rubyRoomHeight(box)}px`;
+    if (hasDefiniteCssSize(style.height)) {
+        box.style.setProperty('height', contentHeight, 'important');
+    }
+    if (hasDefiniteCssSize(style.maxHeight) || !hasDefiniteCssSize(style.height)) {
+        box.style.setProperty('max-height', contentHeight, 'important');
+    }
+}
+
+function cropCapableBoxes(element: HTMLElement | null): HTMLElement[] {
+    const boxes: HTMLElement[] = [];
     let current: HTMLElement | null = element;
     while (current && current !== document.body && current !== document.documentElement) {
-        if (current.dataset.jpdbReaderRoot) return null;
+        if (current.dataset.jpdbReaderRoot) break;
         const style = safeComputedStyle(current);
-        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return current;
+        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) boxes.push(current);
         current = current.parentElement;
     }
-    return null;
+    return boxes;
 }
 
 function boxActuallyCrops(box: HTMLElement): boolean {
-    return box.scrollHeight > box.clientHeight + 1;
+    return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1;
+}
+
+function rubyRoomHeight(box: HTMLElement): number {
+    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box)));
+}
+
+function rubyBottomOverflow(box: HTMLElement): number {
+    const boxRect = box.getBoundingClientRect();
+    let overflow = 0;
+    for (const ruby of box.querySelectorAll<HTMLElement>('ruby')) {
+        const base = ruby.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? ruby;
+        const baseRect = base.getBoundingClientRect();
+        if (!baseVisibleInBox(baseRect, boxRect)) continue;
+        overflow = Math.max(overflow, baseRect.bottom - boxRect.bottom);
+    }
+    return Math.max(0, overflow);
+}
+
+function baseVisibleInBox(baseRect: DOMRect, boxRect: DOMRect): boolean {
+    return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
 }

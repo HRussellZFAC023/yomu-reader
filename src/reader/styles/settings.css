@@ -2164,10 +2164,10 @@
     ) 0 0 / 30px 30px,
     color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
   color: var(--jpdb-reader-text) !important;
-  display: grid;
-  place-items: center;
+  display: block;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
   text-align: center;
   font-size: 28px;
   line-height: 2.15;

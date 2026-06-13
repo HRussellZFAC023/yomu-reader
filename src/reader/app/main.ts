@@ -33,6 +33,7 @@ import {
     getSelectionText,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
+    readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
     readerWordSurfaceText,
     setInnerHtml,
@@ -553,6 +554,8 @@ export class ReaderApp {
     private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
     private hoverPopoverPointerPosition?: { x: number; y: number };
+    private hoverPointerMoveFrame?: number;
+    private pendingHoverPointerMove?: PointerEvent;
     private popoverRepositionFrame?: number;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
@@ -570,6 +573,7 @@ export class ReaderApp {
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
+    private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
     private renderedWordIndexFullyScanned = false;
     private pitchEnrichmentQueue: JPDBToken[] = [];
@@ -578,6 +582,7 @@ export class ReaderApp {
     private pitchEnrichmentDrain?: Promise<void>;
     private pendingSubtitleRebakeTexts = new Set<string>();
     private subtitleRebakeTimer?: number;
+    private cachedPublicVocabularyHydrationTimer?: number;
     private pressedKeys = new Set<string>();
     private hoverAnchorIds = new WeakMap<HTMLElement, number>();
     private nextHoverAnchorId = 1;
@@ -600,6 +605,7 @@ export class ReaderApp {
             getSettings: () => this.settings,
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+            beforeRenderTokens: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
             afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
             onSettingsChange: () => void saveSettings(this.settings),
         });
@@ -632,6 +638,7 @@ export class ReaderApp {
         return new Controller({
             getSettings: () => this.settings,
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
+            parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
             shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
@@ -835,8 +842,11 @@ export class ReaderApp {
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
+        window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+        this.cachedPublicVocabularyHydrationTimer = undefined;
         this.pressedKeys.clear();
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
         this.nearbyReaderAudioPreloadTimer = undefined;
@@ -914,7 +924,11 @@ export class ReaderApp {
     }
 
     private publishThemeSettingsChange(): void {
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: { theme: this.settings.theme } }));
+        this.publishSettingsChange({ theme: this.settings.theme });
+    }
+
+    private publishSettingsChange(settings: Partial<ReaderSettings>): void {
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
     }
 
     private async refreshDictionaryStyles(): Promise<void> {
@@ -935,7 +949,10 @@ export class ReaderApp {
         this.pitchEnrichmentLocalCache.clear();
         this.nestedParseContentCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
+        window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+        this.cachedPublicVocabularyHydrationTimer = undefined;
         this.scheduleJpdbPageEnhancements(80);
         this.scheduleVisiblePageReparse(120);
     }
@@ -1184,15 +1201,23 @@ export class ReaderApp {
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.subtitleRebakeTimer);
         this.subtitleRebakeTimer = undefined;
+        window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
+        this.cachedPublicVocabularyHydrationTimer = undefined;
         this.pendingSubtitleRebakeTexts.clear();
         this.clearRenderedWordIndex();
         if (this.popoverRepositionFrame !== undefined) {
             window.cancelAnimationFrame(this.popoverRepositionFrame);
             this.popoverRepositionFrame = undefined;
         }
+        if (this.hoverPointerMoveFrame !== undefined) {
+            window.cancelAnimationFrame(this.hoverPointerMoveFrame);
+            this.hoverPointerMoveFrame = undefined;
+        }
+        this.pendingHoverPointerMove = undefined;
         this.activePopoverResizeObserver?.disconnect();
         this.nativeTitleGuard.restore();
         
@@ -1224,15 +1249,26 @@ export class ReaderApp {
         this.autoScanObserver?.disconnect();
         this.autoScanObserver = new MutationObserver(mutations => {
             const canScanText = this.canParseJapanese();
-            if (canScanText && mutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-            else if (mutations.every(mutationInsideReaderRoot)) return;
-            else if (canScanText && mutations.some(mutationMayContainJapaneseText)) {
+            const scanMutations: MutationRecord[] = [];
+            let renderRejectionDelay: number | null = null;
+            for (const mutation of mutations) {
+                const delay = readerRenderRejectionRescanDelay(mutation);
+                if (delay !== null) {
+                    renderRejectionDelay = Math.max(renderRejectionDelay ?? 0, delay);
+                    continue;
+                }
+                scanMutations.push(mutation);
+            }
+            if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true });
+            if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
+            else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
+            else if (canScanText && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
             if (isJitenHost()) {
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
-            } else if (isPageEnhancementHost() && mutations.some(mutationMayAffectJpdbPageEnhancements)) {
+            } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
                 this.scheduleJpdbPageEnhancements(500);
             }
         });
@@ -1356,7 +1392,7 @@ export class ReaderApp {
         }, { capture: true });
 
         document.addEventListener('pointermove', event => {
-            this.handleHoverPointer(event);
+            this.queueHoverPointerMove(event);
         }, { capture: true });
 
         document.addEventListener('pointerout', event => {
@@ -1369,7 +1405,7 @@ export class ReaderApp {
             }, { capture: true });
 
             document.addEventListener('mousemove', event => {
-                this.handleHoverPointer(event as PointerEvent);
+                this.queueHoverPointerMove(event as PointerEvent);
             }, { capture: true });
 
             document.addEventListener('mouseout', event => {
@@ -2002,6 +2038,22 @@ export class ReaderApp {
         return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
     }
 
+    // pointermove fires far faster than the display refreshes; the hover path
+    // does forced-layout reads (caretPositionFromPoint) + querySelectorAll +
+    // getClientRects, so running it per raw event janks the main thread and
+    // delays the lookup popover (notably over OCR overlays). Coalesce to one
+    // hover probe per animation frame using the latest pointer position.
+    private queueHoverPointerMove(event: PointerEvent): void {
+        this.pendingHoverPointerMove = event;
+        if (this.hoverPointerMoveFrame !== undefined) return;
+        this.hoverPointerMoveFrame = requestAnimationFrame(() => {
+            this.hoverPointerMoveFrame = undefined;
+            const pending = this.pendingHoverPointerMove;
+            this.pendingHoverPointerMove = undefined;
+            if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
+        });
+    }
+
     private handleHoverPointer(event: PointerEvent): void {
         if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
@@ -2018,6 +2070,16 @@ export class ReaderApp {
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
         if (this.isDestroyed || this.pressLookup?.source === 'middle' || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
+        // A held button means the pointer is DRAGGING (resizing the subtitle
+        // panel, selecting text, scrubbing), not hovering to read. Running the
+        // hover lookup then is pure waste — and live profiling showed it was a
+        // dominant cost of subtitle-sidebar resize jank (elementFromPoint +
+        // querySelectorAll + getClientRects over every transcript word, per
+        // drag move). Skip hover probing entirely while any button is down.
+        if (event.buttons) {
+            this.cancelPendingHoverLookup();
+            return true;
+        }
         if (!this.hasStickyModalPopover()) return false;
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
@@ -4933,11 +4995,33 @@ export class ReaderApp {
         const fallbackTokens = tokens.filter(token => token.card.source === 'fallback');
         if (!fallbackTokens.length) return;
         await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async token => {
-            const resolved = await this.resolveLookupCardForInitialRender(token.card).catch(() => token.card);
-            if (resolved === token.card || resolved.source === 'fallback') return;
-            token.card = resolved;
-            token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
+            const fallback = token.card;
+            const resolved = await this.resolveFallbackVocabularyForPriorityRender(fallback);
+            if (resolved === fallback || resolved.source === 'fallback') return;
+            this.applyResolvedFallbackVocabularyToToken(token, fallback, resolved);
         });
+    }
+
+    private async resolveFallbackVocabularyForPriorityRender(fallback: JPDBCard): Promise<JPDBCard> {
+        if (fallback.source !== 'fallback') return fallback;
+        const cached = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+        if (cached) return cached;
+        const key = cardKey(fallback);
+        const existing = this.fallbackVocabularyResolutionCache.get(key);
+        if (existing) return existing;
+        const lookup = this.resolveLookupCard(fallback)
+            .catch(() => fallback)
+            .finally(() => {
+                this.fallbackVocabularyResolutionCache.delete(key);
+            });
+        this.fallbackVocabularyResolutionCache.set(key, lookup);
+        return lookup;
+    }
+
+    private applyResolvedFallbackVocabularyToToken(token: JPDBToken, fallback: JPDBCard, resolved: JPDBCard): void {
+        this.rememberResolvedFallbackVocabulary(fallback, resolved);
+        token.card = resolved;
+        token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
     }
 
     private async enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void> {
@@ -5562,13 +5646,25 @@ export class ReaderApp {
 
     private scheduleCachedPublicVocabularyHydration(root: ParentNode): void {
         this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
-        [120, 500, 1_500, 5_000, 10_000].forEach(delay => {
-            window.setTimeout(() => {
-                if (this.isDestroyed) return;
-                if (root instanceof Element && !root.isConnected) return;
-                this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+        if (this.cachedPublicVocabularyHydrationTimer !== undefined) return;
+        const delays = [120, 500, 1_500, 5_000, 10_000];
+        let index = 0;
+        const scheduleNext = () => {
+            const delay = delays[index++];
+            if (delay === undefined) {
+                this.cachedPublicVocabularyHydrationTimer = undefined;
+                return;
+            }
+            this.cachedPublicVocabularyHydrationTimer = window.setTimeout(() => {
+                if (this.isDestroyed) {
+                    this.cachedPublicVocabularyHydrationTimer = undefined;
+                    return;
+                }
+                this.applyCachedPublicVocabularyToRenderedFallbackWords(document);
+                scheduleNext();
             }, delay);
-        });
+        };
+        scheduleNext();
     }
 
     private applyPublicVocabularyToRenderedWord(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
@@ -6062,19 +6158,21 @@ export class ReaderApp {
             this.clearSettingsPreviewOriginals();
             return;
         }
-        const shouldPublishThemeRestore = this.settingsPreviewOriginalTheme !== undefined;
+        const restoredSettings: Partial<ReaderSettings> = {};
         if (this.settingsPreviewOriginalAccent !== undefined) {
             this.applyAccentColor(this.settingsPreviewOriginalAccent);
             this.applyWordColors();
+            restoredSettings.accentColor = this.settingsPreviewOriginalAccent;
         }
         if (this.settingsPreviewOriginalLanguage !== undefined) {
             this.settings.interfaceLanguage = this.settingsPreviewOriginalLanguage;
         }
         if (this.settingsPreviewOriginalTheme !== undefined) {
             this.settings.theme = this.settingsPreviewOriginalTheme;
+            restoredSettings.theme = this.settingsPreviewOriginalTheme;
         }
         this.applyTheme();
-        if (shouldPublishThemeRestore) this.publishThemeSettingsChange();
+        if (Object.keys(restoredSettings).length) this.publishSettingsChange(restoredSettings);
         this.clearSettingsPreviewOriginals();
     }
 

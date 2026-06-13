@@ -710,7 +710,9 @@ export class SettingsDialogController {
     private bindLivePreview(form: HTMLFormElement): void {
         const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
         form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
-            this.dependencies.applyAccentColor((event.currentTarget as HTMLInputElement).value);
+            const accentColor = (event.currentTarget as HTMLInputElement).value;
+            this.dependencies.applyAccentColor(accentColor);
+            publishSettingsChange({ accentColor }, { preview: true });
         });
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
             input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
@@ -730,7 +732,7 @@ export class SettingsDialogController {
             this.settings.theme = next;
             applyThemePreview();
             this.syncThemeSwitch(form);
-            publishThemeSettingsChange(next, { preview: true });
+            publishSettingsChange({ theme: next }, { preview: true });
         });
         window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
             if (this.currentForm !== form || !form.isConnected) return;
@@ -1996,8 +1998,8 @@ function getReaderStorageExport(value: unknown): unknown {
         : null;
 }
 
-function publishThemeSettingsChange(theme: ReaderSettings['theme'], options: { preview?: boolean } = {}): void {
-    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings: { theme } }));
+function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
 }
 
 function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {
