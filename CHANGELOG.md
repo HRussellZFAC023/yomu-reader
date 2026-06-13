@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.188] - 2026-06-13
+
+### Added
+
+- The transcript auto-scroll resume window is now configurable in Settings → Media ("Resume transcript auto-scroll after manual scroll (s)", default 4s). After you manually scroll the Lines panel, auto-follow stays paused for this many seconds before snapping back to the active line.
+
+### Fixed
+
+- JPDB and Jiten now stay as separate dictionary definition sources in settings and popup ordering. Both source rows are enabled by default even before API keys are added, and adding a Jiten key no longer relabels or replaces the JPDB source.
+
 ## [0.6.187] - 2026-06-13
 
 ### Fixed

@@ -198,7 +198,7 @@ export class CardRenderDataLoader {
 
     private loadJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
         const settings = this.settings();
-        if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+        if (!settings.jpdbDefinitionsEnabled || isJitenBackedCard(card)) return Promise.resolve(null);
         return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
             log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;
@@ -207,7 +207,7 @@ export class CardRenderDataLoader {
 
     private loadJitenVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const settings = this.settings();
-        if (!settings.jpdbDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || !this.dependencies.jiten) return Promise.resolve(null);
+        if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || typeof this.dependencies.jiten?.lookupVocabularyInfo !== 'function') return Promise.resolve(null);
         return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', this.dependencies.jiten.lookupVocabularyInfo(card).catch(error => {
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
             return null;
@@ -454,6 +454,7 @@ export class CardRenderDataLoader {
             ankiConnectUrl: settings.ankiConnectUrl,
             ankiMobileHandoff: settings.ankiMobileHandoff,
             jpdbDefinitions: settings.jpdbDefinitionsEnabled,
+            jitenDefinitions: settings.jitenDefinitionsEnabled,
             apiMining: isApiMiningEnabled(settings),
             hasApiKey: hasJpdbApiCredential(settings),
             hasJitenApiKey: hasJitenApiCredential(settings),

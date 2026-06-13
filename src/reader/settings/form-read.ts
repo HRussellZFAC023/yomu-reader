@@ -124,7 +124,10 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode);
-    const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
+    const apiDefinitionRowsPresent = {
+        jpdb: hasSourceRow(has, 'jpdbDefinitions'),
+        jiten: hasSourceRow(has, 'jitenDefinitions'),
+    };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
     const apiCredentials = readApiCredentialsFromFormData(data);
@@ -132,7 +135,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...current,
         ...apiCredentials,
         interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
-        ...readJpdbFormSettings(reader, current, jpdbDefinitionsRowPresent),
+        ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
         ...readKanjiAddonFormSettings(reader, current),
         ...readAudioFormSettings(reader, current, audioSources),
         ...readColorFormSettings(reader, current),
@@ -175,16 +178,22 @@ function isColorSourceSettingName(value: string): value is ColorSourceSettingNam
     return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
 }
 
-function hasJpdbDefinitionsRow(has: (key: string) => boolean): boolean {
-    return has('jpdbDefinitions.name') || has('jpdbDefinitions.priority') || has('jpdbDefinitions.enabled');
+function hasSourceRow(has: (key: string) => boolean, prefix: string): boolean {
+    return has(`${prefix}.name`) || has(`${prefix}.priority`) || has(`${prefix}.enabled`);
 }
 
-function readJpdbFormSettings(reader: SettingsFormReader, current: ReaderSettings, definitionsRowPresent: boolean): Partial<ReaderSettings> {
+function readApiDefinitionFormSettings(
+    reader: SettingsFormReader,
+    current: ReaderSettings,
+    rowsPresent: { jpdb: boolean; jiten: boolean },
+): Partial<ReaderSettings> {
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
-        jpdbDefinitionsEnabled: definitionsRowPresent ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
+        jpdbDefinitionsEnabled: rowsPresent.jpdb ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
         jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
+        jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,
+        jitenDefinitionsPriority: clamped('jitenDefinitions.priority', 0, 999, current.jitenDefinitionsPriority),
         jpdbPageEnhancementsEnabled,
         jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageWordEnhancementsEnabled'),
         jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has('jpdbPageKanjiEnhancementsEnabled'),
@@ -476,6 +485,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitlePausePanel: has('subtitlePausePanel'),
         subtitleTranscriptPlacement: readOption(get('subtitleTranscriptPlacement'), ['right', 'left', 'bottom'] as const, current.subtitleTranscriptPlacement),
         subtitleTranscriptAutoScroll: has('subtitleTranscriptAutoScroll'),
+        subtitleTranscriptAutoScrollResumeSeconds: clamped('subtitleTranscriptAutoScrollResumeSeconds', 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
         subtitleAutoCopyLine: has('subtitleAutoCopyLine'),
         subtitleCopyIncludeTranslation: has('subtitleCopyIncludeTranslation'),
         subtitleControlsMode: readOption(get('subtitleControlsMode'), ['auto', 'always', 'hidden'] as const, current.subtitleControlsMode),

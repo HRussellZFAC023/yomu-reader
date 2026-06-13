@@ -1269,6 +1269,14 @@
     "jpdbPageWordEnhancementsEnabled",
     "jpdbPageKanjiEnhancementsEnabled"
   ];
+  const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
+    "jpdbDefinitionsEnabled",
+    "jitenDefinitionsEnabled"
+  ];
+  const API_DEFINITION_NUMBER_SETTING_RANGES = {
+    jpdbDefinitionsPriority: { min: 0, max: 999 },
+    jitenDefinitionsPriority: { min: 0, max: 999 }
+  };
   const MINING_BOOLEAN_SETTING_KEYS = [
     "jpdbMiningEnabled",
     "dictionarySourcesInitiallyExpanded"
@@ -1365,6 +1373,8 @@
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
+    jitenDefinitionsEnabled: true,
+    jitenDefinitionsPriority: 1,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -1490,6 +1500,7 @@
     subtitlePausePanel: false,
     subtitleTranscriptPlacement: "right",
     subtitleTranscriptAutoScroll: true,
+    subtitleTranscriptAutoScrollResumeSeconds: 4,
     subtitleAutoCopyLine: false,
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
@@ -1713,7 +1724,8 @@
   function normalizeLookupSettings(value) {
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-      jpdbDefinitionsPriority: clampNumber$1(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+      ...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
+      ...normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES),
       ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
@@ -2796,6 +2808,7 @@
       subtitlePausePanel: "Open side panel when paused",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+      subtitleTranscriptAutoScrollResumeSeconds: "Resume transcript auto-scroll after manual scroll (s)",
       subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
@@ -4275,6 +4288,7 @@ subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
+subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後に自動スクロールを再開するまで (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
@@ -5903,7 +5917,10 @@ recommendedJiten	jiten.moe頻度データです。
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
     const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode);
-    const jpdbDefinitionsRowPresent = hasJpdbDefinitionsRow(has);
+    const apiDefinitionRowsPresent = {
+      jpdb: hasSourceRow(has, "jpdbDefinitions"),
+      jiten: hasSourceRow(has, "jitenDefinitions")
+    };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
     const apiCredentials = readApiCredentialsFromFormData(data);
@@ -5911,7 +5928,7 @@ recommendedJiten	jiten.moe頻度データです。
       ...current,
       ...apiCredentials,
       interfaceLanguage: readOption(get("interfaceLanguage"), ["auto", "en", "ja"], current.interfaceLanguage),
-      ...readJpdbFormSettings(reader, current, jpdbDefinitionsRowPresent),
+      ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
       ...readKanjiAddonFormSettings(reader, current),
       ...readAudioFormSettings(reader, current, audioSources),
       ...readColorFormSettings(reader, current),
@@ -5951,15 +5968,17 @@ recommendedJiten	jiten.moe頻度データです。
   function isColorSourceSettingName(value) {
     return Object.prototype.hasOwnProperty.call(DEFAULT_COLOR_SOURCE_VALUES, value);
   }
-  function hasJpdbDefinitionsRow(has) {
-    return has("jpdbDefinitions.name") || has("jpdbDefinitions.priority") || has("jpdbDefinitions.enabled");
+  function hasSourceRow(has, prefix) {
+    return has(`${prefix}.name`) || has(`${prefix}.priority`) || has(`${prefix}.enabled`);
   }
-  function readJpdbFormSettings(reader, current, definitionsRowPresent) {
+  function readApiDefinitionFormSettings(reader, current, rowsPresent) {
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
-      jpdbDefinitionsEnabled: definitionsRowPresent ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
+      jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
+      jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
+      jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
       jpdbPageKanjiEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageKanjiEnhancementsEnabled")
@@ -6216,6 +6235,7 @@ recommendedJiten	jiten.moe頻度データです。
       subtitlePausePanel: has("subtitlePausePanel"),
       subtitleTranscriptPlacement: readOption(get("subtitleTranscriptPlacement"), ["right", "left", "bottom"], current.subtitleTranscriptPlacement),
       subtitleTranscriptAutoScroll: has("subtitleTranscriptAutoScroll"),
+      subtitleTranscriptAutoScrollResumeSeconds: clamped("subtitleTranscriptAutoScrollResumeSeconds", 1, 30, current.subtitleTranscriptAutoScrollResumeSeconds),
       subtitleAutoCopyLine: has("subtitleAutoCopyLine"),
       subtitleCopyIncludeTranslation: has("subtitleCopyIncludeTranslation"),
       subtitleControlsMode: readOption(get("subtitleControlsMode"), ["auto", "always", "hidden"], current.subtitleControlsMode),
@@ -7154,17 +7174,26 @@ recommendedJiten	jiten.moe頻度データです。
   const KANJI_DICTIONARY_SOURCE_PREFIX = "__kanji_dictionary__:";
   function definitionSourceRows(settings) {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
     const builtInRows = [
       {
-        id: apiSource.id,
-        name: apiSource.name,
-        alias: apiSource.name,
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: "JPDB",
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
         prefix: "jpdbDefinitions",
         readonly: true,
-        help: uiText(language, apiSource.helpKey)
+        help: uiText(language, "sourceHelpJpdb")
+      },
+      {
+        id: JITEN_DEFINITION_SOURCE_ID,
+        name: "Jiten",
+        alias: "Jiten",
+        enabled: settings.jitenDefinitionsEnabled,
+        priority: settings.jitenDefinitionsPriority,
+        prefix: "jitenDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpJiten")
       },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
@@ -7242,7 +7271,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function kanjiSourceRows(settings) {
     const language = settings.interfaceLanguage;
-    const apiSource = activeApiDefinitionSource(settings);
+    const apiSource = activeKanjiFactSource(settings);
     const readingsComponentsName = apiSource.name === "Jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
     const kanjiDictionaryRows = settings.dictionaryPreferences.filter((preference) => preference.type === "kanji").map((preference) => ({
       id: kanjiDictionarySourceId(preference.name),
@@ -7330,8 +7359,8 @@ recommendedJiten	jiten.moe頻度データです。
       }
     ].sort(compareSourceRows);
   }
-  function activeApiDefinitionSource(settings) {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { id: JITEN_DEFINITION_SOURCE_ID, name: "Jiten", helpKey: "sourceHelpJiten" } : { id: JPDB_DEFINITION_SOURCE_ID, name: "JPDB", helpKey: "sourceHelpJpdb" };
+  function activeKanjiFactSource(settings) {
+    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
   }
   function kanjiDictionarySourceId(name) {
     return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;
@@ -7939,6 +7968,7 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
                     ${checkbox("subtitlePausePanel", "Open side panel when paused", settings.subtitlePausePanel)}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
+                    ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
@@ -7990,12 +8020,11 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function renderDictionariesSettingsPanel(settings) {
-    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
-                    ${checkbox("jpdbDefinitionsEnabled", `Show ${apiLabel} definitions`, settings.jpdbDefinitionsEnabled)}
+                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
                     ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
                     ${checkbox("dictionarySourcesInitiallyExpanded", "Open popup sources by default", settings.dictionarySourcesInitiallyExpanded)}
                     ${input("localDictionaryMaxResults", "Dictionary result limit", String(settings.localDictionaryMaxResults), "number")}
@@ -8293,8 +8322,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeSettingsLabels(form, text) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
-    const apiLabel = apiCredentialLabelFromForm(form);
-    setControlLabel(form, "jpdbDefinitionsEnabled", text("jpdbDefinitionsEnabled").replace("JPDB", apiLabel));
     const jpdbSettings = form.querySelector('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text("jpdbSettings");
     const jitenSettings = form.querySelector('label a[href*="jiten.moe/settings"]');
@@ -8880,6 +8907,7 @@ recommendedJiten	jiten.moe頻度データです。
     "subtitlePausePanel",
     "subtitleTranscriptPlacement",
     "subtitleTranscriptAutoScroll",
+    "subtitleTranscriptAutoScrollResumeSeconds",
     "subtitleAutoCopyLine",
     "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",

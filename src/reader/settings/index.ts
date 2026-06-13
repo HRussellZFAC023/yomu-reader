@@ -107,6 +107,14 @@ const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
     'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled',
 ] as const;
+const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
+    'jpdbDefinitionsEnabled',
+    'jitenDefinitionsEnabled',
+] as const;
+const API_DEFINITION_NUMBER_SETTING_RANGES = {
+    jpdbDefinitionsPriority: { min: 0, max: 999 },
+    jitenDefinitionsPriority: { min: 0, max: 999 },
+} as const;
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
     'dictionarySourcesInitiallyExpanded',
@@ -207,6 +215,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
     jpdbDefinitionsPriority: 0,
+    jitenDefinitionsEnabled: true,
+    jitenDefinitionsPriority: 1,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -332,6 +342,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitlePausePanel: false,
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
+    subtitleTranscriptAutoScrollResumeSeconds: 4,
     subtitleAutoCopyLine: false,
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: 'auto',
@@ -595,7 +606,8 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
 function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {
     return {
         interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-        jpdbDefinitionsPriority: clampNumber(value?.jpdbDefinitionsPriority, 0, 999, DEFAULT_SETTINGS.jpdbDefinitionsPriority),
+        ...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
+        ...normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES),
         ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
         lookupOnClick: booleanSettingWithFallback(value, 'lookupOnClick', true),
         lookupOnHover: booleanSettingWithFallback(value, 'lookupOnHover', value?.popupActivationMode !== 'click'),

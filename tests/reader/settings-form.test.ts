@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { diagnoseAnkiConnectFailure } from '../../src/reader/anki/transport';
 import { uiText } from '../../src/reader/app/i18n';
 import { describe, expect, it } from 'vitest';
-import { ANKI_SOURCE_ID } from '../../src/reader/app/constants';
+import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
@@ -947,7 +947,7 @@ describe('settings form localization', () => {
         expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Jiten status');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (JPDB / Jiten)');
-        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('Show Jiten definitions');
+        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('Show JPDB definitions');
     });
 
     it('keeps subtitle preview color classes and status regions accessible', () => {
@@ -1174,6 +1174,7 @@ describe('settings form localization', () => {
 
         expect(DEFAULT_SETTINGS.ankiSectionEnabled).toBe(false);
         expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, ankiEnabled: false }, [])).not.toContain(ANKI_SOURCE_ID);
+        expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, ankiEnabled: false }, [])).toEqual(expect.arrayContaining([JPDB_DEFINITION_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID]));
         expect(ankiRow.textContent).toContain('Anki');
         expect(ankiRow.textContent).toContain('Matching Anki card content and status');
         expect(ankiRow.textContent).not.toContain('mining');

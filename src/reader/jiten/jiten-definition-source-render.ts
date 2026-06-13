@@ -52,7 +52,9 @@ function jitenDefinitionMeanings(card: JPDBCard, info: JitenVocabularyInfo | nul
 function jitenDefinitionMeaningGroups(card: JPDBCard, info: JitenVocabularyInfo | null): JitenMeaningGroup[] {
     const definitions = info?.definitions.length
         ? info.definitions.flatMap(definition => jitenDefinitionMeaningTexts(definition).map(meaning => ({ meaning, partsOfSpeech: definition.partsOfSpeech })))
-        : card.meanings.map(meaning => ({ meaning: normalizeJitenMeaningText(meaning.glosses.join('; ')), partsOfSpeech: meaning.partOfSpeech }));
+        : isJitenDefinitionCard(card)
+            ? card.meanings.map(meaning => ({ meaning: normalizeJitenMeaningText(meaning.glosses.join('; ')), partsOfSpeech: meaning.partOfSpeech }))
+            : [];
     const groups = new Map<string, JitenMeaningGroup>();
     for (const definition of definitions) {
         const meaning = definition.meaning.trim();
@@ -64,6 +66,11 @@ function jitenDefinitionMeaningGroups(card: JPDBCard, info: JitenVocabularyInfo 
         groups.set(key, group);
     }
     return Array.from(groups.values()).filter(group => group.meanings.length).slice(0, 6);
+}
+
+function isJitenDefinitionCard(card: JPDBCard): boolean {
+    return card.source === 'jiten'
+        || (Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex));
 }
 
 function jitenDefinitionMeaningTexts(definition: JitenVocabularyDefinition): string[] {

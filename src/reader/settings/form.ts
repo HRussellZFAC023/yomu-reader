@@ -699,6 +699,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleTranscriptVisible', 'Open transcript panel by default', settings.subtitleTranscriptVisible)}
                     ${checkbox('subtitlePausePanel', 'Open side panel when paused', settings.subtitlePausePanel)}
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
+                    ${input('subtitleTranscriptAutoScrollResumeSeconds', 'Resume transcript auto-scroll after manual scroll (s)', String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
                     ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
                     ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
@@ -754,12 +755,11 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
-    const apiLabel = combinedApiCredentialLabel(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="dictionaries" hidden>
                 <legend>Dictionaries</legend>
                 <div class="grid">
-                    ${checkbox('jpdbDefinitionsEnabled', `Show ${apiLabel} definitions`, settings.jpdbDefinitionsEnabled)}
+                    ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
                     ${checkbox('localDictionariesEnabled', 'Show imported dictionary definitions', settings.localDictionariesEnabled)}
                     ${checkbox('dictionarySourcesInitiallyExpanded', 'Open popup sources by default', settings.dictionarySourcesInitiallyExpanded)}
                     ${input('localDictionaryMaxResults', 'Dictionary result limit', String(settings.localDictionaryMaxResults), 'number')}
@@ -1081,8 +1081,6 @@ function apiCredentialLabelFromForm(form: HTMLFormElement): string {
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
-    const apiLabel = apiCredentialLabelFromForm(form);
-    setControlLabel(form, 'jpdbDefinitionsEnabled', text('jpdbDefinitionsEnabled').replace('JPDB', apiLabel));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
     if (jpdbSettings) jpdbSettings.textContent = text('jpdbSettings');
     const jitenSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jiten.moe/settings"]');
@@ -1629,7 +1627,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
-    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
+    'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
     'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',

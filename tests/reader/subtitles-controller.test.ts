@@ -2057,10 +2057,16 @@ describe('SubtitlePlayerController', () => {
         Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
 
         try {
-            const { controller } = createInstalledSubtitleController({
-                subtitleOverlayVisible: true,
-                subtitleTranscriptAutoScroll: true,
-            });
+            // The resume window is the configurable setting (seconds); the
+            // controller reads it live from the same settings object each call.
+            const { controller, settings } = createSubtitleController(
+                makeSubtitleSettings({
+                    subtitleOverlayVisible: true,
+                    subtitleTranscriptAutoScroll: true,
+                    subtitleTranscriptAutoScrollResumeSeconds: 4,
+                }),
+            );
+            installController(controller);
             const internals = controllerInternals<{
                 transcriptPanel: HTMLElement;
                 panelMode: 'lines' | 'tracks';
@@ -2090,11 +2096,27 @@ describe('SubtitlePlayerController', () => {
             internals.scrollTranscriptToActive();
             expect(scrollSpy).toHaveBeenCalledTimes(2);
 
-            // After the resume window with no further manual scrolling, follow
-            // resumes.
+            // Still paused just before the 4s window elapses.
+            now += 3700;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // After the configured resume window, follow resumes.
+            now += 400;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(3);
+
+            // A larger configured window keeps follow paused longer: a manual
+            // scroll then a 4s gap no longer resumes when the window is 10s.
+            settings.subtitleTranscriptAutoScrollResumeSeconds = 10;
+            now += 1000;
+            internals.noteTranscriptScroll();
             now += 4000;
             internals.scrollTranscriptToActive();
             expect(scrollSpy).toHaveBeenCalledTimes(3);
+            now += 6500;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(4);
         } finally {
             if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
             if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
