@@ -30,7 +30,9 @@ import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../
 import {
     IMMERSION_FALLBACK_QUERY_LIMIT,
     immersionFallbackFragments,
+    immersionSentenceContainsQuery,
     isUsefulImmersionFallbackQuery,
+    shouldFilterImmersionExamplesBySurface,
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { runLimited } from '../core/async-utils';
@@ -342,6 +344,12 @@ function shouldCacheParsedNewTabSentenceTokens(tokens: JPDBToken[]): boolean {
     return !tokens.length || tokens.some(token => token.card.source !== 'fallback');
 }
 
+function accurateNewTabImmersionExamples(query: string, examples: ImmersionKitExample[]): ImmersionKitExample[] {
+    return shouldFilterImmersionExamplesBySurface(query)
+        ? examples.filter(example => immersionSentenceContainsQuery(example.sentence, query))
+        : examples;
+}
+
 export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     toast?: (message: string) => void;
@@ -370,7 +378,7 @@ export interface NewTabControllerDependencies {
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
-    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[]) => string;
+    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     preloadWordAudio?: (card: JPDBCard) => void;
     playWordAudio?: (card: JPDBCard) => Promise<void> | void;
@@ -1318,7 +1326,12 @@ export class NewTabController {
         }
         if (immersionAction) {
             event.preventDefault();
-            this.performNewTabImmersionAction(root, immersionAction);
+            const kanjiImmersion = target.closest<HTMLElement>('[data-newtab-kanji-immersion]');
+            if (kanjiImmersion && root.contains(kanjiImmersion)) {
+                this.performNewTabKanjiImmersionAction(root, kanjiImmersion, immersionAction);
+            } else {
+                this.performNewTabImmersionAction(root, immersionAction);
+            }
             return true;
         }
         return false;
@@ -4580,14 +4593,23 @@ export class NewTabController {
         word.dataset.sentence ||= card.sentence || surface;
     }
 
-    private renderNewTabImmersionToolbar(example: ImmersionKitExample, index: number, total: number, hasAudio: boolean): HTMLElement {
+    private renderNewTabImmersionToolbar(
+        example: ImmersionKitExample,
+        index: number,
+        total: number,
+        hasAudio: boolean,
+        options: { showSource?: boolean } = {},
+    ): HTMLElement {
         const language = this.language();
+        const metaAttributes: Record<string, string> = { class: 'jpdb-reader-example-meta' };
+        if (!options.showSource) metaAttributes.title = newTabImmersionProviderLabel(example, language);
         // The clip title identifies the example well enough on the study card;
         // the provider name lives in the tooltip instead of its own chip, and
         // the controls stay inline with the title (user-reported: the old
         // stacked layout wasted vertical space).
         return el('div', { class: 'jpdb-reader-example-toolbar' },
-            el('div', { class: 'jpdb-reader-example-meta', title: newTabImmersionProviderLabel(example, language) },
+            el('div', metaAttributes,
+                options.showSource ? el('span', { class: 'jpdb-reader-example-source' }, newTabImmersionProviderLabel(example, language)) : null,
                 el('span', { class: 'jpdb-reader-example-title' }, localizedImmersionSourceTitle(example.sourceTitle, language)),
                 el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
             ),
@@ -4670,6 +4692,27 @@ export class NewTabController {
         });
     }
 
+    private performNewTabKanjiImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void {
+        const kanji = surface.dataset.newtabKanji;
+        if (!kanji) return;
+        const card = this.newTabKanjiImmersionCard(kanji);
+        if (action === 'audio') {
+            void this.playCurrentKanjiImmersionAudio(kanji, card);
+            return;
+        }
+        if (action !== 'previous' && action !== 'next') return;
+        const key = this.newTabKanjiImmersionKey(kanji);
+        void this.loadImmersionExamples(card).then(async examples => {
+            if (!examples.length || !this.isCurrentRevealedKanji(kanji)) return;
+            const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
+            const delta = action === 'next' ? 1 : -1;
+            const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+            this.immersionExampleIndex.set(key, nextIndex);
+            const replaced = await this.replaceNewTabKanjiImmersionExample(root, kanji, card, examples, nextIndex);
+            if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentKanjiImmersionAudio(kanji, card);
+        });
+    }
+
     private shouldAutoPlayNewTabImmersionNavigationAudio(): boolean {
         const settings = this.dependencies.getSettings();
         return settings.immersionKitEnabled
@@ -4695,6 +4738,29 @@ export class NewTabController {
         if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
         else this.loadNewTabImmersionImage(immersion, examples[index]);
         await this.parseNewTabImmersionExample(immersion, card, key);
+        return true;
+    }
+
+    private async replaceNewTabKanjiImmersionExample(
+        root: HTMLElement,
+        kanji: string,
+        card: JPDBCard,
+        examples: ImmersionKitExample[],
+        index: number,
+    ): Promise<boolean> {
+        const body = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
+        if (!body || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
+        const requestId = `${kanji}:${performance.now()}:${Math.random()}`;
+        body.dataset.newtabKanjiImmersionRequest = requestId;
+        const immersion = this.renderNewTabKanjiImmersionCard(card, examples[index], index, examples.length);
+        const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
+        if (body.dataset.newtabKanjiImmersionRequest !== requestId || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
+        const existing = body.querySelector<HTMLElement>(':scope > [data-newtab-kanji-immersion]');
+        if (existing) existing.replaceWith(immersion);
+        else replaceChildrenWith(body, immersion);
+        if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
+        else this.loadNewTabImmersionImage(immersion, examples[index]);
+        await this.parseNewTabKanjiImmersionExample(immersion, card);
         return true;
     }
 
@@ -4767,22 +4833,37 @@ export class NewTabController {
     }
 
     private async playCurrentImmersionAudio(card: JPDBCard): Promise<void> {
-        if (!this.dependencies.getSettings().audioEnabled) return;
         const key = cardKey(card);
+        await this.playNewTabImmersionAudio(card, key, () => this.isCurrentRevealedWordCard(key));
+    }
+
+    private async playCurrentKanjiImmersionAudio(kanji: string, card: JPDBCard): Promise<void> {
+        await this.playNewTabImmersionAudio(card, this.newTabKanjiImmersionKey(kanji), () => this.isCurrentRevealedKanji(kanji));
+    }
+
+    private async playNewTabImmersionAudio(card: JPDBCard, key: string, isCurrent: () => boolean): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) return;
         const examples = await this.loadImmersionExamples(card);
-        if (!this.isCurrentRevealedWordCard(key)) return;
+        if (!isCurrent()) return;
         const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
         if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
         const requestId = this.beginNewTabImmersionAudio(source.key);
-        const src = await this.fetchNewTabImmersionAudio(source.urls);
-        if (!this.isCurrentImmersionAudioRequest(requestId, source.key, src) || !this.isCurrentRevealedWordCard(key)) return;
-        const audio = this.attachNewTabImmersionAudio(src);
-        const cleanup = () => this.clearNewTabImmersionAudio(audio);
-        audio.addEventListener('ended', cleanup, { once: true });
-        audio.addEventListener('error', cleanup, { once: true });
-        await audio.play().catch(cleanup);
+        const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
+        for (const src of uniqueNewTabImmersionAudioCandidates([blobSrc, ...source.urls])) {
+            if (!this.isCurrentImmersionAudioRequest(requestId, source.key) || !isCurrent()) return;
+            const audio = this.attachNewTabImmersionAudio(src);
+            const cleanup = () => this.clearNewTabImmersionAudio(audio);
+            audio.addEventListener('ended', cleanup, { once: true });
+            audio.addEventListener('error', cleanup, { once: true });
+            try {
+                await audio.play();
+                return;
+            } catch {
+                cleanup();
+            }
+        }
     }
 
     private isCurrentRevealedWordCard(key: string): boolean {
@@ -4816,8 +4897,8 @@ export class NewTabController {
             .catch(() => '');
     }
 
-    private isCurrentImmersionAudioRequest(requestId: number, key: string, src: string): boolean {
-        return Boolean(src && requestId === this.immersionAudioRequestId && this.immersionAudioKey === key);
+    private isCurrentImmersionAudioRequest(requestId: number, key: string): boolean {
+        return requestId === this.immersionAudioRequestId && this.immersionAudioKey === key;
     }
 
     private attachNewTabImmersionAudio(src: string): HTMLAudioElement {
@@ -4869,10 +4950,12 @@ export class NewTabController {
     private searchNewTabImmersionQuery(query: string): Promise<ImmersionKitExample[]> {
         if (!query) return Promise.resolve([]);
         const settings = this.dependencies.getSettings();
-        return this.dependencies.immersionKit.search(query, settings, this.newTabImmersionSearchOptions(settings)).catch(error => {
-            if (isImmersionKitRateLimitError(error)) throw error;
-            return [];
-        });
+        return this.dependencies.immersionKit.search(query, settings, this.newTabImmersionSearchOptions(settings))
+            .then(examples => accurateNewTabImmersionExamples(query, examples))
+            .catch(error => {
+                if (isImmersionKitRateLimitError(error)) throw error;
+                return [];
+            });
     }
 
     private newTabImmersionSearchOptions(settings: ReaderSettings): ImmersionKitSearchOptions {
@@ -5213,24 +5296,25 @@ export class NewTabController {
         const body = mount?.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
         if (!mount || !details || !body || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return;
 
-        const card = this.dependencies.parser.fallbackCardFromText?.(kanji) ?? fallbackSearchKanjiCard(kanji);
+        const card = this.newTabKanjiImmersionCard(kanji);
+        const key = this.newTabKanjiImmersionKey(kanji);
         let started = false;
         const load = () => {
             if (!details.open || started || !mount.isConnected || !body.isConnected) return;
             started = true;
             void this.loadImmersionExamples(card).then(async examples => {
                 if (!mount.isConnected || !body.isConnected) return;
-                const example = examples[0];
+                const index = this.normalizedImmersionExampleIndex(key, examples);
+                const example = examples[index];
                 if (!example) {
                     replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
                     details.dataset.immersionEmpty = 'true';
                     return;
                 }
-                const immersion = this.renderNewTabKanjiImmersionCard(card, example, 0, examples.length);
+                const immersion = this.renderNewTabKanjiImmersionCard(card, example, index, examples.length);
                 replaceChildrenWith(body, immersion);
                 this.loadNewTabImmersionImage(immersion, example);
-                await this.dependencies.parseContent?.(immersion, newTabShortParseOptions());
-                this.highlightNewTabParsedTarget(immersion, '[data-immersion-sentence-render]', card);
+                await this.parseNewTabKanjiImmersionExample(immersion, card);
             }).catch(() => {
                 if (body.isConnected) replaceChildrenWith(body, el('div', { class: 'jpdb-reader-help' }, uiText(this.language(), 'noImmersionExamplesCompact')));
             });
@@ -5239,18 +5323,40 @@ export class NewTabController {
         load();
     }
 
+    private newTabKanjiImmersionCard(kanji: string): JPDBCard {
+        return this.dependencies.parser.fallbackCardFromText?.(kanji) ?? fallbackSearchKanjiCard(kanji);
+    }
+
+    private newTabKanjiImmersionKey(kanji: string): string {
+        return `kanji:${kanji}`;
+    }
+
+    private isCurrentRevealedKanji(kanji: string): boolean {
+        const current = this.visibleWords[this.index];
+        if (!current) return false;
+        const currentKanji = kanjiCharacters(current.spelling)[0] ?? current.spelling[0] ?? '';
+        return this.state.mode === 'kanji'
+            && this.state.revealAnswer
+            && currentKanji === kanji;
+    }
+
+    private canApplyNewTabKanjiImmersion(body: HTMLElement, kanji: string): boolean {
+        return body.isConnected && this.isCurrentRevealedKanji(kanji);
+    }
+
+    private async parseNewTabKanjiImmersionExample(immersion: HTMLElement, card: JPDBCard): Promise<void> {
+        await this.dependencies.parseContent?.(immersion, newTabShortParseOptions());
+        this.highlightNewTabParsedTarget(immersion, '[data-immersion-sentence-render]', card);
+    }
+
     private renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement {
         const settings = this.dependencies.getSettings();
-        const language = this.language();
         const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        return el('div', { class: 'jpdb-reader-newtab-immersion' },
-            el('div', { class: 'jpdb-reader-example-toolbar' },
-                el('div', { class: 'jpdb-reader-example-meta' },
-                    el('span', { class: 'jpdb-reader-example-source' }, newTabImmersionProviderLabel(example, language)),
-                    el('span', { class: 'jpdb-reader-example-title' }, localizedImmersionSourceTitle(example.sourceTitle, language)),
-                    el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
-                ),
-            ),
+        return el('div', {
+            class: 'jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion',
+            dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling },
+        },
+            this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, { showSource: true }),
             this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
         );
     }
@@ -8464,4 +8570,16 @@ function capitalizedSessionSource(source: string): string {
 
 function uniqueNumbers(values: number[]): number[] {
     return [...new Set(values)];
+}
+
+function uniqueNewTabImmersionAudioCandidates(values: string[]): string[] {
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    for (const value of values) {
+        const url = value.trim();
+        if (!url || seen.has(url)) continue;
+        seen.add(url);
+        candidates.push(url);
+    }
+    return candidates;
 }

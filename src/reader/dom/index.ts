@@ -116,6 +116,12 @@ const HARD_FRAGMENT_SKIP_SELECTOR = [
     ...PLAYER_CHROME_SKIP_ENTRIES,
     '[data-jpdb-reader-root]',
 ].join(',');
+const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    ...PLAYER_CHROME_SKIP_ENTRIES,
+    '[data-jpdb-reader-root]',
+].join(',');
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
@@ -260,6 +266,7 @@ interface FragmentTextTargetCollectionOptions {
     includeReaderRoot?: boolean;
     includeUiChrome?: boolean;
     includeFormChrome?: boolean;
+    includeTabChrome?: boolean;
     heading?: boolean;
     mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
@@ -689,6 +696,7 @@ function shouldSkipFragmentElement(
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
     if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) return safeElementMatches(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
     return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
 }
 
@@ -1160,14 +1168,14 @@ function replaceSingleFragmentTokenNode(
     if (!fragment.node.parentNode || !plans.length) return;
     const replacement = document.createDocumentFragment();
     const text = fragment.node.data;
-    let offset = 0;
+    let offset = fragment.start;
     for (const plan of plans) {
         appendPlainTextBeforeToken(replacement, text, offset, plan.localStart);
         replacement.append(renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys));
         offset = plan.localEnd;
     }
-    appendPlainTextBeforeToken(replacement, text, offset, text.length);
-    fragment.node.replaceWith(replacement);
+    appendPlainTextBeforeToken(replacement, text, offset, fragment.end);
+    replaceTextNodeRange(fragment.node, fragment.start, fragment.end, replacement);
 }
 
 function renderSingleFragmentToken(

@@ -40,6 +40,9 @@ describe('reader stylesheet loading', () => {
         const css = initialReaderCss('');
 
         expect(css).toBe(CRITICAL_READER_CSS);
+        expect(css).toContain('[data-jpdb-reader-root] :where(button)');
+        expect(css).toContain('width: auto;');
+        expect(css).toContain('max-width: none;');
         expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn');
         expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');

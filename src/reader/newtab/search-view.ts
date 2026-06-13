@@ -146,7 +146,7 @@ export interface NewTabSearchDetailViewContext {
     dictionaryLabel: (name: string) => string;
     kanjiSourceTitle: (sourceId: string) => string;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
-    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[]) => string;
+    renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
 }
 
 export function searchWordDetailHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
@@ -175,7 +175,7 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     const state = primaryCardState(card.cardState);
     const metaItems = searchWordMetaItems(card, state, detail, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
-    const pills = context.renderSearchWordPills?.(card, detail.metaEntries) ?? '';
+    const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? '';
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header">
         <div class="jpdb-reader-heading">

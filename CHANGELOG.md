@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.196] - 2026-06-13
+
+### Performance
+
+- YouTube visible-page scanning now splits long text targets safely and applies chunks from the end of each text node back toward the start, so expanded descriptions and comment churn no longer corrupt text offsets or force giant apply turns.
+- Mobile YouTube scanning uses smaller cooperative batches when running without a JPDB API key, while API-backed parsing keeps larger mobile batches to avoid excessive continuation work. The stress harness now covers expanded descriptions, comment scrolling, play/pause, side-panel state, desktop hover, and a throttled mobile viewport.
+- YouTube page parsing now avoids player controls, chip tabs, and other button chrome while still scanning titles, descriptions, comments, recommendations, chat, subtitles, and OCR text. This keeps native YouTube controls responsive and prevents lookup/ruby work from attaching to "Auto" and similar UI labels.
+- Hover popovers defer study/Immersion loader setup until after the initial shell paints, and hover-card hydration repositions are coalesced into animation frames to reduce first-hover and word-to-word latency.
+- Hover/audio warmup no longer prepares the same lookup audio repeatedly for a card; candidate-only warmups can still upgrade to playable audio once.
+- Repeated YouTube render-rejection rescans are debounced, reducing remove/add loops when the host rehydrates scanned description/comment text.
+
+### Fixed
+
+- JPDB API reads now retry transient connection resets and back off briefly when jpdb.io keeps closing connections, while the all-decks scan spaces per-deck requests instead of firing a burst that can trip Firefox `PR_END_OF_FILE_ERROR` failures on the same network.
+- Partial-fragment rendering preserves the untouched prefix/suffix text around long scanned chunks, preventing the "raw text, ruby, then only ruby remains" failure mode in YouTube panels.
+
 ## [0.6.195] - 2026-06-13
 
 ### Added

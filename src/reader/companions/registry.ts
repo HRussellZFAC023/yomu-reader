@@ -1,3 +1,5 @@
+import { pageCompartmentValue } from '../platform/window-events';
+
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
@@ -87,11 +89,10 @@ export function registerYomuCompanion<K extends keyof YomuCompanionRegistry>(
     key: K,
     value: NonNullable<YomuCompanionRegistry[K]>,
 ): void {
-    const target = globalThis as YomuCompanionWindow;
-    target.__yomuCompanions = {
-        ...(target.__yomuCompanions ?? {}),
+    writeYomuCompanions({
+        ...yomuCompanions(),
         [key]: value,
-    };
+    });
 }
 
 export function yomuSettingsDialogController(): SettingsDialogControllerClass | undefined {
@@ -119,5 +120,41 @@ export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['ka
 }
 
 function yomuCompanions(): YomuCompanionRegistry {
-    return (globalThis as YomuCompanionWindow).__yomuCompanions ?? {};
+    return readYomuCompanions(globalThis) ?? (typeof window === 'undefined' ? undefined : readYomuCompanions(window)) ?? {};
+}
+
+function writeYomuCompanions(value: YomuCompanionRegistry): void {
+    const registry = pageCompartmentValue(value, { cloneFunctions: true, wrapReflectors: true });
+    if (writeYomuCompanionsTarget(globalThis, registry)) return;
+    if (typeof window !== 'undefined' && window !== globalThis) writeYomuCompanionsTarget(window, registry);
+}
+
+function writeYomuCompanionsTarget(target: unknown, value: YomuCompanionRegistry): boolean {
+    if (!target || (typeof target !== 'object' && typeof target !== 'function')) return false;
+    const writable = target as YomuCompanionWindow;
+    try {
+        writable.__yomuCompanions = value;
+        return true;
+    } catch {
+    }
+    try {
+        Object.defineProperty(writable, '__yomuCompanions', {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value,
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function readYomuCompanions(target: unknown): YomuCompanionRegistry | undefined {
+    if (!target || (typeof target !== 'object' && typeof target !== 'function')) return undefined;
+    try {
+        return (target as YomuCompanionWindow).__yomuCompanions;
+    } catch {
+        return undefined;
+    }
 }

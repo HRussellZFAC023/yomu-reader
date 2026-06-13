@@ -15,7 +15,7 @@ import {
     queryHasKanji,
     queryKey,
     queryLength,
-    shouldRequireOriginalSurfaceMatch,
+    shouldFilterImmersionExamplesBySurface,
     uniqueImmersionQueries,
 } from './query';
 import { isAbortError } from './errors';
@@ -798,8 +798,8 @@ export class ImmersionPopoverController {
                         preload.src = displayUrl;
                     })
                     .catch(() => {
-                        if (requestId !== imageRequestId) return;
-                        loadNextImageCandidate();
+                        if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
+                        showImageCandidate(fallbackUrl, fallbackUrl);
                     });
             };
             imageElement.addEventListener('error', loadNextImageCandidate);
@@ -931,14 +931,25 @@ export class ImmersionPopoverController {
         isCurrent: () => boolean,
     ): Promise<void> {
         const settings = this.options.getSettings();
-        const src = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage);
-        if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
-            this.clearAudioRequestIfCurrent(requestId, source.key);
-            return;
+        const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+            .catch(() => '');
+        const candidates = uniqueExampleAudioCandidates([blobSrc, ...source.urls]);
+        let lastError: unknown;
+        for (const src of candidates) {
+            if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
+                this.clearAudioRequestIfCurrent(requestId, source.key);
+                return;
+            }
+            const audio = this.attachExampleAudio(src);
+            try {
+                await this.playAttachedExampleAudio(audio, isCurrent);
+                return;
+            } catch (error) {
+                lastError = error;
+                if (this.audioElement === audio) this.clearAudio();
+            }
         }
-
-        const audio = this.attachExampleAudio(src);
-        await this.playAttachedExampleAudio(audio, isCurrent);
+        throw lastError instanceof Error ? lastError : new Error('No playable Immersion Kit audio candidate.');
     }
 
     private async playAttachedExampleAudio(audio: HTMLAudioElement, isCurrent: () => boolean): Promise<void> {
@@ -1050,10 +1061,6 @@ function immersionSearchResultForQuery(
         usedFallback: queryKey(query) !== queryKey(exactQuery),
         triedQueries,
     };
-}
-
-function shouldFilterImmersionExamplesBySurface(query: string): boolean {
-    return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
 }
 
 function immersionMiningImageUrl(imageUrls: string[]): string {
@@ -1182,6 +1189,18 @@ function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['i
             <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml(uiText(language, 'nextExample'))}" aria-label="${escapeHtml(uiText(language, 'nextExample'))}">›</button>
         </div>
     `;
+}
+
+function uniqueExampleAudioCandidates(values: string[]): string[] {
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    for (const value of values) {
+        const url = value.trim();
+        if (!url || seen.has(url)) continue;
+        seen.add(url);
+        candidates.push(url);
+    }
+    return candidates;
 }
 
 function shouldCacheParsedExampleSentenceTokens(tokens: JPDBToken[]): boolean {

@@ -102,6 +102,28 @@ const card: JPDBCard = {
     wordWithReading: null,
 };
 
+function hostedDocsCardToken(sentence: string, spelling: string, reading: string): JPDBToken {
+    const start = sentence.indexOf(spelling);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = start + spelling.length;
+    return {
+        card: {
+            ...card,
+            spelling,
+            reading,
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            source: 'fallback',
+        },
+        start,
+        end,
+        length: end - start,
+        rubies: [{ text: reading, start, end, length: end - start }],
+        pitchClass: '',
+        sentence,
+    };
+}
+
 function jitenTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
         ...card,
@@ -2791,6 +2813,53 @@ describe('reader helpers', () => {
         }
     });
 
+    it('retries retryable JPDB read requests after transient connection resets', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async () => {
+            if (fetchMock.mock.calls.length === 1) throw new Error('PR_END_OF_FILE_ERROR');
+            return jpdbJsonResponse({ decks: [['1', 'Main']] });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.listDecks()).resolves.toEqual([{ id: '1', name: 'Main' }]);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not retry JPDB write requests after connection resets', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async () => {
+            throw new Error('PR_END_OF_FILE_ERROR');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.reviewCard(card, 'okay')).rejects.toThrow('PR_END_OF_FILE_ERROR');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('backs off after repeated JPDB connection failures', async () => {
+        const client = new JpdbClient(() => 'token');
+        const fetchMock = vi.fn(async () => {
+            throw new Error('Failed to fetch');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            await expect(client.listDecks()).rejects.toThrow('Failed to fetch');
+            await expect(client.listDecks()).rejects.toThrow('JPDB connection is cooling down');
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('scans the whole JPDB deck in one bulk lookup and keeps only scheduled cards', async () => {
         const client = new JpdbClient(() => 'token');
         const lookupBatches: Array<Array<[number, number]>> = [];
@@ -3236,14 +3305,14 @@ describe('reader helpers', () => {
         const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-reader-word {');
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
-        expect(normalizedCss).toContain('text-decoration-color: var( --jpdb-reader-word-underline, transparent ) !important;');
+        expect(normalizedCss).toContain('text-decoration-color: transparent !important;');
         expect(normalizedCss).toContain('display: inline;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); outline: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: var(--jpdb-reader-hover) !important;');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
-        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: 0; inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset)); border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby;');
@@ -3285,7 +3354,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor); }');
         expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-text-status,\s*\.jpdb-reader-word-text-jpdb,\s*\.jpdb-reader-word-text-anki,\s*\.jpdb-reader-word-text-pitch\s*\) \.jpdb-reader-word \{ color: var\(--jpdb-reader-word-accessible-color, var\(--jpdb-reader-word-color-source, currentColor\)\) !important; text-shadow: var\(--jpdb-reader-word-contrast-shadow, none\); \}/);
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background: transparent !important;');
-        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; box-shadow: none !important; text-decoration-line: underline !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; --jpdb-reader-word-underline-offset: 0.12em; --jpdb-reader-word-underline-thickness: 0.12em; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background: var(--jpdb-reader-word-highlight-source, transparent) !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
         expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
@@ -3317,7 +3386,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, transparent);');
-        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background: transparent !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: underline !important; text-decoration-color: transparent !important;');
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-status ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-jpdb ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
@@ -3336,12 +3405,12 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-popover, .yomu-jpdb-page-addon) [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary { color: var(--subtitle-color); font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);');
         expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${underlineSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
-        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${underlineSurfaces} .jpdb-reader-word { text-decoration-thickness: .12em !important; text-underline-offset: .12em !important;`);
+        expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline-offset: .12em; --jpdb-reader-word-underline-thickness: .12em; text-decoration-thickness: .12em !important; text-underline-offset: .12em !important;`);
         // Unenriched words keep the underline invisible instead of flashing currentColor.
-        expect(normalizedCss).toMatch(/\.jpdb-reader-subtitle-underline-pitch :is\([^)]+\) \.jpdb-reader-word \{ text-decoration-thickness: \.12em !important; text-underline-offset: \.12em !important;[^}]*text-decoration-color: transparent; \}/);
+        expect(normalizedCss).toMatch(/\.jpdb-reader-subtitle-underline-pitch :is\([^)]+\) \.jpdb-reader-word \{ --jpdb-reader-word-underline-offset: \.12em; --jpdb-reader-word-underline-thickness: \.12em; text-decoration-thickness: \.12em !important; text-underline-offset: \.12em !important;[^}]*text-decoration-color: transparent; \}/);
         expect(normalizedCss).not.toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken { opacity: 1; } .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current { opacity: 1; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: inherit; background: transparent; text-decoration-color: var(--jpdb-reader-word-underline, transparent);');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); --jpdb-reader-word-underline-offset: .16em; --jpdb-reader-word-underline-thickness: .08em; color: inherit; background: transparent; text-decoration-color: transparent;');
     });
 
     it('keeps passive control labels on the host line-wrapping contract', () => {
@@ -3350,7 +3419,9 @@ describe('reader helpers', () => {
         // Scanned prose may wrap; words inside buttons/chips/tabs must not
         // override the host nowrap or CJK labels stack one char per line.
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
-        expect(normalizedCss).not.toMatch(/\.jpdb-reader-word\.jpdb-reader-scan-word \{ white-space: normal;/);
+        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
+        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
+        expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
 
     it('wraps compact popover lookup pills onto multiple rows when they overflow', () => {
@@ -3728,6 +3799,60 @@ describe('reader helpers', () => {
             expect(popover.getAttribute('aria-modal')).toBe('false');
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
         } finally {
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('coalesces popover resize repositioning into one animation frame', () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupMode: 'popover' as const,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+            repositionActivePopover(): void;
+        };
+        let resizeCallback: ResizeObserverCallback | undefined;
+        const frameCallbacks: FrameRequestCallback[] = [];
+        const reposition = vi.fn();
+
+        internals.settings = settings;
+        internals.repositionActivePopover = reposition;
+        vi.stubGlobal('ResizeObserver', class {
+            constructor(callback: ResizeObserverCallback) {
+                resizeCallback = callback;
+            }
+
+            observe(): void {}
+            disconnect(): void {}
+        });
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            frameCallbacks.push(callback);
+            return frameCallbacks.length;
+        });
+
+        try {
+            const popover = createReaderPopover('よむ', settings);
+            popover.innerHTML = '<div class="jpdb-reader-popover-body">辞書</div>';
+            internals.mountPopover(popover, undefined, { mode: 'hover' });
+            frameCallbacks.length = 0;
+            reposition.mockClear();
+
+            resizeCallback?.([] as ResizeObserverEntry[], {} as ResizeObserver);
+            resizeCallback?.([] as ResizeObserverEntry[], {} as ResizeObserver);
+
+            expect(reposition).not.toHaveBeenCalled();
+            expect(frameCallbacks).toHaveLength(1);
+
+            frameCallbacks[0]?.(0);
+
+            expect(reposition).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.restoreAllMocks();
             vi.unstubAllGlobals();
             app.destroy();
             document.body.replaceChildren();
@@ -4621,6 +4746,85 @@ describe('reader helpers', () => {
         expect(html).not.toContain('data-action="copy-word"');
     });
 
+    it('renders an Add to Anki pill for trusted Anki misses', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                ankiEnabled: true,
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('jpdb-reader-anki-pill');
+        expect(html).toContain('data-action="anki"');
+        expect(html).toContain('title="Add to Anki"');
+        expect(html).toContain('>Anki ');
+        expect(html).toContain('--chip-bg:#2f6da8');
+    });
+
+    it('renders an Edit in Anki pill for existing Anki notes', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                ankiEnabled: true,
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            ankiLookup: {
+                state: 'known',
+                notes: [],
+                primary: {
+                    noteId: 42,
+                    modelName: 'Yomu Japanese',
+                    deckNames: ['Yomu'],
+                    cardIds: [100],
+                    primaryCardId: 100,
+                    state: 'known',
+                    fields: {},
+                    renderedCards: [],
+                    tags: [],
+                    reps: 0,
+                    lapses: 0,
+                },
+            },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('jpdb-reader-anki-pill');
+        expect(html).toContain('data-action="anki-edit"');
+        expect(html).toContain('data-note-id="42"');
+        expect(html).toContain('title="Edit in Anki"');
+        expect(html).not.toContain('data-action="anki"');
+    });
+
+    it('hides the Anki pill while lookup state is untrusted or the pill is scoped to kanji', () => {
+        const base: Parameters<typeof renderWordPills>[0] = {
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                ankiEnabled: true,
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            ankiLookup: { state: 'not-in-deck' as const, notes: [], primary: null, trusted: false },
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: (name: string) => name,
+        };
+
+        expect(renderWordPills(base)).not.toContain('jpdb-reader-anki-pill');
+        expect(renderWordPills({ ...base, overrideQuery: '読', ankiLookup: { state: 'not-in-deck', notes: [], primary: null } })).not.toContain('jpdb-reader-anki-pill');
+    });
+
     it('links single-kanji Jiten lookup pills to Jiten kanji pages', () => {
         const html = renderWordPills({
             card,
@@ -4713,6 +4917,7 @@ describe('reader helpers', () => {
             [],
             undefined,
             'hover',
+            { state: 'not-in-deck', notes: [], primary: null },
         );
     });
 
@@ -6932,6 +7137,56 @@ describe('reader helpers', () => {
         }
     });
 
+    it('honors shuffled source order even when a later source prepares faster', async () => {
+        const played: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0,
+            objectUrl: blob => blob.size === 31
+                ? 'blob:http://localhost/slow-source-audio'
+                : 'blob:http://localhost/fast-source-audio',
+        });
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                const slow = details.url.includes('slow');
+                const response = new Blob([new Uint8Array(slow ? 31 : 17)], { type: 'audio/mpeg' });
+                window.setTimeout(() => details.onload?.({ status: 200, response }), slow ? 500 : 0);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioTtsMode: 'fallback',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioTimeoutMs: 2000,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/slow.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'http://x.test/slow.mp3',
+                'http://x.test/fast.mp3',
+            ]);
+            expect(played).toEqual([
+                'blob:http://localhost/slow-source-audio',
+                'blob:http://localhost/fast-source-audio',
+            ]);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('preloads the next shuffled audio source instead of the first configured source', async () => {
         const played: string[] = [];
         const requested: string[] = [];
@@ -7311,15 +7566,16 @@ describe('reader helpers', () => {
         };
 
         try {
+            const candidateOnlyCard = { ...card, vid: 4, spelling: '見る', reading: 'みる' };
             internals.maybePreloadLookupCardAudio(card, { trigger: 'hover' }, anchor);
-            internals.maybePreloadLookupCardAudio(card, { trigger: 'hover', autoPlay: false }, anchor);
+            internals.maybePreloadLookupCardAudio(candidateOnlyCard, { trigger: 'hover', autoPlay: false }, anchor);
 
             expect(preload).toHaveBeenNthCalledWith(1, card, {
                 sourceLimit: 1,
                 candidateLimit: 1,
                 prepareAudio: true,
             });
-            expect(preload).toHaveBeenNthCalledWith(2, card, {
+            expect(preload).toHaveBeenNthCalledWith(2, candidateOnlyCard, {
                 sourceLimit: 1,
                 candidateLimit: 1,
                 prepareAudio: false,
@@ -7343,6 +7599,7 @@ describe('reader helpers', () => {
             expect(internals.preloadReaderCardAudio(card, { prepareAudio: false })).toBe(true);
             expect(internals.preloadReaderCardAudio(card, { prepareAudio: true })).toBe(true);
             expect(internals.preloadReaderCardAudio(card, { prepareAudio: false })).toBe(false);
+            expect(internals.preloadReaderCardAudio(card, { prepareAudio: true })).toBe(false);
 
             expect(preload).toHaveBeenCalledTimes(2);
             expect(preload).toHaveBeenNthCalledWith(1, card, {
@@ -8458,7 +8715,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('routes Jisho lookup through the default public proxy without a userscript bridge', async () => {
+    it('routes Jisho lookup through the lightweight text proxy without a userscript bridge', async () => {
         const spoken: string[] = [];
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('audio fetch failed'))));
@@ -8471,7 +8728,8 @@ describe('reader helpers', () => {
 
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls.some(url => url === 'https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')).toBe(false);
-            expect(urls.some(url => url.startsWith('https://yomu-jpdb-public-proxy.') && url.includes('jisho.org%2Fsearch'))).toBe(true);
+            expect(urls.some(url => url === 'https://r.jina.ai/http://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')).toBe(true);
+            expect(urls.some(url => url.startsWith('https://yomu-jpdb-public-proxy.') && url.includes('jisho.org%2Fsearch'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();
@@ -8778,11 +9036,11 @@ describe('reader helpers', () => {
             const rawUrl = String(input);
             const target = unproxiedFetchTarget(input);
             requested.push(rawUrl);
-            if (target === 'https://jisho.org/search/%E7%8C%AB') {
+            if (rawUrl === 'https://r.jina.ai/http://jisho.org/search/%E7%8C%AB') {
                 return Promise.resolve(new Response(`
-                    <audio id="audio_猫:ねこ" preload="none">
-                        <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3" type="audio/mpeg"></source>
-                    </audio>
+                    # Words
+                    猫 【ねこ】
+                    https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3
                 `, { status: 200 }));
             }
             if (target === 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3') {
@@ -8811,7 +9069,7 @@ describe('reader helpers', () => {
                 'blob:https://hrussellzfac023.github.io/yomu-reader/jisho-neko',
             ]);
             expect(requested).toEqual([
-                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://jisho.org/search/%E7%8C%AB')}`,
+                'https://r.jina.ai/http://jisho.org/search/%E7%8C%AB',
                 `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3')}`,
             ]);
         } finally {
@@ -12702,6 +12960,31 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps image MIME types when page media blobs arrive as octet-stream', async () => {
+        const originalCreateObjectUrl = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            value: vi.fn(() => 'blob:https://jpdb.io/uchisen.jpg'),
+        });
+        vi.stubGlobal('location', { hostname: 'jpdb.io' });
+
+        try {
+            const url = await createPageMediaUrl(
+                new Blob(['image'], { type: 'application/octet-stream' }),
+                'https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg',
+            );
+
+            expect(url).toMatch(/^data:image\/jpeg;base64,/);
+            expect(URL.createObjectURL).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                value: originalCreateObjectUrl,
+            });
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('falls back to userscript blob fetch for custom JSON audio on Apple mobile', async () => {
         const played: string[] = [];
         const restoreAppleMobile = mockAppleMobileBrowser();
@@ -13474,6 +13757,43 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example, true);
     });
 
+    it('shows direct Immersion Kit popup images when blob hydration fails', async () => {
+        const { app, container, popover } = testImmersionPopoverSurface();
+        const imageUrl = 'https://media.test/kakegurui.jpg';
+        const example = testImmersionKitExample({
+            sentence: 'この塔には謎が多すぎる',
+            translation: 'There are too many mysteries in this tower.',
+            sourceTitle: 'Kakegurui',
+            titleSlug: 'kakegurui',
+            imageFile: 'kakegurui.jpg',
+        });
+        const internals = testImmersionPopoverInternals(app) as TestImmersionPopoverInternals & {
+            immersionKit: {
+                fetchBlobUrl(url: string | string[], timeoutMs: number): Promise<string>;
+            };
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, immersionKitShowImages: true };
+        internals.immersionPopover.searchExamples = vi.fn(async () => ({
+            examples: [example],
+            query: '多',
+            usedFallback: false,
+            triedQueries: ['多'],
+        }));
+        internals.parseJapanese = vi.fn(async () => []);
+        internals.immersionPopover.mediaUrls = vi.fn((_, kind) => kind === 'image' ? [imageUrl] : []);
+        internals.immersionKit.fetchBlobUrl = vi.fn(async () => {
+            throw new Error('proxy offline');
+        });
+
+        await internals.immersionPopover.loadExamples(popover, card);
+
+        await waitForExpect(() => {
+            const image = container.querySelector<HTMLImageElement>('[data-immersion-image]');
+            expect(image?.getAttribute('src')).toBe(imageUrl);
+            expect(container.querySelector('.jpdb-reader-example-card')?.classList.contains('has-image')).toBe(true);
+        });
+    });
+
     it('does not start Immersion Kit audio on next example when autoplay is disabled', async () => {
         const { app, container, popover } = testImmersionPopoverSurface();
         const example = testImmersionKitExample();
@@ -13564,6 +13884,79 @@ describe('reader helpers', () => {
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
             expect(constructed).toEqual(['blob:http://localhost/line.mp3']);
             expect(played).toEqual(['blob:http://localhost/line.mp3']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('falls back to direct Immersion Kit popup audio URLs when blob hydration fails', async () => {
+        const constructed: string[] = [];
+        const played: string[] = [];
+        class FakeAudio {
+            preload = '';
+            playbackRate = 1;
+            ended = false;
+
+            constructor(public src: string) {
+                constructed.push(src);
+            }
+
+            play(): Promise<void> {
+                played.push(this.src);
+                return Promise.resolve();
+            }
+
+            pause(): void {}
+            addEventListener(): void {}
+        }
+        const fetchBlobUrl = vi.fn(async () => {
+            throw new Error('proxy offline');
+        });
+        const toast = vi.fn();
+        vi.stubGlobal('Audio', FakeAudio);
+        const example = {
+            id: 'anime_kakegurui_000006996',
+            sentence: 'この塔には謎が多すぎる',
+            sentenceWithFurigana: '',
+            translation: 'There are too many mysteries in this tower.',
+            sourceTitle: 'Kakegurui',
+            titleSlug: 'kakegurui',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const controller = new ImmersionPopoverController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: false,
+            }),
+            client: {
+                mediaUrls: vi.fn((_: unknown, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/kakegurui.mp3'] : []),
+                fetchBlobUrl,
+            } as unknown as ImmersionKitClient,
+            audio: { play: vi.fn(async () => undefined), stop: vi.fn() } as never,
+            parseJapanese: vi.fn(async () => []),
+            canParseJapanese: () => false,
+            parsePopoverJapanese: vi.fn(),
+            enrichPitchWords: vi.fn(),
+            enrichAnkiWords: vi.fn(),
+            repositionPopover: vi.fn(),
+            setImmersionTranslationBlurred: vi.fn(),
+            toast,
+        });
+
+        try {
+            await (controller as unknown as {
+                playExampleAudio(example: ImmersionKitExample): Promise<void>;
+            }).playExampleAudio(example);
+
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/kakegurui.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+            expect(constructed).toEqual(['https://media.test/kakegurui.mp3']);
+            expect(played).toEqual(['https://media.test/kakegurui.mp3']);
+            expect(toast).not.toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }
@@ -21298,6 +21691,30 @@ describe('reader helpers', () => {
         }
     });
 
+    it('falls back to the direct Uchisen image URL when blob hydration fails', async () => {
+        const imageUrl = 'https://ik.imagekit.io/uchisen/generated/saved/generated_many.jpg';
+        const fetchMock = vi.fn(() => Promise.reject(new Error('proxy offline')));
+        vi.stubGlobal('fetch', fetchMock);
+        const mount = document.createElement('div');
+        let cleanup: (() => void) | null = null;
+
+        try {
+            document.body.append(mount);
+            cleanup = await installUchisenCarousel(mount, '多', [
+                { url: imageUrl, story: 'Too many cigs' },
+            ]);
+
+            await vi.waitFor(() => {
+                expect(mount.querySelector<HTMLImageElement>('[data-uchisen-image]')?.src).toBe(imageUrl);
+            });
+            expect(fetchMock).toHaveBeenCalled();
+        } finally {
+            cleanup?.();
+            mount.remove();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('restores the last selected Uchisen index without a star control', async () => {
         const originalCreateObjectUrl = URL.createObjectURL;
         const originalRevokeObjectUrl = URL.revokeObjectURL;
@@ -24993,6 +25410,65 @@ describe('reader helpers', () => {
         }
     });
 
+    it('defers study and Immersion loaders until after the initial hover card shell paints', () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const installLoaders = vi.fn();
+        const installLazyLoad = vi.fn();
+        const frameCallbacks: FrameRequestCallback[] = [];
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            studySources: { installLoaders: typeof installLoaders };
+            immersionPopover: { installLazyLoad: typeof installLazyLoad };
+            installInitialCardBehaviors(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                context: {
+                    trigger: 'modal' | 'hover';
+                    options: Record<string, unknown>;
+                    isCurrentHoverCard: () => boolean;
+                },
+                instantLocalEntries: null,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, studyGrammarEnabled: true, studyTranslationEnabled: true };
+        internals.studySources.installLoaders = installLoaders;
+        internals.immersionPopover.installLazyLoad = installLazyLoad;
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            frameCallbacks.push(callback);
+            return frameCallbacks.length;
+        });
+
+        try {
+            internals.installInitialCardBehaviors(
+                popover,
+                lookupCard,
+                '青空です。',
+                { trigger: 'hover', options: {}, isCurrentHoverCard: () => true },
+                null,
+            );
+
+            expect(installLoaders).not.toHaveBeenCalled();
+            expect(installLazyLoad).not.toHaveBeenCalled();
+            expect(frameCallbacks).toHaveLength(1);
+
+            frameCallbacks[0]?.(0);
+
+            expect(installLoaders).toHaveBeenCalledWith(popover, '青空です。');
+            expect(installLazyLoad).toHaveBeenCalledWith(popover, lookupCard, {});
+        } finally {
+            vi.restoreAllMocks();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('continues background pitch enrichment beyond the first small batch', async () => {
         const app = new ReaderApp();
         const tokenCount = 16;
@@ -26962,6 +27438,171 @@ describe('reader helpers', () => {
         }
     });
 
+    it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        document.body.innerHTML = `
+            <header class="vector-header">
+                <nav class="vector-main-menu-landmark" aria-label="サイト">
+                    <div id="vector-main-menu" class="vector-main-menu vector-pinnable-element">
+                        <div class="vector-pinnable-header">
+                            <div class="vector-pinnable-header-label">メインメニュー</div>
+                            <button class="vector-pinnable-header-pin-button">サイドバーに移動</button>
+                            <button class="vector-pinnable-header-unpin-button">非表示</button>
+                        </div>
+                        <div id="p-navigation" class="vector-menu mw-portlet">
+                            <div class="vector-menu-heading">案内</div>
+                            <ul><li><a href="/wiki/main"><span>メインページ</span></a></li></ul>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+            <main>
+                <h1 id="firstHeading">原子量</h1>
+                <nav aria-label="表示">
+                    <div id="p-views" class="vector-menu vector-menu-tabs mw-portlet mw-portlet-views">
+                        <ul>
+                            <li id="ca-view"><a href="/wiki/原子量"><span>閲覧</span></a></li>
+                            <li id="ca-edit"><a href="/w/index.php?action=edit"><span>編集</span></a></li>
+                            <li id="ca-history"><a href="/w/index.php?action=history"><span>履歴を表示</span></a></li>
+                        </ul>
+                    </div>
+                    <div id="siteSub" class="noprint">出典: フリー百科事典『ウィキペディア（Wikipedia）』</div>
+                </nav>
+                <div id="mw-content-text"><p>原子の質量を表す。</p></div>
+            </main>
+            <div id="vector-toc" class="vector-toc vector-pinnable-element">
+                <div class="vector-pinnable-header">
+                    <h2 class="vector-pinnable-header-label">目次</h2>
+                    <button>サイドバーに移動</button>
+                    <button>非表示</button>
+                </div>
+                <ul class="vector-toc-contents">
+                    <li><a href="#" class="vector-toc-link"><div class="vector-toc-text">ページ先頭</div></a></li>
+                    <li><a href="#参考文献" class="vector-toc-link"><div class="vector-toc-text"><span>1</span><span>参考文献</span></div></a></li>
+                    <li><a href="#関連項目" class="vector-toc-link"><div class="vector-toc-text"><span>2</span><span>関連項目</span></div></a></li>
+                </ul>
+            </div>
+            <div id="vector-appearance-pinned-container" class="vector-pinned-container">
+                <div id="vector-appearance" class="vector-appearance vector-pinnable-element">
+                    <div class="vector-pinnable-header">
+                        <div class="vector-pinnable-header-label">表示</div>
+                        <button>サイドバーに移動</button>
+                        <button>非表示</button>
+                    </div>
+                    <div class="vector-menu" id="skin-client-prefs-vector-feature-custom-font-size">
+                        <div class="vector-menu-heading">テキスト</div>
+                        <form>
+                            <label><span class="cdx-label__label__text">小</span></label>
+                            <label><span class="cdx-label__label__text">標準</span></label>
+                            <label><span class="cdx-label__label__text">大</span></label>
+                        </form>
+                    </div>
+                    <div class="vector-menu" id="skin-client-prefs-skin-theme">
+                        <div class="vector-menu-heading">色 <span><span>(ベータ)</span></span></div>
+                        <form>
+                            <label><span class="cdx-label__label__text">自動</span></label>
+                            <label><span class="cdx-label__label__text">ライト</span></label>
+                            <label><span class="cdx-label__label__text">ダーク</span></label>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(60, 'https://ja.wikipedia.org/wiki/%E5%8E%9F%E5%AD%90%E9%87%8F');
+        rectSpy.mockRestore();
+
+        const texts = targets.map(target => target.text);
+        expect(texts).toEqual(expect.arrayContaining([
+            '原子量',
+            '原子の質量を表す。',
+            '閲覧',
+            '編集',
+            '履歴を表示',
+            '目次',
+            'ページ先頭',
+            '表示',
+            'サイドバーに移動',
+            '非表示',
+            'テキスト',
+            '標準',
+            'ライト',
+        ]));
+        expect(texts.some(text => text.includes('参考文献'))).toBe(true);
+        expect(texts.some(text => text.includes('関連項目'))).toBe(true);
+
+        const article = targets.find(target => target.text === '原子の質量を表す。')!;
+        const edit = targets.find(target => target.text === '編集')!;
+        const light = targets.find(target => target.text === 'ライト')!;
+        expect('parserId' in article && article.parserId).toBe('wikipedia-parser');
+        expect('parserId' in edit && edit.parserId).toBe('safe-ui-chrome-parser');
+        expect('passiveInteraction' in edit && edit.passiveInteraction).toBe(true);
+        expect('passiveInteraction' in light && light.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(edit, [{
+            card: { ...card, cardState: ['known'], spelling: '編集', reading: 'へんしゅう' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'へんしゅう', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '編集',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(light, [{
+            card: { ...card, cardState: ['known'], spelling: 'ライト', reading: 'ライト' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: 'ライト',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const editWord = document.querySelector<HTMLElement>('#ca-edit .jpdb-reader-word')!;
+        const lightWord = Array.from(document.querySelectorAll<HTMLElement>('#vector-appearance label .jpdb-reader-word'))
+            .find(word => readerWordSurfaceText(word) === 'ライト')!;
+        expect(editWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(editWord.querySelector('rt')?.textContent).toBe('へんしゅう');
+        expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(readerWordSurfaceText(lightWord)).toBe('ライト');
+    });
+
+    it('scans Google Docs menubar entries as passive ruby targets', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 96, height: 28 });
+        document.body.innerHTML = `
+            <div id="docs-menubar" role="menubar" class="docs-menubar goog-container goog-container-horizontal" tabindex="0" style="user-select: none; max-width: 840px;">
+                <div id="docs-file-menu" role="menuitem" class="menu-button goog-control goog-inline-block" aria-disabled="false" aria-expanded="false" aria-haspopup="true">ファイル</div>
+                <div id="docs-edit-menu" role="menuitem" class="menu-button goog-control goog-inline-block" aria-disabled="false" aria-expanded="false" aria-haspopup="true">編集</div>
+                <div id="docs-view-menu" role="menuitem" class="menu-button goog-control goog-inline-block" aria-disabled="false" aria-expanded="false" aria-haspopup="true">表示</div>
+                <div id="docs-tools-menu" role="menuitem" class="menu-button goog-control goog-inline-block" aria-disabled="false" aria-expanded="false" aria-haspopup="true">ツール</div>
+                <div id="docs-gemini-menu" role="menuitem" class="menu-button goog-control goog-inline-block" style="display: none;" aria-hidden="true" aria-disabled="false" aria-expanded="false" aria-haspopup="true">Gemini</div>
+                <div id="docs-help-menu" role="menuitem" class="menu-button goog-control goog-inline-block" aria-disabled="false" aria-expanded="false" aria-haspopup="true">ヘルプ</div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://docs.google.com/document/d/test/edit');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(['ファイル', '編集', '表示', 'ツール', 'ヘルプ']);
+        const editTarget = targets.find(target => target.text === '編集')!;
+        expect('passiveInteraction' in editTarget && editTarget.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(editTarget, [{
+            card: { ...card, spelling: '編集', reading: 'へんしゅう', cardState: ['known'] },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'へんしゅう', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '編集',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('#docs-edit-menu .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.tabIndex).toBe(-1);
+        expect(word.querySelector('rt')?.textContent).toBe('へんしゅう');
+    });
+
     it('keeps inline prose links clickable without making surrounding prose passive', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
@@ -27136,6 +27777,44 @@ describe('reader helpers', () => {
         expect('passiveInteraction' in linkTarget! && linkTarget.passiveInteraction).toBe(true);
         expect(activeAppParsers.map(parser => parser.id)).not.toContain('yomu-demo-lookup-parser');
         expect(activeAppParsers.map(parser => parser.id)).toContain('yomu-video-player-parser');
+    });
+
+    it('lets annotated hosted docs card links wrap while staying passive', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        const copy = 'ユーザースクリプト管理拡張を入れ、よむを追加して、最初の検索を試します。';
+        document.body.innerHTML = `
+            <main>
+                <div class="vp-doc">
+                    <div class="yomu-link-grid yomu-next-grid">
+                        <a class="yomu-link-card" href="/getting-started">
+                            <strong>よむをセットアップ</strong>
+                            <span>${copy}</span>
+                        </a>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
+        rectSpy.mockRestore();
+
+        const cardTarget = targets.find(target => target.text.includes(copy));
+        expect(cardTarget).toBeTruthy();
+        expect('passiveInteraction' in cardTarget! && cardTarget.passiveInteraction).toBe(true);
+
+        const sentence = cardTarget!.text;
+        applyTokensToScanTarget(cardTarget!, [
+            hostedDocsCardToken(sentence, 'ユーザースクリプト管理拡張', 'ゆーざーすくりぷとかんりかくちょう'),
+            hostedDocsCardToken(sentence, '追加', 'ついか'),
+            hostedDocsCardToken(sentence, '検索', 'けんさく'),
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.yomu-link-card span .jpdb-reader-word'));
+        expect(words).toHaveLength(3);
+        expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
+        expect(words.every(word => word.classList.contains('jpdb-reader-scan-word'))).toBe(true);
+        expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(words[0]?.querySelector('rt')?.textContent).toBe('ゆーざーすくりぷとかんりかくちょう');
     });
 
     it('scans hosted docs overflow menu labels as passive ruby lookup targets', () => {
@@ -27815,7 +28494,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans stable mobile YouTube descriptions and watch chrome as passive ruby targets', () => {
+    it('scans stable mobile YouTube titles and descriptions without watch chrome', () => {
         const targets = collectYouTubeTargets(`
             <ytm-watch-metadata>
                 <ytm-slim-video-metadata-section-renderer>
@@ -27838,19 +28517,15 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '日本語タイトル',
+            '説明文です',
+        ]));
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '52,551回視聴 2026/06/12',
             '質問する',
-            '説明文です',
             '文字起こしを表示',
         ]));
 
         const title = targets.find(target => target.text === '日本語タイトル')!;
-        const metadata = targets.find(target => target.text === '52,551回視聴 2026/06/12')!;
-        const question = targets.find(target => target.text === '質問する')!;
-        const transcript = targets.find(target => target.text === '文字起こしを表示')!;
-        for (const target of [question, transcript]) {
-            expect('passiveInteraction' in target && target.passiveInteraction).toBe(true);
-        }
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
             start: 0,
@@ -27860,46 +28535,18 @@ describe('reader helpers', () => {
             pitchClass: 'heiban',
             sentence: '日本語タイトル',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(metadata, [{
-            card: { ...card, cardState: ['known'], spelling: '視聴', reading: 'しちょう' },
-            start: metadata.text.indexOf('視聴'),
-            end: metadata.text.indexOf('視聴') + 2,
-            length: 2,
-            rubies: [{ text: 'しちょう', start: metadata.text.indexOf('視聴'), end: metadata.text.indexOf('視聴') + 2, length: 2 }],
-            pitchClass: '',
-            sentence: metadata.text,
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(question, [{
-            card: { ...card, cardState: ['known'], spelling: '質問', reading: 'しつもん' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'しつもん', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '質問する',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(transcript, [{
-            card: { ...card, cardState: ['known'], spelling: '文字', reading: 'もじ' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'もじ', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '文字起こしを表示',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const titleWord = document.querySelector<HTMLElement>('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('日本語');
         expect(titleWord.dataset.cardSource).toBe('jpdb');
         expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
         expectRenderedPitchWord(titleWord, 'heiban');
-        expect(document.querySelector('.slim-video-metadata-info rt')?.textContent).toBe('しちょう');
-        expect(readerWordSurfaceText(document.querySelector('ytm-button-renderer .jpdb-reader-word')!)).toBe('質問');
-        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word')?.getAttribute('data-jpdb-reader-passive')).toBe('true');
-        expect(document.querySelector('ytm-video-description-transcript-section-renderer rt')?.textContent).toBe('もじ');
+        expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word')).toBeNull();
     });
 
-    it('keeps YouTube comment controls passive while comment text remains active', () => {
+    it('keeps YouTube comment controls native while comment text remains active', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-comment-view-model>
                 <yt-attributed-string id="content-text">今夜も配信見なかったごめんね。</yt-attributed-string>
@@ -27910,9 +28557,8 @@ describe('reader helpers', () => {
         const comment = targets.find(target => target.text === '今夜も配信見なかったごめんね。');
         const more = targets.find(target => target.text === '続きを読む');
         expect(comment).toBeTruthy();
-        expect(more).toBeTruthy();
+        expect(more).toBeUndefined();
         expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
-        expect('passiveInteraction' in more! && more.passiveInteraction).toBe(true);
 
         applyTokensToScanTarget(comment!, [{
             card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん' },
@@ -27923,22 +28569,11 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '今夜も配信見なかったごめんね。',
         }], DEFAULT_SETTINGS);
-        applyTokensToScanTarget(more!, [{
-            card: { ...card, cardState: ['not-in-deck'], spelling: '続き', reading: 'つづき' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'つづき', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '続きを読む',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
-        const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
-        expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(moreWord.querySelector('rt')?.textContent).toBe('つづ');
+        expect(document.querySelector('.more-button .jpdb-reader-word')).toBeNull();
     });
 
     it('scans long YouTube watch comment threads while keeping the video title scan target', () => {
@@ -27978,13 +28613,11 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '先生',
             '今日はライブで日本語を聞いています。',
-            '返信',
         ]));
-        const reply = targets.find(target => target.text === '返信')!;
-        expect('passiveInteraction' in reply && reply.passiveInteraction).toBe(true);
+        expect(targets.map(target => target.text)).not.toContain('返信');
     });
 
-    it('scans YouTube player settings submenu labels as passive ruby targets', () => {
+    it('keeps YouTube player settings submenu labels native', () => {
         const targets = collectYouTubeWatchTargets(`
             <div id="movie_player" class="html5-video-player">
                 <div class="ytp-popup ytp-settings-menu">
@@ -28019,7 +28652,7 @@ describe('reader helpers', () => {
             </div>
         `);
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '一定音量',
             '音声ブースト',
             'シネマティック ライティング',
@@ -28027,20 +28660,7 @@ describe('reader helpers', () => {
             '再生速度',
             '画質',
         ]));
-        const playbackSpeed = targets.find(target => target.text === '再生速度')!;
-        expect('passiveInteraction' in playbackSpeed && playbackSpeed.passiveInteraction).toBe(true);
-        applyTokensToScanTarget(playbackSpeed, [{
-            card: { ...card, cardState: ['known'], spelling: '再生', reading: 'さいせい' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'さいせい', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '再生速度',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        const word = document.querySelector<HTMLElement>('.ytp-menuitem-label .jpdb-reader-word')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.querySelector('rt')?.textContent).toBe('さいせい');
+        expect(document.querySelector('.ytp-menuitem-label .jpdb-reader-word')).toBeNull();
     });
 
     it('scans YouTube homepage and suggested video titles as passive ruby targets', () => {
@@ -28095,7 +28715,7 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(word, 'heiban');
     });
 
-    it('scans YouTube chip cloud tabs as passive ruby targets', () => {
+    it('keeps YouTube chip cloud tabs native', () => {
         const targets = collectYouTubeTargets(`
             <iron-selector id="chips" role="tablist" selected-attribute="selected">
                 <yt-chip-cloud-chip-renderer selected="">
@@ -28131,32 +28751,42 @@ describe('reader helpers', () => {
             </iron-selector>
         `, YOUTUBE_WATCH_TEST_URL, 10);
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             'すべて',
             '関連動画',
             '最近アップロードされた動画',
         ]));
         expect(targets.map(target => target.text)).not.toContain('押下中');
+        expect(document.querySelector('yt-chip-cloud-chip-renderer .jpdb-reader-word')).toBeNull();
 
-        const related = targets.find(target => target.text === '関連動画')!;
-        expect('passiveInteraction' in related && related.passiveInteraction).toBe(true);
-        applyTokensToScanTarget(related, [{
-            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが', source: 'jpdb' },
-            start: 0,
-            end: 4,
-            length: 4,
-            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
-            pitchClass: 'heiban',
-            sentence: '関連動画',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const feedTargets = collectYouTubeTargets(`
+            <div id="chips-content" class="style-scope ytd-feed-filter-chip-bar-renderer">
+                <div id="left-arrow">
+                    <ytd-button-renderer><yt-button-shape><button aria-label="前へ"><div aria-hidden="true"></div></button></yt-button-shape></ytd-button-renderer>
+                </div>
+                <div id="scroll-container">
+                    <iron-selector id="chips" role="tablist" selected-attribute="selected">
+                        <yt-chip-cloud-chip-renderer selected="" chip-style="STYLE_HOME_FILTER">
+                            <div id="chip-shape-container"><chip-shape><button role="tab" aria-selected="true"><div class="ytChipShapeChip"><div>すべて</div></div></button></chip-shape></div>
+                        </yt-chip-cloud-chip-renderer>
+                        <yt-chip-cloud-chip-renderer chip-style="STYLE_HOME_FILTER">
+                            <div id="chip-shape-container"><chip-shape><button role="tab" aria-selected="false"><div class="ytChipShapeChip"><div>観光</div></div></button></chip-shape></div>
+                        </yt-chip-cloud-chip-renderer>
+                        <yt-chip-cloud-chip-renderer chip-style="STYLE_HOME_FILTER">
+                            <div id="chip-shape-container"><chip-shape><button role="tab" aria-selected="false"><div class="ytChipShapeChip"><div>新しい動画の発見</div></div></button></chip-shape></div>
+                        </yt-chip-cloud-chip-renderer>
+                    </iron-selector>
+                </div>
+            </div>
+        `, 'https://www.youtube.com/', 10);
 
-        const word = Array.from(document.querySelectorAll<HTMLElement>('yt-chip-cloud-chip-renderer .jpdb-reader-word'))
-            .find(candidate => readerWordSurfaceText(candidate) === '関連動画')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.tabIndex).toBe(-1);
-        expect(word.dataset.cardSource).toBe('jpdb');
-        expect(word.querySelector('rt')?.textContent).toBe('かんれんどうが');
-        expectRenderedPitchWord(word, 'heiban');
+        expect(feedTargets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+            'すべて',
+            '観光',
+            '新しい動画の発見',
+        ]));
+        expect(feedTargets.map(target => target.text)).not.toContain('前へ');
+        expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word, #chips-content .jpdb-reader-word')).toBeNull();
     });
 
     it('scans modern YouTube lockup titles as passive ruby targets', () => {
@@ -28238,7 +28868,7 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(word, 'heiban');
     });
 
-    it('scans visible YouTube button labels without scanning aria-hidden feedback', () => {
+    it('leaves YouTube watch buttons native while ignoring aria-hidden feedback', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-watch-metadata>
                 <button type="button">
@@ -28250,26 +28880,8 @@ describe('reader helpers', () => {
             </ytd-watch-metadata>
         `);
 
-        expect(targets.map(target => target.text)).toContain('字幕を表示');
+        expect(targets.map(target => target.text)).not.toContain('字幕を表示');
         expect(targets.map(target => target.text)).not.toContain('押下中');
-
-        const label = targets.find(target => target.text === '字幕を表示')!;
-        expect('passiveInteraction' in label && label.passiveInteraction).toBe(true);
-        applyTokensToScanTarget(label, [{
-            card: { ...card, cardState: ['known'], spelling: '字幕', reading: 'じまく', source: 'jpdb' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'じまく', start: 0, end: 2, length: 2 }],
-            pitchClass: 'heiban',
-            sentence: '字幕を表示',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('ytd-watch-metadata button .jpdb-reader-word')!;
-        expect(readerWordSurfaceText(word)).toBe('字幕');
-        expect(word.dataset.cardSource).toBe('jpdb');
-        expect(word.querySelector('rt')?.textContent).toBe('じまく');
-        expectRenderedPitchWord(word, 'heiban');
     });
 
     it('falls back to generic scanning for parser sites that opt into page text', () => {

@@ -214,6 +214,26 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
+    it('keeps passive UI scan words on the host control text color', () => {
+        document.body.innerHTML = `
+            <p style="background: rgb(24, 27, 32);">
+                <a style="background: rgb(55, 108, 80); color: rgb(255, 255, 255);">
+                    <span class="jpdb-reader-word jpdb-redundant jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka" style="background: rgb(55, 108, 80); color: rgb(0, 0, 0); text-decoration-color: rgb(123, 216, 143);">
+                        <ruby>よ<rt class="jpdb-reader-furi">よ</rt></ruby>む
+                    </span>
+                </a>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(text).toBe('#ffffff');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
+        expect(contrastRatio(text, '#376c50')).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('keeps generated furigana readable without changing native page text', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">
@@ -688,7 +708,8 @@ describe('reader theme', () => {
         expect(normalizedCss).toContain('background: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ) !important;');
         expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));');
         expect(normalizedCss).toContain('touch-action: manipulation;');
-        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
+        expect(normalizedCss).toContain('pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
     });
 

@@ -425,13 +425,14 @@ export class ReaderApp {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger, ankiLookup) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
             inert: trigger === 'hover',
+            ankiLookup,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -590,6 +591,7 @@ export class ReaderApp {
     private lastEnhancedHref = '';
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
+    private preloadedPreparedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
@@ -859,6 +861,7 @@ export class ReaderApp {
         this.dictionarySourceState.clear();
         this.cardRenderData.clear();
         this.preloadedTermAudioKeys.clear();
+        this.preloadedPreparedTermAudioKeys.clear();
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
@@ -1296,7 +1299,7 @@ export class ReaderApp {
                 }
                 scanMutations.push(mutation);
             }
-            if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true });
+            if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true, debounce: true });
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
@@ -1336,12 +1339,19 @@ export class ReaderApp {
         }
     }
 
-    private scheduleAutoScan(delay: number, options: { force?: boolean } = {}): void {
+    private scheduleAutoScan(delay: number, options: { force?: boolean; debounce?: boolean } = {}): void {
         const forced = Boolean(options.force);
         if (!this.canScheduleAutoScan(forced)) return;
         const deadline = Date.now() + delay;
         if (this.autoScanTimer && this.autoScanDeadline <= deadline) {
             this.autoScanForced = this.autoScanForced || forced;
+            if (options.debounce && this.autoScanDeadline < deadline) {
+                window.clearTimeout(this.autoScanTimer);
+                this.autoScanDeadline = deadline;
+                this.autoScanTimer = window.setTimeout(() => {
+                    this.runScheduledAutoScan();
+                }, delay);
+            }
             return;
         }
 
@@ -1980,9 +1990,12 @@ export class ReaderApp {
     private preloadReaderCardAudio(card: JPDBCard, options: ReaderAudioPreloadOptions = {}): boolean {
         const limits = audioPreloadLimits(options);
         const key = cardKey(card);
-        if (this.preloadedTermAudioKeys.has(key) && !limits.prepareAudio) return false;
+        const prepareAudio = Boolean(limits.prepareAudio);
+        if (prepareAudio && this.preloadedPreparedTermAudioKeys.has(key)) return false;
+        if (!prepareAudio && this.preloadedTermAudioKeys.has(key)) return false;
         if (!this.audio.preload(card, limits)) return false;
         this.rememberPreloadedTermAudioKey(key);
+        if (prepareAudio) this.rememberPreloadedPreparedTermAudioKey(key);
         return true;
     }
 
@@ -2419,7 +2432,6 @@ export class ReaderApp {
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
         if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
 
-        this.preloadHoverWordAudio(word);
         this.cancelHoverClose();
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
@@ -4005,8 +4017,27 @@ export class ReaderApp {
     ): void {
         this.maybeAutoPlayInitialCard(card, context);
         this.maybeParseInstantLocalEntries(popover, instantLocalEntries);
+        if (context.trigger === 'hover') {
+            this.installInitialHoverCardBackgroundBehaviors(popover, card, sentence, context);
+            return;
+        }
         this.studySources.installLoaders(popover, sentence);
         this.installLazyImmersionExamples(popover, card);
+    }
+
+    private installInitialHoverCardBackgroundBehaviors(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        context: {
+            isCurrentHoverCard: () => boolean;
+        },
+    ): void {
+        requestAnimationFrame(() => {
+            if (!this.isCurrentCardRender(popover, 0, context.isCurrentHoverCard)) return;
+            this.studySources.installLoaders(popover, sentence);
+            this.installLazyImmersionExamples(popover, card);
+        });
     }
 
     private prioritizeQueuedPitchEnrichment(card: JPDBCard, options: { immediate?: boolean } = {}): void {
@@ -4095,6 +4126,7 @@ export class ReaderApp {
         let metaEntriesValue: YomitanMetaEntry[] = [];
         let jpdbVocabularyInfoValue: JpdbVocabularyInfo | null = null;
         let jitenVocabularyInfoValue: JitenVocabularyInfo | null = null;
+        let ankiLookupValue: AnkiLookupResult | undefined;
         let renderedPitchKey = card.pitchAccent.join('|');
         const isCurrentRender = () => this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard);
         const canRenderLoading = () => !renderState.fullRenderCompleted && isCurrentRender();
@@ -4109,7 +4141,7 @@ export class ReaderApp {
                 trigger,
                 loadingCardRenderData(
                     localEntriesValue ?? [],
-                    this.lastAnkiLookup ?? fallbackAnkiLookup,
+                    ankiLookupValue ?? this.lastAnkiLookup ?? fallbackAnkiLookup,
                     metaEntriesValue,
                     jpdbVocabularyInfoValue,
                     jitenVocabularyInfoValue,
@@ -4117,7 +4149,7 @@ export class ReaderApp {
             ));
             this.restorePreservedImmersionMount(popover, preservedImmersion);
             refreshForcedReaderPopoverSurface(popover, this.settings);
-            this.repositionActivePopover();
+            this.updateCardPopoverPosition(trigger);
             void this.parsePopoverJapanese(popover);
             this.studySources.installLoaders(popover, sentence);
             this.installLazyImmersionExamples(popover, card);
@@ -4130,7 +4162,7 @@ export class ReaderApp {
             void renderData.localMetaEntries.then(metaEntries => {
                 metaEntriesValue = metaEntries;
                 if (!canRenderLoading()) return;
-                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
+                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue);
             });
         }
         if (renderData.jpdbVocabularyInfo) {
@@ -4147,6 +4179,7 @@ export class ReaderApp {
         }
         if (renderData.ankiLookup) {
             void renderData.ankiLookup.then(ankiLookup => {
+                ankiLookupValue = ankiLookup;
                 this.lastAnkiLookup = ankiLookup;
                 this.applyAnkiLookupToRenderedWords(card, ankiLookup, {
                     preserveExistingEmpty: trigger === 'hover',
@@ -4161,7 +4194,7 @@ export class ReaderApp {
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             if (renderedPitchKey === card.pitchAccent.join('|')) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
+            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor, ankiLookupValue);
         });
     }
 
@@ -4171,19 +4204,21 @@ export class ReaderApp {
         metaEntries: YomitanMetaEntry[],
         trigger: 'modal' | 'hover' = 'modal',
         anchor?: HTMLElement,
+        ankiLookup?: AnkiLookupResult,
     ): void {
         this.applyPitchAccentToRenderedWords(card, undefined, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
-        this.updatePopoverWordPills(popover, card, metaEntries);
+        this.updatePopoverWordPills(popover, card, metaEntries, ankiLookup);
         this.updatePopoverPitch(popover, card, metaEntries);
-        this.repositionActivePopover();
+        this.updateCardPopoverPosition(trigger);
     }
 
-    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
+    private updatePopoverWordPills(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: AnkiLookupResult): void {
         updateHeadingWordPills(popover, {
             card,
             jpdbUrl: jpdbVocabularyUrl(card),
             settings: this.settings,
             metaEntries,
+            ankiLookup,
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         });
@@ -4191,6 +4226,14 @@ export class ReaderApp {
 
     private updatePopoverPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
         updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
+    }
+
+    private updateCardPopoverPosition(trigger: 'modal' | 'hover'): void {
+        if (trigger === 'hover') {
+            this.scheduleRepositionActivePopoverFrame();
+            return;
+        }
+        this.repositionActivePopover();
     }
 
     private renderCompletedCardPopover(
@@ -4214,7 +4257,7 @@ export class ReaderApp {
         this.restorePreservedImmersionMount(popover, preservedImmersion);
         refreshForcedReaderPopoverSurface(popover, this.settings);
 
-        this.repositionActivePopover();
+        this.updateCardPopoverPosition(trigger);
         void this.parsePopoverJapanese(popover);
         if (this.settings.immersionKitEnabled) {
             this.installLazyImmersionExamples(popover, card, {
@@ -5596,6 +5639,11 @@ export class ReaderApp {
         evictOldestStringKeysWhileOverLimit(this.preloadedTermAudioKeys, PRELOADED_TERM_AUDIO_KEY_LIMIT);
     }
 
+    private rememberPreloadedPreparedTermAudioKey(key: string): void {
+        this.preloadedPreparedTermAudioKeys.add(key);
+        evictOldestStringKeysWhileOverLimit(this.preloadedPreparedTermAudioKeys, PRELOADED_TERM_AUDIO_KEY_LIMIT);
+    }
+
     private dictionaryLabel(name: string): string {
         return this.settings.dictionaryPreferences.find(item => item.name === name)?.alias || name;
     }
@@ -6047,7 +6095,7 @@ export class ReaderApp {
                 // popover several times in quick succession; coalesce those into
                 // one reposition per frame so each hover doesn't trigger a burst
                 // of forced-layout reposition passes.
-                this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
+                this.activePopoverResizeObserver = new ResizeObserver(() => this.scheduleRepositionActivePopoverFrame());
                 this.activePopoverResizeObserver.observe(popover);
             }
             if (state.mode !== 'hover' && state.previousPopoverRect) {

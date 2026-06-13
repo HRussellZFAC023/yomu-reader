@@ -8,6 +8,40 @@ const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
 export const READER_CSS = resourceReaderCss();
 
 export const CRITICAL_READER_CSS = `
+[data-jpdb-reader-root],
+[data-jpdb-reader-root] *,
+[data-jpdb-reader-root]::before,
+[data-jpdb-reader-root]::after,
+[data-jpdb-reader-root] *::before,
+[data-jpdb-reader-root] *::after {
+  box-sizing: border-box;
+}
+[data-jpdb-reader-root]:where(button),
+[data-jpdb-reader-root] :where(button) {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-block;
+  font: inherit;
+  height: auto;
+  min-height: 0;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  line-height: normal;
+  margin: 0;
+  padding: 0;
+  text-align: inherit;
+  text-decoration: none;
+  transform: none;
+  transition: none;
+  white-space: normal;
+}
 .jpdb-reader-popover .jpdb-reader-icon-btn,
 .jpdb-reader-settings .jpdb-reader-icon-btn {
   position: relative;

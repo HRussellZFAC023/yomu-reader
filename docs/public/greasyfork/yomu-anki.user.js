@@ -4598,11 +4598,46 @@ recommendedJiten	jiten.moe頻度データです。
     return cleaned.toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
   }
   function registerYomuCompanion(key, value) {
-    const target = globalThis;
-    target.__yomuCompanions = {
-      ...target.__yomuCompanions ?? {},
+    writeYomuCompanions({
+      ...yomuCompanions(),
       [key]: value
-    };
+    });
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    const registry = pageCompartmentValue(value, { cloneFunctions: true, wrapReflectors: true });
+    if (writeYomuCompanionsTarget(globalThis, registry)) return;
+    if (typeof window !== "undefined" && window !== globalThis) writeYomuCompanionsTarget(window, registry);
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
+    }
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
   }
   registerYomuCompanion("anki", {
     renderAnkiActionRow,

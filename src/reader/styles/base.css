@@ -264,6 +264,10 @@
   display: inline-block;
   font: inherit;
   height: auto;
+  min-height: 0;
+  width: auto;
+  min-width: 0;
+  max-width: none;
   line-height: normal;
   margin: 0;
   padding: 0;

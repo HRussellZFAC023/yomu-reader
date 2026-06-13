@@ -1,8 +1,9 @@
 import { escapeHtml } from '../dom/index';
 import { renderFrequencyPills } from './definition-render';
-import { uiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import { formatLookupUrl, lookupPillStyle } from '../dictionaries/display';
-import { copyIcon, externalLinkIcon } from '../ui/icons';
+import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiLookupResult } from '../anki/index';
+import { ankiIcon, copyIcon, externalLinkIcon } from '../ui/icons';
 import { replaceOptionalElement } from '../app/dom-helpers';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
@@ -22,6 +23,7 @@ export interface WordPillRenderOptions {
     metaEntries?: YomitanMetaEntry[];
     overrideQuery?: string;
     inert?: boolean;
+    ankiLookup?: AnkiLookupResult;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
 }
@@ -34,8 +36,9 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     const linkPills = enabledLinks
         .map(link => renderLookupLinkPill(options, context, language, query, link))
         .filter(Boolean);
+    const ankiPill = renderAnkiPill(options, language, query);
     const frequencyPills = renderFrequencyPills(options.metaEntries ?? [], options.settings, options.dictionaryLabel);
-    const pills = [...linkPills, ...frequencyPills];
+    const pills = [...linkPills, ankiPill, ...frequencyPills].filter(Boolean);
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
 }
 
@@ -87,6 +90,70 @@ function lookupLinkPillTitle(
 
 function lookupLinkPillClass(id: string | undefined): string {
     return `jpdb-reader-pill jpdb-reader-action-pill${id === 'jpdb' ? ' jpdb-reader-jpdb-pill' : ''}`;
+}
+
+function renderAnkiPill(
+    options: WordPillRenderOptions,
+    language: ReaderSettings['interfaceLanguage'],
+    query: string,
+): string {
+    const lookup = options.ankiLookup;
+    if (options.overrideQuery || !options.settings.ankiEnabled || !lookup) return '';
+    if (lookup.primary) return renderEditAnkiPill(lookup, language, query, options.inert);
+    if (lookup.state !== 'not-in-deck') return '';
+    const mobileHandoff = canUseMobileAnkiHandoff(options.settings);
+    if (!mobileHandoff && lookup.trusted === false) return '';
+    const title = mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, 'addToAnki');
+    return ankiPillButton({
+        action: 'anki',
+        title,
+        query,
+        language,
+        inert: options.inert,
+    });
+}
+
+function renderEditAnkiPill(
+    lookup: AnkiLookupResult,
+    language: ReaderSettings['interfaceLanguage'],
+    query: string,
+    inert = false,
+): string {
+    const noteId = Number(lookup.primary?.noteId);
+    if (!Number.isFinite(noteId) || noteId <= 0) return '';
+    return ankiPillButton({
+        action: 'anki-edit',
+        title: uiText(language, 'editInAnki'),
+        query,
+        language,
+        inert,
+        noteId,
+    });
+}
+
+function mobileAnkiHandoffButtonLabel(language: ReaderSettings['interfaceLanguage']): string {
+    const app = mobileAnkiHandoffAppName();
+    return language === 'ja' ? formatUiText(language, 'sendToMobileAnki', { app }) : ['Send', 'to', app].join(' ');
+}
+
+function ankiPillButton(options: {
+    action: 'anki' | 'anki-edit';
+    title: string;
+    query: string;
+    language: ReaderSettings['interfaceLanguage'];
+    inert?: boolean;
+    noteId?: number;
+}): string {
+    const styleAttribute = lookupPillStyleAttribute(lookupPillStyle('anki'));
+    const label = uiText(options.language, 'anki');
+    const title = escapeHtml(options.title);
+    const ariaLabel = escapeHtml(`${options.title}: ${options.query}`);
+    const content = `${escapeHtml(label)} ${ankiIcon()}`;
+    if (options.inert) {
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</span>`;
+    }
+    const noteAttribute = options.action === 'anki-edit' && options.noteId ? ` data-note-id="${options.noteId}"` : '';
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-anki-pill" data-action="${options.action}"${noteAttribute} type="button"${styleAttribute} title="${title}" aria-label="${ariaLabel}">${content}</button>`;
 }
 
 function lookupPillStyleAttribute(style: string): string {

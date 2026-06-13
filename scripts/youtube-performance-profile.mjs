@@ -24,6 +24,9 @@ const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-s
 const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
 const headed = process.env.YOMU_PROFILE_HEADED === '1';
 const WATCH_URL = 'https://www.youtube.com/watch?v=profile123';
+const MOBILE_WATCH_URL = 'https://m.youtube.com/watch?v=profile123';
+const HOVER_STRESS_DURATION_MS = Number(process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000);
+const MOBILE_CPU_THROTTLE_RATE = Number(process.env.YOMU_PROFILE_MOBILE_CPU_THROTTLE ?? 4);
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const REQUEST_BRIDGE_NAME = '__yomuYoutubePerfRequest';
 const JPDB_PARSE_URL = 'https://jpdb.io/api/v1/parse';
@@ -276,6 +279,17 @@ async function runScenario(browser, scenario) {
         ocrStep.interaction = ocrInteraction;
         profile.steps.push(ocrStep);
 
+        await resetPagePerf(page);
+        const hoverStressStart = await beginStep(client);
+        const hoverStressInteraction = await exerciseYoutubeHoverStress(page, {
+            durationMs: HOVER_STRESS_DURATION_MS,
+            label: 'desktop',
+        });
+        const hoverStressStep = await finishStep(page, client, hoverStressStart, 'youtubeHoverStress');
+        hoverStressStep.interaction = hoverStressInteraction;
+        profile.steps.push(hoverStressStep);
+
+        profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
         profile.finalState = await readPageState(page);
         profile.parseRequests = parseRequestSummary(0);
         profile.ankiRequests = ankiRequestSummary(0);
@@ -285,6 +299,30 @@ async function runScenario(browser, scenario) {
     } finally {
         await context.close().catch(() => undefined);
     }
+}
+
+async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
+    const page = await context.newPage();
+    const client = await context.newCDPSession(page);
+    await client.send('Performance.enable');
+    if (MOBILE_CPU_THROTTLE_RATE > 1) await client.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_CPU_THROTTLE_RATE }).catch(() => undefined);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installRoutes(page, scenario);
+    await page.goto(MOBILE_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
+    await page.waitForTimeout(2200);
+    await resetPagePerf(page);
+    const started = await beginStep(client);
+    const interaction = await exerciseYoutubeHoverStress(page, {
+        durationMs: HOVER_STRESS_DURATION_MS,
+        label: 'mobile',
+    });
+    const step = await finishStep(page, client, started, 'mobileYoutubeHoverStress');
+    step.interaction = interaction;
+    step.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
+    await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance-mobile.png'), fullPage: false }).catch(() => undefined);
+    await page.close().catch(() => undefined);
+    return step;
 }
 
 async function installInstrumentation(context) {
@@ -458,8 +496,8 @@ async function installRoutes(page, scenario) {
 function routeResponse(url, rawBody, scenario, method = 'GET') {
     const parsed = new URL(url);
     if (method === 'OPTIONS') return textResponse('', 'text/plain', 204);
-    if (parsed.hostname === 'www.youtube.com' && parsed.pathname === '/watch') {
-        return textResponse(youtubeWatchHtml(), 'text/html; charset=utf-8');
+    if ((parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && parsed.pathname === '/watch') {
+        return textResponse(youtubeWatchHtml({ mobile: parsed.hostname === 'm.youtube.com' }), 'text/html; charset=utf-8');
     }
     if (parsed.hostname === 'www.youtube.com' && parsed.pathname === '/api/timedtext') {
         return textResponse(youtubeTimedText(parsed.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
@@ -904,16 +942,146 @@ async function exerciseOcrOverlay(page) {
     };
 }
 
+async function exerciseYoutubeHoverStress(page, options = {}) {
+    const durationMs = Number(options.durationMs ?? HOVER_STRESS_DURATION_MS);
+    const label = options.label ?? 'desktop';
+    await ensureSubtitlePanelOpen(page).catch(() => undefined);
+    await page.evaluate(() => {
+        window.__yomuProfileExpandDescription?.();
+        window.__yomuProfileStartPlayback?.();
+        window.__yomuProfileStartHostRehydrate?.({ intervalMs: 150 });
+    });
+    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, #secondary .jpdb-reader-word').length > 6, null, { timeout: 16000 }).catch(() => undefined);
+
+    const samples = [];
+    const startedAt = Date.now();
+    let iteration = 0;
+    let paused = false;
+    while (Date.now() - startedAt < durationMs) {
+        const elapsed = Date.now() - startedAt;
+        if (!paused && elapsed > durationMs * 0.38) {
+            paused = true;
+            await page.evaluate(() => window.__yomuProfileStopPlayback?.());
+        } else if (paused && elapsed > durationMs * 0.68) {
+            paused = false;
+            await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+        }
+        await page.evaluate(index => {
+            const comments = document.querySelector('#comments, ytm-comment-section-renderer');
+            const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
+            window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
+        }, iteration);
+        samples.push(await hoverStressSample(page, iteration, label));
+        iteration += 1;
+        await page.waitForTimeout(90);
+    }
+    await page.evaluate(() => window.__yomuProfileStopHostRehydrate?.());
+    await page.mouse.move(8, 8).catch(() => undefined);
+    return {
+        label,
+        durationMs: Date.now() - startedAt,
+        samples,
+        summary: hoverStressSummary(samples),
+    };
+}
+
+async function hoverStressSample(page, index, label) {
+    const target = await page.evaluate(sampleIndex => {
+        const selector = [
+            'ytd-watch-metadata .jpdb-reader-word',
+            'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+            'ytd-comment-view-model .jpdb-reader-word',
+            'ytm-comment-renderer .jpdb-reader-word',
+            '#secondary .jpdb-reader-word',
+            '.jpdb-subtitle-list .jpdb-reader-word',
+        ].join(',');
+        const words = [...document.querySelectorAll(selector)]
+            .filter(word => {
+                const rect = word.getBoundingClientRect();
+                return rect.width > 2
+                    && rect.height > 2
+                    && rect.bottom > 0
+                    && rect.right > 0
+                    && rect.top < window.innerHeight
+                    && rect.left < window.innerWidth;
+            });
+        const word = words[sampleIndex % Math.max(1, words.length)];
+        if (!(word instanceof HTMLElement)) return null;
+        const rect = word.getBoundingClientRect();
+        const expected = word.dataset.expression || word.dataset.surface || word.textContent?.replace(/\s+/g, '').slice(0, 6) || '';
+        return {
+            x: Math.round(rect.left + rect.width / 2),
+            y: Math.round(rect.top + rect.height / 2),
+            expected,
+            text: word.textContent?.replace(/\s+/g, '').slice(0, 24) ?? '',
+            surface: word.dataset.surface ?? '',
+            expression: word.dataset.expression ?? '',
+        };
+    }, index);
+    if (!target) return { label, skipped: true, reason: 'no-visible-word' };
+
+    const started = await page.evaluate(expected => {
+        window.__yomuProfileHoverProbe = {
+            startedAt: performance.now(),
+            expected,
+            seenAt: null,
+            text: '',
+        };
+        return window.__yomuProfileHoverProbe.startedAt;
+    }, target.expected);
+    await page.mouse.move(target.x, target.y);
+    const seen = await page.waitForFunction(expected => {
+        const probe = window.__yomuProfileHoverProbe;
+        const popover = document.querySelector('.jpdb-reader-popover');
+        const text = popover?.textContent?.replace(/\s+/g, '') ?? '';
+        const hasExpectedText = expected ? text.includes(expected) : Boolean(text);
+        if (popover && hasExpectedText && probe && probe.seenAt === null) {
+            probe.seenAt = performance.now();
+            probe.text = text.slice(0, 120);
+        }
+        return Boolean(probe?.seenAt);
+    }, target.expected, { timeout: 3200 }).then(() => true).catch(() => false);
+    const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
+    return {
+        label,
+        index,
+        target,
+        opened: seen,
+        ms: probe?.seenAt ? Math.round((probe.seenAt - started) * 10) / 10 : null,
+        popoverText: probe?.text ?? '',
+    };
+}
+
+function hoverStressSummary(samples) {
+    const opened = samples.filter(sample => typeof sample.ms === 'number').map(sample => sample.ms).sort((a, b) => a - b);
+    return {
+        count: samples.length,
+        opened: opened.length,
+        timedOut: samples.filter(sample => sample.opened === false).length,
+        p50Ms: percentile(opened, 0.5),
+        p95Ms: percentile(opened, 0.95),
+        maxMs: opened.at(-1) ?? null,
+        over250Ms: opened.filter(ms => ms > 250).length,
+        over1000Ms: opened.filter(ms => ms > 1000).length,
+    };
+}
+
+function percentile(values, percentileValue) {
+    if (!values.length) return null;
+    const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * percentileValue) - 1));
+    return Math.round(values[index] * 10) / 10;
+}
+
 async function readPageState(page) {
     return page.evaluate(() => {
         const subtitleWords = [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word, .jpdb-subtitle-list .jpdb-reader-word')];
-        const pageWords = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, #secondary .jpdb-reader-word')];
+        const pageWords = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word')];
         return {
             perf: { ...window.__yomuProfilePerf },
             hostRestores: window.__yomuProfileHostRestores ?? 0,
             readerWords: document.querySelectorAll('.jpdb-reader-word').length,
-            descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length,
-            commentWords: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length,
+            descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word, ytm-expandable-video-description-body-renderer.jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word').length,
+            commentWords: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word').length,
             sidebarWords: document.querySelectorAll('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word').length,
             overlayWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
             rowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
@@ -970,8 +1138,11 @@ function youtubeTimedText(lang = 'ja') {
 </body></timedtext>`;
 }
 
-function youtubeWatchHtml() {
+function youtubeWatchHtml({ mobile = false } = {}) {
     const playerResponse = youtubePlayerResponse();
+    const shortDescription = '復習用のPodcastでは、日本語で説明しています。今日も本を読みます。';
+    const longDescription = youtubeLongDescriptionText();
+    const comments = youtubeCommentFixtures();
     return `<!doctype html>
 <html>
 <head>
@@ -980,13 +1151,15 @@ function youtubeWatchHtml() {
   <style>
     html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; }
     #page { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; padding: 72px 24px 48px; box-sizing: border-box; }
+    ${mobile ? '#page { display: block; padding: 88px 12px 32px; } #secondary { display: none; } #movie_player { min-height: auto; }' : ''}
     #movie_player { position: relative; min-height: 480px; aspect-ratio: 16 / 9; background: #000; }
     #movie_player video { display: block; width: 100%; height: 100%; background: #050505; }
     .ytp-caption-window-container { position: absolute; left: 0; right: 0; bottom: 72px; text-align: center; }
     .ytp-caption-segment { padding: 4px 10px; background: rgba(0,0,0,.76); color: white; font-size: 32px; text-shadow: 0 2px 4px black; }
     ytd-watch-metadata { display: block; margin-top: 20px; }
     ytd-watch-metadata h1 { font-size: 24px; margin: 0 0 16px; }
-    #description-inline-expander { margin: 16px 0; padding: 14px 16px; border-radius: 10px; background: #272727; line-height: 1.5; }
+    #description-inline-expander { margin: 16px 0; padding: 14px 16px; border-radius: 10px; background: #272727; line-height: 1.5; white-space: pre-wrap; }
+    #description-expand { margin-top: 8px; padding: 8px 12px; border: 0; border-radius: 999px; background: #3f3f3f; color: #fff; }
     ytd-comment-view-model { display: block; margin-top: 18px; padding: 16px 0; border-top: 1px solid #333; }
     #content-text { display: block; line-height: 1.6; }
     #secondary { display: grid; gap: 14px; align-content: start; }
@@ -1013,15 +1186,13 @@ function youtubeWatchHtml() {
         </div></div></div>
         <ytd-watch-metadata>
           <h1><yt-formatted-string title="日本語タイトル">日本語タイトル</yt-formatted-string></h1>
-          <div id="description-inline-expander" data-profile-volatile-text="復習用のPodcastでは、日本語で説明しています。今日も本を読みます。">
-            <yt-attributed-string id="attributed-snippet-text">復習用のPodcastでは、日本語で説明しています。今日も本を読みます。</yt-attributed-string>
-          </div>
+          <${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'} id="description-inline-expander" data-profile-volatile-text="${escapeHtmlForFixture(shortDescription)}" data-profile-expanded-text="${escapeHtmlForFixture(longDescription)}">
+            <yt-attributed-string id="attributed-snippet-text">${escapeHtmlForFixture(shortDescription)}</yt-attributed-string>
+            <button id="description-expand" type="button">もっと見る</button>
+          </${mobile ? 'ytm-expandable-video-description-body-renderer' : 'div'}>
         </ytd-watch-metadata>
         <section id="comments">
-          <ytd-comment-view-model>
-            <yt-attributed-string id="content-text" data-profile-volatile-text="先生いつも配信ありがとうございました。質問する">先生いつも配信ありがとうございました。質問する</yt-attributed-string>
-            <span class="more-button" slot="more-button"><span>続きを読む</span></span>
-          </ytd-comment-view-model>
+          ${comments.map((text, index) => commentHtml(text, index, mobile)).join('')}
         </section>
         <yt-live-chat-app>
           <yt-live-chat-text-message-renderer>
@@ -1092,6 +1263,19 @@ function youtubeWatchHtml() {
       window.clearInterval(rehydrateTimer);
       rehydrateTimer = 0;
     };
+    window.__yomuProfileExpandDescription = () => {
+      const description = document.querySelector('#description-inline-expander');
+      if (!description) return;
+      const text = description.getAttribute('data-profile-expanded-text') || '';
+      description.setAttribute('data-profile-volatile-text', text);
+      description.textContent = text;
+      const button = document.createElement('button');
+      button.id = 'description-expand';
+      button.type = 'button';
+      button.textContent = '一部を表示';
+      description.append(document.createTextNode('\\n'), button);
+    };
+    document.querySelector('#description-expand')?.addEventListener('click', () => window.__yomuProfileExpandDescription());
     window.__yomuProfileInstallOcrImage = () => {
       if (document.querySelector('#profile-ocr-image')) return;
       const slot = document.createElement('div');
@@ -1108,6 +1292,36 @@ function youtubeWatchHtml() {
   </script>
 </body>
 </html>`;
+}
+
+function youtubeLongDescriptionText() {
+    const sentences = [
+        '今回の動画では日本語の字幕を確認しながら、説明欄の長い文章も読む練習をします。',
+        '先生は復習のために質問を用意して、配信の後で本を読みます。',
+        '東京の春について話しながら、関連動画やコメントも日本語で確認します。',
+        '字幕、説明、コメント、関連動画が同時に更新されても、辞書ポップアップはすぐ表示される必要があります。',
+        '梅干しをセロハンテープで貼る話は少し変ですが、性能テストには便利な文章です。',
+    ];
+    return Array.from({ length: 42 }, (_, index) => `${index + 1}. ${sentences[index % sentences.length]}`).join('\n');
+}
+
+function youtubeCommentFixtures() {
+    const comments = [
+        '先生いつも配信ありがとうございました。日本語の字幕が本当に助かります。質問する',
+        '今日の説明は分かりやすいです。復習してから本を読みます。',
+        '関連動画でも同じ話を確認しました。東京の春が楽しみです。',
+        '梅干しを貼る話で笑いました。次の動画も見ます。',
+        '日本語のコメントを読む練習になります。ありがとうございます。',
+    ];
+    return Array.from({ length: 48 }, (_, index) => comments[index % comments.length]);
+}
+
+function commentHtml(text, index, mobile) {
+    const tag = mobile ? 'ytm-comment-renderer' : 'ytd-comment-view-model';
+    return `<${tag}>
+            <yt-attributed-string id="content-text" data-profile-volatile-text="${escapeHtmlForFixture(text)}">${escapeHtmlForFixture(text)}</yt-attributed-string>
+            <span class="more-button" slot="more-button"><span>続きを読む ${index}</span></span>
+          </${tag}>`;
 }
 
 function sidebarCard(index) {

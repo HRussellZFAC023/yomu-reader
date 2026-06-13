@@ -8,7 +8,7 @@ import { isAppleTouchBrowser } from '../platform/browser';
 import { uiText } from '../app/i18n';
 import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
 import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from '../jpdb/jpdb-vocabulary-url';
-import { isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
+import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
 import { uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { jitenTtsVoicesForValue, jitenWordTtsUrl } from './jiten-tts';
@@ -29,7 +29,6 @@ const JPDB_TTS_VOICE_PREFIXES: Record<string, string[]> = {
     m1: ['m1'],
     m2: ['m2'],
 };
-const JISHO_CORS_HTML_PROXY_URL = 'https://api.allorigins.win/raw';
 const JISHO_TEXT_PROXY_BASE_URL = 'https://r.jina.ai/http://jisho.org/search';
 const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const AUDIO_PRECONNECT_RELS = ['preconnect', 'dns-prefetch'] as const;
@@ -543,7 +542,7 @@ function getHtmlAttributeFromOpeningTag(html: string, tag: string, attribute: st
 
 async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = ''): Promise<string[]> {
     const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const response = shouldSkipJishoLookup(proxyUrl)
+    const response = shouldSkipJishoHtmlLookup(proxyUrl)
         ? ''
         : await requestUrl(url, 'text', timeoutMs, {
             proxyUrl,
@@ -560,28 +559,22 @@ async function getJishoAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl = '
     return getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl);
 }
 
-function shouldSkipJishoLookup(proxyUrl: string): boolean {
-    return !proxyUrl.trim() && !getUserscriptHttpRequest();
+function shouldSkipJishoHtmlLookup(proxyUrl: string): boolean {
+    return !getUserscriptHttpRequest() && !hasCustomJishoHtmlProxy(proxyUrl);
+}
+
+function hasCustomJishoHtmlProxy(proxyUrl: string): boolean {
+    const normalized = proxyUrl.trim();
+    if (!normalized) return false;
+    try {
+        return new URL(normalized).origin !== DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+        return false;
+    }
 }
 
 async function getJishoPublicFallbackAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
-    const htmlUrls = await getJishoCorsHtmlAudioUrls(card, timeoutMs, proxyUrl);
-    return htmlUrls.length ? htmlUrls : getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
-}
-
-async function getJishoCorsHtmlAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
-    const jishoUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
-    const url = `${JISHO_CORS_HTML_PROXY_URL}?url=${encodeURIComponent(jishoUrl)}`;
-    const response = await requestUrl(url, 'text', timeoutMs, {
-        proxyUrl,
-        allowDirectCrossOrigin: true,
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        preferFetch: true,
-    }).catch(() => '');
-    if (typeof response !== 'string') return [];
-    const audioHtml = findJishoAudioElement(response, card);
-    return audioHtml ? jishoAudioSourceUrls(audioHtml, jishoUrl) : [];
+    return getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
 }
 
 function jishoAudioSourceUrls(audioHtml: string, baseUrl: string): string[] {

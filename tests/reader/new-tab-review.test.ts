@@ -163,10 +163,13 @@ function newTabAudioImmersionExample(id: string): ImmersionKitExample {
     };
 }
 
-function newTabImmersionAudioRevealFixture(search: (query: string) => Promise<ImmersionKitExample[]>) {
+function newTabImmersionAudioRevealFixture(
+    search: (query: string) => Promise<ImmersionKitExample[]>,
+    options: { fetchBlobUrl?: (url: string | string[], timeoutMs: number, proxyUrl?: string, language?: string) => Promise<string> } = {},
+) {
     const card = newTabTestCard({ spelling: '発音', reading: 'はつおん' });
     const played = stubNewTabAudioPlayback();
-    const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
+    const fetchBlobUrl = options.fetchBlobUrl ?? vi.fn(async () => 'blob:http://localhost/line.mp3');
     const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
         immersionKit: {
             search,
@@ -1429,8 +1432,6 @@ describe('new tab review helpers', () => {
         expect(normalizedCss)
             .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
         expect(normalizedCss)
-            .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls, .yomu-page-theme-light .jpdb-reader-newtab-controls { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-border));');
-        expect(normalizedCss)
             .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
         expect(normalizedCss)
             .toContain('button[data-newtab-action="reveal"] { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)); background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%), var(--jpdb-reader-accent) ); color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));');
@@ -1646,7 +1647,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('renders the JPDB-style learning-progress table with totals and known percentage', async () => {
+    it('renders the JPDB-style learning-progress strip with totals and known percentage', async () => {
         const states: Array<[string, Array<'due' | 'known' | 'learning' | 'new'>]> = [
             ['読む', ['known']],
             ['書く', ['known']],
@@ -1671,17 +1672,19 @@ describe('new tab review helpers', () => {
         try {
             const root = await renderLoadedApiStats(controller);
 
-            const table = root.querySelector<HTMLElement>('.jpdb-reader-stats-progress-table');
-            expect(table).not.toBeNull();
-            // Header columns mirror JPDB's Learn page.
-            expect(table!.textContent).toContain('Learning');
-            expect(table!.textContent).toContain('You know');
-            // Words row: total 4, learning 1, known 2 (50%).
-            const cells = [...table!.querySelectorAll('tbody td')].map(cell => cell.textContent);
-            expect(cells[0]).toBe('4');
-            expect(cells[1]).toBe('1');
-            expect(cells[2]).toContain('2');
-            expect(cells[2]).toMatch(/50/);
+            const progress = root.querySelector<HTMLElement>('.jpdb-reader-stats-progress');
+            expect(progress).not.toBeNull();
+            expect(progress!.classList.contains('jpdb-reader-stats-panel')).toBe(false);
+            expect(progress!.querySelector('h2')).toBeNull();
+            expect(progress!.textContent).not.toContain('Learning progress');
+            expect(progress!.textContent).toContain('Learning');
+            expect(progress!.textContent).toContain('You know');
+            const values = [...progress!.querySelectorAll('.jpdb-reader-stats-progress-item strong')].map(item => item.textContent);
+            expect(values[0]).toBe('4');
+            expect(values[1]).toBe('1');
+            expect(values[2]).toContain('2');
+            expect(values[2]).toMatch(/50/);
+            expect(progress!.querySelector('.jpdb-reader-stats-progress-rail')).not.toBeNull();
             expect(root.textContent).toContain('Total known non-redundant vocabulary: 2');
         } finally {
             controller.destroy();
@@ -8671,11 +8674,12 @@ describe('new tab review helpers', () => {
         const publicSearch = vi.fn(async (query: string) => query === '黒猫' ? [blackCatCard] : [catCard]);
         const renderData = deferred<never>();
         const loadCardRenderData = vi.fn(async () => renderData.promise);
+        const searchAnkiLookup = { state: 'not-in-deck' as const, notes: [], primary: null };
         const cardRenderData = {
             localEntries: [{ expression: '猫', reading: 'ねこ', glossary: ['cat from local dictionary'], score: 20, dictionary: 'Local' }],
             kanjiEntries: [{ character: '猫', onyomi: [], kunyomi: ['ねこ'], tags: [], meanings: ['cat kanji'], dictionary: 'Kanji Local' }],
             metaEntries: [{ expression: '猫', mode: 'freq', data: 1600, dictionary: 'Freq Local' }],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            ankiLookup: searchAnkiLookup,
             jpdbDecks: [],
             ankiDecks: [],
             jpdbVocabularyInfo: { meanings: ['cat'], compounds: [], usedInVocabulary: [], examples: [] },
@@ -8805,7 +8809,7 @@ describe('new tab review helpers', () => {
             expect(loadCardRenderData).toHaveBeenCalledWith(catCard);
             expect(jpdbKanjiLookup).toHaveBeenCalledWith('猫');
             expect(renderSearchDefinitionSources).toHaveBeenCalledWith(catCard, expect.any(Array), '猫', expect.any(Object));
-            expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array));
+            expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array), searchAnkiLookup);
             expect(installSearchDetailSources).toHaveBeenCalledWith(wordDetail(), catCard, '猫', expect.any(Object));
 
             root.querySelector<HTMLButtonElement>('[data-action="jpdb-example-audio"]')?.click();
@@ -11293,6 +11297,163 @@ describe('new tab review helpers', () => {
         expect(node.querySelector('[data-immersion-action="next"]')).not.toBeNull();
     });
 
+    it('filters single-kanji new-tab Immersion Kit hits to examples containing that kanji', async () => {
+        const card = newTabTestCard({ spelling: '多', reading: 'た', source: 'fallback', meanings: [] });
+        const badExample: ImmersionKitExample = {
+            id: 'anime_the_cat_returns_000000759',
+            sentence: 'ああ！ たぶんな！',
+            sentenceWithFurigana: '',
+            translation: 'Yes! Probably...',
+            sourceTitle: 'The Cat Returns',
+            titleSlug: 'the-cat-returns',
+            category: 'anime',
+            soundFile: '',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const goodExample: ImmersionKitExample = {
+            id: 'anime_kakegurui_000006996',
+            sentence: 'この塔には謎が多すぎる',
+            sentenceWithFurigana: '',
+            translation: 'There are too many mysteries in this tower.',
+            sourceTitle: 'Kakegurui',
+            titleSlug: 'kakegurui',
+            category: 'anime',
+            soundFile: '',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const search = vi.fn(async () => [badExample, goodExample]);
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn(() => []),
+            } as never,
+        });
+
+        await expect((controller as unknown as {
+            loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]>;
+        }).loadImmersionExamples(card)).resolves.toEqual([goodExample]);
+
+        expect(search).toHaveBeenCalledWith(
+            '多',
+            expect.anything(),
+            expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
+        );
+    });
+
+    it('renders kanji new-tab Immersion Kit examples with source, count, and navigation controls', () => {
+        const card = newTabTestCard({ spelling: '多', reading: 'た', source: 'fallback', meanings: [] });
+        const example: ImmersionKitExample = {
+            id: 'anime_kakegurui_000006996',
+            sentence: 'この塔には謎が多すぎる',
+            sentenceWithFurigana: '',
+            translation: 'There are too many mysteries in this tower.',
+            sourceTitle: 'Kakegurui',
+            titleSlug: 'kakegurui',
+            category: 'anime',
+            soundFile: 'line.mp3',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+            immersionKit: {
+                mediaUrls: vi.fn((_: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/kakegurui.mp3'] : []),
+            } as never,
+        });
+
+        const node = (controller as unknown as {
+            renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement;
+        }).renderNewTabKanjiImmersionCard(card, example, 0, 3);
+
+        expect(node.classList.contains('jpdb-reader-newtab-kanji-immersion')).toBe(true);
+        expect(node.dataset.newtabKanji).toBe('多');
+        expect(node.querySelector('.jpdb-reader-example-source')?.textContent).toBe('Immersion Kit');
+        expect(node.querySelector('.jpdb-reader-example-title')?.textContent).toBe('Kakegurui');
+        expect(node.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1/3');
+        expect(node.querySelector('[data-immersion-action="previous"]')).not.toBeNull();
+        expect(node.querySelector('[data-immersion-action="audio"]')).not.toBeNull();
+        expect(node.querySelector('[data-immersion-action="next"]')).not.toBeNull();
+    });
+
+    it('navigates kanji new-tab Immersion Kit examples with the shared controls', async () => {
+        const card = newTabTestCard({ spelling: '多', reading: 'た', source: 'fallback', meanings: [] });
+        const examples: ImmersionKitExample[] = [
+            {
+                id: 'ik-1',
+                sentence: '多くの人が来た。',
+                sentenceWithFurigana: '',
+                translation: 'Many people came.',
+                sourceTitle: 'First Source',
+                titleSlug: 'first-source',
+                category: 'anime',
+                soundFile: '',
+                imageFile: '',
+                soundUrl: '',
+                imageUrl: '',
+            },
+            {
+                id: 'ik-2',
+                sentence: 'この塔には謎が多すぎる',
+                sentenceWithFurigana: '',
+                translation: 'There are too many mysteries in this tower.',
+                sourceTitle: 'Kakegurui',
+                titleSlug: 'kakegurui',
+                category: 'anime',
+                soundFile: '',
+                imageFile: '',
+                soundUrl: '',
+                imageUrl: '',
+            },
+        ];
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }, {
+            immersionKit: {
+                search: vi.fn(async () => examples),
+                mediaUrls: vi.fn(() => []),
+            } as never,
+            parser: {
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            parseContent: vi.fn(),
+        });
+        const root = document.createElement('main');
+        const body = document.createElement('div');
+        body.dataset.newtabKanjiImmersionBody = 'true';
+        root.append(body);
+        document.body.append(root);
+        const privateController = controller as unknown as {
+            renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement;
+            performNewTabKanjiImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
+            visibleWords: JPDBCard[];
+            index: number;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        };
+        privateController.visibleWords = [card];
+        privateController.index = 0;
+        privateController.state = {
+            mode: 'kanji',
+            sort: 'random',
+            filter: 'study',
+            source: 'dictionary',
+            revealAnswer: true,
+        };
+        body.append(privateController.renderNewTabKanjiImmersionCard(card, examples[0]!, 0, examples.length));
+
+        try {
+            privateController.performNewTabKanjiImmersionAction(root, body.querySelector<HTMLElement>('[data-newtab-kanji-immersion]')!, 'next');
+
+            await waitForExpect(() => {
+                expect(body.textContent).toContain('この塔には謎が多すぎる');
+                expect(body.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+            });
+        } finally {
+            root.remove();
+        }
+    });
+
     it('keeps the current new-tab Immersion Kit image until the next example image is ready', async () => {
         const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
         const examples: ImmersionKitExample[] = [
@@ -11704,6 +11865,24 @@ describe('new tab review helpers', () => {
                 expect.objectContaining({ immersionKitAutoPlayAudio: true }),
                 expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
             );
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('falls back to direct Immersion Kit media URLs for new-tab audio when blob hydration fails', async () => {
+        const example = newTabAudioImmersionExample('ik-direct');
+        const search = vi.fn(async () => [example]);
+        const fetchBlobUrl = vi.fn(async (): Promise<string> => {
+            throw new Error('proxy offline');
+        });
+        const { root, played, reveal } = newTabImmersionAudioRevealFixture(search, { fetchBlobUrl });
+
+        try {
+            reveal();
+
+            await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3']));
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         } finally {
             root.remove();

@@ -265,6 +265,10 @@
   display: inline-block;
   font: inherit;
   height: auto;
+  min-height: 0;
+  width: auto;
+  min-width: 0;
+  max-width: none;
   line-height: normal;
   margin: 0;
   padding: 0;
@@ -1459,6 +1463,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-word {
+  --jpdb-reader-word-underline-offset: 0.08em;
+  --jpdb-reader-word-underline-thickness: 0.08em;
   color: inherit !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1650,6 +1656,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-sentence .jpdb-reader-word {
+  --jpdb-reader-word-underline-offset: 0.08em;
   padding: 0 0.08em;
   border-radius: 0.1em;
   color: inherit;
@@ -1733,6 +1740,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-reading .jpdb-reader-word {
+  --jpdb-reader-word-underline: transparent;
   background: transparent !important;
   color: inherit;
   text-decoration-color: transparent !important;
@@ -1765,34 +1773,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   gap: 8px;
   width: min(680px, calc(100vw - 28px));
   padding: 8px;
-  border: 1px solid rgba(122, 146, 165, 0.26);
-  border-radius: 10px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(24, 31, 39, 0.96),
-      rgba(14, 19, 25, 0.96)
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 -18px 46px rgba(2, 6, 10, 0.38),
-    0 0 0 1px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(16px);
-}
-
-.jpdb-reader-theme-light .jpdb-reader-newtab-controls,
-.yomu-page-theme-light .jpdb-reader-newtab-controls {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-border));
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--jpdb-reader-surface) 94%, var(--jpdb-reader-accent) 6%),
-      color-mix(in srgb, var(--jpdb-reader-surface-2) 84%, var(--jpdb-reader-white) 16%)
-    );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--jpdb-reader-white) 78%, transparent),
-    0 -14px 34px color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 4%, transparent);
 }
 
 .jpdb-reader-newtab-controls[hidden],
@@ -3265,6 +3245,73 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-shadow: none;
 }
 
+.jpdb-reader-newtab-kanji-immersion {
+  width: 100%;
+  gap: 6px;
+  text-align: left;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-toolbar {
+  width: 100%;
+  margin: 0 0 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-meta {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 7px;
+  row-gap: 2px;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-source {
+  grid-column: 1 / -1;
+  flex: none;
+  max-width: 100%;
+  font-size: 10.5px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-title {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-icon-mini {
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.jpdb-reader-newtab-kanji-immersion
+  .jpdb-reader-example-card.has-image
+  .jpdb-reader-example-media {
+  width: min(100%, 720px);
+  max-width: 100%;
+  max-height: var(--jpdb-reader-example-media-max-height, min(520px, 52vh));
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-image {
+  width: auto;
+  max-width: 100%;
+  max-height: var(--jpdb-reader-example-media-max-height, min(520px, 52vh));
+}
+
 .jpdb-reader-newtab-immersion
   .jpdb-reader-example-translation[data-yomu-immersion-translation-blurred="true"] {
   filter: blur(4px);
@@ -3551,7 +3598,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     padding: 6px;
-    box-shadow: 0 -8px 22px var(--jpdb-reader-shadow-subtle);
   }
 
   .jpdb-reader-newtab-controls.jpdb-reader-newtab-grade-controls {
@@ -4246,8 +4292,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-stats-metrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
   min-width: 0;
 }
 
@@ -4264,9 +4310,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-stats-metric {
   display: grid;
   align-content: start;
-  gap: 7px;
-  min-height: 124px;
-  padding: 14px;
+  gap: 6px;
+  min-height: 112px;
+  padding: 12px;
 }
 
 .jpdb-reader-stats-metric-label,
@@ -4285,7 +4331,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 .jpdb-reader-stats-metric strong {
   color: var(--jpdb-reader-text);
-  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  font-size: clamp(1.65rem, 3.3vw, 2.45rem);
   font-weight: 900;
   line-height: 0.98;
   overflow-wrap: anywhere;
@@ -4934,31 +4980,72 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
-/* JPDB Learn parity: the "Learning | You know" progress table. */
-.jpdb-reader-stats-progress-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+/* JPDB Learn parity: a compact "Words | Learning | You know" progress strip. */
+.jpdb-reader-stats-progress {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  padding: 2px 0 6px;
 }
-.jpdb-reader-stats-progress-table th,
-.jpdb-reader-stats-progress-table td {
-  padding: 4px 8px;
-  text-align: right;
+
+.jpdb-reader-stats-progress-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.jpdb-reader-stats-progress-item {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.jpdb-reader-stats-progress-item-label {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1.15;
+}
+
+.jpdb-reader-stats-progress-item strong {
+  min-width: 0;
   color: var(--jpdb-reader-text);
+  font-size: clamp(1.15rem, 2.2vw, 1.7rem);
+  font-weight: 880;
+  line-height: 1;
+  overflow-wrap: anywhere;
 }
-.jpdb-reader-stats-progress-table thead th {
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
+
+.jpdb-reader-stats-progress-rail {
+  min-width: 0;
+  height: 7px;
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 64%, var(--jpdb-reader-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 54%, transparent);
 }
-.jpdb-reader-stats-progress-table tbody th {
-  text-align: left;
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
+
+.jpdb-reader-stats-progress-rail span {
+  min-width: 0;
 }
+
+.jpdb-reader-stats-progress-rail .is-learning {
+  background: color-mix(in srgb, var(--jpdb-reader-state-learning) 82%, var(--jpdb-reader-white));
+}
+
+.jpdb-reader-stats-progress-rail .is-known {
+  background: color-mix(in srgb, var(--jpdb-reader-state-known) 88%, var(--jpdb-reader-white));
+}
+
 .jpdb-reader-stats-progress-total {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--jpdb-reader-muted);
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 
@@ -4969,6 +5056,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-word-highlight-source: transparent;
   --jpdb-reader-word-highlight-shadow-source: none;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
+  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-style: solid;
+  --jpdb-reader-word-underline-thickness: 2px;
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
@@ -4986,7 +5076,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-source-pitch-soft: var(--jpdb-reader-pitch-soft, var(--jpdb-reader-pitch-unknown-soft, transparent));
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
-  position: static;
+  position: relative;
   display: inline;
   white-space: nowrap;
   word-break: keep-all;
@@ -4996,19 +5086,23 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   text-decoration-line: underline !important;
-  text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
-  text-decoration-thickness: 2px !important;
-  text-underline-offset: 0.16em !important;
+  text-decoration-style: var(--jpdb-reader-word-underline-style) !important;
+  text-decoration-color: transparent !important;
+  text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
+  text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
+  text-decoration-skip-ink: none !important;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 
 .jpdb-reader-word::after {
-  content: none;
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
+  border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
+  pointer-events: none;
 }
 
 /* Long annotated prose may wrap even when the host says nowrap — but never
@@ -5027,6 +5121,24 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   white-space: normal;
 }
 
+/* Hosted docs cards are links, so their annotated text is passive; still let
+   the card prose wrap inside its own grid cell. */
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
+}
+
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .jpdb-reader-word.jpdb-reader-passive-word {
   cursor: inherit;
 }
@@ -5037,6 +5149,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-word:is(.jpdb-deck-member, .jiten-deck-member, .anki-deck-member) {
+  --jpdb-reader-word-underline-style: double;
   text-decoration-style: double !important;
 }
 
@@ -5099,6 +5212,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-status-color: var(--jpdb-reader-state-frequent);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-frequent-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-frequent-soft);
+  --jpdb-reader-word-underline-style: dotted;
   text-decoration-style: dotted !important;
 }
 .jpdb-reader-word.jpdb-unparsed {
@@ -5108,6 +5222,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-status-color: var(--jpdb-reader-state-unparsed);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-unparsed-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-unparsed-soft);
+  --jpdb-reader-word-underline-style: dashed;
   text-decoration-style: dashed !important;
 }
 .jpdb-reader-word.anki-new {
@@ -5546,6 +5661,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    own colour and loses Yomu underline/highlight marking. */
 .yomu-word-color-new-only
   .jpdb-reader-word:not(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new, .jpdb-reader-example-target) {
+  --jpdb-reader-word-underline: transparent;
   color: inherit !important;
   background: transparent !important;
   text-decoration: none !important;
@@ -5804,13 +5920,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {
   background: transparent !important;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: 0.12em;
+  --jpdb-reader-word-underline-thickness: 0.12em;
   box-shadow: none !important;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 0.12em !important;
   text-underline-offset: 0.12em !important;
   color: inherit !important;
@@ -5902,12 +6017,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background: transparent !important;
   box-shadow: none;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: 0.15em;
+  --jpdb-reader-word-underline-thickness: 0.08em;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(
-    --jpdb-reader-word-underline,
-    transparent
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 0.08em !important;
   text-underline-offset: 0.15em !important;
   color: inherit !important;
@@ -5951,6 +6065,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    redundant words keep lookup behavior but render as plain page text — no
    state color, underline, or highlight. */
 html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
+  --jpdb-reader-word-underline: transparent;
   --jpdb-reader-jpdb-color: transparent;
   --jpdb-reader-jpdb-readable: inherit;
   --jpdb-reader-jpdb-soft: transparent;
@@ -10405,6 +10520,9 @@ html.jpdb-reader-doodle-active * {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid var(--jpdb-reader-border);
@@ -11212,16 +11330,19 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: break-word;
 }
 .jpdb-reader-settings .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-source-pitch-decoration,
+    color-mix(in srgb, var(--jpdb-reader-accent) 45%, transparent)
+  );
+  --jpdb-reader-word-underline-offset: 0.18em;
+  --jpdb-reader-word-underline-thickness: 1px;
   display: inline !important;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal !important;
   color: inherit !important;
   background: transparent !important;
-  text-decoration-color: var(
-    --jpdb-reader-source-pitch-decoration,
-    color-mix(in srgb, var(--jpdb-reader-accent) 45%, transparent)
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: 1px !important;
   text-underline-offset: 0.18em !important;
 }
@@ -13125,6 +13246,12 @@ html.jpdb-reader-doodle-active * {
   user-select: none;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(
+    --jpdb-reader-word-accessible-underline,
+    var(--jpdb-reader-word-decoration-source, transparent)
+  );
+  --jpdb-reader-word-underline-offset: .14em;
+  --jpdb-reader-word-underline-thickness: .09em;
   color: var(
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, currentColor)
@@ -13134,10 +13261,7 @@ html.jpdb-reader-doodle-active * {
     var(--jpdb-reader-word-highlight-source, transparent)
   ) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
-  text-decoration-color: var(
-    --jpdb-reader-word-accessible-underline,
-    var(--jpdb-reader-word-decoration-source, transparent)
-  ) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: .09em !important;
   text-underline-offset: .14em !important;
 }
@@ -13389,9 +13513,11 @@ html.jpdb-reader-doodle-active * {
   box-shadow: none;
   color: var(--subtitle-color) !important;
   --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-underline-offset: .15em;
+  --jpdb-reader-word-underline-thickness: .08em;
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
   text-decoration-thickness: .08em !important;
   text-underline-offset: .15em !important;
   white-space: nowrap;
@@ -13437,7 +13563,7 @@ html.jpdb-reader-doodle-active * {
   box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
@@ -13497,6 +13623,8 @@ html.jpdb-reader-doodle-active * {
   text-decoration-line: underline !important;
 }
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
+  --jpdb-reader-word-underline-offset: .12em;
+  --jpdb-reader-word-underline-thickness: .12em;
   text-decoration-thickness: .12em !important;
   text-underline-offset: .12em !important;
   /* No pitch class yet means no semantic color yet — stay invisible instead
@@ -13705,17 +13833,17 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-status .jpdb-subtitle-primary .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-status-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-jpdb .jpdb-subtitle-primary .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-jpdb-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-preview.jpdb-reader-subtitle-underline-pitch .jpdb-subtitle-primary .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
   --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent);
   text-decoration-line: underline !important;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+  text-decoration-color: transparent !important;
 }
 .jpdb-subtitle-rail {
   position: absolute;
@@ -14296,9 +14424,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 }
 .jpdb-subtitle-row-text .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
+  --jpdb-reader-word-underline-offset: .16em;
+  --jpdb-reader-word-underline-thickness: .08em;
   color: inherit;
   background: transparent;
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent);
+  text-decoration-color: transparent;
   box-shadow: none;
   text-decoration-thickness: .08em;
   text-underline-offset: .16em;

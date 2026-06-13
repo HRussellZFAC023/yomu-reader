@@ -111,37 +111,37 @@ describe('audio module boundaries', () => {
         }
     });
 
-    it('uses the CORS-readable Jisho fallback without a proxy or userscript bridge', async () => {
+    it('uses the CORS-readable Jisho text fallback without a proxy or userscript bridge', async () => {
         const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response('', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
             await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, ''))
                 .resolves.toEqual([]);
-            expect(fetchMock).toHaveBeenCalledTimes(2);
-            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('https://api.allorigins.win/raw?url=');
-            expect(String(fetchMock.mock.calls[1]?.[0])).toContain('https://r.jina.ai/http://jisho.org/search/');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('https://r.jina.ai/http://jisho.org/search/');
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('extracts exact Jisho audio through the default Yomu proxy', async () => {
+    it('skips the default Yomu proxy for Jisho HTML lookup when the userscript bridge is unavailable', async () => {
         const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(`
-            <audio id="audio_読む:よむ" preload="none">
-                <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3" type="audio/mpeg">
-            </audio>
+            Common word [Audio](http://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3)
+            * よ 読む
         `, {
             status: 200,
-            headers: { 'Content-Type': 'text/html' },
+            headers: { 'Content-Type': 'text/plain' },
         }));
         vi.stubGlobal('fetch', fetchMock);
 
         try {
             await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, DEFAULT_SETTINGS.corsProxyUrl))
                 .resolves.toEqual([jishoCandidate('yomu')]);
-            expect(String(fetchMock.mock.calls[0]?.[0])).toContain(DEFAULT_SETTINGS.corsProxyUrl);
-            expect(String(fetchMock.mock.calls[0]?.[0])).toContain('jisho.org%2Fsearch%2F');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+            expect(requestedUrl).toContain('https://r.jina.ai/http://jisho.org/search/');
+            expect(requestedUrl).not.toContain(DEFAULT_SETTINGS.corsProxyUrl);
         } finally {
             vi.unstubAllGlobals();
         }

@@ -70,9 +70,13 @@ describe('VisiblePageScanner', () => {
             hostname: 'www.youtube.com',
         });
         document.body.innerHTML = `
-            <ytd-watch-metadata>
-                ${Array.from({ length: 170 }, (_, index) => `<button>日本語ボタン${index}</button>`).join('')}
-            </ytd-watch-metadata>
+            <ytd-comments>
+                ${Array.from({ length: 170 }, (_, index) => `
+                    <ytd-comment-view-model>
+                        <yt-attributed-string id="content-text">日本語コメント${index}</yt-attributed-string>
+                    </ytd-comment-view-model>
+                `).join('')}
+            </ytd-comments>
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
         const scanner = createVisiblePageScanner({ parseJapanese });
@@ -81,7 +85,10 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            expect(parseJapanese.mock.calls.map(call => call[0].length)).toEqual([80, 40]);
+            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(parsedText).toContain('日本語コメント0');
+            expect(parsedText).not.toContain('日本語コメント169');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -131,6 +138,29 @@ describe('VisiblePageScanner', () => {
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.querySelector('rt')?.textContent).toBe('せんせい');
         } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('chunks a very long text node without corrupting later token offsets', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const longText = Array.from({ length: 320 }, () => '日本語の説明を確認します。').join('');
+        document.body.innerHTML = `<main><p>${longText}</p></main>`;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedParagraphs = parseJapanese.mock.calls.flatMap(call => call[0]);
+            const words = [...document.querySelectorAll<HTMLElement>('p .jpdb-reader-word')];
+            expect(parsedParagraphs.length).toBeGreaterThan(1);
+            expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThanOrEqual(2100);
+            expect(words).toHaveLength(parsedParagraphs.length);
+            expect(document.querySelector('p')?.textContent).toBe(longText);
+        } finally {
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }

@@ -100,8 +100,8 @@
 
 .jpdb-reader-stats-metrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
   min-width: 0;
 }
 
@@ -118,9 +118,9 @@
 .jpdb-reader-stats-metric {
   display: grid;
   align-content: start;
-  gap: 7px;
-  min-height: 124px;
-  padding: 14px;
+  gap: 6px;
+  min-height: 112px;
+  padding: 12px;
 }
 
 .jpdb-reader-stats-metric-label,
@@ -139,7 +139,7 @@
 
 .jpdb-reader-stats-metric strong {
   color: var(--jpdb-reader-text);
-  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  font-size: clamp(1.65rem, 3.3vw, 2.45rem);
   font-weight: 900;
   line-height: 0.98;
   overflow-wrap: anywhere;
@@ -788,29 +788,70 @@
   }
 }
 
-/* JPDB Learn parity: the "Learning | You know" progress table. */
-.jpdb-reader-stats-progress-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+/* JPDB Learn parity: a compact "Words | Learning | You know" progress strip. */
+.jpdb-reader-stats-progress {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  padding: 2px 0 6px;
 }
-.jpdb-reader-stats-progress-table th,
-.jpdb-reader-stats-progress-table td {
-  padding: 4px 8px;
-  text-align: right;
+
+.jpdb-reader-stats-progress-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.jpdb-reader-stats-progress-item {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.jpdb-reader-stats-progress-item-label {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1.15;
+}
+
+.jpdb-reader-stats-progress-item strong {
+  min-width: 0;
   color: var(--jpdb-reader-text);
+  font-size: clamp(1.15rem, 2.2vw, 1.7rem);
+  font-weight: 880;
+  line-height: 1;
+  overflow-wrap: anywhere;
 }
-.jpdb-reader-stats-progress-table thead th {
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
+
+.jpdb-reader-stats-progress-rail {
+  min-width: 0;
+  height: 7px;
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 64%, var(--jpdb-reader-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 54%, transparent);
 }
-.jpdb-reader-stats-progress-table tbody th {
-  text-align: left;
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
+
+.jpdb-reader-stats-progress-rail span {
+  min-width: 0;
 }
+
+.jpdb-reader-stats-progress-rail .is-learning {
+  background: color-mix(in srgb, var(--jpdb-reader-state-learning) 82%, var(--jpdb-reader-white));
+}
+
+.jpdb-reader-stats-progress-rail .is-known {
+  background: color-mix(in srgb, var(--jpdb-reader-state-known) 88%, var(--jpdb-reader-white));
+}
+
 .jpdb-reader-stats-progress-total {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--jpdb-reader-muted);
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }

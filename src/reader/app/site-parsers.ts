@@ -43,31 +43,7 @@ const COMMON_EXCLUDE = [
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'a[href]',
-    'button',
-    'summary',
-    '[role="button"]',
     '[role="link"]',
-    '[role="menuitem"]',
-    '[role="menuitemcheckbox"]',
-    '[role="menuitemradio"]',
-    '[role="tab"]',
-    '[slot="more-button"]',
-    '.more-button',
-    '#more',
-    '#less',
-    // YouTube wraps its controls in custom elements; treat them as passive so
-    // their labels (subscribe, like, video titles) open the dictionary
-    // on hover without swallowing the native click.
-    'yt-button-shape',
-    'tp-yt-paper-button',
-    'ytd-subscribe-button-renderer',
-    'ytd-toggle-button-renderer',
-    'ytd-button-renderer',
-    'ytm-button-renderer',
-    'ytm-toggle-button-renderer',
-    'ytm-subscribe-button-renderer',
-    'ytm-compact-link-renderer',
-    '.yt-spec-button-shape-next',
 ].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
@@ -80,7 +56,33 @@ const YOUTUBE_TEXT_EXCLUDE = [
     '.ytp-chrome-bottom',
     '.ytp-tooltip',
     'tp-yt-paper-tooltip',
+    'button',
+    'summary',
+    '[role="button"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="tab"]',
     '[role="slider"]',
+    '[slot="more-button"]',
+    '.more-button',
+    '#more',
+    '#less',
+    '.slim-video-metadata-info',
+    '#metadata-line',
+    'yt-button-shape',
+    'tp-yt-paper-button',
+    'ytd-subscribe-button-renderer',
+    'ytd-toggle-button-renderer',
+    'ytd-button-renderer',
+    'ytm-button-renderer',
+    'ytm-toggle-button-renderer',
+    'ytm-subscribe-button-renderer',
+    'ytm-compact-link-renderer',
+    '.yt-spec-button-shape-next',
+    'yt-chip-cloud-renderer',
+    'yt-chip-cloud-chip-renderer',
+    'iron-selector#chips',
 ].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
@@ -142,7 +144,50 @@ const GENERIC_PROSE_EXCLUDE = [
     '[aria-label*="音声"]',
     'time',
 ].join(',');
+const SAFE_UI_CHROME_SCOPE_SELECTORS = [
+    'nav',
+    '[role="navigation"]',
+    'header',
+    'aside',
+    '[role="complementary"]',
+    '[role="tablist"]',
+    '[class*="appearance" i]',
+    '[id*="appearance" i]',
+    '[class*="menu" i]',
+    '[id*="menu" i]',
+    '[class*="pinnable" i]',
+    '[id*="pinnable" i]',
+    '[class*="prefs" i]',
+    '[id*="prefs" i]',
+    '[class*="sidebar" i]',
+    '[id*="sidebar" i]',
+    '[class*="tabs" i]',
+    '[id*="tabs" i]',
+    '[class*="toc" i]',
+    '[id*="toc" i]',
+    '[class*="toolbar" i]',
+    '[id*="toolbar" i]',
+];
+const SAFE_UI_CHROME_CONTROL_SELECTORS = [
+    'a[href]',
+    'button',
+    'summary',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="option"]',
+    '[role="tab"]',
+];
+const SCOPED_SAFE_UI_CHROME_ROOTS = [
+    ...SAFE_UI_CHROME_SCOPE_SELECTORS,
+    ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => (
+        SAFE_UI_CHROME_CONTROL_SELECTORS.map(control => `${scope} ${control}`)
+    )),
+];
 const SAFE_UI_CHROME_ROOTS = [
+    ...SCOPED_SAFE_UI_CHROME_ROOTS,
     'nav a[href]',
     '[role="navigation"] a[href]',
     '[class*="breadcrumb" i] a[href]',
@@ -153,8 +198,17 @@ const SAFE_UI_CHROME_ROOTS = [
     'article a[href]',
     'button',
     'summary',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
 ].join(',');
-const SAFE_UI_CHROME_EXCLUDE = [
+const PROFILE_SAFE_UI_CHROME_ROOTS = SCOPED_SAFE_UI_CHROME_ROOTS.join(',');
+const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+].join(',');
+const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     COMMON_EXCLUDE,
     'form',
     'label',
@@ -182,6 +236,50 @@ const SAFE_UI_CHROME_EXCLUDE = [
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="toggle" i]',
+    '[class*="tts" i]',
+    '[class*="voice" i]',
+];
+const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(',');
+const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES
+    .filter(entry => entry !== '[class*="control" i]')
+    .join(',');
+const SAFE_FORM_CHROME_ROOTS = SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => [
+    `${scope} form`,
+    `${scope} label`,
+]).join(',');
+const SAFE_FORM_CHROME_EXCLUDE = [
+    COMMON_EXCLUDE,
+    'script',
+    'style',
+    'noscript',
+    'input',
+    'select',
+    'textarea',
+    'option',
+    'svg',
+    'use',
+    'button',
+    'summary',
+    'a[href]',
+    '[disabled]',
+    '[aria-disabled="true"]',
+    '[aria-hidden="true"]',
+    '[contenteditable="true"]',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="option"]',
+    '[role="tab"]',
+    '[data-audio]',
+    '[class*="audio" i]',
+    '[class*="control" i]',
+    '[class*="player" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="toggle" i]',
+    '[class*="tts" i]',
     '[class*="voice" i]',
 ].join(',');
 const DICTIONARY_SITE_EXCLUDE = [
@@ -227,7 +325,8 @@ const DICTIONARY_SITE_EXCLUDE = [
     '.pi',
     '.p-button-icon',
 ].join(',');
-const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 80;
+const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
+const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
 const YOMU_HOSTED_DOCS_ROOTS = [
@@ -555,80 +654,33 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Watch, feed, sidebar, live-chat, and player settings text. UI
-            // and card roots are collected as passive hover targets so native
-            // YouTube clicks keep working.
-            'ytd-masthead',
-            'ytd-mini-guide-renderer',
-            'ytd-guide-renderer',
+            // Watch, feed, sidebar, live-chat, and recommendation text. Video
+            // title links are collected as passive hover targets so native
+            // YouTube clicks keep working, but player/buttons/tabs stay native.
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
-            'ytd-watch-metadata a[href]',
-            'ytd-watch-metadata button',
-            'ytd-watch-metadata [role="button"]',
-            'ytd-watch-metadata yt-button-shape',
-            'ytd-watch-metadata ytd-button-renderer',
-            'ytd-watch-metadata ytd-subscribe-button-renderer',
-            'ytd-watch-metadata ytd-toggle-button-renderer',
-            'ytd-feed-filter-chip-bar-renderer',
-            'yt-chip-cloud-renderer',
-            'yt-chip-cloud-chip-renderer',
-            'iron-selector#chips',
-            'ytd-search',
-            'ytd-two-column-search-results-renderer',
-            'ytd-section-list-renderer',
-            'ytd-item-section-renderer',
             'ytd-rich-item-renderer',
             'ytd-video-renderer',
             'ytd-compact-video-renderer',
             'ytd-grid-video-renderer',
-            '#related',
-            'ytd-watch-next-secondary-results-renderer',
-            'ytd-rich-grid-renderer',
-            'ytd-rich-section-renderer',
-            'ytd-feed-filter-chip-bar-renderer',
-            'yt-chip-cloud-renderer',
-            'yt-chip-cloud-chip-renderer',
-            'ytd-reel-shelf-renderer',
             'ytd-reel-item-renderer',
             'ytd-reel-video-renderer',
             'yt-lockup-view-model',
             'yt-lockup-metadata-view-model',
-            'ytm-mobile-topbar-renderer',
-            'ytm-pivot-bar-renderer',
-            'ytm-chip-cloud-renderer',
-            'ytm-chip-cloud-chip-renderer',
-            'ytm-rich-grid-renderer',
             'ytm-rich-item-renderer',
             'ytm-video-with-context-renderer',
             'ytm-compact-video-renderer',
             'ytm-video-card-renderer',
-            'ytm-chip-cloud-renderer',
-            'ytm-chip-cloud-chip-renderer',
             'ytm-shorts-lockup-view-model',
             'ytm-shorts-lockup-view-model-v2',
-            'ytm-single-column-watch-next-results-renderer',
-            'ytm-item-section-renderer',
-            '.ytp-popup',
-            '.ytp-settings-menu',
-            '.ytp-panel',
-            '.ytp-panel-menu',
             'ytm-slim-video-metadata-section-renderer',
-            'ytm-slim-owner-renderer',
             'ytm-expandable-video-description-body-renderer',
-            'ytm-video-description-header-renderer',
-            'ytm-video-description-transcript-section-renderer',
             'ytm-structured-description-content-renderer',
-            'ytm-metadata-row-container-renderer',
-            'ytm-comment-section-renderer',
             'ytm-comment-thread-renderer',
             'ytm-comment-renderer',
-            'ytd-comments',
             'ytd-comment-view-model',
-            'ytd-comment-thread-renderer',
-            'ytd-comment-replies-renderer',
             '#content-text',
             'yt-live-chat-text-message-renderer #author-name',
             'yt-live-chat-text-message-renderer #message',
@@ -641,10 +693,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'yt-live-chat-membership-item-renderer',
             'yt-live-chat-viewer-engagement-message-renderer',
             'yt-live-chat-ticker-renderer',
-            'ytd-live-chat-frame',
-            'yt-live-chat-item-list-renderer',
-            'yt-live-chat-renderer',
-            'yt-live-chat-app',
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
@@ -854,6 +902,7 @@ function collectPassiveInteractionRootTargets(profile: SiteParserProfile, passiv
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
+        includeTabChrome: true,
         includeFormChrome: profile.includeFormChrome,
         mergeBlockFragments: profile.mergeBlockFragments,
         heading: profile.heading,
@@ -960,11 +1009,17 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const matchingProfiles = getMatchingSiteParsers(href);
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
-    if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return siteTargets;
     const baseTargets = siteTargets ?? [];
-    const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length, baseTargets);
-    const uiChromeTargets = collectSafeUiChromeTargets(effectiveLimit - baseTargets.length - genericTargets.length, [...baseTargets, ...genericTargets]);
-    if (baseTargets.length || genericTargets.length || uiChromeTargets.length) return [...baseTargets, ...genericTargets, ...uiChromeTargets];
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0);
+    if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
+    const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
+    const uiChromeTargets = collectSafeUiChromeTargets(
+        effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
+        [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
+    );
+    if (baseTargets.length || profileUiChromeTargets.length || genericTargets.length || uiChromeTargets.length) {
+        return [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
+    }
 
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
@@ -1022,6 +1077,20 @@ function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
     }));
 }
 
+function collectProfileSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = [], enabled = true): FragmentTextTarget[] {
+    if (!enabled || limit <= 0) return [];
+    const collection: GenericProseCollection = {
+        targets: [],
+        seen: seenTextNodes(existingTargets),
+        limit,
+    };
+
+    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(), collection);
+    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+
+    return collection.targets;
+}
+
 function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
     if (limit <= 0) return [];
     const collection: GenericProseCollection = {
@@ -1030,23 +1099,69 @@ function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarg
         limit,
     };
 
-    for (const root of safeUiChromeRoots()) {
-        collectSafeUiChromeTargetsFromRoot(root, collection);
-        if (genericProseCollectionFull(collection)) break;
-    }
+    collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
+    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
 
     return collection.targets;
 }
 
+function collectSafeUiChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection): void {
+    for (const root of roots) {
+        collectSafeUiChromeTargetsFromRoot(root, collection);
+        if (genericProseCollectionFull(collection)) break;
+    }
+}
+
 function safeUiChromeRoots(): HTMLElement[] {
-    return uniqueVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_UI_CHROME_ROOTS))
+    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_UI_CHROME_ROOTS))
+        .filter(root => isUsefulSafeUiChromeRoot(root)));
+}
+
+function profileSafeUiChromeRoots(): HTMLElement[] {
+    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS))
         .filter(root => isUsefulSafeUiChromeRoot(root)));
 }
 
 function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_UI_CHROME_EXCLUDE, {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, safeUiChromeExcludeForRoot(root), {
         allowUiText: true,
         includeUiChrome: true,
+        includeTabChrome: true,
+        heading: true,
+        minLength: 1,
+    });
+    for (const target of collected) {
+        appendGenericProseTarget(collection.targets, collection.seen, {
+            ...target,
+            parserId: 'safe-ui-chrome-parser',
+            passiveInteraction: true,
+        });
+        if (genericProseCollectionFull(collection)) break;
+    }
+}
+
+function safeUiChromeExcludeForRoot(root: HTMLElement): string {
+    return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]')
+        ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE
+        : SAFE_UI_CHROME_EXCLUDE;
+}
+
+function collectSafeFormChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection): void {
+    for (const root of roots) {
+        collectSafeFormChromeTargetsFromRoot(root, collection);
+        if (genericProseCollectionFull(collection)) break;
+    }
+}
+
+function safeFormChromeRoots(): HTMLElement[] {
+    return uniqueVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_FORM_CHROME_ROOTS))
+        .filter(root => isUsefulSafeFormChromeRoot(root)));
+}
+
+function collectSafeFormChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_FORM_CHROME_EXCLUDE, {
+        allowUiText: true,
+        includeFormChrome: true,
         heading: true,
         minLength: 1,
     });
@@ -1086,7 +1201,7 @@ function appendGenericProseTarget(targets: FragmentTextTarget[], seen: Set<Text>
     if (!nodes.length) return false;
     if (nodes.some(node => seen.has(node))) return false;
     nodes.forEach(node => seen.add(node));
-    targets.push({ ...target, parserId: 'generic-prose-parser' });
+    targets.push({ ...target, parserId: target.parserId ?? 'generic-prose-parser' });
     return true;
 }
 
@@ -1106,11 +1221,19 @@ function isUsefulGenericProseRoot(root: HTMLElement): boolean {
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
-    if (root.closest(SAFE_UI_CHROME_EXCLUDE)) return false;
+    if (root.closest(safeUiChromeExcludeForRoot(root))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
     const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
     if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
     return text.length >= 2 && text.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+}
+
+function isUsefulSafeFormChromeRoot(root: HTMLElement): boolean {
+    if (root.closest(SAFE_FORM_CHROME_EXCLUDE)) return false;
+    if (!isVisibleSafeUiChromeRoot(root)) return false;
+    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
+    return text.length >= 1 && text.length <= SAFE_FORM_CHROME_MAX_COMPACT_LENGTH;
 }
 
 function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {
@@ -1137,4 +1260,24 @@ function uniqueVisibleRoots(roots: HTMLElement[]): HTMLElement[] {
         unique.push(root);
     }
     return unique;
+}
+
+function uniqueSpecificVisibleRoots(roots: HTMLElement[]): HTMLElement[] {
+    const unique: HTMLElement[] = [];
+    for (const root of [...roots].sort((a, b) => elementDepth(b) - elementDepth(a))) {
+        if (unique.some(existing => existing === root || existing.contains(root) || root.contains(existing))) continue;
+        unique.push(root);
+    }
+    return unique.sort((a, b) => documentPositionOrder(a, b));
+}
+
+function elementDepth(element: Element): number {
+    let depth = 0;
+    for (let current = element.parentElement; current; current = current.parentElement) depth += 1;
+    return depth;
+}
+
+function documentPositionOrder(a: Node, b: Node): number {
+    if (a === b) return 0;
+    return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
 }
