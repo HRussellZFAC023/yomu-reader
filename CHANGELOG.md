@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.192] - 2026-06-13
+
+### Fixed
+
+- Mobile YouTube Shorts filtering keeps advancing through adjacent non-Japanese Shorts until it reaches a Japanese-looking Short again, instead of stopping after the first auto-advance throttle window.
+
 ## [0.6.191] - 2026-06-13
 
 ### Fixed

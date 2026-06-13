@@ -2226,13 +2226,12 @@ async function expectHydratedPopupAnkiRender(options: {
 
     await vi.waitFor(() => expect(options.renderCompletedCardPopover).toHaveBeenCalled());
     expect(options.renderData.hydrateAnkiLookup).toHaveBeenCalledTimes(1);
-    expect(options.renderCompletedCardPopover).toHaveBeenCalledWith(
-        options.popover,
-        options.lookupCard,
-        options.sentence,
-        'modal',
-        expect.objectContaining({ ankiLookup: options.ankiLookup }),
-    );
+    const renderCall = options.renderCompletedCardPopover.mock.calls.at(-1);
+    expect(renderCall?.[0]).toBe(options.popover);
+    expect(renderCall?.[1]).toBe(options.lookupCard);
+    expect(renderCall?.[2]).toBe(options.sentence);
+    expect(renderCall?.[3]).toBe('modal');
+    expect(renderCall?.[4]).toEqual(expect.objectContaining({ ankiLookup: options.ankiLookup }));
 }
 
 function kanjiGraphPositions(html: string): Map<string, KanjiGraphPoint> {

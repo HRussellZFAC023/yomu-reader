@@ -1378,6 +1378,77 @@ describe('YouTube immersion filter', () => {
         japanese.filter.destroy();
     });
 
+    it('keeps advancing mobile Shorts through adjacent non-Japanese reels until a Japanese short is active', async () => {
+        vi.useFakeTimers();
+        let now = 1000;
+        const performanceNow = vi.spyOn(performance, 'now').mockImplementation(() => now);
+        const chain = [
+            { videoId: 'firstEnglish', title: 'Desk setup Short' },
+            { videoId: 'secondEnglish', title: 'Gym routine Short' },
+            { videoId: 'japaneseShort', title: '大阪で食べ歩きラーメン' },
+        ];
+        const locationState = {
+            href: 'https://m.youtube.com/shorts/firstEnglish',
+            origin: 'https://m.youtube.com',
+            hostname: 'm.youtube.com',
+            pathname: '/shorts/firstEnglish',
+            search: '',
+        };
+        stubOEmbedTitles(Object.fromEntries(chain.map(item => [item.videoId, item.title])));
+        vi.stubGlobal('location', locationState);
+        document.body.innerHTML = `
+            <shorts-page>
+                <shorts-carousel class="ytShortsCarouselHost">
+                    <div class="hidden-a11y-nav ytShortsCarouselShortsA11yNav">
+                        <button class="ytShortsCarouselShortsA11yNavButton" disabled aria-label="前の動画"></button>
+                        <button class="ytShortsCarouselShortsA11yNavButton" aria-label="次の動画"></button>
+                    </div>
+                    <div id="carousel-scrollable-wrapper"><shorts-video></shorts-video></div>
+                </shorts-carousel>
+                <ytm-reel-player-overlay-renderer>
+                    <yt-shorts-video-title-view-model>${chain[0].title}</yt-shorts-video-title-view-model>
+                </ytm-reel-player-overlay-renderer>
+            </shorts-page>`;
+
+        let activeIndex = 0;
+        let clicks = 0;
+        document.querySelector<HTMLButtonElement>('.ytShortsCarouselShortsA11yNavButton:not([disabled])')!
+            .addEventListener('click', () => {
+                clicks += 1;
+                activeIndex = Math.min(activeIndex + 1, chain.length - 1);
+                const active = chain[activeIndex]!;
+                locationState.href = `https://m.youtube.com/shorts/${active.videoId}`;
+                locationState.pathname = `/shorts/${active.videoId}`;
+                document.querySelector('yt-shorts-video-title-view-model')!.textContent = active.title;
+                window.dispatchEvent(new Event('yt-navigate-finish'));
+            });
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+
+        try {
+            filter.init();
+            await flushPendingFilterWork();
+
+            expect(clicks).toBe(1);
+            expect(locationState.pathname).toBe('/shorts/secondEnglish');
+
+            now += 1000;
+            await vi.advanceTimersByTimeAsync(1000);
+            await flushPendingFilterWork();
+
+            expect(clicks).toBe(2);
+            expect(locationState.pathname).toBe('/shorts/japaneseShort');
+
+            now += 1200;
+            await vi.advanceTimersByTimeAsync(1200);
+            await flushPendingFilterWork();
+
+            expect(clicks).toBe(2);
+        } finally {
+            performanceNow.mockRestore();
+            filter.destroy();
+        }
+    });
+
     it('does not strip reader words from the YouTube watch title while filtering', async () => {
         const { filter } = await startYoutubeFilter({
             location: {

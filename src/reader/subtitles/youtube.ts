@@ -225,8 +225,8 @@ export class YoutubeImmersionFilter {
     private readonly subscribedChannelHandles = new Set<string>();
     private channelShelfRefreshTimer?: number;
     private lastShelfBackfillAt = 0;
-    private lastAdvancedShortPath = '';
-    private lastShortAdvanceAt = 0;
+    private lastAdvancedShortKey = '';
+    private lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
 
     // Already-subscribed channels never belong in the suggestions; the pool
     // backfills the compact view so subscribing keeps the shelf full.
@@ -387,7 +387,7 @@ export class YoutubeImmersionFilter {
             // filtered, step the player forward so the feed lands on the next
             // Japanese short instead of parking on an English one.
             this.showCard(decision.candidate.card);
-            if (decision.kind === 'hide') this.advancePastFilteredShort();
+            if (decision.kind === 'hide') this.advancePastFilteredShort(decision.candidate.videoId || decision.candidate.filterText);
             return;
         }
         if (decision.kind === 'skip') {
@@ -477,11 +477,15 @@ export class YoutubeImmersionFilter {
         });
     }
 
-    private advancePastFilteredShort(): void {
-        const shortPath = location.pathname;
-        if (this.lastAdvancedShortPath === shortPath) return;
+    private advancePastFilteredShort(shortKey = currentYouTubeShortsVideoId() || location.pathname): void {
+        const advanceKey = `${location.pathname}:${shortKey}`;
+        if (this.lastAdvancedShortKey === advanceKey) return;
         const now = performance.now();
-        if (now - this.lastShortAdvanceAt < YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS) return;
+        const throttleRemaining = YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS - (now - this.lastShortAdvanceAt);
+        if (throttleRemaining > 0) {
+            this.schedule(Math.ceil(throttleRemaining) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
+            return;
+        }
         // Desktop nav button, label-matched buttons, then the m.youtube.com
         // carousel's hidden a11y "next video" button (locale-independent):
         // a plain click() on it advances the JS-driven mweb reel.
@@ -489,9 +493,10 @@ export class YoutubeImmersionFilter {
             'ytd-shorts #navigation-button-down button, [aria-label="次の動画"], [aria-label="Next video"], shorts-carousel .ytShortsCarouselShortsA11yNavButton:not([disabled]):last-child',
         );
         if (!next) return;
-        this.lastAdvancedShortPath = shortPath;
+        this.lastAdvancedShortKey = advanceKey;
         this.lastShortAdvanceAt = now;
         next.click();
+        this.schedule(YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
     }
 
     // m.youtube.com shorts player (2026): the active reel lives in a JS
@@ -517,7 +522,7 @@ export class YoutubeImmersionFilter {
             alwaysHidden: false,
         };
         const decision = classifyYouTubeFilterCandidates([candidate], { revealed: this.revealed }).decisions[0];
-        if (decision?.kind === 'hide') this.advancePastFilteredShort();
+        if (decision?.kind === 'hide') this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
 
     private restoreCurrentShortsWatchItem(): void {
@@ -1198,6 +1203,8 @@ export class YoutubeImmersionFilter {
         this.channelShelfStatusOverride = '';
         this.lastBackfillAt = Number.NEGATIVE_INFINITY;
         this.lastScrollAt = Number.NEGATIVE_INFINITY;
+        this.lastAdvancedShortKey = '';
+        this.lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
         this.setFilterActiveClass(false);
     }
 
