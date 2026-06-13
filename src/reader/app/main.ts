@@ -2026,7 +2026,7 @@ export class ReaderApp {
 
     private canUseHoverLookupPointer(event: MouseEvent | KeyboardEvent): boolean {
         const pointerType = (event as Partial<PointerEvent>).pointerType;
-        return pointerType !== 'touch' && pointerType !== 'pen';
+        return pointerType !== 'touch';
     }
 
     private hasStickyModalPopover(): boolean {
