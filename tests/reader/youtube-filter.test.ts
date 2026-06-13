@@ -1378,7 +1378,7 @@ describe('YouTube immersion filter', () => {
         japanese.filter.destroy();
     });
 
-    it('unwraps reader words from the YouTube watch title so SPA navigation can replace it cleanly', async () => {
+    it('does not strip reader words from the YouTube watch title while filtering', async () => {
         const { filter } = await startYoutubeFilter({
             location: {
                 href: 'https://www.youtube.com/watch?v=current',
@@ -1395,7 +1395,7 @@ describe('YouTube immersion filter', () => {
             wait: 'timer-tick',
         });
 
-        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytd-watch-metadata h1 .jpdb-reader-word')).not.toBeNull();
         expect(document.querySelector('ytd-watch-metadata h1')?.textContent).toBe('古い動画タイトル');
 
         filter.destroy();

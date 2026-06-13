@@ -1,5 +1,4 @@
 import { APP_NAME } from '../app/constants';
-import { unwrapReaderWords } from '../dom/index';
 import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import {
@@ -85,7 +84,6 @@ const VIDEO_LINK_SELECTORS = `${WATCH_LINK_SELECTOR},${SHORTS_LOCAL_LINK_SELECTO
 const VIDEO_ANCHOR_SELECTOR = `a[href^="/watch"],a[href*="/watch?v="],a[href*="youtube.com/watch"],${SHORTS_LOCAL_LINK_SELECTOR},${SHORTS_ABSOLUTE_LINK_SELECTOR}`;
 
 const PLAYLIST_BADGE_SELECTOR = 'ytd-thumbnail-overlay-bottom-panel-renderer,ytd-thumbnail-overlay-side-panel-renderer,ytd-badge-supported-renderer,.badge-shape-wiz__text,[aria-label*="再生リスト"],[aria-label*="ミックス"]';
-const YOUTUBE_WATCH_TITLE_SELECTOR = 'ytd-watch-metadata h1,ytd-watch-metadata #title';
 const YOUTUBE_FEED_CONTAINER_SELECTOR = 'ytd-rich-grid-renderer,ytd-section-list-renderer,ytd-item-section-renderer,ytm-app,ytm-browse,ytm-rich-grid-renderer,ytm-item-section-renderer,ytm-search,lazy-list';
 const OEMBED_TITLE_CACHE_LIMIT = 240;
 const OEMBED_SESSION_CACHE_PREFIX = 'yomu:youtube-oembed-title:v1:';
@@ -348,7 +346,6 @@ export class YoutubeImmersionFilter {
             }
         });
 
-        unwrapYouTubeWatchTitleReaderWords();
         this.restoreCurrentShortsWatchItem();
         this.advancePastFilteredMobileShortsReel();
 
@@ -2157,13 +2154,6 @@ function isYouTubeWatchPage(): boolean {
 
 function shouldShowFilterNoticeForRoute(): boolean {
     return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
-}
-
-function unwrapYouTubeWatchTitleReaderWords(): void {
-    if (!isYouTubeWatchPage()) return;
-    document.querySelectorAll<HTMLElement>(YOUTUBE_WATCH_TITLE_SELECTOR).forEach(title => {
-        unwrapReaderWords(title);
-    });
 }
 
 function isYouTubePlaylistLikeCard(card: HTMLElement): boolean {

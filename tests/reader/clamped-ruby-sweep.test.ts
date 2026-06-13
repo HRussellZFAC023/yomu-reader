@@ -11,6 +11,23 @@ function mockOverflow(el: HTMLElement, scrollHeight: number, clientHeight: numbe
     Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true });
 }
 
+function mockRect(el: HTMLElement, rect: Pick<DOMRect, 'top' | 'bottom' | 'height'>): void {
+    Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({
+            width: 200,
+            height: rect.height,
+            top: rect.top,
+            bottom: rect.bottom,
+            left: 0,
+            right: 200,
+            x: 0,
+            y: rect.top,
+            toJSON: () => ({}),
+        }),
+        configurable: true,
+    });
+}
+
 // UT-70/79 (user direction): ruby that makes a clamped row overflow KEEPS its
 // furigana — the box gets room instead (line-clamp boxes lose their
 // plain-text max-height; other clipped boxes grow to their content height).
@@ -66,6 +83,38 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('re-raises boxes that were marked roomy before later ruby layout needed more height', () => {
+        document.body.innerHTML = `
+            <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockOverflow(title, 34, 22);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('34px');
+        expect(title.dataset.yomuRubyRoomHeight).toBe('34');
+
+        mockOverflow(title, 48, 34);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('48px');
+        expect(title.dataset.yomuRubyRoomHeight).toBe('48');
+        document.body.innerHTML = '';
+    });
+
+    it('does not treat a legacy ruby-room marker as proof that the box still fits', () => {
+        document.body.innerHTML = `
+            <div id="title" data-yomu-ruby-room="true" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockOverflow(title, 36, 22);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('36px');
+        expect(title.dataset.yomuRubyRoomHeight).toBe('36');
+        document.body.innerHTML = '';
+    });
+
     it('raises every nested clipped ancestor around ruby text', () => {
         document.body.innerHTML = `
             <a id="outer" style="display:block;overflow:hidden;height:42px;line-height:21px">
@@ -83,6 +132,22 @@ describe('makeRoomForRubyInCroppedRows', () => {
         expect(inner.style.maxHeight).toBe('34px');
         expect(outer.style.height).toBe('58px');
         expect(outer.querySelector('rt')?.textContent).toBe('しんそつ');
+        document.body.innerHTML = '';
+    });
+
+    it('raises clipped boxes when rendered ruby geometry exceeds the box without scroll overflow', () => {
+        document.body.innerHTML = `
+            <div id="title" style="overflow:hidden;height:42px;line-height:21px">${annotatedWord()}の短い動画</div>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        const base = document.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+        mockOverflow(title, 42, 42);
+        mockRect(title, { top: 0, bottom: 42, height: 42 });
+        mockRect(base, { top: 22, bottom: 44, height: 22 });
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(title.style.height).toBe('44px');
+        expect(title.querySelector('rt')?.textContent).toBe('しんそつ');
         document.body.innerHTML = '';
     });
 

@@ -2999,6 +2999,7 @@
     "option",
     "svg",
     "use",
+    '[aria-hidden="true"]',
     '[contenteditable="true"]',
     '[role="checkbox"]',
     '[role="radio"]',
@@ -3039,7 +3040,6 @@
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     "button",
     "summary",
-    '[aria-hidden="true"]',
     "[data-jpdb-reader-root]"
   ].join(",");
   const HARD_FRAGMENT_SKIP_SELECTOR = [
@@ -36610,7 +36610,6 @@ ${spelling}`);
   const VIDEO_LINK_SELECTORS = `${WATCH_LINK_SELECTOR},${SHORTS_LOCAL_LINK_SELECTOR},${SHORTS_ABSOLUTE_LINK_SELECTOR},a.video-card-title-container,a.video-card-image,a.YtmCompactMediaItemMetadataContent,a.YtmCompactMediaItemImage,a.media-item-thumbnail-container,a.shortsLockupViewModelHostEndpoint,ytm-media-item a[href],.yt-lockup-view-model__content-image,ytd-thumbnail > a,a.yt-simple-endpoint,a#video-title,yt-formatted-string#title > a.yt-simple-endpoint`;
   const VIDEO_ANCHOR_SELECTOR = `a[href^="/watch"],a[href*="/watch?v="],a[href*="youtube.com/watch"],${SHORTS_LOCAL_LINK_SELECTOR},${SHORTS_ABSOLUTE_LINK_SELECTOR}`;
   const PLAYLIST_BADGE_SELECTOR = 'ytd-thumbnail-overlay-bottom-panel-renderer,ytd-thumbnail-overlay-side-panel-renderer,ytd-badge-supported-renderer,.badge-shape-wiz__text,[aria-label*="再生リスト"],[aria-label*="ミックス"]';
-  const YOUTUBE_WATCH_TITLE_SELECTOR = "ytd-watch-metadata h1,ytd-watch-metadata #title";
   const YOUTUBE_FEED_CONTAINER_SELECTOR = "ytd-rich-grid-renderer,ytd-section-list-renderer,ytd-item-section-renderer,ytm-app,ytm-browse,ytm-rich-grid-renderer,ytm-item-section-renderer,ytm-search,lazy-list";
   const OEMBED_TITLE_CACHE_LIMIT = 240;
   const OEMBED_SESSION_CACHE_PREFIX = "yomu:youtube-oembed-title:v1:";
@@ -36793,7 +36792,6 @@ ${spelling}`);
           this.showCard(card);
         }
       });
-      unwrapYouTubeWatchTitleReaderWords();
       this.restoreCurrentShortsWatchItem();
       this.advancePastFilteredMobileShortsReel();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
@@ -38235,12 +38233,6 @@ ${spelling}`);
   }
   function shouldShowFilterNoticeForRoute() {
     return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();
-  }
-  function unwrapYouTubeWatchTitleReaderWords() {
-    if (!isYouTubeWatchPage()) return;
-    document.querySelectorAll(YOUTUBE_WATCH_TITLE_SELECTOR).forEach((title) => {
-      unwrapReaderWords(title);
-    });
   }
   function isYouTubePlaylistLikeCard(card) {
     if (card.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
