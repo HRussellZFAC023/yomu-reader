@@ -598,27 +598,56 @@
 }
 
 .jpdb-ocr-video-frame-resume {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.jpdb-ocr-video-frame-resume-icon {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.jpdb-subtitle-player.jpdb-ocr-video-frame-resume-active .jpdb-subtitle-rail {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateY(0) !important;
+}
+
+.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-text);
+}
+
+.jpdb-ocr-video-frame-resume-fallback {
   position: fixed;
   transform: translateX(-100%);
   z-index: 2147483644;
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(15, 18, 24, 0.82);
-  color: #fff;
-  font: 600 13px/1.2 var(--jpdb-reader-popup-font, var(--jpdb-reader-font, system-ui));
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.22));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface, rgb(15, 18, 24)) 86%, transparent);
+  color: var(--jpdb-reader-text, #fff);
+  box-shadow: 0 12px 30px var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.35));
+  backdrop-filter: blur(14px);
+  font: 700 12px/1 var(--jpdb-reader-font, system-ui);
 }
 
-.jpdb-ocr-video-frame-resume:hover,
+.jpdb-ocr-video-frame-resume-fallback:hover,
+.jpdb-ocr-video-frame-resume-fallback:focus-visible {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent, #7c9cff) 60%, var(--jpdb-reader-border, rgba(255, 255, 255, 0.22)));
+  background: color-mix(in srgb, var(--jpdb-reader-accent, #7c9cff) 18%, var(--jpdb-reader-surface, rgb(15, 18, 24)));
+}
+
 .jpdb-ocr-video-frame-resume:focus-visible {
-  background: rgba(15, 18, 24, 0.95);
-  outline: none;
+  outline: 2px solid var(--jpdb-reader-accent, #7c9cff);
+  outline-offset: 2px;
 }
 
 .jpdb-ocr-layer {

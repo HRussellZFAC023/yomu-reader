@@ -367,6 +367,7 @@ function dispatchVideoLayoutResize(): void {
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
         pendingVideoLayoutResize = undefined;
+        if (typeof window === 'undefined') return;
         dispatchWindowEvent(createWindowEvent('resize'));
     }, 80);
 }

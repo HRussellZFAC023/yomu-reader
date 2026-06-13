@@ -91,10 +91,43 @@ async function loadYouTubeTrackWithFallback<T extends SubtitleTrackLoadable>(
         track.cues = cues;
         return { track, cues };
     }
+    const translatedSource = await loadYouTubeTranslationSourceFallback(track, options);
+    if (translatedSource.length) {
+        track.cues = translatedSource;
+        return { track, cues: translatedSource };
+    }
     const fallback = await loadFirstUsableYouTubeSibling(track, options.tracks, youtubeOptions);
     if (fallback) return fallback;
     track.cues = [];
     return { track, cues: [] };
+}
+
+async function loadYouTubeTranslationSourceFallback<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+): Promise<SubtitleCue[]> {
+    if (track.sourceType !== 'translation') return [];
+    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    const targetLanguage = normalizedTrackLanguage(track.targetLanguage || track.language);
+    if (!sourceTrack || !sourceLanguage || !targetLanguage || sourceLanguage === targetLanguage) return [];
+    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    if (!sourceCues.length) return [];
+    return translateSubtitleCues(sourceCues, sourceTrack.language || sourceTrack.sourceLanguage || sourceLanguage, targetLanguage);
+}
+
+function findYouTubeTranslationSourceTrack<T extends SubtitleTrackLoadable>(track: T, tracks: T[]): T | null {
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    if (!sourceLanguage) return null;
+    return tracks.find(candidate => candidate.kind === 'youtube'
+        && candidate !== track
+        && candidate.sourceType !== 'translation'
+        && Boolean(candidate.url)
+        && normalizedTrackLanguage(candidate.language || candidate.sourceLanguage) === sourceLanguage) ?? null;
+}
+
+function normalizedTrackLanguage(language: string | undefined): string {
+    return (language ?? '').trim().toLowerCase();
 }
 
 export function ensureTextTrackReadable(track: TextTrack): void {

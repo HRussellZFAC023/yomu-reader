@@ -361,6 +361,7 @@ function parseYouTubeCaptionTrack(track: unknown): YouTubeCaptionTrackCandidate 
 interface YouTubeTranslationLanguage {
     code: string;
     label: string;
+    raw: unknown;
 }
 
 function preferredYouTubeTranslationLanguages(rawLanguages: unknown[]): YouTubeTranslationLanguage[] {
@@ -384,7 +385,7 @@ function parseYouTubeTranslationLanguage(value: unknown): YouTubeTranslationLang
     };
     const code = normalizedYouTubeLanguageCode(record.languageCode);
     if (!code) return null;
-    return { code, label: firstYouTubeCaptionTrackLabel(record, code) || code };
+    return { code, label: firstYouTubeCaptionTrackLabel(record, code) || code, raw: value };
 }
 
 function translatedYouTubeCaptionTrack(source: YouTubeCaptionTrackCandidate, language: YouTubeTranslationLanguage): YouTubeCaptionTrackCandidate {
@@ -399,7 +400,7 @@ function translatedYouTubeCaptionTrack(source: YouTubeCaptionTrackCandidate, lan
         url: url.toString(),
         raw: {
             source: source.raw,
-            translationLanguage: language,
+            translationLanguage: language.raw,
         },
         sourceType: 'translation' as const,
         sourceLanguage: source.language,
@@ -555,15 +556,47 @@ function findMatchingYouTubePlayerTrack(track: YouTubeSubtitleTrack, player: {
     });
     if (exact) return exact;
     if (track.sourceType === 'translation') {
-        return rawTracks.find(raw => {
+        const source = rawTracks.find(raw => {
             const parsed = parseYouTubeCaptionTrack(raw);
             return parsed?.language && track.sourceLanguage && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.sourceLanguage);
-        }) ?? null;
+        }) ?? youtubePlayerTranslationSource(track);
+        return source ? translatedYouTubePlayerTrack(track, source) : null;
     }
     return rawTracks.find(raw => {
         const parsed = parseYouTubeCaptionTrack(raw);
         return parsed?.language && track.language && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.language);
     }) ?? null;
+}
+
+function translatedYouTubePlayerTrack(track: YouTubeSubtitleTrack, source: unknown): unknown {
+    const translationLanguage = youtubePlayerTranslationLanguage(track);
+    if (!translationLanguage) return source;
+    if (!isRecord(source)) return track.youtubeTrack ?? source;
+    return {
+        ...source,
+        translationLanguage,
+    };
+}
+
+function youtubePlayerTranslationLanguage(track: YouTubeSubtitleTrack): unknown {
+    const raw = track.youtubeTrack;
+    if (isRecord(raw) && raw.translationLanguage) return raw.translationLanguage;
+    const languageCode = track.targetLanguage || track.language;
+    if (!languageCode) return null;
+    return {
+        languageCode,
+        languageName: { simpleText: languageCode },
+    };
+}
+
+function youtubePlayerTranslationSource(track: YouTubeSubtitleTrack): unknown {
+    const raw = track.youtubeTrack;
+    if (!isRecord(raw)) return null;
+    return raw.source ?? null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object');
 }
 
 function findPreferredYouTubeCaptionCandidate(track: YouTubeSubtitleTrack): YouTubeCaptionTrackCandidate | null {

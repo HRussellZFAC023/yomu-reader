@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.181
+// @version      0.6.182
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Z7BVQajdYCthaDNfkMOlfw5W9FhOIr9Lrp1nvFESQWg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-KWmWhBB91XxhORfgkNkXjkeGvaEgHJTghNo8UoGBjEg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Yt2tZsgXr2ZGU1d2/bp8B8C2EIB8cWnCSKRlza++EaM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-s5RgDfGuJ0OoKzN9sS+DSVN7pqdtwGIvNLIOIf6luxw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-LyByErCIej4hgxAbboAwTx9p52lnsUMoxCWbIYv+2cw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-hX/HqChpxB+VPxyyhPGxPAdGYu5mlITbGRgI4KSA35A=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2lQYks80Fu0FIRAGQJvx05u6lzfDurB/zw3ZHh/IB1E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-EXgys3zafCDilX35AJXC6v6tDvAnkK4HKrWOqTHPoP8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3609,10 +3609,9 @@
     const tokensWithSentence = tokens.map((token) => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
       const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
       for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
-      if (singleFragmentPlans.length === tokens.length) return;
       return;
     }
     for (let index = tokens.length - 1; index >= 0; index--) {
@@ -6265,6 +6264,7 @@
       ankiMappingStaleField: "saved field missing",
       ocrEnabledToast: "Image reading enabled.",
       ocrHiddenToast: "Image reading hidden.",
+      ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
@@ -6959,6 +6959,7 @@ trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
 ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
+ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示

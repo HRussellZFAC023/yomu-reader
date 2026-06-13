@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { activateYouTubeCaptionTrack, getYouTubeCaptionTracks, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
 
 const originalLocation = window.location;
 const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
@@ -123,6 +123,55 @@ describe('YouTube subtitle captions', () => {
             sourceLanguage: 'en',
             targetLanguage: 'ja',
         });
+    });
+
+    it('activates YouTube auto-translated tracks with the source track and translation language', () => {
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const sourceTrack = {
+            baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en',
+            languageCode: 'en',
+            vssId: 'a.en',
+            kind: 'asr',
+            name: { simpleText: 'English (auto-generated)' },
+        };
+        const translationLanguage = {
+            languageCode: 'ja',
+            languageName: { simpleText: '日本語' },
+        };
+        document.body.innerHTML = '<div id="movie_player"></div>';
+        const setOption = vi.fn();
+        const player = document.querySelector('#movie_player') as HTMLElement & {
+            loadModule: ReturnType<typeof vi.fn>;
+            setOption: ReturnType<typeof vi.fn>;
+            getAudioTrack: () => { captionTracks: unknown[] };
+        };
+        player.loadModule = vi.fn();
+        player.setOption = setOption;
+        player.getAudioTrack = () => ({ captionTracks: [sourceTrack] });
+
+        activateYouTubeCaptionTrack({
+            label: '日本語 (ja) · auto-translated from English',
+            kind: 'youtube',
+            language: 'ja',
+            sourceType: 'translation',
+            sourceLanguage: 'en',
+            targetLanguage: 'ja',
+            url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en&tlang=ja',
+            youtubeTrack: {
+                source: sourceTrack,
+                translationLanguage,
+            },
+        });
+
+        expect(player.loadModule).toHaveBeenCalledWith('captions');
+        expect(setOption).toHaveBeenCalledWith('captions', 'track', expect.objectContaining({
+            languageCode: 'en',
+            translationLanguage,
+        }));
+        expect(setOption).toHaveBeenCalledWith('captions', 'reload', true);
     });
 });
 
