@@ -358,14 +358,8 @@
 .jpdb-subtitle-primary
   .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi
   .jpdb-reader-ruby-base {
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-accent-readable, var(--jpdb-reader-accent)) 34%,
-    var(--jpdb-reader-video-target-backdrop)
-  ) !important;
-  border-radius: 0.22em;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
@@ -688,6 +682,7 @@
   color: var(--jpdb-reader-text);
   box-shadow: 0 24px 56px var(--jpdb-reader-shadow);
   pointer-events: auto;
+  contain: layout paint style;
   backdrop-filter: blur(18px) saturate(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
   transform: translateZ(0);
@@ -697,6 +692,11 @@
 .jpdb-subtitle-list.jpdb-subtitle-panel-entering,
 .jpdb-subtitle-list.jpdb-subtitle-panel-closing {
   opacity: 0;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+.jpdb-subtitle-list.jpdb-subtitle-panel-opened {
+  will-change: auto;
 }
 .jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-entering,
 .jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-closing {

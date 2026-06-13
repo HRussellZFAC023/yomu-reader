@@ -47,6 +47,10 @@ const IMMERSION_SEARCH_CACHE_LIMIT = 120;
 const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
 const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
 const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+// The active card's open immersion section loads on a short debounce when it's
+// already in view (snappier than the 180ms below-the-fold delay), so examples
+// appear quickly for the word the user is actually looking at.
+const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
 const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const IMMERSION_LAZY_LOAD_ROOT_MARGIN = '180px 0px';
 const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
@@ -216,7 +220,7 @@ export class ImmersionPopoverController {
         container.dataset.immersionLazyBound = 'true';
 
         const canLoad = (): boolean => this.canStartLazyLoad(popover, container);
-        const scheduleLoad = (): void => {
+        const scheduleLoad = (delayMs: number): void => {
             if (!canLoad()) return;
             if (container.dataset.immersionLoadState === 'scheduled') return;
             this.clearLazyLoadTimer(container);
@@ -236,12 +240,17 @@ export class ImmersionPopoverController {
                     .catch(() => {
                         if (container.dataset.immersionLoadState === 'loading') delete container.dataset.immersionLoadState;
                     });
-            }, IMMERSION_LAZY_LOAD_DELAY_MS);
+            }, delayMs);
             this.lazyLoadTimers.set(container, timer);
         };
         const maybeLoad = (): void => {
             if (!canLoad()) return;
-            if (isImmersionNearVisibleArea(popover, container)) scheduleLoad();
+            // Load the open immersion section even when it sits below the
+            // popover fold (gating on visibility meant below-the-fold examples
+            // never loaded until the user scrolled — the main "not working"
+            // case). Visible sections load on a shorter debounce; the timer +
+            // abort-on-teardown still prevent spamming the API on fast hovers.
+            scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
         };
         const handleToggle = (): void => {
             if (!container.open) {

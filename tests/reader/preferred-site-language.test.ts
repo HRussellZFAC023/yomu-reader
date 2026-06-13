@@ -105,6 +105,47 @@ describe('preferred Japanese site language', () => {
         expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
         appendSpy.mockRestore();
     });
+
+    it('uses page injection in WebExtension content scripts even when unsafeWindow mirrors window', () => {
+        const language = navigator.language;
+        const appendedScripts: string[] = [];
+        const appendSpy = vi.spyOn(document.head, 'append').mockImplementation((...nodes: Array<Node | string>) => {
+            for (const node of nodes) {
+                if (node instanceof HTMLScriptElement) appendedScripts.push(node.textContent ?? '');
+            }
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('browser', { runtime: { id: 'yomu-extension-test' } });
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(navigator.language).toBe(language);
+        expect(appendedScripts.join('\n')).toContain('const crossRealmDescriptor =');
+        expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
+        appendSpy.mockRestore();
+    });
+
+    it('clones Trusted Types script policy callbacks before injecting page shims', () => {
+        const clonedOptions = { createScript: vi.fn((code: string) => code) };
+        const cloneInto = vi.fn(() => clonedOptions);
+        const createPolicy = vi.fn((_name: string, options: typeof clonedOptions) => {
+            if (options !== clonedOptions) throw new Error('uncloned script policy options');
+            return { createScript: options.createScript };
+        });
+        const appendSpy = vi.spyOn(document.head, 'append').mockImplementation(() => undefined);
+        vi.stubGlobal('browser', { runtime: { id: 'yomu-extension-test' } });
+        vi.stubGlobal('cloneInto', cloneInto);
+        vi.stubGlobal('trustedTypes', { createPolicy });
+        vi.stubGlobal('unsafeWindow', window);
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(cloneInto).toHaveBeenCalledWith(expect.objectContaining({
+            createScript: expect.any(Function),
+        }), window, { cloneFunctions: true, wrapReflectors: true });
+        expect(createPolicy).toHaveBeenCalledWith('yomu-reader-script', clonedOptions);
+        appendSpy.mockRestore();
+    });
 });
 
 function settleAsyncHandlers(): Promise<void> {

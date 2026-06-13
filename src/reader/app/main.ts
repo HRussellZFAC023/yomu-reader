@@ -156,6 +156,7 @@ import {
     SUBTITLE_SURFACE_SELECTOR,
     TERM_AUDIO_PRELOAD_LIMIT,
     TWO_BUTTON_REVIEW_SHORTCUTS,
+    allowsFrequentVisibleAutoScan,
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
     audioPreloadLimits,
@@ -323,6 +324,23 @@ type ReaderLifecycleSurface = {
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
+const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
+    '.textBox',
+    '.ocr-line',
+    'p',
+    'li',
+    'blockquote',
+    'td',
+    'th',
+    'article',
+    'main',
+    '[data-jpdb-reader-root]',
+    'button',
+    'summary',
+    '[role="button"]',
+    '[role="tab"]',
+    '[role="menuitem"]',
+].join(',');
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -501,7 +519,7 @@ export class ReaderApp {
         getSettings: () => this.settings,
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
-        preloadParsedTokens: tokens => this.preloadTermAudioForTokens(tokens),
+        preloadParsedTokens: tokens => this.preloadParsedTokens(tokens),
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
@@ -1262,7 +1280,7 @@ export class ReaderApp {
             if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true });
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
-            else if (canScanText && scanMutations.some(mutationMayContainJapaneseText)) {
+            else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
                 this.scheduleAutoScan(450);
             }
@@ -1273,8 +1291,12 @@ export class ReaderApp {
             }
         });
         this.observeAutoScanMutations();
-        window.addEventListener('scroll', () => this.scheduleAutoScan(160, { force: true }), { passive: true });
-        window.addEventListener('resize', () => this.scheduleAutoScan(250, { force: true }), { passive: true });
+        window.addEventListener('scroll', () => {
+            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(160, { force: true });
+        }, { passive: true });
+        window.addEventListener('resize', () => {
+            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(250, { force: true });
+        }, { passive: true });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(600);
     }
@@ -1909,6 +1931,15 @@ export class ReaderApp {
         return null;
     }
 
+    private hoverReaderWordFromPointStack(x: number, y: number): HTMLElement | null {
+        if (typeof document.elementsFromPoint !== 'function') return null;
+        for (const element of document.elementsFromPoint(x, y)) {
+            const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
+            if (word && this.canHoverLookupReaderWord(word)) return word;
+        }
+        return null;
+    }
+
     private preloadHoverWordAudio(word: HTMLElement): void {
         this.preloadReaderWordAudio(word, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
         if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
@@ -2128,6 +2159,7 @@ export class ReaderApp {
         const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
         if (direct) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
+            ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY)
             ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
     }
 
@@ -2138,12 +2170,12 @@ export class ReaderApp {
 
     private readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null {
         const scope = this.readerWordGeometryScope(target);
-        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canLookupReaderWord(word)) : null;
+        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canHoverLookupReaderWord(word)) : null;
     }
 
     private readerWordGeometryScope(target: Element | null): ParentNode | null {
         if (!target) return null;
-        const scope = target.closest<HTMLElement>('.textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root]');
+        const scope = target.closest<HTMLElement>(HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR);
         return scope && scope.querySelector('.jpdb-reader-word') ? scope : null;
     }
 
@@ -2335,10 +2367,16 @@ export class ReaderApp {
 
     private scheduleActivePopoverReposition(): void {
         if (this.activePopoverMode !== 'hover' || !this.activePopover || this.activePopover.classList.contains('jpdb-reader-sheet')) return;
+        this.scheduleRepositionActivePopoverFrame();
+    }
+
+    // Coalesce reposition requests (ResizeObserver bursts during hydration,
+    // scroll) to at most one forced-layout reposition per animation frame.
+    private scheduleRepositionActivePopoverFrame(): void {
         if (this.popoverRepositionFrame !== undefined) return;
         this.popoverRepositionFrame = window.requestAnimationFrame(() => {
             this.popoverRepositionFrame = undefined;
-            this.repositionActivePopover();
+            if (!this.isDestroyed) this.repositionActivePopover();
         });
     }
 
@@ -2550,7 +2588,11 @@ export class ReaderApp {
         if (options.ignorePointerPosition) return false;
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-        if (target instanceof Element && this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+        if (target instanceof Element) {
+            if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+            if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+            if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+        }
         return this.isInsideNode(target, word);
     }
 
@@ -3279,6 +3321,11 @@ export class ReaderApp {
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
+        if (context.trigger === 'hover') {
+            this.preloadHoverWordAudio(word);
+            await this.showRenderedWordCard(card, context, options, stackOverSettings);
+            return;
+        }
         if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings)) return;
         this.preloadHoverWordAudio(word);
         await this.showRenderedWordCard(card, context, options, stackOverSettings);
@@ -3337,6 +3384,7 @@ export class ReaderApp {
             insideReaderPopup: context.insideReaderPopup,
             userGesture: options.userGesture,
             stackOverSettings,
+            skipInitialCardResolution: context.trigger === 'hover',
         });
     }
 
@@ -3606,7 +3654,7 @@ export class ReaderApp {
         const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
         const navigation = options.navigation ?? renderedWordNavigationMode(insideReaderPopup, trigger);
         return {
-            sentence: this.renderedWordSentence(word),
+            sentence: trigger === 'hover' ? this.renderedWordFastHoverSentence(word) : this.renderedWordSentence(word),
             anchor: renderedWordAnchor(word, insideReaderPopup, this.activePopoverAnchor),
             trigger,
             navigation,
@@ -3614,6 +3662,14 @@ export class ReaderApp {
             previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, insideReaderPopup, trigger, navigation),
             insideReaderPopup,
         };
+    }
+
+    private renderedWordFastHoverSentence(word: HTMLElement): string | undefined {
+        const immersionSentence = this.renderedImmersionExampleSentence(word);
+        if (immersionSentence) return immersionSentence;
+        const tokenSentence = normalizedLookupText(word.dataset.sentence || '');
+        if (tokenSentence) return tokenSentence;
+        return normalizedLookupText(renderedWordLookupText(word)) || undefined;
     }
 
     private renderedWordSentence(word: HTMLElement): string | undefined {
@@ -3741,7 +3797,7 @@ export class ReaderApp {
         const trigger = cardDisplayTrigger(options);
         const immediatePitch = trigger === 'modal';
         this.prioritizeQueuedPitchEnrichment(requestedCard, { immediate: immediatePitch });
-        card = await this.resolveLookupCardForInitialRender(card);
+        if (!options.skipInitialCardResolution) card = await this.resolveLookupCardForInitialRender(card);
         if (this.isDestroyed || typeof document === 'undefined') return;
         sentence = this.preferredCardSentence(sentence, anchor);
         if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
@@ -3758,14 +3814,18 @@ export class ReaderApp {
         const fallbackAnkiLookup = this.fallbackCardAnkiLookup();
         this.lastAnkiLookup = fallbackAnkiLookup;
         this.maybePreloadLookupCardAudio(card, options);
-        const renderData = this.cardRenderData.load(card);
+        let renderData: CardRenderDataLoad | undefined;
+        const loadRenderData = (): CardRenderDataLoad => {
+            renderData ??= this.cardRenderData.load(card);
+            return renderData;
+        };
+        if (trigger !== 'hover') loadRenderData();
         const requestId = ++this.cardRenderRequest;
 
         const mounted = await this.mountInitialCardShell(popover, card, sentence, anchor, {
             trigger,
             navigation,
             options,
-            renderData,
             fallbackAnkiLookup,
             anchor,
             requestId,
@@ -3778,14 +3838,15 @@ export class ReaderApp {
         }
 
         try {
+            renderData = loadRenderData();
             const renderState = { fullRenderCompleted: false };
-            this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard);
+            this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
 
             const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
             renderState.fullRenderCompleted = true;
             if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-            this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData);
-            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard);
+            this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
+            this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard, anchor);
         } finally {
             done();
         }
@@ -3862,7 +3923,6 @@ export class ReaderApp {
             trigger: 'modal' | 'hover';
             navigation: CardNavigationMode;
             options: CardDisplayOptions;
-            renderData: CardRenderDataLoad;
             fallbackAnkiLookup: AnkiLookupResult;
             anchor?: HTMLElement;
             requestId: number;
@@ -3980,6 +4040,7 @@ export class ReaderApp {
         mounted: MountedCardShell,
         renderState: { fullRenderCompleted: boolean },
         isCurrentHoverCard: () => boolean,
+        anchor?: HTMLElement,
     ): void {
         if (mounted.instantLocalEntries !== null) return;
         let localEntriesValue: YomitanTermEntry[] | null = null;
@@ -4021,7 +4082,7 @@ export class ReaderApp {
             void renderData.localMetaEntries.then(metaEntries => {
                 metaEntriesValue = metaEntries;
                 if (!canRenderLoading()) return;
-                this.updateDeferredCardHeader(popover, card, metaEntriesValue);
+                this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
             });
         }
         if (renderData.jpdbVocabularyInfo) {
@@ -4039,7 +4100,10 @@ export class ReaderApp {
         if (renderData.ankiLookup) {
             void renderData.ankiLookup.then(ankiLookup => {
                 this.lastAnkiLookup = ankiLookup;
-                this.applyAnkiLookupToRenderedWords(card, ankiLookup, { preserveExistingEmpty: trigger === 'hover' });
+                this.applyAnkiLookupToRenderedWords(card, ankiLookup, {
+                    preserveExistingEmpty: trigger === 'hover',
+                    roots: this.renderedWordUpdateRootsForCardRender(trigger, anchor),
+                });
                 renderLoading();
             });
         }
@@ -4049,12 +4113,18 @@ export class ReaderApp {
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             if (renderedPitchKey === card.pitchAccent.join('|')) return;
             renderedPitchKey = card.pitchAccent.join('|');
-            this.updateDeferredCardHeader(popover, card, metaEntriesValue);
+            this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
         });
     }
 
-    private updateDeferredCardHeader(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        this.applyPitchAccentToRenderedWords(card);
+    private updateDeferredCardHeader(
+        popover: HTMLElement,
+        card: JPDBCard,
+        metaEntries: YomitanMetaEntry[],
+        trigger: 'modal' | 'hover' = 'modal',
+        anchor?: HTMLElement,
+    ): void {
+        this.applyPitchAccentToRenderedWords(card, undefined, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
         this.updatePopoverWordPills(popover, card, metaEntries);
         this.updatePopoverPitch(popover, card, metaEntries);
         this.repositionActivePopover();
@@ -4081,10 +4151,15 @@ export class ReaderApp {
         sentence: string | undefined,
         trigger: 'modal' | 'hover',
         data: CardRenderData,
+        anchor?: HTMLElement,
     ): void {
         this.lastAnkiLookup = data.ankiLookup;
-        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, { preserveExistingEmpty: trigger === 'hover' });
-        this.applyPitchAccentToRenderedWords(card);
+        const renderedRoots = this.renderedWordUpdateRootsForCardRender(trigger, anchor);
+        this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, {
+            preserveExistingEmpty: trigger === 'hover',
+            roots: renderedRoots,
+        });
+        this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
@@ -4110,6 +4185,7 @@ export class ReaderApp {
         renderData: CardRenderDataLoad,
         requestId: number,
         isCurrentHoverCard: () => boolean,
+        anchor?: HTMLElement,
     ): void {
         if (!this.shouldRunAnkiBackgroundWork()) return;
         const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
@@ -4121,14 +4197,14 @@ export class ReaderApp {
                     const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
                     if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(data.ankiLookup) && !resolvesPendingMiss) return;
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
                 })
                 .catch(error => {
                     log.warn('Popup Anki detail failed', { term: card.spelling }, error);
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                     const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
                     if (!ankiLookup.primary) return;
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
+                    this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
                 });
         };
         if (trigger === 'hover') {
@@ -4136,6 +4212,14 @@ export class ReaderApp {
             return;
         }
         hydrate();
+    }
+
+    private renderedWordUpdateRootsForCardRender(trigger: 'modal' | 'hover', anchor?: HTMLElement): ParentNode[] {
+        if (trigger !== 'hover') return [document];
+        const word = anchor?.closest<HTMLElement>('.jpdb-reader-word');
+        if (word?.isConnected) return [word];
+        if (anchor?.isConnected) return [anchor];
+        return [document];
     }
 
     private preserveImmersionMountForRerender(popover: HTMLElement): HTMLElement | null {
@@ -5439,6 +5523,12 @@ export class ReaderApp {
         this.queueTermAudioPreloads(tokens);
     }
 
+    private preloadParsedTokens(tokens: JPDBToken[]): void {
+        if (!tokens.length) return;
+        this.parser.cacheCards?.(tokens.map(token => token.card));
+        this.preloadTermAudioForTokens(tokens);
+    }
+
     private queueTermAudioPreloads(tokens: JPDBToken[]): number {
         let queued = 0;
         for (const token of tokens) {
@@ -5478,9 +5568,9 @@ export class ReaderApp {
     private applyAnkiLookupToRenderedWords(
         card: JPDBCard,
         ankiLookup: AnkiLookupResult,
-        options: { preserveExistingEmpty?: boolean } = {},
+        options: { preserveExistingEmpty?: boolean; roots?: ParentNode[] } = {},
     ): void {
-        this.applyAnkiLookupMapToRenderedWords(new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), [document], options);
+        this.applyAnkiLookupMapToRenderedWords(new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), options.roots ?? [document], options);
     }
 
     private applyAnkiLookupsToRenderedWords(tokens: JPDBToken[], lookups: AnkiLookupResult[], roots: ParentNode[]): void {
@@ -5603,14 +5693,24 @@ export class ReaderApp {
         this.renderedWordIndexFullyScanned = false;
     }
 
-    private applyPitchAccentToRenderedWords(card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling)): void {
+    private applyPitchAccentToRenderedWords(
+        card: JPDBCard,
+        pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling),
+        roots: ParentNode[] = [document],
+    ): void {
         if (!pitchClass) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            document.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                setRenderedWordPitchClass(word, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
+            roots.forEach(root => {
+                if (root instanceof HTMLElement && root.matches(selector)) {
+                    setRenderedWordPitchClass(root, pitchClass);
+                    changedRoots.add(root);
+                }
+                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+                    setRenderedWordPitchClass(word, pitchClass);
+                    changedRoots.add(word.parentElement ?? word);
+                });
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
@@ -5899,6 +5999,10 @@ export class ReaderApp {
         this.installPopoverBodyStabilizers(popover);
         if (!popover.classList.contains('jpdb-reader-sheet')) {
             if (typeof ResizeObserver === 'function') {
+                // Hydration (deferred sections, anki, immersion) resizes the
+                // popover several times in quick succession; coalesce those into
+                // one reposition per frame so each hover doesn't trigger a burst
+                // of forced-layout reposition passes.
                 this.activePopoverResizeObserver = new ResizeObserver(() => this.repositionActivePopover());
                 this.activePopoverResizeObserver.observe(popover);
             }
@@ -5940,7 +6044,11 @@ export class ReaderApp {
     private repositionActivePopover(): void {
         const popover = this.repositionableActivePopover();
         if (!popover) return;
-        this.nativeTitleGuard.refresh(popover, this.activePopoverAnchor);
+        // Title suppression is set up once at mount (suppressForPopover) and its
+        // MutationObserver re-suppresses any titles added during hydration, so a
+        // full popover [title] re-scan on every reposition was redundant — and
+        // reposition fires repeatedly per hover (mount + ResizeObserver + rAF),
+        // so the repeated querySelectorAll showed up as hover latency.
         const scrollBody = this.popoverScrollBody(popover);
         const scrollTop = scrollBody.scrollTop;
         this.prepareActivePopoverForPositioning(popover);

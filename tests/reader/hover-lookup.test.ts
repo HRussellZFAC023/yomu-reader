@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { ReaderSettings } from '../../src/reader/app/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import {
     appendActivePopoverAndPageWord,
     appendActivePopoverBody,
@@ -16,6 +16,7 @@ interface HoverLookupInternals {
     activePopover?: HTMLElement;
     activePopoverMode?: 'modal' | 'hover';
     activeHoverWord?: HTMLElement;
+    parser: { cacheCards?(cards: JPDBCard[]): void };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
         pointerId: number;
@@ -33,10 +34,29 @@ interface HoverLookupInternals {
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
+    readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
     navigateLookupWord(direction: -1 | 1): Promise<void>;
     showWord(word: HTMLElement, options?: unknown): Promise<void>;
+    cardForRenderedWord(word: HTMLElement): JPDBCard | undefined;
+    rememberRenderedWordMiningContext(word: HTMLElement, card: JPDBCard, insideReaderPopup: boolean): void;
+    renderedWordDisplayContext(word: HTMLElement, options?: unknown, insideReaderPopup?: boolean): {
+        trigger: 'modal' | 'hover';
+        navigation: 'reset' | 'push' | 'replace';
+        anchor: HTMLElement;
+        sentence?: string;
+        hoverLookupKey?: string;
+        insideReaderPopup: boolean;
+        previousNavigationEntry?: unknown;
+    };
+    refreshActiveRenderedWordHover(word: HTMLElement, context: unknown): boolean;
+    isStaleRenderedWordHover(word: HTMLElement, context: unknown, hoverLookupGeneration?: number): boolean;
+    preloadHoverWordAudio(word: HTMLElement): void;
+    preloadParsedTokens(tokens: JPDBToken[]): void;
+    preloadTermAudioForTokens(tokens: JPDBToken[]): void;
+    showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
+    showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
     bindEvents(): void;
 }
 
@@ -55,6 +75,19 @@ const KEYBOARD_LOOKUP_RANGE_WORDS = [
     ...KEYBOARD_LOOKUP_WORDS,
     { vid: '3', sid: '3', sentence: '鳥を見る', text: '鳥' },
 ];
+const HOVER_LOOKUP_CARD: JPDBCard = {
+    vid: 1,
+    sid: 2,
+    rid: 3,
+    spelling: '読む',
+    reading: 'よむ',
+    frequencyRank: 100,
+    partOfSpeech: ['v5m'],
+    meanings: [],
+    cardState: ['known'],
+    pitchAccent: ['HL'],
+    wordWithReading: null,
+};
 
 function hoverPointerEvent(
     target: HTMLElement,
@@ -107,6 +140,50 @@ function readerWordFixture(sentence: string, text = sentence): HTMLElement {
     return word;
 }
 
+function passiveButtonWordFixture(): { button: HTMLButtonElement; overlay: HTMLElement; word: HTMLElement } {
+    const button = document.createElement('button');
+    button.innerHTML = `
+        <span class="ytAttributedStringHost">
+            <span class="jpdb-reader-word jpdb-reader-passive-word" data-vid="1" data-sid="2" data-sentence="もっと見る" data-jpdb-reader-passive="true">もっと</span>
+        </span>
+        <span class="ytSpecTouchFeedbackShapeFill"></span>
+    `;
+    const word = button.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    const overlay = button.querySelector<HTMLElement>('.ytSpecTouchFeedbackShapeFill')!;
+    Object.defineProperties(word, {
+        getClientRects: {
+            configurable: true,
+            value: () => [new DOMRect(20, 10, 56, 28)],
+        },
+        getBoundingClientRect: {
+            configurable: true,
+            value: () => new DOMRect(20, 10, 56, 28),
+        },
+    });
+    document.body.append(button);
+    return { button, overlay, word };
+}
+
+function subtitleRowHitStackFixture(): { row: HTMLElement; surface: HTMLElement; word: HTMLElement } {
+    const list = document.createElement('div');
+    list.className = 'jpdb-subtitle-list';
+    list.dataset.jpdbReaderRoot = 'true';
+    const row = document.createElement('div');
+    row.className = 'jpdb-subtitle-list-row';
+    const word = document.createElement('span');
+    word.className = 'jpdb-reader-word';
+    word.dataset.vid = '1';
+    word.dataset.sid = '2';
+    word.dataset.sentence = '今日は読む';
+    const surface = document.createElement('span');
+    surface.textContent = '読む';
+    word.append(surface);
+    row.append(word);
+    list.append(row);
+    document.body.append(list);
+    return { row, surface, word };
+}
+
 function stubElementFromPoint(element: Element): () => void {
     const originalElementFromPoint = document.elementFromPoint;
     Object.defineProperty(document, 'elementFromPoint', {
@@ -117,6 +194,20 @@ function stubElementFromPoint(element: Element): () => void {
         Object.defineProperty(document, 'elementFromPoint', {
             configurable: true,
             value: originalElementFromPoint,
+        });
+    };
+}
+
+function stubElementsFromPoint(elements: Element[]): () => void {
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: vi.fn(() => elements),
+    });
+    return () => {
+        Object.defineProperty(document, 'elementsFromPoint', {
+            configurable: true,
+            value: originalElementsFromPoint,
         });
     };
 }
@@ -430,6 +521,54 @@ describe('hover lookup', () => {
         }
     });
 
+    it('hovers passive words inside button feedback overlays without stealing button clicks', () => {
+        const app = new ReaderApp();
+        const { overlay, word } = passiveButtonWordFixture();
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const restoreElementFromPoint = stubElementFromPoint(overlay);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            hoverOpenDelayMs: 0,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(overlay));
+
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+        } finally {
+            restoreElementFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('uses browser hit testing before transcript geometry scans on hover', () => {
+        const app = new ReaderApp();
+        const { row, surface, word } = subtitleRowHitStackFixture();
+        const hoverLookup = setupHoverLookupSpies(app);
+        const readerWordFromRenderedGeometry = vi.fn(() => {
+            throw new Error('geometry fallback should not run');
+        });
+        const restoreElementsFromPoint = stubElementsFromPoint([surface, row]);
+
+        hoverLookup.internals.readerWordFromRenderedGeometry = readerWordFromRenderedGeometry;
+
+        try {
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(row));
+
+            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(word, expect.any(Event));
+            expect(readerWordFromRenderedGeometry).not.toHaveBeenCalled();
+            expect(hoverLookup.handlePointerTextHover).not.toHaveBeenCalled();
+        } finally {
+            restoreElementsFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('treats a clicked single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
@@ -596,6 +735,78 @@ describe('hover lookup', () => {
             expect(showWord).toHaveBeenCalledWith(nextWord, expect.objectContaining({ trigger: 'hover' }));
         } finally {
             restoreElementFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('paints rendered hover cards without waiting for alternate candidate enrichment', async () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const internals = app as unknown as HoverLookupInternals;
+        const showCard = vi.fn().mockResolvedValue(undefined);
+        const showAlternativeRenderedWordCandidate = vi.fn().mockResolvedValue(true);
+        const context = {
+            trigger: 'hover' as const,
+            navigation: 'reset' as const,
+            anchor: word,
+            sentence: '今日は読む',
+            hoverLookupKey: 'word:1',
+            insideReaderPopup: false,
+        };
+
+        internals.cardForRenderedWord = vi.fn(() => HOVER_LOOKUP_CARD);
+        internals.rememberRenderedWordMiningContext = vi.fn();
+        internals.renderedWordDisplayContext = vi.fn(() => context);
+        internals.refreshActiveRenderedWordHover = vi.fn(() => false);
+        internals.isStaleRenderedWordHover = vi.fn(() => false);
+        internals.preloadHoverWordAudio = vi.fn();
+        internals.showAlternativeRenderedWordCandidate = showAlternativeRenderedWordCandidate;
+        internals.showCard = showCard;
+
+        try {
+            await internals.showWord(word, { trigger: 'hover', hoverLookupGeneration: 42 });
+
+            expect(showAlternativeRenderedWordCandidate).not.toHaveBeenCalled();
+            expect(showCard).toHaveBeenCalledWith(
+                HOVER_LOOKUP_CARD,
+                '今日は読む',
+                word,
+                expect.objectContaining({
+                    trigger: 'hover',
+                    hoverLookupGeneration: 42,
+                    hoverLookupKey: 'word:1',
+                    skipInitialCardResolution: true,
+                }),
+            );
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('caches scanned token cards so rendered-word hover can stay on the fast path', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const cacheCards = vi.fn();
+        const token: JPDBToken = {
+            card: HOVER_LOOKUP_CARD,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
+        };
+        const originalParser = internals.parser;
+        internals.parser = { cacheCards };
+        internals.preloadTermAudioForTokens = vi.fn();
+
+        try {
+            internals.preloadParsedTokens([token]);
+
+            expect(cacheCards).toHaveBeenCalledWith([HOVER_LOOKUP_CARD]);
+            expect(internals.preloadTermAudioForTokens).toHaveBeenCalledWith([token]);
+        } finally {
+            internals.parser = originalParser;
             cleanupReaderApp(app);
         }
     });

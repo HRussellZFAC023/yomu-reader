@@ -111,6 +111,10 @@ export function allowsGenericVisibleAutoScan(): boolean {
     return !isYouTubeHostForAutoScan();
 }
 
+export function allowsFrequentVisibleAutoScan(): boolean {
+    return !isYouTubeHostForAutoScan();
+}
+
 function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
     return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
@@ -229,6 +233,7 @@ export interface CardDisplayOptions {
     insideReaderPopup?: boolean;
     userGesture?: boolean;
     stackOverSettings?: boolean;
+    skipInitialCardResolution?: boolean;
 }
 
 export type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration' | 'userGesture'>;

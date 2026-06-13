@@ -191,6 +191,8 @@ const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSo
 };
 const LEGACY_DEFAULT_ANKI_DECK_NAMES = new Set(['よむ', 'Yomu', 'yomu']);
 const LEGACY_DEFAULT_ANKI_MODEL_NAMES = new Set(['よむ Japanese', 'Yomu Japanese']);
+const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = 'Alt+ArrowLeft';
+const LEGACY_NEXT_SUBTITLE_SHORTCUT = 'Alt+ArrowRight';
 
 type LegacyReaderSettings = Partial<ReaderSettings> & { wordHighlightMode?: LegacyWordHighlightMode };
 
@@ -407,8 +409,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
         closePopup: 'Escape',
         previousLookupWord: 'Alt+Shift+ArrowLeft',
         nextLookupWord: 'Alt+Shift+ArrowRight',
-        previousSubtitle: 'Alt+ArrowLeft',
-        nextSubtitle: 'Alt+ArrowRight',
+        previousSubtitle: 'A',
+        nextSubtitle: 'D',
         copySubtitle: 'Alt+C',
         toggleOcr: 'Alt+O',
         toggleSubtitleOverlay: 'Shift+H',
@@ -600,7 +602,21 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
     if (value?.shortcuts && !hasOwn(value.shortcuts, 'hoverLookup')) {
         shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
     }
+    migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
+}
+
+function migrateLegacySubtitleLineShortcuts(
+    shortcuts: ReaderSettings['shortcuts'],
+    savedShortcuts: Partial<ReaderSettings['shortcuts']> | undefined,
+): void {
+    if (!savedShortcuts) return;
+    if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
+        shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
+    }
+    if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
+        shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
+    }
 }
 
 function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {

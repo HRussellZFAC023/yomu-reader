@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { contrastRatio } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme } from '../../src/reader/theme/reader-theme';
-import { refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
+import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
@@ -242,6 +242,30 @@ describe('reader theme', () => {
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
         expect(word.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('');
+    });
+
+    it('contrasts every sibling word and reuses the per-parent background computation', () => {
+        document.body.innerHTML = `
+            <div id="bg-wrap" style="background: rgb(20, 20, 20);">
+                <p style="color: rgb(255, 255, 255);">
+                    <span class="jpdb-reader-word" style="color: rgb(30, 30, 30);">読む</span>
+                    <span class="jpdb-reader-word" style="color: rgb(30, 30, 30);">本</span>
+                    <span class="jpdb-reader-word" style="color: rgb(30, 30, 30);">日</span>
+                </p>
+            </div>`;
+        const wrap = document.querySelector('#bg-wrap')!;
+        const spy = vi.spyOn(window, 'getComputedStyle');
+        refreshReaderWordContrast(document.body);
+        // The outer wrapper is only visited by pageBackgroundFor's ancestor
+        // walk (not the per-word contrast measurement). Memoizing per parent
+        // means the three sibling words trigger that walk once, not three times.
+        const wrapStyleReads = spy.mock.calls.filter(call => call[0] === wrap).length;
+        spy.mockRestore();
+        expect(wrapStyleReads).toBe(1);
+        // All three siblings still get an accessible color against the dark bg.
+        for (const word of document.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+            expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).not.toBe('');
+        }
     });
 
     it('falls back from unavailable JPDB color channels until an API key is available', () => {

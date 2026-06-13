@@ -207,6 +207,7 @@ export interface TextTarget {
     hasNativeRuby?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
+    singlePassScan?: boolean;
 }
 
 export interface TextFragment {
@@ -225,6 +226,7 @@ export interface FragmentTextTarget {
     parserId?: string;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
+    singlePassScan?: boolean;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;

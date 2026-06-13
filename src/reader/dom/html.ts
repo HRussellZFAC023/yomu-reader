@@ -1,3 +1,5 @@
+import { pageCompartmentValue } from '../platform/window-events';
+
 type TrustedTypesFactory = {
     createPolicy?: (name: string, options: { createHTML: (value: string) => string }) => { createHTML: (value: string) => unknown };
     getPolicy?: (name: string) => { createHTML: (value: string) => unknown } | null;
@@ -105,7 +107,20 @@ function createTrustedHtmlPolicy(factory: TrustedTypesFactory): { createHTML: (v
     try {
         const existing = factory.getPolicy?.('yomu-reader');
         if (existing && typeof existing.createHTML === 'function') return existing;
-        return factory.createPolicy?.('yomu-reader', { createHTML: html => html }) ?? null;
+        const options = { createHTML: (html: string) => html };
+        return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true }))
+            ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+        return null;
+    }
+}
+
+function createTrustedHtmlPolicyWithOptions(
+    factory: TrustedTypesFactory,
+    options: { createHTML: (value: string) => string },
+): { createHTML: (value: string) => unknown } | null {
+    try {
+        return factory.createPolicy?.('yomu-reader', options) ?? null;
     } catch {
         return null;
     }

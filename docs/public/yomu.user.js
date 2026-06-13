@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.192
+// @version      0.6.193
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WlPqpYldBw2ZdIsJHXLJKmcz1T6a2G/D1xrgdp5Gc7E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-I3UvR1tFoC4YNkLHuhOTUjCHhm/GZkR/Bp9sTbAZ8mA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2df4FXl+FuRxyl+1Az4f1D5jrw+Ird6t6Gle9nZdVaM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-MS48CYyNMtmv094m2zvku7Czcfh30KZI94QKQzbnh08=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-8w84W/MgaNglcmgi2Q+Z2sxw8qshE4aIdWeR/WLO2CE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-EkXGFrCKn5kayshkhEWZ34QpkmeEr7jgv2R/5hDuUN0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Q2/rr7bNZQfLKho6i+t9k3oxUFZ7CSvmo/OfOMKmP9U=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-K80cHeMthRfARgjzaPHdOpY2y7QbA20lgUIt6GS3k50=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -286,6 +286,258 @@
   };
   const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
   const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function cloneCustomEventDetail(detail) {
+    if (detail === void 0 || typeof window === "undefined") return detail;
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function removeWindowEventListener(type, listener, options) {
+    const target = window;
+    const directRemove = readMethod(target, "removeEventListener");
+    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function initialWindowMethod(key) {
+    if (typeof window === "undefined") return void 0;
+    return readMethod(window, key);
+  }
+  function dispatchWithPrototypeMethod(target, directDispatch, event) {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      const result = callEventTargetMethod(prototypeDispatch, target, event);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+      if (prototypeRemove === directRemove) continue;
+      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+    return methods;
+  }
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
+  }
+  function readProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callRemoveEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("removeEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key, descriptor) {
+    try {
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+    } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+  }
+  function pageCompartmentValue(value, options = {}) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto || typeof window === "undefined") return value;
+    try {
+      return cloneInto(value, window, options);
+    } catch {
+      return value;
+    }
+  }
+  function safeWindowPropertyDescriptor(key) {
+    try {
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key);
+    } catch {
+      return void 0;
+    }
+  }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
+    }
+  }
   let trustedHtmlPolicy;
   function setInnerHtml(element2, html) {
     if (!assignInnerHtml(element2, html)) element2.textContent = html;
@@ -352,7 +604,15 @@
     try {
       const existing = factory.getPolicy?.("yomu-reader");
       if (existing && typeof existing.createHTML === "function") return existing;
-      return factory.createPolicy?.("yomu-reader", { createHTML: (html) => html }) ?? null;
+      const options = { createHTML: (html) => html };
+      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+      return null;
+    }
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
     } catch {
       return null;
     }
@@ -1289,261 +1549,6 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
-  }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      return detail;
-    }
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key);
-  }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-    return methods;
-  }
-  function readMethod(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-    return readMethod(source, key);
-  }
-  function readProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key, descriptor) {
-    try {
-      const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
-  }
-  function pageCompartmentDescriptor(descriptor, _target) {
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return descriptor;
-    try {
-      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return descriptor;
-    }
-  }
-  function safeWindowPropertyDescriptor(key) {
-    try {
-      const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
-    }
-  }
   const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -2019,6 +2024,8 @@
   };
   const LEGACY_DEFAULT_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "Yomu", "yomu"]);
   const LEGACY_DEFAULT_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["よむ Japanese", "Yomu Japanese"]);
+  const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = "Alt+ArrowLeft";
+  const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
   const DEFAULT_SETTINGS = {
     apiKey: "",
     jitenApiKey: "",
@@ -2232,8 +2239,8 @@
       closePopup: "Escape",
       previousLookupWord: "Alt+Shift+ArrowLeft",
       nextLookupWord: "Alt+Shift+ArrowRight",
-      previousSubtitle: "Alt+ArrowLeft",
-      nextSubtitle: "Alt+ArrowRight",
+      previousSubtitle: "A",
+      nextSubtitle: "D",
       copySubtitle: "Alt+C",
       toggleOcr: "Alt+O",
       toggleSubtitleOverlay: "Shift+H",
@@ -2383,7 +2390,17 @@
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
+    migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
     return shortcuts;
+  }
+  function migrateLegacySubtitleLineShortcuts(shortcuts, savedShortcuts) {
+    if (!savedShortcuts) return;
+    if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
+      shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
+    }
+    if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
+      shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
+    }
   }
   function normalizeLookupSettings(value) {
     return {
@@ -17673,7 +17690,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function isEditableTarget(target) {
     const element2 = target instanceof Element ? target : null;
-    return Boolean(element2?.closest('input, textarea, select, [contenteditable="true"]'));
+    if (!element2) return false;
+    if (element2.closest("input, textarea, select")) return true;
+    const editable = element2.closest("[contenteditable]");
+    return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
   }
   async function copyText(text2) {
     if (navigator.clipboard?.writeText) {
@@ -25216,6 +25236,7 @@ ${spelling}`);
   const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
   const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 48;
   const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
+  const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
   const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
   const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
   const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
@@ -25323,7 +25344,7 @@ ${spelling}`);
       if (!container || container.dataset.immersionLazyBound === "true") return;
       container.dataset.immersionLazyBound = "true";
       const canLoad = () => this.canStartLazyLoad(popover, container);
-      const scheduleLoad = () => {
+      const scheduleLoad = (delayMs) => {
         if (!canLoad()) return;
         if (container.dataset.immersionLoadState === "scheduled") return;
         this.clearLazyLoadTimer(container);
@@ -25341,12 +25362,12 @@ ${spelling}`);
           }).catch(() => {
             if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
           });
-        }, IMMERSION_LAZY_LOAD_DELAY_MS);
+        }, delayMs);
         this.lazyLoadTimers.set(container, timer);
       };
       const maybeLoad = () => {
         if (!canLoad()) return;
-        if (isImmersionNearVisibleArea(popover, container)) scheduleLoad();
+        scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
       };
       const handleToggle = () => {
         if (!container.open) {
@@ -31360,6 +31381,7 @@ ${glossaryKey}`;
       allowUiText: true,
       includeUiChrome: true,
       passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
+      singlePassScan: true,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
     {
@@ -31575,9 +31597,13 @@ ${glossaryKey}`;
     return true;
   }
   function siteScanTargetWithProfileOptions(profile, target, options) {
-    const profiledTarget = !options.passiveInteraction ? { ...target, parserId: profile.id } : {
+    const baseTarget = {
       ...target,
       parserId: profile.id,
+      singlePassScan: profile.singlePassScan || void 0
+    };
+    const profiledTarget = !options.passiveInteraction ? baseTarget : {
+      ...baseTarget,
       passiveInteraction: true
     };
     const normalizedTarget = profile.plainScan ? plainScanTarget(profiledTarget) : profiledTarget;
@@ -31836,6 +31862,9 @@ ${glossaryKey}`;
     return (collectSiteScanTargets(1)?.length ?? 0) > 0;
   }
   function allowsGenericVisibleAutoScan() {
+    return !isYouTubeHostForAutoScan();
+  }
+  function allowsFrequentVisibleAutoScan() {
     return !isYouTubeHostForAutoScan();
   }
   function isYouTubeHostForAutoScan(hostname = location.hostname) {
@@ -32581,6 +32610,16 @@ ${glossaryKey}`;
   const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
   const TEXT_REVEAL_ATTRIBUTES = /* @__PURE__ */ new Set(["hidden", "open", "aria-hidden", "aria-expanded"]);
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const PAGE_TEXT_MUTATION_IGNORE_SELECTOR = [
+    "#movie_player",
+    ".html5-video-player",
+    ".ytp-caption-window-container",
+    ".caption-window",
+    ".ytp-chrome-top",
+    ".ytp-chrome-bottom",
+    ".ytp-tooltip",
+    ".ytp-popup"
+  ].join(",");
   const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     ".result.vocabulary",
     ".result.kanji",
@@ -32615,12 +32654,20 @@ ${glossaryKey}`;
     return mutationInsideClosest(mutation, READER_ROOT_SELECTOR);
   }
   function mutationMayContainJapaneseText(mutation) {
+    if (mutationInsidePageTextIgnoreSurface(mutation)) return false;
     if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
     if (mutation.type === "attributes") {
       if (!TEXT_REVEAL_ATTRIBUTES.has(mutation.attributeName ?? "")) return false;
       return nodeTextMayContainJapanese(mutation.target);
     }
     return Array.from(mutation.addedNodes).some(nodeTextMayContainJapanese);
+  }
+  function mutationInsidePageTextIgnoreSurface(mutation) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    return nodes.some((node) => Boolean(mutationNodeElement(node)?.closest(PAGE_TEXT_MUTATION_IGNORE_SELECTOR)));
   }
   function nodeTextMayContainJapanese(node) {
     if (node.nodeType === Node.TEXT_NODE) return HAS_JAPANESE.test(node.textContent ?? "");
@@ -33342,8 +33389,13 @@ ${glossaryKey}`;
     injectPagePreferenceScript(enabled);
   }
   function sameRealmUnsafeWindow() {
+    if (hasExtensionRuntime()) return void 0;
     const pageWindow = globalThis.unsafeWindow;
     return pageWindow && pageWindow === window ? pageWindow : void 0;
+  }
+  function hasExtensionRuntime() {
+    const root = globalThis;
+    return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
   }
   function injectPagePreferenceScript(enabled, attempt = 0) {
     const parent = document.head || document.documentElement;
@@ -33377,11 +33429,19 @@ ${glossaryKey}`;
       if (!factory) return code;
       let policy = factory.getPolicy?.("yomu-reader-script");
       if (!policy) {
-        policy = factory.createPolicy?.("yomu-reader-script", { createScript: (s) => s });
+        const options = { createScript: (s) => s };
+        policy = createTrustedScriptPolicy(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedScriptPolicy(factory, options);
       }
       return policy && typeof policy.createScript === "function" ? policy.createScript(code) : code;
     } catch {
       return code;
+    }
+  }
+  function createTrustedScriptPolicy(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader-script", options);
+    } catch {
+      return void 0;
     }
   }
   function injectedPagePreferenceSource(enabled) {
@@ -33390,6 +33450,7 @@ ${glossaryKey}`;
       `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
       `const preferenceState = ${preferenceState.toString()};`,
       `const rememberDescriptor = ${rememberDescriptor.toString()};`,
+      `const crossRealmDescriptor = ${crossRealmDescriptor.toString()};`,
       `const defineGetter = ${defineGetter.toString()};`,
       `const defineValue = ${defineValue.toString()};`,
       `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
@@ -33501,7 +33562,7 @@ ${glossaryKey}`;
     state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
       try {
-        if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, pageCompartmentDescriptor(snapshot.descriptor, snapshot.target));
+        if (snapshot.hadOwn && snapshot.descriptor) Object.defineProperty(snapshot.target, snapshot.key, crossRealmDescriptor(snapshot.descriptor, snapshot.target));
         else delete snapshot.target[snapshot.key];
       } catch {
       }
@@ -33629,11 +33690,18 @@ ${glossaryKey}`;
       descriptor
     });
   }
+  function crossRealmDescriptor(descriptor, target) {
+    try {
+      return typeof pageCompartmentDescriptor === "function" ? pageCompartmentDescriptor(descriptor, target) : descriptor;
+    } catch {
+      return descriptor;
+    }
+  }
   function defineGetter(state, target, key, getter) {
     if (!target) return;
     rememberDescriptor(state, target, key);
     try {
-      Object.defineProperty(target, key, pageCompartmentDescriptor({
+      Object.defineProperty(target, key, crossRealmDescriptor({
         configurable: true,
         get: getter
       }, target));
@@ -33648,7 +33716,7 @@ ${glossaryKey}`;
   function defineUntrackedValue(target, key, value) {
     if (!target) return;
     try {
-      Object.defineProperty(target, key, pageCompartmentDescriptor({
+      Object.defineProperty(target, key, crossRealmDescriptor({
         configurable: true,
         writable: true,
         value
@@ -34333,6 +34401,15 @@ ${glossaryKey}`;
     const activeBackgrounds = [];
     const unknownBackgroundWords = [];
     const neutralWords = [];
+    const backgroundByParent = /* @__PURE__ */ new Map();
+    const cachedPageBackgroundFor = (word) => {
+      const parent = word.parentElement;
+      if (!parent) return pageBackgroundFor(word);
+      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+      const background = pageBackgroundFor(word);
+      backgroundByParent.set(parent, background);
+      return background;
+    };
     for (const word of words) {
       const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
       const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
@@ -34358,7 +34435,7 @@ ${glossaryKey}`;
       if (isHovered) {
         scheduleHoverSettledContrastRefresh(word);
       }
-      const background = pageBackgroundFor(word);
+      const background = cachedPageBackgroundFor(word);
       if (!background) {
         if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
         unknownBackgroundWords.push(word);
@@ -35502,6 +35579,7 @@ ${glossaryKey}`;
   const log$1 = Logger.scope("VisiblePageScanner");
   const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
   const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
+  const VISIBLE_SCAN_TARGET_COLLECTION_LIMIT = 120;
   const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
   const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
@@ -35633,13 +35711,17 @@ ${glossaryKey}`;
     }
     async runVisiblePageScan(silent, generation) {
       if (this.isStaleScan(generation)) return;
-      const targets = collectScanTargets();
+      const targets = collectScanTargets(VISIBLE_SCAN_TARGET_COLLECTION_LIMIT);
       if (!targets.length) {
         this.handleEmptyVisiblePageScan(silent);
         return;
       }
-      await this.parseAndApplyTargets(targets, generation);
+      const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation);
       if (this.isStaleScan(generation)) return;
+      if (parsedAnyTokens && targets.length >= VISIBLE_SCAN_TARGET_COLLECTION_LIMIT && canContinueVisibleScan(targets)) {
+        this.queueContinuationScan(silent);
+        return;
+      }
       this.reportVisiblePageCoverage(silent);
     }
     isStaleScan(generation) {
@@ -35647,20 +35729,23 @@ ${glossaryKey}`;
     }
     async parseAndApplyTargets(targets, generation) {
       let cursor = 0;
+      let parsedAnyTokens = false;
       while (cursor < targets.length) {
-        if (this.isStaleScan(generation)) return;
+        if (this.isStaleScan(generation)) return parsedAnyTokens;
         const next = nextVisibleScanParseBatch(targets, cursor);
         cursor = next.cursor;
         if (!next.batch.length) continue;
         const batch = next.batch;
         const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-        if (this.isStaleScan(generation)) return;
+        if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
+        if (this.isStaleScan(generation)) return parsedAnyTokens;
         const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(parsed.flat()) : void 0;
         const changedRoots = await this.applyTokens(batch, parsed);
         applyAnkiColors?.(changedRoots);
         this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
         if (cursor < targets.length) await waitForVisibleScanTurn();
       }
+      return parsedAnyTokens;
     }
     async applyTokens(targets, parsed) {
       const allChangedRoots = /* @__PURE__ */ new Set();
@@ -35727,6 +35812,11 @@ ${glossaryKey}`;
       this.scanPendingSilent = true;
       void waitForVisibleScanTurn().then(() => this.scanVisiblePage({ silent }));
     }
+    queueContinuationScan(silent) {
+      if (this.destroyed) return;
+      this.scanPending = true;
+      this.scanPendingSilent = this.scanPendingSilent && silent;
+    }
   }
   function waitForVisibleScanTurn() {
     return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -35738,6 +35828,9 @@ ${glossaryKey}`;
       includeLocalPitch: false,
       allowSegmentedFallback: true
     };
+  }
+  function canContinueVisibleScan(targets) {
+    return targets.some((target) => !target.singlePassScan);
   }
   function visiblePageCoverageSummary() {
     const summary = {
@@ -35864,6 +35957,23 @@ ${glossaryKey}`;
   const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
   const HOST_THEME_ENFORCE_STEPS = 12;
   const HOST_THEME_ENFORCE_STEP_MS = 200;
+  const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
+    ".textBox",
+    ".ocr-line",
+    "p",
+    "li",
+    "blockquote",
+    "td",
+    "th",
+    "article",
+    "main",
+    "[data-jpdb-reader-root]",
+    "button",
+    "summary",
+    '[role="button"]',
+    '[role="tab"]',
+    '[role="menuitem"]'
+  ].join(",");
   function createNoopImageOcrController() {
     const noop2 = () => void 0;
     return {
@@ -36038,7 +36148,7 @@ ${glossaryKey}`;
       getSettings: () => this.settings,
       parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
-      preloadParsedTokens: (tokens) => this.preloadTermAudioForTokens(tokens),
+      preloadParsedTokens: (tokens) => this.preloadParsedTokens(tokens),
       enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
       beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
@@ -36716,7 +36826,7 @@ ${glossaryKey}`;
         if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true });
         if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
         else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
-        else if (canScanText && scanMutations.some(mutationMayContainJapaneseText)) {
+        else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
           this.pageHasJapaneseText = true;
           this.scheduleAutoScan(450);
         }
@@ -36727,8 +36837,12 @@ ${glossaryKey}`;
         }
       });
       this.observeAutoScanMutations();
-      window.addEventListener("scroll", () => this.scheduleAutoScan(160, { force: true }), { passive: true });
-      window.addEventListener("resize", () => this.scheduleAutoScan(250, { force: true }), { passive: true });
+      window.addEventListener("scroll", () => {
+        if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(160, { force: true });
+      }, { passive: true });
+      window.addEventListener("resize", () => {
+        if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(250, { force: true });
+      }, { passive: true });
       window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true });
       if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(600);
     }
@@ -37266,6 +37380,14 @@ ${glossaryKey}`;
       }
       return null;
     }
+    hoverReaderWordFromPointStack(x, y) {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const word = element2.closest?.(".jpdb-reader-word");
+        if (word && this.canHoverLookupReaderWord(word)) return word;
+      }
+      return null;
+    }
     preloadHoverWordAudio(word) {
       this.preloadReaderWordAudio(word, { sourceLimit: 1, candidateLimit: 1, prepareAudio: false });
       if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
@@ -37444,7 +37566,7 @@ ${glossaryKey}`;
       const target = event.target instanceof Element ? event.target : null;
       const direct = target?.closest?.(".jpdb-reader-word");
       if (direct) return direct;
-      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
     }
     ocrLineWordForPointer(target, x, y) {
       const line = target?.closest?.(".jpdb-ocr-line");
@@ -37452,11 +37574,11 @@ ${glossaryKey}`;
     }
     readerWordFromRenderedGeometry(target, x, y) {
       const scope = this.readerWordGeometryScope(target);
-      return scope ? readerWordAtPointInScope(scope, x, y, (word) => this.canLookupReaderWord(word)) : null;
+      return scope ? readerWordAtPointInScope(scope, x, y, (word) => this.canHoverLookupReaderWord(word)) : null;
     }
     readerWordGeometryScope(target) {
       if (!target) return null;
-      const scope = target.closest(".textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root]");
+      const scope = target.closest(HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR);
       return scope && scope.querySelector(".jpdb-reader-word") ? scope : null;
     }
     handlePointerTextHover(event) {
@@ -37616,10 +37738,15 @@ ${glossaryKey}`;
     }
     scheduleActivePopoverReposition() {
       if (this.activePopoverMode !== "hover" || !this.activePopover || this.activePopover.classList.contains("jpdb-reader-sheet")) return;
+      this.scheduleRepositionActivePopoverFrame();
+    }
+    // Coalesce reposition requests (ResizeObserver bursts during hydration,
+    // scroll) to at most one forced-layout reposition per animation frame.
+    scheduleRepositionActivePopoverFrame() {
       if (this.popoverRepositionFrame !== void 0) return;
       this.popoverRepositionFrame = window.requestAnimationFrame(() => {
         this.popoverRepositionFrame = void 0;
-        this.repositionActivePopover();
+        if (!this.isDestroyed) this.repositionActivePopover();
       });
     }
     scheduleHoverLookup(word, event) {
@@ -37788,7 +37915,11 @@ ${glossaryKey}`;
       if (options.ignorePointerPosition) return false;
       if (!this.lastPointerPosition) return false;
       const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-      if (target instanceof Element && this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+      if (target instanceof Element) {
+        if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+        if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+        if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+      }
       return this.isInsideNode(target, word);
     }
     hoverLookupKeyForWord(word) {
@@ -38324,6 +38455,11 @@ ${glossaryKey}`;
       const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
       if (this.refreshActiveRenderedWordHover(word, context)) return;
       if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
+      if (context.trigger === "hover") {
+        this.preloadHoverWordAudio(word);
+        await this.showRenderedWordCard(card, context, options, stackOverSettings);
+        return;
+      }
       if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings)) return;
       this.preloadHoverWordAudio(word);
       await this.showRenderedWordCard(card, context, options, stackOverSettings);
@@ -38364,7 +38500,8 @@ ${glossaryKey}`;
         hoverLookupGeneration: options.hoverLookupGeneration,
         insideReaderPopup: context.insideReaderPopup,
         userGesture: options.userGesture,
-        stackOverSettings
+        stackOverSettings,
+        skipInitialCardResolution: context.trigger === "hover"
       });
     }
     cardForRenderedWord(word) {
@@ -38548,7 +38685,7 @@ ${glossaryKey}`;
       const trigger = this.renderedWordTrigger(options.trigger, insideReaderPopup);
       const navigation = options.navigation ?? renderedWordNavigationMode(insideReaderPopup, trigger);
       return {
-        sentence: this.renderedWordSentence(word),
+        sentence: trigger === "hover" ? this.renderedWordFastHoverSentence(word) : this.renderedWordSentence(word),
         anchor: renderedWordAnchor(word, insideReaderPopup, this.activePopoverAnchor),
         trigger,
         navigation,
@@ -38556,6 +38693,13 @@ ${glossaryKey}`;
         previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, insideReaderPopup, trigger, navigation),
         insideReaderPopup
       };
+    }
+    renderedWordFastHoverSentence(word) {
+      const immersionSentence = this.renderedImmersionExampleSentence(word);
+      if (immersionSentence) return immersionSentence;
+      const tokenSentence = normalizedLookupText(word.dataset.sentence || "");
+      if (tokenSentence) return tokenSentence;
+      return normalizedLookupText(renderedWordLookupText(word)) || void 0;
     }
     renderedWordSentence(word) {
       const immersionSentence = this.renderedImmersionExampleSentence(word);
@@ -38644,7 +38788,7 @@ ${glossaryKey}`;
       const trigger = cardDisplayTrigger(options);
       const immediatePitch = trigger === "modal";
       this.prioritizeQueuedPitchEnrichment(requestedCard, { immediate: immediatePitch });
-      card = await this.resolveLookupCardForInitialRender(card);
+      if (!options.skipInitialCardResolution) card = await this.resolveLookupCardForInitialRender(card);
       if (this.isDestroyed || typeof document === "undefined") return;
       sentence = this.preferredCardSentence(sentence, anchor);
       if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
@@ -38661,13 +38805,17 @@ ${glossaryKey}`;
       const fallbackAnkiLookup = this.fallbackCardAnkiLookup();
       this.lastAnkiLookup = fallbackAnkiLookup;
       this.maybePreloadLookupCardAudio(card, options);
-      const renderData = this.cardRenderData.load(card);
+      let renderData;
+      const loadRenderData = () => {
+        renderData ??= this.cardRenderData.load(card);
+        return renderData;
+      };
+      if (trigger !== "hover") loadRenderData();
       const requestId = ++this.cardRenderRequest;
       const mounted = await this.mountInitialCardShell(popover, card, sentence, anchor, {
         trigger,
         navigation,
         options,
-        renderData,
         fallbackAnkiLookup,
         anchor,
         requestId,
@@ -38679,13 +38827,14 @@ ${glossaryKey}`;
         return;
       }
       try {
+        renderData = loadRenderData();
         const renderState = { fullRenderCompleted: false };
-        this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard);
+        this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
         const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
         renderState.fullRenderCompleted = true;
         if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
-        this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData);
-        this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard);
+        this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
+        this.renderHydratedCardAnkiLookup(popover, card, sentence, trigger, fullData, renderData, mounted.requestId, isCurrentHoverCard, anchor);
       } finally {
         done();
       }
@@ -38799,7 +38948,7 @@ ${glossaryKey}`;
     installLazyImmersionExamples(popover, card, options = {}) {
       if (this.settings.immersionKitEnabled) this.immersionPopover.installLazyLoad(popover, card, options);
     }
-    renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard) {
+    renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor) {
       if (mounted.instantLocalEntries !== null) return;
       let localEntriesValue = null;
       let metaEntriesValue = [];
@@ -38840,7 +38989,7 @@ ${glossaryKey}`;
         void renderData.localMetaEntries.then((metaEntries) => {
           metaEntriesValue = metaEntries;
           if (!canRenderLoading()) return;
-          this.updateDeferredCardHeader(popover, card, metaEntriesValue);
+          this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
         });
       }
       if (renderData.jpdbVocabularyInfo) {
@@ -38858,7 +39007,10 @@ ${glossaryKey}`;
       if (renderData.ankiLookup) {
         void renderData.ankiLookup.then((ankiLookup) => {
           this.lastAnkiLookup = ankiLookup;
-          this.applyAnkiLookupToRenderedWords(card, ankiLookup, { preserveExistingEmpty: trigger === "hover" });
+          this.applyAnkiLookupToRenderedWords(card, ankiLookup, {
+            preserveExistingEmpty: trigger === "hover",
+            roots: this.renderedWordUpdateRootsForCardRender(trigger, anchor)
+          });
           renderLoading();
         });
       }
@@ -38868,11 +39020,11 @@ ${glossaryKey}`;
         if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
         if (renderedPitchKey === card.pitchAccent.join("|")) return;
         renderedPitchKey = card.pitchAccent.join("|");
-        this.updateDeferredCardHeader(popover, card, metaEntriesValue);
+        this.updateDeferredCardHeader(popover, card, metaEntriesValue, trigger, anchor);
       });
     }
-    updateDeferredCardHeader(popover, card, metaEntries) {
-      this.applyPitchAccentToRenderedWords(card);
+    updateDeferredCardHeader(popover, card, metaEntries, trigger = "modal", anchor) {
+      this.applyPitchAccentToRenderedWords(card, void 0, this.renderedWordUpdateRootsForCardRender(trigger, anchor));
       this.updatePopoverWordPills(popover, card, metaEntries);
       this.updatePopoverPitch(popover, card, metaEntries);
       this.repositionActivePopover();
@@ -38890,10 +39042,14 @@ ${glossaryKey}`;
     updatePopoverPitch(popover, card, metaEntries) {
       updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
     }
-    renderCompletedCardPopover(popover, card, sentence, trigger, data) {
+    renderCompletedCardPopover(popover, card, sentence, trigger, data, anchor) {
       this.lastAnkiLookup = data.ankiLookup;
-      this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, { preserveExistingEmpty: trigger === "hover" });
-      this.applyPitchAccentToRenderedWords(card);
+      const renderedRoots = this.renderedWordUpdateRootsForCardRender(trigger, anchor);
+      this.applyAnkiLookupToRenderedWords(card, data.ankiLookup, {
+        preserveExistingEmpty: trigger === "hover",
+        roots: renderedRoots
+      });
+      this.applyPitchAccentToRenderedWords(card, void 0, renderedRoots);
       const preservedImmersion = this.preserveImmersionMountForRerender(popover);
       clearNestedParseState(popover);
       setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
@@ -38908,7 +39064,7 @@ ${glossaryKey}`;
       }
       this.studySources.installLoaders(popover, sentence);
     }
-    renderHydratedCardAnkiLookup(popover, card, sentence, trigger, data, renderData, requestId, isCurrentHoverCard) {
+    renderHydratedCardAnkiLookup(popover, card, sentence, trigger, data, renderData, requestId, isCurrentHoverCard, anchor) {
       if (!this.shouldRunAnkiBackgroundWork()) return;
       const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
       if (!hydrateAnkiLookup) return;
@@ -38918,13 +39074,13 @@ ${glossaryKey}`;
           const resolvesPendingMiss = data.ankiLookup.trusted === false && ankiLookup.trusted !== false;
           if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(data.ankiLookup) && !resolvesPendingMiss) return;
           if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
-          this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
+          this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
         }).catch((error) => {
           log.warn("Popup Anki detail failed", { term: card.spelling }, error);
           if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
           const ankiLookup = ankiLookupWithUnavailableDetails(data.ankiLookup);
           if (!ankiLookup.primary) return;
-          this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup });
+          this.renderCompletedCardPopover(popover, card, sentence, trigger, { ...data, ankiLookup }, anchor);
         });
       };
       if (trigger === "hover") {
@@ -38932,6 +39088,13 @@ ${glossaryKey}`;
         return;
       }
       hydrate();
+    }
+    renderedWordUpdateRootsForCardRender(trigger, anchor) {
+      if (trigger !== "hover") return [document];
+      const word = anchor?.closest(".jpdb-reader-word");
+      if (word?.isConnected) return [word];
+      if (anchor?.isConnected) return [anchor];
+      return [document];
     }
     preserveImmersionMountForRerender(popover) {
       const mount = popover.querySelector("[data-immersion-kit]");
@@ -40006,6 +40169,11 @@ ${glossaryKey}`;
       if (!this.canPreloadBackgroundReaderAudio()) return;
       this.queueTermAudioPreloads(tokens);
     }
+    preloadParsedTokens(tokens) {
+      if (!tokens.length) return;
+      this.parser.cacheCards?.(tokens.map((token) => token.card));
+      this.preloadTermAudioForTokens(tokens);
+    }
     queueTermAudioPreloads(tokens) {
       let queued = 0;
       for (const token of tokens) {
@@ -40038,7 +40206,7 @@ ${glossaryKey}`;
       return kanjiSourceLabel(this.settings, sourceId);
     }
     applyAnkiLookupToRenderedWords(card, ankiLookup, options = {}) {
-      this.applyAnkiLookupMapToRenderedWords(/* @__PURE__ */ new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), [document], options);
+      this.applyAnkiLookupMapToRenderedWords(/* @__PURE__ */ new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), options.roots ?? [document], options);
     }
     applyAnkiLookupsToRenderedWords(tokens, lookups, roots) {
       const lookupByWordKey = /* @__PURE__ */ new Map();
@@ -40141,14 +40309,20 @@ ${glossaryKey}`;
       this.renderedWordIndex.clear();
       this.renderedWordIndexFullyScanned = false;
     }
-    applyPitchAccentToRenderedWords(card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling)) {
+    applyPitchAccentToRenderedWords(card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling), roots = [document]) {
       if (!pitchClass) return;
       const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
       this.pauseAutoScanObserver(() => {
         const changedRoots = /* @__PURE__ */ new Set();
-        document.querySelectorAll(selector).forEach((word) => {
-          setRenderedWordPitchClass(word, pitchClass);
-          changedRoots.add(word.parentElement ?? word);
+        roots.forEach((root) => {
+          if (root instanceof HTMLElement && root.matches(selector)) {
+            setRenderedWordPitchClass(root, pitchClass);
+            changedRoots.add(root);
+          }
+          root.querySelectorAll(selector).forEach((word) => {
+            setRenderedWordPitchClass(word, pitchClass);
+            changedRoots.add(word.parentElement ?? word);
+          });
         });
         changedRoots.forEach((root) => refreshReaderWordContrast(root));
       });
@@ -40443,7 +40617,6 @@ ${glossaryKey}`;
     repositionActivePopover() {
       const popover = this.repositionableActivePopover();
       if (!popover) return;
-      this.nativeTitleGuard.refresh(popover, this.activePopoverAnchor);
       const scrollBody = this.popoverScrollBody(popover);
       const scrollTop = scrollBody.scrollTop;
       this.prepareActivePopoverForPositioning(popover);

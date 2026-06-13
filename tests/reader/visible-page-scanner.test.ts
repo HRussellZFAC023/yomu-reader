@@ -27,7 +27,7 @@ describe('VisiblePageScanner', () => {
     it('parses large page scans in batches so the first targets can render sooner', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
-        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => paragraphs.map(() => [] as JPDBToken[]));
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
         const pauseMutationObserver = vi.fn(callback => callback());
         const scanner = createVisiblePageScanner({
             parseJapanese,
@@ -36,11 +36,17 @@ describe('VisiblePageScanner', () => {
 
         try {
             await scanner.scanVisiblePage({ silent: true });
+            for (let waits = 0; waits < 200 && parseJapanese.mock.calls.length < 3; waits += 1) {
+                await new Promise(resolve => setTimeout(resolve, 5));
+            }
+            for (let waits = 0; waits < 200 && pauseMutationObserver.mock.calls.length < 5; waits += 1) {
+                await new Promise(resolve => setTimeout(resolve, 5));
+            }
 
             expect(parseJapanese.mock.calls.map(call => call[0])).toHaveLength(3);
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
-            expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(80);
-            expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(10);
+            expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(40);
+            expect(parseJapanese.mock.calls[2]?.[0]).toHaveLength(50);
             expect(parseJapanese.mock.calls[0]?.[1]).toEqual({
                 jpdbTimeoutMs: 450,
                 allowJpdbTimeoutFallback: true,
@@ -51,6 +57,34 @@ describe('VisiblePageScanner', () => {
             // whole parsed batch instead of arriving in 16-item waves.
             expect(pauseMutationObserver).toHaveBeenCalledTimes(5);
         } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not continue draining full YouTube page scans after the first pass', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-watch-metadata>
+                ${Array.from({ length: 170 }, (_, index) => `<button>日本語ボタン${index}</button>`).join('')}
+            </ytd-watch-metadata>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            expect(parseJapanese.mock.calls.map(call => call[0].length)).toEqual([80, 40]);
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -864,7 +898,7 @@ describe('abortable visible-work scheduling (P1)', () => {
             if (call === 1) {
                 return await new Promise<JPDBToken[][]>(resolve => { resolveFirst = () => resolve(paragraphs.map(() => [])); });
             }
-            return paragraphs.map(() => [] as JPDBToken[]);
+            return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
         });
         const scanner = createVisiblePageScanner({ parseJapanese });
 

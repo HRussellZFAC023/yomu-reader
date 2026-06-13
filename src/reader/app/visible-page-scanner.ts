@@ -10,6 +10,7 @@ const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 // Byte cap per parse batch (P1 abortable scheduler): a handful of huge
 // paragraphs would otherwise ride in one batch and stall the apply turn.
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6_000;
+const VISIBLE_SCAN_TARGET_COLLECTION_LIMIT = 120;
 // Large enough that the first apply paints everything just parsed in one go —
 // small chunks made ruby/colors arrive in visible waves.
 const VISIBLE_SCAN_APPLY_BATCH_SIZE = 48;
@@ -204,14 +205,18 @@ export class VisiblePageScanner {
 
     private async runVisiblePageScan(silent: boolean, generation: number): Promise<void> {
         if (this.isStaleScan(generation)) return;
-        const targets = collectScanTargets();
+        const targets = collectScanTargets(VISIBLE_SCAN_TARGET_COLLECTION_LIMIT);
         if (!targets.length) {
             this.handleEmptyVisiblePageScan(silent);
             return;
         }
 
-        await this.parseAndApplyTargets(targets, generation);
+        const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation);
         if (this.isStaleScan(generation)) return;
+        if (parsedAnyTokens && targets.length >= VISIBLE_SCAN_TARGET_COLLECTION_LIMIT && canContinueVisibleScan(targets)) {
+            this.queueContinuationScan(silent);
+            return;
+        }
         this.reportVisiblePageCoverage(silent);
     }
 
@@ -219,16 +224,18 @@ export class VisiblePageScanner {
         return this.destroyed || generation !== this.scanGeneration;
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number): Promise<void> {
+    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number): Promise<boolean> {
         let cursor = 0;
+        let parsedAnyTokens = false;
         while (cursor < targets.length) {
-            if (this.isStaleScan(generation)) return;
+            if (this.isStaleScan(generation)) return parsedAnyTokens;
             const next = nextVisibleScanParseBatch(targets, cursor);
             cursor = next.cursor;
             if (!next.batch.length) continue;
             const batch = next.batch;
             const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-            if (this.isStaleScan(generation)) return;
+            if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
+            if (this.isStaleScan(generation)) return parsedAnyTokens;
             // Kick the status-color lookup off before touching the DOM so the
             // IndexedDB roundtrip overlaps the apply work.
             const applyAnkiColors = this.shouldEnrichAnkiWords()
@@ -239,6 +246,7 @@ export class VisiblePageScanner {
             this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
+        return parsedAnyTokens;
     }
 
     private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][]): Promise<ParentNode[]> {
@@ -314,6 +322,12 @@ export class VisiblePageScanner {
         this.scanPendingSilent = true;
         void waitForVisibleScanTurn().then(() => this.scanVisiblePage({ silent }));
     }
+
+    private queueContinuationScan(silent: boolean): void {
+        if (this.destroyed) return;
+        this.scanPending = true;
+        this.scanPendingSilent = this.scanPendingSilent && silent;
+    }
 }
 
 function waitForVisibleScanTurn(): Promise<void> {
@@ -327,6 +341,10 @@ function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] 
         includeLocalPitch: false,
         allowSegmentedFallback: true,
     };
+}
+
+function canContinueVisibleScan(targets: ScanTextTarget[]): boolean {
+    return targets.some(target => !target.singlePassScan);
 }
 
 function visiblePageCoverageSummary(): VisiblePageCoverageSummary {

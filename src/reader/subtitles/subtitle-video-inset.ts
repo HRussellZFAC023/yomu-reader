@@ -2,6 +2,7 @@ import { createWindowEvent, dispatchWindowEvent } from '../platform/window-event
 import { setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
+export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'settled';
 
 export interface ApplySubtitleVideoInsetOptions {
     video?: HTMLVideoElement;
@@ -10,6 +11,7 @@ export interface ApplySubtitleVideoInsetOptions {
     panelSize: number;
     videoRect: DOMRect;
     margin: number;
+    resizeEventMode?: SubtitleVideoInsetResizeEventMode;
 }
 
 export class SubtitleVideoInsetAdapter {
@@ -44,7 +46,7 @@ export class SubtitleVideoInsetAdapter {
         applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
         applyGenericVideoInsetIfNeeded(options, metrics);
         resizeYouTubePlayer(metrics.width, metrics.height);
-        dispatchVideoLayoutResize();
+        dispatchVideoLayoutResize(options.resizeEventMode ?? 'immediate');
         return true;
     }
 
@@ -278,9 +280,12 @@ function applyBottomYouTubePlayerContainerInset(element: HTMLElement, height: nu
 }
 
 function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclude<SubtitleVideoInsetSide, 'bottom'>, width: number, inset: number): void {
-    const rect = element.getBoundingClientRect();
-    const baseRect = youtubePlayerContainerBaseRects.get(element) ?? { left: rect.left, right: rect.right };
-    if (!youtubePlayerContainerBaseRects.has(element)) youtubePlayerContainerBaseRects.set(element, baseRect);
+    let baseRect = youtubePlayerContainerBaseRects.get(element);
+    if (!baseRect) {
+        const rect = element.getBoundingClientRect();
+        baseRect = { left: rect.left, right: rect.right };
+        youtubePlayerContainerBaseRects.set(element, baseRect);
+    }
     const widthValue = `${width}px`;
     setStylePropertyIfChanged(element, 'width', widthValue);
     setStylePropertyIfChanged(element, 'max-width', widthValue);
@@ -362,8 +367,8 @@ function youtubeResizeSignature(width: number, height: number): string {
 // response to viewport resize, not from a style mutation. Dispatch a resize
 // (now and after layout settles) so the player re-fits the video to the box we
 // just changed — the same recompute that entering/exiting fullscreen forces.
-function dispatchVideoLayoutResize(): void {
-    dispatchWindowEvent(createWindowEvent('resize'));
+function dispatchVideoLayoutResize(mode: SubtitleVideoInsetResizeEventMode = 'immediate'): void {
+    if (mode === 'immediate') dispatchWindowEvent(createWindowEvent('resize'));
     if (pendingVideoLayoutResize !== undefined) window.clearTimeout(pendingVideoLayoutResize);
     pendingVideoLayoutResize = window.setTimeout(() => {
         pendingVideoLayoutResize = undefined;

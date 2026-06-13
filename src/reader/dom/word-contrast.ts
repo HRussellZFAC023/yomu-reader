@@ -45,6 +45,19 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
     const activeBackgrounds: PageBackground[] = [];
     const unknownBackgroundWords: HTMLElement[] = [];
     const neutralWords: HTMLElement[] = [];
+    // pageBackgroundFor walks the word's ancestors calling getComputedStyle on
+    // each — identical for every word under the same parent. Memoize per parent
+    // for this pass so a paragraph of N words costs one ancestor walk, not N
+    // (this was a dominant cost when hovering words in dense text).
+    const backgroundByParent = new Map<Element, PageBackground | null>();
+    const cachedPageBackgroundFor = (word: HTMLElement): PageBackground | null => {
+        const parent = word.parentElement;
+        if (!parent) return pageBackgroundFor(word);
+        if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+        const background = pageBackgroundFor(word);
+        backgroundByParent.set(parent, background);
+        return background;
+    };
 
     for (const word of words) {
         const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue('--jpdb-reader-word-accessible-color'));
@@ -71,7 +84,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
         if (isHovered) {
             scheduleHoverSettledContrastRefresh(word);
         }
-        const background = pageBackgroundFor(word);
+        const background = cachedPageBackgroundFor(word);
         if (!background) {
             if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
             unknownBackgroundWords.push(word);
