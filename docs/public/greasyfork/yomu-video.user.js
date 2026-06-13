@@ -2190,7 +2190,7 @@
       popoverHeightFixed: "Use height setting",
       readerFontFamily: "Reader interface font",
       popupFontFamily: "Popup Japanese font",
-      fontPresetYomuDefault: "Yomu default",
+      fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
       fontPresetJapaneseSerif: "Japanese serif",
@@ -2234,13 +2234,6 @@
       newTabUrl: "Study address",
       newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
       newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
-      studyKeysTitle: "Study page keys",
-      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
-      studyKeyReveal: "Reveal the current card",
-      studyKeyGrades: "Grade the revealed card (buttons in order)",
-      studyKeyUndo: "Undo the last review",
-      studyKeyPrevious: "Previous card (undoes right after grading)",
-      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -2276,25 +2269,20 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
-      appearancePresetCustom: "Custom / current",
-      appearancePresetDefault: "Yomu default",
-      appearancePresetNoColors: "Don't color words",
-      appearancePresetNewOnly: "Only color new words",
-      appearancePresetUnderlineNew: "Underline new words only",
-      appearancePresetFuriAll: "Show all furigana",
-      appearancePresetFuriKnownHidden: "Hide furigana you know",
-      appearancePresetFuriHover: "Furigana on hover only",
-      appearancePresetFuriOff: "No furigana",
-      wordColorStatesAll: "All card states",
-      wordColorStatesNewOnly: "Only new words",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide for chosen states",
-      furiganaHoverOnly: "Show on hover only",
-      furiganaAllParsed: "All parsed words",
+      appearancePresetCustom: "Keep current custom settings",
+      appearancePresetBalanced: "Balanced reading",
+      appearancePresetNoColors: "Plain text",
+      appearancePresetNewOnly: "Focus on new words",
+      appearancePresetUnderlineNew: "Minimal highlights",
+      wordColorStatesAll: "Use all learning states",
+      wordColorStatesNewOnly: "Only new / not-in-deck words",
+      furiganaDifficultKanji: "Hard kanji only",
+      furiganaHideKnown: "Hide familiar words",
+      furiganaHoverOnly: "Show on hover",
+      furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
@@ -2479,6 +2467,7 @@
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (s)",
       subtitlePreview: "Live subtitle preview",
+      preview: "Preview",
       youtubeImmersionEnabled: "Japanese YouTube only",
       preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
@@ -2756,6 +2745,13 @@
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
+      studyReveal: "Study: reveal card",
+      studyRevealAlternate: "Study: reveal card (alternate)",
+      studyUndo: "Study: undo last review",
+      studyPrevious: "Study: previous card",
+      studyPreviousAlternate: "Study: previous card (alternate)",
+      studyNext: "Study: next card",
+      studyNextAlternate: "Study: next card (alternate)",
       massReviewNoWords: "No due Jiten words on screen.",
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
@@ -3325,6 +3321,13 @@ gradeOkay	採点: OK
 gradeEasy	採点: 簡単
 gradeFail	合否: 失敗
 gradePass	合否: 合格
+studyReveal	学習: カードを表示
+studyRevealAlternate	学習: カードを表示（代替）
+studyUndo	学習: 直前のレビューを取り消す
+studyPrevious	学習: 前のカード
+studyPreviousAlternate	学習: 前のカード（代替）
+studyNext	学習: 次のカード
+studyNextAlternate	学習: 次のカード（代替）
 factKeyword	キーワード
 factType	種類
 factFrequency	頻度
@@ -3692,7 +3695,7 @@ popoverHeightAvailable	空き領域まで広げる
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
 popupFontFamily	ポップアップの日本語フォント
-fontPresetYomuDefault	よむ既定
+fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
 fontPresetJapaneseSerif	日本語明朝
@@ -3736,13 +3739,6 @@ newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
 newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
-studyKeysTitle	学習ページのキー
-studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
-studyKeyReveal	現在のカードを表示
-studyKeyGrades	表示したカードを採点（ボタンの順）
-studyKeyUndo	直前のレビューを取り消す
-studyKeyPrevious	前のカード（採点直後は取り消し）
-studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -3778,25 +3774,20 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
-appearancePresetCustom	カスタム／現在の設定
-appearancePresetDefault	Yomu標準
-appearancePresetNoColors	単語に色を付けない
-appearancePresetNewOnly	新規単語のみ色付け
-appearancePresetUnderlineNew	新規単語に下線のみ
-appearancePresetFuriAll	ふりがなを全て表示
-appearancePresetFuriKnownHidden	既知のふりがなを非表示
-appearancePresetFuriHover	ホバー時のみふりがな
-appearancePresetFuriOff	ふりがななし
-wordColorStatesAll	全てのカード状態
-wordColorStatesNewOnly	新規単語のみ
+appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetBalanced	読みやすいバランス
+appearancePresetNoColors	プレーンテキスト
+appearancePresetNewOnly	新規単語に集中
+appearancePresetUnderlineNew	控えめなハイライト
+wordColorStatesAll	すべての学習状態
+wordColorStatesNewOnly	新規・未追加のみ
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	選択した状態で非表示
-furiganaHoverOnly	ホバー時のみ表示
-furiganaAllParsed	解析済みの全単語
+furiganaHideKnown	なじみのある語を非表示
+furiganaHoverOnly	ホバー時に表示
+furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
@@ -3956,6 +3947,7 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
+preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
@@ -5372,6 +5364,8 @@ ${candidate.depth}`;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
   Logger.scope("ReaderParser");
   function normalizeFallbackTerm(text) {
     return text.replace(/\s+/g, " ").trim().slice(0, 80);
@@ -5400,7 +5394,40 @@ ${candidate.depth}`;
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
-    return mergeInflectedFallbackSegments(segments);
+    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first = segments[startIndex];
+    if (!first) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
   }
   function mergeInflectedFallbackSegments(segments) {
     const merged = [];
@@ -9752,12 +9779,18 @@ ${spelling}`);
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state);
+    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
-  function applyGenericNativeTrackModes(state) {
+  function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
     for (const option of state.tracks) {
-      if (option.track && isSelectedSubtitleTrack(option, state)) ensureTextTrackReadable(option.track);
+      if (!option.track) continue;
+      if (isSelectedSubtitleTrack(option, state)) {
+        if (yomuCaptionsActive) option.track.mode = "hidden";
+        else ensureTextTrackReadable(option.track);
+        continue;
+      }
+      if (yomuCaptionsActive) option.track.mode = "disabled";
     }
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
@@ -10818,6 +10851,10 @@ ${spelling}`);
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
       this.root.classList.toggle("jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
+      if (!this.video) {
+        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
+        this.root.classList.add("jpdb-subtitle-video-out-of-view");
+      }
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
     }
     syncRootStyleSettings(settings) {
@@ -11268,8 +11305,10 @@ ${spelling}`);
       if (cues.length && cues.length !== currentLength) assign(cues);
     }
     alignToVideo() {
-      if (!this.root || !this.video) {
-        this.root?.classList.remove("jpdb-subtitle-video-out-of-view");
+      if (!this.root) return;
+      if (!this.video) {
+        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
+        this.root.classList.add("jpdb-subtitle-video-out-of-view");
         this.positionTranscriptPanel();
         return;
       }
@@ -11280,7 +11319,9 @@ ${spelling}`);
       if (!this.root) return;
       const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
       this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
+      this.root.classList.toggle("jpdb-subtitle-has-video-frame", videoVisible);
       if (!videoVisible) {
+        this.root.classList.remove("jpdb-subtitle-compact-video");
         this.clearVideoInsetForTranscriptPanel();
         return;
       }

@@ -2,6 +2,7 @@ import type { ReaderColorSource } from '../app/types';
 
 export interface SettingsFormReader {
     get: (key: string) => string;
+    getAll: (key: string) => string[];
     has: (key: string) => boolean;
     number: (key: string, fallback: number) => number;
     clamped: (key: string, min: number, max: number, fallback: number) => number;
@@ -13,9 +14,11 @@ export function createSettingsFormReader(
     colorSource: SettingsFormReader['colorSource'],
 ): SettingsFormReader {
     const get = (key: string) => String(data.get(key) ?? '');
+    const getAll = (key: string) => data.getAll(key).map(value => String(value));
     const number = (key: string, fallback: number) => readNumber(get(key), fallback);
     return {
         get,
+        getAll,
         has: key => data.has(key),
         number,
         clamped: (key, min, max, fallback) => Math.max(min, Math.min(max, number(key, fallback))),

@@ -60,9 +60,11 @@ import { formatLookupUrl } from '../dictionaries/display';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
+import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { speakerIcon } from '../ui/icons';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
+import { matchesShortcut } from '../settings';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
@@ -1140,8 +1142,8 @@ export class NewTabController {
 
         // Study shortcuts listen at document level: focus sits on body after
         // load and falls back there after every re-render (button clicks
-        // replace the controls), so a root-scoped listener left Space/digit
-        // grading dead most of the time. This page is always Yomu's own
+        // replace the controls), so a root-scoped listener left keyboard
+        // reviewing dead most of the time. This page is always Yomu's own
         // (renderPage gates on isYomuNewTabUrl), and input/search/settings
         // targets are filtered in handleRootKeydown.
         document.addEventListener('keydown', event => this.handleRootKeydown(root, event), { signal: controller.signal });
@@ -1199,6 +1201,7 @@ export class NewTabController {
     }
 
     private handleRootKeydown(root: HTMLElement, event: KeyboardEvent): void {
+        if (!root.isConnected) return;
         const target = eventTargetElement(event.target);
         if (this.shouldIgnoreRootKeydown(root)) return;
         if (this.handleImmersionTranslationKeydown(root, event, target)) return;
@@ -1229,13 +1232,14 @@ export class NewTabController {
 
     private handleStudyKeydown(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null): void {
         if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-        const direction = newTabKeyNavigationDirection(event.key);
+        const settings = this.dependencies.getSettings();
+        const direction = this.studyNavigationDirection(event, settings);
         if (direction) {
             event.preventDefault();
             this.showWordInDirection(direction);
             return;
         }
-        if (isNewTabSpaceRevealKey(event.key) || (isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target))) {
+        if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
             event.preventDefault();
             this.dismissKeyHints(root);
             this.toggleReveal(root);
@@ -1243,13 +1247,32 @@ export class NewTabController {
         }
         // UT-40: U undoes the last review where an undo affordance exists
         // (jpdb.io parity for keyboard-only reviewing).
-        if ((event.key === 'u' || event.key === 'U') && !event.metaKey && !event.ctrlKey && !event.altKey && this.canUndoLastReview()) {
+        if (matchesShortcut(event, settings.shortcuts.studyUndo) && this.canUndoLastReview()) {
             event.preventDefault();
             this.dismissKeyHints(root);
             void this.undoLastReview(root);
             return;
         }
-        this.handleGradeDigitKeydown(root, event);
+        this.handleGradeShortcutKeydown(root, event, settings);
+    }
+
+    private studyNavigationDirection(event: KeyboardEvent, settings: ReaderSettings): PointerNavigationDirection | null {
+        if (this.matchesAnyStudyShortcut(event, settings, ['studyNext', 'studyNextAlternate'])) return 'next';
+        if (this.matchesAnyStudyShortcut(event, settings, ['studyPrevious', 'studyPreviousAlternate'])) return 'previous';
+        return null;
+    }
+
+    private matchesStudyRevealShortcut(root: HTMLElement, event: KeyboardEvent, target: HTMLElement | null, settings: ReaderSettings): boolean {
+        if (!this.matchesAnyStudyShortcut(event, settings, ['studyReveal', 'studyRevealAlternate'])) return false;
+        return !isNewTabEnterRevealKey(event.key) || this.canRevealFromEnterTarget(root, target);
+    }
+
+    private matchesAnyStudyShortcut(
+        event: KeyboardEvent,
+        settings: ReaderSettings,
+        names: Array<keyof ReaderSettings['shortcuts']>,
+    ): boolean {
+        return names.some(name => matchesShortcut(event, settings.shortcuts[name]));
     }
 
     // UT-34: inline kbd hints exist only until the user proves they know the
@@ -1266,14 +1289,14 @@ export class NewTabController {
         root.classList.toggle('jpdb-reader-newtab-key-hints-dismissed', this.state.keyHintsDismissed);
     }
 
-    // jpdb.io parity (SH-8): on a revealed card, digits 1..5 press the grade
-    // buttons in their rendered order — 1=Nothing … 5=Easy on JPDB-shaped
-    // bars, 1=Fail 2=Pass on two-button bars.
-    private handleGradeDigitKeydown(root: HTMLElement, event: KeyboardEvent): void {
-        if (!this.state.revealAnswer || event.metaKey || event.ctrlKey || event.altKey) return;
-        if (!/^[1-9]$/.test(event.key)) return;
-        const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-study] [data-newtab-action="grade"]:not([disabled])'));
-        const button = buttons[Number(event.key) - 1];
+    private handleGradeShortcutKeydown(root: HTMLElement, event: KeyboardEvent, settings: ReaderSettings): void {
+        if (!this.state.revealAnswer) return;
+        const candidates = settings.twoButtonReviews
+            ? TWO_BUTTON_REVIEW_SHORTCUTS
+            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
+        if (!grade) return;
+        const button = root.querySelector<HTMLButtonElement>(`[data-newtab-study] [data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
         if (!button) return;
         event.preventDefault();
         this.dismissKeyHints(root);
@@ -6905,10 +6928,11 @@ export class NewTabController {
     }
 
     private navigationControlButtons(revealLabel: string): HTMLElement[] {
+        const revealShortcut = this.studyShortcutHint(['studyReveal', 'studyRevealAlternate']);
         return [
             el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
             el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel,
-                newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, 'Space') : null),
+                revealShortcut && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, revealShortcut) : null),
             el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
         ];
     }
@@ -6921,12 +6945,26 @@ export class NewTabController {
             bothLabel: this.text('gradeTargetBoth'),
             grades: newTabGradeOptions(this.dependencies.getSettings()),
             intervals: card.reviewGradeIntervals,
+            keyHints: this.studyGradeShortcutHints(),
             selectorLabel: this.text('gradeTargetSelector'),
             selectedOption: targetOptions[0],
             summary: this.reviewSourceSummary(card),
             targetLabel,
             targetOptions,
         });
+    }
+
+    private studyGradeShortcutHints(): Partial<Record<JPDBGrade, string>> {
+        const settings = this.dependencies.getSettings();
+        const candidates = settings.twoButtonReviews
+            ? TWO_BUTTON_REVIEW_SHORTCUTS
+            : FIVE_BUTTON_REVIEW_SHORTCUTS;
+        return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
+    }
+
+    private studyShortcutHint(names: Array<keyof ReaderSettings['shortcuts']>): string {
+        const shortcuts = this.dependencies.getSettings().shortcuts;
+        return names.map(name => shortcuts[name].trim()).find(Boolean) ?? '';
     }
 
     private mainGradeTargetOptions(card: JPDBCard) {
@@ -8133,12 +8171,6 @@ function isNewTabSpaceRevealKey(key: string): boolean {
 
 function isNewTabEnterRevealKey(key: string): boolean {
     return key === 'Enter';
-}
-
-function newTabKeyNavigationDirection(key: string): PointerNavigationDirection | null {
-    if (key === 'ArrowRight' || key === 'n') return 'next';
-    if (key === 'ArrowLeft' || key === 'p') return 'previous';
-    return null;
 }
 
 function pointerPointFromEvent(event: MouseEvent): PointerPoint | null {

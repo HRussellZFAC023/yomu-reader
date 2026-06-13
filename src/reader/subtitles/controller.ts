@@ -607,6 +607,10 @@ export class SubtitlePlayerController {
         this.root.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         this.root.classList.toggle('jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         this.root.classList.toggle('jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
+        if (!this.video) {
+            this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
+            this.root.classList.add('jpdb-subtitle-video-out-of-view');
+        }
         this.transcriptPanel?.classList.toggle('jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
     }
 
@@ -1140,8 +1144,10 @@ export class SubtitlePlayerController {
     }
 
     private alignToVideo(): void {
-        if (!this.root || !this.video) {
-            this.root?.classList.remove('jpdb-subtitle-video-out-of-view');
+        if (!this.root) return;
+        if (!this.video) {
+            this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
+            this.root.classList.add('jpdb-subtitle-video-out-of-view');
             this.positionTranscriptPanel();
             return;
         }
@@ -1155,7 +1161,9 @@ export class SubtitlePlayerController {
             && (!this.video || isSubtitleVideoElementRenderable(this.video))
             && this.videoHasPlayerAffordances();
         this.root.classList.toggle('jpdb-subtitle-video-out-of-view', !videoVisible);
+        this.root.classList.toggle('jpdb-subtitle-has-video-frame', videoVisible);
         if (!videoVisible) {
+            this.root.classList.remove('jpdb-subtitle-compact-video');
             this.clearVideoInsetForTranscriptPanel();
             return;
         }

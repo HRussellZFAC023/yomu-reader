@@ -26,6 +26,10 @@ const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
 const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+const SEGMENTER_COMPOUND_OVERRIDES = new Set(['巨乳']);
+const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES)
+    .reduce((max, value) => Math.max(max, value.length), 0);
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
@@ -77,7 +81,8 @@ export class ReaderParser {
             localFallback: settings.localDictionariesEnabled,
         });
         try {
-            return await this.parseWithPreferredSource(paragraphs, options, settings);
+            const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
+            return this.withNormalizedMetricParseResult(paragraphs, parsed);
         } finally {
             done();
         }
@@ -369,6 +374,57 @@ export class ReaderParser {
         return promise;
     }
 
+    private withNormalizedMetricTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
+        if (!text.includes('回視聴')) return tokens;
+        const replacements: JPDBToken[] = [];
+        const replacementRanges: Array<{ start: number; end: number }> = [];
+        for (const match of text.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+            const start = match.index ?? -1;
+            if (start < 0) continue;
+            const end = start + match[0].length;
+            const overlapping = tokens.filter(token => rangesOverlap(start, end, token.start, token.end));
+            const alreadyCovered = overlapping.some(token => token.start >= start + 1 && token.end <= end && token.card.spelling === '視聴');
+            const hasBrokenMetricToken = overlapping.some(token => text.slice(token.start, token.end) === '回視');
+            if (alreadyCovered && !hasBrokenMetricToken) continue;
+            if (!hasBrokenMetricToken && overlapping.length > 0) continue;
+            replacementRanges.push({ start, end });
+            replacements.push(
+                this.metricToken(text, '回', 'かい', start, start + 1),
+                this.metricToken(text, '視聴', 'しちょう', start + 1, end),
+            );
+        }
+        if (!replacements.length) return tokens;
+        return [
+            ...tokens.filter(token => !replacementRanges.some(range => rangesOverlap(range.start, range.end, token.start, token.end))),
+            ...replacements,
+        ].sort(compareTokensByOffset);
+    }
+
+    private withNormalizedMetricParseResult(paragraphs: string[], parsed: JPDBToken[][]): JPDBToken[][] {
+        let normalized = parsed;
+        for (const [index, tokens] of parsed.entries()) {
+            const nextTokens = this.withNormalizedMetricTokens(paragraphs[index] ?? '', tokens);
+            if (nextTokens === tokens) continue;
+            if (normalized === parsed) normalized = [...parsed];
+            normalized[index] = nextTokens;
+        }
+        return normalized;
+    }
+
+    private metricToken(sentence: string, surface: string, reading: string, start: number, end: number): JPDBToken {
+        const card = this.fallbackCardFromText(surface);
+        card.reading = reading;
+        return {
+            card,
+            start,
+            end,
+            length: end - start,
+            rubies: [{ text: reading, start, end, length: end - start }],
+            pitchClass: '',
+            sentence,
+        };
+    }
+
     private rememberLocalPitchCacheEntry(key: string, promise: Promise<string>): void {
         this.localPitchCache.set(key, promise);
         while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
@@ -522,7 +578,45 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
             start: offset + segment.index,
             end: offset + segment.index + segment.segment.length,
         }));
-    return mergeInflectedFallbackSegments(segments);
+    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+}
+
+function mergeSegmenterCompoundOverrides(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    const merged: JapaneseTextSegment[] = [];
+    for (let index = 0; index < segments.length;) {
+        const span = segmenterCompoundOverrideSpanAt(segments, index);
+        if (span) {
+            merged.push(span.segment);
+            index = span.nextIndex;
+            continue;
+        }
+        merged.push(segments[index]);
+        index += 1;
+    }
+    return merged;
+}
+
+function segmenterCompoundOverrideSpanAt(
+    segments: JapaneseTextSegment[],
+    startIndex: number,
+): { segment: JapaneseTextSegment; nextIndex: number } | null {
+    const first = segments[startIndex];
+    if (!first) return null;
+    let surface = '';
+    let best: { segment: JapaneseTextSegment; nextIndex: number } | null = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+        const current = segments[index];
+        if (!current || (index > startIndex && segments[index - 1]?.end !== current.start)) break;
+        surface += current.surface;
+        if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+        if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+            best = {
+                segment: { surface, start: first.start, end: current.end },
+                nextIndex: index + 1,
+            };
+        }
+    }
+    return best;
 }
 
 function mergeInflectedFallbackSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {

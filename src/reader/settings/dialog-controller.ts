@@ -943,6 +943,14 @@ export class SettingsDialogController {
                 if (box) box.checked = groups.includes(group);
             }
         };
+        const setColorSources = (highlight: string, underline: string, text: string): void => {
+            setSelect('wordHighlightColorSource', highlight);
+            setSelect('wordUnderlineColorSource', underline);
+            setSelect('wordTextColorSource', text);
+            setSelect('subtitleHighlightColorSource', highlight);
+            setSelect('subtitleUnderlineColorSource', underline);
+            setSelect('subtitleTextColorSource', text);
+        };
         const syncGroupVisibility = (): void => {
             const fieldset = form.querySelector<HTMLElement>('[data-furigana-hide-groups]');
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
@@ -953,25 +961,24 @@ export class SettingsDialogController {
         preset?.addEventListener('change', () => {
             const value = preset.value;
             if (!value) return;
-            if (value === 'default') {
+            if (value === 'balanced' || value === 'default') {
                 setSelect('wordColorStates', 'all');
                 setSelect('furiganaMode', 'auto');
                 setGroups(['known', 'due', 'failed']);
-                setSelect('wordHighlightColorSource', 'jpdb');
-                setSelect('wordUnderlineColorSource', 'pitch');
-                setSelect('wordTextColorSource', 'anki');
+                setColorSources('jpdb', 'pitch', 'anki');
             } else if (value === 'no-colors') {
                 setSelect('wordColorStates', 'all');
-                setSelect('wordHighlightColorSource', 'off');
-                setSelect('wordUnderlineColorSource', 'off');
-                setSelect('wordTextColorSource', 'off');
+                setSelect('furiganaMode', 'off');
+                setColorSources('off', 'off', 'off');
             } else if (value === 'new-only') {
                 setSelect('wordColorStates', 'new-only');
+                setSelect('furiganaMode', 'auto');
+                setGroups(['known', 'due', 'failed']);
+                setColorSources('jpdb', 'pitch', 'anki');
             } else if (value === 'underline-new') {
                 setSelect('wordColorStates', 'new-only');
-                setSelect('wordHighlightColorSource', 'off');
-                setSelect('wordTextColorSource', 'off');
-                setSelect('wordUnderlineColorSource', 'jpdb');
+                setSelect('furiganaMode', 'hover');
+                setColorSources('off', 'jpdb', 'off');
             } else if (value === 'furi-all') {
                 setSelect('furiganaMode', 'all');
             } else if (value === 'furi-known-hidden') {
@@ -1422,7 +1429,7 @@ export class SettingsDialogController {
             return true;
         }
         if (action === 'download-recommended-dictionary') {
-            await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
+            this.queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus);
             return true;
         }
         if (action === 'export-yomitan-dictionary') {
@@ -1827,6 +1834,15 @@ export class SettingsDialogController {
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
         });
+    }
+
+    private queueRecommendedDictionaryDownloadFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): void {
+        void this.downloadRecommendedDictionaryFromSettings(form, control, setStatus)
+            .catch(error => {
+                const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+                const message = handleSettingsActionError('download-recommended-dictionary', control, setStatus, error, language);
+                this.dependencies.toast(message);
+            });
     }
 
     private async downloadRecommendedDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {

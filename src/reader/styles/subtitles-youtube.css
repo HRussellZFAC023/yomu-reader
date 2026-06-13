@@ -122,6 +122,7 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.jpdb-subtitle-player:not(.jpdb-subtitle-has-video-frame) .jpdb-subtitle-rail,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-text,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-drag-handle,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-rail {

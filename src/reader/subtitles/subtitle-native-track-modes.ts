@@ -26,15 +26,22 @@ export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeO
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state);
+    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
 
 function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     state: SubtitleNativeTrackModeState<T>,
+    yomuCaptionsActive: boolean,
 ): boolean {
     for (const option of state.tracks) {
-        if (option.track && isSelectedSubtitleTrack(option, state)) ensureTextTrackReadable(option.track);
+        if (!option.track) continue;
+        if (isSelectedSubtitleTrack(option, state)) {
+            if (yomuCaptionsActive) option.track.mode = 'hidden';
+            else ensureTextTrackReadable(option.track);
+            continue;
+        }
+        if (yomuCaptionsActive) option.track.mode = 'disabled';
     }
     document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
     return false;

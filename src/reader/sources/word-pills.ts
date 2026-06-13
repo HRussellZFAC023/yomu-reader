@@ -21,6 +21,7 @@ export interface WordPillRenderOptions {
     settings: ReaderSettings;
     metaEntries?: YomitanMetaEntry[];
     overrideQuery?: string;
+    inert?: boolean;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     dictionaryLabel: (name: string) => string;
 }
@@ -52,10 +53,13 @@ function renderLookupLinkPill(
     link: ReaderSettings['dictionaryLookupLinks'][number],
 ): string {
     const style = lookupPillStyle(link.id || link.label);
-    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style);
+    if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
     const title = lookupLinkPillTitle(options, language, link);
+    if (options.inert) {
+        return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</span>`;
+    }
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
 }
 
@@ -89,9 +93,12 @@ function lookupPillStyleAttribute(style: string): string {
     return style ? ` style="${style}"` : '';
 }
 
-function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy')): string {
+function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy'), inert = false): string {
     const copyTitle = uiText(language, 'copyWordTitle');
     const styleAttribute = style ? ` style="${style}"` : '';
+    if (inert) {
+        return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</span>`;
+    }
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 

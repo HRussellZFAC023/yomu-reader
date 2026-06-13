@@ -1095,6 +1095,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter {
   cursor: grabbing;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse,
 .jpdb-reader-mining-collapse {
   position: relative;
   display: inline-flex;
@@ -1117,6 +1118,7 @@ html.jpdb-reader-doodle-active * {
   -webkit-tap-highlight-color: transparent;
   flex: none;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before,
 .jpdb-reader-mining-collapse::before {
   content: "";
   position: relative;
@@ -1127,10 +1129,14 @@ html.jpdb-reader-doodle-active * {
   border-radius: 999px;
   background: var(--jpdb-reader-faint);
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse:hover,
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible,
 .jpdb-reader-mining-collapse:hover,
 .jpdb-reader-mining-collapse:focus-visible {
   outline: none;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse:hover::before,
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible::before,
 .jpdb-reader-mining-collapse:hover::before,
 .jpdb-reader-mining-collapse:focus-visible::before {
   background: var(--jpdb-reader-accent);
@@ -1364,12 +1370,14 @@ html.jpdb-reader-doodle-active * {
     max-width: min(150px, 38vw);
     font-size: 10px;
   }
+  .jpdb-reader-actions .jpdb-reader-mining-collapse,
   .jpdb-reader-mining-collapse {
     width: 64px;
     height: 28px;
     min-width: 64px;
     min-height: 28px;
   }
+  .jpdb-reader-actions .jpdb-reader-mining-collapse::before,
   .jpdb-reader-mining-collapse::before {
     width: 38px;
   }
@@ -1402,6 +1410,7 @@ html.jpdb-reader-doodle-active * {
     min-height: 44px !important;
   }
 
+  .jpdb-reader-actions .jpdb-reader-mining-collapse::after,
   .jpdb-reader-mining-collapse::after {
     content: "";
     position: absolute;

@@ -7,11 +7,16 @@ describe('appearance preview (UT-47)', () => {
     it('renders the preview shell in the form and annotated samples for bind time', () => {
         const html = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         expect(html).toContain('data-yomu-appearance-preview');
+        expect(html).toContain('data-settings-preview-title');
+        expect(html).not.toContain('jpdb-reader-word-highlight-jpdb jpdb-reader-word-underline-pitch jpdb-reader-word-text-status');
         const sample = appearancePreviewHtml();
         expect(sample).toContain('jpdb-reader-word');
         expect(sample).toContain('jpdb-reader-furi');
         expect(sample).toContain('あたら');
         expect(sample).toContain('jpdb-never-forget');
+        expect(sample).toContain('anki-known');
+        expect(sample).toContain('jpdb-pitch-heiban');
+        expect(sample).toContain('jpdb-pitch-kifuku');
     });
 });
 
@@ -24,6 +29,7 @@ describe('appearance preview survives dialog passes (UT-47)', () => {
         const before = form.querySelectorAll('[data-yomu-appearance-preview] .jpdb-reader-word').length;
         localizeSettingsForm(form, 'en');
         const after = form.querySelectorAll('[data-yomu-appearance-preview] .jpdb-reader-word').length;
+        expect(form.querySelector('[data-settings-preview-title]')?.textContent).toBe('Preview');
         expect(before).toBeGreaterThan(0);
         expect(after).toBe(before);
     });

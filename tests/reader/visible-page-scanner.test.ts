@@ -437,7 +437,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('prepares asbplayer subtitle tokens before the first render and colors Anki after render', async () => {
+    it('prepares asbplayer subtitle tokens and starts status coloring before the first render', async () => {
         document.body.innerHTML = '<div class="asbplayer-subtitles-container-bottom"><span>日本語を読む</span></div>';
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
         const order: string[] = [];
@@ -454,8 +454,29 @@ describe('VisiblePageScanner', () => {
             tokens[0]!.rubies = [{ text: 'にほんご', start: 0, end: 3, length: 3 }];
             tokens[0]!.pitchClass = 'atamadaka';
         });
+        const beginAnkiWordEnrichment = vi.fn(() => {
+            order.push('background-anki');
+            return () => undefined;
+        });
+        const prepareAnkiWordEnrichmentBeforeRender = vi.fn((tokens: JPDBToken[]) => {
+            order.push('prepare-anki');
+            expect(tokens[0]?.card.reading).toBe('にほんご');
+            expect(tokens[0]?.pitchClass).toBe('atamadaka');
+            expect(document.querySelector('.asbplayer-subtitles-container-bottom .jpdb-reader-word')).toBeNull();
+            return (roots?: ParentNode[]) => {
+                order.push('apply-anki');
+                const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word');
+                expect(word).not.toBeNull();
+                roots?.forEach(root => {
+                    root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(renderedWord => {
+                        renderedWord.classList.add('anki-known');
+                        renderedWord.dataset.ankiState = 'known';
+                    });
+                });
+            };
+        });
         const enrichAnkiWords = vi.fn((_tokens: JPDBToken[], roots?: ParentNode[]) => {
-            order.push('anki');
+            order.push('fallback-anki');
             const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word');
             expect(word).not.toBeNull();
             roots?.forEach(root => {
@@ -469,6 +490,8 @@ describe('VisiblePageScanner', () => {
             getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, furiganaMode: 'all' }),
             parseJapanese,
             prepareSubtitleTokensBeforeRender,
+            beginAnkiWordEnrichment,
+            prepareAnkiWordEnrichmentBeforeRender,
             enrichAnkiWords,
         });
 
@@ -476,7 +499,9 @@ describe('VisiblePageScanner', () => {
             await scanner.scanAsbPlayerSubtitles();
 
             const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word')!;
-            expect(order).toEqual(['prepare', 'anki']);
+            expect(order).toEqual(['prepare', 'prepare-anki', 'apply-anki']);
+            expect(beginAnkiWordEnrichment).not.toHaveBeenCalled();
+            expect(enrichAnkiWords).not.toHaveBeenCalled();
             expect(word.classList.contains('jpdb-known')).toBe(true);
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.querySelector('rt')?.textContent).toBe('にほんご');
@@ -498,7 +523,24 @@ describe('VisiblePageScanner', () => {
             <div class="asbplayer-subtitles-container-bottom"><span>現在の日本語字幕</span></div>
         `;
         const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
-        const scanner = createVisiblePageScanner({ parseJapanese });
+        const prepareSubtitleTokensBeforeRender = vi.fn((tokens: JPDBToken[]) => {
+            tokens.forEach(token => {
+                token.card = {
+                    ...token.card,
+                    reading: 'にほんごのせりふ',
+                    cardState: ['known'],
+                    pitchAccent: ['LHHHHHHH'],
+                    source: 'jpdb',
+                };
+                token.rubies = [{ text: 'にほんご', start: token.start, end: token.start + 3, length: 3 }];
+                token.pitchClass = 'heiban';
+            });
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+            prepareSubtitleTokensBeforeRender,
+        });
 
         try {
             await scanner.scanAsbPlayerSubtitles();
@@ -511,6 +553,11 @@ describe('VisiblePageScanner', () => {
             for (let i = 0; i < 6; i++) await vi.advanceTimersByTimeAsync(120);
             const offscreen = document.querySelector('.asbplayer-offscreen')!;
             expect(offscreen.querySelectorAll('.jpdb-reader-word').length).toBe(30);
+            offscreen.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+                expect(word.classList.contains('jpdb-known')).toBe(true);
+                expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+                expect(word.querySelector('rt')?.textContent).toBe('にほんご');
+            });
         } finally {
             scanner.destroy();
             vi.useRealTimers();

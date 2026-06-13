@@ -31,6 +31,12 @@ export {
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
+const BLOCK_FLOW_TAG_NAMES = new Set([
+    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DETAILS', 'DIALOG', 'DIV', 'DL', 'DT',
+    'FIELDSET', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'TBODY', 'TD',
+    'TFOOT', 'TH', 'THEAD', 'TR', 'UL',
+]);
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
@@ -58,11 +64,9 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     '[class*="speaker" i]',
     '[class*="voice" i]',
     '.jpdb-reader-word',
-    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
-    // link, not prose — annotating it matched rare alt-form words (穏 →
-    // しずか) and dropped a reading under the glyph; the pitch diagram is
-    // per-mora letter soup.
-    '.subsection-composed-of-kanji .spelling',
+    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
+    // letter soup, but "Kanji used" spellings are real JPDB links and should
+    // keep the same ruby/color treatment as other dictionary terms.
     '.subsection-pitch-accent .subsection',
 ];
 const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
@@ -357,8 +361,8 @@ function canInspectTextNode(node: Node): boolean {
 // UT-76/79: interactive controls are excluded from collection by default
 // (annotating them risked click conflicts), but a short Japanese control
 // label (filter chip, tab, menu row) annotates safely on ANY site: the
-// passivity classifier renders it as a click-transparent color-only word and
-// ruby is suppressed for passive targets — no per-site element lists.
+// passivity classifier renders it as a click-transparent lookup word without
+// requiring per-site element lists.
 const CONTROL_LABEL_TEXT_LIMIT = 60;
 const ANNOTATABLE_CONTROL_SELECTOR = 'button, summary, [role="button"], [role="tab"], [role="menuitem"]';
 
@@ -926,7 +930,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
         fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: scanTargetAllowsRuby(target) && !target.hasNativeRuby,
+            allowRuby: !target.hasNativeRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
@@ -962,7 +966,7 @@ function applyTokensToIndexedFragmentTarget(target: FragmentTextTarget, tokens: 
     const tokensWithSentence = tokens.map(token => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length === tokens.length && !tokens.some(token => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length) {
         const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
         for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
         return;
@@ -978,7 +982,6 @@ interface SingleFragmentTokenPlan {
     localEnd: number;
     token: JPDBToken;
     tokenWithSentence: JPDBToken;
-    layoutSensitive: boolean;
     passiveInteraction: boolean;
 }
 
@@ -1000,8 +1003,6 @@ function singleFragmentTokenPlans(
             localEnd: bounds.end.localOffset,
             token,
             tokenWithSentence: tokensWithSentence[index] ?? token,
-            layoutSensitive: fragmentTargetLayoutSensitive(target)
-                || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
             passiveInteraction: target.passiveInteraction === true
                 || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end),
         });
@@ -1050,11 +1051,7 @@ function renderSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
-    const allowRuby = scanFragmentAllowsRuby(
-        fragment.hasNativeRuby,
-        plan.layoutSensitive,
-        plan.passiveInteraction && isInsideOwnedReaderRoot(target.parent),
-    );
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -1081,8 +1078,6 @@ function applyTokenToIndexedFragments(
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true
         || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
-    const layoutSensitive = fragmentTargetLayoutSensitive(target)
-        || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end);
     if (isSingleFragment) {
         insertSingleFragmentToken(
             target,
@@ -1094,12 +1089,7 @@ function applyTokenToIndexedFragments(
             settings,
             miningInsightKeys,
             passiveInteraction,
-            layoutSensitive,
         );
-        return;
-    }
-    if (layoutSensitive) {
-        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
         return;
     }
 
@@ -1116,7 +1106,21 @@ function applyTokenToIndexedFragments(
             nativeRubyRange.detach();
             return;
         }
-        insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+        insertSplitFragmentTokenPieces(
+            target,
+            splitFragmentTokenPieces(indexedFragments, token.start, token.end),
+            token,
+            tokenWithSentence,
+            settings,
+            passiveInteraction,
+            miningInsightKeys,
+        );
+        return;
+    }
+
+    const pieces = splitFragmentTokenPieces(indexedFragments, token.start, token.end);
+    if (shouldSplitFragmentTokenPieces(pieces)) {
+        insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
         return;
     }
 
@@ -1126,40 +1130,28 @@ function applyTokenToIndexedFragments(
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         scanWord: true,
         passiveInteraction,
-        allowRuby: !layoutSensitive && !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
+        allowRuby: true,
         preserveTokenRubies: true,
         miningInsightKeys,
     });
     range.detach();
 }
 
-function shouldSplitLayoutSensitiveFragmentToken(indexedFragments: IndexedTextFragment[], token: JPDBToken): boolean {
-    const start = findFragmentBoundary(indexedFragments, token.start, 'start');
-    const end = findFragmentBoundary(indexedFragments, token.end, 'end');
-    const bounds = attachableFragmentRange(start, end);
-    return Boolean(bounds
-        && bounds.start.fragment !== bounds.end.fragment
-        && fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end));
-}
-
 function insertSplitFragmentTokenPieces(
     target: FragmentTextTarget,
-    indexedFragments: IndexedTextFragment[],
+    pieces: SplitFragmentTokenPiece[],
     token: JPDBToken,
     tokenWithSentence: JPDBToken,
     settings: ReaderSettings,
     passiveInteraction: boolean,
     miningInsightKeys: ReadonlySet<string>,
 ): void {
-    const pieces = indexedFragments
-        .map(fragment => splitFragmentTokenPiece(fragment, token.start, token.end))
-        .filter((piece): piece is { fragment: IndexedTextFragment; start: number; end: number } => piece !== null)
-        .reverse();
-    for (const piece of pieces) {
+    for (const piece of [...pieces].reverse()) {
         const surface = piece.fragment.node.data.slice(piece.start, piece.end);
         if (!surface) continue;
-        const rendered = renderToken(surface, tokenWithSentence, settings, {
-            allowRuby: false,
+        const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
+        const rendered = renderToken(surface, pieceToken, settings, {
+            allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction,
@@ -1168,6 +1160,91 @@ function insertSplitFragmentTokenPieces(
         });
         replaceTextNodeRange(piece.fragment.node, piece.start, piece.end, rendered);
     }
+}
+
+type SplitFragmentTokenPiece = { fragment: IndexedTextFragment; start: number; end: number };
+
+function splitFragmentTokenPieces(
+    indexedFragments: IndexedTextFragment[],
+    tokenStart: number,
+    tokenEnd: number,
+): SplitFragmentTokenPiece[] {
+    return indexedFragments
+        .map(fragment => splitFragmentTokenPiece(fragment, tokenStart, tokenEnd))
+        .filter((piece): piece is SplitFragmentTokenPiece => piece !== null);
+}
+
+function shouldSplitFragmentTokenPieces(pieces: SplitFragmentTokenPiece[]): boolean {
+    for (let index = 1; index < pieces.length; index++) {
+        if (!fragmentsShareInlineFlow(pieces[index - 1].fragment, pieces[index].fragment)) return true;
+    }
+    return false;
+}
+
+function fragmentsShareInlineFlow(previous: IndexedTextFragment, next: IndexedTextFragment): boolean {
+    const common = commonElementAncestor(previous.node, next.node);
+    if (!common) return false;
+    const previousBoundary = childUnderAncestor(previous.node, common);
+    const nextBoundary = childUnderAncestor(next.node, common);
+    if (!previousBoundary || !nextBoundary || previousBoundary === nextBoundary) return true;
+    if (flowBoundaryNodeBreaksInline(previousBoundary) || flowBoundaryNodeBreaksInline(nextBoundary)) return false;
+    return !hasInlineFlowBreakBetween(common, previousBoundary, nextBoundary);
+}
+
+function commonElementAncestor(first: Node, second: Node): Element | null {
+    const firstAncestors = new Set<Element>();
+    for (let current = parentElementOf(first); current; current = current.parentElement) firstAncestors.add(current);
+    for (let current = parentElementOf(second); current; current = current.parentElement) {
+        if (firstAncestors.has(current)) return current;
+    }
+    return null;
+}
+
+function parentElementOf(node: Node): Element | null {
+    return node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+}
+
+function childUnderAncestor(node: Node, ancestor: Element): Node | null {
+    let current: Node | null = node;
+    while (current && current.parentNode !== ancestor) current = current.parentNode;
+    return current;
+}
+
+function flowBoundaryNodeBreaksInline(node: Node): boolean {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.tagName === 'BR') return true;
+    return BLOCK_FLOW_TAG_NAMES.has(node.tagName);
+}
+
+function hasInlineFlowBreakBetween(parent: Element, first: Node, second: Node): boolean {
+    let seenFirst = false;
+    for (let current: Node | null = parent.firstChild; current; current = current.nextSibling) {
+        if (current === first) {
+            seenFirst = true;
+            continue;
+        }
+        if (current === second) return false;
+        if (seenFirst && flowBoundaryNodeBreaksInline(current)) return true;
+    }
+    return false;
+}
+
+function splitFragmentPieceToken(
+    piece: SplitFragmentTokenPiece,
+    token: JPDBToken,
+    tokenWithSentence: JPDBToken,
+): JPDBToken {
+    const globalStart = piece.fragment.globalStart + piece.start - piece.fragment.start;
+    const globalEnd = piece.fragment.globalStart + piece.end - piece.fragment.start;
+    const rubies = tokenWithSentence.rubies.filter(ruby => ruby.start >= globalStart && ruby.end <= globalEnd);
+    return {
+        ...tokenWithSentence,
+        start: globalStart,
+        end: globalEnd,
+        length: globalEnd - globalStart,
+        rubies,
+        sentence: tokenWithSentence.sentence ?? token.sentence,
+    };
 }
 
 function splitFragmentTokenPiece(
@@ -1189,18 +1266,6 @@ function fragmentRangeHasPassiveInteraction(fragments: IndexedTextFragment[], st
     return fragments.some(fragment => fragment.passiveInteraction === true
         && fragment.globalStart < end
         && fragment.globalEnd > start);
-}
-
-function fragmentRangeHasLayoutSensitive(fragments: IndexedTextFragment[], start: number, end: number): boolean {
-    return fragments.some(fragment => fragment.layoutSensitive === true
-        && fragment.globalStart < end
-        && fragment.globalEnd > start);
-}
-
-function fragmentTargetLayoutSensitive(target: FragmentTextTarget): boolean {
-    if (isInsideOwnedReaderRoot(target.parent)) return false;
-    return target.layoutSensitive === true
-        && (!target.fragments.length || target.fragments.every(fragment => fragment.layoutSensitive !== false));
 }
 
 function fragmentRangeHasNativeRuby(fragments: IndexedTextFragment[], start: number, end: number): boolean {
@@ -1307,13 +1372,8 @@ function insertSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
     passiveInteraction: boolean,
-    layoutSensitive: boolean,
 ): void {
-    const allowRuby = scanFragmentAllowsRuby(
-        fragment.hasNativeRuby,
-        layoutSensitive,
-        passiveInteraction && isInsideOwnedReaderRoot(target.parent),
-    );
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,
@@ -1326,19 +1386,8 @@ function insertSingleFragmentToken(
     replaceTextNodeRange(fragment.node, start, end, rendered);
 }
 
-function scanTargetAllowsRuby(target: ScanTextTarget): boolean {
-    // Passive control labels stay color-only: ruby grows fixed-height
-    // buttons and wraps their labels badly.
-    return target.layoutSensitive !== true && target.passiveInteraction !== true;
-}
-
-function scanFragmentAllowsRuby(hasNativeRuby: boolean, layoutSensitive: boolean, _passiveInteraction: boolean): boolean {
-    // Layout-sensitive boxes (line-clamped/fixed-height chrome like YouTube
-    // metadata rows and buttons) must never get ruby — the taller ruby line
-    // gets clipped so only the furigana stays visible, or fixed-height
-    // buttons wrap badly. Passive chrome keeps colorised lookup words; it
-    // just renders them without ruby.
-    return !hasNativeRuby && !layoutSensitive;
+function scanFragmentAllowsRuby(hasNativeRuby: boolean): boolean {
+    return !hasNativeRuby;
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {
@@ -2031,8 +2080,8 @@ function isFragileUiText(element: HTMLElement, text: string): boolean {
 }
 
 // UT-52: geometry-fragile text (compact rows, tight headings, inline
-// controls — e.g. YouTube channel names) is no longer SKIPPED; it annotates
-// colour-only via the layoutSensitive flag so ruby can never break the row.
+// controls — e.g. YouTube channel names) is no longer skipped; it is still
+// collected so UI chrome can receive the same ruby/color treatment as prose.
 function isGeometryFragileText(element: HTMLElement, text: string): boolean {
     if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
     if (isStableCompactRubySurface(element)) return false;
@@ -2192,13 +2241,12 @@ function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
     if (!link) return false;
     if (isLikelyProseLink(link, element)) return false;
     // UT-52: a link that carries media AND real text (channel avatar + name)
-    // is content, not an icon button — those soft-annotate colour-only via
-    // isGeometryFragileText instead of being skipped.
+    // is content, not an icon button, so it is scanned instead of skipped.
     const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text) <= 2;
     return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text)].some(Boolean);
 }
 
-// UT-52 soft tier: media-bearing text links annotate without ruby.
+// UT-52 soft tier: media-bearing text links annotate without being interactive.
 function isInsideMediaTextLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link || isLikelyProseLink(link, element)) return false;

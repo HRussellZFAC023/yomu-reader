@@ -1,17 +1,58 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { collectTextTargetsIn } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom';
+import { collectScanTargets } from '../../src/reader/app/site-parsers';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
-// UT-64: jpdb.io's "Kanji used" glyph and pitch diagram are structural
-// widgets, not prose — annotating the glyph matched rare alt-form words
-// (穏 → しずか) and dropped a reading under the kanji.
+const composedKanjiCard: JPDBCard = {
+    vid: 2400,
+    sid: 2400,
+    rid: 0,
+    spelling: '発',
+    reading: 'はつ',
+    frequencyRank: null,
+    partOfSpeech: [],
+    meanings: [],
+    cardState: ['not-in-deck'],
+    pitchAccent: [],
+    wordWithReading: null,
+    source: 'jpdb',
+};
+
+function token(surface: string, reading: string): JPDBToken {
+    return {
+        card: { ...composedKanjiCard, spelling: surface, reading },
+        start: 0,
+        end: surface.length,
+        length: surface.length,
+        rubies: [{ text: reading, start: 0, end: surface.length, length: surface.length }],
+        pitchClass: '',
+        sentence: surface,
+    };
+}
+
+// UT-64: jpdb.io structural widgets are mixed: pitch diagrams are per-mora
+// letter soup, while "Kanji used" spellings are dictionary links the user can
+// hover just like other JPDB terms.
 describe('jpdb structural widget skip', () => {
-    it('skips the kanji-used spelling glyph and the pitch diagram', () => {
+    it('annotates the kanji-used spelling glyph and skips the pitch diagram', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 800,
+            top: 0,
+            bottom: 240,
+            width: 800,
+            height: 240,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
         document.body.innerHTML = `
             <div class="subsection-composed-of-kanji">
                 <h6 class="subsection-label">Kanji used</h6>
                 <div class="subsection"><div>
-                    <div class="spelling"><a class="plain" href="/kanji/穏#a">穏</a></div>
+                    <div class="spelling"><a class="plain" href="/kanji/発#a">発</a></div>
                     <div class="description">calm 落ち着き</div>
                 </div></div>
             </div>
@@ -19,14 +60,22 @@ describe('jpdb structural widget skip', () => {
                 <h6 class="subsection-label">Pitch accent</h6>
                 <div class="subsection"><div>おだやか</div></div>
             </div>
-            <p id="prose">穏やかな海。</p>`;
-        const targets = collectTextTargetsIn(document.body, 40, false);
+            <div class="subsection-meanings"><p id="prose">穏やかな海。</p></div>`;
+        const targets = collectScanTargets(40, 'https://jpdb.io/search?q=%E7%99%BA');
+        rectSpy.mockRestore();
         const texts = targets.map(target => target.text.trim()).filter(Boolean);
         expect(texts.join(' ')).toContain('穏やかな海。');
-        expect(texts.some(text => text === '穏')).toBe(false);
+        expect(texts.some(text => text === '発')).toBe(true);
         expect(texts.some(text => text === 'おだやか')).toBe(false);
         // the keyword/description row remains annotatable prose
         expect(texts.some(text => text.includes('落ち着き'))).toBe(true);
+
+        const target = targets.find(item => item.text.trim() === '発');
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, [token('発', 'はつ')], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const word = document.querySelector<HTMLElement>('.subsection-composed-of-kanji .spelling .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('発');
+        expect(word.querySelector('rt')?.textContent).toBe('はつ');
         document.body.innerHTML = '';
     });
 });
@@ -64,8 +113,8 @@ describe('control label annotation allowance', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const word = document.querySelector('.jpdb-reader-word');
         expect(word).toBeTruthy();
-        // color-only + click-transparent: no ruby, passive marker present
-        expect(document.querySelector('rt')).toBeNull();
+        // click-transparent but still fully annotated with ruby
+        expect(document.querySelector('rt')?.textContent).toBe('どうが');
         expect((word as HTMLElement).dataset.jpdbReaderPassive).toBe('true');
         document.body.innerHTML = '';
     });

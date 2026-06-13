@@ -7,6 +7,86 @@ const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
 
 export const READER_CSS = resourceReaderCss();
 
+export const CRITICAL_READER_CSS = `
+.jpdb-reader-popover .jpdb-reader-icon-btn,
+.jpdb-reader-settings .jpdb-reader-icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  flex: 0 0 auto;
+  padding: 0 !important;
+  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
+  border-radius: 50%;
+  background: var(--jpdb-reader-surface, #f4f7fa);
+  color: var(--jpdb-reader-text, #17202a);
+  cursor: pointer;
+  overflow: hidden;
+  transform: translateY(-0.01rem);
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-popover .jpdb-reader-icon-btn svg,
+.jpdb-reader-settings .jpdb-reader-icon-btn svg {
+  display: block;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-reader-actions .jpdb-reader-mining-collapse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 72px;
+  height: 30px;
+  min-width: 72px;
+  min-height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted, #4f5968);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before {
+  content: "";
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-faint, #687384);
+}
+`.trim();
+
+export function initialReaderCss(css = READER_CSS): string {
+    return readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css;
+}
+
 export async function loadReaderCssFallback(
     fetcher: typeof fetch | undefined = globalThis.fetch,
     href = safeLocationHref(),

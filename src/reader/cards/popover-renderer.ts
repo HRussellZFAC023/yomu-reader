@@ -69,7 +69,7 @@ export interface CardPopoverRendererDependencies {
     getSettings: () => ReaderSettings;
     isJpdbBackedCard: (card: JPDBCard) => boolean;
     renderWordHistory: (language: InterfaceLanguage, trigger: 'modal' | 'hover') => string;
-    renderWordPills: (card: JPDBCard, jpdbUrl: string, metaEntries?: YomitanMetaEntry[], overrideQuery?: string) => string;
+    renderWordPills: (card: JPDBCard, jpdbUrl: string, metaEntries?: YomitanMetaEntry[], overrideQuery?: string, trigger?: 'modal' | 'hover') => string;
     renderDefinitionSources: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null, extraSections?: Record<string, string>) => string;
     dictionarySourceAttributes: (key: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
@@ -98,7 +98,7 @@ export class CardPopoverRenderer {
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view)}
+                ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${definitionSources}
                 ${fallbackAnkiSection}
@@ -146,11 +146,11 @@ export class CardPopoverRenderer {
         };
     }
 
-    private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
+    private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
         return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}

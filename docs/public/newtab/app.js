@@ -2181,6 +2181,13 @@
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       massReviewVisible: "Alt+M",
+      studyReveal: "Space",
+      studyRevealAlternate: "Enter",
+      studyUndo: "U",
+      studyPrevious: "ArrowLeft",
+      studyPreviousAlternate: "P",
+      studyNext: "ArrowRight",
+      studyNextAlternate: "N",
       gradeNothing: "1",
       gradeSomething: "2",
       gradeHard: "3",
@@ -2893,6 +2900,46 @@
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  const BLOCK_FLOW_TAG_NAMES = /* @__PURE__ */ new Set([
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "BLOCKQUOTE",
+    "DD",
+    "DETAILS",
+    "DIALOG",
+    "DIV",
+    "DL",
+    "DT",
+    "FIELDSET",
+    "FIGCAPTION",
+    "FIGURE",
+    "FOOTER",
+    "FORM",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HEADER",
+    "HR",
+    "LI",
+    "MAIN",
+    "NAV",
+    "OL",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TBODY",
+    "TD",
+    "TFOOT",
+    "TH",
+    "THEAD",
+    "TR",
+    "UL"
+  ]);
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
@@ -2916,11 +2963,9 @@
     '[class*="speaker" i]',
     '[class*="voice" i]',
     ".jpdb-reader-word",
-    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
-    // link, not prose — annotating it matched rare alt-form words (穏 →
-    // しずか) and dropped a reading under the glyph; the pitch diagram is
-    // per-mora letter soup.
-    ".subsection-composed-of-kanji .spelling",
+    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
+    // letter soup, but "Kanji used" spellings are real JPDB links and should
+    // keep the same ruby/color treatment as other dictionary terms.
     ".subsection-pitch-accent .subsection"
   ];
   const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
@@ -3364,7 +3409,7 @@
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment2, target.text, offset, token.start);
       fragment2.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-        allowRuby: scanTargetAllowsRuby(target) && !target.hasNativeRuby,
+        allowRuby: !target.hasNativeRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction: target.passiveInteraction,
@@ -3394,7 +3439,7 @@
     const tokensWithSentence = tokens.map((token) => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length === tokens.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length) {
       const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
       for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
       return;
@@ -3416,7 +3461,6 @@
         localEnd: bounds.end.localOffset,
         token,
         tokenWithSentence: tokensWithSentence[index] ?? token,
-        layoutSensitive: fragmentTargetLayoutSensitive(target) || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
         passiveInteraction: target.passiveInteraction === true || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end)
       });
     }
@@ -3449,11 +3493,7 @@
     fragment2.node.replaceWith(replacement);
   }
   function renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(
-      fragment2.hasNativeRuby,
-      plan.layoutSensitive,
-      plan.passiveInteraction && isInsideOwnedReaderRoot(target.parent)
-    );
+    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     return renderToken(fragment2.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -3470,7 +3510,6 @@
     if (!bounds) return;
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
-    const layoutSensitive = fragmentTargetLayoutSensitive(target) || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end);
     if (isSingleFragment) {
       insertSingleFragmentToken(
         target,
@@ -3481,13 +3520,8 @@
         tokenWithSentence,
         settings,
         miningInsightKeys,
-        passiveInteraction,
-        layoutSensitive
+        passiveInteraction
       );
-      return;
-    }
-    if (layoutSensitive) {
-      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
     if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
@@ -3503,7 +3537,20 @@
         nativeRubyRange.detach();
         return;
       }
-      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+      insertSplitFragmentTokenPieces(
+        target,
+        splitFragmentTokenPieces(indexedFragments, token.start, token.end),
+        token,
+        tokenWithSentence,
+        settings,
+        passiveInteraction,
+        miningInsightKeys
+      );
+      return;
+    }
+    const pieces = splitFragmentTokenPieces(indexedFragments, token.start, token.end);
+    if (shouldSplitFragmentTokenPieces(pieces)) {
+      insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
     const range = document.createRange();
@@ -3512,25 +3559,19 @@
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       scanWord: true,
       passiveInteraction,
-      allowRuby: !layoutSensitive && !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
+      allowRuby: true,
       preserveTokenRubies: true,
       miningInsightKeys
     });
     range.detach();
   }
-  function shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token) {
-    const start = findFragmentBoundary(indexedFragments, token.start, "start");
-    const end = findFragmentBoundary(indexedFragments, token.end, "end");
-    const bounds = attachableFragmentRange(start, end);
-    return Boolean(bounds && bounds.start.fragment !== bounds.end.fragment && fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end));
-  }
-  function insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys) {
-    const pieces = indexedFragments.map((fragment2) => splitFragmentTokenPiece(fragment2, token.start, token.end)).filter((piece) => piece !== null).reverse();
-    for (const piece of pieces) {
+  function insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys) {
+    for (const piece of [...pieces].reverse()) {
       const surface = piece.fragment.node.data.slice(piece.start, piece.end);
       if (!surface) continue;
-      const rendered = renderToken(surface, tokenWithSentence, settings, {
-        allowRuby: false,
+      const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
+      const rendered = renderToken(surface, pieceToken, settings, {
+        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
@@ -3539,6 +3580,70 @@
       });
       replaceTextNodeRange(piece.fragment.node, piece.start, piece.end, rendered);
     }
+  }
+  function splitFragmentTokenPieces(indexedFragments, tokenStart, tokenEnd) {
+    return indexedFragments.map((fragment2) => splitFragmentTokenPiece(fragment2, tokenStart, tokenEnd)).filter((piece) => piece !== null);
+  }
+  function shouldSplitFragmentTokenPieces(pieces) {
+    for (let index = 1; index < pieces.length; index++) {
+      if (!fragmentsShareInlineFlow(pieces[index - 1].fragment, pieces[index].fragment)) return true;
+    }
+    return false;
+  }
+  function fragmentsShareInlineFlow(previous, next) {
+    const common = commonElementAncestor(previous.node, next.node);
+    if (!common) return false;
+    const previousBoundary = childUnderAncestor(previous.node, common);
+    const nextBoundary = childUnderAncestor(next.node, common);
+    if (!previousBoundary || !nextBoundary || previousBoundary === nextBoundary) return true;
+    if (flowBoundaryNodeBreaksInline(previousBoundary) || flowBoundaryNodeBreaksInline(nextBoundary)) return false;
+    return !hasInlineFlowBreakBetween(common, previousBoundary, nextBoundary);
+  }
+  function commonElementAncestor(first2, second) {
+    const firstAncestors = /* @__PURE__ */ new Set();
+    for (let current = parentElementOf(first2); current; current = current.parentElement) firstAncestors.add(current);
+    for (let current = parentElementOf(second); current; current = current.parentElement) {
+      if (firstAncestors.has(current)) return current;
+    }
+    return null;
+  }
+  function parentElementOf(node) {
+    return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  }
+  function childUnderAncestor(node, ancestor) {
+    let current = node;
+    while (current && current.parentNode !== ancestor) current = current.parentNode;
+    return current;
+  }
+  function flowBoundaryNodeBreaksInline(node) {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.tagName === "BR") return true;
+    return BLOCK_FLOW_TAG_NAMES.has(node.tagName);
+  }
+  function hasInlineFlowBreakBetween(parent, first2, second) {
+    let seenFirst = false;
+    for (let current = parent.firstChild; current; current = current.nextSibling) {
+      if (current === first2) {
+        seenFirst = true;
+        continue;
+      }
+      if (current === second) return false;
+      if (seenFirst && flowBoundaryNodeBreaksInline(current)) return true;
+    }
+    return false;
+  }
+  function splitFragmentPieceToken(piece, token, tokenWithSentence) {
+    const globalStart = piece.fragment.globalStart + piece.start - piece.fragment.start;
+    const globalEnd = piece.fragment.globalStart + piece.end - piece.fragment.start;
+    const rubies = tokenWithSentence.rubies.filter((ruby) => ruby.start >= globalStart && ruby.end <= globalEnd);
+    return {
+      ...tokenWithSentence,
+      start: globalStart,
+      end: globalEnd,
+      length: globalEnd - globalStart,
+      rubies,
+      sentence: tokenWithSentence.sentence ?? token.sentence
+    };
   }
   function splitFragmentTokenPiece(fragment2, tokenStart, tokenEnd) {
     const start = Math.max(tokenStart, fragment2.globalStart);
@@ -3552,13 +3657,6 @@
   }
   function fragmentRangeHasPassiveInteraction(fragments, start, end) {
     return fragments.some((fragment2) => fragment2.passiveInteraction === true && fragment2.globalStart < end && fragment2.globalEnd > start);
-  }
-  function fragmentRangeHasLayoutSensitive(fragments, start, end) {
-    return fragments.some((fragment2) => fragment2.layoutSensitive === true && fragment2.globalStart < end && fragment2.globalEnd > start);
-  }
-  function fragmentTargetLayoutSensitive(target) {
-    if (isInsideOwnedReaderRoot(target.parent)) return false;
-    return target.layoutSensitive === true && (!target.fragments.length || target.fragments.every((fragment2) => fragment2.layoutSensitive !== false));
   }
   function fragmentRangeHasNativeRuby(fragments, start, end) {
     return fragments.some((fragment2) => fragment2.hasNativeRuby && fragment2.globalStart < end && fragment2.globalEnd > start);
@@ -3621,12 +3719,8 @@
     if (!boundary.fragment.node.parentElement) return null;
     return boundary;
   }
-  function insertSingleFragmentToken(target, fragment2, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction, layoutSensitive) {
-    const allowRuby = scanFragmentAllowsRuby(
-      fragment2.hasNativeRuby,
-      layoutSensitive,
-      passiveInteraction && isInsideOwnedReaderRoot(target.parent)
-    );
+  function insertSingleFragmentToken(target, fragment2, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
+    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     const surface = fragment2.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -3638,11 +3732,8 @@
     });
     replaceTextNodeRange(fragment2.node, start, end, rendered);
   }
-  function scanTargetAllowsRuby(target) {
-    return target.layoutSensitive !== true && target.passiveInteraction !== true;
-  }
-  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
-    return !hasNativeRuby && !layoutSensitive;
+  function scanFragmentAllowsRuby(hasNativeRuby) {
+    return !hasNativeRuby;
   }
   function isInsideOwnedReaderRoot(element) {
     const readerRoot = element.closest(READER_ROOT_SELECTOR);
@@ -5184,7 +5275,7 @@
       popoverHeightFixed: "Use height setting",
       readerFontFamily: "Reader interface font",
       popupFontFamily: "Popup Japanese font",
-      fontPresetYomuDefault: "Yomu default",
+      fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
       fontPresetJapaneseSerif: "Japanese serif",
@@ -5228,13 +5319,6 @@
       newTabUrl: "Study address",
       newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
       newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
-      studyKeysTitle: "Study page keys",
-      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
-      studyKeyReveal: "Reveal the current card",
-      studyKeyGrades: "Grade the revealed card (buttons in order)",
-      studyKeyUndo: "Undo the last review",
-      studyKeyPrevious: "Previous card (undoes right after grading)",
-      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -5270,25 +5354,20 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
-      appearancePresetCustom: "Custom / current",
-      appearancePresetDefault: "Yomu default",
-      appearancePresetNoColors: "Don't color words",
-      appearancePresetNewOnly: "Only color new words",
-      appearancePresetUnderlineNew: "Underline new words only",
-      appearancePresetFuriAll: "Show all furigana",
-      appearancePresetFuriKnownHidden: "Hide furigana you know",
-      appearancePresetFuriHover: "Furigana on hover only",
-      appearancePresetFuriOff: "No furigana",
-      wordColorStatesAll: "All card states",
-      wordColorStatesNewOnly: "Only new words",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide for chosen states",
-      furiganaHoverOnly: "Show on hover only",
-      furiganaAllParsed: "All parsed words",
+      appearancePresetCustom: "Keep current custom settings",
+      appearancePresetBalanced: "Balanced reading",
+      appearancePresetNoColors: "Plain text",
+      appearancePresetNewOnly: "Focus on new words",
+      appearancePresetUnderlineNew: "Minimal highlights",
+      wordColorStatesAll: "Use all learning states",
+      wordColorStatesNewOnly: "Only new / not-in-deck words",
+      furiganaDifficultKanji: "Hard kanji only",
+      furiganaHideKnown: "Hide familiar words",
+      furiganaHoverOnly: "Show on hover",
+      furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
@@ -5473,6 +5552,7 @@
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (s)",
       subtitlePreview: "Live subtitle preview",
+      preview: "Preview",
       youtubeImmersionEnabled: "Japanese YouTube only",
       preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
@@ -5750,6 +5830,13 @@
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
+      studyReveal: "Study: reveal card",
+      studyRevealAlternate: "Study: reveal card (alternate)",
+      studyUndo: "Study: undo last review",
+      studyPrevious: "Study: previous card",
+      studyPreviousAlternate: "Study: previous card (alternate)",
+      studyNext: "Study: next card",
+      studyNextAlternate: "Study: next card (alternate)",
       massReviewNoWords: "No due Jiten words on screen.",
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
@@ -6338,6 +6425,13 @@ gradeOkay	採点: OK
 gradeEasy	採点: 簡単
 gradeFail	合否: 失敗
 gradePass	合否: 合格
+studyReveal	学習: カードを表示
+studyRevealAlternate	学習: カードを表示（代替）
+studyUndo	学習: 直前のレビューを取り消す
+studyPrevious	学習: 前のカード
+studyPreviousAlternate	学習: 前のカード（代替）
+studyNext	学習: 次のカード
+studyNextAlternate	学習: 次のカード（代替）
 factKeyword	キーワード
 factType	種類
 factFrequency	頻度
@@ -6705,7 +6799,7 @@ popoverHeightAvailable	空き領域まで広げる
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
 popupFontFamily	ポップアップの日本語フォント
-fontPresetYomuDefault	よむ既定
+fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
 fontPresetJapaneseSerif	日本語明朝
@@ -6749,13 +6843,6 @@ newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
 newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
-studyKeysTitle	学習ページのキー
-studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
-studyKeyReveal	現在のカードを表示
-studyKeyGrades	表示したカードを採点（ボタンの順）
-studyKeyUndo	直前のレビューを取り消す
-studyKeyPrevious	前のカード（採点直後は取り消し）
-studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -6791,25 +6878,20 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
-appearancePresetCustom	カスタム／現在の設定
-appearancePresetDefault	Yomu標準
-appearancePresetNoColors	単語に色を付けない
-appearancePresetNewOnly	新規単語のみ色付け
-appearancePresetUnderlineNew	新規単語に下線のみ
-appearancePresetFuriAll	ふりがなを全て表示
-appearancePresetFuriKnownHidden	既知のふりがなを非表示
-appearancePresetFuriHover	ホバー時のみふりがな
-appearancePresetFuriOff	ふりがななし
-wordColorStatesAll	全てのカード状態
-wordColorStatesNewOnly	新規単語のみ
+appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetBalanced	読みやすいバランス
+appearancePresetNoColors	プレーンテキスト
+appearancePresetNewOnly	新規単語に集中
+appearancePresetUnderlineNew	控えめなハイライト
+wordColorStatesAll	すべての学習状態
+wordColorStatesNewOnly	新規・未追加のみ
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	選択した状態で非表示
-furiganaHoverOnly	ホバー時のみ表示
-furiganaAllParsed	解析済みの全単語
+furiganaHideKnown	なじみのある語を非表示
+furiganaHoverOnly	ホバー時に表示
+furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
@@ -6969,6 +7051,7 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
+preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
@@ -20478,9 +20561,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function createSettingsFormReader(data, colorSource) {
     const get = (key) => String(data.get(key) ?? "");
+    const getAll = (key) => data.getAll(key).map((value) => String(value));
     const number = (key, fallback) => readNumber(get(key), fallback);
     return {
       get,
+      getAll,
       has: (key) => data.has(key),
       number,
       clamped: (key, min, max2, fallback) => Math.max(min, Math.min(max2, number(key, fallback))),
@@ -20549,6 +20634,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "toggleSubtitleOverlay",
     "toggleYoutubeImmersion",
     "scanImages",
+    "studyReveal",
+    "studyRevealAlternate",
+    "studyUndo",
+    "studyPrevious",
+    "studyPreviousAlternate",
+    "studyNext",
+    "studyNextAlternate",
     "gradeNothing",
     "gradeSomething",
     "gradeHard",
@@ -20948,8 +21040,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function readShortcutFormSettings(reader, current) {
     return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
       const key = `shortcuts.${name}`;
-      return [name, reader.has(key) ? reader.get(key) : current.shortcuts[name]];
+      return [name, reader.has(key) ? readShortcutFormValue(reader, key, current.shortcuts[name]) : current.shortcuts[name]];
     }));
+  }
+  function readShortcutFormValue(reader, key, currentValue) {
+    const values = reader.getAll(key);
+    if (!values.length) return currentValue;
+    const changedValues = Array.from(new Set(values.filter((value) => value !== currentValue)));
+    if (changedValues.length === 1) return changedValues[0] ?? "";
+    return values.at(-1) ?? "";
   }
   function readOption(value, allowed, fallback) {
     return allowed.includes(value) ? value : fallback;
@@ -22099,7 +22198,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
   const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
   const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Yomu default" },
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
     { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
     { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
@@ -22288,6 +22387,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}
+                ${renderAppearancePreview()}
             </fieldset>
     `;
   }
@@ -22404,17 +22504,40 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["learning", "Learning"],
     ["new", "New"]
   ];
+  const APPEARANCE_PRESET_OPTIONS = [
+    ["", "Keep current custom settings"],
+    ["balanced", "Balanced reading"],
+    ["new-only", "Focus on new words"],
+    ["underline-new", "Minimal highlights"],
+    ["no-colors", "Plain text"]
+  ];
+  const FURIGANA_MODE_OPTIONS = [
+    ["auto", "Smart default"],
+    ["known-status", "Hide familiar words"],
+    ["difficult-kanji", "Hard kanji only"],
+    ["hover", "Show on hover"],
+    ["all", "Show on every parsed word"],
+    ["off", "Off"]
+  ];
+  const WORD_COLOR_STATE_OPTIONS = [
+    ["all", "Use all learning states"],
+    ["new-only", "Only new / not-in-deck words"]
+  ];
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
   }
   function renderAppearancePreview() {
-    return `<div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>`;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
+                    <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
+                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>
+                </div>`;
   }
   function appearancePreviewHtml() {
     const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word("jpdb-new", "新", "あたら", "しい")}${word("jpdb-learning", "言葉", "ことば")}を${word("jpdb-due", "毎日", "まいにち")}${word("jpdb-failed", "勉強", "べんきょう")}して、${word("jpdb-known", "日本語", "にほんご")}が${word("jpdb-never-forget", "上手", "じょうず")}になる。`;
+    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-kifuku", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
   }
   function renderPitchColorSettingsSubsection(settings) {
     return renderColorSettingsSubsection("Pitch accent colors", PITCH_COLOR_FIELDS, settings);
@@ -22553,7 +22676,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return source === "nadeshiko" || source === "combined";
   }
   function renderReaderSettingsPanel(settings) {
-    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -22563,16 +22685,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
-                    ${select("appearancePreset", "Appearance preset", "", [["", "Custom / current"], ["default", "Yomu default"], ["no-colors", "Don't color words"], ["new-only", "Only color new words"], ["underline-new", "Underline new words only"], ["furi-all", "Show all furigana"], ["furi-known-hidden", "Hide furigana you know"], ["furi-hover", "Furigana on hover only"], ["furi-off", "No furigana"]])}
-                    ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide for chosen states"], ["hover", "Show on hover only"], ["all", "All parsed words"], ["off", "Off"]])}
+                    ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
+                    ${select("furiganaMode", "Furigana", settings.furiganaMode, FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
-                    ${select("wordColorStates", "Color words", settings.wordColorStates, [["all", "All card states"], ["new-only", "Only new words"]])}
-                    ${renderAppearancePreview()}
+                    ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
                     ${checkbox("suppressRedundantWordUi", "Hide styling on JPDB-redundant words", settings.suppressRedundantWordUi)}
                     ${checkbox("sheetCloseButtonOnLeft", "Mobile sheet: close button on the left", settings.sheetCloseButtonOnLeft)}
                 </div>
-                <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, "settingsPuckHelp")}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
@@ -22749,6 +22869,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
                 <legend>Shortcuts</legend>
                 <div class="grid">
+                    ${shortcutInput("shortcuts.scanPage", "Scan page", settings.shortcuts.scanPage)}
+                    ${shortcutInput("shortcuts.hoverLookup", "Hold while hovering", settings.shortcuts.hoverLookup, "Blank means hover without a key")}
                     ${shortcutInput("shortcuts.openSettings", "Open settings", settings.shortcuts.openSettings)}
                     ${shortcutInput("shortcuts.playAudio", "Play audio", settings.shortcuts.playAudio)}
                     ${shortcutInput("shortcuts.closePopup", "Close popup", settings.shortcuts.closePopup)}
@@ -22762,24 +22884,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
                     ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
+                    ${shortcutInput("shortcuts.studyReveal", "Study: reveal card", settings.shortcuts.studyReveal)}
+                    ${shortcutInput("shortcuts.studyRevealAlternate", "Study: reveal card (alternate)", settings.shortcuts.studyRevealAlternate)}
+                    ${shortcutInput("shortcuts.studyUndo", "Study: undo last review", settings.shortcuts.studyUndo)}
+                    ${shortcutInput("shortcuts.studyPrevious", "Study: previous card", settings.shortcuts.studyPrevious)}
+                    ${shortcutInput("shortcuts.studyPreviousAlternate", "Study: previous card (alternate)", settings.shortcuts.studyPreviousAlternate)}
+                    ${shortcutInput("shortcuts.studyNext", "Study: next card", settings.shortcuts.studyNext)}
+                    ${shortcutInput("shortcuts.studyNextAlternate", "Study: next card (alternate)", settings.shortcuts.studyNextAlternate)}
                     ${renderReviewShortcutInputs(settings)}
-                </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
-                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
-                        ${studyKeyReferenceRow("Space / Enter", "Reveal the current card", "studyKeyReveal")}
-                        ${studyKeyReferenceRow("1–9", "Grade the revealed card (buttons in order)", "studyKeyGrades")}
-                        ${studyKeyReferenceRow("U", "Undo the last review", "studyKeyUndo")}
-                        ${studyKeyReferenceRow("← / P", "Previous card (undoes right after grading)", "studyKeyPrevious")}
-                        ${studyKeyReferenceRow("→ / N", "Next card", "studyKeyNext")}
-                    </div>
-                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
                 </div>
             </fieldset>
     `;
-  }
-  function studyKeyReferenceRow(keys, description, key) {
-    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml$1(keys)}</kbd><span data-study-key="${key}">${escapeHtml$1(description)}</span></div>`;
   }
   function renderHelpSettingsPanel(settings) {
     return `
@@ -22805,11 +22920,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             </div>
     `;
   }
-  function fontFamilyControl(name, label, value) {
+  function fontFamilyControl(name, label, value, text2) {
     const selectedValue = fontFamilyPresetValue(value);
     return `
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
-            ${select(name, label, selectedValue, fontFamilyOptions())}
+            ${select(name, label, selectedValue, fontFamilyOptions(text2))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? "" : "hidden"}>
                 Custom font stack
                 <input name="${name}Custom" type="text" value="${escapeHtml$1(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
@@ -22912,10 +23027,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
     ["[data-jpdb-api-key-help]", "apiAccessHelp"],
     ["[data-subtitle-preview] .jpdb-subtitle-secondary", "subtitlePreview"],
+    ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
-    ["[data-proxy-guide-hide]", "hide"],
-    ["[data-settings-puck-help]", "settingsPuckHelp"]
+    ["[data-proxy-guide-hide]", "hide"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
@@ -23091,14 +23206,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     localizeColorSourceSelects(form, text2);
     setSelectOptionLabels(form, "appearancePreset", [
       ["", text2("appearancePresetCustom")],
-      ["default", text2("appearancePresetDefault")],
-      ["no-colors", text2("appearancePresetNoColors")],
+      ["balanced", text2("appearancePresetBalanced")],
       ["new-only", text2("appearancePresetNewOnly")],
       ["underline-new", text2("appearancePresetUnderlineNew")],
-      ["furi-all", text2("appearancePresetFuriAll")],
-      ["furi-known-hidden", text2("appearancePresetFuriKnownHidden")],
-      ["furi-hover", text2("appearancePresetFuriHover")],
-      ["furi-off", text2("appearancePresetFuriOff")]
+      ["no-colors", text2("appearancePresetNoColors")]
     ]);
     setSelectOptionLabels(form, "wordColorStates", [
       ["all", text2("wordColorStatesAll")],
@@ -23106,8 +23217,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text2("automatic")],
-      ["difficult-kanji", text2("furiganaDifficultKanji")],
       ["known-status", text2("furiganaHideKnown")],
+      ["difficult-kanji", text2("furiganaDifficultKanji")],
       ["hover", text2("furiganaHoverOnly")],
       ["all", text2("furiganaAllParsed")],
       ["off", text2("off")]
@@ -23241,12 +23352,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function localizeNewTabHelp(form, text2) {
     form.querySelector("[data-newtab-address-help]")?.replaceChildren(text2("newTabAddressHelp"));
-    form.querySelector("[data-study-keys-title]")?.replaceChildren(text2("studyKeysTitle"));
-    form.querySelector("[data-study-keys-help]")?.replaceChildren(text2("studyKeysHelp"));
-    form.querySelectorAll("[data-study-key]").forEach((row) => {
-      const key = row.dataset.studyKey;
-      row.replaceChildren(text2(key));
-    });
     form.querySelector("[data-newtab-offline-help]")?.replaceChildren(text2("newTabOfflineHelp"));
     form.querySelector("[data-newtab-anki-decks-title]")?.replaceChildren(text2("newTabAnkiReviewDecks"));
     form.querySelector("[data-newtab-anki-decks-help]")?.replaceChildren(text2("newTabAnkiReviewDecksHelp"));
@@ -23667,6 +23772,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
     ["shortcuts.scanImages", "readImagesNow"],
     ["shortcuts.massReviewVisible", "massReviewVisible"],
+    ["shortcuts.studyReveal", "studyReveal"],
+    ["shortcuts.studyRevealAlternate", "studyRevealAlternate"],
+    ["shortcuts.studyUndo", "studyUndo"],
+    ["shortcuts.studyPrevious", "studyPrevious"],
+    ["shortcuts.studyPreviousAlternate", "studyPreviousAlternate"],
+    ["shortcuts.studyNext", "studyNext"],
+    ["shortcuts.studyNextAlternate", "studyNextAlternate"],
     ["shortcuts.gradeNothing", "gradeNothing"],
     ["shortcuts.gradeSomething", "gradeSomething"],
     ["shortcuts.gradeHard", "gradeHard"],
@@ -23692,11 +23804,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return null;
   }
   function setControlLabel(form, name, label) {
-    const control = getNamedControl(form, name);
-    const labelElement = control?.closest("label");
-    if (!labelElement) return;
-    if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
-    else setBlockLabelText(labelElement, label);
+    const controls = namedFormControls(form, name);
+    controls.forEach((control) => {
+      const labelElement = control.closest("label");
+      if (!labelElement) return;
+      if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
+      else setBlockLabelText(labelElement, label);
+    });
+  }
+  function namedFormControls(form, name) {
+    return Array.from(form.elements).filter(
+      (element) => (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) && element.name === name
+    );
   }
   function setBlockLabelText(label, text2) {
     const container = directSettingsLabelTextContainer(label);
@@ -23823,8 +23942,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   function setShortcutPlaceholder(form, name, placeholder) {
-    const inputElement = getNamedControl(form, name);
-    if (inputElement) inputElement.placeholder = placeholder;
+    form.querySelectorAll("[data-shortcut-input]").forEach((inputElement) => {
+      if (inputElement.name === name) inputElement.placeholder = placeholder;
+    });
   }
   function getSettingsPanelFieldsets(form) {
     return Array.from(form.querySelectorAll("fieldset[data-settings-panel]"));
@@ -23938,11 +24058,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         event.stopPropagation();
         if (event.key === "Backspace" || event.key === "Delete") {
           inputEl.value = "";
+          syncDuplicateShortcutInputs(root, inputEl);
           return;
         }
         inputEl.value = formatShortcutEvent(event);
+        syncDuplicateShortcutInputs(root, inputEl);
       });
+      inputEl.addEventListener("input", () => syncDuplicateShortcutInputs(root, inputEl));
       inputEl.addEventListener("paste", (event) => event.preventDefault());
+    });
+  }
+  function syncDuplicateShortcutInputs(root, source) {
+    root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
+      if (inputEl !== source && inputEl.name === source.name) inputEl.value = source.value;
     });
   }
   function syncReviewSettingsVisibility(form) {
@@ -24899,6 +25027,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           if (box) box.checked = groups.includes(group);
         }
       };
+      const setColorSources = (highlight, underline, text2) => {
+        setSelect("wordHighlightColorSource", highlight);
+        setSelect("wordUnderlineColorSource", underline);
+        setSelect("wordTextColorSource", text2);
+        setSelect("subtitleHighlightColorSource", highlight);
+        setSelect("subtitleUnderlineColorSource", underline);
+        setSelect("subtitleTextColorSource", text2);
+      };
       const syncGroupVisibility = () => {
         const fieldset = form.querySelector("[data-furigana-hide-groups]");
         const mode = form.querySelector('select[name="furiganaMode"]')?.value;
@@ -24909,25 +25045,24 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       preset?.addEventListener("change", () => {
         const value = preset.value;
         if (!value) return;
-        if (value === "default") {
+        if (value === "balanced" || value === "default") {
           setSelect("wordColorStates", "all");
           setSelect("furiganaMode", "auto");
           setGroups(["known", "due", "failed"]);
-          setSelect("wordHighlightColorSource", "jpdb");
-          setSelect("wordUnderlineColorSource", "pitch");
-          setSelect("wordTextColorSource", "anki");
+          setColorSources("jpdb", "pitch", "anki");
         } else if (value === "no-colors") {
           setSelect("wordColorStates", "all");
-          setSelect("wordHighlightColorSource", "off");
-          setSelect("wordUnderlineColorSource", "off");
-          setSelect("wordTextColorSource", "off");
+          setSelect("furiganaMode", "off");
+          setColorSources("off", "off", "off");
         } else if (value === "new-only") {
           setSelect("wordColorStates", "new-only");
+          setSelect("furiganaMode", "auto");
+          setGroups(["known", "due", "failed"]);
+          setColorSources("jpdb", "pitch", "anki");
         } else if (value === "underline-new") {
           setSelect("wordColorStates", "new-only");
-          setSelect("wordHighlightColorSource", "off");
-          setSelect("wordTextColorSource", "off");
-          setSelect("wordUnderlineColorSource", "jpdb");
+          setSelect("furiganaMode", "hover");
+          setColorSources("off", "jpdb", "off");
         } else if (value === "furi-all") {
           setSelect("furiganaMode", "all");
         } else if (value === "furi-known-hidden") {
@@ -25328,7 +25463,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return true;
       }
       if (action === "download-recommended-dictionary") {
-        await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
+        this.queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus);
         return true;
       }
       if (action === "export-yomitan-dictionary") {
@@ -25677,6 +25812,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         log$o.info("Dictionary file imported", summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
+      });
+    }
+    queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus) {
+      void this.downloadRecommendedDictionaryFromSettings(form, control, setStatus).catch((error) => {
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const message = handleSettingsActionError("download-recommended-dictionary", control, setStatus, error, language);
+        this.dependencies.toast(message);
       });
     }
     async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
@@ -27046,6 +27188,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
   const log$n = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -27074,7 +27219,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         localFallback: settings.localDictionariesEnabled
       });
       try {
-        return await this.parseWithPreferredSource(paragraphs, options, settings);
+        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
+        return this.withNormalizedMetricParseResult(paragraphs, parsed);
       } finally {
         done();
       }
@@ -27328,6 +27474,54 @@ ${spelling}`);
       this.rememberLocalPitchCacheEntry(key, promise);
       return promise;
     }
+    withNormalizedMetricTokens(text2, tokens) {
+      if (!text2.includes("回視聴")) return tokens;
+      const replacements = [];
+      const replacementRanges = [];
+      for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+        const start = match.index ?? -1;
+        if (start < 0) continue;
+        const end = start + match[0].length;
+        const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
+        const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
+        const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
+        if (alreadyCovered && !hasBrokenMetricToken) continue;
+        if (!hasBrokenMetricToken && overlapping.length > 0) continue;
+        replacementRanges.push({ start, end });
+        replacements.push(
+          this.metricToken(text2, "回", "かい", start, start + 1),
+          this.metricToken(text2, "視聴", "しちょう", start + 1, end)
+        );
+      }
+      if (!replacements.length) return tokens;
+      return [
+        ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap$1(range.start, range.end, token.start, token.end))),
+        ...replacements
+      ].sort(compareTokensByOffset);
+    }
+    withNormalizedMetricParseResult(paragraphs, parsed) {
+      let normalized = parsed;
+      for (const [index, tokens] of parsed.entries()) {
+        const nextTokens = this.withNormalizedMetricTokens(paragraphs[index] ?? "", tokens);
+        if (nextTokens === tokens) continue;
+        if (normalized === parsed) normalized = [...parsed];
+        normalized[index] = nextTokens;
+      }
+      return normalized;
+    }
+    metricToken(sentence, surface, reading, start, end) {
+      const card = this.fallbackCardFromText(surface);
+      card.reading = reading;
+      return {
+        card,
+        start,
+        end,
+        length: end - start,
+        rubies: [{ text: reading, start, end, length: end - start }],
+        pitchClass: "",
+        sentence
+      };
+    }
     rememberLocalPitchCacheEntry(key, promise) {
       this.localPitchCache.set(key, promise);
       while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
@@ -27425,7 +27619,40 @@ ${spelling}`);
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
-    return mergeInflectedFallbackSegments(segments);
+    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first2.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
   }
   function mergeInflectedFallbackSegments(segments) {
     const merged = [];
@@ -31774,12 +32001,18 @@ ${spelling}`);
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state);
+    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
-  function applyGenericNativeTrackModes(state) {
+  function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
     for (const option of state.tracks) {
-      if (option.track && isSelectedSubtitleTrack(option, state)) ensureTextTrackReadable(option.track);
+      if (!option.track) continue;
+      if (isSelectedSubtitleTrack(option, state)) {
+        if (yomuCaptionsActive) option.track.mode = "hidden";
+        else ensureTextTrackReadable(option.track);
+        continue;
+      }
+      if (yomuCaptionsActive) option.track.mode = "disabled";
     }
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
@@ -33012,6 +33245,10 @@ ${spelling}`);
       this.root.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
       this.root.classList.toggle("jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
       this.root.classList.toggle("jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
+      if (!this.video) {
+        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
+        this.root.classList.add("jpdb-subtitle-video-out-of-view");
+      }
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
     }
     syncRootStyleSettings(settings) {
@@ -33462,8 +33699,10 @@ ${spelling}`);
       if (cues.length && cues.length !== currentLength) assign(cues);
     }
     alignToVideo() {
-      if (!this.root || !this.video) {
-        this.root?.classList.remove("jpdb-subtitle-video-out-of-view");
+      if (!this.root) return;
+      if (!this.video) {
+        this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
+        this.root.classList.add("jpdb-subtitle-video-out-of-view");
         this.positionTranscriptPanel();
         return;
       }
@@ -33474,7 +33713,9 @@ ${spelling}`);
       if (!this.root) return;
       const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
       this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
+      this.root.classList.toggle("jpdb-subtitle-has-video-frame", videoVisible);
       if (!videoVisible) {
+        this.root.classList.remove("jpdb-subtitle-compact-video");
         this.clearVideoInsetForTranscriptPanel();
         return;
       }
@@ -43232,7 +43473,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view)}
+                ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${definitionSources}
                 ${fallbackAnkiSection}
@@ -43278,11 +43519,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
       };
     }
-    renderHeader(card, data, view) {
+    renderHeader(card, data, view, trigger) {
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
@@ -51510,6 +51751,20 @@ ${newTabCardReading(card)}`;
     }
     return null;
   }
+  const TWO_BUTTON_REVIEW_SHORTCUTS = [
+    ["gradeFail", "fail"],
+    ["gradePass", "pass"]
+  ];
+  const FIVE_BUTTON_REVIEW_SHORTCUTS = [
+    ["gradeNothing", "nothing"],
+    ["gradeSomething", "something"],
+    ["gradeHard", "hard"],
+    ["gradeOkay", "okay"],
+    ["gradeEasy", "easy"]
+  ];
+  function matchedReviewShortcutGrade(event, shortcuts, candidates) {
+    return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
+  }
   function renderNewTabImmersionSentence(card, example, settings, tokens) {
     const sentence = document.createElement("div");
     sentence.className = "jpdb-reader-example-sentence jpdb-reader-parseable";
@@ -52773,7 +53028,7 @@ ${newTabCardReading(card)}`;
   }
   function renderNewTabGradeControlButtons(options) {
     return [
-      ...options.grades.map(([grade, label], index) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], index + 1)),
+      ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade])),
       renderNewTabGradeTargetControl(options)
     ];
   }
@@ -52879,11 +53134,10 @@ ${newTabCardReading(card)}`;
         "aria-label": `${aria}: ${targetLabel}`
       },
       el("span", { class: "jpdb-reader-newtab-grade-label" }, label),
-      // jpdb.io/Jiten parity: both advertise their grading keys on the
-      // controls; digits map to rendered order (handleGradeDigitKeydown).
+      // jpdb.io/Jiten parity: both advertise their grading keys on the controls.
       // UT-54: touch-only devices never render the hint at all (the CSS
       // pointer:coarse rule stays as a belt for hybrid devices).
-      keyHint && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, String(keyHint)) : null
+      keyHint?.trim() && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, keyHint.trim()) : null
     );
   }
   function newTabKeyHintsRenderable() {
@@ -55210,6 +55464,7 @@ ${entry.url}`),
       return root.dataset.standaloneNewtab === "true" && !this.allWords.length;
     }
     handleRootKeydown(root, event) {
+      if (!root.isConnected) return;
       const target = eventTargetElement(event.target);
       if (this.shouldIgnoreRootKeydown(root)) return;
       if (this.handleImmersionTranslationKeydown(root, event, target)) return;
@@ -55236,25 +55491,38 @@ ${entry.url}`),
     }
     handleStudyKeydown(root, event, target) {
       if (!isNewTabStudyKeyboardMode(this.state.mode)) return;
-      const direction = newTabKeyNavigationDirection(event.key);
+      const settings = this.dependencies.getSettings();
+      const direction = this.studyNavigationDirection(event, settings);
       if (direction) {
         event.preventDefault();
         this.showWordInDirection(direction);
         return;
       }
-      if (isNewTabSpaceRevealKey(event.key) || isNewTabEnterRevealKey(event.key) && this.canRevealFromEnterTarget(root, target)) {
+      if (this.matchesStudyRevealShortcut(root, event, target, settings)) {
         event.preventDefault();
         this.dismissKeyHints(root);
         this.toggleReveal(root);
         return;
       }
-      if ((event.key === "u" || event.key === "U") && !event.metaKey && !event.ctrlKey && !event.altKey && this.canUndoLastReview()) {
+      if (matchesShortcut(event, settings.shortcuts.studyUndo) && this.canUndoLastReview()) {
         event.preventDefault();
         this.dismissKeyHints(root);
         void this.undoLastReview(root);
         return;
       }
-      this.handleGradeDigitKeydown(root, event);
+      this.handleGradeShortcutKeydown(root, event, settings);
+    }
+    studyNavigationDirection(event, settings) {
+      if (this.matchesAnyStudyShortcut(event, settings, ["studyNext", "studyNextAlternate"])) return "next";
+      if (this.matchesAnyStudyShortcut(event, settings, ["studyPrevious", "studyPreviousAlternate"])) return "previous";
+      return null;
+    }
+    matchesStudyRevealShortcut(root, event, target, settings) {
+      if (!this.matchesAnyStudyShortcut(event, settings, ["studyReveal", "studyRevealAlternate"])) return false;
+      return !isNewTabEnterRevealKey(event.key) || this.canRevealFromEnterTarget(root, target);
+    }
+    matchesAnyStudyShortcut(event, settings, names) {
+      return names.some((name) => matchesShortcut(event, settings.shortcuts[name]));
     }
     // UT-34: inline kbd hints exist only until the user proves they know the
     // shortcuts — the first keyboard reveal/grade hides them permanently
@@ -55268,14 +55536,12 @@ ${entry.url}`),
     syncKeyHintVisibility(root) {
       root.classList.toggle("jpdb-reader-newtab-key-hints-dismissed", this.state.keyHintsDismissed);
     }
-    // jpdb.io parity (SH-8): on a revealed card, digits 1..5 press the grade
-    // buttons in their rendered order — 1=Nothing … 5=Easy on JPDB-shaped
-    // bars, 1=Fail 2=Pass on two-button bars.
-    handleGradeDigitKeydown(root, event) {
-      if (!this.state.revealAnswer || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (!/^[1-9]$/.test(event.key)) return;
-      const buttons = Array.from(root.querySelectorAll('[data-newtab-study] [data-newtab-action="grade"]:not([disabled])'));
-      const button = buttons[Number(event.key) - 1];
+    handleGradeShortcutKeydown(root, event, settings) {
+      if (!this.state.revealAnswer) return;
+      const candidates = settings.twoButtonReviews ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
+      if (!grade) return;
+      const button = root.querySelector(`[data-newtab-study] [data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
       if (!button) return;
       event.preventDefault();
       this.dismissKeyHints(root);
@@ -60048,13 +60314,14 @@ ${entry.url}`),
       return queueableNewTabReviewTargets(this.reviewTargetsForCard(card));
     }
     navigationControlButtons(revealLabel) {
+      const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
       return [
         el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
           { type: "button", dataset: { newtabAction: "reveal" } },
           revealLabel,
-          newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, "Space") : null
+          revealShortcut && newTabKeyHintsRenderable() ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
         ),
         el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
@@ -60067,12 +60334,22 @@ ${entry.url}`),
         bothLabel: this.text("gradeTargetBoth"),
         grades: newTabGradeOptions(this.dependencies.getSettings()),
         intervals: card.reviewGradeIntervals,
+        keyHints: this.studyGradeShortcutHints(),
         selectorLabel: this.text("gradeTargetSelector"),
         selectedOption: targetOptions[0],
         summary: this.reviewSourceSummary(card),
         targetLabel,
         targetOptions
       });
+    }
+    studyGradeShortcutHints() {
+      const settings = this.dependencies.getSettings();
+      const candidates = settings.twoButtonReviews ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
+      return Object.fromEntries(candidates.map(([key, grade]) => [grade, settings.shortcuts[key]]));
+    }
+    studyShortcutHint(names) {
+      const shortcuts = this.dependencies.getSettings().shortcuts;
+      return names.map((name) => shortcuts[name].trim()).find(Boolean) ?? "";
     }
     mainGradeTargetOptions(card) {
       const targets = this.lookupReviewTargetsForCard(card);
@@ -61107,11 +61384,6 @@ ${entry.url}`),
   }
   function isNewTabEnterRevealKey(key) {
     return key === "Enter";
-  }
-  function newTabKeyNavigationDirection(key) {
-    if (key === "ArrowRight" || key === "n") return "next";
-    if (key === "ArrowLeft" || key === "p") return "previous";
-    return null;
   }
   function pointerPointFromEvent(event) {
     const point = { x: event.clientX, y: event.clientY };
@@ -62236,10 +62508,13 @@ ${entry.url}`),
   }
   function renderLookupLinkPill(options, context, language, query, link) {
     const style = lookupPillStyle(link.id || link.label);
-    if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style);
+    if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return "";
     const title = lookupLinkPillTitle(options, language, link);
+    if (options.inert) {
+      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</span>`;
+    }
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
   }
   function lookupLinkPillUrl(options, context, link) {
@@ -62258,9 +62533,12 @@ ${entry.url}`),
   function lookupPillStyleAttribute(style) {
     return style ? ` style="${style}"` : "";
   }
-  function renderCopyPill(language, query, style = lookupPillStyle("copy")) {
+  function renderCopyPill(language, query, style = lookupPillStyle("copy"), inert = false) {
     const copyTitle = uiText(language, "copyWordTitle");
     const styleAttribute = style ? ` style="${style}"` : "";
+    if (inert) {
+      return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</span>`;
+    }
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
   }
   function wordPillContext(card, overrideQuery) {
@@ -62351,12 +62629,13 @@ ${entry.url}`),
       getSettings: () => this.settings,
       isJpdbBackedCard: (card) => this.parser.isJpdbBackedCard(card),
       renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
+      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
         card,
         jpdbUrl,
         settings: this.settings,
         metaEntries,
         overrideQuery,
+        inert: trigger === "hover",
         isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)
       }),

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID } from '../../src/reader/app/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
-import { activateSettingsPanel, applySettingsSearch, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
+import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
@@ -44,6 +44,16 @@ function topLevelLegendForControl(form: HTMLFormElement, controlName: string): s
     );
 
     return legend?.textContent ?? '';
+}
+
+function topLevelLegendsForControl(form: HTMLFormElement, controlName: string): string[] {
+    return Array.from(form.querySelectorAll<HTMLElement>(`[name="${controlName}"]`)).map(control => {
+        const fieldset = control.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]');
+        const legend = Array.from(fieldset?.children ?? []).find((child): child is HTMLElement =>
+            child instanceof HTMLElement && child.tagName === 'LEGEND',
+        );
+        return legend?.textContent ?? '';
+    });
 }
 
 function labelForControl(form: HTMLFormElement, controlName: string): string {
@@ -358,6 +368,17 @@ describe('settings form localization', () => {
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true }, 'anki')).toBe('off');
         expect(effectiveReaderTextColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, DEFAULT_SETTINGS.wordTextColorSource)).toBe('anki');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.checked).toBe(false);
+        const appearancePreset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
+        expect(Array.from(appearancePreset.options).map(option => [option.value, option.textContent])).toEqual([
+            ['', 'Keep current custom settings'],
+            ['balanced', 'Balanced reading'],
+            ['new-only', 'Focus on new words'],
+            ['underline-new', 'Minimal highlights'],
+            ['no-colors', 'Plain text'],
+        ]);
+        expect(appearancePreset.textContent).not.toContain('Yomu default');
+        expect(appearancePreset.textContent).not.toContain('Show all furigana');
+        expect(appearancePreset.textContent).not.toContain('No furigana');
         expect(form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.value).toBe('auto');
         expect(form.querySelector<HTMLInputElement>('input[name="ankiTags"]')?.value).toBe('yomu');
         expect(form.querySelector<HTMLElement>('[data-anki-tag-chips] .jpdb-reader-tag-chip')?.textContent).toContain('yomu');
@@ -425,7 +446,7 @@ describe('settings form localization', () => {
         });
     });
 
-    it('hides legacy scan setup controls while preserving stored scan behavior', () => {
+    it('keeps scan shortcuts configurable while preserving stored scan behavior', () => {
         const current = {
             ...DEFAULT_SETTINGS,
             ocrAutoScanImages: false,
@@ -439,9 +460,9 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(current, 'https://jpdb.io/settings');
 
         expect(form.querySelector<HTMLInputElement>('input[name="ocrAutoScanImages"]')).toBeNull();
-        expect(form.querySelector<HTMLInputElement>('input[name="shortcuts.scanPage"]')).toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[name="shortcuts.scanPage"]')?.value).toBe('Ctrl+J');
         expect(form.textContent).not.toContain('Read images automatically');
-        expect(form.textContent).not.toContain('Scan page');
+        expect(topLevelLegendForControl(form, 'shortcuts.scanPage')).toBe('Shortcuts');
 
         const saved = readFormSettings(new FormData(form), current);
         expect(saved.ocrAutoScanImages).toBe(false);
@@ -570,10 +591,44 @@ describe('settings form localization', () => {
 
         localizeSettingsForm(form, 'ja');
 
-        expect(topLevelLegendForControl(form, 'shortcuts.hoverLookup')).toBe('リーダー');
+        expect(topLevelLegendsForControl(form, 'shortcuts.hoverLookup')).toEqual(['リーダー', 'ショートカット']);
+        expect(Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.hoverLookup"]')).map(input =>
+            input.closest('label')?.textContent?.trim(),
+        )).toEqual(['ホバー中に押すキー', 'ホバー中に押すキー']);
         expect(topLevelLegendForControl(form, 'hoverOpenDelayMs')).toBe('リーダー');
         expect(form.querySelector<HTMLElement>('[data-hover-lookup-title]')?.textContent).toBe('ホバー検索');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-legend-key="shortcuts"]')?.textContent).not.toContain('Hover open delay');
+    });
+
+    it('mirrors the hover lookup shortcut between Reader and Shortcuts', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        installShortcutCapture(form);
+
+        const hoverInputs = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="shortcuts.hoverLookup"]'));
+        expect(hoverInputs).toHaveLength(2);
+
+        hoverInputs[1]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'H',
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['Shift+H', 'Shift+H']);
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).shortcuts.hoverLookup).toBe('Shift+H');
+
+        hoverInputs[0]!.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Backspace',
+            bubbles: true,
+            cancelable: true,
+        }));
+
+        expect(hoverInputs.map(input => input.value)).toEqual(['', '']);
+        expect(readFormSettings(new FormData(form), {
+            ...DEFAULT_SETTINGS,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift+H' },
+        }).shortcuts.hoverLookup).toBe('');
     });
 
     it('keeps pitch accent color controls with Reader pitch settings', () => {
@@ -955,19 +1010,19 @@ describe('settings form localization', () => {
         expect(readerFontFamily.value).toBe(DEFAULT_SETTINGS.readerFontFamily);
         expect(fontFamily.value).toBe(DEFAULT_SETTINGS.popupFontFamily);
         expectFontFamilyOptions(form, 'readerFontFamily', {
-            defaultLabel: 'Yomu default',
+            defaultLabel: 'Built-in font',
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
         });
         expectFontFamilyOptions(form, 'popupFontFamily', {
-            defaultLabel: 'Yomu default',
+            defaultLabel: 'Built-in font',
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
         });
         expectFontFamilyOptions(form, 'subtitleFontFamily', {
-            defaultLabel: 'Yomu default',
+            defaultLabel: 'Built-in font',
             systemLabel: 'System UI',
             customLabel: 'Custom...',
             historicalLabel: 'Hiragino / Yu Gothic',
@@ -1004,6 +1059,39 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.previousLookupWord).toBe('Alt+H');
         expect(saved.shortcuts.nextLookupWord).toBe('Alt+L');
         expect(saved.shortcuts.toggleSubtitleOverlay).toBe('Ctrl+H');
+    });
+
+    it('renders Study shortcuts as configurable shortcut inputs', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const reveal = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyReveal"]')!;
+        const revealAlternate = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyRevealAlternate"]')!;
+        const undo = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyUndo"]')!;
+        const previous = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyPrevious"]')!;
+        const next = form.querySelector<HTMLInputElement>('input[name="shortcuts.studyNext"]')!;
+
+        expect(form.textContent).not.toContain('Study page keys');
+        expect(form.textContent).not.toContain('Fixed keys');
+        expect(topLevelLegendForControl(form, 'shortcuts.studyReveal')).toBe('Shortcuts');
+        expect(reveal.value).toBe('Space');
+        expect(revealAlternate.value).toBe('Enter');
+        expect(undo.value).toBe('U');
+        expect(previous.value).toBe('ArrowLeft');
+        expect(next.value).toBe('ArrowRight');
+
+        reveal.value = 'R';
+        revealAlternate.value = '';
+        undo.value = 'Z';
+        previous.value = 'H';
+        next.value = 'L';
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.shortcuts.studyReveal).toBe('R');
+        expect(saved.shortcuts.studyRevealAlternate).toBe('');
+        expect(saved.shortcuts.studyUndo).toBe('Z');
+        expect(saved.shortcuts.studyPrevious).toBe('H');
+        expect(saved.shortcuts.studyNext).toBe('L');
     });
 
     it('links proxy setup to the maintained Worker source instead of embedding stale code', () => {
@@ -1208,8 +1296,9 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.puckPositionX).toBeUndefined();
         expect(DEFAULT_SETTINGS.puckPositionY).toBeUndefined();
         expect(labelForControl(form, 'showFloatingButton')).toBe('Show settings puck');
-        expect(form.querySelector<HTMLElement>('[data-settings-puck-help]')?.textContent).toBe('Keeps Settings reachable on phones and tablets.');
-        expect(form.querySelector<HTMLElement>('[data-settings-puck-help]')?.textContent).not.toContain('iOS zoom');
+        expect(form.querySelector<HTMLElement>('[data-settings-puck-help]')).toBeNull();
+        expect(form.textContent).not.toContain('Keeps Settings reachable on phones and tablets.');
+        expect(form.textContent).not.toContain('iOS zoom');
     });
 
     it('keeps mobile Anki limitations in docs instead of cramped settings copy', () => {
@@ -1301,6 +1390,8 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'subtitleFontFamily')).toContain('字幕フォントファミリー');
         expect(labelForControl(form, 'subtitlePausePanel')).toContain('一時停止時にサイドパネルを開く');
         expect(labelForControl(form, 'shortcuts.nextLookupWord')).toContain('次の単語');
+        expect(labelForControl(form, 'shortcuts.studyReveal')).toContain('学習: カードを表示');
+        expect(labelForControl(form, 'shortcuts.studyNext')).toContain('学習: 次のカード');
         expect(settingsText(form, '.jpdb-reader-radio-group > legend')).toBe('単語ごとの例文数制限');
         expect(settingsText(form, '.jpdb-reader-lookup-link-head span:nth-child(3)')).toBe('検索URLテンプレート');
     });
@@ -1309,19 +1400,19 @@ describe('settings form localization', () => {
         const form = sharedJapaneseSettingsTestForm();
 
         expectFontFamilyOptions(form, 'readerFontFamily', {
-            defaultLabel: 'よむ既定',
+            defaultLabel: '内蔵フォント',
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
         });
         expectFontFamilyOptions(form, 'popupFontFamily', {
-            defaultLabel: 'よむ既定',
+            defaultLabel: '内蔵フォント',
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
         });
         expectFontFamilyOptions(form, 'subtitleFontFamily', {
-            defaultLabel: 'よむ既定',
+            defaultLabel: '内蔵フォント',
             systemLabel: 'システムUI',
             customLabel: 'カスタム...',
             historicalLabel: 'ヒラギノ / 游ゴシック',
