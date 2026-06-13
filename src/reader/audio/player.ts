@@ -14,6 +14,7 @@ import {
 import {
     audioCandidateSelectionMode,
     audioPreloadLimits,
+    cheapCandidatePreloadAudioSources,
     cloneAudioCandidates,
     getAudioBagKey,
     getAudioCandidateCacheKey,
@@ -389,14 +390,21 @@ export class AudioPlayer {
         return 'played';
     }
 
-    preload(card: JPDBCard, options: AudioPreloadOptions = {}): void {
+    preload(card: JPDBCard, options: AudioPreloadOptions = {}): boolean {
         const settings = this.getSettings();
-        if (!settings.audioEnabled) return;
+        if (!settings.audioEnabled) return false;
         const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits(options);
-        const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
-        if (!sources.length) return;
+        const candidateSources = preloadableAudioSources(getOrderedAudioSources(settings), settings);
+        const preloadedSources = prepareAudio ? candidateSources : cheapCandidatePreloadAudioSources(candidateSources, card);
+        const sources = orderAudioSources(
+            preloadedSources,
+            settings.audioSelectionMode,
+            card,
+            this.shuffledAudio,
+        ).slice(0, sourceLimit);
+        if (!sources.length) return false;
 
-        for (const source of sources) {
+        for (const { source } of sources) {
             void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl)
                 .then(candidates => {
                     const triedUrls = new Set<string>();
@@ -410,6 +418,7 @@ export class AudioPlayer {
                 })
                 .catch(() => undefined);
         }
+        return true;
     }
 
     stop(): void {

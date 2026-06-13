@@ -455,6 +455,7 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrEnabled: has('ocrEnabled'),
         ocrAutoScanImages: formReaderValuePresent(reader, 'ocrAutoScanImages') ? has('ocrAutoScanImages') : current.ocrAutoScanImages,
         ocrShowTextOverlay: has('ocrShowTextOverlay'),
+        ocrVideoPauseFrames: has('ocrVideoPauseFrames'),
         ocrProvider: normalizeOcrProvider(get('ocrProvider')),
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',

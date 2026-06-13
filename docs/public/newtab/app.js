@@ -5550,6 +5550,7 @@
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
+      ocrVideoPauseFrames: "Read paused video frames",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       cloudVision: "Google Cloud Vision",
@@ -5911,6 +5912,10 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
+      ocrPausedFrameScanning: "Reading paused frame...",
+      ocrPausedFrameReady: "Text ready",
+      ocrPausedFrameNoText: "No text found",
+      ocrPausedFrameFailed: "Could not read text",
       ocrNoReadableImages: "No readable images nearby.",
       gradeNothing: "Grade NOTHING",
       gradeSomething: "Grade SOMETHING",
@@ -6616,6 +6621,10 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameReady	テキスト準備完了
+ocrPausedFrameNoText	テキストが見つかりません
+ocrPausedFrameFailed	テキストを読み取れませんでした
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -7053,6 +7062,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
+ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
@@ -21029,6 +21039,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ocrEnabled: has("ocrEnabled"),
       ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
+      ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -22827,6 +22838,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="grid">
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
+                    ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["cloud-vision", "Google Cloud Vision"], ["local-service", "Local OCR engine"], ["off", "Off"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
@@ -23779,6 +23791,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "ocrEnabled",
     "ocrAutoScanImages",
     "ocrShowTextOverlay",
+    "ocrVideoPauseFrames",
     "ocrProvider",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",
@@ -27987,7 +28000,9 @@ ${spelling}`);
     refreshTimer = 0;
     lastPointerMoveImage;
     videoFrames = /* @__PURE__ */ new Map();
+    videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
+    videoFrameStatuses = /* @__PURE__ */ new Map();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -28241,6 +28256,7 @@ ${spelling}`);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         renderNoOcrLines(state);
+        this.updateVideoFrameStatusForImage(image, "empty");
         return;
       }
       this.remember(key, result);
@@ -28256,6 +28272,7 @@ ${spelling}`);
         return;
       }
       logOcrFailure(state, provider, manualRequested, error);
+      this.updateVideoFrameStatusForImage(image, "failed");
     }
     recognizeImage(image, settings) {
       const recognizer = ocrRecognizer(settings);
@@ -28295,6 +28312,11 @@ ${spelling}`);
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
+      if (!lines.length) {
+        renderNoOcrLines(state);
+        this.updateVideoFrameStatusForImage(state.image, "empty");
+        return;
+      }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
       const sentence = lines.map((line) => line.text).join("\n");
       const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
@@ -28309,6 +28331,7 @@ ${spelling}`);
         state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       }
       this.positionState(state.image);
+      this.updateVideoFrameStatusForImage(state.image, "ready");
       void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
     }
     async parseOcrLines(lines) {
@@ -28413,6 +28436,10 @@ ${spelling}`);
       frame.src = dataUrl;
       document.body.append(frame);
       this.videoFrames.set(target, frame);
+      this.videoFrameVideos.set(frame, target);
+      const status = this.createVideoFrameStatus("loading");
+      this.videoFrameStatuses.set(target, status);
+      positionVideoFrameStatus(status, rect, target);
       const resume = this.createVideoFrameResumeControl(target);
       this.videoFrameControls.set(target, resume);
       positionVideoFrameResumeControl(resume, rect, target);
@@ -28438,6 +28465,29 @@ ${spelling}`);
       });
       return button;
     }
+    createVideoFrameStatus(status) {
+      const element = document.createElement("div");
+      element.className = "jpdb-ocr-video-frame-status";
+      element.dataset.jpdbReaderRoot = "true";
+      element.dataset.jpdbReaderSurfaceIgnore = "true";
+      element.setAttribute("role", "status");
+      element.setAttribute("aria-live", "polite");
+      this.setVideoFrameStatus(element, status);
+      document.body.append(element);
+      return element;
+    }
+    setVideoFrameStatus(element, status) {
+      const language = this.options.getSettings().interfaceLanguage;
+      element.dataset.status = status;
+      element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
+      element.textContent = uiText(language, videoFrameStatusTextKey(status));
+    }
+    updateVideoFrameStatusForImage(image, status) {
+      const video = this.videoFrameVideos.get(image);
+      if (!video) return;
+      const element = this.videoFrameStatuses.get(video);
+      if (element) this.setVideoFrameStatus(element, status);
+    }
     refreshVideoFrameAfterSeek(target) {
       if (!(target instanceof HTMLVideoElement) || !target.paused) return;
       if (!this.videoFrames.has(target)) return;
@@ -28452,12 +28502,16 @@ ${spelling}`);
       const control = this.videoFrameControls.get(target);
       if (control) removeVideoFrameResumeControl(control);
       this.videoFrameControls.delete(target);
+      const status = this.videoFrameStatuses.get(target);
+      status?.remove();
+      this.videoFrameStatuses.delete(target);
       const state = this.states.get(frame);
       if (state) {
         this.observer?.unobserve(frame);
         state.overlay.remove();
         this.states.delete(frame);
       }
+      this.videoFrameVideos.delete(frame);
       this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
@@ -28474,6 +28528,8 @@ ${spelling}`);
         positionVideoFrameImage(frame, rect, video);
         const resume = this.videoFrameControls.get(video);
         if (resume) positionVideoFrameResumeControl(resume, rect, video);
+        const status = this.videoFrameStatuses.get(video);
+        if (status) positionVideoFrameStatus(status, rect, video);
       }
     }
     scheduleRefresh(delay2) {
@@ -29170,6 +29226,26 @@ ${spelling}`);
     const content = videoContentBox(rect, video);
     control.style.left = `${content.left + content.width - 12}px`;
     control.style.top = `${content.top + 12}px`;
+  }
+  function positionVideoFrameStatus(status, rect, video) {
+    const content = videoContentBox(rect, video);
+    const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
+    status.style.left = `${Math.max(8, content.left + 12)}px`;
+    status.style.top = `${Math.max(8, content.top + 12)}px`;
+    status.style.maxWidth = `${maxWidth}px`;
+  }
+  function videoFrameStatusTextKey(status) {
+    switch (status) {
+      case "ready":
+        return "ocrPausedFrameReady";
+      case "empty":
+        return "ocrPausedFrameNoText";
+      case "failed":
+        return "ocrPausedFrameFailed";
+      case "loading":
+      default:
+        return "ocrPausedFrameScanning";
+    }
   }
   function attachVideoFrameResumeControlToSubtitleRail(control) {
     const rail = document.querySelector('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
@@ -33009,6 +33085,12 @@ ${spelling}`);
     "popstate",
     "hashchange"
   ];
+  const SUBTITLE_FULLSCREEN_CHANGE_EVENTS = [
+    "fullscreenchange",
+    "webkitfullscreenchange",
+    "mozfullscreenchange",
+    "MSFullscreenChange"
+  ];
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -33023,6 +33105,10 @@ ${spelling}`);
   ];
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
+  }
+  function currentFullscreenElement() {
+    const fullscreenDocument = document;
+    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
@@ -33309,12 +33395,14 @@ ${spelling}`);
       for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
         window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
       }
-      document.addEventListener("fullscreenchange", () => {
-        this.fullscreen = Boolean(document.fullscreenElement);
-        this.syncFullscreenState();
-        this.scheduleAlignToVideo();
-        this.render();
-      }, this.eventOptions());
+      for (const eventName of SUBTITLE_FULLSCREEN_CHANGE_EVENTS) {
+        document.addEventListener(eventName, () => {
+          this.fullscreen = Boolean(currentFullscreenElement());
+          this.syncFullscreenState();
+          this.scheduleAlignToVideo();
+          this.render();
+        }, this.eventOptions());
+      }
       window.addEventListener("scroll", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       window.addEventListener("resize", () => {
         this.scheduleAlignToVideo();
@@ -33492,6 +33580,8 @@ ${spelling}`);
       if (!this.video) return false;
       if (this.video.controls || isYouTubePage()) return true;
       if (this.video.closest("#movie_player, .html5-video-player, [data-yomu-video-frame]")) return true;
+      const fullscreenElement = currentFullscreenElement();
+      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) && frameHasPlayerControls(fullscreenElement)) return true;
       const frame = subtitleVideoLayoutTarget(this.video);
       if (frame && frame !== this.video && frameHasPlayerControls(frame)) return true;
       return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
@@ -36394,7 +36484,9 @@ ${spelling}`);
       return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
-      this.fullscreen = Boolean(document.fullscreenElement);
+      const fullscreenElement = currentFullscreenElement();
+      this.fullscreen = Boolean(fullscreenElement);
+      this.syncSubtitleRootParent(fullscreenElement);
       document.documentElement.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       if (this.fullscreen) {
@@ -36409,6 +36501,19 @@ ${spelling}`);
         }));
       }
     }
+    syncSubtitleRootParent(fullscreenElement = currentFullscreenElement()) {
+      if (!this.root) return;
+      const parent = this.subtitleRootParent(fullscreenElement);
+      if (this.root.parentElement === parent) return;
+      parent.appendChild(this.root);
+    }
+    subtitleRootParent(fullscreenElement) {
+      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
+      return document.body;
+    }
+    shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
+      return Boolean(fullscreenElement instanceof HTMLElement && this.video && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
+    }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
       this.alignFrame = requestAnimationFrame(() => {
@@ -36418,6 +36523,8 @@ ${spelling}`);
       });
     }
     videoLayoutRect() {
+      const fullscreenElement = currentFullscreenElement();
+      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement.getBoundingClientRect();
       return subtitleVideoLayoutRect(this.video);
     }
     transcriptAnchorRect() {
@@ -38606,6 +38713,29 @@ ${spelling}`);
   function preloadableAudioSources(sources, settings) {
     return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
   }
+  function cheapCandidatePreloadAudioSources(sources, card) {
+    return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+  }
+  function canResolveAudioCandidatesWithoutNetwork(source, card) {
+    switch (source.type) {
+      case "custom":
+      case "jpod101":
+        return true;
+      case "jiten-tts":
+        return hasJitenAudioReference(card);
+      default:
+        return false;
+    }
+  }
+  function hasJitenAudioReference(card) {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+  }
+  function isPositiveFiniteInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+  }
+  function isFiniteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+  }
   function audioPreloadLimits(options) {
     return {
       sourceLimit: Math.max(1, options.sourceLimit ?? 1),
@@ -40002,11 +40132,18 @@ ${spelling}`);
     }
     preload(card, options = {}) {
       const settings = this.getSettings();
-      if (!settings.audioEnabled) return;
+      if (!settings.audioEnabled) return false;
       const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits(options);
-      const sources = preloadableAudioSources(getOrderedAudioSources(settings), settings).slice(0, sourceLimit);
-      if (!sources.length) return;
-      for (const source of sources) {
+      const candidateSources = preloadableAudioSources(getOrderedAudioSources(settings), settings);
+      const preloadedSources = prepareAudio ? candidateSources : cheapCandidatePreloadAudioSources(candidateSources, card);
+      const sources = orderAudioSources(
+        preloadedSources,
+        settings.audioSelectionMode,
+        card,
+        this.shuffledAudio
+      ).slice(0, sourceLimit);
+      if (!sources.length) return false;
+      for (const { source } of sources) {
         void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl).then((candidates) => {
           const triedUrls = /* @__PURE__ */ new Set();
           for (const { candidate } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), getAudioBagKey(source, card), this.shuffledAudio).slice(0, candidateLimit)) {
@@ -40017,6 +40154,7 @@ ${spelling}`);
           }
         }).catch(() => void 0);
       }
+      return true;
     }
     stop() {
       this.playRequestId++;

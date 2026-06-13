@@ -1,6 +1,6 @@
 import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom/index';
 import { normalizeOcrRenderedText } from './rendered-text';
-import { uiText } from '../app/i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { Logger } from '../app/logger';
@@ -22,6 +22,7 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { getUserscriptHttpRequest } from '../userscript/index';
 
 type OcrRecognizer = (image: HTMLImageElement, settings: ReaderSettings) => Promise<OcrResult | null>;
+type OcrVideoFrameStatus = 'loading' | 'ready' | 'empty' | 'failed';
 
 interface ImageState {
     image: HTMLImageElement;
@@ -190,7 +191,9 @@ export class ImageOcrController {
     private refreshTimer = 0;
     private lastPointerMoveImage?: HTMLImageElement;
     private videoFrames = new Map<HTMLVideoElement, HTMLImageElement>();
+    private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
+    private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -497,6 +500,7 @@ export class ImageOcrController {
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
             renderNoOcrLines(state);
+            this.updateVideoFrameStatusForImage(image, 'empty');
             return;
         }
 
@@ -520,6 +524,7 @@ export class ImageOcrController {
             return;
         }
         logOcrFailure(state, provider, manualRequested, error);
+        this.updateVideoFrameStatusForImage(image, 'failed');
     }
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -571,6 +576,11 @@ export class ImageOcrController {
 
         const initialParsed = await this.parseOcrLines(result.lines);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
+        if (!lines.length) {
+            renderNoOcrLines(state);
+            this.updateVideoFrameStatusForImage(state.image, 'empty');
+            return;
+        }
         const parsed = ocrLinesChanged(result.lines, lines)
             ? await this.parseOcrLines(lines)
             : initialParsed;
@@ -588,6 +598,7 @@ export class ImageOcrController {
             state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
+        this.updateVideoFrameStatusForImage(state.image, 'ready');
         void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
     }
 
@@ -720,6 +731,10 @@ export class ImageOcrController {
         frame.src = dataUrl;
         document.body.append(frame);
         this.videoFrames.set(target, frame);
+        this.videoFrameVideos.set(frame, target);
+        const status = this.createVideoFrameStatus('loading');
+        this.videoFrameStatuses.set(target, status);
+        positionVideoFrameStatus(status, rect, target);
         // Paused-frame escape hatch: recognized text areas swallow clicks for
         // lookups, so on text-dense frames the player itself becomes hard to
         // reach. Keep playback control in the existing video rail when it is
@@ -754,6 +769,32 @@ export class ImageOcrController {
         return button;
     }
 
+    private createVideoFrameStatus(status: OcrVideoFrameStatus): HTMLElement {
+        const element = document.createElement('div');
+        element.className = 'jpdb-ocr-video-frame-status';
+        element.dataset.jpdbReaderRoot = 'true';
+        element.dataset.jpdbReaderSurfaceIgnore = 'true';
+        element.setAttribute('role', 'status');
+        element.setAttribute('aria-live', 'polite');
+        this.setVideoFrameStatus(element, status);
+        document.body.append(element);
+        return element;
+    }
+
+    private setVideoFrameStatus(element: HTMLElement, status: OcrVideoFrameStatus): void {
+        const language = this.options.getSettings().interfaceLanguage;
+        element.dataset.status = status;
+        element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
+        element.textContent = uiText(language, videoFrameStatusTextKey(status));
+    }
+
+    private updateVideoFrameStatusForImage(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
+        const video = this.videoFrameVideos.get(image);
+        if (!video) return;
+        const element = this.videoFrameStatuses.get(video);
+        if (element) this.setVideoFrameStatus(element, status);
+    }
+
     private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
         if (!(target instanceof HTMLVideoElement) || !target.paused) return;
         if (!this.videoFrames.has(target)) return;
@@ -769,12 +810,16 @@ export class ImageOcrController {
         const control = this.videoFrameControls.get(target);
         if (control) removeVideoFrameResumeControl(control);
         this.videoFrameControls.delete(target);
+        const status = this.videoFrameStatuses.get(target);
+        status?.remove();
+        this.videoFrameStatuses.delete(target);
         const state = this.states.get(frame);
         if (state) {
             this.observer?.unobserve(frame);
             state.overlay.remove();
             this.states.delete(frame);
         }
+        this.videoFrameVideos.delete(frame);
         this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
     }
@@ -793,6 +838,8 @@ export class ImageOcrController {
             positionVideoFrameImage(frame, rect, video);
             const resume = this.videoFrameControls.get(video);
             if (resume) positionVideoFrameResumeControl(resume, rect, video);
+            const status = this.videoFrameStatuses.get(video);
+            if (status) positionVideoFrameStatus(status, rect, video);
         }
     }
 
@@ -1661,6 +1708,28 @@ function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, vi
     const content = videoContentBox(rect, video);
     control.style.left = `${content.left + content.width - 12}px`;
     control.style.top = `${content.top + 12}px`;
+}
+
+function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
+    const content = videoContentBox(rect, video);
+    const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
+    status.style.left = `${Math.max(8, content.left + 12)}px`;
+    status.style.top = `${Math.max(8, content.top + 12)}px`;
+    status.style.maxWidth = `${maxWidth}px`;
+}
+
+function videoFrameStatusTextKey(status: OcrVideoFrameStatus): UiCopyKey {
+    switch (status) {
+        case 'ready':
+            return 'ocrPausedFrameReady';
+        case 'empty':
+            return 'ocrPausedFrameNoText';
+        case 'failed':
+            return 'ocrPausedFrameFailed';
+        case 'loading':
+        default:
+            return 'ocrPausedFrameScanning';
+    }
 }
 
 function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement): boolean {

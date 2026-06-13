@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.194] - 2026-06-13
+
+### Added
+
+- OCR on paused video frames is now a user-facing toggle ("Read paused video frames") in the OCR settings panel. Previously it was always enabled with no way to turn it off without disabling OCR entirely.
+
+### Fixed
+
+- Fixed CI: the pitch-underline smoke script was not wired into `package.json`, causing the `fallow:dead-code` check to fail.
+
 ## [0.6.193] - 2026-06-13
 
 ### Performance

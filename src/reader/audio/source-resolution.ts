@@ -46,6 +46,35 @@ export function preloadableAudioSources(sources: AudioSourceSetting[], settings:
         : sources.filter(source => !isTextToSpeechFallbackSource(source));
 }
 
+export function cheapCandidatePreloadAudioSources(sources: AudioSourceSetting[], card: JPDBCard): AudioSourceSetting[] {
+    return sources.filter(source => canResolveAudioCandidatesWithoutNetwork(source, card));
+}
+
+function canResolveAudioCandidatesWithoutNetwork(source: AudioSourceSetting, card: JPDBCard): boolean {
+    switch (source.type) {
+        case 'custom':
+        case 'jpod101':
+            return true;
+        case 'jiten-tts':
+            return hasJitenAudioReference(card);
+        default:
+            return false;
+    }
+}
+
+function hasJitenAudioReference(card: JPDBCard): boolean {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex)
+        || card.source === 'jiten' && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+}
+
+function isPositiveFiniteInteger(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isFiniteNonNegativeInteger(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
 export function audioPreloadLimits(options: AudioPreloadOptions): AudioPreloadLimits {
     return {
         sourceLimit: Math.max(1, options.sourceLimit ?? 1),

@@ -338,6 +338,7 @@ const COPY = {
         ocrEnabled: 'Read text in images',
         ocrAutoScanImages: 'Read images automatically',
         ocrShowTextOverlay: 'Show recognized image text areas',
+        ocrVideoPauseFrames: 'Read paused video frames',
         ocrProvider: 'Image reading',
         googleLens: 'Google Lens (recommended)',
         cloudVision: 'Google Cloud Vision',
@@ -699,6 +700,10 @@ const COPY = {
         ocrHiddenToast: 'Image reading hidden.',
         ocrPlayVideo: 'Play video',
         ocrResumeVideo: 'Resume video',
+        ocrPausedFrameScanning: 'Reading paused frame...',
+        ocrPausedFrameReady: 'Text ready',
+        ocrPausedFrameNoText: 'No text found',
+        ocrPausedFrameFailed: 'Could not read text',
         ocrNoReadableImages: 'No readable images nearby.',
         gradeNothing: 'Grade NOTHING',
         gradeSomething: 'Grade SOMETHING',
@@ -1409,6 +1414,10 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameReady	テキスト準備完了
+ocrPausedFrameNoText	テキストが見つかりません
+ocrPausedFrameFailed	テキストを読み取れませんでした
 ocrNoReadableImages	近くに読み取れる画像がありません。
 showKanji	漢字を表示
 strokePractice	筆順と練習
@@ -1847,6 +1856,7 @@ randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
+ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
