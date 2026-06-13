@@ -482,6 +482,7 @@ export class SubtitlePlayerController {
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
     private subtitleDragActive = false;
+    private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
     private readonly asbSubtitleBaseTransforms = new WeakMap<HTMLElement, string>();
 
@@ -2232,11 +2233,23 @@ export class SubtitlePlayerController {
 
     private syncAsbPlayerSubtitleMoveHandles(settings: ReaderSettings = this.options.getSettings()): void {
         const roots = this.asbPlayerSubtitleMoveRoots();
+        if (!roots.length) {
+            // Fast path for the common case — no asbplayer subtitle containers
+            // on the page (these only exist with the asbplayer extension). This
+            // runs every ~250ms tick on every video, so skip the document-wide
+            // handle-cleanup scan unless we actually created handles to tear down.
+            if (this.asbMoveHandlesActive) {
+                this.removeAsbPlayerSubtitleMoveHandles();
+                this.asbMoveHandlesActive = false;
+            }
+            return;
+        }
         const activeRoots = new Set<HTMLElement>(roots);
         for (const handle of Array.from(document.querySelectorAll<HTMLButtonElement>(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))) {
             const root = handle.closest<HTMLElement>(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR);
             if (!root || !activeRoots.has(root)) handle.remove();
         }
+        let anyEnabled = false;
         for (const root of roots) {
             const enabled = settings.subtitlePlayerEnabled
                 && settings.subtitleOverlayVisible
@@ -2246,6 +2259,7 @@ export class SubtitlePlayerController {
                 this.teardownAsbPlayerSubtitleMoveRoot(root);
                 continue;
             }
+            anyEnabled = true;
             this.captureAsbPlayerSubtitleBaseTransform(root);
             root.classList.add('jpdb-subtitle-asb-movable', 'jpdb-subtitle-has-lines');
             root.classList.toggle('jpdb-subtitle-controls-auto', settings.subtitleControlsMode === 'auto');
@@ -2255,6 +2269,7 @@ export class SubtitlePlayerController {
             setStylePropertyIfChanged(root, '--jpdb-subtitle-asb-drag-offset-y', `${this.subtitleDragOffsetYPx}px`);
             this.ensureAsbPlayerSubtitleMoveHandle(root, settings);
         }
+        this.asbMoveHandlesActive = anyEnabled;
     }
 
     private asbPlayerSubtitleMoveRoots(): HTMLElement[] {
@@ -3403,6 +3418,11 @@ export class SubtitlePlayerController {
         const startHeight = panelRect.height;
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
+        // pointermove fires far faster than the display refreshes; coalesce the
+        // layout-heavy positionTranscriptPanel into one call per animation frame
+        // so dragging the sidebar resize handle stays smooth (it used to relayout
+        // the whole panel on every raw pointer event).
+        let resizeFrame: number | undefined;
         const onMove = (moveEvent: PointerEvent) => {
             Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
                 bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
@@ -3414,12 +3434,21 @@ export class SubtitlePlayerController {
                 startX,
                 startY,
             }));
-            this.positionTranscriptPanel({ skipInset: true });
+            if (resizeFrame !== undefined) return;
+            resizeFrame = requestAnimationFrame(() => {
+                resizeFrame = undefined;
+                if (this.destroyed) return;
+                this.positionTranscriptPanel({ skipInset: true });
+            });
         };
 
         const onUp = () => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
+            if (resizeFrame !== undefined) {
+                cancelAnimationFrame(resizeFrame);
+                resizeFrame = undefined;
+            }
             saveTranscriptPanelSize(this.transcriptPanelSize);
             this.positionTranscriptPanel({ realignAfterInset: true });
         };

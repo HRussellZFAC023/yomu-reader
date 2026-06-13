@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.185] - 2026-06-13
+
+### Fixed
+
+- Pausing a YouTube video on mobile now captures the OCR snapshot again. The main player on m.youtube.com is wrapped in a generic `/watch` link, which a v0.6.182 thumbnail guard mistook for a hover-preview tile and skipped the snapshot ("the auto doesn't work on pause"). Real feed/preview tiles are still ignored; the guard now only treats link-wrapped videos as thumbnails when they are not player-sized.
+- Dragging the subtitle sidebar resize handle is smooth again: the layout-heavy panel reposition now runs at most once per animation frame instead of on every raw pointer-move event.
+- The per-tick asbplayer move-handle sync (added in v0.6.176, running every ~250ms on every video on every site) now takes a fast early-out when no asbplayer subtitle overlay is present, instead of doing a document-wide drag-handle scan each tick.
+- Resolving the generic (non-YouTube) video layout target during resizes no longer re-scans each candidate frame's whole subtree for player controls on every pointer move — the result is memoized per element with a short TTL.
+
+### Notes
+
+- Exact-cue subtitle caching: the cache keying and identical-render guard were verified intact since 0.6.175; the "caching looks broken" reports trace to the render/layout jank fixed above, not to re-parsing or cache-key churn.
+
 ## [0.6.184] - 2026-06-13
 
 ### Fixed

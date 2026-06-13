@@ -27821,7 +27821,7 @@ ${spelling}`);
     "#player-container-outer",
     "[data-yomu-video-frame]"
   ].join(",");
-  const VIDEO_FRAME_THUMBNAIL_SELECTOR = [
+  const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
     "ytd-thumbnail",
     "ytd-rich-item-renderer",
     "ytd-video-renderer",
@@ -27832,7 +27832,9 @@ ${spelling}`);
     "ytm-video-card-renderer",
     "ytm-video-with-context-renderer",
     "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
+    "ytm-shorts-lockup-view-model-v2"
+  ].join(",");
+  const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
     'a[href*="/watch"]',
     'a[href*="/shorts/"]'
   ].join(",");
@@ -29048,7 +29050,17 @@ ${spelling}`);
   }
   function isLikelyPausedVideoThumbnail(video) {
     if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
-    return Boolean(video.closest(VIDEO_FRAME_THUMBNAIL_SELECTOR));
+    if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
+    if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
+    return !isPrimaryPlayerSizedVideo(video);
+  }
+  function isPrimaryPlayerSizedVideo(video) {
+    const rect = video.getBoundingClientRect();
+    if (rect.width < 280 || rect.height < 160) return false;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return rect.width >= 480 && rect.height >= 270;
+    return rect.width >= viewportWidth * 0.6 || rect.width * rect.height >= viewportWidth * viewportHeight * 0.25;
   }
   function positionVideoFrameImage(frame, rect, video) {
     const content = videoContentBox(rect, video);
@@ -30957,20 +30969,28 @@ ${spelling}`);
     const text2 = `${element.id} ${String(element.className)} ${element.getAttribute("aria-label") ?? ""}`;
     return /(^|[-_\s])(player|video|media|embed|lesson-player|video-card|jwplayer|brightcove|vjs|video-js|plyr|mux|playback|wistia|vimeo|dailymotion|kaltura|shaka|cld-video-player)([-_\s]|$)/i.test(text2);
   }
+  const PLAYER_CHROME_SELECTOR = [
+    "button",
+    '[role="button"]',
+    '[role="slider"]',
+    '[role="progressbar"]',
+    '[aria-label*="play" i]',
+    '[aria-label*="pause" i]',
+    '[class*="control" i]',
+    '[class*="controls" i]',
+    '[class*="play" i]',
+    '[class*="pause" i]',
+    '[class*="progress" i]'
+  ].join(",");
+  const PLAYER_CHROME_CACHE_TTL_MS = 2e3;
+  const playerChromeCache = /* @__PURE__ */ new WeakMap();
   function hasLikelyPlayerChrome(element) {
-    return Boolean(element.querySelector([
-      "button",
-      '[role="button"]',
-      '[role="slider"]',
-      '[role="progressbar"]',
-      '[aria-label*="play" i]',
-      '[aria-label*="pause" i]',
-      '[class*="control" i]',
-      '[class*="controls" i]',
-      '[class*="play" i]',
-      '[class*="pause" i]',
-      '[class*="progress" i]'
-    ].join(",")));
+    const now = Date.now();
+    const cached = playerChromeCache.get(element);
+    if (cached && (cached.value || now - cached.at < PLAYER_CHROME_CACHE_TTL_MS)) return cached.value;
+    const value = Boolean(element.querySelector(PLAYER_CHROME_SELECTOR));
+    playerChromeCache.set(element, { value, at: now });
+    return value;
   }
   function rectsHaveMatchingSize(a, b, tolerance) {
     return Math.abs(a.width - b.width) <= tolerance && Math.abs(a.height - b.height) <= tolerance;
@@ -33121,6 +33141,7 @@ ${spelling}`);
     pausePanelSyncScheduled = false;
     subtitleDragOffsetYPx = 0;
     subtitleDragActive = false;
+    asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
     asbSubtitleBaseTransforms = /* @__PURE__ */ new WeakMap();
     clickHandlers = {
@@ -34602,17 +34623,26 @@ ${spelling}`);
     }
     syncAsbPlayerSubtitleMoveHandles(settings = this.options.getSettings()) {
       const roots = this.asbPlayerSubtitleMoveRoots();
+      if (!roots.length) {
+        if (this.asbMoveHandlesActive) {
+          this.removeAsbPlayerSubtitleMoveHandles();
+          this.asbMoveHandlesActive = false;
+        }
+        return;
+      }
       const activeRoots = new Set(roots);
       for (const handle of Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR))) {
         const root = handle.closest(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR);
         if (!root || !activeRoots.has(root)) handle.remove();
       }
+      let anyEnabled = false;
       for (const root of roots) {
         const enabled = settings.subtitlePlayerEnabled && settings.subtitleOverlayVisible && settings.subtitleControlsMode !== "hidden" && this.asbPlayerSubtitleRootHasText(root);
         if (!enabled) {
           this.teardownAsbPlayerSubtitleMoveRoot(root);
           continue;
         }
+        anyEnabled = true;
         this.captureAsbPlayerSubtitleBaseTransform(root);
         root.classList.add("jpdb-subtitle-asb-movable", "jpdb-subtitle-has-lines");
         root.classList.toggle("jpdb-subtitle-controls-auto", settings.subtitleControlsMode === "auto");
@@ -34621,6 +34651,7 @@ ${spelling}`);
         setStylePropertyIfChanged(root, "--jpdb-subtitle-asb-drag-offset-y", `${this.subtitleDragOffsetYPx}px`);
         this.ensureAsbPlayerSubtitleMoveHandle(root, settings);
       }
+      this.asbMoveHandlesActive = anyEnabled;
     }
     asbPlayerSubtitleMoveRoots() {
       return Array.from(document.querySelectorAll(ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR));
@@ -35602,6 +35633,7 @@ ${spelling}`);
       const startWidth = panelRect.width;
       const startHeight = panelRect.height;
       event.currentTarget.setPointerCapture?.(event.pointerId);
+      let resizeFrame;
       const onMove = (moveEvent) => {
         Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
           bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
@@ -35613,11 +35645,20 @@ ${spelling}`);
           startX,
           startY
         }));
-        this.positionTranscriptPanel({ skipInset: true });
+        if (resizeFrame !== void 0) return;
+        resizeFrame = requestAnimationFrame(() => {
+          resizeFrame = void 0;
+          if (this.destroyed) return;
+          this.positionTranscriptPanel({ skipInset: true });
+        });
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        if (resizeFrame !== void 0) {
+          cancelAnimationFrame(resizeFrame);
+          resizeFrame = void 0;
+        }
         saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel({ realignAfterInset: true });
       };
