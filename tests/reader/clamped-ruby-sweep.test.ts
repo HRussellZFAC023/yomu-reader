@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { stripRubyInClampedRows } from '../../src/reader/dom';
+import { makeRoomForRubyInCroppedRows } from '../../src/reader/dom';
 
 function annotatedWord(furi = 'しんそつ', base = '新卒'): string {
     return `<span class="jpdb-reader-word jpdb-known"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${furi}</rt><rp>)</rp></ruby></span>`;
 }
 
-// UT-70: hosts can apply line-clamp AFTER we annotated (custom-element
-// hydration on iPad Safari) — the sweep strips ruby from rows that became
-// layout-sensitive so the base text is never cropped away.
-describe('stripRubyInClampedRows', () => {
-    it('strips ruby but keeps the word span inside a late-clamped title', () => {
+function mockOverflow(el: HTMLElement, scrollHeight: number, clientHeight: number): void {
+    Object.defineProperty(el, 'scrollHeight', { value: scrollHeight, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true });
+}
+
+// UT-70/79 (user direction): ruby that makes a clamped row overflow KEEPS its
+// furigana — the box gets room instead (line-clamp boxes lose their
+// plain-text max-height; other clipped boxes grow to their content height).
+describe('makeRoomForRubyInCroppedRows', () => {
+    it('lifts the max-height of a cropping line-clamp box and keeps the ruby', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             width: 320, height: 40, top: 0, left: 0, right: 320, bottom: 40, x: 0, y: 0, toJSON: () => ({}),
         } as DOMRect);
@@ -20,69 +25,42 @@ describe('stripRubyInClampedRows', () => {
             </div>
             <p id="prose">${annotatedWord('べんきょう', '勉強')}は楽しい。</p>
         `;
-        // jsdom has no layout — simulate the ruby-grown content overflowing
-        // the clamped box (the sweep strips on MEASURED crops only).
         const titleBox = document.querySelector<HTMLElement>('#title')!;
-        Object.defineProperty(titleBox, 'scrollHeight', { value: 56, configurable: true });
-        Object.defineProperty(titleBox, 'clientHeight', { value: 40, configurable: true });
-        const stripped = stripRubyInClampedRows(document);
+        mockOverflow(titleBox, 56, 40);
+        const adjusted = makeRoomForRubyInCroppedRows(document);
         rectSpy.mockRestore();
 
-        expect(stripped).toBe(1);
-        const title = document.querySelector('#title .jpdb-reader-word')!;
-        expect(title.querySelector('rt')).toBeNull();
-        expect(title.textContent).toBe('新卒');
-        expect(title.classList.contains('jpdb-known')).toBe(true);
-        // untouched prose keeps its furigana
+        expect(adjusted).toBe(1);
+        expect(titleBox.style.maxHeight).toBe('none');
+        expect(titleBox.dataset.yomuRubyRoom).toBe('true');
+        // furigana survives everywhere
+        expect(document.querySelectorAll('#title rt')).toHaveLength(1);
         expect(document.querySelector('#prose rt')?.textContent).toBe('べんきょう');
         document.body.innerHTML = '';
     });
 
-    it('strips ruby in single-line ellipsis rows (channel bylines)', () => {
+    it('raises non-clamp clipped boxes to their content height once', () => {
         document.body.innerHTML = `
-            <div id="byline" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${annotatedWord()}チャンネル</div>
+            <div id="byline" style="overflow:hidden;max-height:22px">${annotatedWord()}チャンネル</div>
         `;
         const byline = document.querySelector<HTMLElement>('#byline')!;
-        Object.defineProperty(byline, 'scrollHeight', { value: 34, configurable: true });
-        Object.defineProperty(byline, 'clientHeight', { value: 22, configurable: true });
-        expect(stripRubyInClampedRows(document)).toBe(1);
-        expect(document.querySelector('rt')).toBeNull();
+        mockOverflow(byline, 34, 22);
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(byline.style.maxHeight).toBe('34px');
+        expect(document.querySelector('#byline rt')).not.toBeNull();
+        // repeated sweeps do not re-adjust
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
         document.body.innerHTML = '';
     });
 
-    it('keeps furigana in mobile YouTube watch metadata and description rows', () => {
+    it('leaves boxes alone when the ruby already fits', () => {
         document.body.innerHTML = `
-            <ytm-slim-video-metadata-section-renderer>
-                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                    ${annotatedWord('しちょう', '視聴')} 2026/06/12
-                </div>
-            </ytm-slim-video-metadata-section-renderer>
-            <ytm-video-description-transcript-section-renderer>
-                <div style="display:-webkit-box;-webkit-line-clamp:1;overflow:hidden;max-height:24px">
-                    ${annotatedWord('もじ', '文字')}起こしを表示
-                </div>
-            </ytm-video-description-transcript-section-renderer>
-        `;
-
-        expect(stripRubyInClampedRows(document)).toBe(0);
-        expect(document.querySelector('ytm-slim-video-metadata-section-renderer rt')?.textContent).toBe('しちょう');
-        expect(document.querySelector('ytm-video-description-transcript-section-renderer rt')?.textContent).toBe('もじ');
-        document.body.innerHTML = '';
-    });
-});
-
-
-// UT-79: the sweep is measurement-driven — ruby that FITS stays, even inside
-// clamp-capable boxes (deleting the need for per-site force-ruby whitelists).
-describe('evidence-based sweep keeps fitting ruby', () => {
-    it('does not strip when the clamped box is not actually overflowing', () => {
-        document.body.innerHTML = `
-            <div id="fits" style="display:-webkit-box;-webkit-line-clamp:4;overflow:hidden">${'<span class="jpdb-reader-word"><ruby><span class="jpdb-reader-ruby-base">勉強</span><rt class="jpdb-reader-furi">べんきょう</rt></ruby></span>'}します</div>
+            <div id="fits" style="display:-webkit-box;-webkit-line-clamp:4;overflow:hidden">${annotatedWord('べんきょう', '勉強')}します</div>
         `;
         const fits = document.querySelector<HTMLElement>('#fits')!;
-        Object.defineProperty(fits, 'scrollHeight', { value: 80, configurable: true });
-        Object.defineProperty(fits, 'clientHeight', { value: 80, configurable: true });
-        expect(stripRubyInClampedRows(document)).toBe(0);
+        mockOverflow(fits, 80, 80);
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(fits.style.maxHeight).toBe('');
         expect(document.querySelector('#fits rt')).not.toBeNull();
         document.body.innerHTML = '';
     });

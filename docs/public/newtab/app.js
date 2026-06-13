@@ -47499,7 +47499,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function jitenKnownStateToCardStates(states) {
     const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
-    return mapped.length ? mapped : ["mature"];
+    return mapped.length ? mapped : ["not-in-deck"];
   }
   const JITEN_CARD_STATE_MAP = {
     0: "new",

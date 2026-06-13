@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.181] - 2026-06-13
+
+### Changed
+
+- Furigana in cramped rows is never stripped anymore: when ruby makes a clamped or fixed-height row overflow, the row gets room instead (line-clamp boxes keep their line count and lose only the plain-text height cap; other clipped boxes grow to their content height). Verified end-to-end — furigana stays and the full base text shows.
+- The jpdb/jiten page add-on (Immersion Kit, dictionary entries) uses the width the page actually has instead of inheriting a narrow host column, and example media can render up to ~480px tall.
+
+### Fixed
+
+- Words Jiten doesn't track were silently treated as "mature" — coloring them as known and hiding their furigana on jiten.moe pages. They are now neutral (not-in-deck), so untracked words keep honest colors and visible furigana.
+
+### Added
+
+- Engineering survey of 8 comparable furigana/reader extensions in docs/research/furigana-survey.md, with ranked adoption ideas (UT-80).
+
 ## [0.6.180] - 2026-06-13
 
 ### Changed

@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, stripRubyInClampedRows, type ScanTextTarget } from '../dom/index';
+import { applyTokensToScanTarget, collectTextTargetsIn, isCurrentScanTarget, makeRoomForRubyInCroppedRows, type ScanTextTarget } from '../dom/index';
 import { formatUiText, uiText } from './i18n';
 import { Logger } from './logger';
 import { collectScanTargets } from './site-parsers';
@@ -105,8 +105,8 @@ export class VisiblePageScanner {
         if (this.destroyed || typeof document === 'undefined') return;
         const sweep = (): void => {
             if (this.destroyed) return;
-            const stripped = stripRubyInClampedRows(document);
-            if (stripped) log.info('Stripped ruby from late-clamped rows', { stripped });
+            const adjusted = makeRoomForRubyInCroppedRows(document);
+            if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
         };
         sweep();
         window.clearTimeout(this.clampSweepTimer);

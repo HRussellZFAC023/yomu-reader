@@ -2282,26 +2282,33 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
 // them and the grown ruby line gets cropped — base text vanishes while the
 // furigana sliver stays. Sweep rendered words and strip ruby (keep color +
 // lookup) wherever an ancestor is, by now, a layout-sensitive text box.
-export function stripRubyInClampedRows(root: ParentNode = document): number {
-    let stripped = 0;
+// UT-70/79 (user direction): when ruby makes a clamped/fixed-height row
+// overflow, do NOT strip the furigana — give the box room instead. Crop
+// detection stays measurement-based (computed styles + actual overflow, no
+// per-site lists); the room is the smallest honest fix per box kind:
+// line-clamp boxes keep their line count but lose the plain-text max-height,
+// other clipped boxes get their max-height raised to the real content height.
+export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
+    let adjusted = 0;
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        // UT-79: the sweep is EVIDENCE-based, not list-based — find the
-        // nearest crop-capable box (raw computed-style walk, no per-site
-        // whitelists) and strip only when it measurably overflows. Ruby that
-        // fits stays, anywhere; ruby that crops goes, anywhere.
-        const cropBox = nearestCropCapableBox(word.parentElement);
-        if (!cropBox || !boxActuallyCrops(cropBox)) continue;
-        word.querySelectorAll('ruby').forEach(ruby => {
-            ruby.querySelectorAll('rt, rp').forEach(node => node.remove());
-            const base = ruby.querySelector('.jpdb-reader-ruby-base');
-            ruby.replaceWith(...(base ? [...base.childNodes] : [...ruby.childNodes]));
-        });
-        word.normalize();
-        stripped += 1;
+        const box = nearestCropCapableBox(word.parentElement);
+        if (!box || box.dataset.yomuRubyRoom === 'true') continue;
+        if (!boxActuallyCrops(box)) continue;
+        box.dataset.yomuRubyRoom = 'true';
+        const style = safeComputedStyle(box);
+        if (hasLineClamp(style)) {
+            // -webkit-line-clamp itself limits LINES; the crop comes from the
+            // accompanying max-height sized for plain lines. Lifting it keeps
+            // the host's "N lines" semantics with taller ruby lines.
+            box.style.setProperty('max-height', 'none', 'important');
+        } else {
+            box.style.setProperty('max-height', `${box.scrollHeight}px`, 'important');
+        }
+        adjusted += 1;
     }
-    return stripped;
+    return adjusted;
 }
 
 function nearestCropCapableBox(element: HTMLElement | null): HTMLElement | null {
@@ -2316,5 +2323,5 @@ function nearestCropCapableBox(element: HTMLElement | null): HTMLElement | null 
 }
 
 function boxActuallyCrops(box: HTMLElement): boolean {
-    return box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
+    return box.scrollHeight > box.clientHeight + 1;
 }

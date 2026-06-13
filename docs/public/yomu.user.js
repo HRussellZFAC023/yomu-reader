@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.180
+// @version      0.6.181
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -4583,22 +4583,24 @@
   function hasVisibleControlLinkBox(style) {
     return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
   }
-  function stripRubyInClampedRows(root = document) {
-    let stripped = 0;
+  function makeRoomForRubyInCroppedRows(root = document) {
+    let adjusted = 0;
     const words = root.querySelectorAll(".jpdb-reader-word");
     for (const word of words) {
       if (!word.querySelector("rt")) continue;
-      const cropBox = nearestCropCapableBox(word.parentElement);
-      if (!cropBox || !boxActuallyCrops(cropBox)) continue;
-      word.querySelectorAll("ruby").forEach((ruby) => {
-        ruby.querySelectorAll("rt, rp").forEach((node) => node.remove());
-        const base = ruby.querySelector(".jpdb-reader-ruby-base");
-        ruby.replaceWith(...base ? [...base.childNodes] : [...ruby.childNodes]);
-      });
-      word.normalize();
-      stripped += 1;
+      const box = nearestCropCapableBox(word.parentElement);
+      if (!box || box.dataset.yomuRubyRoom === "true") continue;
+      if (!boxActuallyCrops(box)) continue;
+      box.dataset.yomuRubyRoom = "true";
+      const style = safeComputedStyle(box);
+      if (hasLineClamp(style)) {
+        box.style.setProperty("max-height", "none", "important");
+      } else {
+        box.style.setProperty("max-height", `${box.scrollHeight}px`, "important");
+      }
+      adjusted += 1;
     }
-    return stripped;
+    return adjusted;
   }
   function nearestCropCapableBox(element2) {
     let current = element2;
@@ -4611,7 +4613,7 @@
     return null;
   }
   function boxActuallyCrops(box) {
-    return box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
+    return box.scrollHeight > box.clientHeight + 1;
   }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
@@ -26405,7 +26407,7 @@ ${spelling}`);
   }
   function jitenKnownStateToCardStates(states) {
     const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
-    return mapped.length ? mapped : ["mature"];
+    return mapped.length ? mapped : ["not-in-deck"];
   }
   const JITEN_CARD_STATE_MAP = {
     0: "new",
@@ -34940,8 +34942,8 @@ ${glossaryKey}`;
       if (this.destroyed || typeof document === "undefined") return;
       const sweep = () => {
         if (this.destroyed) return;
-        const stripped = stripRubyInClampedRows(document);
-        if (stripped) log$1.info("Stripped ruby from late-clamped rows", { stripped });
+        const adjusted = makeRoomForRubyInCroppedRows(document);
+        if (adjusted) log$1.info("Made room for ruby in cropped rows", { adjusted });
       };
       sweep();
       window.clearTimeout(this.clampSweepTimer);

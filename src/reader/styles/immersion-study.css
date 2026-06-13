@@ -191,7 +191,7 @@
   line-height: 1.75;
 }
 .yomu-jpdb-page-addon .jpdb-reader-immersion {
-  --jpdb-reader-example-media-max-height: clamp(170px, 42vh, 320px);
+  --jpdb-reader-example-media-max-height: clamp(220px, 48vh, 480px);
   margin: 8px 0 4px;
 }
 .yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar {
