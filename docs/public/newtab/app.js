@@ -10094,6 +10094,8 @@ ${scopedInner}
         done();
       }
     }
+    // Lookup parsing checks term dictionary availability through this injected store.
+    // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
       const done = log$x.time("Term dictionary presence check");
       try {
