@@ -244,12 +244,13 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.parser.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
+            inert: trigger === 'hover',
             isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),

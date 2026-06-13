@@ -3358,6 +3358,8 @@ describe('reader helpers', () => {
         const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('.jpdb-reader-word-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; max-width: 100%; width: 100%; margin: 3px -4px -6px; padding: 3px 4px 6px; overflow: visible; }');
+        expect(normalizedCss).toContain('a.jpdb-reader-action-pill, button.jpdb-reader-action-pill, span.jpdb-reader-action-pill {');
+        expect(normalizedCss).toContain('span.jpdb-reader-action-pill[aria-disabled="true"] { cursor: default; }');
         expect(normalizedCss).toContain('@container (max-width: 340px) { .jpdb-reader-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; }');
         expect(normalizedCss).toContain('.jpdb-reader-word-pills { grid-column: 1 / -1; grid-row: 3; width: 100%; gap: 4px; margin-top: 2px; overscroll-behavior-inline: contain; padding-bottom: 4px; }');
         expect(normalizedCss).toContain('.jpdb-reader-action-pill { min-height: 34px !important; }');
@@ -4044,6 +4046,10 @@ describe('reader helpers', () => {
         expect(KANJI_CSS).toContain('.jpdb-reader-mining-collapse::before');
         const normalizedKanjiCss = KANJI_CSS.replace(/\s+/g, ' ');
         const normalizedPopoverCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn, .jpdb-reader-settings .jpdb-reader-icon-btn, .jpdb-reader-icon-btn {');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg, .jpdb-reader-settings .jpdb-reader-icon-btn svg, .jpdb-reader-icon-btn svg {');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse, .jpdb-reader-mining-collapse {');
+        expect(normalizedKanjiCss).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before, .jpdb-reader-mining-collapse::before {');
         expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
         expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
@@ -4591,6 +4597,31 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Uchisen ');
     });
 
+    it('keeps hover lookup pills visible but inert', () => {
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+            },
+            inert: true,
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+
+        expect(html).toContain('>JPDB ');
+        expect(html).toContain('>Jiten ');
+        expect(html).toContain('>Jisho ');
+        expect(html).toContain('>Copy ');
+        expect(html).toContain('role="link" aria-disabled="true" tabindex="-1"');
+        expect(html).toContain('role="button" aria-disabled="true" tabindex="-1"');
+        expect(html).not.toContain('<a ');
+        expect(html).not.toContain('href=');
+        expect(html).not.toContain('data-action="copy-word"');
+    });
+
     it('links single-kanji Jiten lookup pills to Jiten kanji pages', () => {
         const html = renderWordPills({
             card,
@@ -4660,6 +4691,30 @@ describe('reader helpers', () => {
 
         expect(html).toContain('data-fallback-review');
         expect(html).toContain('data-action="grade"');
+    });
+
+    it('passes the hover trigger through to popover lookup pills', () => {
+        const renderWordPillsSpy = vi.fn(() => '<div data-hover-pills></div>');
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => DEFAULT_SETTINGS,
+            isJpdbBackedCard: () => true,
+            renderWordHistory: () => '',
+            renderWordPills: renderWordPillsSpy,
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        const html = renderer.render(card, '食べる。', 'hover', emptyCardRenderData());
+
+        expect(html).toContain('data-hover-pills');
+        expect(renderWordPillsSpy).toHaveBeenCalledWith(
+            card,
+            'https://jpdb.io/vocabulary/1/%E9%A3%9F%E3%81%B9%E3%82%8B/%E3%81%9F%E3%81%B9%E3%82%8B',
+            [],
+            undefined,
+            'hover',
+        );
     });
 
     it('renders existing Anki edit actions inside the card preview', () => {
@@ -5675,6 +5730,21 @@ describe('reader helpers', () => {
             expect(tokens.map(token => token.card.spelling)).toEqual(['事実', '上', '日本', '国内']);
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 3], [3, 5], [5, 7]]);
             expect(tokens.map(token => token.card.spelling)).not.toContain('事実上日本国内');
+        });
+    });
+
+    it('repairs known Segmenter misses like 巨乳 without broad kanji merging', async () => {
+        await withFakeSegmenter([
+            { segment: '巨', index: 0, isWordLike: true },
+            { segment: '乳', index: 1, isWordLike: true },
+            { segment: 'エルフ', index: 2, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse(['巨乳エルフ'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['巨乳', 'エルフ']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 5]]);
+            expect(renderTokensToHtml('巨乳エルフ', tokens, DEFAULT_SETTINGS)).toContain('data-expression="巨乳"');
+            expect(fallbackLookupTermAtOffset('巨乳エルフ', 1)).toBe('巨乳');
         });
     });
 
@@ -21764,6 +21834,33 @@ describe('reader helpers', () => {
         });
     });
 
+    it('hides selected native text tracks and disables default CC while Yomu is active', () => {
+        const primary = { mode: 'showing' } as TextTrack;
+        const secondary = { mode: 'showing' } as TextTrack;
+        const defaultCaption = { mode: 'showing' } as TextTrack;
+
+        const active = applySubtitleNativeTrackModes({
+            tracks: [
+                { id: 'native-ja', label: 'Japanese', kind: 'native', track: primary },
+                { id: 'native-en', label: 'English', kind: 'native', track: secondary },
+                { id: 'native-default', label: 'Default CC', kind: 'native', track: defaultCaption },
+            ],
+            selectedTrackId: 'native-ja',
+            secondaryTrackId: 'native-en',
+            overlayVisible: true,
+            hasPrimaryCues: true,
+            currentCueText: '今日は',
+            youtubeDomCaptionFallbackTrackId: '',
+            lastYomuCaptionsActive: false,
+        });
+
+        expect(active).toBe(false);
+        expect(primary.mode).toBe('hidden');
+        expect(secondary.mode).toBe('hidden');
+        expect(defaultCaption.mode).toBe('disabled');
+        expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+    });
+
     it('renders subtitle primary states behind a small interface', () => {
         const loading = renderSubtitlePrimary({
             text: '今日は読む',
@@ -25565,7 +25662,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('h1 rt')?.textContent).toBe('しんそつ');
     });
 
-    it('keeps clipped prose boxes lookupable without adding layout-changing furigana', () => {
+    it('keeps clipped prose boxes lookupable with ruby annotations', () => {
         document.body.innerHTML = `
             <div style="overflow:hidden;max-height:48px;line-height:24px">
                 今日は新卒エンジニアとして仕事終わりに勉強する。
@@ -25585,10 +25682,10 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
-        expect(document.querySelector('rt')).toBeNull();
+        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
     });
 
-    it('keeps line-clamped card titles lookupable without mutating their vertical layout', () => {
+    it('keeps line-clamped card titles lookupable with ruby annotations', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
             right: 240,
@@ -25632,10 +25729,10 @@ describe('reader helpers', () => {
         const word = document.querySelector<HTMLElement>('.volume-card__title .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('終わり');
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
-        expect(document.querySelector('.volume-card__title rt')).toBeNull();
+        expect(document.querySelector('.volume-card__title rt')?.textContent).toBe('おわり');
     });
 
-    it('keeps single-line ellipsis rows lookupable without furigana even when their height is content-sized', () => {
+    it('keeps single-line ellipsis rows lookupable with furigana', () => {
         document.body.innerHTML = `
             <main>
                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -25657,7 +25754,7 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word.jpdb-known')!)).toBe('新卒');
-        expect(document.querySelector('rt')).toBeNull();
+        expect(document.querySelector('rt')?.textContent).toBe('しんそつ');
     });
 
     it('keeps furigana on wrapping prose where text-overflow is declared but inert', () => {
@@ -27127,7 +27224,69 @@ describe('reader helpers', () => {
         expect(targets.find(target => target.text === '返信')?.passiveInteraction).toBe(true);
     });
 
-    it('does not scan YouTube homepage recommendation titles as page text', () => {
+    it('scans YouTube player settings submenu labels as passive ruby targets', () => {
+        const targets = collectYouTubeWatchTargets(`
+            <div id="movie_player" class="html5-video-player">
+                <div class="ytp-popup ytp-settings-menu">
+                    <div class="ytp-panel">
+                        <div class="ytp-panel-menu">
+                            <div class="ytp-menuitem" role="menuitemcheckbox">
+                                <div class="ytp-menuitem-icon"></div>
+                                <div class="ytp-menuitem-label">一定音量</div>
+                                <div class="ytp-menuitem-content">オン</div>
+                            </div>
+                            <div class="ytp-menuitem" role="menuitem">
+                                <div class="ytp-menuitem-label">音声ブースト</div>
+                            </div>
+                            <div class="ytp-menuitem" role="menuitemcheckbox">
+                                <div class="ytp-menuitem-label">シネマティック ライティング</div>
+                            </div>
+                            <div class="ytp-menuitem" role="menuitem">
+                                <div class="ytp-menuitem-label">字幕 (1)</div>
+                                <div class="ytp-menuitem-content">オフ</div>
+                            </div>
+                            <div class="ytp-menuitem" role="menuitem">
+                                <div class="ytp-menuitem-label">再生速度</div>
+                                <div class="ytp-menuitem-content">標準</div>
+                            </div>
+                            <div class="ytp-menuitem" role="menuitem">
+                                <div class="ytp-menuitem-label">画質</div>
+                                <div class="ytp-menuitem-content">自動 (1080p HD)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '一定音量',
+            '音声ブースト',
+            'シネマティック ライティング',
+            '字幕 (1)',
+            '再生速度',
+            '画質',
+        ]));
+        const stableVolume = targets.find(target => target.text === '一定音量');
+        expect(stableVolume?.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(stableVolume!, [{
+            card: { ...card, vid: 1042, sid: 1042, spelling: '一定音量', reading: 'いっていおんりょう', cardState: ['new'] },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'いっていおんりょう', start: 0, end: 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: '一定音量',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.ytp-menuitem-label .jpdb-reader-word')!;
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(readerWordSurfaceText(word)).toBe('一定音量');
+        expect(word.querySelector('rt')?.textContent).toBe('いっていおんりょう');
+    });
+
+    it('scans YouTube homepage and suggested video titles as passive hover targets', () => {
         const targets = collectYouTubeTargets(`
             <ytd-app>
                 <ytd-rich-grid-renderer>
@@ -27146,9 +27305,20 @@ describe('reader helpers', () => {
                     </ytm-video-with-context-renderer>
                 </ytm-rich-grid-renderer>
             </ytm-app>
+            <ytd-watch-next-secondary-results-renderer>
+                <ytd-compact-video-renderer>
+                    <a id="video-title" href="/watch?v=side">関連動画の発行ニュース</a>
+                </ytd-compact-video-renderer>
+            </ytd-watch-next-secondary-results-renderer>
         `, 'https://www.youtube.com/', 10);
 
-        expect(targets).toEqual([]);
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '服代が月1万から20万円！？東京の春コーデ',
+            '弱いままの自分で大丈夫。Japanese Podcast',
+            '東京散歩',
+            '関連動画の発行ニュース',
+        ]));
+        expect(targets.every(target => target.passiveInteraction === true)).toBe(true);
     });
 
     it('falls back to generic scanning for parser sites that opt into page text', () => {
@@ -27324,12 +27494,12 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips JPDB primary spellings because their native ruby layout is fragile', () => {
+    it('scans JPDB native-ruby primary spellings as one word and skips alternate spellings', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
         document.body.innerHTML = `
             <div class="result vocabulary">
                 <div class="subsection-spelling with-furigana">
-                    <div class="primary-spelling"><ruby>母<rt>はは</rt></ruby></div>
+                    <div class="primary-spelling"><ruby class="v">母<rt>はは</rt></ruby></div>
                     <div>ハハ</div>
                 </div>
                 <div class="subsection-meanings">
@@ -27344,7 +27514,7 @@ describe('reader helpers', () => {
 
         const texts = targets.map(target => target.text);
         expect(texts).toContain('かか was used by children');
-        expect(texts).not.toContain('母');
+        expect(texts).toContain('母');
         expect(texts).not.toContain('ハハ');
     });
 

@@ -58,7 +58,7 @@ const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino
 const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
 const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: 'fontPresetYomuDefault', fallbackLabel: 'Yomu default' },
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: 'fontPresetYomuDefault', fallbackLabel: 'Built-in font' },
     { value: JAPANESE_SANS_FONT_FAMILY, labelKey: 'fontPresetJapaneseSans', fallbackLabel: 'Japanese sans' },
     { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: 'fontPresetHiraginoYuGothic', fallbackLabel: 'Hiragino / Yu Gothic' },
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: 'fontPresetJapaneseSerif', fallbackLabel: 'Japanese serif' },
@@ -255,6 +255,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}
+                ${renderAppearancePreview()}
             </fieldset>
     `;
 }
@@ -396,6 +397,28 @@ const FURIGANA_HIDE_GROUPS: Array<[ReaderSettings['furiganaHiddenStateGroups'][n
     ['new', 'New'],
 ];
 
+const APPEARANCE_PRESET_OPTIONS: Array<[string, string]> = [
+    ['', 'Keep current custom settings'],
+    ['balanced', 'Balanced reading'],
+    ['new-only', 'Focus on new words'],
+    ['underline-new', 'Minimal highlights'],
+    ['no-colors', 'Plain text'],
+];
+
+const FURIGANA_MODE_OPTIONS: Array<[ReaderSettings['furiganaMode'], string]> = [
+    ['auto', 'Smart default'],
+    ['known-status', 'Hide familiar words'],
+    ['difficult-kanji', 'Hard kanji only'],
+    ['hover', 'Show on hover'],
+    ['all', 'Show on every parsed word'],
+    ['off', 'Off'],
+];
+
+const WORD_COLOR_STATE_OPTIONS: Array<[ReaderSettings['wordColorStates'], string]> = [
+    ['all', 'Use all learning states'],
+    ['new-only', 'Only new / not-in-deck words'],
+];
+
 function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): string {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS
@@ -408,7 +431,11 @@ function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): strin
 // data-settings-preview-lookup keeps localizeSettingsForm's
 // unwrapReaderWords pass from stripping the sample word spans.
 function renderAppearancePreview(): string {
-    return `<div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>`;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
+                    <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
+                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>
+                </div>`;
 }
 
 // The preview words carry the same state classes real annotations get, so
@@ -416,7 +443,7 @@ function renderAppearancePreview(): string {
 export function appearancePreviewHtml(): string {
     const word = (classes: string, base: string, furi: string, tail = ''): string =>
         `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word('jpdb-new', '新', 'あたら', 'しい')}${word('jpdb-learning', '言葉', 'ことば')}を${word('jpdb-due', '毎日', 'まいにち')}${word('jpdb-failed', '勉強', 'べんきょう')}して、${word('jpdb-known', '日本語', 'にほんご')}が${word('jpdb-never-forget', '上手', 'じょうず')}になる。`;
+    return `${word('jpdb-new anki-new jpdb-pitch-heiban', '新', 'あたら', 'しい')}${word('jpdb-learning anki-learning jpdb-pitch-atamadaka', '言葉', 'ことば')}を${word('jpdb-due anki-due jpdb-pitch-nakadaka', '毎日', 'まいにち')}${word('jpdb-failed anki-failed jpdb-pitch-odaka', '勉強', 'べんきょう')}して、${word('jpdb-known anki-known jpdb-pitch-kifuku', '日本語', 'にほんご')}が${word('jpdb-never-forget anki-known jpdb-pitch-heiban', '上手', 'じょうず')}になる。`;
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
@@ -566,7 +593,6 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
 }
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
-    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -576,16 +602,14 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
-                    ${select('appearancePreset', 'Appearance preset', '', [['', 'Custom / current'], ['default', 'Yomu default'], ['no-colors', "Don't color words"], ['new-only', 'Only color new words'], ['underline-new', 'Underline new words only'], ['furi-all', 'Show all furigana'], ['furi-known-hidden', 'Hide furigana you know'], ['furi-hover', 'Furigana on hover only'], ['furi-off', 'No furigana']])}
-                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, [['auto', 'Automatic'], ['difficult-kanji', 'Difficult kanji only'], ['known-status', 'Hide for chosen states'], ['hover', 'Show on hover only'], ['all', 'All parsed words'], ['off', 'Off']])}
+                    ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
+                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
-                    ${select('wordColorStates', 'Color words', settings.wordColorStates, [['all', 'All card states'], ['new-only', 'Only new words']])}
-                    ${renderAppearancePreview()}
+                    ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
                     ${checkbox('suppressRedundantWordUi', 'Hide styling on JPDB-redundant words', settings.suppressRedundantWordUi)}
                     ${checkbox('sheetCloseButtonOnLeft', 'Mobile sheet: close button on the left', settings.sheetCloseButtonOnLeft)}
                 </div>
-                <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, 'settingsPuckHelp')}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
@@ -773,6 +797,8 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
                 <legend>Shortcuts</legend>
                 <div class="grid">
+                    ${shortcutInput('shortcuts.scanPage', 'Scan page', settings.shortcuts.scanPage)}
+                    ${shortcutInput('shortcuts.hoverLookup', 'Hold while hovering', settings.shortcuts.hoverLookup, 'Blank means hover without a key')}
                     ${shortcutInput('shortcuts.openSettings', 'Open settings', settings.shortcuts.openSettings)}
                     ${shortcutInput('shortcuts.playAudio', 'Play audio', settings.shortcuts.playAudio)}
                     ${shortcutInput('shortcuts.closePopup', 'Close popup', settings.shortcuts.closePopup)}
@@ -786,25 +812,17 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
                     ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
                     ${shortcutInput('shortcuts.massReviewVisible', 'Mass review visible words (Jiten)', settings.shortcuts.massReviewVisible)}
+                    ${shortcutInput('shortcuts.studyReveal', 'Study: reveal card', settings.shortcuts.studyReveal)}
+                    ${shortcutInput('shortcuts.studyRevealAlternate', 'Study: reveal card (alternate)', settings.shortcuts.studyRevealAlternate)}
+                    ${shortcutInput('shortcuts.studyUndo', 'Study: undo last review', settings.shortcuts.studyUndo)}
+                    ${shortcutInput('shortcuts.studyPrevious', 'Study: previous card', settings.shortcuts.studyPrevious)}
+                    ${shortcutInput('shortcuts.studyPreviousAlternate', 'Study: previous card (alternate)', settings.shortcuts.studyPreviousAlternate)}
+                    ${shortcutInput('shortcuts.studyNext', 'Study: next card', settings.shortcuts.studyNext)}
+                    ${shortcutInput('shortcuts.studyNextAlternate', 'Study: next card (alternate)', settings.shortcuts.studyNextAlternate)}
                     ${renderReviewShortcutInputs(settings)}
-                </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
-                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
-                        ${studyKeyReferenceRow('Space / Enter', 'Reveal the current card', 'studyKeyReveal')}
-                        ${studyKeyReferenceRow('1–9', 'Grade the revealed card (buttons in order)', 'studyKeyGrades')}
-                        ${studyKeyReferenceRow('U', 'Undo the last review', 'studyKeyUndo')}
-                        ${studyKeyReferenceRow('← / P', 'Previous card (undoes right after grading)', 'studyKeyPrevious')}
-                        ${studyKeyReferenceRow('→ / N', 'Next card', 'studyKeyNext')}
-                    </div>
-                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
                 </div>
             </fieldset>
     `;
-}
-
-function studyKeyReferenceRow(keys: string, description: string, key: string): string {
-    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml(keys)}</kbd><span data-study-key="${key}">${escapeHtml(description)}</span></div>`;
 }
 
 function renderHelpSettingsPanel(settings: ReaderSettings): string {
@@ -833,11 +851,11 @@ function renderSettingsFooter(): string {
     `;
 }
 
-function fontFamilyControl(name: FontFamilySettingName, label: string, value: string): string {
+function fontFamilyControl(name: FontFamilySettingName, label: string, value: string, text?: SettingsText): string {
     const selectedValue = fontFamilyPresetValue(value);
     return `
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
-            ${select(name, label, selectedValue, fontFamilyOptions())}
+            ${select(name, label, selectedValue, fontFamilyOptions(text))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? '' : 'hidden'}>
                 Custom font stack
                 <input name="${name}Custom" type="text" value="${escapeHtml(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
@@ -952,10 +970,10 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-anki-library-adapter-title]', 'ankiLibraryAdapter'],
     ['[data-jpdb-api-key-help]', 'apiAccessHelp'],
     ['[data-subtitle-preview] .jpdb-subtitle-secondary', 'subtitlePreview'],
+    ['[data-settings-preview-title]', 'preview'],
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
     ['[data-proxy-guide-show]', 'show'],
     ['[data-proxy-guide-hide]', 'hide'],
-    ['[data-settings-puck-help]', 'settingsPuckHelp'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
@@ -1147,14 +1165,10 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
     localizeColorSourceSelects(form, text);
     setSelectOptionLabels(form, 'appearancePreset', [
         ['', text('appearancePresetCustom')],
-        ['default', text('appearancePresetDefault')],
-        ['no-colors', text('appearancePresetNoColors')],
+        ['balanced', text('appearancePresetBalanced')],
         ['new-only', text('appearancePresetNewOnly')],
         ['underline-new', text('appearancePresetUnderlineNew')],
-        ['furi-all', text('appearancePresetFuriAll')],
-        ['furi-known-hidden', text('appearancePresetFuriKnownHidden')],
-        ['furi-hover', text('appearancePresetFuriHover')],
-        ['furi-off', text('appearancePresetFuriOff')],
+        ['no-colors', text('appearancePresetNoColors')],
     ]);
     setSelectOptionLabels(form, 'wordColorStates', [
         ['all', text('wordColorStatesAll')],
@@ -1162,8 +1176,8 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
     ]);
     setSelectOptionLabels(form, 'furiganaMode', [
         ['auto', text('automatic')],
-        ['difficult-kanji', text('furiganaDifficultKanji')],
         ['known-status', text('furiganaHideKnown')],
+        ['difficult-kanji', text('furiganaDifficultKanji')],
         ['hover', text('furiganaHoverOnly')],
         ['all', text('furiganaAllParsed')],
         ['off', text('off')],
@@ -1306,12 +1320,6 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
 
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {
     form.querySelector<HTMLElement>('[data-newtab-address-help]')?.replaceChildren(text('newTabAddressHelp'));
-    form.querySelector<HTMLElement>('[data-study-keys-title]')?.replaceChildren(text('studyKeysTitle'));
-    form.querySelector<HTMLElement>('[data-study-keys-help]')?.replaceChildren(text('studyKeysHelp'));
-    form.querySelectorAll<HTMLElement>('[data-study-key]').forEach(row => {
-        const key = row.dataset.studyKey as Parameters<typeof text>[0];
-        row.replaceChildren(text(key));
-    });
     form.querySelector<HTMLElement>('[data-newtab-offline-help]')?.replaceChildren(text('newTabOfflineHelp'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-title]')?.replaceChildren(text('newTabAnkiReviewDecks'));
     form.querySelector<HTMLElement>('[data-newtab-anki-decks-help]')?.replaceChildren(text('newTabAnkiReviewDecksHelp'));
@@ -1650,6 +1658,13 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['shortcuts.toggleYoutubeImmersion', 'toggleYoutubeImmersion'],
     ['shortcuts.scanImages', 'readImagesNow'],
     ['shortcuts.massReviewVisible', 'massReviewVisible'],
+    ['shortcuts.studyReveal', 'studyReveal'],
+    ['shortcuts.studyRevealAlternate', 'studyRevealAlternate'],
+    ['shortcuts.studyUndo', 'studyUndo'],
+    ['shortcuts.studyPrevious', 'studyPrevious'],
+    ['shortcuts.studyPreviousAlternate', 'studyPreviousAlternate'],
+    ['shortcuts.studyNext', 'studyNext'],
+    ['shortcuts.studyNextAlternate', 'studyNextAlternate'],
     ['shortcuts.gradeNothing', 'gradeNothing'],
     ['shortcuts.gradeSomething', 'gradeSomething'],
     ['shortcuts.gradeHard', 'gradeHard'],
@@ -1678,11 +1693,20 @@ function getNamedControl<T extends HTMLInputElement | HTMLSelectElement | HTMLTe
 }
 
 function setControlLabel(form: HTMLFormElement, name: string, label: string): void {
-    const control = getNamedControl(form, name);
-    const labelElement = control?.closest('label');
-    if (!labelElement) return;
-    if (labelElement.classList.contains('inline')) setInlineLabelText(labelElement, label);
-    else setBlockLabelText(labelElement, label);
+    const controls = namedFormControls(form, name);
+    controls.forEach(control => {
+        const labelElement = control.closest('label');
+        if (!labelElement) return;
+        if (labelElement.classList.contains('inline')) setInlineLabelText(labelElement, label);
+        else setBlockLabelText(labelElement, label);
+    });
+}
+
+function namedFormControls(form: HTMLFormElement, name: string): Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> {
+    return Array.from(form.elements).filter((element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+        (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)
+            && element.name === name,
+    );
 }
 
 function setBlockLabelText(label: Element, text: string): void {
@@ -1835,8 +1859,9 @@ function syncSettingsSelectOptionMeta(form: HTMLFormElement, language: Interface
 }
 
 function setShortcutPlaceholder(form: HTMLFormElement, name: string, placeholder: string): void {
-    const inputElement = getNamedControl<HTMLInputElement>(form, name);
-    if (inputElement) inputElement.placeholder = placeholder;
+    form.querySelectorAll<HTMLInputElement>('[data-shortcut-input]').forEach(inputElement => {
+        if (inputElement.name === name) inputElement.placeholder = placeholder;
+    });
 }
 
 function getSettingsPanelFieldsets(form: HTMLFormElement): HTMLFieldSetElement[] {
@@ -1968,11 +1993,20 @@ export function installShortcutCapture(root: HTMLElement): void {
             event.stopPropagation();
             if (event.key === 'Backspace' || event.key === 'Delete') {
                 inputEl.value = '';
+                syncDuplicateShortcutInputs(root, inputEl);
                 return;
             }
             inputEl.value = formatShortcutEvent(event);
+            syncDuplicateShortcutInputs(root, inputEl);
         });
+        inputEl.addEventListener('input', () => syncDuplicateShortcutInputs(root, inputEl));
         inputEl.addEventListener('paste', event => event.preventDefault());
+    });
+}
+
+function syncDuplicateShortcutInputs(root: HTMLElement, source: HTMLInputElement): void {
+    root.querySelectorAll<HTMLInputElement>('[data-shortcut-input]').forEach(inputEl => {
+        if (inputEl !== source && inputEl.name === source.name) inputEl.value = source.value;
     });
 }
 

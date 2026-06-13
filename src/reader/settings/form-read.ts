@@ -76,6 +76,13 @@ const SHORTCUT_SETTING_NAMES = [
     'toggleSubtitleOverlay',
     'toggleYoutubeImmersion',
     'scanImages',
+    'studyReveal',
+    'studyRevealAlternate',
+    'studyUndo',
+    'studyPrevious',
+    'studyPreviousAlternate',
+    'studyNext',
+    'studyNextAlternate',
     'gradeNothing',
     'gradeSomething',
     'gradeHard',
@@ -525,8 +532,16 @@ function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSett
 function readShortcutFormSettings(reader: SettingsFormReader, current: ReaderSettings): ReaderSettings['shortcuts'] {
     return Object.fromEntries(SHORTCUT_SETTING_NAMES.map(name => {
         const key = `shortcuts.${name}`;
-        return [name, reader.has(key) ? reader.get(key) : current.shortcuts[name]];
+        return [name, reader.has(key) ? readShortcutFormValue(reader, key, current.shortcuts[name]) : current.shortcuts[name]];
     })) as ReaderSettings['shortcuts'];
+}
+
+function readShortcutFormValue(reader: SettingsFormReader, key: string, currentValue: string): string {
+    const values = reader.getAll(key);
+    if (!values.length) return currentValue;
+    const changedValues = Array.from(new Set(values.filter(value => value !== currentValue)));
+    if (changedValues.length === 1) return changedValues[0] ?? '';
+    return values.at(-1) ?? '';
 }
 
 export function readOption<T extends string>(value: string, allowed: readonly T[], fallback: T): T {

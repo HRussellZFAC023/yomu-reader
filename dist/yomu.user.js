@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.182
+// @version      0.6.183
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-LyByErCIej4hgxAbboAwTx9p52lnsUMoxCWbIYv+2cw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-hX/HqChpxB+VPxyyhPGxPAdGYu5mlITbGRgI4KSA35A=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2lQYks80Fu0FIRAGQJvx05u6lzfDurB/zw3ZHh/IB1E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-EXgys3zafCDilX35AJXC6v6tDvAnkK4HKrWOqTHPoP8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rAqJB+TjjeMf9neI9WP2X0bYPtjhBGsL84KZhnOLsJM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-Pd4fpz4u2AX1Us26S99Fr+oi1cWpBg0eO8k6rBxAuTE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-VxCHSqIkGW/1uQWKfo3mcrKFjOlPYXAl7rEpdtrdYRU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-fDkr9jlMC31sRog2LI1Nxeg5uJjpYqVRm0X7z39V77E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2221,6 +2221,13 @@
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       massReviewVisible: "Alt+M",
+      studyReveal: "Space",
+      studyRevealAlternate: "Enter",
+      studyUndo: "U",
+      studyPrevious: "ArrowLeft",
+      studyPreviousAlternate: "P",
+      studyNext: "ArrowRight",
+      studyNextAlternate: "N",
       gradeNothing: "1",
       gradeSomething: "2",
       gradeHard: "3",
@@ -2963,6 +2970,46 @@
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  const BLOCK_FLOW_TAG_NAMES = /* @__PURE__ */ new Set([
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "BLOCKQUOTE",
+    "DD",
+    "DETAILS",
+    "DIALOG",
+    "DIV",
+    "DL",
+    "DT",
+    "FIELDSET",
+    "FIGCAPTION",
+    "FIGURE",
+    "FOOTER",
+    "FORM",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HEADER",
+    "HR",
+    "LI",
+    "MAIN",
+    "NAV",
+    "OL",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TBODY",
+    "TD",
+    "TFOOT",
+    "TH",
+    "THEAD",
+    "TR",
+    "UL"
+  ]);
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
@@ -2986,11 +3033,9 @@
     '[class*="speaker" i]',
     '[class*="voice" i]',
     ".jpdb-reader-word",
-    // UT-64: jpdb.io structural widgets. The "Kanji used" glyph is a kanji
-    // link, not prose — annotating it matched rare alt-form words (穏 →
-    // しずか) and dropped a reading under the glyph; the pitch diagram is
-    // per-mora letter soup.
-    ".subsection-composed-of-kanji .spelling",
+    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
+    // letter soup, but "Kanji used" spellings are real JPDB links and should
+    // keep the same ruby/color treatment as other dictionary terms.
     ".subsection-pitch-accent .subsection"
   ];
   const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
@@ -3579,7 +3624,7 @@
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
       fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
-        allowRuby: scanTargetAllowsRuby(target) && !target.hasNativeRuby,
+        allowRuby: !target.hasNativeRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction: target.passiveInteraction,
@@ -3609,7 +3654,7 @@
     const tokensWithSentence = tokens.map((token) => tokenWithReadableSentence(token, target.text, token.sentence ?? sentence));
     const miningInsightKeys = miningInsightTokenKeys(tokensWithSentence);
     const singleFragmentPlans = singleFragmentTokenPlans(target, indexedFragments, tokens, tokensWithSentence);
-    if (singleFragmentPlans.length === tokens.length && !tokens.some((token) => shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token))) {
+    if (singleFragmentPlans.length === tokens.length) {
       const grouped = groupSingleFragmentTokenPlans(singleFragmentPlans);
       for (const group of grouped) replaceSingleFragmentTokenNode(target, group.fragment, group.plans, settings, miningInsightKeys);
       return;
@@ -3631,7 +3676,6 @@
         localEnd: bounds.end.localOffset,
         token,
         tokenWithSentence: tokensWithSentence[index] ?? token,
-        layoutSensitive: fragmentTargetLayoutSensitive(target) || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end),
         passiveInteraction: target.passiveInteraction === true || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end)
       });
     }
@@ -3664,11 +3708,7 @@
     fragment.node.replaceWith(replacement);
   }
   function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(
-      fragment.hasNativeRuby,
-      plan.layoutSensitive,
-      plan.passiveInteraction && isInsideOwnedReaderRoot(target.parent)
-    );
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -3685,7 +3725,6 @@
     if (!bounds) return;
     const isSingleFragment = bounds.start.fragment === bounds.end.fragment;
     const passiveInteraction = target.passiveInteraction === true || fragmentRangeHasPassiveInteraction(indexedFragments, token.start, token.end);
-    const layoutSensitive = fragmentTargetLayoutSensitive(target) || fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end);
     if (isSingleFragment) {
       insertSingleFragmentToken(
         target,
@@ -3696,13 +3735,8 @@
         tokenWithSentence,
         settings,
         miningInsightKeys,
-        passiveInteraction,
-        layoutSensitive
+        passiveInteraction
       );
-      return;
-    }
-    if (layoutSensitive) {
-      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
     if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
@@ -3718,7 +3752,20 @@
         nativeRubyRange.detach();
         return;
       }
-      insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
+      insertSplitFragmentTokenPieces(
+        target,
+        splitFragmentTokenPieces(indexedFragments, token.start, token.end),
+        token,
+        tokenWithSentence,
+        settings,
+        passiveInteraction,
+        miningInsightKeys
+      );
+      return;
+    }
+    const pieces = splitFragmentTokenPieces(indexedFragments, token.start, token.end);
+    if (shouldSplitFragmentTokenPieces(pieces)) {
+      insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys);
       return;
     }
     const range = document.createRange();
@@ -3727,25 +3774,19 @@
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       scanWord: true,
       passiveInteraction,
-      allowRuby: !layoutSensitive && !fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end),
+      allowRuby: true,
       preserveTokenRubies: true,
       miningInsightKeys
     });
     range.detach();
   }
-  function shouldSplitLayoutSensitiveFragmentToken(indexedFragments, token) {
-    const start = findFragmentBoundary(indexedFragments, token.start, "start");
-    const end = findFragmentBoundary(indexedFragments, token.end, "end");
-    const bounds = attachableFragmentRange(start, end);
-    return Boolean(bounds && bounds.start.fragment !== bounds.end.fragment && fragmentRangeHasLayoutSensitive(indexedFragments, token.start, token.end));
-  }
-  function insertSplitFragmentTokenPieces(target, indexedFragments, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys) {
-    const pieces = indexedFragments.map((fragment) => splitFragmentTokenPiece(fragment, token.start, token.end)).filter((piece) => piece !== null).reverse();
-    for (const piece of pieces) {
+  function insertSplitFragmentTokenPieces(target, pieces, token, tokenWithSentence, settings, passiveInteraction, miningInsightKeys) {
+    for (const piece of [...pieces].reverse()) {
       const surface = piece.fragment.node.data.slice(piece.start, piece.end);
       if (!surface) continue;
-      const rendered = renderToken(surface, tokenWithSentence, settings, {
-        allowRuby: false,
+      const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
+      const rendered = renderToken(surface, pieceToken, settings, {
+        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
@@ -3754,6 +3795,70 @@
       });
       replaceTextNodeRange(piece.fragment.node, piece.start, piece.end, rendered);
     }
+  }
+  function splitFragmentTokenPieces(indexedFragments, tokenStart, tokenEnd) {
+    return indexedFragments.map((fragment) => splitFragmentTokenPiece(fragment, tokenStart, tokenEnd)).filter((piece) => piece !== null);
+  }
+  function shouldSplitFragmentTokenPieces(pieces) {
+    for (let index = 1; index < pieces.length; index++) {
+      if (!fragmentsShareInlineFlow(pieces[index - 1].fragment, pieces[index].fragment)) return true;
+    }
+    return false;
+  }
+  function fragmentsShareInlineFlow(previous, next) {
+    const common = commonElementAncestor(previous.node, next.node);
+    if (!common) return false;
+    const previousBoundary = childUnderAncestor(previous.node, common);
+    const nextBoundary = childUnderAncestor(next.node, common);
+    if (!previousBoundary || !nextBoundary || previousBoundary === nextBoundary) return true;
+    if (flowBoundaryNodeBreaksInline(previousBoundary) || flowBoundaryNodeBreaksInline(nextBoundary)) return false;
+    return !hasInlineFlowBreakBetween(common, previousBoundary, nextBoundary);
+  }
+  function commonElementAncestor(first, second) {
+    const firstAncestors = /* @__PURE__ */ new Set();
+    for (let current = parentElementOf(first); current; current = current.parentElement) firstAncestors.add(current);
+    for (let current = parentElementOf(second); current; current = current.parentElement) {
+      if (firstAncestors.has(current)) return current;
+    }
+    return null;
+  }
+  function parentElementOf(node) {
+    return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  }
+  function childUnderAncestor(node, ancestor) {
+    let current = node;
+    while (current && current.parentNode !== ancestor) current = current.parentNode;
+    return current;
+  }
+  function flowBoundaryNodeBreaksInline(node) {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.tagName === "BR") return true;
+    return BLOCK_FLOW_TAG_NAMES.has(node.tagName);
+  }
+  function hasInlineFlowBreakBetween(parent, first, second) {
+    let seenFirst = false;
+    for (let current = parent.firstChild; current; current = current.nextSibling) {
+      if (current === first) {
+        seenFirst = true;
+        continue;
+      }
+      if (current === second) return false;
+      if (seenFirst && flowBoundaryNodeBreaksInline(current)) return true;
+    }
+    return false;
+  }
+  function splitFragmentPieceToken(piece, token, tokenWithSentence) {
+    const globalStart = piece.fragment.globalStart + piece.start - piece.fragment.start;
+    const globalEnd = piece.fragment.globalStart + piece.end - piece.fragment.start;
+    const rubies = tokenWithSentence.rubies.filter((ruby) => ruby.start >= globalStart && ruby.end <= globalEnd);
+    return {
+      ...tokenWithSentence,
+      start: globalStart,
+      end: globalEnd,
+      length: globalEnd - globalStart,
+      rubies,
+      sentence: tokenWithSentence.sentence ?? token.sentence
+    };
   }
   function splitFragmentTokenPiece(fragment, tokenStart, tokenEnd) {
     const start = Math.max(tokenStart, fragment.globalStart);
@@ -3767,13 +3872,6 @@
   }
   function fragmentRangeHasPassiveInteraction(fragments, start, end) {
     return fragments.some((fragment) => fragment.passiveInteraction === true && fragment.globalStart < end && fragment.globalEnd > start);
-  }
-  function fragmentRangeHasLayoutSensitive(fragments, start, end) {
-    return fragments.some((fragment) => fragment.layoutSensitive === true && fragment.globalStart < end && fragment.globalEnd > start);
-  }
-  function fragmentTargetLayoutSensitive(target) {
-    if (isInsideOwnedReaderRoot(target.parent)) return false;
-    return target.layoutSensitive === true && (!target.fragments.length || target.fragments.every((fragment) => fragment.layoutSensitive !== false));
   }
   function fragmentRangeHasNativeRuby(fragments, start, end) {
     return fragments.some((fragment) => fragment.hasNativeRuby && fragment.globalStart < end && fragment.globalEnd > start);
@@ -3836,12 +3934,8 @@
     if (!boundary.fragment.node.parentElement) return null;
     return boundary;
   }
-  function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction, layoutSensitive) {
-    const allowRuby = scanFragmentAllowsRuby(
-      fragment.hasNativeRuby,
-      layoutSensitive,
-      passiveInteraction && isInsideOwnedReaderRoot(target.parent)
-    );
+  function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
+    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -3853,11 +3947,8 @@
     });
     replaceTextNodeRange(fragment.node, start, end, rendered);
   }
-  function scanTargetAllowsRuby(target) {
-    return target.layoutSensitive !== true && target.passiveInteraction !== true;
-  }
-  function scanFragmentAllowsRuby(hasNativeRuby, layoutSensitive, _passiveInteraction) {
-    return !hasNativeRuby && !layoutSensitive;
+  function scanFragmentAllowsRuby(hasNativeRuby) {
+    return !hasNativeRuby;
   }
   function isInsideOwnedReaderRoot(element2) {
     const readerRoot = element2.closest(READER_ROOT_SELECTOR$2);
@@ -5680,7 +5771,7 @@
       popoverHeightFixed: "Use height setting",
       readerFontFamily: "Reader interface font",
       popupFontFamily: "Popup Japanese font",
-      fontPresetYomuDefault: "Yomu default",
+      fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
       fontPresetJapaneseSerif: "Japanese serif",
@@ -5724,13 +5815,6 @@
       newTabUrl: "Study address",
       newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
       newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
-      studyKeysTitle: "Study page keys",
-      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
-      studyKeyReveal: "Reveal the current card",
-      studyKeyGrades: "Grade the revealed card (buttons in order)",
-      studyKeyUndo: "Undo the last review",
-      studyKeyPrevious: "Previous card (undoes right after grading)",
-      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -5766,25 +5850,20 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
-      appearancePresetCustom: "Custom / current",
-      appearancePresetDefault: "Yomu default",
-      appearancePresetNoColors: "Don't color words",
-      appearancePresetNewOnly: "Only color new words",
-      appearancePresetUnderlineNew: "Underline new words only",
-      appearancePresetFuriAll: "Show all furigana",
-      appearancePresetFuriKnownHidden: "Hide furigana you know",
-      appearancePresetFuriHover: "Furigana on hover only",
-      appearancePresetFuriOff: "No furigana",
-      wordColorStatesAll: "All card states",
-      wordColorStatesNewOnly: "Only new words",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide for chosen states",
-      furiganaHoverOnly: "Show on hover only",
-      furiganaAllParsed: "All parsed words",
+      appearancePresetCustom: "Keep current custom settings",
+      appearancePresetBalanced: "Balanced reading",
+      appearancePresetNoColors: "Plain text",
+      appearancePresetNewOnly: "Focus on new words",
+      appearancePresetUnderlineNew: "Minimal highlights",
+      wordColorStatesAll: "Use all learning states",
+      wordColorStatesNewOnly: "Only new / not-in-deck words",
+      furiganaDifficultKanji: "Hard kanji only",
+      furiganaHideKnown: "Hide familiar words",
+      furiganaHoverOnly: "Show on hover",
+      furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
@@ -5969,6 +6048,7 @@
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (s)",
       subtitlePreview: "Live subtitle preview",
+      preview: "Preview",
       youtubeImmersionEnabled: "Japanese YouTube only",
       preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
@@ -6246,6 +6326,13 @@
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
+      studyReveal: "Study: reveal card",
+      studyRevealAlternate: "Study: reveal card (alternate)",
+      studyUndo: "Study: undo last review",
+      studyPrevious: "Study: previous card",
+      studyPreviousAlternate: "Study: previous card (alternate)",
+      studyNext: "Study: next card",
+      studyNextAlternate: "Study: next card (alternate)",
       massReviewNoWords: "No due Jiten words on screen.",
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
@@ -6834,6 +6921,13 @@ gradeOkay	採点: OK
 gradeEasy	採点: 簡単
 gradeFail	合否: 失敗
 gradePass	合否: 合格
+studyReveal	学習: カードを表示
+studyRevealAlternate	学習: カードを表示（代替）
+studyUndo	学習: 直前のレビューを取り消す
+studyPrevious	学習: 前のカード
+studyPreviousAlternate	学習: 前のカード（代替）
+studyNext	学習: 次のカード
+studyNextAlternate	学習: 次のカード（代替）
 factKeyword	キーワード
 factType	種類
 factFrequency	頻度
@@ -7201,7 +7295,7 @@ popoverHeightAvailable	空き領域まで広げる
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
 popupFontFamily	ポップアップの日本語フォント
-fontPresetYomuDefault	よむ既定
+fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
 fontPresetJapaneseSerif	日本語明朝
@@ -7245,13 +7339,6 @@ newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
 newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
-studyKeysTitle	学習ページのキー
-studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
-studyKeyReveal	現在のカードを表示
-studyKeyGrades	表示したカードを採点（ボタンの順）
-studyKeyUndo	直前のレビューを取り消す
-studyKeyPrevious	前のカード（採点直後は取り消し）
-studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -7287,25 +7374,20 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
-appearancePresetCustom	カスタム／現在の設定
-appearancePresetDefault	Yomu標準
-appearancePresetNoColors	単語に色を付けない
-appearancePresetNewOnly	新規単語のみ色付け
-appearancePresetUnderlineNew	新規単語に下線のみ
-appearancePresetFuriAll	ふりがなを全て表示
-appearancePresetFuriKnownHidden	既知のふりがなを非表示
-appearancePresetFuriHover	ホバー時のみふりがな
-appearancePresetFuriOff	ふりがななし
-wordColorStatesAll	全てのカード状態
-wordColorStatesNewOnly	新規単語のみ
+appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetBalanced	読みやすいバランス
+appearancePresetNoColors	プレーンテキスト
+appearancePresetNewOnly	新規単語に集中
+appearancePresetUnderlineNew	控えめなハイライト
+wordColorStatesAll	すべての学習状態
+wordColorStatesNewOnly	新規・未追加のみ
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	選択した状態で非表示
-furiganaHoverOnly	ホバー時のみ表示
-furiganaAllParsed	解析済みの全単語
+furiganaHideKnown	なじみのある語を非表示
+furiganaHoverOnly	ホバー時に表示
+furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
@@ -7465,6 +7547,7 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
+preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
@@ -21741,7 +21824,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view)}
+                ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${definitionSources}
                 ${fallbackAnkiSection}
@@ -21787,11 +21870,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
       };
     }
-    renderHeader(card, data, view) {
+    renderHeader(card, data, view, trigger) {
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries)}
+                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger)}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
@@ -24264,6 +24347,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
   const log$b = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -24292,7 +24378,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         localFallback: settings.localDictionariesEnabled
       });
       try {
-        return await this.parseWithPreferredSource(paragraphs, options, settings);
+        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
+        return this.withNormalizedMetricParseResult(paragraphs, parsed);
       } finally {
         done();
       }
@@ -24546,6 +24633,54 @@ ${spelling}`);
       this.rememberLocalPitchCacheEntry(key, promise);
       return promise;
     }
+    withNormalizedMetricTokens(text2, tokens) {
+      if (!text2.includes("回視聴")) return tokens;
+      const replacements = [];
+      const replacementRanges = [];
+      for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+        const start = match.index ?? -1;
+        if (start < 0) continue;
+        const end = start + match[0].length;
+        const overlapping = tokens.filter((token) => rangesOverlap(start, end, token.start, token.end));
+        const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
+        const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
+        if (alreadyCovered && !hasBrokenMetricToken) continue;
+        if (!hasBrokenMetricToken && overlapping.length > 0) continue;
+        replacementRanges.push({ start, end });
+        replacements.push(
+          this.metricToken(text2, "回", "かい", start, start + 1),
+          this.metricToken(text2, "視聴", "しちょう", start + 1, end)
+        );
+      }
+      if (!replacements.length) return tokens;
+      return [
+        ...tokens.filter((token) => !replacementRanges.some((range) => rangesOverlap(range.start, range.end, token.start, token.end))),
+        ...replacements
+      ].sort(compareTokensByOffset);
+    }
+    withNormalizedMetricParseResult(paragraphs, parsed) {
+      let normalized = parsed;
+      for (const [index, tokens] of parsed.entries()) {
+        const nextTokens = this.withNormalizedMetricTokens(paragraphs[index] ?? "", tokens);
+        if (nextTokens === tokens) continue;
+        if (normalized === parsed) normalized = [...parsed];
+        normalized[index] = nextTokens;
+      }
+      return normalized;
+    }
+    metricToken(sentence, surface, reading, start, end) {
+      const card = this.fallbackCardFromText(surface);
+      card.reading = reading;
+      return {
+        card,
+        start,
+        end,
+        length: end - start,
+        rubies: [{ text: reading, start, end, length: end - start }],
+        pitchClass: "",
+        sentence
+      };
+    }
     rememberLocalPitchCacheEntry(key, promise) {
       this.localPitchCache.set(key, promise);
       while (this.localPitchCache.size > LOCAL_PITCH_CACHE_LIMIT) {
@@ -24661,7 +24796,40 @@ ${spelling}`);
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
-    return mergeInflectedFallbackSegments(segments);
+    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first = segments[startIndex];
+    if (!first) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
   }
   function mergeInflectedFallbackSegments(segments) {
     const merged = [];
@@ -30355,6 +30523,8 @@ ${glossaryKey}`;
     '[role="button"]',
     '[role="link"]',
     '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
     '[role="tab"]',
     '[slot="more-button"]',
     ".more-button",
@@ -30371,25 +30541,31 @@ ${glossaryKey}`;
     "yt-chip-cloud-chip-renderer",
     "ytd-guide-entry-renderer",
     "ytd-compact-video-renderer",
+    "ytd-compact-radio-renderer",
+    "ytd-compact-playlist-renderer",
     "ytd-rich-item-renderer",
+    "ytd-reel-video-renderer",
     "ytd-video-renderer",
     "ytm-button-renderer",
     "ytm-toggle-button-renderer",
     "ytm-subscribe-button-renderer",
     "ytm-chip-cloud-chip-renderer",
     "ytm-compact-link-renderer",
+    "ytm-compact-video-renderer",
     "ytm-video-with-context-renderer",
     "ytm-shorts-lockup-view-model",
+    ".ytp-menuitem",
     ".yt-spec-button-shape-next"
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    // The video player owns its own chrome/captions; never wrap inside it.
+    // The video player owns captions and most chrome; the settings popover is
+    // re-added below as passive UI so its Japanese menu labels can be hovered
+    // without stealing native clicks.
     "#movie_player",
     ".html5-video-player",
     ".ytp-chrome-top",
     ".ytp-chrome-bottom",
-    ".ytp-popup",
     ".ytp-tooltip",
     "tp-yt-paper-tooltip",
     '[role="slider"]',
@@ -30662,9 +30838,11 @@ ${glossaryKey}`;
       name: "JPDB",
       description: "JPDB dictionary, review, and search result Japanese text.",
       roots: [
+        ".subsection-spelling ruby.v",
         ".result.vocabulary",
         ".result.kanji",
         ".results .result",
+        ".subsection-composed-of-kanji",
         ".subsection-meanings",
         ".subsection-usages",
         ".subsection-examples",
@@ -30871,15 +31049,25 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // Deliberately scan only watch/comment/live-chat surfaces. Feed
-        // recommendation cards are classified by the immersion filter, but
-        // wrapping their titles mutates YouTube's virtualized grid and can
-        // break filter decisions.
+        // Watch, feed, sidebar, live-chat, and player settings text. UI
+        // and card roots are collected as passive hover targets so native
+        // YouTube clicks keep working.
         "ytd-watch-metadata",
         "ytd-watch-metadata #description",
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
+        "#related",
+        "ytd-watch-next-secondary-results-renderer",
+        "ytd-rich-grid-renderer",
+        "ytd-rich-section-renderer",
+        "ytm-rich-grid-renderer",
+        "ytm-single-column-watch-next-results-renderer",
+        "ytm-item-section-renderer",
+        ".ytp-popup",
+        ".ytp-settings-menu",
+        ".ytp-panel",
+        ".ytp-panel-menu",
         "ytm-watch-metadata",
         "ytm-slim-video-metadata-section-renderer",
         "ytm-slim-owner-renderer",
@@ -34629,6 +34817,84 @@ ${glossaryKey}`;
   const HOSTED_READER_CSS_PATH = "/yomu-reader/yomu.css";
   const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v1";
   const READER_CSS = resourceReaderCss();
+  const CRITICAL_READER_CSS = `
+.jpdb-reader-popover .jpdb-reader-icon-btn,
+.jpdb-reader-settings .jpdb-reader-icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  flex: 0 0 auto;
+  padding: 0 !important;
+  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
+  border-radius: 50%;
+  background: var(--jpdb-reader-surface, #f4f7fa);
+  color: var(--jpdb-reader-text, #17202a);
+  cursor: pointer;
+  overflow: hidden;
+  transform: translateY(-0.01rem);
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-popover .jpdb-reader-icon-btn svg,
+.jpdb-reader-settings .jpdb-reader-icon-btn svg {
+  display: block;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jpdb-reader-actions .jpdb-reader-mining-collapse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 72px;
+  height: 30px;
+  min-width: 72px;
+  min-height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted, #4f5968);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before {
+  content: "";
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--jpdb-reader-faint, #687384);
+}
+`.trim();
+  function initialReaderCss(css = READER_CSS) {
+    return readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css;
+  }
   async function loadReaderCssFallback(fetcher = globalThis.fetch, href = safeLocationHref()) {
     const cached = await cachedReaderCss();
     if (cached) {
@@ -34988,16 +35254,25 @@ ${glossaryKey}`;
           await this.dependencies.prepareSubtitleTokensBeforeRender(tokens);
           if (this.destroyed) return false;
         }
+        const applyAnkiColors = this.shouldEnrichAnkiWords() ? await this.prepareAnkiColorsBeforeSubtitleRender(tokens) : void 0;
+        if (this.destroyed) return false;
         const changedRoots = await this.applyTokens(targets, parsed);
+        applyAnkiColors?.(changedRoots);
         if (this.dependencies.prepareSubtitleTokensBeforeRender) {
-          if (this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
+          if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
         } else {
-          this.preloadParsed(parsed, changedRoots);
+          this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
         }
         return targets.length === ASB_SCAN_BATCH_LIMIT;
       } catch {
         return false;
       }
+    }
+    async prepareAnkiColorsBeforeSubtitleRender(tokens) {
+      if (this.dependencies.prepareAnkiWordEnrichmentBeforeRender) {
+        return await this.dependencies.prepareAnkiWordEnrichmentBeforeRender(tokens);
+      }
+      return this.dependencies.beginAnkiWordEnrichment?.(tokens);
     }
     beginScan(silent) {
       if (this.destroyed) return false;
@@ -35193,10 +35468,13 @@ ${glossaryKey}`;
   }
   function renderLookupLinkPill(options, context, language, query, link) {
     const style = lookupPillStyle(link.id || link.label);
-    if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style);
+    if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return "";
     const title = lookupLinkPillTitle(options, language, link);
+    if (options.inert) {
+      return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</span>`;
+    }
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
   }
   function lookupLinkPillUrl(options, context, link) {
@@ -35215,9 +35493,12 @@ ${glossaryKey}`;
   function lookupPillStyleAttribute(style) {
     return style ? ` style="${style}"` : "";
   }
-  function renderCopyPill(language, query, style = lookupPillStyle("copy")) {
+  function renderCopyPill(language, query, style = lookupPillStyle("copy"), inert = false) {
     const copyTitle = uiText(language, "copyWordTitle");
     const styleAttribute = style ? ` style="${style}"` : "";
+    if (inert) {
+      return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</span>`;
+    }
     return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
   }
   function wordPillContext(card, overrideQuery) {
@@ -35316,12 +35597,13 @@ ${glossaryKey}`;
       getSettings: () => this.settings,
       isJpdbBackedCard: (card) => this.isJpdbBackedCard(card),
       renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
+      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
         card,
         jpdbUrl,
         settings: this.settings,
         metaEntries,
         overrideQuery,
+        inert: trigger === "hover",
         isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)
       }),
@@ -35413,6 +35695,7 @@ ${glossaryKey}`;
       enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
       beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
+      prepareAnkiWordEnrichmentBeforeRender: (tokens) => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
       prepareSubtitleTokensBeforeRender: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
       refreshWordContrast: (root) => refreshReaderWordContrast(root),
       toast: (message) => this.toast(message)
@@ -35726,7 +36009,7 @@ ${glossaryKey}`;
     installStyles() {
       const hasLinkedReaderCss = Boolean(document.querySelector('link[href$="/yomu.css"], link[href*="/yomu.css?"]'));
       const style = document.createElement("style");
-      style.textContent = hasLinkedReaderCss ? "" : READER_CSS;
+      style.textContent = hasLinkedReaderCss ? "" : initialReaderCss(READER_CSS);
       appendToDocumentHead(style);
       if (!readerCssNeedsFallback(READER_CSS)) return;
       void loadReaderCssFallback().then((css) => {
@@ -38980,13 +39263,7 @@ ${glossaryKey}`;
     // same breath as the ruby instead of popping in afterwards.
     beginAnkiWordEnrichment(tokens) {
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
-      const seen = /* @__PURE__ */ new Set();
-      const uniqueTokens = tokens.filter((token) => {
-        const key = cardKey(token.card);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const uniqueTokens = uniqueTokensByCard(tokens);
       const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
         log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
         return uniqueTokens.map(() => untrustedAnkiLookupResult());
@@ -38998,15 +39275,21 @@ ${glossaryKey}`;
         });
       };
     }
+    async prepareAnkiWordEnrichmentBeforeRender(tokens) {
+      if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
+      const uniqueTokens = uniqueTokensByCard(tokens);
+      const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
+        log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
+        return uniqueTokens.map(() => untrustedAnkiLookupResult());
+      });
+      return (roots) => {
+        if (!this.shouldRunAnkiBackgroundWork()) return;
+        this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
+      };
+    }
     async enrichAnkiWords(tokens, roots = [document]) {
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
-      const seen = /* @__PURE__ */ new Set();
-      const uniqueTokens = tokens.filter((token) => {
-        const key = cardKey(token.card);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const uniqueTokens = uniqueTokensByCard(tokens);
       const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map((token) => token.card)).catch((error) => {
         log.warnOnce("background-anki-coloring-failed", "Anki background coloring failed", error);
         return uniqueTokens.map(() => untrustedAnkiLookupResult());
@@ -39971,6 +40254,15 @@ ${glossaryKey}`;
     toast(message) {
       showReaderToast(message);
     }
+  }
+  function uniqueTokensByCard(tokens) {
+    const seen = /* @__PURE__ */ new Set();
+    return tokens.filter((token) => {
+      const key = cardKey(token.card);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   function normalizedNestedParseOptions(options, settings) {
     const apiTimeoutMs = nestedParseApiTimeoutMs(options);

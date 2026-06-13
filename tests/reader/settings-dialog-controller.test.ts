@@ -455,6 +455,50 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
+    it('maps quick setup presets onto complete reader and subtitle color controls', () => {
+        const { dependencies, form } = createSettingsDialog();
+        const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
+        const selectValue = (name: string): string => form.querySelector<HTMLSelectElement>(`select[name="${name}"]`)!.value;
+        const choosePreset = (value: string): void => {
+            preset.value = value;
+            preset.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
+        choosePreset('new-only');
+
+        expect(selectValue('wordColorStates')).toBe('new-only');
+        expect(selectValue('furiganaMode')).toBe('auto');
+        expect(selectValue('wordHighlightColorSource')).toBe('jpdb');
+        expect(selectValue('wordUnderlineColorSource')).toBe('pitch');
+        expect(selectValue('wordTextColorSource')).toBe('anki');
+        expect(selectValue('subtitleHighlightColorSource')).toBe('jpdb');
+        expect(selectValue('subtitleUnderlineColorSource')).toBe('pitch');
+        expect(selectValue('subtitleTextColorSource')).toBe('anki');
+
+        choosePreset('underline-new');
+
+        expect(selectValue('wordColorStates')).toBe('new-only');
+        expect(selectValue('furiganaMode')).toBe('hover');
+        expect(selectValue('wordHighlightColorSource')).toBe('off');
+        expect(selectValue('wordUnderlineColorSource')).toBe('jpdb');
+        expect(selectValue('wordTextColorSource')).toBe('off');
+        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
+        expect(selectValue('subtitleUnderlineColorSource')).toBe('jpdb');
+        expect(selectValue('subtitleTextColorSource')).toBe('off');
+
+        choosePreset('no-colors');
+
+        expect(selectValue('wordColorStates')).toBe('all');
+        expect(selectValue('furiganaMode')).toBe('off');
+        expect(selectValue('wordHighlightColorSource')).toBe('off');
+        expect(selectValue('wordUnderlineColorSource')).toBe('off');
+        expect(selectValue('wordTextColorSource')).toBe('off');
+        expect(selectValue('subtitleHighlightColorSource')).toBe('off');
+        expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
+        expect(selectValue('subtitleTextColorSource')).toBe('off');
+        expect(dependencies.applyTheme).toHaveBeenCalled();
+    });
+
     it('refreshes the Anki template preview when front content toggles change', () => {
         const { form } = createSettingsDialog();
         const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]')!;

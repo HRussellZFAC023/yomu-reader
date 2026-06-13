@@ -287,6 +287,24 @@ describe('SubtitlePlayerController', () => {
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
     });
 
+    it('keeps the video rail hidden when tracks exist but no video frame is present', () => {
+        const { controller } = createInstalledSubtitleController();
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        controllerInternals<{ tracks: unknown[] }>(controller).tracks = [{ id: 'stale-track' }];
+
+        try {
+            controller.refresh();
+
+            expect(root.hidden).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-has-video-frame')).toBe(false);
+            expect(root.querySelector('.jpdb-subtitle-rail')).not.toBeNull();
+            expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-player:not(.jpdb-subtitle-has-video-frame) .jpdb-subtitle-rail');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('shows the remembered transcript placement on the closed rail toggle', () => {
         const settings = {
             ...DEFAULT_SETTINGS,

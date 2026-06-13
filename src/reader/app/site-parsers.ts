@@ -47,6 +47,8 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     '[role="button"]',
     '[role="link"]',
     '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
     '[role="tab"]',
     '[slot="more-button"]',
     '.more-button',
@@ -63,25 +65,31 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'yt-chip-cloud-chip-renderer',
     'ytd-guide-entry-renderer',
     'ytd-compact-video-renderer',
+    'ytd-compact-radio-renderer',
+    'ytd-compact-playlist-renderer',
     'ytd-rich-item-renderer',
+    'ytd-reel-video-renderer',
     'ytd-video-renderer',
     'ytm-button-renderer',
     'ytm-toggle-button-renderer',
     'ytm-subscribe-button-renderer',
     'ytm-chip-cloud-chip-renderer',
     'ytm-compact-link-renderer',
+    'ytm-compact-video-renderer',
     'ytm-video-with-context-renderer',
     'ytm-shorts-lockup-view-model',
+    '.ytp-menuitem',
     '.yt-spec-button-shape-next',
 ].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    // The video player owns its own chrome/captions; never wrap inside it.
+    // The video player owns captions and most chrome; the settings popover is
+    // re-added below as passive UI so its Japanese menu labels can be hovered
+    // without stealing native clicks.
     '#movie_player',
     '.html5-video-player',
     '.ytp-chrome-top',
     '.ytp-chrome-bottom',
-    '.ytp-popup',
     '.ytp-tooltip',
     'tp-yt-paper-tooltip',
     '[role="slider"]',
@@ -354,9 +362,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'JPDB',
         description: 'JPDB dictionary, review, and search result Japanese text.',
         roots: [
+            '.subsection-spelling ruby.v',
             '.result.vocabulary',
             '.result.kanji',
             '.results .result',
+            '.subsection-composed-of-kanji',
             '.subsection-meanings',
             '.subsection-usages',
             '.subsection-examples',
@@ -565,15 +575,25 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Deliberately scan only watch/comment/live-chat surfaces. Feed
-            // recommendation cards are classified by the immersion filter, but
-            // wrapping their titles mutates YouTube's virtualized grid and can
-            // break filter decisions.
+            // Watch, feed, sidebar, live-chat, and player settings text. UI
+            // and card roots are collected as passive hover targets so native
+            // YouTube clicks keep working.
             'ytd-watch-metadata',
             'ytd-watch-metadata #description',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
+            '#related',
+            'ytd-watch-next-secondary-results-renderer',
+            'ytd-rich-grid-renderer',
+            'ytd-rich-section-renderer',
+            'ytm-rich-grid-renderer',
+            'ytm-single-column-watch-next-results-renderer',
+            'ytm-item-section-renderer',
+            '.ytp-popup',
+            '.ytp-settings-menu',
+            '.ytp-panel',
+            '.ytp-panel-menu',
             'ytm-watch-metadata',
             'ytm-slim-video-metadata-section-renderer',
             'ytm-slim-owner-renderer',

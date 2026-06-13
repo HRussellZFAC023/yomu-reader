@@ -45,6 +45,7 @@ interface RenderNewTabGradeControlsOptions {
     bothLabel: string;
     grades: Array<[JPDBGrade, string]>;
     intervals?: Partial<Record<JPDBGrade, { buttonLabel?: string; intervalLabel?: string; label?: string }>>;
+    keyHints?: Partial<Record<JPDBGrade, string>>;
     selectorLabel: string;
     selectedOption?: NewTabMainGradeTargetOption;
     summary: NewTabReviewSourceSummary;
@@ -103,7 +104,7 @@ export function newTabMainGradeTargetOptions(
 
 export function renderNewTabGradeControlButtons(options: RenderNewTabGradeControlsOptions): HTMLElement[] {
     return [
-        ...options.grades.map(([grade, label], index) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], index + 1)),
+        ...options.grades.map(([grade, label]) => renderNewTabGradeButton(grade, label, options.targetLabel, options.intervals?.[grade], options.keyHints?.[grade])),
         renderNewTabGradeTargetControl(options),
     ];
 }
@@ -203,7 +204,7 @@ function renderNewTabGradeButton(
     label: string,
     targetLabel: string,
     interval?: { buttonLabel?: string; intervalLabel?: string; label?: string },
-    keyHint?: number,
+    keyHint?: string,
 ): HTMLButtonElement {
     const intervalLabel = interval?.buttonLabel || interval?.intervalLabel || '';
     const aria = [label, intervalLabel].filter(Boolean).join(', ');
@@ -215,11 +216,10 @@ function renderNewTabGradeButton(
         'aria-label': `${aria}: ${targetLabel}`,
     },
     el('span', { class: 'jpdb-reader-newtab-grade-label' }, label),
-    // jpdb.io/Jiten parity: both advertise their grading keys on the
-    // controls; digits map to rendered order (handleGradeDigitKeydown).
+    // jpdb.io/Jiten parity: both advertise their grading keys on the controls.
     // UT-54: touch-only devices never render the hint at all (the CSS
     // pointer:coarse rule stays as a belt for hybrid devices).
-    keyHint && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, String(keyHint)) : null);
+    keyHint?.trim() && newTabKeyHintsRenderable() ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, keyHint.trim()) : null);
 }
 
 export function newTabKeyHintsRenderable(): boolean {

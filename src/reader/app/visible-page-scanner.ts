@@ -49,6 +49,10 @@ export interface VisiblePageScannerDependencies {
     // and returns a callback that applies the colors once roots are known —
     // this removes most of the gray→color pop-in after a scan.
     beginAnkiWordEnrichment?: (tokens: JPDBToken[]) => (roots: ParentNode[]) => void;
+    // ASB pre-renders subtitle cues offscreen, then moves the same DOM node
+    // onscreen. For that path, wait for cached Anki status before rewriting the
+    // cue so the first rendered state already has ruby and colors together.
+    prepareAnkiWordEnrichmentBeforeRender?: (tokens: JPDBToken[]) => Promise<(roots: ParentNode[]) => void> | ((roots: ParentNode[]) => void);
     prepareSubtitleTokensBeforeRender?: (tokens: JPDBToken[]) => Promise<void> | void;
     refreshWordContrast?: (root: ParentNode) => void;
     toast: (message: string) => void;
@@ -157,11 +161,19 @@ export class VisiblePageScanner {
                 await this.dependencies.prepareSubtitleTokensBeforeRender(tokens);
                 if (this.destroyed) return false;
             }
+            // ASB moves pre-rendered cue nodes from its offscreen cache into
+            // view. Have cached status coloring ready before rewriting nodes
+            // so ruby and colors land in the same paint.
+            const applyAnkiColors = this.shouldEnrichAnkiWords()
+                ? await this.prepareAnkiColorsBeforeSubtitleRender(tokens)
+                : undefined;
+            if (this.destroyed) return false;
             const changedRoots = await this.applyTokens(targets, parsed);
+            applyAnkiColors?.(changedRoots);
             if (this.dependencies.prepareSubtitleTokensBeforeRender) {
-                if (this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
+                if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
             } else {
-                this.preloadParsed(parsed, changedRoots);
+                this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
             }
             // A full batch means the offscreen cache likely has more
             // unprocessed cues; the caller keeps draining.
@@ -170,6 +182,13 @@ export class VisiblePageScanner {
             // External subtitle overlays update frequently; the regular popup path still reports API errors.
             return false;
         }
+    }
+
+    private async prepareAnkiColorsBeforeSubtitleRender(tokens: JPDBToken[]): Promise<((roots: ParentNode[]) => void) | undefined> {
+        if (this.dependencies.prepareAnkiWordEnrichmentBeforeRender) {
+            return await this.dependencies.prepareAnkiWordEnrichmentBeforeRender(tokens);
+        }
+        return this.dependencies.beginAnkiWordEnrichment?.(tokens);
     }
 
     private beginScan(silent: boolean): boolean {

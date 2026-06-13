@@ -226,6 +226,8 @@
   gap: 8px;
   margin-left: auto;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn,
+.jpdb-reader-settings .jpdb-reader-icon-btn,
 .jpdb-reader-icon-btn {
   position: relative;
   display: inline-grid;
@@ -247,6 +249,10 @@
   transform: translateY(-0.01rem);
   -webkit-tap-highlight-color: transparent;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:hover,
+.jpdb-reader-popover .jpdb-reader-icon-btn:focus-visible,
+.jpdb-reader-settings .jpdb-reader-icon-btn:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn:focus-visible,
 .jpdb-reader-icon-btn:hover,
 .jpdb-reader-icon-btn:focus-visible {
   border-color: var(--jpdb-reader-accent);
@@ -256,15 +262,25 @@
   transform: translateY(-0.25rem);
   outline: none;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:active,
+.jpdb-reader-settings .jpdb-reader-icon-btn:active,
 .jpdb-reader-icon-btn:active {
   transform: scale(0.98);
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:disabled,
+.jpdb-reader-popover .jpdb-reader-icon-btn[aria-disabled="true"],
+.jpdb-reader-settings .jpdb-reader-icon-btn:disabled,
+.jpdb-reader-settings .jpdb-reader-icon-btn[aria-disabled="true"],
 .jpdb-reader-icon-btn:disabled,
 .jpdb-reader-icon-btn[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.58;
   transform: none;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:disabled:hover,
+.jpdb-reader-popover .jpdb-reader-icon-btn[aria-disabled="true"]:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn:disabled:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn[aria-disabled="true"]:hover,
 .jpdb-reader-icon-btn:disabled:hover,
 .jpdb-reader-icon-btn[aria-disabled="true"]:hover {
   border-color: var(--jpdb-reader-border);
@@ -406,6 +422,8 @@
   min-width: 150px;
   min-height: 46px;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn svg,
+.jpdb-reader-settings .jpdb-reader-icon-btn svg,
 .jpdb-reader-icon-btn svg {
   width: 20px !important;
   height: 20px !important;
@@ -552,7 +570,8 @@
   flex: 0 0 auto !important;
 }
 a.jpdb-reader-action-pill,
-button.jpdb-reader-action-pill {
+button.jpdb-reader-action-pill,
+span.jpdb-reader-action-pill {
   --chip-bg: color-mix(
     in srgb,
     var(--jpdb-reader-surface) 92%,
@@ -569,6 +588,9 @@ button.jpdb-reader-action-pill {
   font-family: inherit;
   transform: translateY(-0.01rem) !important;
   -webkit-tap-highlight-color: transparent;
+}
+span.jpdb-reader-action-pill[aria-disabled="true"] {
+  cursor: default;
 }
 .jpdb-reader-action-pill:hover,
 .jpdb-reader-action-pill:focus-visible {

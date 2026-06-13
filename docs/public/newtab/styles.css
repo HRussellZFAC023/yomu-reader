@@ -847,7 +847,7 @@
 
 .jpdb-reader-newtab-search-suggestions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
   gap: 8px;
 }
 
@@ -883,9 +883,9 @@
 .jpdb-reader-newtab-search-suggestion-detail {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .jpdb-reader-newtab-search-suggestion-term {
@@ -6129,6 +6129,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   gap: 8px;
   margin-left: auto;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn,
+.jpdb-reader-settings .jpdb-reader-icon-btn,
 .jpdb-reader-icon-btn {
   position: relative;
   display: inline-grid;
@@ -6150,6 +6152,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   transform: translateY(-0.01rem);
   -webkit-tap-highlight-color: transparent;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:hover,
+.jpdb-reader-popover .jpdb-reader-icon-btn:focus-visible,
+.jpdb-reader-settings .jpdb-reader-icon-btn:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn:focus-visible,
 .jpdb-reader-icon-btn:hover,
 .jpdb-reader-icon-btn:focus-visible {
   border-color: var(--jpdb-reader-accent);
@@ -6159,15 +6165,25 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   transform: translateY(-0.25rem);
   outline: none;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:active,
+.jpdb-reader-settings .jpdb-reader-icon-btn:active,
 .jpdb-reader-icon-btn:active {
   transform: scale(0.98);
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:disabled,
+.jpdb-reader-popover .jpdb-reader-icon-btn[aria-disabled="true"],
+.jpdb-reader-settings .jpdb-reader-icon-btn:disabled,
+.jpdb-reader-settings .jpdb-reader-icon-btn[aria-disabled="true"],
 .jpdb-reader-icon-btn:disabled,
 .jpdb-reader-icon-btn[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.58;
   transform: none;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn:disabled:hover,
+.jpdb-reader-popover .jpdb-reader-icon-btn[aria-disabled="true"]:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn:disabled:hover,
+.jpdb-reader-settings .jpdb-reader-icon-btn[aria-disabled="true"]:hover,
 .jpdb-reader-icon-btn:disabled:hover,
 .jpdb-reader-icon-btn[aria-disabled="true"]:hover {
   border-color: var(--jpdb-reader-border);
@@ -6309,6 +6325,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   min-width: 150px;
   min-height: 46px;
 }
+.jpdb-reader-popover .jpdb-reader-icon-btn svg,
+.jpdb-reader-settings .jpdb-reader-icon-btn svg,
 .jpdb-reader-icon-btn svg {
   width: 20px !important;
   height: 20px !important;
@@ -6455,7 +6473,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   flex: 0 0 auto !important;
 }
 a.jpdb-reader-action-pill,
-button.jpdb-reader-action-pill {
+button.jpdb-reader-action-pill,
+span.jpdb-reader-action-pill {
   --chip-bg: color-mix(
     in srgb,
     var(--jpdb-reader-surface) 92%,
@@ -6472,6 +6491,9 @@ button.jpdb-reader-action-pill {
   font-family: inherit;
   transform: translateY(-0.01rem) !important;
   -webkit-tap-highlight-color: transparent;
+}
+span.jpdb-reader-action-pill[aria-disabled="true"] {
+  cursor: default;
 }
 .jpdb-reader-action-pill:hover,
 .jpdb-reader-action-pill:focus-visible {
@@ -7084,11 +7106,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   color-scheme: light dark;
   font: 14px/1.45 var(--jpdb-reader-font);
   margin: 14px 0;
-  /* Use the room the page actually has: grow past a narrow host column when
-     the viewport allows, capped at a readable measure (user: the addon was
-     "smaller than it needs to be" on wide jiten.moe layouts). */
-  width: min(max(100%, 72vw), 980px);
-  max-width: calc(100vw - 48px);
+  /* Stay inside the host column; JPDB's own layout is already a readable
+     measure, and viewport-based growth can overhang its content columns. */
+  width: 100%;
+  max-width: 100%;
   padding: 0 0 2px;
 }
 .yomu-jpdb-page-addon .jpdb-reader-definition-stack {
@@ -10030,6 +10051,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-mining-drawer-dragging .jpdb-reader-actions-gutter {
   cursor: grabbing;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse,
 .jpdb-reader-mining-collapse {
   position: relative;
   display: inline-flex;
@@ -10052,6 +10074,7 @@ html.jpdb-reader-doodle-active * {
   -webkit-tap-highlight-color: transparent;
   flex: none;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse::before,
 .jpdb-reader-mining-collapse::before {
   content: "";
   position: relative;
@@ -10062,10 +10085,14 @@ html.jpdb-reader-doodle-active * {
   border-radius: 999px;
   background: var(--jpdb-reader-faint);
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse:hover,
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible,
 .jpdb-reader-mining-collapse:hover,
 .jpdb-reader-mining-collapse:focus-visible {
   outline: none;
 }
+.jpdb-reader-actions .jpdb-reader-mining-collapse:hover::before,
+.jpdb-reader-actions .jpdb-reader-mining-collapse:focus-visible::before,
 .jpdb-reader-mining-collapse:hover::before,
 .jpdb-reader-mining-collapse:focus-visible::before {
   background: var(--jpdb-reader-accent);
@@ -10299,12 +10326,14 @@ html.jpdb-reader-doodle-active * {
     max-width: min(150px, 38vw);
     font-size: 10px;
   }
+  .jpdb-reader-actions .jpdb-reader-mining-collapse,
   .jpdb-reader-mining-collapse {
     width: 64px;
     height: 28px;
     min-width: 64px;
     min-height: 28px;
   }
+  .jpdb-reader-actions .jpdb-reader-mining-collapse::before,
   .jpdb-reader-mining-collapse::before {
     width: 38px;
   }
@@ -10337,6 +10366,7 @@ html.jpdb-reader-doodle-active * {
     min-height: 44px !important;
   }
 
+  .jpdb-reader-actions .jpdb-reader-mining-collapse::after,
   .jpdb-reader-mining-collapse::after {
     content: "";
     position: absolute;
@@ -10971,16 +11001,13 @@ html.jpdb-reader-doodle-active * {
   word-break: keep-all;
 }
 .jpdb-reader-settings .grid:has(.jpdb-reader-select-options-meta) {
-  row-gap: 36px;
+  row-gap: 16px;
 }
 .jpdb-reader-settings label:not(.inline):has(> .jpdb-reader-select-options-meta) {
   position: relative;
 }
 .jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: static;
   padding-top: 4px;
 }
 .jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta.expanded {
@@ -12833,14 +12860,53 @@ html.jpdb-reader-doodle-active * {
 /* UT-47: appearance preview — a sample annotated sentence that restyles
    live with the furigana/colour options (classes cascade from the root). */
 .jpdb-reader-settings-appearance-preview {
-  margin: 8px 0 2px;
-  padding: 12px 14px;
+  min-height: 170px;
+  margin: 10px 0 2px;
+  padding: 28px 18px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 10px;
-  background: var(--jpdb-reader-surface);
-  font-size: 1.18rem;
-  line-height: 2.1;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 25%,
+      transparent 25% 50%,
+      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 50% 75%,
+      transparent 75%
+    ) 0 0 / 30px 30px,
+    color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
+  color: var(--jpdb-reader-text) !important;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: 28px;
+  line-height: 2.15;
   user-select: none;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-word {
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, currentColor)
+  ) !important;
+  background: var(
+    --jpdb-reader-word-accessible-highlight,
+    var(--jpdb-reader-word-highlight-source, transparent)
+  ) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
+  text-decoration-color: var(
+    --jpdb-reader-word-accessible-underline,
+    var(--jpdb-reader-word-decoration-source, transparent)
+  ) !important;
+  text-decoration-thickness: .09em !important;
+  text-underline-offset: .14em !important;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.72;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
+  font-size: .43em;
 }
 
 .jpdb-reader-shortcut-reference {
@@ -12992,6 +13058,7 @@ html.jpdb-reader-doodle-active * {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.jpdb-subtitle-player:not(.jpdb-subtitle-has-video-frame) .jpdb-subtitle-rail,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-text,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-drag-handle,
 .jpdb-subtitle-video-out-of-view .jpdb-subtitle-rail {

@@ -290,16 +290,13 @@
   word-break: keep-all;
 }
 .jpdb-reader-settings .grid:has(.jpdb-reader-select-options-meta) {
-  row-gap: 36px;
+  row-gap: 16px;
 }
 .jpdb-reader-settings label:not(.inline):has(> .jpdb-reader-select-options-meta) {
   position: relative;
 }
 .jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: static;
   padding-top: 4px;
 }
 .jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta.expanded {
@@ -2152,14 +2149,53 @@
 /* UT-47: appearance preview — a sample annotated sentence that restyles
    live with the furigana/colour options (classes cascade from the root). */
 .jpdb-reader-settings-appearance-preview {
-  margin: 8px 0 2px;
-  padding: 12px 14px;
+  min-height: 170px;
+  margin: 10px 0 2px;
+  padding: 28px 18px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 10px;
-  background: var(--jpdb-reader-surface);
-  font-size: 1.18rem;
-  line-height: 2.1;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 25%,
+      transparent 25% 50%,
+      color-mix(in srgb, var(--jpdb-reader-accent) 9%, transparent) 50% 75%,
+      transparent 75%
+    ) 0 0 / 30px 30px,
+    color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
+  color: var(--jpdb-reader-text) !important;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: 28px;
+  line-height: 2.15;
   user-select: none;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-word {
+  color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, currentColor)
+  ) !important;
+  background: var(
+    --jpdb-reader-word-accessible-highlight,
+    var(--jpdb-reader-word-highlight-source, transparent)
+  ) !important;
+  box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
+  text-decoration-color: var(
+    --jpdb-reader-word-accessible-underline,
+    var(--jpdb-reader-word-decoration-source, transparent)
+  ) !important;
+  text-decoration-thickness: .09em !important;
+  text-underline-offset: .14em !important;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: 1.72;
+}
+.jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
+  font-size: .43em;
 }
 
 .jpdb-reader-shortcut-reference {

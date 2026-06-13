@@ -811,8 +811,8 @@ function renderSeededNewTabWord(controller: NewTabController, card: JPDBCard, op
     return root;
 }
 
-function dispatchNewTabKeyboard(target: HTMLElement, key: string): KeyboardEvent {
-    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+function dispatchNewTabKeyboard(target: HTMLElement, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
     target.dispatchEvent(event);
     return event;
 }
@@ -4139,13 +4139,14 @@ describe('new tab review helpers', () => {
             bothLabel: 'Both',
             grades: [['nothing', 'Nothing'], ['something', 'Something'], ['hard', 'Hard'], ['okay', 'Okay'], ['easy', 'Easy']],
             selectorLabel: 'Grade target',
+            keyHints: { nothing: '1', something: '2', hard: '3', okay: '4', easy: '5' },
             selectedOption: undefined,
             summary: '',
             targetLabel: 'Grades JPDB',
             targetOptions: [],
         } as never);
         const gradeButtons = buttons.filter(node => node.matches?.('[data-newtab-action="grade"]')) as HTMLButtonElement[];
-        // Digits map to rendered order, matching handleGradeDigitKeydown.
+        // Defaults still show the familiar rendered-order digits.
         expect(gradeButtons.map(button => button.querySelector('.jpdb-reader-newtab-key-hint')?.textContent)).toEqual(['1', '2', '3', '4', '5']);
         // Hints stay out of the accessible name (digit order is positional).
         expect(gradeButtons[0]?.querySelector('.jpdb-reader-newtab-key-hint')?.getAttribute('aria-hidden')).toBe('true');
@@ -9063,6 +9064,64 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('uses configurable shortcuts for study reveal and navigation', () => {
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                studyReveal: 'R',
+                studyRevealAlternate: '',
+                studyPrevious: 'H',
+                studyPreviousAlternate: '',
+                studyNext: 'L',
+                studyNextAlternate: '',
+            },
+        });
+        const cards = [
+            newTabTestCard({ spelling: '一', reading: 'いち' }),
+            newTabTestCard({ spelling: '二', reading: 'に' }),
+        ];
+        const root = renderSeededNewTabWord(controller, cards[0]!, {
+            visibleWords: cards,
+            sourceLabel: 'Dictionaries',
+            state: { mode: 'word', revealAnswer: false },
+            bindRootEvents: true,
+        });
+        const navigation = { next: 0, previous: 0 };
+        (controller as unknown as { showNextWord(): void }).showNextWord = () => {
+            navigation.next += 1;
+        };
+        (controller as unknown as { showPreviousWord(): void }).showPreviousWord = () => {
+            navigation.previous += 1;
+        };
+
+        try {
+            expect(root.querySelector('[data-newtab-action="reveal"] .jpdb-reader-newtab-key-hint')?.textContent).toBe('R');
+
+            const space = dispatchNewTabKeyboard(root, ' ');
+            expect(space.defaultPrevented).toBe(false);
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
+
+            const reveal = dispatchNewTabKeyboard(root, 'R');
+            expect(reveal.defaultPrevented).toBe(true);
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(true);
+
+            const right = dispatchNewTabKeyboard(root, 'ArrowRight');
+            expect(right.defaultPrevented).toBe(false);
+            expect(navigation.next).toBe(0);
+
+            const next = dispatchNewTabKeyboard(root, 'L');
+            expect(next.defaultPrevented).toBe(true);
+            expect(navigation.next).toBe(1);
+
+            const previous = dispatchNewTabKeyboard(root, 'H');
+            expect(previous.defaultPrevented).toBe(true);
+            expect(navigation.previous).toBe(1);
+        } finally {
+            root.remove();
+        }
+    });
+
     it('uses arrow keys for previous and next word study cards', () => {
         const controller = newTabPromptController();
         const cards = [
@@ -9159,6 +9218,44 @@ describe('new tab review helpers', () => {
             (controller as unknown as { state: { mode: string; revealAnswer: boolean } }).state.revealAnswer = false;
             expect(dispatchNewTabKeyboard(root, '2').defaultPrevented).toBe(false);
             expect(clicks).toHaveLength(2);
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('uses configurable shortcuts for study grading', () => {
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            shortcuts: {
+                ...DEFAULT_SETTINGS.shortcuts,
+                gradeOkay: 'G',
+            },
+        });
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        const study = document.createElement('div');
+        study.dataset.newtabStudy = 'true';
+        const clicks: string[] = [];
+        for (const grade of ['nothing', 'something', 'hard', 'okay', 'easy']) {
+            const button = document.createElement('button');
+            button.dataset.newtabAction = 'grade';
+            button.dataset.grade = grade;
+            button.addEventListener('click', () => clicks.push(grade));
+            study.append(button);
+        }
+        root.append(study);
+        Object.assign(controller as unknown as { state: { mode: string; revealAnswer: boolean } }, {
+            state: { mode: 'word', revealAnswer: true },
+        });
+        (controller as unknown as { allWords: unknown[] }).allWords = [{}];
+        (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+        document.body.append(root);
+
+        try {
+            expect(dispatchNewTabKeyboard(root, '4').defaultPrevented).toBe(false);
+            expect(dispatchNewTabKeyboard(root, 'G').defaultPrevented).toBe(true);
+            expect(clicks).toEqual(['okay']);
         } finally {
             root.remove();
         }

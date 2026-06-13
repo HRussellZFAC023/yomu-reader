@@ -441,6 +441,13 @@ export interface ReaderSettings {
         toggleYoutubeImmersion: string;
         scanImages: string;
         massReviewVisible: string;
+        studyReveal: string;
+        studyRevealAlternate: string;
+        studyUndo: string;
+        studyPrevious: string;
+        studyPreviousAlternate: string;
+        studyNext: string;
+        studyNextAlternate: string;
         gradeNothing: string;
         gradeSomething: string;
         gradeHard: string;

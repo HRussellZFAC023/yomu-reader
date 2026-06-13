@@ -1662,7 +1662,7 @@ async function captureSettingsDialog(page) {
 
 async function captureHoverShortcut(page) {
     await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
-    const hoverShortcut = page.locator('input[name="shortcuts.hoverLookup"]');
+    const hoverShortcut = page.locator('#jpdb-reader-settings-panel-shortcuts input[name="shortcuts.hoverLookup"]');
     await hoverShortcut.click();
     await page.keyboard.down('Shift');
     await page.keyboard.press('KeyH');

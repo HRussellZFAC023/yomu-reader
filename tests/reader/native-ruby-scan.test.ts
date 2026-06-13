@@ -24,6 +24,21 @@ describe('native ruby scan rendering', () => {
         expect(Array.from(document.querySelectorAll('rt')).every(rt => rt.closest('.jpdb-reader-word') === word)).toBe(true);
     });
 
+    it('keeps JPDB native ruby compounds as one rendered word', () => {
+        document.body.innerHTML = '<div><ruby class="v">発<rt>はっ</rt>行<rt>こう</rt></ruby></div>';
+        const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
+
+        expect(target.text).toBe('発行');
+
+        applyTokensToScanTarget(target, [token('発行', 0, target.text, 'はっこう')], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words).toHaveLength(1);
+        expect(readerWordSurfaceText(words[0]!)).toBe('発行');
+        expect(Array.from(words[0]!.querySelectorAll('rt')).map(rt => rt.textContent)).toEqual(['はっ', 'こう']);
+        expect(words[0]!.querySelector('.jpdb-reader-furi')).toBeNull();
+    });
+
     it('keeps highlighted native ruby base and annotation together', () => {
         document.body.innerHTML = '<p><ruby>最<rt>さい</rt></ruby><span class="highlight"><ruby>初<rt>しょ</rt></ruby></span></p>';
         const [target] = collectFragmentTextTargetsIn(document.body, 10, false, '', { allowUiText: true, minLength: 1 });
@@ -55,13 +70,13 @@ describe('native ruby scan rendering', () => {
     });
 });
 
-function token(surface: string, start: number, sentence: string): JPDBToken {
+function token(surface: string, start: number, sentence: string, reading = 'さいしょ'): JPDBToken {
     return {
-        card: card(surface, 'さいしょ'),
+        card: card(surface, reading),
         start,
         end: start + surface.length,
         length: surface.length,
-        rubies: [{ text: 'さいしょ', start, end: start + surface.length, length: surface.length }],
+        rubies: [{ text: reading, start, end: start + surface.length, length: surface.length }],
         pitchClass: 'heiban',
         sentence,
     };

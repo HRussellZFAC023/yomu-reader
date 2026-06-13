@@ -300,7 +300,7 @@ import {
 } from '../sources/sections';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
-import { loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from '../styles/index';
+import { initialReaderCss, loadReaderCssFallback, READER_CSS, readerCssNeedsFallback } from '../styles/index';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -404,12 +404,13 @@ export class ReaderApp {
         getSettings: () => this.settings,
         isJpdbBackedCard: card => this.isJpdbBackedCard(card),
         renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery) => renderWordPills({
+        renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger) => renderWordPills({
             card,
             jpdbUrl,
             settings: this.settings,
             metaEntries,
             overrideQuery,
+            inert: trigger === 'hover',
             isJpdbBackedCard: value => this.isJpdbBackedCard(value),
             dictionaryLabel: name => this.dictionaryLabel(name),
         }),
@@ -503,6 +504,7 @@ export class ReaderApp {
         enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
+        prepareAnkiWordEnrichmentBeforeRender: tokens => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
         prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
@@ -845,7 +847,7 @@ export class ReaderApp {
     private installStyles(): void {
         const hasLinkedReaderCss = Boolean(document.querySelector('link[href$="/yomu.css"], link[href*="/yomu.css?"]'));
         const style = document.createElement('style');
-        style.textContent = hasLinkedReaderCss ? '' : READER_CSS;
+        style.textContent = hasLinkedReaderCss ? '' : initialReaderCss(READER_CSS);
         appendToDocumentHead(style);
         if (!readerCssNeedsFallback(READER_CSS)) return;
         void loadReaderCssFallback().then(css => {
@@ -4968,13 +4970,7 @@ export class ReaderApp {
     // same breath as the ruby instead of popping in afterwards.
     private beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void {
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => undefined;
-        const seen = new Set<string>();
-        const uniqueTokens = tokens.filter(token => {
-            const key = cardKey(token.card);
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
+        const uniqueTokens = uniqueTokensByCard(tokens);
         const lookups = this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
             .catch(error => {
                 log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
@@ -4988,15 +4984,23 @@ export class ReaderApp {
         };
     }
 
+    private async prepareAnkiWordEnrichmentBeforeRender(tokens: JPDBToken[]): Promise<(roots: ParentNode[]) => void> {
+        if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => undefined;
+        const uniqueTokens = uniqueTokensByCard(tokens);
+        const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
+            .catch(error => {
+                log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
+                return uniqueTokens.map(() => untrustedAnkiLookupResult());
+            });
+        return roots => {
+            if (!this.shouldRunAnkiBackgroundWork()) return;
+            this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
+        };
+    }
+
     private async enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[] = [document]): Promise<void> {
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
-        const seen = new Set<string>();
-        const uniqueTokens = tokens.filter(token => {
-            const key = cardKey(token.card);
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
+        const uniqueTokens = uniqueTokensByCard(tokens);
         const lookups = await this.anki.findCachedStatusBatch(uniqueTokens.map(token => token.card))
             .catch(error => {
                 log.warnOnce('background-anki-coloring-failed', 'Anki background coloring failed', error);
@@ -6117,6 +6121,16 @@ export class ReaderApp {
     private toast(message: string): void {
         showReaderToast(message);
     }
+}
+
+function uniqueTokensByCard(tokens: JPDBToken[]): JPDBToken[] {
+    const seen = new Set<string>();
+    return tokens.filter(token => {
+        const key = cardKey(token.card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 function normalizedNestedParseOptions(options: ReaderParserParseOptions, settings: ReaderSettings): Required<ReaderParserParseOptions> {

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.183] - 2026-06-13
+
+### Fixed
+
+- YouTube watch controls, player settings submenus, suggested videos, and view/count metadata are parsed for ruby, color, and pitch styling again, while native clicks stay intact and hover popover lookup CTAs remain visible but inert.
+- ASB-player style subtitles are enriched with ruby and deck/pitch color before cue HTML is displayed, so pre-rendered cues keep their styling when moved onscreen instead of visibly loading in afterward.
+- Video subtitle/control rails now render only inside an actual visible video frame and stay hidden on no-video pages.
+- JPDB native ruby headwords such as `発行` stay as one lookup word, kanji-used links receive furigana, and Yomu-injected JPDB panels fit the host column width.
+- Appearance settings are simplified: the confusing default preset is gone, the old phone/tablet copy is removed, and the larger colorized preview now lives in the Appearance panel.
+
 ## [0.6.182] - 2026-06-13
 
 ### Added

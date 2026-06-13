@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { loadReaderCssFallback, readerCssFallbackUrls, readerCssNeedsFallback, READER_CSS } from '../../src/reader/styles/index';
+import {
+    CRITICAL_READER_CSS,
+    initialReaderCss,
+    loadReaderCssFallback,
+    readerCssFallbackUrls,
+    readerCssNeedsFallback,
+    READER_CSS,
+} from '../../src/reader/styles/index';
 
 const FULL_READER_CSS = '.jpdb-reader-popover{} .jpdb-reader-settings{} .jpdb-reader-source-card{} .jpdb-subtitle-player{} .jpdb-ocr-layer{}';
 
@@ -27,6 +34,20 @@ describe('reader stylesheet loading', () => {
     it('detects when userscript GM resource CSS is unavailable', () => {
         expect(READER_CSS).toBe('');
         expect(readerCssNeedsFallback(READER_CSS)).toBe(true);
+    });
+
+    it('uses scoped critical control CSS while the full reader CSS is unavailable', () => {
+        const css = initialReaderCss('');
+
+        expect(css).toBe(CRITICAL_READER_CSS);
+        expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn');
+        expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg');
+        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
+        expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
+    });
+
+    it('uses the full reader CSS when the userscript resource is available', () => {
+        expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });
 
     it('loads and caches the hosted full reader CSS without userscript GM resource APIs', async () => {

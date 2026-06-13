@@ -1562,6 +1562,13 @@
       toggleYoutubeImmersion: "Alt+Y",
       scanImages: "Alt+I",
       massReviewVisible: "Alt+M",
+      studyReveal: "Space",
+      studyRevealAlternate: "Enter",
+      studyUndo: "U",
+      studyPrevious: "ArrowLeft",
+      studyPreviousAlternate: "P",
+      studyNext: "ArrowRight",
+      studyNextAlternate: "N",
       gradeNothing: "1",
       gradeSomething: "2",
       gradeHard: "3",
@@ -2531,7 +2538,7 @@
       popoverHeightFixed: "Use height setting",
       readerFontFamily: "Reader interface font",
       popupFontFamily: "Popup Japanese font",
-      fontPresetYomuDefault: "Yomu default",
+      fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
       fontPresetJapaneseSerif: "Japanese serif",
@@ -2575,13 +2582,6 @@
       newTabUrl: "Study address",
       newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
       newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
-      studyKeysTitle: "Study page keys",
-      studyKeysHelp: "Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.",
-      studyKeyReveal: "Reveal the current card",
-      studyKeyGrades: "Grade the revealed card (buttons in order)",
-      studyKeyUndo: "Undo the last review",
-      studyKeyPrevious: "Previous card (undoes right after grading)",
-      studyKeyNext: "Next card",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -2617,25 +2617,20 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      settingsPuckHelp: "Keeps Settings reachable on phones and tablets.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
-      appearancePresetCustom: "Custom / current",
-      appearancePresetDefault: "Yomu default",
-      appearancePresetNoColors: "Don't color words",
-      appearancePresetNewOnly: "Only color new words",
-      appearancePresetUnderlineNew: "Underline new words only",
-      appearancePresetFuriAll: "Show all furigana",
-      appearancePresetFuriKnownHidden: "Hide furigana you know",
-      appearancePresetFuriHover: "Furigana on hover only",
-      appearancePresetFuriOff: "No furigana",
-      wordColorStatesAll: "All card states",
-      wordColorStatesNewOnly: "Only new words",
-      furiganaDifficultKanji: "Difficult kanji only",
-      furiganaHideKnown: "Hide for chosen states",
-      furiganaHoverOnly: "Show on hover only",
-      furiganaAllParsed: "All parsed words",
+      appearancePresetCustom: "Keep current custom settings",
+      appearancePresetBalanced: "Balanced reading",
+      appearancePresetNoColors: "Plain text",
+      appearancePresetNewOnly: "Focus on new words",
+      appearancePresetUnderlineNew: "Minimal highlights",
+      wordColorStatesAll: "Use all learning states",
+      wordColorStatesNewOnly: "Only new / not-in-deck words",
+      furiganaDifficultKanji: "Hard kanji only",
+      furiganaHideKnown: "Hide familiar words",
+      furiganaHoverOnly: "Show on hover",
+      furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
       suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
       sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
@@ -2820,6 +2815,7 @@
       subtitleFontWeight: "Subtitle font weight",
       subtitleSeekPadding: "Subtitle seek padding (s)",
       subtitlePreview: "Live subtitle preview",
+      preview: "Preview",
       youtubeImmersionEnabled: "Japanese YouTube only",
       preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
@@ -3097,6 +3093,13 @@
       toggleYoutubeImmersion: "Toggle YouTube filter",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
+      studyReveal: "Study: reveal card",
+      studyRevealAlternate: "Study: reveal card (alternate)",
+      studyUndo: "Study: undo last review",
+      studyPrevious: "Study: previous card",
+      studyPreviousAlternate: "Study: previous card (alternate)",
+      studyNext: "Study: next card",
+      studyNextAlternate: "Study: next card (alternate)",
       massReviewNoWords: "No due Jiten words on screen.",
       massReviewNoKey: "Add a Jiten API key to mass review.",
       massReviewDone: "Reviewed {count} words as Good.",
@@ -3666,6 +3669,13 @@ gradeOkay	採点: OK
 gradeEasy	採点: 簡単
 gradeFail	合否: 失敗
 gradePass	合否: 合格
+studyReveal	学習: カードを表示
+studyRevealAlternate	学習: カードを表示（代替）
+studyUndo	学習: 直前のレビューを取り消す
+studyPrevious	学習: 前のカード
+studyPreviousAlternate	学習: 前のカード（代替）
+studyNext	学習: 次のカード
+studyNextAlternate	学習: 次のカード（代替）
 factKeyword	キーワード
 factType	種類
 factFrequency	頻度
@@ -4033,7 +4043,7 @@ popoverHeightAvailable	空き領域まで広げる
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
 popupFontFamily	ポップアップの日本語フォント
-fontPresetYomuDefault	よむ既定
+fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
 fontPresetJapaneseSerif	日本語明朝
@@ -4077,13 +4087,6 @@ newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
 newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
 newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
-studyKeysTitle	学習ページのキー
-studyKeysHelp	学習タブの固定キーです。すべてのショートカットを一覧できるようここに記載しています。
-studyKeyReveal	現在のカードを表示
-studyKeyGrades	表示したカードを採点（ボタンの順）
-studyKeyUndo	直前のレビューを取り消す
-studyKeyPrevious	前のカード（採点直後は取り消し）
-studyKeyNext	次のカード
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -4119,25 +4122,20 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-settingsPuckHelp	スマホやタブレットで設定ボタンを残します。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
-appearancePresetCustom	カスタム／現在の設定
-appearancePresetDefault	Yomu標準
-appearancePresetNoColors	単語に色を付けない
-appearancePresetNewOnly	新規単語のみ色付け
-appearancePresetUnderlineNew	新規単語に下線のみ
-appearancePresetFuriAll	ふりがなを全て表示
-appearancePresetFuriKnownHidden	既知のふりがなを非表示
-appearancePresetFuriHover	ホバー時のみふりがな
-appearancePresetFuriOff	ふりがななし
-wordColorStatesAll	全てのカード状態
-wordColorStatesNewOnly	新規単語のみ
+appearancePresetCustom	現在のカスタム設定を保持
+appearancePresetBalanced	読みやすいバランス
+appearancePresetNoColors	プレーンテキスト
+appearancePresetNewOnly	新規単語に集中
+appearancePresetUnderlineNew	控えめなハイライト
+wordColorStatesAll	すべての学習状態
+wordColorStatesNewOnly	新規・未追加のみ
 furiganaDifficultKanji	難しい漢字のみ
-furiganaHideKnown	選択した状態で非表示
-furiganaHoverOnly	ホバー時のみ表示
-furiganaAllParsed	解析済みの全単語
+furiganaHideKnown	なじみのある語を非表示
+furiganaHoverOnly	ホバー時に表示
+furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
@@ -4297,6 +4295,7 @@ subtitleFontFamily	字幕フォントファミリー
 subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
+preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
 preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
@@ -5791,9 +5790,11 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function createSettingsFormReader(data, colorSource) {
     const get = (key) => String(data.get(key) ?? "");
+    const getAll = (key) => data.getAll(key).map((value) => String(value));
     const number = (key, fallback) => readNumber(get(key), fallback);
     return {
       get,
+      getAll,
       has: (key) => data.has(key),
       number,
       clamped: (key, min, max, fallback) => Math.max(min, Math.min(max, number(key, fallback))),
@@ -5862,6 +5863,13 @@ recommendedJiten	jiten.moe頻度データです。
     "toggleSubtitleOverlay",
     "toggleYoutubeImmersion",
     "scanImages",
+    "studyReveal",
+    "studyRevealAlternate",
+    "studyUndo",
+    "studyPrevious",
+    "studyPreviousAlternate",
+    "studyNext",
+    "studyNextAlternate",
     "gradeNothing",
     "gradeSomething",
     "gradeHard",
@@ -6261,8 +6269,15 @@ recommendedJiten	jiten.moe頻度データです。
   function readShortcutFormSettings(reader, current) {
     return Object.fromEntries(SHORTCUT_SETTING_NAMES.map((name) => {
       const key = `shortcuts.${name}`;
-      return [name, reader.has(key) ? reader.get(key) : current.shortcuts[name]];
+      return [name, reader.has(key) ? readShortcutFormValue(reader, key, current.shortcuts[name]) : current.shortcuts[name]];
     }));
+  }
+  function readShortcutFormValue(reader, key, currentValue) {
+    const values = reader.getAll(key);
+    if (!values.length) return currentValue;
+    const changedValues = Array.from(new Set(values.filter((value) => value !== currentValue)));
+    if (changedValues.length === 1) return changedValues[0] ?? "";
+    return values.at(-1) ?? "";
   }
   function readOption(value, allowed, fallback) {
     return allowed.includes(value) ? value : fallback;
@@ -7346,7 +7361,7 @@ recommendedJiten	jiten.moe頻度データです。
   const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
   const JAPANESE_SERIF_FONT_FAMILY = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif';
   const FONT_FAMILY_PRESETS = [
-    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Yomu default" },
+    { value: DEFAULT_POPUP_FONT_FAMILY, labelKey: "fontPresetYomuDefault", fallbackLabel: "Built-in font" },
     { value: JAPANESE_SANS_FONT_FAMILY, labelKey: "fontPresetJapaneseSans", fallbackLabel: "Japanese sans" },
     { value: HIRAGINO_YU_GOTHIC_FONT_FAMILY, labelKey: "fontPresetHiraginoYuGothic", fallbackLabel: "Hiragino / Yu Gothic" },
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
@@ -7535,6 +7550,7 @@ recommendedJiten	jiten.moe頻度データです。
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}
+                ${renderAppearancePreview()}
             </fieldset>
     `;
   }
@@ -7651,17 +7667,40 @@ recommendedJiten	jiten.moe頻度データです。
     ["learning", "Learning"],
     ["new", "New"]
   ];
+  const APPEARANCE_PRESET_OPTIONS = [
+    ["", "Keep current custom settings"],
+    ["balanced", "Balanced reading"],
+    ["new-only", "Focus on new words"],
+    ["underline-new", "Minimal highlights"],
+    ["no-colors", "Plain text"]
+  ];
+  const FURIGANA_MODE_OPTIONS = [
+    ["auto", "Smart default"],
+    ["known-status", "Hide familiar words"],
+    ["difficult-kanji", "Hard kanji only"],
+    ["hover", "Show on hover"],
+    ["all", "Show on every parsed word"],
+    ["off", "Off"]
+  ];
+  const WORD_COLOR_STATE_OPTIONS = [
+    ["all", "Use all learning states"],
+    ["new-only", "Only new / not-in-deck words"]
+  ];
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
   }
   function renderAppearancePreview() {
-    return `<div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>`;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
+                    <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
+                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>
+                </div>`;
   }
   function appearancePreviewHtml() {
     const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word("jpdb-new", "新", "あたら", "しい")}${word("jpdb-learning", "言葉", "ことば")}を${word("jpdb-due", "毎日", "まいにち")}${word("jpdb-failed", "勉強", "べんきょう")}して、${word("jpdb-known", "日本語", "にほんご")}が${word("jpdb-never-forget", "上手", "じょうず")}になる。`;
+    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-kifuku", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
   }
   function renderPitchColorSettingsSubsection(settings) {
     return renderColorSettingsSubsection("Pitch accent colors", PITCH_COLOR_FIELDS, settings);
@@ -7800,7 +7839,6 @@ recommendedJiten	jiten.moe頻度データです。
     return source === "nadeshiko" || source === "combined";
   }
   function renderReaderSettingsPanel(settings) {
-    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="reading" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
@@ -7810,16 +7848,14 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
-                    ${select("appearancePreset", "Appearance preset", "", [["", "Custom / current"], ["default", "Yomu default"], ["no-colors", "Don't color words"], ["new-only", "Only color new words"], ["underline-new", "Underline new words only"], ["furi-all", "Show all furigana"], ["furi-known-hidden", "Hide furigana you know"], ["furi-hover", "Furigana on hover only"], ["furi-off", "No furigana"]])}
-                    ${select("furiganaMode", "Furigana", settings.furiganaMode, [["auto", "Automatic"], ["difficult-kanji", "Difficult kanji only"], ["known-status", "Hide for chosen states"], ["hover", "Show on hover only"], ["all", "All parsed words"], ["off", "Off"]])}
+                    ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
+                    ${select("furiganaMode", "Furigana", settings.furiganaMode, FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
-                    ${select("wordColorStates", "Color words", settings.wordColorStates, [["all", "All card states"], ["new-only", "Only new words"]])}
-                    ${renderAppearancePreview()}
+                    ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
                     ${checkbox("suppressRedundantWordUi", "Hide styling on JPDB-redundant words", settings.suppressRedundantWordUi)}
                     ${checkbox("sheetCloseButtonOnLeft", "Mobile sheet: close button on the left", settings.sheetCloseButtonOnLeft)}
                 </div>
-                <div class="jpdb-reader-help" data-settings-puck-help>${escapedUiText(language, "settingsPuckHelp")}</div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
                 <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
@@ -7996,6 +8032,8 @@ recommendedJiten	jiten.moe頻度データです。
             <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
                 <legend>Shortcuts</legend>
                 <div class="grid">
+                    ${shortcutInput("shortcuts.scanPage", "Scan page", settings.shortcuts.scanPage)}
+                    ${shortcutInput("shortcuts.hoverLookup", "Hold while hovering", settings.shortcuts.hoverLookup, "Blank means hover without a key")}
                     ${shortcutInput("shortcuts.openSettings", "Open settings", settings.shortcuts.openSettings)}
                     ${shortcutInput("shortcuts.playAudio", "Play audio", settings.shortcuts.playAudio)}
                     ${shortcutInput("shortcuts.closePopup", "Close popup", settings.shortcuts.closePopup)}
@@ -8009,24 +8047,17 @@ recommendedJiten	jiten.moe頻度データです。
                     ${shortcutInput("shortcuts.toggleYoutubeImmersion", "Toggle YouTube filter", settings.shortcuts.toggleYoutubeImmersion)}
                     ${shortcutInput("shortcuts.scanImages", "Read images now", settings.shortcuts.scanImages)}
                     ${shortcutInput("shortcuts.massReviewVisible", "Mass review visible words (Jiten)", settings.shortcuts.massReviewVisible)}
+                    ${shortcutInput("shortcuts.studyReveal", "Study: reveal card", settings.shortcuts.studyReveal)}
+                    ${shortcutInput("shortcuts.studyRevealAlternate", "Study: reveal card (alternate)", settings.shortcuts.studyRevealAlternate)}
+                    ${shortcutInput("shortcuts.studyUndo", "Study: undo last review", settings.shortcuts.studyUndo)}
+                    ${shortcutInput("shortcuts.studyPrevious", "Study: previous card", settings.shortcuts.studyPrevious)}
+                    ${shortcutInput("shortcuts.studyPreviousAlternate", "Study: previous card (alternate)", settings.shortcuts.studyPreviousAlternate)}
+                    ${shortcutInput("shortcuts.studyNext", "Study: next card", settings.shortcuts.studyNext)}
+                    ${shortcutInput("shortcuts.studyNextAlternate", "Study: next card (alternate)", settings.shortcuts.studyNextAlternate)}
                     ${renderReviewShortcutInputs(settings)}
-                </div>
-                <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-study-keys-title>Study page keys</div>
-                    <div class="jpdb-reader-shortcut-reference" data-study-keys>
-                        ${studyKeyReferenceRow("Space / Enter", "Reveal the current card", "studyKeyReveal")}
-                        ${studyKeyReferenceRow("1–9", "Grade the revealed card (buttons in order)", "studyKeyGrades")}
-                        ${studyKeyReferenceRow("U", "Undo the last review", "studyKeyUndo")}
-                        ${studyKeyReferenceRow("← / P", "Previous card (undoes right after grading)", "studyKeyPrevious")}
-                        ${studyKeyReferenceRow("→ / N", "Next card", "studyKeyNext")}
-                    </div>
-                    <div class="jpdb-reader-help" data-study-keys-help>Fixed keys on the Study tab — they are listed here so every shortcut lives in one place.</div>
                 </div>
             </fieldset>
     `;
-  }
-  function studyKeyReferenceRow(keys, description, key) {
-    return `<div class="jpdb-reader-shortcut-reference-row"><kbd>${escapeHtml(keys)}</kbd><span data-study-key="${key}">${escapeHtml(description)}</span></div>`;
   }
   function renderHelpSettingsPanel(settings) {
     return `
@@ -8052,11 +8083,11 @@ recommendedJiten	jiten.moe頻度データです。
             </div>
     `;
   }
-  function fontFamilyControl(name, label, value) {
+  function fontFamilyControl(name, label, value, text) {
     const selectedValue = fontFamilyPresetValue(value);
     return `
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
-            ${select(name, label, selectedValue, fontFamilyOptions())}
+            ${select(name, label, selectedValue, fontFamilyOptions(text))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? "" : "hidden"}>
                 Custom font stack
                 <input name="${name}Custom" type="text" value="${escapeHtml(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
@@ -8159,10 +8190,10 @@ recommendedJiten	jiten.moe頻度データです。
     ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
     ["[data-jpdb-api-key-help]", "apiAccessHelp"],
     ["[data-subtitle-preview] .jpdb-subtitle-secondary", "subtitlePreview"],
+    ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
-    ["[data-proxy-guide-hide]", "hide"],
-    ["[data-settings-puck-help]", "settingsPuckHelp"]
+    ["[data-proxy-guide-hide]", "hide"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
@@ -8338,14 +8369,10 @@ recommendedJiten	jiten.moe頻度データです。
     localizeColorSourceSelects(form, text);
     setSelectOptionLabels(form, "appearancePreset", [
       ["", text("appearancePresetCustom")],
-      ["default", text("appearancePresetDefault")],
-      ["no-colors", text("appearancePresetNoColors")],
+      ["balanced", text("appearancePresetBalanced")],
       ["new-only", text("appearancePresetNewOnly")],
       ["underline-new", text("appearancePresetUnderlineNew")],
-      ["furi-all", text("appearancePresetFuriAll")],
-      ["furi-known-hidden", text("appearancePresetFuriKnownHidden")],
-      ["furi-hover", text("appearancePresetFuriHover")],
-      ["furi-off", text("appearancePresetFuriOff")]
+      ["no-colors", text("appearancePresetNoColors")]
     ]);
     setSelectOptionLabels(form, "wordColorStates", [
       ["all", text("wordColorStatesAll")],
@@ -8353,8 +8380,8 @@ recommendedJiten	jiten.moe頻度データです。
     ]);
     setSelectOptionLabels(form, "furiganaMode", [
       ["auto", text("automatic")],
-      ["difficult-kanji", text("furiganaDifficultKanji")],
       ["known-status", text("furiganaHideKnown")],
+      ["difficult-kanji", text("furiganaDifficultKanji")],
       ["hover", text("furiganaHoverOnly")],
       ["all", text("furiganaAllParsed")],
       ["off", text("off")]
@@ -8488,12 +8515,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function localizeNewTabHelp(form, text) {
     form.querySelector("[data-newtab-address-help]")?.replaceChildren(text("newTabAddressHelp"));
-    form.querySelector("[data-study-keys-title]")?.replaceChildren(text("studyKeysTitle"));
-    form.querySelector("[data-study-keys-help]")?.replaceChildren(text("studyKeysHelp"));
-    form.querySelectorAll("[data-study-key]").forEach((row) => {
-      const key = row.dataset.studyKey;
-      row.replaceChildren(text(key));
-    });
     form.querySelector("[data-newtab-offline-help]")?.replaceChildren(text("newTabOfflineHelp"));
     form.querySelector("[data-newtab-anki-decks-title]")?.replaceChildren(text("newTabAnkiReviewDecks"));
     form.querySelector("[data-newtab-anki-decks-help]")?.replaceChildren(text("newTabAnkiReviewDecksHelp"));
@@ -8914,6 +8935,13 @@ recommendedJiten	jiten.moe頻度データです。
     ["shortcuts.toggleYoutubeImmersion", "toggleYoutubeImmersion"],
     ["shortcuts.scanImages", "readImagesNow"],
     ["shortcuts.massReviewVisible", "massReviewVisible"],
+    ["shortcuts.studyReveal", "studyReveal"],
+    ["shortcuts.studyRevealAlternate", "studyRevealAlternate"],
+    ["shortcuts.studyUndo", "studyUndo"],
+    ["shortcuts.studyPrevious", "studyPrevious"],
+    ["shortcuts.studyPreviousAlternate", "studyPreviousAlternate"],
+    ["shortcuts.studyNext", "studyNext"],
+    ["shortcuts.studyNextAlternate", "studyNextAlternate"],
     ["shortcuts.gradeNothing", "gradeNothing"],
     ["shortcuts.gradeSomething", "gradeSomething"],
     ["shortcuts.gradeHard", "gradeHard"],
@@ -8939,11 +8967,18 @@ recommendedJiten	jiten.moe頻度データです。
     return null;
   }
   function setControlLabel(form, name, label) {
-    const control = getNamedControl(form, name);
-    const labelElement = control?.closest("label");
-    if (!labelElement) return;
-    if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
-    else setBlockLabelText(labelElement, label);
+    const controls = namedFormControls(form, name);
+    controls.forEach((control) => {
+      const labelElement = control.closest("label");
+      if (!labelElement) return;
+      if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
+      else setBlockLabelText(labelElement, label);
+    });
+  }
+  function namedFormControls(form, name) {
+    return Array.from(form.elements).filter(
+      (element) => (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) && element.name === name
+    );
   }
   function setBlockLabelText(label, text) {
     const container = directSettingsLabelTextContainer(label);
@@ -9070,8 +9105,9 @@ recommendedJiten	jiten.moe頻度データです。
     });
   }
   function setShortcutPlaceholder(form, name, placeholder) {
-    const inputElement = getNamedControl(form, name);
-    if (inputElement) inputElement.placeholder = placeholder;
+    form.querySelectorAll("[data-shortcut-input]").forEach((inputElement) => {
+      if (inputElement.name === name) inputElement.placeholder = placeholder;
+    });
   }
   function getSettingsPanelFieldsets(form) {
     return Array.from(form.querySelectorAll("fieldset[data-settings-panel]"));
@@ -9185,11 +9221,19 @@ recommendedJiten	jiten.moe頻度データです。
         event.stopPropagation();
         if (event.key === "Backspace" || event.key === "Delete") {
           inputEl.value = "";
+          syncDuplicateShortcutInputs(root, inputEl);
           return;
         }
         inputEl.value = formatShortcutEvent(event);
+        syncDuplicateShortcutInputs(root, inputEl);
       });
+      inputEl.addEventListener("input", () => syncDuplicateShortcutInputs(root, inputEl));
       inputEl.addEventListener("paste", (event) => event.preventDefault());
+    });
+  }
+  function syncDuplicateShortcutInputs(root, source) {
+    root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
+      if (inputEl !== source && inputEl.name === source.name) inputEl.value = source.value;
     });
   }
   function syncReviewSettingsVisibility(form) {
@@ -10146,6 +10190,14 @@ recommendedJiten	jiten.moe頻度データです。
           if (box) box.checked = groups.includes(group);
         }
       };
+      const setColorSources = (highlight, underline, text) => {
+        setSelect("wordHighlightColorSource", highlight);
+        setSelect("wordUnderlineColorSource", underline);
+        setSelect("wordTextColorSource", text);
+        setSelect("subtitleHighlightColorSource", highlight);
+        setSelect("subtitleUnderlineColorSource", underline);
+        setSelect("subtitleTextColorSource", text);
+      };
       const syncGroupVisibility = () => {
         const fieldset = form.querySelector("[data-furigana-hide-groups]");
         const mode = form.querySelector('select[name="furiganaMode"]')?.value;
@@ -10156,25 +10208,24 @@ recommendedJiten	jiten.moe頻度データです。
       preset?.addEventListener("change", () => {
         const value = preset.value;
         if (!value) return;
-        if (value === "default") {
+        if (value === "balanced" || value === "default") {
           setSelect("wordColorStates", "all");
           setSelect("furiganaMode", "auto");
           setGroups(["known", "due", "failed"]);
-          setSelect("wordHighlightColorSource", "jpdb");
-          setSelect("wordUnderlineColorSource", "pitch");
-          setSelect("wordTextColorSource", "anki");
+          setColorSources("jpdb", "pitch", "anki");
         } else if (value === "no-colors") {
           setSelect("wordColorStates", "all");
-          setSelect("wordHighlightColorSource", "off");
-          setSelect("wordUnderlineColorSource", "off");
-          setSelect("wordTextColorSource", "off");
+          setSelect("furiganaMode", "off");
+          setColorSources("off", "off", "off");
         } else if (value === "new-only") {
           setSelect("wordColorStates", "new-only");
+          setSelect("furiganaMode", "auto");
+          setGroups(["known", "due", "failed"]);
+          setColorSources("jpdb", "pitch", "anki");
         } else if (value === "underline-new") {
           setSelect("wordColorStates", "new-only");
-          setSelect("wordHighlightColorSource", "off");
-          setSelect("wordTextColorSource", "off");
-          setSelect("wordUnderlineColorSource", "jpdb");
+          setSelect("furiganaMode", "hover");
+          setColorSources("off", "jpdb", "off");
         } else if (value === "furi-all") {
           setSelect("furiganaMode", "all");
         } else if (value === "furi-known-hidden") {
@@ -10575,7 +10626,7 @@ recommendedJiten	jiten.moe頻度データです。
         return true;
       }
       if (action === "download-recommended-dictionary") {
-        await this.downloadRecommendedDictionaryFromSettings(form, control, setStatus);
+        this.queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus);
         return true;
       }
       if (action === "export-yomitan-dictionary") {
@@ -10924,6 +10975,13 @@ recommendedJiten	jiten.moe頻度データです。
         log.info("Dictionary file imported", summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
+      });
+    }
+    queueRecommendedDictionaryDownloadFromSettings(form, control, setStatus) {
+      void this.downloadRecommendedDictionaryFromSettings(form, control, setStatus).catch((error) => {
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const message = handleSettingsActionError("download-recommended-dictionary", control, setStatus, error, language);
+        this.dependencies.toast(message);
       });
     }
     async downloadRecommendedDictionaryFromSettings(form, control, setStatus) {
