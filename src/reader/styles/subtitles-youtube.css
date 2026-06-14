@@ -279,6 +279,16 @@
   text-decoration-line: none !important;
   text-decoration-color: transparent !important;
 }
+:is(.jpdb-subtitle-primary, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
+  --jpdb-reader-subtitle-status-text: var(--jpdb-reader-status-color, var(--jpdb-reader-status-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
+  --jpdb-reader-subtitle-status-decoration: var(--jpdb-reader-status-color, var(--jpdb-reader-status-readable, transparent));
+  --jpdb-reader-subtitle-jpdb-text: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
+  --jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, transparent));
+  --jpdb-reader-subtitle-anki-text: var(--jpdb-reader-anki-color, var(--jpdb-reader-anki-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));
+  --jpdb-reader-subtitle-anki-decoration: var(--jpdb-reader-anki-color, var(--jpdb-reader-anki-readable, transparent));
+  --jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-subtitle-pitch-color);
+  --jpdb-reader-subtitle-pitch-decoration: var(--jpdb-reader-subtitle-pitch-text);
+}
 .jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }
 .jpdb-reader-subtitle-highlight-anki :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-anki-soft, var(--jpdb-reader-source-anki-soft, var(--jpdb-reader-subtitle-highlight-default))); }
