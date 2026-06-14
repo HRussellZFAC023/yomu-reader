@@ -3431,6 +3431,10 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-status-decoration: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, transparent));');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-jpdb-decoration: var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-jpdb-color, transparent));');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-anki-decoration: var(--jpdb-reader-anki-readable, var(--jpdb-reader-anki-color, transparent));');
+        expect(normalizedCss).toContain(':is(.jpdb-subtitle-primary, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-status-text: var(--jpdb-reader-status-color, var(--jpdb-reader-status-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-jpdb-text: var(--jpdb-reader-jpdb-color, var(--jpdb-reader-jpdb-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-anki-text: var(--jpdb-reader-anki-color, var(--jpdb-reader-anki-readable, var(--jpdb-reader-subtitle-fallback, currentColor)));');
+        expect(normalizedCss).toContain('--jpdb-reader-subtitle-pitch-text: var(--jpdb-reader-subtitle-pitch-color);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-status-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-status-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-decoration) 28%, transparent);');

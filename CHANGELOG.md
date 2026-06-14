@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.8] - 2026-06-14
+
+### Fixed
+
+- Subtitle overlay text now uses the vivid status/source color on dark video surfaces instead of the UI-readable tint, keeping colored subtitles legible while preserving transcript panel readability.
+
 ## [0.7.7] - 2026-06-14
 
 ### Fixed
