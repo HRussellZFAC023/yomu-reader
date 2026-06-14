@@ -2446,7 +2446,7 @@ export class NewTabController {
         const fallback = jitenOnlyApiFallback
             ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress)
             : await this.loadFreshStudyWords(onProgress);
-        if (fallback.cards.length && !accumulator.cards.length) {
+        if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
             accumulator.labels = jitenOnlyApiFallback ? ['Jiten'] : [];
             accumulator.reviewCountMode = false;
             delete accumulator.emptyMessageKey;
@@ -2466,7 +2466,7 @@ export class NewTabController {
     }
 
     private shouldUseJitenOnlyApiStudyFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
-        if (accumulator.cards.length || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
+        if (this.currentModeStudyCardCount(accumulator.cards) || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
         if (plan.kind !== 'auto-review' && !plan.primarySources.includes('jpdb')) return false;
         return this.hasJitenOnlyApiCredentials();
     }
@@ -2486,7 +2486,7 @@ export class NewTabController {
     }
 
     private shouldLoadEmptyApiStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
-        return !accumulator.cards.length
+        return !this.currentModeStudyCardCount(accumulator.cards)
             && accumulator.reviewCountMode
             && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
@@ -2498,19 +2498,25 @@ export class NewTabController {
     private shouldLoadUnavailableExplicitAnkiFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
         return plan.kind === 'explicit-source'
             && plan.primarySources[0] === 'anki'
-            && !accumulator.cards.length;
+            && !this.currentModeStudyCardCount(accumulator.cards);
     }
 
     private shouldLoadUnconfiguredAutoStudyFallback(plan: NewTabSourceLoadPlan, accumulator: NewTabLoadAccumulator): boolean {
         return plan.studyFallback.kind === 'unconfigured-auto-study'
-            && !accumulator.cards.length
+            && !this.currentModeStudyCardCount(accumulator.cards)
             && !accumulator.reviewCountMode;
     }
 
     private shouldLoadAutoSettingStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
         return this.dependencies.getSettings().newTabSource === 'auto'
-            && !accumulator.cards.length
+            && !this.currentModeStudyCardCount(accumulator.cards)
             && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+
+    private currentModeStudyCardCount(cards: JPDBCard[]): number {
+        return this.state.mode === 'kanji'
+            ? this.kanjiStudyCardsFromSourceCards(cards).length
+            : cards.length;
     }
 
     private async loadLocalOrBuiltInFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
@@ -2607,9 +2613,11 @@ export class NewTabController {
             jpdbMiningEnabled: settings.jpdbMiningEnabled,
             jpdbReviewMode: settings.newTabJpdbReviewMode,
             jpdbDeck: settings.newTabJpdbDeck,
+            activeJpdbDeck: this.state.jpdbDeck,
             ankiEnabled: settings.ankiEnabled,
             ankiNewTabEnabled: settings.newTabAnkiEnabled,
             ankiDeck: settings.ankiDeck,
+            activeAnkiDeck: this.normalizedAnkiDeckScope(),
             ankiModel: settings.ankiModel,
             ankiDisabledDecks: settings.newTabAnkiDisabledDecks,
             dictionaries: settings.localDictionariesEnabled,
@@ -2630,7 +2638,7 @@ export class NewTabController {
         }
         const cardLimit = Math.max(1, Math.floor(limit));
         let unavailable = false;
-        const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.state.ankiDeck || undefined);
+        const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.normalizedAnkiDeckScope() || undefined);
         const cards = await (this.state.source === 'anki'
             ? loadCards
             : promiseWithTimeout(loadCards, timeoutMs, 'Anki timed out.')).catch(error => {
@@ -2644,6 +2652,11 @@ export class NewTabController {
             reviewCountMode: true,
             emptyMessageKey: unavailable ? 'ankiUnreachable' : undefined,
         };
+    }
+
+    private normalizedAnkiDeckScope(): string {
+        const scope = (this.state.ankiDeck ?? '').trim();
+        return scope === 'all' ? '' : scope;
     }
 
     private async loadDictionaryWords(_onProgress?: (message: string) => void, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
