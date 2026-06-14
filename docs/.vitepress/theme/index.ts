@@ -130,6 +130,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Safari extension': 'Safari拡張',
     'Coming soon': '準備中',
     'Add manager': '管理拡張を追加',
+    'Open a Japanese page and tap a word for your first lookup': '日本語ページを開き、単語をタップして最初の検索を試す',
     'Refresh page': 'ページを更新',
     'What It Does': 'できること',
     'よむ runs inside your browser. Point it at Japanese text, subtitles, or manga images and it opens a clean popup with readings, meanings, kanji details, examples, audio, and mining actions.': 'よむはブラウザー内で動きます。日本語テキスト、字幕、漫画画像に向けると、読み、意味、漢字詳細、例文、音声、マイニング操作を備えた見やすいポップアップを開きます。',

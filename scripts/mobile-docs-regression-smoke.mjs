@@ -30,9 +30,11 @@ const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const DOCS_PATH = '/docs-try-me.html';
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 const BUILT_ARTIFACTS = [
     SCRIPT_PATH,
     CSS_PATH,
+    SETTINGS_COMPANION_PATH,
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
@@ -75,7 +77,7 @@ const docsSettings = {
 
 const noApiNewTabSettings = {
     onboardingSeen: true,
-    interfaceLanguage: 'en',
+    interfaceLanguage: 'ja',
     apiKey: '',
     jitenApiKey: '',
     ankiEnabled: false,
@@ -276,6 +278,7 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
 async function loadDocsPageWithYomu(page, fixtureServer, search = '') {
     await page.goto(`${fixtureServer.origin}${DOCS_PATH}${search}`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
+    await page.addScriptTag({ path: SETTINGS_COMPANION_PATH });
     await page.addScriptTag({ path: SCRIPT_PATH });
 }
 
@@ -311,6 +314,7 @@ async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {
         assert(!/No review cards ready|No cards|Add dictionary|Start with a dictionary|Loading words/i.test(snapshot.body), 'No-API/no-Anki fallback regressed to setup/empty/loading copy', snapshot);
         assert(!snapshot.layout.overlaps.length, 'Newtab mobile tabs overlap brand or controls', snapshot.layout);
         assert(snapshot.layout.modeButtons.every(button => button.visible && button.width >= 44 && button.height >= 32), 'Newtab mobile mode buttons are cramped or hidden', snapshot.layout);
+        assert(snapshot.layout.modeButtons.some(button => /単語|漢字|検索|統計/u.test(button.text)), 'Newtab mobile mode buttons did not localize in Japanese mode', snapshot.layout);
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-newtab-fallback-smoke.png'), fullPage: false });
         return {
@@ -429,6 +433,7 @@ function docsTryMeSnapshotFromDom() {
             .find(item => compactText(item).includes('下'));
         if (!word) return null;
         const hit = readerWordAtCenter(word);
+        const rect = word.getBoundingClientRect();
         return {
             text: compactText(word),
             expression: word.getAttribute('data-expression') ?? '',
