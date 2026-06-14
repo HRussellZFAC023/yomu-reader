@@ -44,8 +44,6 @@ const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-cont
 const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'a[href]',
     '[role="link"]',
-    'ytd-comment-view-model .more-button',
-    'yt-live-chat-text-message-renderer button',
 ].join(',');
 const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
     'yt-button-shape button',
@@ -55,9 +53,6 @@ const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
 ].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    // The video player owns captions and most chrome; the settings popover is
-    // re-added below as passive UI so its Japanese menu labels can be hovered
-    // without stealing native clicks.
     '#movie_player',
     '.html5-video-player',
     '#secondary',
@@ -106,8 +101,6 @@ const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = new Set([
     'yt-chip-cloud-renderer',
     'yt-chip-cloud-chip-renderer',
     'iron-selector#chips',
-    '.more-button',
-    '[slot="more-button"]',
 ]);
 const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE
     .split(',')
@@ -695,6 +688,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-feed-filter-chip-bar-renderer',
             'yt-chip-cloud-renderer',
             'iron-selector#chips',
+            'ytd-watch-metadata h1',
+            'ytd-watch-metadata #description-inline-expander',
+            'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
             'ytm-slim-video-metadata-section-renderer',
             'ytm-expandable-video-description-body-renderer',

@@ -627,6 +627,7 @@ async function installUserscriptContext(context) {
                 liveChatWords: queryCount('yt-live-chat-text-message-renderer .jpdb-reader-word'),
                 liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
                 titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
+                watchTitleText: element('ytd-watch-metadata h1')?.textContent?.trim() ?? '',
                 sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
                 rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
                 rowFont: rowFontSnapshot(),
@@ -636,6 +637,15 @@ async function installUserscriptContext(context) {
                     video: videoRectJson(),
                     viewport: { width: window.innerWidth, height: window.innerHeight },
                 },
+            };
+        };
+        window.__yomuFeatureReadOcrArtifactState = function yomuFeatureReadOcrArtifactState() {
+            return {
+                frames: queryCount('.jpdb-ocr-video-frame'),
+                resumeButtons: queryCount('.jpdb-ocr-video-frame-resume'),
+                statuses: queryCount('.jpdb-ocr-video-frame-status'),
+                railResumeButtons: queryCount('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume'),
+                railResumeActive: Boolean(element('.jpdb-subtitle-player.jpdb-ocr-video-frame-resume-active')),
             };
         };
     }, { css, settings, settingsKey: SETTINGS_KEY });
@@ -748,6 +758,12 @@ async function runSpaWatchNavigationCheck(page) {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('ytd-rich-item-renderer[data-case="jp"]', { timeout: 10000 });
+    const seededPreview = await seedPausedVideoOcrFrame(page);
+    const afterNavigationStart = await page.evaluate(() => {
+        window.dispatchEvent(new Event('yt-navigate-start'));
+        return window.__yomuFeatureReadOcrArtifactState();
+    });
+    assertNoOcrArtifacts(afterNavigationStart, 'YouTube navigation start left the homepage preview OCR overlay behind');
     await page.evaluate(({ playerResponse }) => {
         history.pushState({}, '', '/watch?v=feature123');
         window.ytInitialPlayerResponse = playerResponse;
@@ -789,15 +805,64 @@ async function runSpaWatchNavigationCheck(page) {
     await waitForYoutubeTranscriptRows(page);
     await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
         && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    const afterWatchNavigation = await readOcrArtifactState(page);
+    assertNoOcrArtifacts(afterWatchNavigation, 'YouTube watch navigation left stale preview OCR controls over the player');
     const spaWatch = await readWatchState(page);
     assert(spaWatch.rows >= 3, 'YouTube SPA navigation did not render transcript rows', spaWatch);
     assert(spaWatch.parsedRowWords > 0, 'YouTube SPA navigation transcript rows were not parsed', spaWatch);
     assert(spaWatch.descriptionWords > 0, 'YouTube SPA navigation watch text was not parsed', spaWatch);
     return {
+        seededPreview,
+        afterNavigationStart,
+        afterWatchNavigation,
         rows: spaWatch.rows,
         parsedRowWords: spaWatch.parsedRowWords,
         descriptionWords: spaWatch.descriptionWords,
     };
+}
+
+async function seedPausedVideoOcrFrame(page) {
+    await page.evaluate(() => {
+        if (!window.__yomuFeatureCanvasStubsInstalled) {
+            window.__yomuFeatureCanvasStubsInstalled = true;
+            const canvas = HTMLCanvasElement.prototype;
+            const context = CanvasRenderingContext2D?.prototype;
+            if (context) {
+                Object.defineProperty(context, 'drawImage', { configurable: true, value: () => undefined });
+            }
+            Object.defineProperty(canvas, 'toDataURL', {
+                configurable: true,
+                value: () => 'data:image/jpeg;base64,ZmVhdHVyZS1wcmV2aWV3',
+            });
+        }
+        const video = document.createElement('video');
+        video.dataset.case = 'homepage-preview-video';
+        video.style.cssText = 'position:fixed;left:80px;top:96px;width:640px;height:360px;background:#111;z-index:1;';
+        Object.defineProperty(video, 'paused', { configurable: true, value: true });
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1280 });
+        Object.defineProperty(video, 'videoHeight', { configurable: true, value: 720 });
+        document.body.append(video);
+        video.dispatchEvent(new Event('pause'));
+    });
+    await page.waitForSelector('.jpdb-ocr-video-frame', { state: 'attached', timeout: 5000 });
+    await page.waitForSelector('.jpdb-ocr-video-frame-resume', { state: 'attached', timeout: 5000 });
+    const state = await readOcrArtifactState(page);
+    assert(state.frames === 1, 'Paused homepage preview did not create an OCR frame for the navigation cleanup regression', state);
+    assert(state.resumeButtons === 1, 'Paused homepage preview did not create the OCR resume control', state);
+    return state;
+}
+
+async function readOcrArtifactState(page) {
+    return page.evaluate(() => window.__yomuFeatureReadOcrArtifactState());
+}
+
+function assertNoOcrArtifacts(state, message) {
+    assert(state.frames === 0, message, state);
+    assert(state.resumeButtons === 0, message, state);
+    assert(state.statuses === 0, message, state);
+    assert(state.railResumeButtons === 0, message, state);
+    assert(!state.railResumeActive, message, state);
 }
 
 async function runMobileHomeLoadingCheck(page) {
@@ -869,6 +934,31 @@ async function runShortsWatchCheck(page) {
 async function runWatchCheck(page) {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await waitForWatchFeatureReady(page);
+
+    // R5 check: Side panel rail/toggle button is fully visible and functional.
+    const railBtn = page.locator('.jpdb-subtitle-rail [data-action="panel"]');
+    assert(await railBtn.isVisible(), 'Side panel rail toggle button is not visible');
+    assert(await railBtn.isEnabled(), 'Side panel rail toggle button is not enabled');
+
+    // R5 check: Subtitle tracks load automatically and render overlay/sidebar lines instantly on playback.
+    const subtitleRow = page.locator('.jpdb-subtitle-list-row');
+    assert(await subtitleRow.count() >= 3, 'Subtitle tracks did not load automatically');
+    const overlaySegment = page.locator('.jpdb-subtitle-primary');
+    assert(await overlaySegment.count() > 0, 'Subtitle overlay lines did not render');
+
+    // R5 check: No description panel flashing or rendering loop occurs during video playback.
+    await page.evaluate(() => {
+        window.__yomuMutationCount = 0;
+        const observer = new MutationObserver(() => {
+            window.__yomuMutationCount++;
+        });
+        const target = document.querySelector('ytd-watch-metadata');
+        if (target) observer.observe(target, { childList: true, subtree: true, attributes: true });
+    });
+    await page.waitForTimeout(600);
+    const mutations = await page.evaluate(() => window.__yomuMutationCount);
+    assert(mutations === 0, 'Detected unexpected DOM mutations in ytd-watch-metadata (rendering loop)', mutations);
+
     const initial = await readWatchState(page);
     assertInitialWatchState(initial);
 
@@ -884,6 +974,43 @@ async function runWatchCheck(page) {
         beforeResize: resize.beforeResize,
         afterResize: resize.afterResize,
         dictionary,
+    };
+}
+
+async function runIpadWatchCheck(page) {
+    await waitForWatchFeatureReady(page);
+    const railButton = page.locator('.jpdb-subtitle-rail [data-action="panel"]');
+    await page.locator('#movie_player').tap({ force: true }).catch(() => undefined);
+    await page.waitForFunction(() => {
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const button = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
+        if (!rail || !button) return false;
+        const railStyle = getComputedStyle(rail);
+        const buttonRect = button.getBoundingClientRect();
+        return railStyle.opacity !== '0'
+            && railStyle.pointerEvents !== 'none'
+            && buttonRect.width > 0
+            && buttonRect.height > 0;
+    }, null, { timeout: 8000 });
+    assert(await railButton.isVisible(), 'iPad touch layout did not expose the side-panel rail toggle');
+    assert(await railButton.isEnabled(), 'iPad touch layout exposed a disabled side-panel rail toggle');
+
+    const beforeToggle = await readWatchState(page);
+    if (!beforeToggle.layout.panel || beforeToggle.layout.panel.width <= 0) {
+        await railButton.tap();
+        await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
+    }
+    const state = await readWatchState(page);
+    assertWatchTranscriptState(state);
+    assertWatchPageParsing(state);
+    assertWatchTextExclusions(state);
+    assertNonOverlappingLayout(state.layout, 'iPad touch watch');
+    return {
+        rows: state.rows,
+        parsedRowWords: state.parsedRowWords,
+        parsedPlayerWords: state.parsedPlayerWords,
+        titleWords: state.titleWords,
+        layout: state.layout,
     };
 }
 
@@ -917,13 +1044,14 @@ function assertWatchTranscriptState(initial) {
 function assertWatchPageParsing(initial) {
     assert(initial.descriptionWords > 0, 'YouTube watch description was not parsed', initial);
     assert(initial.commentWords > 0, 'YouTube comment text was not parsed', initial);
-    assert(initial.commentMorePassive === true, 'YouTube comment UI control was not parsed passively', initial);
+    assert(initial.commentMorePassive === false, 'Yomu wrapped a YouTube comment UI control', initial);
     assert(initial.liveChatWords > 0, 'YouTube live chat text was not parsed', initial);
-    assert(initial.liveChatButtonPassive === true, 'YouTube live chat UI control was not parsed passively', initial);
+    assert(initial.liveChatButtonPassive === false, 'Yomu wrapped a YouTube live chat button', initial);
 }
 
 function assertWatchTextExclusions(initial) {
-    assert(initial.titleWords === 0, 'Yomu wrapped the YouTube watch title', initial);
+    assert(initial.titleWords > 0, 'Yomu did not parse the YouTube watch title', initial);
+    assert(initial.watchTitleText.includes('日本の習慣'), 'YouTube watch title text is missing or incorrect', initial);
     assert(initial.sidebarReaderWords === 0, 'Yomu wrapped YouTube sidebar recommendation text', initial);
 }
 
@@ -1082,7 +1210,20 @@ try {
     const mobileHome = await runMobileHomeLoadingCheck(page);
     const shortsGallery = await runShortsGalleryCheck(page);
     const shortsWatch = await runShortsWatchCheck(page);
-    console.log(JSON.stringify({ homepage, spaWatch, watch, mobileHome, shortsGallery, shortsWatch }, null, 2));
+    const ipadContext = await browser.newContext({
+        viewport: { width: 1024, height: 1366 },
+        deviceScaleFactor: 2,
+        hasTouch: true,
+        isMobile: false,
+        locale: 'en-GB',
+        userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    });
+    await installUserscriptContext(ipadContext);
+    const ipadPage = await ipadContext.newPage();
+    await installRoutes(ipadPage);
+    const ipadWatch = await runIpadWatchCheck(ipadPage);
+    await ipadContext.close();
+    console.log(JSON.stringify({ homepage, spaWatch, watch, mobileHome, shortsGallery, shortsWatch, ipadWatch }, null, 2));
 } finally {
     await browser.close();
 }

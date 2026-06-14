@@ -42,7 +42,7 @@ const settings = {
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
     subtitlePlayerEnabled: false,
-    enableLogging: true,
+    enableLogging: false,
 };
 
 function shortsHtml() {
@@ -178,7 +178,6 @@ page.on('pageerror', error => {
     console.error('PAGE ERROR:', error);
     throw error;
 });
-page.on('console', msg => console.log('PAGE LOG:', msg.type(), msg.text()));
 await page.route(START_URL, route => route.fulfill({ body: shortsHtml(), contentType: 'text/html' }));
 await page.route('https://www.youtube.com/oembed**', route => route.fulfill({
     body: JSON.stringify({ title: titleForOEmbed(route.request().url()) }),

@@ -105,12 +105,15 @@ describe('VisiblePageScanner', () => {
             origin: 'https://m.youtube.com',
             hostname: 'm.youtube.com',
         });
+        // Feed/recommendation title renderers are deliberately left native, so
+        // exercise the larger YouTube first-pass cap with comment text, which is
+        // still scanned. The cap, not the renderer type, is what's under test.
         document.body.innerHTML = `
             <ytm-browse>
                 ${Array.from({ length: 90 }, (_, index) => `
-                    <ytm-rich-item-renderer>
-                        <a class="compact-media-item-headline" href="/watch?v=${index}">日本語動画${index}</a>
-                    </ytm-rich-item-renderer>
+                    <ytm-comment-renderer>
+                        <div id="content-text">日本語コメント${index}です。</div>
+                    </ytm-comment-renderer>
                 `).join('')}
             </ytm-browse>
         `;
@@ -123,8 +126,8 @@ describe('VisiblePageScanner', () => {
         try {
             await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
             const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
-            expect(parsedText).toContain('日本語動画0');
-            expect(parsedText).toContain('日本語動画89');
+            expect(parsedText).toContain('日本語コメント0');
+            expect(parsedText).toContain('日本語コメント89');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();

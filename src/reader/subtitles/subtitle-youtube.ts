@@ -204,7 +204,11 @@ export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined):
     const owner = video.closest<HTMLElement>(YOUTUBE_VIDEO_OWNER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
     if (playerVideoId && playerVideoId !== currentVideoId) {
-        if (player?.id === 'movie_player' || video.classList.contains('html5-main-video')) return true;
+        // During SPA navigation the player's private video id briefly lags the
+        // URL; the genuine main player element (html5-main-video) is still ours
+        // so the rail stays attached. A small stale element parked in the player
+        // chrome is not, so it still falls through to the size/visibility check.
+        if (video.classList.contains('html5-main-video')) return true;
         return isLikelyVisibleYouTubeWatchVideo(video);
     }
     return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
