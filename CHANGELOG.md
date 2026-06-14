@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Page-reader kanji drilldowns now use the Kanji/Study companion for the heavier JPDB, RTK, stroke, and origin renderers, trimming the core userscript bundle while keeping local dictionary kanji details available.
 - Reader page parsing now treats visible interactive labels across supported sites as passive targets instead of excluding them, so hover lookup, ruby, pitch underlines, and color classes can render while native clicks still pass through.
 - Hosted docs hero and card links keep the same active/passive scan rendering path as other sites, including ruby and pitch underline coverage for stable headings and passive links.
 - Project package metadata now uses the MIT license.
@@ -14,6 +15,7 @@
 - Hosted Yomu new-tab audio works without a userscript HTTP bridge, fetching custom JSON/audio through page `fetch`, playing via blob URLs, and keeping fallback text-to-speech out while recorded clips are playable.
 - iPad blob playback, Wikipedia hover/tap replay, and YouTube hover playback now have source-backed smoke coverage for the randomized no-immediate-repeat pool.
 - Passive words inside native buttons no longer start press lookup, keeping button taps and clicks native while hover lookup remains available.
+- Page-reader kanji drilldowns no longer crash when the Kanji/Study companion is absent; they now show a dictionary-only fallback instead of an install notice.
 - Hosted Yomu docs settings surfaces now follow the visible docs light/dark theme, preventing a dark settings panel over a light docs page.
 
 ## [0.7.9] - 2026-06-14

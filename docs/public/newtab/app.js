@@ -6128,7 +6128,6 @@
       hideTrace: "Hide trace",
       showTrace: "Show trace",
       clear: "Clear",
-      kanjiStudyCompanionMissing: "Install or update the Yomu Kanji/Study companion to show JPDB, RTK, stroke order, and origin details.",
       originStructure: "Component graph",
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
@@ -6738,7 +6737,6 @@ textTrace	筆順ガイド
 hideTrace	ガイドを隠す
 showTrace	ガイドを表示
 clear	クリア
-kanjiStudyCompanionMissing	Yomu Kanji/Studyコンパニオンをインストールまたは更新すると、JPDB、RTK、筆順、由来情報を表示できます。
 originStructure	部品グラフ
 originMapLabel	2D漢字由来・部品マップ
 originShowSubcomponents	下位部品
@@ -16017,6 +16015,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function yomuAnkiCompanion() {
     return yomuCompanions().anki;
+  }
+  function yomuKanjiStudyCompanion() {
+    return yomuCompanions().kanjiStudy;
   }
   function yomuCompanions() {
     return readYomuCompanions(globalThis) ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
@@ -63787,11 +63788,30 @@ ${entry.url}`),
     if (staticMount) return staticMount;
     const sourceStateKey = kanjiSourceStateKey(sourceId);
     if (sourceId === KANJI_STROKE_SOURCE_ID) {
-      return renderKanjiPractice(null, options.kanji, options.language, options.isSourceOpen(sourceStateKey), sourceStateKey, options.sourceTitle(sourceId));
+      return renderKanjiPracticeShell(options, sourceStateKey);
     }
     if (sourceId === IMMERSION_KIT_SOURCE_ID) return options.renderImmersionMount?.() ?? "";
     const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
     return dictionaryName ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml$1(dictionaryName)}" data-kanji-source-id="${escapeHtml$1(sourceId)}"></div>` : "";
+  }
+  function renderKanjiPracticeShell(options, sourceStateKey) {
+    const title = options.sourceTitle(KANJI_STROKE_SOURCE_ID);
+    const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
+            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true"><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "hideTrace"))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
+            </div>
+            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
+        </details>
+    `;
   }
   function popoverScrollBody(popover) {
     return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
@@ -64154,6 +64174,22 @@ ${entry.url}`),
   const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
   const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
+  function createNoopJpdbKanjiClient() {
+    return {
+      lookup: () => Promise.resolve(null),
+      performAction: () => Promise.reject(new Error("Yomu Kanji/Study companion is missing."))
+    };
+  }
+  function createNoopKanjiVGClient() {
+    return {
+      lookup: () => Promise.resolve(null)
+    };
+  }
+  function createNoopRtkClient() {
+    return {
+      lookup: () => Promise.resolve(null)
+    };
+  }
   function bootNewTabRuntime() {
     const app = new NewTabRuntime();
     void app.init().catch((error) => {
@@ -64173,14 +64209,15 @@ ${entry.url}`),
     newTab;
     jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-    jpdbKanji = new JpdbKanjiClient(() => this.settings.corsProxyUrl);
+    kanjiCompanion = yomuKanjiStudyCompanion();
+    jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
     jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
-    kanjiVG = new KanjiVGClient();
+    kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : createNoopKanjiVGClient();
     immersionKit = new ImmersionKitClient();
     audio = new AudioPlayer(() => this.settings);
     anki = new AnkiConnectClient(() => this.settings);
-    rtk = new RtkClient();
+    rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : createNoopRtkClient();
     jpdbReviewBridge = createJpdbReviewBridgeClient();
     dictionaries = new YomitanDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     dictionarySourceState = new DictionarySourceStateController({

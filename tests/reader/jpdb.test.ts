@@ -14850,7 +14850,8 @@ describe('reader helpers', () => {
 
                 await waitForExpect(() => {
                     const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
-                    expect(popover.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+                    expect(popover.textContent).not.toContain('Install or update the Yomu Kanji/Study companion');
+                    expect(popover.textContent).toContain('Kanji details are not available yet.');
                     expect(popover.querySelector('.jpdb-reader-jpdb-kanji')).toBeNull();
                     expect(popover.querySelector('.jpdb-reader-rtk')).toBeNull();
                     expect(popover.querySelector('.jpdb-reader-kanjivg-svg')).toBeNull();

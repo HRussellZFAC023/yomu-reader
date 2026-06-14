@@ -9694,7 +9694,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('shows a Kanji/Study companion install notice in hosted new-tab kanji drilldowns when the split library is missing', async () => {
+    it('renders a dictionary-only hosted new-tab kanji drilldown fallback when the split library is missing', async () => {
         await withKanjiStudyCompanionMissing(async () => {
             const restoreCanvas = stubKanjiDoodleBrowserApis();
             const runtime = new NewTabRuntime();
@@ -9721,7 +9721,8 @@ describe('new tab review helpers', () => {
                 const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
 
                 await waitForExpect(() => {
-                    expect(popover.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+                    expect(popover.textContent).not.toContain('Install or update the Yomu Kanji/Study companion');
+                    expect(popover.textContent).toContain('Kanji details are not available yet.');
                     expect(popover.querySelector('.jpdb-reader-jpdb-kanji')).toBeNull();
                     expect(popover.querySelector('.jpdb-reader-rtk')).toBeNull();
                     expect(popover.querySelector('.jpdb-reader-kanjivg-svg')).toBeNull();
