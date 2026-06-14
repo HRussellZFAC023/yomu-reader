@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.200] - 2026-06-14
+
+### Fixed
+
+- Hosted documentation pages now honor the configured accent color for dark-mode brand buttons. Setting the accent to pink no longer leaves the "Install よむ" button on the old green hover/active CSS path.
+
 ## [0.6.199] - 2026-06-14
 
 ### Fixed

@@ -700,6 +700,7 @@ function newTabAnkiClient(overrides: Partial<NewTabSettings> = {}): { settings: 
         ...DEFAULT_SETTINGS,
         ankiEnabled: true,
         newTabAnkiEnabled: true,
+        ankiConnectUrl: `${window.location.origin}/anki-connect`,
         ankiDeck: 'Yomu',
         ankiModel: 'Yomu Japanese',
         ...overrides,
@@ -2753,6 +2754,7 @@ describe('new tab review helpers', () => {
             ...DEFAULT_SETTINGS,
             ankiEnabled: true,
             newTabAnkiEnabled: true,
+            ankiConnectUrl: `${window.location.origin}/anki-connect`,
             ankiDeck: 'Imported',
             ankiModel: '',
             ankiFieldMappings: {

@@ -1465,6 +1465,7 @@ function syncHostedAccent(source?: unknown): void {
     const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
     const brandReadable = readableOn(accent, pageBackground, 4.5);
     const brandHover = readableOn(mixHex(accent, dark ? DOC_COLOR_TOKENS.white : DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
+    const brandActive = readableOn(mixHex(accent, DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
     const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
     const accentText = readableTextOn(accent);
 
@@ -1481,6 +1482,8 @@ function syncHostedAccent(source?: unknown): void {
     root.style.setProperty('--vp-button-brand-hover-border', brandHover);
     root.style.setProperty('--vp-button-brand-hover-bg', brandHover);
     root.style.setProperty('--vp-button-brand-hover-text', accentText);
+    root.style.setProperty('--vp-button-brand-active-border', brandActive);
+    root.style.setProperty('--vp-button-brand-active-bg', brandActive);
     root.style.setProperty('--vp-button-brand-active-text', accentText);
     root.style.setProperty('--vp-home-hero-name-color', brandReadable);
     root.style.setProperty('--jpdb-reader-accent', accent);

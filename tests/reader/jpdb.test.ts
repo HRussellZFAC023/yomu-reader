@@ -205,6 +205,7 @@ const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 const DOCS_THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
+const DOCS_THEME_TS = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 const SHEET_HEIGHT_STORAGE_KEY = 'jpdb-reader-sheet-height-ratio';
 const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-ratio';
 
@@ -3333,6 +3334,16 @@ describe('reader helpers', () => {
         expect(sky.pitchClass).toBe('heiban');
         expect(particle.pitchClass).toBe('');
         expect(below.pitchClass).toBe('heiban');
+    });
+
+    it('keeps hosted dark brand buttons driven by the dynamic accent variables', () => {
+        const normalizedDocsCss = DOCS_THEME_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedDocsCss).toContain('.dark .VPButton.brand { border-color: var(--vp-button-brand-border) !important; background-color: var(--vp-button-brand-bg) !important; color: var(--vp-button-brand-text) !important; }');
+        expect(normalizedDocsCss).toContain('.dark .VPButton.brand:hover, .dark .VPButton.brand:focus-visible { border-color: var(--vp-button-brand-hover-border) !important; background-color: var(--vp-button-brand-hover-bg) !important; color: var(--vp-button-brand-hover-text) !important; }');
+        expect(normalizedDocsCss).toContain('.dark .VPButton.brand:active { border-color: var(--vp-button-brand-active-border) !important; background-color: var(--vp-button-brand-active-bg) !important; color: var(--vp-button-brand-active-text) !important; }');
+        expect(normalizedDocsCss).not.toContain('.dark .VPButton.brand { border-color: #25573d !important; background-color: #25573d !important;');
+        expect(DOCS_THEME_TS).toContain("root.style.setProperty('--vp-button-brand-active-bg', brandActive);");
     });
 
     it('marks reader word visual styling as important so page CSS resets cannot hide clickable words', () => {
@@ -21216,8 +21227,8 @@ describe('reader helpers', () => {
         }
     });
 
-    it('fetches AnkiConnect directly from content pages without requiring the userscript bridge', async () => {
-        vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
+    it('fetches same-origin AnkiConnect directly without requiring the userscript bridge', async () => {
+        vi.stubGlobal('location', { href: 'http://127.0.0.1:8765/news/easy/', origin: 'http://127.0.0.1:8765', hostname: '127.0.0.1' });
         vi.stubGlobal('GM_xmlhttpRequest', undefined);
         vi.stubGlobal('GM', {});
         vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ result: 6, error: null })))));
@@ -21576,7 +21587,7 @@ describe('reader helpers', () => {
         Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });
         Object.defineProperty(window, 'location', {
             configurable: true,
-            value: new URL('http://127.0.0.1:5173/yomu-reader/') as unknown as Location,
+            value: new URL('http://127.0.0.1:8765/yomu-reader/') as unknown as Location,
         });
         const fetchMock = vi.fn(() => Promise.reject(new Error('Failed to fetch')));
         vi.stubGlobal('fetch', fetchMock);
