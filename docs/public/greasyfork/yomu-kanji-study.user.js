@@ -12,6 +12,13 @@
     error: "#b91c1c"
   };
   const MISSING = { missing: true };
+  const MANAGED_STORAGE_KEY_PREFIXES = [
+    "yomu-",
+    "yomu:",
+    "yomu.",
+    "jpdb-reader-",
+    "jpdb-popup-reader-"
+  ];
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
@@ -41,6 +48,7 @@
     const setValue = asyncGmSetValue();
     if (setValue) {
       await setValue(key, value);
+      mirrorManagedValueToHostedStorage(key, value);
       return;
     }
     localStorageSet(key, value);
@@ -49,7 +57,10 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) return;
+        if (!isPromiseLike(result)) {
+          mirrorManagedValueToHostedStorage(key, value);
+          return;
+        }
       } catch (error) {
         debugStorageError("GM storage sync write failed", key, error);
       }
@@ -94,6 +105,23 @@
     } catch {
     }
   }
+  function mirrorManagedValueToHostedStorage(key, value) {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+  }
+  function shouldMirrorManagedValueToHostedStorage(key) {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+  }
+  function isHostedYomuOrigin() {
+    try {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
+    } catch {
+      return false;
+    }
+  }
   function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
   }
@@ -101,6 +129,9 @@
     if (typeof GM_setValue === "function") return GM_setValue;
     const modern = globalThis.GM?.setValue;
     return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });

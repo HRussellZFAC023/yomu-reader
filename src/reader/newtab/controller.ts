@@ -494,6 +494,7 @@ interface SourceToggleContext {
     selected: ReaderSettings['newTabSource'];
     configured: ReaderSettings['newTabSource'];
     hasJpdb: boolean;
+    hasJiten: boolean;
     hasAnki: boolean;
     canUseJpdb: boolean;
     canUseAnki: boolean;
@@ -2417,7 +2418,8 @@ export class NewTabController {
 
     private emptyAutoReviewResultShouldBlockFallback(result: NewTabLoadResult): boolean {
         if (result.reviewCountMode !== true) return false;
-        return result.sourceLabel.includes(this.text('liveReview'));
+        return result.sourceLabel.includes(this.text('liveReview'))
+            || result.sourceLabel.includes('Jiten');
     }
 
     private async appendLoadedWordsFromSource(accumulator: NewTabLoadAccumulator, source: ConcreteNewTabWordSource, onProgress?: (message: string) => void): Promise<void> {
@@ -3871,6 +3873,7 @@ export class NewTabController {
             selected: this.state.source,
             configured: this.dependencies.getSettings().newTabSource,
             hasJpdb: summary.hasJpdb,
+            hasJiten: summary.hasJiten,
             hasAnki: summary.hasAnki,
             canUseJpdb: this.canUseJpdbSource(),
             canUseAnki: this.canUseAnkiSource(),
@@ -3884,7 +3887,7 @@ export class NewTabController {
     }
 
     private shouldIncludeJpdbToggleSource(context: SourceToggleContext): boolean {
-        return context.hasJpdb || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb';
+        return context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === 'jpdb' || context.selected === 'jpdb';
     }
 
     private ankiToggleSource(context: SourceToggleContext): ConcreteNewTabWordSource | null {
@@ -6328,7 +6331,8 @@ export class NewTabController {
     }
 
     private async loadSearchResults(query: string): Promise<NewTabSearchResults> {
-        const hasLocalDictionaries = this.dependencies.getSettings().localDictionariesEnabled;
+        const settings = this.dependencies.getSettings();
+        const hasLocalDictionaries = settings.localDictionariesEnabled && await this.hasLocalDictionaries();
         const words = await this.searchWordCards(query, hasLocalDictionaries);
         const kanji = await this.searchKanjiCards(query, words);
         return {

@@ -888,6 +888,7 @@
     const setValue = asyncGmSetValue();
     if (setValue) {
       await setValue(key, value);
+      mirrorManagedValueToHostedStorage(key, value);
       return;
     }
     localStorageSet(key, value);
@@ -896,7 +897,10 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) return;
+        if (!isPromiseLike(result)) {
+          mirrorManagedValueToHostedStorage(key, value);
+          return;
+        }
       } catch (error) {
         debugStorageError("GM storage sync write failed", key, error);
       }
@@ -1132,6 +1136,23 @@
   function webStorageHasKey(storage, key) {
     try {
       return storage.getItem(key) !== null;
+    } catch {
+      return false;
+    }
+  }
+  function mirrorManagedValueToHostedStorage(key, value) {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+  }
+  function shouldMirrorManagedValueToHostedStorage(key) {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+  }
+  function isHostedYomuOrigin() {
+    try {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
       return false;
     }
@@ -57861,7 +57882,7 @@ ${entry.url}`),
     }
     emptyAutoReviewResultShouldBlockFallback(result) {
       if (result.reviewCountMode !== true) return false;
-      return result.sourceLabel.includes(this.text("liveReview"));
+      return result.sourceLabel.includes(this.text("liveReview")) || result.sourceLabel.includes("Jiten");
     }
     async appendLoadedWordsFromSource(accumulator, source, onProgress) {
       appendNewTabLoadResult(accumulator, await this.loadWordsFromSource(source, onProgress));
@@ -59054,6 +59075,7 @@ ${entry.url}`),
         selected: this.state.source,
         configured: this.dependencies.getSettings().newTabSource,
         hasJpdb: summary.hasJpdb,
+        hasJiten: summary.hasJiten,
         hasAnki: summary.hasAnki,
         canUseJpdb: this.canUseJpdbSource(),
         canUseAnki: this.canUseAnkiSource(),
@@ -59065,7 +59087,7 @@ ${entry.url}`),
       return this.shouldIncludeJpdbToggleSource(context) ? "jpdb" : null;
     }
     shouldIncludeJpdbToggleSource(context) {
-      return context.hasJpdb || context.canUseJpdb || context.current === "jpdb" || context.selected === "jpdb";
+      return context.hasJpdb || context.hasJiten || context.canUseJpdb || context.current === "jpdb" || context.selected === "jpdb";
     }
     ankiToggleSource(context) {
       return this.shouldIncludeAnkiToggleSource(context) ? "anki" : null;
@@ -61121,7 +61143,8 @@ ${entry.url}`),
       return root.isConnected && this.state.mode === "search" && this.searchGeneration === generation && normalizeSearchQuery(this.searchQuery) === query;
     }
     async loadSearchResults(query) {
-      const hasLocalDictionaries = this.dependencies.getSettings().localDictionariesEnabled;
+      const settings = this.dependencies.getSettings();
+      const hasLocalDictionaries = settings.localDictionariesEnabled && await this.hasLocalDictionaries();
       const words = await this.searchWordCards(query, hasLocalDictionaries);
       const kanji = await this.searchKanjiCards(query, words);
       return {

@@ -108,6 +108,7 @@ export async function gmStorageSet(key: string, value: unknown): Promise<void> {
     const setValue = asyncGmSetValue();
     if (setValue) {
         await setValue(key, value);
+        mirrorManagedValueToHostedStorage(key, value);
         return;
     }
     localStorageSet(key, value);
@@ -117,7 +118,10 @@ export function gmStorageSetSync(key: string, value: unknown): void {
     if (typeof GM_setValue === 'function') {
         try {
             const result = GM_setValue(key, value);
-            if (!isPromiseLike(result)) return;
+            if (!isPromiseLike(result)) {
+                mirrorManagedValueToHostedStorage(key, value);
+                return;
+            }
         } catch (error) {
             debugStorageError('GM storage sync write failed', key, error);
         }
@@ -400,6 +404,26 @@ export async function storedValueExists(key: string): Promise<boolean> {
 function webStorageHasKey(storage: Storage, key: string): boolean {
     try {
         return storage.getItem(key) !== null;
+    } catch {
+        return false;
+    }
+}
+
+function mirrorManagedValueToHostedStorage(key: string, value: unknown): void {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+}
+
+function shouldMirrorManagedValueToHostedStorage(key: string): boolean {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+}
+
+function isHostedYomuOrigin(): boolean {
+    try {
+        const host = location.hostname;
+        const path = location.pathname;
+        if (host === 'hrussellzfac023.github.io') return path.startsWith('/yomu-reader/');
+        return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes('/newtab/');
     } catch {
         return false;
     }

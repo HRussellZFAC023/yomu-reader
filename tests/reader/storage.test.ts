@@ -4,6 +4,7 @@ import {
     createFactoryResetSignal,
     exportManagedStoredValues,
     gmStorageDelete,
+    gmStorageSet,
     importStoredValues,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
@@ -39,6 +40,27 @@ describe('storage reset', () => {
         expect(deleteValue).toHaveBeenCalledWith('jpdb-popup-reader-settings');
         expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
         expect(sessionStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
+    });
+
+    it('mirrors hosted GM settings writes to localStorage for the docs app', async () => {
+        const setValue = vi.fn(async () => undefined);
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
+            hostname: 'hrussellzfac023.github.io',
+            pathname: '/yomu-reader/newtab/index.html',
+        });
+        vi.stubGlobal('GM_setValue', setValue);
+
+        await gmStorageSet('jpdb-popup-reader-settings', {
+            localDictionariesEnabled: true,
+            dictionaryPreferences: [{ name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0 }],
+        });
+
+        expect(setValue).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.any(Object));
+        expect(JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? 'null')).toMatchObject({
+            localDictionariesEnabled: true,
+            dictionaryPreferences: [{ name: 'Jitendex' }],
+        });
     });
 
     it('factory reset deletes known GM keys even when GM_listValues is unavailable', async () => {
