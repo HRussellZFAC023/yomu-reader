@@ -325,6 +325,10 @@
   letter-spacing: 0;
   text-transform: none;
 }
+[data-jpdb-reader-root]:where(input[type="checkbox"], input[type="radio"]),
+[data-jpdb-reader-root] :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--jpdb-reader-accent) !important;
+}
 
 
 /* Source: src/reader/styles/new-tab.css */
@@ -6482,7 +6486,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   z-index: 2147483647;
   box-sizing: border-box;
   width: min(720px, calc(100vw - 24px));
-  max-height: min(720px, calc(100vh - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow: auto;
   padding: 42px 32px 28px;
   border: 1px solid var(--jpdb-reader-border);
@@ -6499,7 +6504,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   right: 12px;
 }
 .jpdb-reader-onboarding h2 {
-  margin: 4px 0 8px;
+  margin: 0 0 8px -0.06em;
+  padding: 0;
+  border: 0 !important;
   color: var(--jpdb-reader-text);
   font-size: 48px;
   line-height: 1;
@@ -6581,10 +6588,10 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   width: 100%;
   box-sizing: border-box;
   min-height: 42px;
-  border: 1px solid var(--jpdb-reader-border);
+  border: 1px solid var(--jpdb-reader-border) !important;
   border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
+  background-color: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
   padding: 8px 10px;
   font: 750 14px/1.2 var(--jpdb-reader-font);
 }
@@ -6730,15 +6737,16 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   min-width: 52px;
   height: 34px;
   padding: 2px;
-  border: 1px solid var(--jpdb-reader-border);
+  border: 1px solid var(--jpdb-reader-border) !important;
   border-radius: 8px;
-  background: var(--jpdb-reader-bg);
+  background-color: var(--jpdb-reader-bg) !important;
+  color: var(--jpdb-reader-text) !important;
   cursor: pointer;
 }
 .jpdb-reader-onboarding-options {
   display: grid;
   gap: 8px;
-  margin: 18px 0 0;
+  margin: 18px 0 10px;
   padding: 0 0 0 0;
   border: 0;
   background: transparent;
@@ -6757,11 +6765,50 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-size: 13px;
   font-weight: 750;
 }
-.jpdb-reader-onboarding-options input {
+.jpdb-reader-onboarding-options input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: grid;
+  place-content: center;
   width: 24px;
   height: 24px;
-  accent-color: var(--jpdb-reader-accent);
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--jpdb-reader-border) !important;
+  border-radius: 7px;
+  background-color: var(--jpdb-reader-surface-2) !important;
+  background-image: none !important;
+  accent-color: var(--jpdb-reader-accent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 6%, transparent);
   flex: 0 0 24px;
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:enabled:hover {
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 82%,
+    var(--jpdb-reader-accent) 18%
+  ) !important;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:checked {
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: var(--jpdb-reader-accent) !important;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:checked::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border-left: 2.5px solid var(--jpdb-reader-accent-text);
+  border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 3px;
 }
 .jpdb-reader-onboarding-actions {
   display: flex;
@@ -9985,8 +10032,8 @@ mark.jpdb-reader-example-target {
   margin-top: 8px;
   color: var(--jpdb-reader-muted);
 }
-.jpdb-reader-rtk summary,
-.jpdb-reader-jpdb-kanji summary {
+.jpdb-reader-rtk summary:not(.jpdb-reader-local-title),
+.jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title) {
   cursor: pointer;
   color: var(--jpdb-reader-text);
   font-weight: 750;
@@ -11241,8 +11288,8 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings input,
 .jpdb-reader-settings select,
 .jpdb-reader-settings textarea {
-  box-shadow: none;
-  transform: none;
+  box-shadow: none !important;
+  transform: none !important;
 }
 .jpdb-reader-settings input:hover,
 .jpdb-reader-settings input:focus,
@@ -11496,26 +11543,32 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-settings input,
 .jpdb-reader-settings select,
+.jpdb-reader-settings textarea,
 .jpdb-reader-field-display {
   width: 100%;
   box-sizing: border-box;
   min-height: 38px;
   border-radius: 7px;
-  border: 1px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 700 12px/1.2 var(--jpdb-reader-font);
+  border: 1px solid var(--jpdb-reader-border) !important;
+  background-color: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  font: 700 12px/1.2 var(--jpdb-reader-font) !important;
   height: 38px;
   min-width: 0;
   padding: 8px;
 }
+.jpdb-reader-settings input::placeholder,
+.jpdb-reader-settings textarea::placeholder {
+  color: var(--jpdb-reader-faint) !important;
+  opacity: 1;
+}
 .jpdb-reader-settings select {
-  appearance: none;
-  -webkit-appearance: none;
+  appearance: none !important;
+  -webkit-appearance: none !important;
   padding-right: 34px;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
+    linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 12px) 50%;
@@ -11659,8 +11712,8 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-settings input[type="checkbox"],
 .jpdb-reader-settings input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
+  appearance: none !important;
+  -webkit-appearance: none !important;
   width: 24px;
   height: 24px;
   min-width: 24px;
@@ -11669,8 +11722,10 @@ html.jpdb-reader-doodle-active * {
   place-content: center;
   margin: 0;
   padding: 0;
-  border: 1.5px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface-2);
+  border: 1.5px solid var(--jpdb-reader-border) !important;
+  background-color: var(--jpdb-reader-surface-2) !important;
+  background-image: none !important;
+  accent-color: var(--jpdb-reader-accent) !important;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 6%, transparent);
 }
 .jpdb-reader-settings input[type="checkbox"] {
@@ -11681,23 +11736,23 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-settings input[type="checkbox"]:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:enabled:hover {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: color-mix(
     in srgb,
     var(--jpdb-reader-surface-2) 82%,
     var(--jpdb-reader-accent) 18%
-  );
+  ) !important;
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: var(--jpdb-reader-accent) !important;
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:checked:enabled:hover {
-  background: var(--jpdb-reader-accent);
+  background-color: var(--jpdb-reader-accent) !important;
 }
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";

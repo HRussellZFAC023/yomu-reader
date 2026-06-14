@@ -723,10 +723,10 @@ describe('settings form localization', () => {
     it('keeps checked checkbox and radio marks visible on hover', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:enabled:hover, .jpdb-reader-settings input[type="radio"]:enabled:hover { border-color: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:enabled:hover, .jpdb-reader-settings input[type="radio"]:enabled:hover { border-color: var(--jpdb-reader-accent) !important;');
         expect(normalizedCss).toContain('box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);');
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked, .jpdb-reader-settings input[type="radio"]:checked { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent); box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft); }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover, .jpdb-reader-settings input[type="radio"]:checked:enabled:hover { background: var(--jpdb-reader-accent); }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked, .jpdb-reader-settings input[type="radio"]:checked { border-color: var(--jpdb-reader-accent) !important; background-color: var(--jpdb-reader-accent) !important; box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft); }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover, .jpdb-reader-settings input[type="radio"]:checked:enabled:hover { background-color: var(--jpdb-reader-accent) !important; }');
         expect(normalizedCss).toContain('border-left: 2.5px solid var(--jpdb-reader-accent-text); border-bottom: 2.5px solid var(--jpdb-reader-accent-text);');
         expect(normalizedCss).toContain('background: var(--jpdb-reader-accent-text);');
         expect(normalizedCss).toContain('@media (pointer: coarse) and (min-width: 700px) and (max-width: 900px)');
@@ -758,7 +758,7 @@ describe('settings form localization', () => {
 
     it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
-        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-field-display');
+        const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display');
         const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em); } }');
 
         expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);

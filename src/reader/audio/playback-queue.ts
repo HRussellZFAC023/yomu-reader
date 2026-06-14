@@ -8,7 +8,7 @@ export class ShuffledAudioDeck {
     constructor(private random: () => number = Math.random) {}
 
     order(key: string, ids: string[]): string[] {
-        if (ids.length < 2) return ids;
+        if (!ids.length) return ids;
 
         const signature = ids.join('\u0000');
         const current = this.bags.get(key);
@@ -17,6 +17,17 @@ export class ShuffledAudioDeck {
         const next = this.buildAudioBag(ids, signature, current);
         this.bags.set(key, next);
         return audioDeckOrderWithFallbacks(next.remaining, ids);
+    }
+
+    isExhausted(key: string, ids: string[]): boolean {
+        if (!ids.length) return false;
+        const current = this.bags.get(key);
+        return Boolean(current?.signature === ids.join('\u0000') && current.remaining.length === 0 && current.lastPlayed);
+    }
+
+    lastPlayed(key: string, ids: string[]): string | undefined {
+        const current = this.bags.get(key);
+        return current?.signature === ids.join('\u0000') ? current.lastPlayed : undefined;
     }
 
     private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {

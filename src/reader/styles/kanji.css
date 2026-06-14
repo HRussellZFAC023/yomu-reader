@@ -592,8 +592,8 @@
   margin-top: 8px;
   color: var(--jpdb-reader-muted);
 }
-.jpdb-reader-rtk summary,
-.jpdb-reader-jpdb-kanji summary {
+.jpdb-reader-rtk summary:not(.jpdb-reader-local-title),
+.jpdb-reader-jpdb-kanji summary:not(.jpdb-reader-local-title) {
   cursor: pointer;
   color: var(--jpdb-reader-text);
   font-weight: 750;

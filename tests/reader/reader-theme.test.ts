@@ -234,6 +234,33 @@ describe('reader theme', () => {
         expect(contrastRatio(text, '#376c50')).toBeGreaterThanOrEqual(4.5);
     });
 
+    it('evaluates passive words contrast against host background to prevent flipping to black on mid-tone highlight tints', () => {
+        // Host button background is dark green (rgb(37, 87, 61) / #25573d) with white text.
+        // The word has a passive highlight tint (rgb(68, 133, 91) / #44855b).
+        // Since contrast(white, highlight tint) is 4.419 (under 4.5), evaluating text contrast
+        // against the highlight tint flips the text to black. It should evaluate against the host background
+        // (#25573d) instead, keeping the text white.
+        document.body.innerHTML = `
+            <p style="background: rgb(24, 27, 32);">
+                <a style="background: rgb(37, 87, 61); color: rgb(255, 255, 255);">
+                    <span class="jpdb-reader-word jpdb-redundant jpdb-reader-scan-word jpdb-reader-passive-word jpdb-pitch-atamadaka" style="background: rgb(68, 133, 91); color: rgb(255, 255, 255); text-decoration-color: rgb(123, 216, 143);">
+                        <ruby>よ<rt class="jpdb-reader-furi" style="color: rgb(255, 255, 255);">よ</rt></ruby>む
+                    </span>
+                </a>
+            </p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const furiText = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
+
+        expect(text).toBe('#ffffff');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
+        expect(furiText).toBe('#ffffff');
+    });
+
     it('keeps generated furigana readable without changing native page text', () => {
         document.body.innerHTML = `
             <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">
