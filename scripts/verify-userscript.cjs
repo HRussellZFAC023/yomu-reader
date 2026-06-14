@@ -44,7 +44,7 @@ assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
 assertKanjiStudySplitBoundary();
 assertAnkiRenderSplitBoundary();
-if (!code.includes('fflate') || !code.includes('invalid zip data')) fail('the fflate bundled ZIP reader does not appear in the generated userscript.');
+assertZipReaderBundled();
 if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
 if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
 if (!code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER) || !code.includes('fflate')) fail('bundled dependency source/version notice is missing.');
@@ -78,6 +78,19 @@ assertNewTabCacheBusting();
 assertPublishedChangelogIsReleaseOnly();
 
 console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);
+
+function assertZipReaderBundled() {
+  for (const signature of [
+    'function inflateSync(data, opts)',
+    'async function inflateRaw(bytes)',
+    'class ZipArchive',
+    'function readZipCentralDirectory(bytes)',
+    'Invalid ZIP archive: end record not found.',
+    'Unsupported ZIP compression method',
+  ]) {
+    if (!code.includes(signature)) fail(`the bundled ZIP reader is missing expected generated code: ${signature}`);
+  }
+}
 
 function assertKanjiStudySplitBoundary() {
   const kanjiStudyLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'kanji-study');

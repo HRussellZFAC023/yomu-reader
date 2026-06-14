@@ -540,6 +540,54 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('covers hosted docs hero, cards, install links, and buttons with ruby and pitch classes', async () => {
+        const restoreRects = mockVisibleElementRects();
+        window.history.pushState({}, '', '/yomu-reader/');
+        document.body.innerHTML = `
+            <main class="jpdb-reader-word-underline-pitch jpdb-reader-word-text-pitch">
+                <section class="VPHomeHero">
+                    <h1 class="heading">日本語を読む</h1>
+                    <p class="tagline">青空の下で本を読む</p>
+                </section>
+                <section class="VPFeatures">
+                    <a class="item yomu-link-card" href="/guide/">
+                        <h2>次の手順</h2>
+                        <p>辞書を追加する</p>
+                    </a>
+                </section>
+                <a class="yomu-install-step-link" href="/install/">今すぐ追加</a>
+                <button type="button">設定を開く</button>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForHostedCoverageText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const words = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+            const surfaces = words.map(word => word.dataset.expression || word.textContent?.trim() || '');
+            expect(surfaces).toEqual(expect.arrayContaining(['日本語', '読む', '次', '手順', '辞書', '追加', '設定', '開く']));
+            for (const surface of ['日本語', '辞書', '設定']) {
+                const word = words.find(item => item.dataset.expression === surface);
+                expect(word?.querySelector('rt')?.textContent).toBe(readingForHostedCoverage(surface));
+                expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            }
+            const installWord = words.find(item => item.dataset.expression === '追加' && item.closest('.yomu-install-step-link'));
+            expect(installWord?.querySelector('rt')?.textContent).toBe('ついか');
+            expect(installWord?.classList.contains('jpdb-reader-passive-word')).toBe(true);
+            expect(parseJapanese.mock.calls.flatMap(call => call[0]).join('\n')).toContain('設定を開く');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            window.history.pushState({}, '', '/');
+            document.body.innerHTML = '';
+        }
+    });
+
     it('enables segmented fallback on normal page scans when no API key or dictionaries are available', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<main><p>青空の下で日本語を読む</p></main>';
@@ -1088,6 +1136,39 @@ function tokensForHostedDocsText(text: string): JPDBToken[] {
         index = text.indexOf('よむ', index + 2);
     }
     return tokens;
+}
+
+function tokensForHostedCoverageText(text: string): JPDBToken[] {
+    const targets = [
+        ['日本語', 'にほんご'],
+        ['読む', 'よむ'],
+        ['青空', 'あおぞら'],
+        ['下', 'した'],
+        ['本', 'ほん'],
+        ['次', 'つぎ'],
+        ['手順', 'てじゅん'],
+        ['辞書', 'じしょ'],
+        ['追加', 'ついか'],
+        ['設定', 'せってい'],
+        ['開く', 'ひらく'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function readingForHostedCoverage(surface: string): string {
+    return new Map([
+        ['日本語', 'にほんご'],
+        ['辞書', 'じしょ'],
+        ['設定', 'せってい'],
+    ]).get(surface) ?? '';
 }
 
 describe('abortable visible-work scheduling (P1)', () => {
