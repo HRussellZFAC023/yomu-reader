@@ -8081,7 +8081,7 @@ describe('reader helpers', () => {
             audio: { play } as unknown as AudioPlayer,
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
             getActivePopover: () => undefined,
-            getHoverLookupGeneration: () => 0,
+            getHoverLookupGeneration: () => 1,
             stopImmersionAudio: vi.fn(),
             toast: vi.fn(),
         });
@@ -8123,19 +8123,38 @@ describe('reader helpers', () => {
             audio: { play } as unknown as AudioPlayer,
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
             getActivePopover: () => undefined,
-            getHoverLookupGeneration: () => 0,
+            getHoverLookupGeneration: () => 1,
             stopImmersionAudio: vi.fn(),
             toast: vi.fn(),
         });
 
         await actions.playTermAudio(card, { hoverLookupGeneration: 1, autoPlay: true });
-        await actions.playTermAudio({ ...card, vid: card.vid + 1, reading: '' }, { userGesture: true, autoPlay: true });
+        await actions.playTermAudio(card, { userGesture: true, autoPlay: true });
         await actions.playTermAudio(card, { userGesture: true });
 
         expect(play).toHaveBeenCalledTimes(2);
     });
 
-    it('does not suppress click autoplay after a stale hover autoplay is superseded', async () => {
+    it('does not suppress same-spelling autoplay for a distinct card identity', async () => {
+        let hoverGeneration = 1;
+        const play = vi.fn(async () => true);
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => hoverGeneration,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        await actions.playTermAudio(card, { hoverLookupGeneration: 1, autoPlay: true });
+        hoverGeneration = 2;
+        await actions.playTermAudio({ ...card, vid: card.vid + 1, sid: card.sid + 1, reading: '' }, { hoverLookupGeneration: 2, autoPlay: true });
+
+        expect(play).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not suppress click autoplay after an unsuccessful hover autoplay', async () => {
         let playCount = 0;
         const play = vi.fn(async () => {
             playCount += 1;
@@ -8145,7 +8164,7 @@ describe('reader helpers', () => {
             audio: { play } as unknown as AudioPlayer,
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
             getActivePopover: () => undefined,
-            getHoverLookupGeneration: () => 0,
+            getHoverLookupGeneration: () => 1,
             stopImmersionAudio: vi.fn(),
             toast: vi.fn(),
         });
@@ -8154,6 +8173,31 @@ describe('reader helpers', () => {
         await actions.playTermAudio(card, { userGesture: true, autoPlay: true });
 
         expect(play).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not launch stale hover term audio or mark the popover as loading', async () => {
+        const popover = document.createElement('div');
+        document.body.append(popover);
+        const play = vi.fn(async () => true);
+        const stopImmersionAudio = vi.fn();
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => popover,
+            getHoverLookupGeneration: () => 2,
+            stopImmersionAudio,
+            toast: vi.fn(),
+        });
+
+        try {
+            await actions.playTermAudio(card, { hoverLookupGeneration: 1, autoPlay: true });
+
+            expect(play).not.toHaveBeenCalled();
+            expect(stopImmersionAudio).not.toHaveBeenCalled();
+            expect(popover.dataset.audioLoading).toBeUndefined();
+        } finally {
+            popover.remove();
+        }
     });
 
     it('does not play sentence audio when audio playback is disabled', async () => {
@@ -21240,6 +21284,22 @@ describe('reader helpers', () => {
             expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:8765', expect.objectContaining({
                 method: 'POST',
             }));
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not direct-fetch cross-origin AnkiConnect from content pages without the userscript bridge', async () => {
+        vi.stubGlobal('location', { href: 'https://www.nhk.or.jp/news/easy/', origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ result: 6, error: null })))));
+
+        try {
+            const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
+
+            await expect(client.isConnected()).resolves.toBe(false);
+            expect(fetch).not.toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }
