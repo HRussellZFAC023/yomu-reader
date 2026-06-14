@@ -16,6 +16,17 @@ export const CRITICAL_READER_CSS = `
 [data-jpdb-reader-root] *::after {
   box-sizing: border-box;
 }
+.jpdb-reader-popover,
+.jpdb-reader-settings,
+.jpdb-reader-backdrop {
+  pointer-events: auto !important;
+}
+.jpdb-reader-popover-body,
+.jpdb-reader-word-pills,
+.jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill),
+.jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) {
+  pointer-events: auto !important;
+}
 [data-jpdb-reader-root]:where(button),
 [data-jpdb-reader-root] :where(button) {
   appearance: none;

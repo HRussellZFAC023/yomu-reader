@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.198] - 2026-06-14
+
+### Performance
+
+- YouTube feed/search/description scans no longer fan out background public JPDB pitch lookups while the page is mutating. Ruby/text rendering stays first, hover lookups remain urgent, and desktop/mobile profiles now keep public pitch requests to the hovered words instead of hundreds of background scans.
+- The YouTube homepage performance profiler now records thumbnail readiness, scroll stress, OCR frame counts, and word-to-word hover popover latency with a 250 ms near-instant SLA across JPDB, Anki, Jiten, combined, and no-key settings.
+
+### Fixed
+
+- YouTube hover-preview videos in feed cards are no longer treated like the main paused player for OCR, preventing preview loops and useless OCR work on homepage thumbnails.
+- Paused-frame OCR overlays now have regression coverage for rendered ruby and pitch/color classes, matching the parsed subtitle/text rendering path.
+
 ## [0.6.197] - 2026-06-14
 
 ### Performance

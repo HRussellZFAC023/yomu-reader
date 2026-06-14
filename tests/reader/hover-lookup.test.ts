@@ -522,11 +522,17 @@ describe('hover lookup', () => {
     });
 
     it('hovers passive words inside button feedback overlays without stealing button clicks', () => {
+        vi.stubGlobal('location', {
+            href: 'https://example.com/',
+            origin: 'https://example.com',
+            hostname: 'example.com',
+        });
         const app = new ReaderApp();
         const { overlay, word } = passiveButtonWordFixture();
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
         const restoreElementFromPoint = stubElementFromPoint(overlay);
+        const restoreElementsFromPoint = stubElementsFromPoint([overlay, word]);
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -542,7 +548,9 @@ describe('hover lookup', () => {
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
         } finally {
             restoreElementFromPoint();
+            restoreElementsFromPoint();
             cleanupReaderApp(app);
+            vi.unstubAllGlobals();
         }
     });
 

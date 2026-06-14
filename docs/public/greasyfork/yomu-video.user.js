@@ -6940,8 +6940,8 @@ ${spelling}`);
     }
   }
   function isLikelyPausedVideoThumbnail(video) {
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
     return !isPrimaryPlayerSizedVideo(video);
   }
@@ -10173,7 +10173,7 @@ ${spelling}`);
   function renderSubtitlePrimary(input) {
     const activeCue = input.cue;
     const parsedHasReaderWords = input.parsedHtml?.includes("jpdb-reader-word") ?? false;
-    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue) && !parsedHasReaderWords;
+    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue);
     const mode = subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords);
     return {
       html: renderSubtitlePrimaryHtml(input, mode),
@@ -11934,11 +11934,12 @@ ${spelling}`);
       const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
       if (primary) {
         const currentCue = this.currentCue ?? null;
-        const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html) && this.shouldRenderKaraokePrimary(primary, currentCue);
-        const replacement = this.primaryReplacementHtml(html, currentCue, shouldKaraoke);
+        const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
+        const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
+        const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
         setInnerHtml(primary, replacement);
         this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
-        this.syncKaraokePrimary(currentCue, shouldKaraoke);
+        this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
         this.fitSubtitleTextToVideo();
         return primary;
       }
@@ -15662,12 +15663,46 @@ ${spelling}`);
     return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
   }
   function youTubeBrowseDataShowsSubscribed(data) {
-    const header = recordValue(data)?.header;
+    const root = recordValue(data);
+    const header = root?.header;
     if (!header) return false;
     return findNestedYouTubeValue(header, (value) => {
-      const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
-      return renderer?.subscribed === true ? "subscribed" : "";
+      if (legacyYouTubeSubscribeButtonShowsSubscribed(value)) return "subscribed";
+      return youTubeSubscribeButtonViewModelShowsSubscribed(value, root) ? "subscribed" : "";
     }) === "subscribed";
+  }
+  function legacyYouTubeSubscribeButtonShowsSubscribed(value) {
+    const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
+    return renderer?.subscribed === true;
+  }
+  function youTubeSubscribeButtonViewModelShowsSubscribed(value, data) {
+    const model = recordValue(recordValue(value)?.subscribeButtonViewModel);
+    if (!model) return false;
+    const stateKey = youTubeSubscribeButtonStateKey(model);
+    if (!stateKey) return false;
+    return findYouTubeSubscriptionState(data, stateKey) === true;
+  }
+  function youTubeSubscribeButtonStateKey(model) {
+    return firstStringValue(
+      model.stateEntityStoreKey,
+      recordValue(recordValue(model.subscribeButtonContent)?.subscribeState)?.key,
+      recordValue(recordValue(model.unsubscribeButtonContent)?.subscribeState)?.key
+    );
+  }
+  function findYouTubeSubscriptionState(value, stateKey) {
+    if (!isNestedYouTubeValue(value)) return void 0;
+    const direct = readYouTubeSubscriptionState(value, stateKey);
+    if (direct !== void 0) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+      const found = findYouTubeSubscriptionState(child, stateKey);
+      if (found !== void 0) return found;
+    }
+    return void 0;
+  }
+  function readYouTubeSubscriptionState(value, stateKey) {
+    const entity = recordValue(recordValue(value)?.subscriptionStateEntity);
+    if (!entity || stringValue(entity.key) !== stateKey || typeof entity.subscribed !== "boolean") return void 0;
+    return entity.subscribed;
   }
   function youTubeChannelMetadata(data) {
     return recordValue(recordValue(data.metadata)?.channelMetadataRenderer) ?? {};

@@ -1445,6 +1445,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-settings {
   position: fixed;
   display: block;
+  pointer-events: auto !important;
   z-index: 2147483647;
   box-sizing: border-box;
   background: var(--jpdb-reader-bg);
@@ -1470,6 +1471,13 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
      can never get stuck invisible. ~110ms reads as instant-with-polish, which
      keeps fast word-to-word hovering feeling immediate. */
   animation: jpdb-reader-popover-in 0.11s ease-out both;
+}
+
+.jpdb-reader-popover-body,
+.jpdb-reader-word-pills,
+.jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill),
+.jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) {
+  pointer-events: auto !important;
 }
 
 @keyframes jpdb-reader-popover-in {
@@ -8865,7 +8873,7 @@ html.jpdb-reader-doodle-active * {
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: .15em;
   --jpdb-reader-word-underline-thickness: .08em;
-  text-decoration-line: underline !important;
+  text-decoration-line: none !important;
   text-decoration-style: solid !important;
   text-decoration-color: transparent !important;
   text-decoration-thickness: .08em !important;
@@ -8878,6 +8886,9 @@ html.jpdb-reader-doodle-active * {
     0 3px 12px var(--jpdb-reader-video-shadow);
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
   paint-order: stroke fill;
+}
+.jpdb-subtitle-primary .jpdb-reader-word::after {
+  text-shadow: none !important;
 }
 .jpdb-subtitle-primary .jpdb-reader-word:hover,
 .jpdb-subtitle-primary .jpdb-reader-word:focus-visible {
@@ -8912,7 +8923,7 @@ html.jpdb-reader-doodle-active * {
   background: transparent !important;
   box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
-  text-decoration-line: underline !important;
+  text-decoration-line: none !important;
   text-decoration-color: transparent !important;
 }
 .jpdb-reader-subtitle-highlight-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-status-soft, var(--jpdb-reader-source-status-soft, var(--jpdb-reader-subtitle-highlight-default))); }
@@ -8970,7 +8981,7 @@ html.jpdb-reader-doodle-active * {
     var(--jpdb-reader-highlight-shadow);
 }
 :is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
-  text-decoration-line: underline !important;
+  text-decoration-line: none !important;
 }
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word {
   --jpdb-reader-word-underline-offset: .12em;
@@ -9380,6 +9391,22 @@ html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,
 html.jpdb-subtitle-yomu-captions-active .caption-window,
 html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container *,
+html.jpdb-subtitle-yomu-captions-active .caption-window *,
+html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment *,
+html.jpdb-subtitle-yomu-captions-active .caption-visual-line,
+html.jpdb-subtitle-yomu-captions-active .captions-text,
+html.jpdb-subtitle-yomu-captions-active .captions-text * {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+  text-shadow: none !important;
+  visibility: hidden !important;
 }
 html.jpdb-subtitle-native-captions-suppressed media-captions,
 html.jpdb-subtitle-native-captions-suppressed .vds-captions,

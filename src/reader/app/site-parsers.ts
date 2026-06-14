@@ -45,6 +45,12 @@ const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'a[href]',
     '[role="link"]',
 ].join(',');
+const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
+    'yt-button-shape button',
+    'ytd-button-renderer button',
+    'yt-chip-cloud-chip-renderer button[role="tab"]',
+    'yt-chip-cloud-chip-renderer [role="tab"]',
+].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     // The video player owns captions and most chrome; the settings popover is
@@ -84,6 +90,21 @@ const YOUTUBE_TEXT_EXCLUDE = [
     'yt-chip-cloud-chip-renderer',
     'iron-selector#chips',
 ].join(',');
+const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = new Set([
+    'button',
+    '[role="button"]',
+    '[role="tab"]',
+    'yt-button-shape',
+    'ytd-button-renderer',
+    '.yt-spec-button-shape-next',
+    'yt-chip-cloud-renderer',
+    'yt-chip-cloud-chip-renderer',
+    'iron-selector#chips',
+]);
+const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE
+    .split(',')
+    .filter(entry => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry))
+    .join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
     'main h1',
@@ -656,7 +677,14 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         roots: [
             // Watch, feed, sidebar, live-chat, and recommendation text. Video
             // title links are collected as passive hover targets so native
-            // YouTube clicks keep working, but player/buttons/tabs stay native.
+            // YouTube clicks keep working. Stable masthead/nav/filter labels
+            // get the same passive treatment without scanning arbitrary player
+            // or comment controls.
+            'ytd-masthead',
+            'ytd-mini-guide-renderer',
+            'ytd-feed-filter-chip-bar-renderer',
+            'yt-chip-cloud-renderer',
+            'iron-selector#chips',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
@@ -886,19 +914,38 @@ function siteScanExcludeSelector(profile: SiteParserProfile): string {
 
 function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
     const selector = profile.passiveInteraction;
-    if (!selector || !siteScanHasRoom(context)) return;
-    collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
-}
-
-function collectPassiveInteractionRoots(profile: SiteParserProfile, roots: Element[], context: SiteScanContext): void {
-    for (const passiveRoot of roots) {
-        if (!siteScanHasRoom(context)) break;
-        collectPassiveInteractionRootTargets(profile, passiveRoot, context);
+    if (selector && siteScanHasRoom(context)) {
+        collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
+    }
+    if (shouldCollectYouTubePassiveChrome(profile, root) && siteScanHasRoom(context)) {
+        collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, YOUTUBE_PASSIVE_CHROME_SELECTOR), context, { chrome: true });
     }
 }
 
-function collectPassiveInteractionRootTargets(profile: SiteParserProfile, passiveRoot: Element, context: SiteScanContext): void {
-    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+function shouldCollectYouTubePassiveChrome(profile: SiteParserProfile, root: Element): boolean {
+    return profile.id === 'youtube-comments-parser'
+        && root.matches('ytd-masthead,ytd-feed-filter-chip-bar-renderer,yt-chip-cloud-renderer,iron-selector#chips');
+}
+
+function collectPassiveInteractionRoots(
+    profile: SiteParserProfile,
+    roots: Element[],
+    context: SiteScanContext,
+    options: { chrome?: boolean } = {},
+): void {
+    for (const passiveRoot of roots) {
+        if (!siteScanHasRoom(context)) break;
+        collectPassiveInteractionRootTargets(profile, passiveRoot, context, options);
+    }
+}
+
+function collectPassiveInteractionRootTargets(
+    profile: SiteParserProfile,
+    passiveRoot: Element,
+    context: SiteScanContext,
+    options: { chrome?: boolean } = {},
+): void {
+    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, passiveInteractionExcludeSelector(profile, options), {
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
@@ -911,6 +958,12 @@ function collectPassiveInteractionRootTargets(profile: SiteParserProfile, passiv
         if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
         if (!siteScanHasRoom(context)) break;
     }
+}
+
+function passiveInteractionExcludeSelector(profile: SiteParserProfile, options: { chrome?: boolean }): string {
+    return profile.id === 'youtube-comments-parser' && options.chrome
+        ? YOUTUBE_PASSIVE_CHROME_EXCLUDE
+        : profile.exclude ?? COMMON_EXCLUDE;
 }
 
 function passiveInteractionRoots(root: Element, selector: string): Element[] {

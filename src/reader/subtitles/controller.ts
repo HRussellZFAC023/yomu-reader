@@ -1566,15 +1566,15 @@ export class SubtitlePlayerController {
         const primary = this.subtitleEl?.querySelector('.jpdb-subtitle-primary');
         if (primary) {
             const currentCue = this.currentCue ?? null;
-            const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html)
-                && this.shouldRenderKaraokePrimary(primary, currentCue);
-            const replacement = this.primaryReplacementHtml(html, currentCue, shouldKaraoke);
+            const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
+            const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
+            const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
             setInnerHtml(primary, replacement);
             // Keep the applied-html cache aligned with the live DOM so the
             // next composed render() is a no-op and the freshly applied state
             // colors survive instead of being rebuilt away.
             this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
-            this.syncKaraokePrimary(currentCue, shouldKaraoke);
+            this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
             this.fitSubtitleTextToVideo();
             return primary as HTMLElement;
         }

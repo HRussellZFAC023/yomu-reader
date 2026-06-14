@@ -35,6 +35,7 @@ const VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE = 24;
 const VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE = 12;
 const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1_200;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
@@ -411,15 +412,19 @@ function hasJpdbParseApiKey(settings: ReaderSettings): boolean {
     return Boolean(settings.apiKey.trim());
 }
 
+function hasRemoteParseApiKey(settings: ReaderSettings): boolean {
+    return Boolean(settings.apiKey.trim() || settings.jitenApiKey.trim());
+}
+
 function shouldStartPitchEnrichmentBeforeApply(tokens: JPDBToken[]): boolean {
     return tokens.some(token => token.card.source === 'fallback'
         && token.card.spelling.trim()
         && !token.rubies.length);
 }
 
-function scanParseOptions(_settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {
+function scanParseOptions(settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {
     return {
-        jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
+        jpdbTimeoutMs: hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS : VISIBLE_SCAN_PARSE_TIMEOUT_MS,
         allowJpdbTimeoutFallback: true,
         includeLocalPitch: false,
         allowSegmentedFallback: true,

@@ -70,6 +70,90 @@ function stubOEmbedTitles(titles: Record<string, string>): void {
     }));
 }
 
+function stubYouTubeChannelPreviewFetch(subscribedHandles: Set<string>): void {
+    const channels = allYouTubeChannelRecommendations();
+    const idByHandle = new Map(channels.map((channel, index) => [channel.handle, `UC${String(index).padStart(22, '0')}`]));
+    const handleById = new Map([...idByHandle].map(([handle, id]) => [id, handle]));
+
+    vi.stubGlobal('ytcfg', {
+        get: (key: string) => ({
+            INNERTUBE_API_KEY: 'test-key',
+            INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+            INNERTUBE_CLIENT_NAME: '1',
+            INNERTUBE_CLIENT_VERSION: 'test-version',
+            VISITOR_DATA: 'visitor',
+        } as Record<string, unknown>)[key],
+    });
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('/oembed')) {
+            const watchUrl = new URL(new URL(url).searchParams.get('url') ?? 'https://www.youtube.com/watch');
+            const videoId = watchUrl.searchParams.get('v') ?? '';
+            return jsonFetchResponse({ title: videoId === 'jp' || videoId === 'modern' ? '東京カフェで朝ごはん' : 'Desk setup tour' });
+        }
+        if (url.includes('/youtubei/v1/navigation/resolve_url')) {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { url?: string };
+            const handle = decodeURIComponent(new URL(body.url ?? 'https://www.youtube.com/@missing').pathname.slice(1));
+            return jsonFetchResponse({ endpoint: { browseEndpoint: { browseId: idByHandle.get(handle) ?? 'UC0000000000000000000000' } } });
+        }
+        if (url.includes('/youtubei/v1/browse')) {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { browseId?: string };
+            const handle = handleById.get(body.browseId ?? '') ?? '@missing';
+            return jsonFetchResponse(channelPreviewBrowseData(handle, body.browseId ?? '', subscribedHandles.has(handle)));
+        }
+        return jsonFetchResponse({}, 404);
+    }));
+}
+
+function jsonFetchResponse(value: unknown, status = 200): Response {
+    return {
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => value,
+    } as Response;
+}
+
+function channelPreviewBrowseData(handle: string, channelId: string, subscribed: boolean): Record<string, unknown> {
+    const channel = allYouTubeChannelRecommendations().find(candidate => candidate.handle === handle);
+    const stateKey = `subscription-state:${channelId}`;
+    return {
+        metadata: {
+            channelMetadataRenderer: {
+                title: channel?.name ?? handle,
+                avatar: { thumbnails: [{ url: `https://yt.example/${encodeURIComponent(handle)}.jpg`, width: 88 }] },
+            },
+        },
+        header: {
+            pageHeaderRenderer: {
+                content: {
+                    pageHeaderViewModel: {
+                        actions: {
+                            flexibleActionsViewModel: {
+                                actionsRows: [{
+                                    actions: [{
+                                        subscribeButtonViewModel: {
+                                            stateEntityStoreKey: stateKey,
+                                            subscribeButtonContent: { subscribeState: { key: stateKey, subscribed: false } },
+                                            // This branch is present in current YouTube responses even when the account
+                                            // is not subscribed; only the matching subscriptionStateEntity is current.
+                                            unsubscribeButtonContent: { subscribeState: { key: stateKey, subscribed: true } },
+                                        },
+                                    }],
+                                }],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        frameworkUpdates: {
+            entityBatchUpdate: {
+                mutations: [{ payload: { subscriptionStateEntity: { key: stateKey, subscribed } } }],
+            },
+        },
+    };
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -853,6 +937,33 @@ describe('YouTube immersion filter', () => {
         expect(description).toBe(youtubeChannelRecommendationDescription(channel!));
         expect(description).not.toBe(longPreviewDescription);
         expect(description).toMatch(/videos around N[1-5]/u);
+
+        filter.destroy();
+    });
+
+    it('removes channels already subscribed in YouTube current subscribeButtonViewModel payloads', async () => {
+        stubYouTubeChannelPreviewFetch(new Set(['@SuitTravel']));
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+            search: '',
+        });
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+
+        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
+        await flushPendingFilterWork();
+        await vi.advanceTimersByTimeAsync(0);
+        await flushPendingFilterWork();
+
+        const handles = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
+            .map(row => row.dataset.yomuChannelHandle);
+        expect(handles).not.toContain('@SuitTravel');
+        expect(handles).toContain('@oi_ken');
+        expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
+            .toContain('99 shown from 100 curated channels.');
 
         filter.destroy();
     });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { ReaderSettings } from '../../src/reader/app/types';
+import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { waitForExpect } from './test-utils';
 
 afterEach(() => {
@@ -76,6 +76,62 @@ describe('paused-video OCR frames', () => {
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
             expect(status!.dataset.status).toBe('ready');
             expect(status!.textContent).toBe('Text ready');
+        });
+    });
+
+    it('renders paused-frame OCR words with ruby and pitch color classes', async () => {
+        const token: JPDBToken = {
+            card: {
+                vid: 101,
+                sid: 202,
+                rid: 303,
+                spelling: '日本語',
+                reading: 'にほんご',
+                frequencyRank: 100,
+                partOfSpeech: ['n'],
+                meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
+                cardState: ['known'],
+                pitchAccent: ['LHHH'],
+                wordWithReading: null,
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+        };
+        controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'en',
+                furiganaMode: 'all',
+                showPitchAccent: true,
+                wordUnderlineColorSource: 'pitch',
+                ocrVideoFrameStatusCard: true,
+            }),
+            parseJapanese: vi.fn(async () => [token]),
+            onToast: vi.fn(),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
+        });
+        controller.init();
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
+        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
+        frame.dataset.ocrLines = JSON.stringify([
+            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        frame.dispatchEvent(new Event('load'));
+
+        await waitForExpect(() => {
+            const word = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')!;
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
         });
     });
 
@@ -178,6 +234,29 @@ describe('paused-video OCR frames', () => {
                         <video></video>
                     </a>
                 </ytd-thumbnail>
+            </ytd-rich-item-renderer>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+    });
+
+    it('ignores YouTube feed preview videos even when the tile contains player-like ids', () => {
+        createController();
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <div id="player">
+                    <div id="player-container">
+                        <a href="/watch?v=preview">
+                            <video></video>
+                        </a>
+                    </div>
+                </div>
             </ytd-rich-item-renderer>
         `;
         const video = document.querySelector('video') as HTMLVideoElement;

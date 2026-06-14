@@ -24,7 +24,9 @@ export const RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS = 450;
 export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-export const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 24;
+export const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
+export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
 export const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 export const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 export const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -384,6 +386,7 @@ export interface PitchEnrichmentOptions {
     urgent?: boolean;
     publicLookup?: boolean;
     publicLookupLimit?: number;
+    deferPublicLookup?: boolean;
 }
 
 export interface NestedParseContentCacheEntry {

@@ -9180,6 +9180,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -29378,8 +29379,8 @@ ${spelling}`);
     }
   }
   function isLikelyPausedVideoThumbnail(video) {
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
     return !isPrimaryPlayerSizedVideo(video);
   }
@@ -32595,7 +32596,7 @@ ${spelling}`);
   function renderSubtitlePrimary(input2) {
     const activeCue = input2.cue;
     const parsedHasReaderWords = input2.parsedHtml?.includes("jpdb-reader-word") ?? false;
-    const karaokeActive = input2.karaokeMode && cueHasExactWordTimings(activeCue) && !parsedHasReaderWords;
+    const karaokeActive = input2.karaokeMode && cueHasExactWordTimings(activeCue);
     const mode = subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords);
     return {
       html: renderSubtitlePrimaryHtml(input2, mode),
@@ -34521,11 +34522,12 @@ ${spelling}`);
       const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
       if (primary) {
         const currentCue = this.currentCue ?? null;
-        const shouldKaraoke = !parsedSubtitleHtmlHasReaderWords(html) && this.shouldRenderKaraokePrimary(primary, currentCue);
-        const replacement = this.primaryReplacementHtml(html, currentCue, shouldKaraoke);
+        const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
+        const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
+        const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
         setInnerHtml(primary, replacement);
         this.lastAppliedSubtitleHtml = `<div class="jpdb-subtitle-primary">${replacement}</div>${this.renderSecondarySubtitle(this.options.getSettings())}`;
-        this.syncKaraokePrimary(currentCue, shouldKaraoke);
+        this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
         this.fitSubtitleTextToVideo();
         return primary;
       }
@@ -38249,12 +38251,46 @@ ${spelling}`);
     return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
   }
   function youTubeBrowseDataShowsSubscribed(data) {
-    const header = recordValue(data)?.header;
+    const root = recordValue(data);
+    const header = root?.header;
     if (!header) return false;
     return findNestedYouTubeValue(header, (value) => {
-      const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
-      return renderer?.subscribed === true ? "subscribed" : "";
+      if (legacyYouTubeSubscribeButtonShowsSubscribed(value)) return "subscribed";
+      return youTubeSubscribeButtonViewModelShowsSubscribed(value, root) ? "subscribed" : "";
     }) === "subscribed";
+  }
+  function legacyYouTubeSubscribeButtonShowsSubscribed(value) {
+    const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
+    return renderer?.subscribed === true;
+  }
+  function youTubeSubscribeButtonViewModelShowsSubscribed(value, data) {
+    const model = recordValue(recordValue(value)?.subscribeButtonViewModel);
+    if (!model) return false;
+    const stateKey = youTubeSubscribeButtonStateKey(model);
+    if (!stateKey) return false;
+    return findYouTubeSubscriptionState(data, stateKey) === true;
+  }
+  function youTubeSubscribeButtonStateKey(model) {
+    return firstStringValue(
+      model.stateEntityStoreKey,
+      recordValue(recordValue(model.subscribeButtonContent)?.subscribeState)?.key,
+      recordValue(recordValue(model.unsubscribeButtonContent)?.subscribeState)?.key
+    );
+  }
+  function findYouTubeSubscriptionState(value, stateKey) {
+    if (!isNestedYouTubeValue(value)) return void 0;
+    const direct = readYouTubeSubscriptionState(value, stateKey);
+    if (direct !== void 0) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+      const found = findYouTubeSubscriptionState(child, stateKey);
+      if (found !== void 0) return found;
+    }
+    return void 0;
+  }
+  function readYouTubeSubscriptionState(value, stateKey) {
+    const entity = recordValue(recordValue(value)?.subscriptionStateEntity);
+    if (!entity || stringValue(entity.key) !== stateKey || typeof entity.subscribed !== "boolean") return void 0;
+    return entity.subscribed;
   }
   function youTubeChannelMetadata(data) {
     return recordValue(recordValue(data.metadata)?.channelMetadataRenderer) ?? {};
@@ -40097,8 +40133,10 @@ ${spelling}`);
       return true;
     }
     const browserActivation = browserUserActivationState();
-    if (browserActivation !== void 0) return browserActivation || pageHasUserActivation;
-    if (isFirefoxLikeBrowser()) return pageHasUserActivation;
+    if (browserActivation) pageHasUserActivation = true;
+    if (browserActivation !== void 0) return true;
+    if (pageHasUserActivation) return true;
+    if (isFirefoxLikeBrowser()) return true;
     return true;
   }
   function installPageActivationTracking() {
@@ -43603,6 +43641,51 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return "";
     }
   }
+  const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
+  const JPDB_RELATED_WORD_STATE = "not-in-deck";
+  const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
+  function renderedJpdbRelatedWords(root) {
+    const words = root instanceof HTMLElement && root.matches(JPDB_RELATED_WORD_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR))] : Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR));
+    return words.map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
+  }
+  function renderedJpdbRelatedWord(word) {
+    const card = renderedJpdbRelatedWordCard(word);
+    if (!card) return null;
+    const surface = readerWordSurfaceText$1(word).trim() || card.spelling;
+    return {
+      word,
+      token: {
+        card,
+        start: 0,
+        end: surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: word.dataset.pitchClass ?? "",
+        sentence: word.dataset.sentence || surface
+      }
+    };
+  }
+  function renderedJpdbRelatedWordCard(word) {
+    const vid = Number(word.dataset.vid);
+    const sid = Number(word.dataset.sid);
+    const spelling = (word.dataset.expression ?? readerWordSurfaceText$1(word)).trim();
+    if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
+    return {
+      vid,
+      sid,
+      rid: 0,
+      spelling,
+      reading: word.dataset.reading?.trim() || spelling,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [JPDB_RELATED_WORD_STATE],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: word.dataset.sentence || spelling
+    };
+  }
   function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
@@ -43650,7 +43733,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                                 data-external="false"
                             >
                                 <span class="jpdb-reader-jpdb-compound-head">
-                                    ${renderJpdbRelatedTerm(compound.term, compound.reading, "jpdb-reader-jpdb-compound-term", "", true, compound.termHtml)}
+                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
                                 </span>
                             </a>
                             ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
@@ -43718,35 +43801,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderJpdbExampleSentence(example, card) {
     return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
   }
-  function renderJpdbRelatedTerm(term, reading, className, extraAttributes = "", showReading = true, termHtml = "") {
-    const readingText2 = visibleJpdbRelatedReading(term, reading);
-    const base = `<span class="${escapeHtml$1(`${className} jpdb-reader-parseable`)}" data-dictionary="JPDB"${extraAttributes}>${termHtml || escapeHtml$1(term)}</span>`;
-    if (termHtml || !showReading || !readingText2) return base;
-    return `<span class="jpdb-reader-jpdb-term-with-reading"><span class="jpdb-reader-furi jpdb-reader-jpdb-term-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">${escapeHtml$1(readingText2)}</span>${base}</span>`;
-  }
   function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
   }
   function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
     const vid = jpdbVocabularyVidFromUrl(url);
-    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0"`;
+    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-pitch-class="" data-sentence="${escapeHtml$1(term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function passiveJpdbRelatedWordContent(term, reading, options) {
     const termHtml = options.termHtml?.trim() ?? "";
     const visibleReading = passiveJpdbRelatedReading(term, reading, options, termHtml);
     return {
-      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml))),
+      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml)), options.className),
       content: termHtml || passiveJpdbRelatedPlainContent(term, visibleReading)
     };
   }
   function passiveJpdbRelatedReading(term, reading, options, termHtml) {
     return termHtml || options.showReading === false ? "" : visibleJpdbRelatedReading(term, reading);
   }
-  function passiveJpdbRelatedClasses(hasFuri) {
-    return `jpdb-reader-word jpdb-reader-passive-word${hasFuri ? " jpdb-reader-has-furi" : ""}`;
+  function passiveJpdbRelatedClasses(hasFuri, className = "") {
+    const extra = className.trim();
+    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$1(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
   }
   function passiveJpdbRelatedPlainContent(term, visibleReading) {
     return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(term);
@@ -52660,6 +52738,63 @@ ${newTabCardReading(card)}`;
     }
     return null;
   }
+  const COMMON_EXCLUDE = [
+    '[role="dialog"]',
+    '[aria-modal="true"]',
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-word"
+  ].join(",");
+  const YOUTUBE_TEXT_EXCLUDE = [
+    COMMON_EXCLUDE,
+    // The video player owns captions and most chrome; the settings popover is
+    // re-added below as passive UI so its Japanese menu labels can be hovered
+    // without stealing native clicks.
+    "#movie_player",
+    ".html5-video-player",
+    ".ytp-chrome-top",
+    ".ytp-chrome-bottom",
+    ".ytp-tooltip",
+    "tp-yt-paper-tooltip",
+    "button",
+    "summary",
+    '[role="button"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="tab"]',
+    '[role="slider"]',
+    '[slot="more-button"]',
+    ".more-button",
+    "#more",
+    "#less",
+    ".slim-video-metadata-info",
+    "#metadata-line",
+    "yt-button-shape",
+    "tp-yt-paper-button",
+    "ytd-subscribe-button-renderer",
+    "ytd-toggle-button-renderer",
+    "ytd-button-renderer",
+    "ytm-button-renderer",
+    "ytm-toggle-button-renderer",
+    "ytm-subscribe-button-renderer",
+    "ytm-compact-link-renderer",
+    ".yt-spec-button-shape-next",
+    "yt-chip-cloud-renderer",
+    "yt-chip-cloud-chip-renderer",
+    "iron-selector#chips"
+  ].join(",");
+  const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = /* @__PURE__ */ new Set([
+    "button",
+    '[role="button"]',
+    '[role="tab"]',
+    "yt-button-shape",
+    "ytd-button-renderer",
+    ".yt-spec-button-shape-next",
+    "yt-chip-cloud-renderer",
+    "yt-chip-cloud-chip-renderer",
+    "iron-selector#chips"
+  ]);
+  YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const TWO_BUTTON_REVIEW_SHORTCUTS = [
     ["gradeFail", "fail"],
     ["gradePass", "pass"]
@@ -63114,8 +63249,9 @@ ${entry.url}`),
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
       const key = termAudioRequestKey(card, options);
-      if (this.inFlightTermAudio?.key === key) {
-        await this.inFlightTermAudio.promise;
+      const inFlight = this.inFlightTermAudio;
+      if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
+        await inFlight.promise;
         return;
       }
       const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
@@ -63128,6 +63264,9 @@ ${entry.url}`),
       } finally {
         if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = void 0;
       }
+    }
+    shouldJoinInFlightTermAudio(inFlight, key, options) {
+      return Boolean(options.autoPlay && inFlight?.key === key);
     }
     async playTermAudioOnce(card, options = {}) {
       const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
@@ -65270,6 +65409,7 @@ ${entry.url}`),
     }
     async parseNewTabContent(root, options = {}) {
       if (!root.isConnected || !this.parser.canParse()) return;
+      this.enrichJpdbRelatedWords(root);
       const plan = nestedTextParsePlan(root, 160);
       if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
       const parseLoadingId = `${Date.now()}:${Math.random()}`;
@@ -65289,6 +65429,16 @@ ${entry.url}`),
       } finally {
         clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
       }
+    }
+    enrichJpdbRelatedWords(root) {
+      const related = renderedJpdbRelatedWords(root).filter(({ word }) => word.dataset.jpdbReaderRelatedEnqueued !== "true");
+      if (!related.length) return;
+      related.forEach(({ word }) => {
+        word.dataset.jpdbReaderRelatedEnqueued = "true";
+      });
+      const tokens = related.map(({ token }) => token);
+      void this.enrichPitchWords(tokens);
+      void this.enrichAnkiWords(tokens, [root]);
     }
     loadParsedNewTabContent(texts, options = {}) {
       const parseOptions = {
