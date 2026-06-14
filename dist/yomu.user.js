@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.18
+// @version      0.7.19
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-mmOTndYJD8MaRBQIi2WhqafNCEIaqwKoKCJlBuD5NZw=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rjdLSjSXij20cIrURNeCL1/v3N8fW8D9A55M9Pk39HA=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-fm5QgQ/lk/Xi3Btu1upe3qeBFjGTNRdL7PlyAPnNE8o=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Pi/1XDYZQDE45MWOp7wT2mm2dEw8NOB7WborAM7FtEY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-v+qzRCwDd8vG4nlLnUy3VuM3IkKVcFq3vpy/TapqqoI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -32446,6 +32446,10 @@ ${glossaryKey}`;
     "ytm-feed-filter-chip-bar-renderer",
     "ytm-mobile-topbar-renderer",
     "ytm-pivot-bar-renderer",
+    "button",
+    '[role="button"]',
+    '[slot="more-button"]',
+    ".more-button",
     "tp-yt-paper-tooltip"
   ].join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;

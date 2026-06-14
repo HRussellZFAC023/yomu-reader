@@ -5193,6 +5193,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
   text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
   text-decoration-skip-ink: none !important;
+  -webkit-text-fill-color: currentColor;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -5648,6 +5649,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, currentColor)
   ) !important;
+  -webkit-text-fill-color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, currentColor)
+  );
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 .jpdb-reader-word-underline-status .jpdb-reader-word {
@@ -5689,11 +5694,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-word-text-pitch
 ) .jpdb-reader-word {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
 }
 :is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
   opacity: 1 !important;
@@ -6177,6 +6184,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text))));
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
@@ -13814,6 +13822,7 @@ html.jpdb-reader-doodle-active * {
   background-image: none !important;
   box-shadow: none;
   color: var(--subtitle-color) !important;
+  -webkit-text-fill-color: var(--subtitle-color);
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: .15em;
   --jpdb-reader-word-underline-thickness: .08em;
@@ -13872,6 +13881,7 @@ html.jpdb-reader-doodle-active * {
   background-image: none !important;
   box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-subtitle-fallback, currentColor);
   text-decoration-line: none !important;
   text-decoration-color: transparent !important;
 }
@@ -13965,6 +13975,7 @@ html.jpdb-reader-doodle-active * {
 }
 :is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor));
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   :is(.jpdb-reader-newtab-immersion, [data-immersion-kit])
@@ -13974,6 +13985,10 @@ html.jpdb-reader-doodle-active * {
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor))
   ) !important;
+  -webkit-text-fill-color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor))
+  );
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {
@@ -15015,20 +15030,24 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 
 
 /* Source: src/reader/styles/youtube-filter.css */
-.jpdb-youtube-filter-pending,
+.jpdb-youtube-filter-pending[data-yomu-youtube-pending-hidden="true"],
 .jpdb-youtube-filtered {
     pointer-events: none !important;
     opacity: 0 !important;
 }
 
-/* Filtered cards leave the flow instantly without display:none (which makes
-   YouTube's virtualized grid janky) — the nihongotube technique: offscreen
-   absolute positioning keeps the renderer's bookkeeping intact while the
-   remaining cards reflow with zero content-shift animation. */
+/* Filtered cards first become invisible spacers, then collapse after the
+   scroll/virtualized grid has settled. Collapsing immediately made YouTube
+   reuse rich-grid slots mid-scroll, leaving black rows until the next layout. */
+.jpdb-youtube-filtered {
+    visibility: hidden !important;
+    overflow: hidden !important;
+    transition: none !important;
+}
+
 /* UT-26: lazily-rendered shelf slots that YouTube has not hydrated yet are
    blank boxes — keep them off-flow with the same technique until they
    hydrate. */
-.jpdb-youtube-filtered,
 .jpdb-youtube-unrendered-slot,
 .jpdb-youtube-filter-collapsing,
 .jpdb-youtube-filter-collapsed {

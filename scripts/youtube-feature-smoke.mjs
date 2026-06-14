@@ -737,7 +737,7 @@ async function runHomepageCheck(page) {
 
     const beforeReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(beforeReveal.cards >= 4, 'YouTube homepage recommendations did not render', beforeReveal);
-    assert(beforeReveal.readerWordsInGrid === 0, 'Yomu scanned/wrapped YouTube homepage recommendation titles', beforeReveal);
+    assert(beforeReveal.readerWordsInGrid > 0, 'Yomu did not scan/wrap YouTube homepage recommendation titles', beforeReveal);
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
     assert(beforeReveal.noticeText.includes('hid'), 'YouTube filter notice did not summarize hidden videos', beforeReveal);
@@ -745,11 +745,18 @@ async function runHomepageCheck(page) {
     assert(beforeReveal.channelDescriptions.some(description => /videos around N[1-5]/u.test(description)),
         'YouTube channel suggestions did not keep the compact recommendation descriptions', beforeReveal);
 
-    await page.locator('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]').click();
+    await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')), null, { timeout: 10000 });
+    await page.evaluate(() => {
+        document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')?.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+        }));
+    });
     await page.waitForTimeout(800);
     const afterReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(afterReveal.englishVisible === true, 'YouTube filter reveal did not show hidden recommendations', afterReveal);
-    assert(afterReveal.readerWordsInGrid === 0, 'Yomu wrapped homepage titles after reveal', afterReveal);
+    assert(afterReveal.readerWordsInGrid > 0, 'Yomu did not keep homepage titles wrapped after reveal', afterReveal);
 
     return { beforeReveal, afterReveal };
 }
@@ -879,7 +886,7 @@ async function runMobileHomeLoadingCheck(page) {
     await page.waitForTimeout(350);
 
     const mobileHome = await page.evaluate(() => window.__yomuFeatureReadMobileHomeState());
-    assert(mobileHome.readerWordsInGrid === 0, 'Yomu wrapped mobile YouTube recommendation titles', mobileHome);
+    assert(mobileHome.readerWordsInGrid > 0, 'Yomu did not parse mobile YouTube recommendation titles', mobileHome);
     assert(mobileHome.continuationNudges >= 1, 'YouTube mobile feed did not request more cards after filtering', mobileHome);
     assert(mobileHome.visibleJapanese >= 5, 'YouTube mobile feed did not refill with enough Japanese-looking cards', mobileHome);
     assert(mobileHome.visibleNonJapanese === 0, 'YouTube mobile feed still shows non-Japanese-looking cards', mobileHome);
@@ -902,7 +909,7 @@ async function runShortsGalleryCheck(page) {
 
     const shortsGallery = await page.evaluate(() => window.__yomuFeatureReadShortsGalleryState());
     assert(shortsGallery.shelfVisible === true && shortsGallery.shelfFiltered === false, 'Shorts gallery shelf was hidden instead of filtering child Shorts', shortsGallery);
-    assert(shortsGallery.readerWordsInGrid === 0, 'Yomu wrapped Shorts gallery titles', shortsGallery);
+    assert(shortsGallery.readerWordsInGrid > 0, 'Yomu did not parse Shorts gallery titles', shortsGallery);
     assert(shortsGallery.visibleJapanese >= 3, 'Shorts gallery did not keep Japanese-looking Shorts visible', shortsGallery);
     assert(shortsGallery.visibleNonJapanese === 0, 'Shorts gallery still shows non-Japanese-looking Shorts', shortsGallery);
     assert(includesText(shortsGallery.hiddenCases.join(','), 'gallery-en'), 'Desktop English Short was not hidden', shortsGallery);
@@ -1052,7 +1059,7 @@ function assertWatchPageParsing(initial) {
 function assertWatchTextExclusions(initial) {
     assert(initial.titleWords > 0, 'Yomu did not parse the YouTube watch title', initial);
     assert(initial.watchTitleText.includes('日本の習慣'), 'YouTube watch title text is missing or incorrect', initial);
-    assert(initial.sidebarReaderWords === 0, 'Yomu wrapped YouTube sidebar recommendation text', initial);
+    assert(initial.sidebarReaderWords > 0, 'Yomu did not parse YouTube sidebar recommendation text', initial);
 }
 
 function assertWatchRowPresentation(initial) {

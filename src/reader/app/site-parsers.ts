@@ -57,6 +57,10 @@ const YOUTUBE_TEXT_EXCLUDE = [
     'ytm-feed-filter-chip-bar-renderer',
     'ytm-mobile-topbar-renderer',
     'ytm-pivot-bar-renderer',
+    'button',
+    '[role="button"]',
+    '[slot="more-button"]',
+    '.more-button',
     'tp-yt-paper-tooltip',
 ].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;

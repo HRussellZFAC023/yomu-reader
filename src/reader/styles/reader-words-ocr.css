@@ -41,6 +41,7 @@
   text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
   text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
   text-decoration-skip-ink: none !important;
+  -webkit-text-fill-color: currentColor;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -496,6 +497,10 @@
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, currentColor)
   ) !important;
+  -webkit-text-fill-color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, currentColor)
+  );
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 .jpdb-reader-word-underline-status .jpdb-reader-word {
@@ -537,11 +542,13 @@
   .jpdb-reader-word-text-pitch
 ) .jpdb-reader-word {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
   text-shadow: var(--jpdb-reader-word-contrast-shadow, none);
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor));
 }
 :is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
   opacity: 1 !important;
@@ -1025,6 +1032,7 @@
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text))));
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
   .jpdb-pitch-heiban,

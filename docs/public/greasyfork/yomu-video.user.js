@@ -5693,6 +5693,11 @@ ${candidate.depth}`;
     'a[href*="/watch"]',
     'a[href*="/shorts/"]'
   ].join(",");
+  const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
+    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
+    "yt-image",
+    ".yt-core-image"
+  ].join(",");
   function shouldSkipOcrRequest(state, userRequested) {
     return state.autoSkipped && !userRequested;
   }
@@ -5881,7 +5886,8 @@ ${candidate.depth}`;
     }
     async scanVisible() {
       this.refresh({ userRequested: true });
-      const images = [...this.states.keys()].filter((image) => isNearViewport(image, 120));
+      const settings = this.options.getSettings();
+      const images = [...this.states.keys()].filter((image) => isCandidateImage(image, settings) && isNearViewport(image, 120));
       if (!images.length) {
         this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, "ocrNoReadableImages"));
         return;
@@ -5918,7 +5924,7 @@ ${candidate.depth}`;
           const image = entry.target;
           this.positionState(image);
           const current = this.options.getSettings();
-          if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
+          if (current.ocrAutoScanImages && isCandidateImage(image, current) && shouldObserveImage(image, current)) this.enqueue(image);
         }
       }, { rootMargin });
     }
@@ -5944,6 +5950,7 @@ ${candidate.depth}`;
       return state;
     }
     enqueue(image, userRequested = false) {
+      if (isYouTubeThumbnailImage(image)) return;
       const state = this.states.get(image) ?? this.ensureState(image);
       if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
       this.queueOcrRequest(image);
@@ -6902,7 +6909,10 @@ ${spelling}`);
     return element instanceof HTMLImageElement ? element : element.closest("img");
   }
   function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
+    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isYouTubeThumbnailImage(image));
+  }
+  function isYouTubeThumbnailImage(image) {
+    return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
   }
   function isVisibleOcrImage(image) {
     return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
@@ -14994,10 +15004,16 @@ ${spelling}`);
       if (card.classList.contains(YOUTUBE_FILTERED_CLASS)) return;
       card.classList.add(YOUTUBE_PENDING_CLASS);
       card.dataset.yomuYoutubePending = "true";
+      if (shouldHidePendingYouTubeCard(card)) {
+        card.dataset.yomuYoutubePendingHidden = "true";
+      } else {
+        delete card.dataset.yomuYoutubePendingHidden;
+      }
     }
     clearPendingCard(card) {
       card.classList.remove(YOUTUBE_PENDING_CLASS);
       delete card.dataset.yomuYoutubePending;
+      delete card.dataset.yomuYoutubePendingHidden;
     }
     prepareFilteredCard(card) {
       const height = measuredYouTubeCardHeight(card);
@@ -16317,6 +16333,15 @@ ${spelling}`);
   }
   function isYouTubeWatchPage() {
     return location.pathname === "/watch";
+  }
+  function shouldHidePendingYouTubeCard(card) {
+    if (typeof window === "undefined") return false;
+    const rect = card.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return false;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (viewportHeight <= 0) return false;
+    const preloadMargin = Math.max(360, viewportHeight * 0.75);
+    return rect.bottom < -preloadMargin || rect.top > viewportHeight + preloadMargin;
   }
   function shouldShowFilterNoticeForRoute() {
     return !isYouTubeWatchPage() && !isYouTubeShortsWatchPage();

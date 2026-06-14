@@ -3410,17 +3410,17 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-status-highlight, transparent); }');
         expect(normalizedCss).toContain('--jpdb-reader-word-accessible-highlight');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important;');
-        expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) { color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important; }');
+        expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important; -webkit-text-fill-color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) );');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) { color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-status-decoration, transparent); }');
         expect(normalizedCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word { --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent); }');
         expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-underline-status,\s*\.jpdb-reader-word-underline-jpdb,\s*\.jpdb-reader-word-underline-anki,\s*\.jpdb-reader-word-underline-pitch\s*\) \.jpdb-reader-word \{ --jpdb-reader-word-underline: var\(--jpdb-reader-word-accessible-underline, var\(--jpdb-reader-word-decoration-source, transparent\)\); \}/);
         expect(normalizedCss).toContain('.jpdb-reader-word-text-jpdb .jpdb-reader-word { --jpdb-reader-word-color-source: var(--jpdb-reader-source-jpdb-color, currentColor); }');
-        expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-text-status,\s*\.jpdb-reader-word-text-jpdb,\s*\.jpdb-reader-word-text-anki,\s*\.jpdb-reader-word-text-pitch\s*\) \.jpdb-reader-word \{ color: var\(--jpdb-reader-word-accessible-color, var\(--jpdb-reader-word-color-source, currentColor\)\) !important; text-shadow: var\(--jpdb-reader-word-contrast-shadow, none\); \}/);
+        expect(normalizedCss).toMatch(/:is\(\s*\.jpdb-reader-word-text-status,\s*\.jpdb-reader-word-text-jpdb,\s*\.jpdb-reader-word-text-anki,\s*\.jpdb-reader-word-text-pitch\s*\) \.jpdb-reader-word \{ color: var\(--jpdb-reader-word-accessible-color, var\(--jpdb-reader-word-color-source, currentColor\)\) !important; -webkit-text-fill-color: var\(--jpdb-reader-word-accessible-color, var\(--jpdb-reader-word-color-source, currentColor\)\); text-shadow: var\(--jpdb-reader-word-contrast-shadow, none\); \}/);
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; --jpdb-reader-word-underline-offset: 0.12em; --jpdb-reader-word-underline-thickness: 0.12em; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
         expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
         expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
@@ -3454,7 +3454,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-jpdb-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-jpdb-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-anki-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-anki-decoration) 28%, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-subtitle-source-pitch-soft: color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 30%, transparent);');
-        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background-color: transparent !important; background-image: none !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; text-decoration-line: none !important; text-decoration-color: transparent !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; background-color: transparent !important; background-image: none !important; box-shadow: none; color: var(--jpdb-reader-subtitle-fallback, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-subtitle-fallback, currentColor); text-decoration-line: none !important; text-decoration-color: transparent !important;');
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-highlight-pitch ${subtitleSurfaces} .jpdb-reader-word${pitchClassSelector} { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-pitch-soft, var(--jpdb-reader-source-pitch-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-status ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-status-decoration); }`);
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-jpdb ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
@@ -3472,7 +3472,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).not.toContain('0 0 0 1px color-mix(in srgb, var(--jpdb-reader-subtitle-pitch-text) 56%, transparent)');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; }');
         expect(normalizedCss).toContain(':is(.jpdb-reader-popover, .yomu-jpdb-page-addon) [data-immersion-kit] .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-subtitle-primary { color: var(--subtitle-color); font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; }');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch) :is(.jpdb-reader-newtab-immersion, [data-immersion-kit]) .jpdb-reader-example-sentence.jpdb-reader-subtitle-surface .jpdb-reader-word { color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ) !important; -webkit-text-fill-color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor)) ); }');
         expect(normalizedCss).toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${underlineSurfaces} .jpdb-reader-word { text-decoration-line: none !important; }`);
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word::after { text-shadow: none !important; }');
         expect(normalizedCss).toContain(`.jpdb-reader-subtitle-underline-pitch ${underlineSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline-offset: .12em; --jpdb-reader-word-underline-thickness: .12em; text-decoration-thickness: .12em !important; text-underline-offset: .12em !important;`);
@@ -30206,7 +30206,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans stable mobile YouTube titles and passive watch chrome', () => {
+    it('scans stable mobile YouTube titles while leaving watch controls native', () => {
         const targets = collectYouTubeTargets(`
             <ytm-watch-metadata>
                 <ytm-slim-video-metadata-section-renderer>
@@ -30230,17 +30230,14 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '日本語タイトル',
             '説明文です',
-            '質問する',
-            '文字起こしを表示',
         ]));
         expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '52,551回視聴 2026/06/12',
+            '質問する',
+            '文字起こしを表示',
         ]));
-        expect(targets.find(target => target.text === '質問する')).toMatchObject({ passiveInteraction: true });
-        expect(targets.find(target => target.text === '文字起こしを表示')).toMatchObject({ passiveInteraction: true });
 
         const title = targets.find(target => target.text === '日本語タイトル')!;
-        const question = targets.find(target => target.text === '質問する')!;
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
             start: 0,
@@ -30250,24 +30247,14 @@ describe('reader helpers', () => {
             pitchClass: 'heiban',
             sentence: '日本語タイトル',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        applyTokensToScanTarget(question, [{
-            card: { ...card, cardState: ['known'], spelling: '質問', reading: 'しつもん', source: 'jpdb' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'しつもん', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '質問する',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const titleWord = document.querySelector<HTMLElement>('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')!;
-        const questionWord = document.querySelector<HTMLElement>('ytm-button-renderer .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('日本語');
         expect(titleWord.dataset.cardSource).toBe('jpdb');
         expect(titleWord.querySelector('rt')?.textContent).toBe('にほんご');
         expectRenderedPitchWord(titleWord, 'heiban');
-        expect(questionWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(questionWord.querySelector('rt')?.textContent).toBe('しつもん');
+        expect(document.querySelector('ytm-button-renderer .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word')).toBeNull();
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
@@ -30323,7 +30310,7 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toContain('コメント119です');
     });
 
-    it('scans Japanese YouTube live chat with passive chat UI controls', () => {
+    it('scans Japanese YouTube live chat while leaving chat UI controls native', () => {
         const targets = collectYouTubeTargets(`
             <yt-live-chat-app>
                 <yt-live-chat-text-message-renderer>
@@ -30337,9 +30324,8 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '先生',
             '今日はライブで日本語を聞いています。',
-            '返信',
         ]));
-        expect(targets.find(target => target.text === '返信')).toMatchObject({ passiveInteraction: true });
+        expect(targets.map(target => target.text)).not.toContain('返信');
     });
 
     it('keeps YouTube player settings submenu labels out of hover targets', () => {
@@ -30624,7 +30610,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('yt-touch-feedback-shape .jpdb-reader-word')).toBeNull();
     });
 
-    it('scans YouTube watch buttons as passive while ignoring aria-hidden feedback', () => {
+    it('keeps YouTube watch buttons native while ignoring aria-hidden feedback', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-watch-metadata>
                 <button type="button">
@@ -30636,24 +30622,9 @@ describe('reader helpers', () => {
             </ytd-watch-metadata>
         `);
 
-        expect(targets.map(target => target.text)).toContain('字幕を表示');
+        expect(targets.map(target => target.text)).not.toContain('字幕を表示');
         expect(targets.map(target => target.text)).not.toContain('押下中');
-        const captions = targets.find(target => target.text === '字幕を表示')!;
-        expect(captions).toMatchObject({ passiveInteraction: true });
-
-        applyTokensToScanTarget(captions, [{
-            card: { ...card, cardState: ['known'], spelling: '字幕', reading: 'じまく' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'じまく', start: 0, end: 2, length: 2 }],
-            pitchClass: '',
-            sentence: '字幕を表示',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('ytd-watch-metadata button .jpdb-reader-word')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.querySelector('rt')?.textContent).toBe('じまく');
+        expect(document.querySelector('ytd-watch-metadata button .jpdb-reader-word')).toBeNull();
     });
 
     it('falls back to generic scanning for parser sites that opt into page text', () => {
