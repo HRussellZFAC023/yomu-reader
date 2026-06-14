@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.196
+// @version      0.6.197
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-w06sqSzHtXx3m4X9sQbdgiKiNBq1GN0+WJmOJfQh6Ig=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-DrhFslOlxdeaX9QEdkeeNPB1wl0GRARkAMtTJb5yUvo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TdOluW/F2SxajHcnCDJf+wkY/j9mIrTFwPeMzulewmo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-gu7rJydNXSagSnZN/Qj8rSvtIGBYeDuCzJsL0yTfdIw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Of9qwpzZPxMzPXUVOx6Ekn+4LGH281WwbTraYTpuZ1E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-/2KVxfQejMacYFI32yTjZY9CH54KU3PUS/B44MVEqh8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-X+mVk0L56vV15A+mEx8tHw2AW74IVyd4y/HSVETolOc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-54EiLpfEydXRereZgEBy7lg1EhMjdG+Yoq8WhWculZs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2143,6 +2143,7 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
+    ocrVideoFrameStatusCard: true,
     ocrShowTextOverlay: false,
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
@@ -2525,6 +2526,7 @@
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
+      ocrVideoFrameStatusCard: booleanSetting(value, "ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -6166,6 +6168,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       cloudVision: "Google Cloud Vision",
@@ -6527,6 +6530,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
+      ocrHidePausedFrameStatusCard: "Hide status card",
       ocrPausedFrameScanning: "Reading paused frame...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
@@ -7236,6 +7240,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrHidePausedFrameStatusCard	ステータスカードを非表示
 ocrPausedFrameScanning	一時停止フレームを読み取り中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
@@ -7678,6 +7683,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
@@ -9370,6 +9376,7 @@ recommendedJiten	jiten.moe頻度データです。
   const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
   const READY_AUDIO_CACHE_LIMIT = 160;
   const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
+  const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
@@ -9396,6 +9403,7 @@ recommendedJiten	jiten.moe頻度データです。
     jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     readyAudioCache = /* @__PURE__ */ new Map();
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
+    gestureReservation;
     clearCaches() {
       this.candidateCache.clear();
       this.blobUrlCache.clear();
@@ -9408,8 +9416,8 @@ recommendedJiten	jiten.moe頻度データです。
       this.ensureAudioEnabled(request.settings);
       if (!canAttemptAudiblePlayback(request.userGesture)) return false;
       if (!request.isCurrent()) return false;
-      this.stopCurrent();
-      const reservedAudio = this.reserveGestureAudioElement(request);
+      const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
+      this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
       const done = log$n.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
@@ -9434,6 +9442,31 @@ recommendedJiten	jiten.moe頻度データです。
       const audio = reserveGestureAudioElement((audioUrl) => this.createAudioElement(audioUrl));
       this.current = audio;
       return audio;
+    }
+    primeUserGesture() {
+      const request = this.audioPlaybackRequest({ userGesture: true });
+      if (!request.settings.audioEnabled || !shouldReserveGestureAudioElement(request)) return false;
+      this.releaseGestureReservation();
+      this.stopCurrent();
+      const audio = this.reserveCurrentGestureAudioElement();
+      this.gestureReservation = {
+        audio,
+        expiresAt: Date.now() + GESTURE_AUDIO_RESERVATION_TTL_MS,
+        timer: window.setTimeout(() => this.expireGestureReservation(audio), GESTURE_AUDIO_RESERVATION_TTL_MS)
+      };
+      return true;
+    }
+    takeGestureAudioElement(request) {
+      if (!shouldReserveGestureAudioElement(request)) return void 0;
+      const reservation = this.gestureReservation;
+      if (!reservation) return void 0;
+      this.gestureReservation = void 0;
+      window.clearTimeout(reservation.timer);
+      if (reservation.expiresAt < Date.now()) {
+        if (this.current === reservation.audio) this.stopCurrent();
+        return void 0;
+      }
+      return reservation.audio;
     }
     ensureAudioEnabled(settings) {
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
@@ -9550,7 +9583,6 @@ recommendedJiten	jiten.moe頻度データです。
         return result;
       } catch (error) {
         context.errors.push(error instanceof Error ? error.message : String(error));
-        if (error instanceof AudioPlaybackAttemptError) return "playback-error";
         this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
         return "miss";
       }
@@ -9675,9 +9707,9 @@ recommendedJiten	jiten.moe頻度データです。
         });
       }, { once: true });
     }
-    stopCurrent() {
-      this.current?.pause();
-      this.current = void 0;
+    stopCurrent(except) {
+      if (this.current && this.current !== except) this.current.pause();
+      this.current = except;
       if (this.utterance) {
         speechSynthesis.cancel();
         this.utterance = void 0;
@@ -9686,6 +9718,18 @@ recommendedJiten	jiten.moe頻度データです。
         void this.fallbackChimeContext.close().catch(() => void 0);
         this.fallbackChimeContext = void 0;
       }
+    }
+    releaseGestureReservation() {
+      const reservation = this.gestureReservation;
+      if (!reservation) return;
+      this.gestureReservation = void 0;
+      window.clearTimeout(reservation.timer);
+    }
+    expireGestureReservation(audio) {
+      const reservation = this.gestureReservation;
+      if (!reservation || reservation.audio !== audio) return;
+      this.gestureReservation = void 0;
+      if (this.current === audio) this.stopCurrent();
     }
     async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
       const { source } = sourceEntry;
@@ -10058,7 +10102,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function audioPlaybackAttemptResult(error, errors) {
     errors.push(error instanceof Error ? error.message : String(error));
-    return error instanceof AudioPlaybackAttemptError ? "playback-error" : "miss";
+    return "miss";
   }
   async function runLimited(items, concurrency, worker) {
     if (!items.length) return;
@@ -11845,6 +11889,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -18238,6 +18283,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
   const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
   const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
   const POPOVER_BODY_ACTION_SELECTOR = [
     "button",
     '[role="button"]',
@@ -18708,13 +18755,33 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
     root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
     let suppressNextHandleClick = false;
-    const getHandleFromEvent = (event) => {
-      if (!(event instanceof Element)) return null;
-      const target = event.closest(".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter");
+    let cleanedUp = false;
+    const getHandleFromElement = (event) => {
+      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
       if (!target || !root.contains(target)) return null;
-      const handle = target.matches(".jpdb-reader-mining-drawer-handle") ? target : target.querySelector(".jpdb-reader-mining-drawer-handle");
+      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
       if (!handle) return null;
       return handle;
+    };
+    const getHandleFromEventTarget = (event) => {
+      return event instanceof Element ? getHandleFromElement(event) : null;
+    };
+    const getHandleFromPoint = (x, y) => {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const handle = getHandleFromElement(element2);
+        if (handle) return handle;
+      }
+      return null;
+    };
+    const getHandleFromPointerEvent = (event) => {
+      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+    };
+    const getHandleFromTouchEvent = (event) => {
+      const direct = getHandleFromEventTarget(event.target);
+      if (direct) return direct;
+      const touch = firstChangedTouch(event);
+      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
     };
     const miningDrag = createHandleDragController({
       tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
@@ -18733,31 +18800,52 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
       }
     });
-    root.addEventListener("click", (event) => {
-      const handle = getHandleFromEvent(event.target);
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      miningDrag.cleanupListeners();
+    };
+    const rootIsConnected = () => {
+      if (root.isConnected) return true;
+      cleanup();
+      return false;
+    };
+    const toggleHandle = (handle) => {
+      setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
+    };
+    function handleClick(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
-      if (suppressNextHandleClick) {
-        suppressNextHandleClick = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      const target = event.target;
-      if (target instanceof Element && target.closest(".jpdb-reader-mining-drawer-handle") === handle) return;
       event.preventDefault();
       event.stopPropagation();
-      handle.click();
-    }, true);
-    root.addEventListener("pointerdown", (event) => {
-      const handle = getHandleFromEvent(event.target);
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      toggleHandle(handle);
+    }
+    function handlePointerDown(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
       miningDrag.pointerDown(handle, event);
-    });
-    root.addEventListener("touchstart", (event) => {
-      const handle = getHandleFromEvent(event.target);
+    }
+    function handleTouchStart(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromTouchEvent(event);
       if (!handle) return;
       miningDrag.touchStart(handle, event);
-    }, { capture: true, passive: false });
+    }
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+  }
+  function eventHasPointTarget(event) {
+    return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
   }
   function shouldUseSheet(settings) {
     if (settings.popupMode === "sheet") return true;
@@ -32215,7 +32303,13 @@ ${glossaryKey}`;
     return !isYouTubeHostForAutoScan();
   }
   function allowsFrequentVisibleAutoScan() {
-    return !isYouTubeHostForAutoScan();
+    return true;
+  }
+  function visibleAutoScanMutationDelay(defaultDelay = 450) {
+    return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
+  }
+  function visibleAutoScanInitialDelay(defaultDelay = 600) {
+    return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
   }
   function isYouTubeHostForAutoScan(hostname = location.hostname) {
     return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
@@ -34136,8 +34230,27 @@ ${glossaryKey}`;
       this.dependencies = dependencies;
     }
     loadingRequest = 0;
+    inFlightTermAudio;
+    lastAutoTermAudio;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
+      const key = termAudioRequestKey(card, options);
+      if (this.inFlightTermAudio?.key === key) {
+        await this.inFlightTermAudio.promise;
+        return;
+      }
+      const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
+      if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
+      const promise = this.playTermAudioOnce(card, options);
+      this.inFlightTermAudio = { key, promise };
+      try {
+        const played = await promise;
+        if (options.autoPlay && played) this.lastAutoTermAudio = { key: autoKey, at: Date.now() };
+      } finally {
+        if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = void 0;
+      }
+    }
+    async playTermAudioOnce(card, options = {}) {
       const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
       const loadingPopover = this.dependencies.getActivePopover();
       const loadingRequest = ++this.loadingRequest;
@@ -34145,13 +34258,21 @@ ${glossaryKey}`;
       try {
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
-        if (!played) return;
+        return played;
       } catch (error) {
         log$3.warn("Term audio playback failed", { term: card.spelling }, error);
         this.dependencies.toast(this.audioErrorMessage(error));
+        return false;
       } finally {
         this.clearLoading(loadingPopover, loadingRequest);
       }
+    }
+    consumeRecentAutoTermAudio(key) {
+      const recent = this.lastAutoTermAudio;
+      if (!recent || recent.key !== key) return false;
+      if (Date.now() - recent.at > 250) return false;
+      this.lastAutoTermAudio = { key, at: Date.now() };
+      return true;
     }
     async playSentenceAudio(sentence) {
       if (!this.ensureAudioEnabled()) return;
@@ -34196,6 +34317,21 @@ ${glossaryKey}`;
       delete popover.dataset.audioLoadingRequest;
     }
   }
+  function termAudioRequestKey(card, options) {
+    return [
+      card.source ?? "",
+      String(card.vid ?? ""),
+      String(card.sid ?? ""),
+      String(card.rid ?? ""),
+      card.spelling,
+      card.reading,
+      options.userGesture ? "gesture" : "auto",
+      options.hoverLookupGeneration === void 0 ? "" : String(options.hoverLookupGeneration)
+    ].join("\0");
+  }
+  function termAudioAutoRequestKey(card) {
+    return card.spelling;
+  }
   function canAttemptReaderAutoAudio(options) {
     if (!options.settings.audioEnabled || !options.settings.autoPlayAudio) return false;
     if (shouldSuppressAutoAudioForVideo(options)) return false;
@@ -34203,6 +34339,7 @@ ${glossaryKey}`;
     return canAttemptAudiblePlayback(options.userGesture);
   }
   function shouldSuppressAutoAudioForVideo(options) {
+    if (options.userGesture) return false;
     return options.settings.suppressAutoAudioOnVideo && (Boolean(options.anchor?.closest(options.subtitleSurfaceSelector)) || hasVisiblePageVideo());
   }
   function shouldAutoPlayForTrigger(settings, trigger) {
@@ -36059,6 +36196,11 @@ ${glossaryKey}`;
       window.clearTimeout(this.clampSweepTimer);
       this.clampSweepTimer = void 0;
     }
+    interruptVisiblePageScan() {
+      this.scanGeneration++;
+      this.scanPending = false;
+      this.scanPendingSilent = true;
+    }
     async scanVisiblePage(options = {}) {
       const silent = Boolean(options.silent);
       this.scanGeneration++;
@@ -36196,7 +36338,7 @@ ${glossaryKey}`;
         const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
         if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
-        const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings);
+        const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
         applyAnkiColors?.(changedRoots);
         this.preloadParsed(parsed, changedRoots, {
           skipAnki: Boolean(applyAnkiColors),
@@ -36206,29 +36348,35 @@ ${glossaryKey}`;
       }
       return parsedAnyTokens;
     }
-    async applyTokens(targets, parsed, scanStartSettings) {
+    async applyTokens(targets, parsed, scanStartSettings, generation) {
       const allChangedRoots = /* @__PURE__ */ new Set();
       const applyBatchSize = visibleScanApplyBatchSize(scanStartSettings);
       for (let index = 0; index < targets.length; index += applyBatchSize) {
-        if (this.destroyed) return [...allChangedRoots];
+        if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
         const start = index;
         const batch = targets.slice(start, start + applyBatchSize);
         this.dependencies.pauseMutationObserver(() => {
-          if (this.destroyed) return;
+          if (this.shouldStopApplyingTokens(generation)) return;
           const changedRoots = /* @__PURE__ */ new Set();
           const applyPlans = scanApplyPlans(batch, parsed, start);
           applyPlans.forEach(({ target, tokens }) => {
-            if (this.destroyed) return;
+            if (this.shouldStopApplyingTokens(generation)) return;
             if (!isCurrentScanTarget(target)) return;
             applyTokensToScanTarget(target, tokens, this.dependencies.getSettings());
             changedRoots.add(target.parent);
           });
-          changedRoots.forEach((root) => allChangedRoots.add(root));
+          changedRoots.forEach((root) => {
+            allChangedRoots.add(root);
+            makeRoomForRubyInCroppedRows(root);
+          });
         });
         if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
       }
       allChangedRoots.forEach((root) => this.dependencies.refreshWordContrast?.(root));
       return [...allChangedRoots];
+    }
+    shouldStopApplyingTokens(generation) {
+      return this.destroyed || generation !== void 0 && this.isStaleScan(generation);
     }
     preloadParsed(parsed, changedRoots = [], options = {}) {
       if (this.destroyed) return;
@@ -36288,6 +36436,7 @@ ${glossaryKey}`;
   }
   function visibleScanTargetCollectionLimit(settings) {
     if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_COLLECTION_LIMIT;
+    if (isYouTubeVisibleScanHost()) return VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT;
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
   }
   function visibleScanTargetTextChunkSize(settings) {
@@ -36300,6 +36449,9 @@ ${glossaryKey}`;
   }
   function isNarrowVisibleScanViewport() {
     return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
+  }
+  function isYouTubeVisibleScanHost(hostname = location.hostname) {
+    return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
   }
   function hasJpdbParseApiKey(settings) {
     return Boolean(settings.apiKey.trim());
@@ -36655,6 +36807,16 @@ ${glossaryKey}`;
     'button[name="r"]',
     'input[name="r"]'
   ].join(",");
+  function currentFullscreenElement() {
+    const fullscreenDocument = document;
+    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+  }
+  function fullscreenPopoverMountParent(anchor) {
+    const fullscreenElement = currentFullscreenElement();
+    if (!(fullscreenElement instanceof HTMLElement) || fullscreenElement instanceof HTMLVideoElement) return void 0;
+    if (anchor && fullscreenElement.contains(anchor)) return fullscreenElement;
+    return void 0;
+  }
   class ReaderApp {
     abortController = new AbortController();
     isDestroyed = false;
@@ -36938,6 +37100,7 @@ ${glossaryKey}`;
       }
       return new Controller({
         getSettings: () => this.settings,
+        setVideoFrameStatusCardVisible: (visible) => this.setOcrVideoFrameStatusCardVisible(visible),
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onToast: (message) => this.toast(message),
@@ -37084,6 +37247,14 @@ ${glossaryKey}`;
       await saveSettings(this.settings);
       this.youtube.refresh();
       log.info("YouTube channel recommendations changed", { visible });
+    }
+    setOcrVideoFrameStatusCardVisible(visible) {
+      if (this.settings.ocrVideoFrameStatusCard === visible) return;
+      this.settings = { ...this.settings, ocrVideoFrameStatusCard: visible };
+      document.querySelectorAll('input[name="ocrVideoFrameStatusCard"]').forEach((input) => {
+        input.checked = visible;
+      });
+      void saveSettings(this.settings);
     }
     async setInterfaceLanguage(language) {
       if (this.settings.interfaceLanguage === language) return;
@@ -37504,7 +37675,7 @@ ${glossaryKey}`;
         else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
         else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
           this.pageHasJapaneseText = true;
-          this.scheduleAutoScan(450);
+          this.scheduleAutoScan(visibleAutoScanMutationDelay());
         }
         if (isJitenHost()) {
           if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
@@ -37514,13 +37685,13 @@ ${glossaryKey}`;
       });
       this.observeAutoScanMutations();
       window.addEventListener("scroll", () => {
-        if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(160, { force: true });
+        this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true });
       }, { passive: true });
       window.addEventListener("resize", () => {
-        if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(250, { force: true });
+        this.scheduleAutoScan(250, { force: true });
       }, { passive: true });
       window.addEventListener("resize", () => this.scheduleJpdbPageEnhancements(700), { passive: true });
-      if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(600);
+      if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
     }
     observeAutoScanMutations() {
       this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
@@ -37604,6 +37775,7 @@ ${glossaryKey}`;
         event.stopPropagation();
       }, { capture: true });
       document.addEventListener("pointerdown", (event) => {
+        if (this.isMiningDrawerHandlePointerEvent(event)) return;
         this.suppressHoverAfterPenContact(event);
         this.dismissModalPopoverForOutsidePointer(event);
         this.dismissHoverPopoverForOutsidePointer(event);
@@ -37662,6 +37834,7 @@ ${glossaryKey}`;
     }
     handleDocumentClick(event) {
       if (this.isDestroyed) return;
+      if (this.isMiningDrawerHandlePointerEvent(event)) return;
       const target = event.target;
       if (shouldIgnoreDocumentClickTarget(target)) return;
       const word = this.readerWordForPointerEvent(event);
@@ -37928,6 +38101,12 @@ ${glossaryKey}`;
       this.lastPointerPosition = { x: event.clientX, y: event.clientY };
       this.cancelPendingHoverLookup();
       this.cancelHoverClose();
+      this.primeLookupAudioFromGesture();
+    }
+    primeLookupAudioFromGesture() {
+      if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+      if (this.settings.audioAutoPlayMode === "hover") return;
+      this.audio.primeUserGesture();
     }
     createPressLookup(event, isMiddleScan) {
       return {
@@ -38269,6 +38448,29 @@ ${glossaryKey}`;
       if (direct) return direct;
       return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
     }
+    isMiningDrawerHandlePointerEvent(event) {
+      return Boolean(this.miningDrawerHandleFromEventTarget(event.target) ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
+    }
+    eventHasPointTarget(event) {
+      return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+    }
+    miningDrawerHandleFromEventTarget(target) {
+      return target instanceof Element ? this.miningDrawerHandleFromElement(target) : null;
+    }
+    miningDrawerHandleFromPoint(x, y) {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element2 of document.elementsFromPoint(x, y)) {
+        const handle = this.miningDrawerHandleFromElement(element2);
+        if (handle) return handle;
+      }
+      return null;
+    }
+    miningDrawerHandleFromElement(element2) {
+      const target = element2.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+      const handle = target?.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target?.querySelector(MINING_DRAWER_HANDLE_SELECTOR) ?? null;
+      if (!handle?.isConnected) return null;
+      return handle.closest("[data-jpdb-reader-root], .jpdb-reader-popover") ? handle : null;
+    }
     ocrLineWordForPointer(target, x, y) {
       const line = target?.closest?.(".jpdb-ocr-line");
       return line ? ocrLineWordAtPoint(line, x, y) : null;
@@ -38289,6 +38491,7 @@ ${glossaryKey}`;
       this.cancelMissingPointerTextCandidate(candidate);
       this.scheduleInactiveHoverClose();
       if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
+      this.pageScanner.interruptVisiblePageScan();
       this.rememberHoverPopoverPointer(event);
       this.schedulePointerTextLookup(candidate, event);
     }
@@ -38319,6 +38522,7 @@ ${glossaryKey}`;
         return;
       }
       if (!this.shouldLookupOnHover(event)) return;
+      this.pageScanner.interruptVisiblePageScan();
       this.preloadHoverWordAudio(word);
       this.scheduleHoverLookup(word, event);
     }
@@ -38863,6 +39067,7 @@ ${glossaryKey}`;
       if (!nestedWord || !this.shouldLookupNestedDictionaryWord(nestedWord, query)) return false;
       event.preventDefault();
       event.stopPropagation();
+      this.primeLookupAudioFromGesture();
       void this.showWord(nestedWord, {
         trigger: "click",
         navigation: trigger === "modal" ? "push-current" : "reset",
@@ -38940,6 +39145,7 @@ ${glossaryKey}`;
       return Boolean(target.closest("[data-jpdb-reader-root] [data-immersion-kit] .jpdb-reader-example-sentence"));
     }
     async showLookupCandidate(candidate, trigger, options = {}) {
+      if (trigger === "hover") this.pageScanner.interruptVisiblePageScan();
       const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
       if (!sentence) return;
       const done = log.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
@@ -39143,6 +39349,7 @@ ${glossaryKey}`;
       return end - start <= 1 && candidate.end - candidate.start > 1;
     }
     async showWord(word, options = {}) {
+      if (options.trigger === "hover") this.pageScanner.interruptVisiblePageScan();
       if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
       const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
       const stackOverSettings = options.stackOverSettings || Boolean(word.closest(".jpdb-reader-settings"));
@@ -39527,6 +39734,10 @@ ${glossaryKey}`;
         return;
       }
       try {
+        if (trigger === "hover") {
+          await waitForHoverCardInitialPaint();
+          if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+        }
         renderData = loadRenderData();
         const renderState = { fullRenderCompleted: false };
         this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
@@ -39636,7 +39847,8 @@ ${glossaryKey}`;
       void this.audioActions.playTermAudio(card, {
         hoverLookupGeneration: context.hoverLookupGeneration,
         userGesture: context.options.userGesture,
-        isCurrent: context.trigger === "hover" ? context.isCurrentHoverCard : void 0
+        isCurrent: context.trigger === "hover" ? context.isCurrentHoverCard : void 0,
+        autoPlay: true
       });
     }
     maybePreloadLookupCardAudio(card, options, anchor) {
@@ -41265,7 +41477,8 @@ ${glossaryKey}`;
       const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
       const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : void 0;
       const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
-      return { mode, backdrop, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+      const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
+      return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
     }
     settingsStackForMountedPopover(options) {
       return this.activeSettingsLookupStack() ?? (options.stackOverSettings ? this.currentSettingsDialogStack() : void 0);
@@ -41293,9 +41506,10 @@ ${glossaryKey}`;
     }
     appendMountedPopover(popover, state) {
       const useBackdrop = Boolean(state.backdrop);
+      const mountParent = state.mountParent ?? document.body;
       popover.setAttribute("aria-modal", String(useBackdrop));
-      if (state.backdrop) document.body.append(state.backdrop, popover);
-      else document.body.append(popover);
+      if (state.backdrop) mountParent.append(state.backdrop, popover);
+      else mountParent.append(popover);
     }
     activateMountedPopover(popover, state, options) {
       this.activeBackdrop = state.backdrop;
@@ -41622,6 +41836,9 @@ ${glossaryKey}`;
   }
   function nestedParseApiTimeoutMs(options) {
     return options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? 1200;
+  }
+  function waitForHoverCardInitialPaint() {
+    return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
   }
   function nestedParseAllowApiTimeoutFallback(options) {
     return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ?? false;

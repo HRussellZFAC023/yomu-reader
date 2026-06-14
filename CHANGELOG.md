@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.197] - 2026-06-14
+
+### Performance
+
+- YouTube homepage, feed, watch-page, description, and comment rescans now use the narrow YouTube site parser with a shorter mutation/initial delay while the broad generic fallback stays disabled for YouTube chrome. This restores fast ruby coverage for newly loaded video cards without re-attaching to player controls.
+- Hover lookups now interrupt in-flight visible-page scans before doing dictionary work, and stale scans stop before applying DOM tokens. This keeps word-to-word popovers responsive while long descriptions/comments continue annotating in the background.
+- Hover popover shells yield one animation frame before heavier dictionary hydration, so the card can appear promptly under scan stress instead of waiting behind rendering work.
+- Term-audio hover playback now coalesces duplicate in-flight requests and suppresses only successful immediate duplicate autoplay attempts. Manual replay still works, and random audio selection keeps rotating through shuffled candidates instead of always using the first returned clip.
+
+### Fixed
+
+- YouTube OCR/status text and subtitles remain eligible for ruby/pitch colorization while avoiding repeated raw-text removal/addition loops from stale parser output.
+
 ## [0.6.196] - 2026-06-13
 
 ### Performance

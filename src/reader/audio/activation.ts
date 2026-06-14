@@ -18,6 +18,7 @@ export function canAttemptReaderAutoAudio(options: ReaderAutoAudioActivationOpti
 }
 
 function shouldSuppressAutoAudioForVideo(options: ReaderAutoAudioActivationOptions): boolean {
+    if (options.userGesture) return false;
     return options.settings.suppressAutoAudioOnVideo
         && (Boolean(options.anchor?.closest(options.subtitleSurfaceSelector)) || hasVisiblePageVideo());
 }

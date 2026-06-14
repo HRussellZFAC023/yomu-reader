@@ -1497,6 +1497,13 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-newtab-status-light[data-source="jiten"] { background: var(--jpdb-reader-state-learning);');
     });
 
+    it('keeps the in-page deck selector width stable while options hydrate', () => {
+        const rule = newTabCssRule('.jpdb-reader-newtab-deck');
+
+        expect(rule).toContain('box-sizing: border-box;');
+        expect(rule).toContain('width: min(320px, 80vw);');
+    });
+
     it('keeps the mobile new-tab mode switch on its own compact header row', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
 
@@ -4106,6 +4113,39 @@ describe('new tab review helpers', () => {
             });
         } finally {
             resetNewTabReviewStorage();
+        }
+    });
+
+    it('keeps the JPDB deck selector populated while deck options are fetching', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            newTabJpdbDeck: 'deck',
+        };
+        const decks = deferred<Array<{ id: string; name: string; vocabularyCount?: number; knownCoverage?: number }>>();
+        const controller = newTabPromptController(settings);
+        const internals = controller as unknown as {
+            dependencies: { jpdb: { listDecks?: () => Promise<Array<{ id: string; name: string; vocabularyCount?: number; knownCoverage?: number }>> } };
+            populateDeckSelector(select: HTMLSelectElement, settings: NewTabSettings): Promise<void>;
+        };
+        internals.dependencies.jpdb.listDecks = vi.fn(() => decks.promise);
+        const select = document.createElement('select');
+        document.body.append(select);
+
+        try {
+            const populate = internals.populateDeckSelector(select, settings);
+            expect([...select.options].map(option => option.value)).toEqual(['deck']);
+            expect(select.textContent).toBe('deck');
+            expect(select.value).toBe('deck');
+
+            decks.resolve([{ id: 'deck', name: '誕生日', vocabularyCount: 39, knownCoverage: 65.12 }]);
+            await populate;
+
+            expect([...select.options].map(option => option.textContent)).toContain('誕生日 · 39 · 65%');
+            expect(select.value).toBe('deck');
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
         }
     });
 

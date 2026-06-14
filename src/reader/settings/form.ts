@@ -665,6 +665,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
                     ${checkbox('ocrVideoPauseFrames', 'Read paused video frames', settings.ocrVideoPauseFrames)}
+                    ${checkbox('ocrVideoFrameStatusCard', 'Show paused-frame status card', settings.ocrVideoFrameStatusCard)}
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['cloud-vision', 'Google Cloud Vision'], ['local-service', 'Local OCR engine'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
@@ -1624,7 +1625,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrVideoFrameStatusCard', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',

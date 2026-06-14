@@ -496,6 +496,21 @@ describe('settings form localization', () => {
         expect(saved.shortcuts.scanImages).toBe('Ctrl+I');
     });
 
+    it('persists the paused-frame OCR status card reset setting', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const statusCard = form.querySelector<HTMLInputElement>('input[name="ocrVideoFrameStatusCard"]')!;
+
+        expect(DEFAULT_SETTINGS.ocrVideoFrameStatusCard).toBe(true);
+        expect(statusCard.checked).toBe(true);
+        expect(labelForControl(form, 'ocrVideoFrameStatusCard')).toBe('Show paused-frame status card');
+
+        statusCard.checked = false;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.ocrVideoFrameStatusCard).toBe(false);
+    });
+
     it('migrates only legacy-default-looking Anki settings away from noisy mobile defaults', () => {
         const migrated = normalizeReaderSettings(legacyStoredSettings({
             ankiEnabled: true,

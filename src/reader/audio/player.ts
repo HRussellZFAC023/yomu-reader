@@ -112,6 +112,7 @@ const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
 const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
 const READY_AUDIO_CACHE_LIMIT = 160;
 const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
+const GESTURE_AUDIO_RESERVATION_TTL_MS = 8000;
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
@@ -150,6 +151,7 @@ export class AudioPlayer {
     private jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     private readyAudioCache = new Map<string, { expiresAt: number; promise: Promise<HTMLAudioElement> }>();
     private unavailableJpdbAudioIds = new Map<string, number>();
+    private gestureReservation?: { audio: HTMLAudioElement; expiresAt: number; timer: number };
 
     constructor(private getSettings: () => ReaderSettings) {}
 
@@ -166,8 +168,8 @@ export class AudioPlayer {
         this.ensureAudioEnabled(request.settings);
         if (!canAttemptAudiblePlayback(request.userGesture)) return false;
         if (!request.isCurrent()) return false;
-        this.stopCurrent();
-        const reservedAudio = this.reserveGestureAudioElement(request);
+        const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
+        this.stopCurrent(reservedAudio);
         if (!request.sources.length) return await this.playNoAudioSources(card, request);
 
         const done = log.time('play', { term: card.spelling, sources: request.sources.map(source => source.type), viaBlob: true });
@@ -196,6 +198,33 @@ export class AudioPlayer {
         const audio = reserveGestureAudioElement(audioUrl => this.createAudioElement(audioUrl));
         this.current = audio;
         return audio;
+    }
+
+    primeUserGesture(): boolean {
+        const request = this.audioPlaybackRequest({ userGesture: true });
+        if (!request.settings.audioEnabled || !shouldReserveGestureAudioElement(request)) return false;
+        this.releaseGestureReservation();
+        this.stopCurrent();
+        const audio = this.reserveCurrentGestureAudioElement();
+        this.gestureReservation = {
+            audio,
+            expiresAt: Date.now() + GESTURE_AUDIO_RESERVATION_TTL_MS,
+            timer: window.setTimeout(() => this.expireGestureReservation(audio), GESTURE_AUDIO_RESERVATION_TTL_MS),
+        };
+        return true;
+    }
+
+    private takeGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
+        if (!shouldReserveGestureAudioElement(request)) return undefined;
+        const reservation = this.gestureReservation;
+        if (!reservation) return undefined;
+        this.gestureReservation = undefined;
+        window.clearTimeout(reservation.timer);
+        if (reservation.expiresAt < Date.now()) {
+            if (this.current === reservation.audio) this.stopCurrent();
+            return undefined;
+        }
+        return reservation.audio;
     }
 
     private ensureAudioEnabled(settings: ReaderSettings): void {
@@ -376,7 +405,6 @@ export class AudioPlayer {
             return result;
         } catch (error) {
             context.errors.push(error instanceof Error ? error.message : String(error));
-            if (error instanceof AudioPlaybackAttemptError) return 'playback-error';
             this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
             return 'miss';
         }
@@ -546,9 +574,9 @@ export class AudioPlayer {
         }, { once: true });
     }
 
-    private stopCurrent(): void {
-        this.current?.pause();
-        this.current = undefined;
+    private stopCurrent(except?: HTMLAudioElement): void {
+        if (this.current && this.current !== except) this.current.pause();
+        this.current = except;
         if (this.utterance) {
             speechSynthesis.cancel();
             this.utterance = undefined;
@@ -557,6 +585,20 @@ export class AudioPlayer {
             void this.fallbackChimeContext.close().catch(() => undefined);
             this.fallbackChimeContext = undefined;
         }
+    }
+
+    private releaseGestureReservation(): void {
+        const reservation = this.gestureReservation;
+        if (!reservation) return;
+        this.gestureReservation = undefined;
+        window.clearTimeout(reservation.timer);
+    }
+
+    private expireGestureReservation(audio: HTMLAudioElement): void {
+        const reservation = this.gestureReservation;
+        if (!reservation || reservation.audio !== audio) return;
+        this.gestureReservation = undefined;
+        if (this.current === audio) this.stopCurrent();
     }
 
     private async playFromSource(
@@ -1033,5 +1075,5 @@ function delayAudioSourceRace(ms: number): { promise: Promise<null>; cancel: () 
 
 function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {
     errors.push(error instanceof Error ? error.message : String(error));
-    return error instanceof AudioPlaybackAttemptError ? 'playback-error' : 'miss';
+    return 'miss';
 }

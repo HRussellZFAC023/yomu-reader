@@ -1123,6 +1123,7 @@ export class SubtitlePlayerController {
     private tickSubtitlePlayer(settings: ReaderSettings): void {
         this.refreshSubtitleSourcesForTick();
         this.refreshNativeCueLists();
+        this.setNativeTrackModes();
         this.updateFromLoadedCues();
         this.syncPlayerChromeIdleState();
         this.syncAsbPlayerSubtitleMoveHandles(settings);
@@ -4292,6 +4293,7 @@ export class SubtitlePlayerController {
 
     private shouldHostSubtitleRootInFullscreenElement(fullscreenElement: Element | null): fullscreenElement is HTMLElement {
         return Boolean(fullscreenElement instanceof HTMLElement
+            && !(fullscreenElement instanceof HTMLVideoElement)
             && this.video
             && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
     }

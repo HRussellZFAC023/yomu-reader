@@ -4,6 +4,7 @@ import { applySubtitleNativeTrackModes } from '../../src/reader/subtitles/subtit
 describe('subtitle native track modes', () => {
     afterEach(() => {
         document.body.innerHTML = '';
+        document.documentElement.classList.remove('jpdb-subtitle-native-captions-suppressed');
         vi.unstubAllGlobals();
     });
 
@@ -48,6 +49,45 @@ describe('subtitle native track modes', () => {
         expect(defaultCaption.mode).toBe('disabled');
         expect(toggleCaptions).toHaveBeenCalledWith(false);
         expect(document.querySelector('[data-plyr="captions"]')?.getAttribute('aria-pressed')).toBe('false');
+        expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+    });
+
+    it('turns Vidstack captions off through the selected media text track', () => {
+        document.body.innerHTML = `
+            <media-player>
+                <media-provider><video></video></media-provider>
+                <media-captions class="vds-captions"></media-captions>
+                <media-caption-button aria-pressed="true" data-pressed></media-caption-button>
+            </media-player>
+        `;
+        const video = document.querySelector('video')!;
+        const button = document.querySelector<HTMLElement>('media-caption-button')!;
+        const selected = { mode: 'showing' };
+        const textTracks = [selected] as Array<{ mode: string }> & { selected?: { mode: string } | null };
+        textTracks.selected = selected;
+        Object.defineProperty(document.querySelector('media-player'), 'textTracks', {
+            configurable: true,
+            value: textTracks,
+        });
+        const click = vi.fn();
+        button.addEventListener('click', click);
+
+        applySubtitleNativeTrackModes({
+            tracks: [],
+            selectedTrackId: '',
+            secondaryTrackId: '',
+            overlayVisible: false,
+            suppressNativeCaptions: true,
+            video,
+            hasPrimaryCues: false,
+            currentCueText: undefined,
+            youtubeDomCaptionFallbackTrackId: '',
+            lastYomuCaptionsActive: false,
+        });
+
+        expect(selected.mode).toBe('disabled');
+        expect(click).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
     });
 
     it('disables page CC even when Yomu has not selected a track yet', () => {

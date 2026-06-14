@@ -70,7 +70,7 @@ const pages = [
         viewport: { width: 1280, height: 900 },
         html: youtubeShell(`
             <ytd-app>
-              <ytd-masthead class="topbar"><strong>YouTube</strong><button data-proof-target data-proof-text="字幕を表示">字幕を表示</button></ytd-masthead>
+              <ytd-masthead class="topbar"><strong>YouTube</strong><button data-proof-hidden>字幕を表示</button></ytd-masthead>
               <ytd-rich-grid-renderer class="grid">
                 <ytd-rich-item-renderer class="card">
                   <div class="thumb"></div>
@@ -136,7 +136,7 @@ const pages = [
                     <div id="description-inline-expander" data-proof-target data-proof-text="復習用の説明で日本語を勉強します">復習用の説明で日本語を勉強します</div>
                     <button type="button">
                       <yt-touch-feedback-shape aria-hidden="true" class="ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse" data-proof-hidden><div>押下中</div></yt-touch-feedback-shape>
-                      <span data-proof-target data-proof-text="字幕を表示">字幕を表示</span>
+                      <span data-proof-hidden>字幕を表示</span>
                     </button>
                   </ytd-watch-metadata>
                   <ytd-comments>
@@ -168,9 +168,12 @@ const pages = [
                 <div class="player mobile-player">Mobile watch fixture</div>
                 <ytm-slim-video-metadata-section-renderer>
                   <h1><span class="slim-video-metadata-title" data-proof-target data-proof-text="日本語タイトルと字幕">日本語タイトルと字幕</span></h1>
-                  <div class="slim-video-metadata-info" data-proof-target data-proof-text="説明文で復習します">説明文で復習します</div>
-                  <ytm-button-renderer><button data-proof-target data-proof-text="文字起こしを表示">文字起こしを表示</button></ytm-button-renderer>
+                  <div class="slim-video-metadata-info">52,551回視聴 2026/06/12</div>
+                  <ytm-button-renderer><button data-proof-hidden>文字起こしを表示</button></ytm-button-renderer>
                 </ytm-slim-video-metadata-section-renderer>
+                <ytm-expandable-video-description-body-renderer>
+                  <p data-proof-target data-proof-text="説明文で復習します">説明文で復習します</p>
+                </ytm-expandable-video-description-body-renderer>
                 <ytm-comment-section-renderer>
                   <ytm-comment-renderer><span id="content-text" data-proof-target data-proof-text="質問する前に勉強します">質問する前に勉強します</span></ytm-comment-renderer>
                 </ytm-comment-section-renderer>

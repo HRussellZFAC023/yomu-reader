@@ -2129,6 +2129,7 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
+    ocrVideoFrameStatusCard: true,
     ocrShowTextOverlay: false,
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
@@ -2514,6 +2515,7 @@
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
+      ocrVideoFrameStatusCard: booleanSetting(value, "ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -5559,6 +5561,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       cloudVision: "Google Cloud Vision",
@@ -5920,6 +5923,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
+      ocrHidePausedFrameStatusCard: "Hide status card",
       ocrPausedFrameScanning: "Reading paused frame...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
@@ -6629,6 +6633,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrHidePausedFrameStatusCard	ステータスカードを非表示
 ocrPausedFrameScanning	一時停止フレームを読み取り中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
@@ -7071,6 +7076,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
@@ -9174,6 +9180,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -19769,6 +19776,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
   const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
   const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
   const POPOVER_BODY_ACTION_SELECTOR = [
     "button",
     '[role="button"]',
@@ -20364,13 +20373,33 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (root.dataset.jpdbReaderMiningDrawerHandleInstalled === "true") return;
     root.dataset.jpdbReaderMiningDrawerHandleInstalled = "true";
     let suppressNextHandleClick = false;
-    const getHandleFromEvent = (event) => {
-      if (!(event instanceof Element)) return null;
-      const target = event.closest(".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter");
+    let cleanedUp = false;
+    const getHandleFromElement = (event) => {
+      const target = event.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
       if (!target || !root.contains(target)) return null;
-      const handle = target.matches(".jpdb-reader-mining-drawer-handle") ? target : target.querySelector(".jpdb-reader-mining-drawer-handle");
+      const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target.querySelector(MINING_DRAWER_HANDLE_SELECTOR);
       if (!handle) return null;
       return handle;
+    };
+    const getHandleFromEventTarget = (event) => {
+      return event instanceof Element ? getHandleFromElement(event) : null;
+    };
+    const getHandleFromPoint = (x2, y) => {
+      if (typeof document.elementsFromPoint !== "function") return null;
+      for (const element of document.elementsFromPoint(x2, y)) {
+        const handle = getHandleFromElement(element);
+        if (handle) return handle;
+      }
+      return null;
+    };
+    const getHandleFromPointerEvent = (event) => {
+      return getHandleFromEventTarget(event.target) ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+    };
+    const getHandleFromTouchEvent = (event) => {
+      const direct = getHandleFromEventTarget(event.target);
+      if (direct) return direct;
+      const touch = firstChangedTouch(event);
+      return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
     };
     const miningDrag = createHandleDragController({
       tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
@@ -20389,31 +20418,52 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
       }
     });
-    root.addEventListener("click", (event) => {
-      const handle = getHandleFromEvent(event.target);
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      miningDrag.cleanupListeners();
+    };
+    const rootIsConnected = () => {
+      if (root.isConnected) return true;
+      cleanup();
+      return false;
+    };
+    const toggleHandle = (handle) => {
+      setExpanded(handle, handle.getAttribute("aria-expanded") !== "true");
+    };
+    function handleClick(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
-      if (suppressNextHandleClick) {
-        suppressNextHandleClick = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      const target = event.target;
-      if (target instanceof Element && target.closest(".jpdb-reader-mining-drawer-handle") === handle) return;
       event.preventDefault();
       event.stopPropagation();
-      handle.click();
-    }, true);
-    root.addEventListener("pointerdown", (event) => {
-      const handle = getHandleFromEvent(event.target);
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      toggleHandle(handle);
+    }
+    function handlePointerDown(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
       miningDrag.pointerDown(handle, event);
-    });
-    root.addEventListener("touchstart", (event) => {
-      const handle = getHandleFromEvent(event.target);
+    }
+    function handleTouchStart(event) {
+      if (!rootIsConnected()) return;
+      const handle = getHandleFromTouchEvent(event);
       if (!handle) return;
       miningDrag.touchStart(handle, event);
-    }, { capture: true, passive: false });
+    }
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: false });
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+  }
+  function eventHasPointTarget(event) {
+    return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
   }
   function shouldUseSheet(settings) {
     if (settings.popupMode === "sheet") return true;
@@ -21106,6 +21156,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
+      ocrVideoFrameStatusCard: has("ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -22906,6 +22957,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
+                    ${checkbox("ocrVideoFrameStatusCard", "Show paused-frame status card", settings.ocrVideoFrameStatusCard)}
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["cloud-vision", "Google Cloud Vision"], ["local-service", "Local OCR engine"], ["off", "Off"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
@@ -23859,6 +23911,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "ocrAutoScanImages",
     "ocrShowTextOverlay",
     "ocrVideoPauseFrames",
+    "ocrVideoFrameStatusCard",
     "ocrProvider",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",
@@ -28145,6 +28198,7 @@ ${spelling}`);
       }
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
+        this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
         return;
       }
@@ -28154,6 +28208,7 @@ ${spelling}`);
       for (const image of images) {
         this.observeRefreshImage(image, settings);
       }
+      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
       this.schedulePosition();
     }
     shouldSkipRefresh(settings, options) {
@@ -28553,21 +28608,64 @@ ${spelling}`);
       element.dataset.jpdbReaderSurfaceIgnore = "true";
       element.setAttribute("role", "status");
       element.setAttribute("aria-live", "polite");
+      const text2 = document.createElement("span");
+      text2.className = "jpdb-ocr-video-frame-status-text";
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "jpdb-ocr-video-frame-status-dismiss";
+      setInnerHtml(dismiss, closeStatusCardIcon());
+      const label = uiText(this.options.getSettings().interfaceLanguage, "ocrHidePausedFrameStatusCard");
+      dismiss.setAttribute("aria-label", label);
+      dismiss.setAttribute("title", label);
+      dismiss.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.setVideoFrameStatusCardVisible(false);
+      });
+      element.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (target instanceof Node && dismiss.contains(target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        element.classList.add("jpdb-ocr-video-frame-status-reveal-dismiss");
+      });
+      element.append(text2, dismiss);
       this.setVideoFrameStatus(element, status);
       document.body.append(element);
       return element;
     }
     setVideoFrameStatus(element, status) {
       const language = this.options.getSettings().interfaceLanguage;
+      const label = uiText(language, videoFrameStatusTextKey(status));
       element.dataset.status = status;
       element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
-      element.textContent = uiText(language, videoFrameStatusTextKey(status));
+      element.querySelector(".jpdb-ocr-video-frame-status-text")?.replaceChildren(label);
+      element.setAttribute("aria-label", label);
+      const dismiss = element.querySelector(".jpdb-ocr-video-frame-status-dismiss");
+      const dismissLabel = uiText(language, "ocrHidePausedFrameStatusCard");
+      dismiss?.setAttribute("aria-label", dismissLabel);
+      dismiss?.setAttribute("title", dismissLabel);
+      this.syncVideoFrameStatusCardMode(element);
     }
     updateVideoFrameStatusForImage(image, status) {
       const video = this.videoFrameVideos.get(image);
       if (!video) return;
       const element = this.videoFrameStatuses.get(video);
       if (element) this.setVideoFrameStatus(element, status);
+    }
+    setVideoFrameStatusCardVisible(visible) {
+      const settings = this.options.getSettings();
+      if (this.options.setVideoFrameStatusCardVisible) {
+        void this.options.setVideoFrameStatusCardVisible(visible);
+      } else if (settings.ocrVideoFrameStatusCard !== visible) {
+        settings.ocrVideoFrameStatusCard = visible;
+      }
+      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
+    }
+    syncVideoFrameStatusCardMode(element) {
+      const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
+      element.classList.toggle("jpdb-ocr-video-frame-status-compact", compact);
+      if (compact) element.classList.remove("jpdb-ocr-video-frame-status-reveal-dismiss");
     }
     refreshVideoFrameAfterSeek(target) {
       if (!(target instanceof HTMLVideoElement) || !target.paused) return;
@@ -29361,6 +29459,9 @@ ${spelling}`);
   }
   function playVideoIcon() {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+  }
+  function closeStatusCardIcon() {
+    return `<svg class="jpdb-ocr-video-frame-status-dismiss-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;
@@ -32292,11 +32393,13 @@ ${spelling}`);
     if (trackCount === 1) return uiText(language, "subtitleTrackDetectedSingular");
     return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
   }
+  const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
   function applySubtitleNativeTrackModes(state) {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
+    document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
   function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
@@ -32310,6 +32413,7 @@ ${spelling}`);
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
     if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
@@ -32334,6 +32438,7 @@ ${spelling}`);
       } catch {
       }
     }
+    suppressVidstackCaptionPlayers(video);
     suppressPressedCaptionButtons(video);
   }
   function genericCaptionPlayersForVideo(video) {
@@ -32361,10 +32466,43 @@ ${spelling}`);
     const player = value;
     return typeof player.toggleCaptions === "function" && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === "number");
   }
+  function suppressVidstackCaptionPlayers(video) {
+    for (const player of vidstackCaptionPlayersForVideo(video)) {
+      const tracks = player.textTracks;
+      if (!tracks) continue;
+      try {
+        if (tracks.selected) tracks.selected.mode = "disabled";
+        for (const track of Array.from(tracks)) {
+          if (track.mode && track.mode !== "disabled") track.mode = "disabled";
+        }
+      } catch {
+      }
+    }
+  }
+  function vidstackCaptionPlayersForVideo(video) {
+    const scope = genericCaptionButtonScope(video);
+    const scopedPlayer = scope instanceof Element && isVidstackMediaPlayer(scope) ? [scope] : [];
+    return [
+      ...scopedPlayer,
+      ...Array.from(scope.querySelectorAll("media-player, [data-media-player]")).filter(isVidstackMediaPlayer)
+    ].filter((player, index, players) => players.indexOf(player) === index);
+  }
+  function isVidstackMediaPlayer(value) {
+    return value instanceof HTMLElement && (value.localName === "media-player" || value.hasAttribute("data-media-player")) && Boolean(value.textTracks);
+  }
   function suppressPressedCaptionButtons(video) {
     const scope = genericCaptionButtonScope(video);
     const buttons = Array.from(scope.querySelectorAll(
-      '[data-plyr="captions"][aria-pressed="true"], [data-plyr="captions"].plyr__control--pressed'
+      [
+        '[data-plyr="captions"][aria-pressed="true"]',
+        '[data-plyr="captions"].plyr__control--pressed',
+        'media-caption-button[aria-pressed="true"]',
+        "media-caption-button[data-pressed]",
+        '[data-media-tooltip="caption"][aria-pressed="true"]',
+        '[data-media-tooltip="caption"][data-pressed]',
+        '[aria-label*="caption" i][aria-pressed="true"]',
+        '[title*="caption" i][aria-pressed="true"]'
+      ].join(", ")
     ));
     for (const button of buttons) {
       try {
@@ -32374,7 +32512,7 @@ ${spelling}`);
     }
   }
   function genericCaptionButtonScope(video) {
-    return video?.closest('.plyr, [class*="player" i], [class*="video" i]') ?? document;
+    return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
   }
   function mutationNodes(mutation, options = {}) {
     const nodes = [
@@ -34023,6 +34161,7 @@ ${spelling}`);
     tickSubtitlePlayer(settings) {
       this.refreshSubtitleSourcesForTick();
       this.refreshNativeCueLists();
+      this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.syncPlayerChromeIdleState();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
@@ -36665,7 +36804,7 @@ ${spelling}`);
       return document.body;
     }
     shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
-      return Boolean(fullscreenElement instanceof HTMLElement && this.video && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
+      return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
     }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
@@ -40096,6 +40235,7 @@ ${spelling}`);
   const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
   const READY_AUDIO_CACHE_LIMIT = 160;
   const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
+  const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
@@ -40122,6 +40262,7 @@ ${spelling}`);
     jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     readyAudioCache = /* @__PURE__ */ new Map();
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
+    gestureReservation;
     clearCaches() {
       this.candidateCache.clear();
       this.blobUrlCache.clear();
@@ -40134,8 +40275,8 @@ ${spelling}`);
       this.ensureAudioEnabled(request.settings);
       if (!canAttemptAudiblePlayback(request.userGesture)) return false;
       if (!request.isCurrent()) return false;
-      this.stopCurrent();
-      const reservedAudio = this.reserveGestureAudioElement(request);
+      const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
+      this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
       const done = log$i.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
@@ -40160,6 +40301,31 @@ ${spelling}`);
       const audio = reserveGestureAudioElement((audioUrl) => this.createAudioElement(audioUrl));
       this.current = audio;
       return audio;
+    }
+    primeUserGesture() {
+      const request = this.audioPlaybackRequest({ userGesture: true });
+      if (!request.settings.audioEnabled || !shouldReserveGestureAudioElement(request)) return false;
+      this.releaseGestureReservation();
+      this.stopCurrent();
+      const audio = this.reserveCurrentGestureAudioElement();
+      this.gestureReservation = {
+        audio,
+        expiresAt: Date.now() + GESTURE_AUDIO_RESERVATION_TTL_MS,
+        timer: window.setTimeout(() => this.expireGestureReservation(audio), GESTURE_AUDIO_RESERVATION_TTL_MS)
+      };
+      return true;
+    }
+    takeGestureAudioElement(request) {
+      if (!shouldReserveGestureAudioElement(request)) return void 0;
+      const reservation = this.gestureReservation;
+      if (!reservation) return void 0;
+      this.gestureReservation = void 0;
+      window.clearTimeout(reservation.timer);
+      if (reservation.expiresAt < Date.now()) {
+        if (this.current === reservation.audio) this.stopCurrent();
+        return void 0;
+      }
+      return reservation.audio;
     }
     ensureAudioEnabled(settings) {
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
@@ -40276,7 +40442,6 @@ ${spelling}`);
         return result;
       } catch (error) {
         context.errors.push(error instanceof Error ? error.message : String(error));
-        if (error instanceof AudioPlaybackAttemptError) return "playback-error";
         this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
         return "miss";
       }
@@ -40401,9 +40566,9 @@ ${spelling}`);
         });
       }, { once: true });
     }
-    stopCurrent() {
-      this.current?.pause();
-      this.current = void 0;
+    stopCurrent(except) {
+      if (this.current && this.current !== except) this.current.pause();
+      this.current = except;
       if (this.utterance) {
         speechSynthesis.cancel();
         this.utterance = void 0;
@@ -40412,6 +40577,18 @@ ${spelling}`);
         void this.fallbackChimeContext.close().catch(() => void 0);
         this.fallbackChimeContext = void 0;
       }
+    }
+    releaseGestureReservation() {
+      const reservation = this.gestureReservation;
+      if (!reservation) return;
+      this.gestureReservation = void 0;
+      window.clearTimeout(reservation.timer);
+    }
+    expireGestureReservation(audio) {
+      const reservation = this.gestureReservation;
+      if (!reservation || reservation.audio !== audio) return;
+      this.gestureReservation = void 0;
+      if (this.current === audio) this.stopCurrent();
     }
     async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
       const { source } = sourceEntry;
@@ -40784,7 +40961,7 @@ ${spelling}`);
   }
   function audioPlaybackAttemptResult(error, errors) {
     errors.push(error instanceof Error ? error.message : String(error));
-    return error instanceof AudioPlaybackAttemptError ? "playback-error" : "miss";
+    return "miss";
   }
   const log$h = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
@@ -61991,9 +62168,10 @@ ${entry.url}`),
     }
     async populateAnkiDeckSelector(select2) {
       const invoke = this.dependencies.anki.invoke;
+      const selected = this.state.ankiDeck || "all";
+      this.primeDeckSelector(select2, selected, selected === "all" ? this.text("allVocabularyDeck") : selected);
       const names = typeof invoke === "function" ? await invoke("deckNames").catch(() => []) : [];
       if (!select2.isConnected) return;
-      const selected = this.state.ankiDeck || "all";
       const dueByDeck = await this.ankiDeckDueCounts(names.filter(Boolean));
       if (!select2.isConnected) return;
       const withDue = (name, label) => {
@@ -62034,6 +62212,8 @@ ${entry.url}`),
       return promise;
     }
     async populateDeckSelector(select2, settings) {
+      const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || "all";
+      this.primeDeckSelector(select2, selected, this.deckSelectorFallbackLabel(selected));
       const key = effectiveJpdbApiKey(settings);
       if (this.deckSelectorDecks?.key !== key) {
         const listDecks = typeof this.dependencies.jpdb.listDecks === "function" ? this.dependencies.jpdb.listDecks() : Promise.resolve([]);
@@ -62042,7 +62222,6 @@ ${entry.url}`),
       const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([]));
       const jitenDecks = await this.jitenDeckSelectorOptions(settings);
       if (!select2.isConnected) return;
-      const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || "all";
       const bothProviders = hasJpdbApiCredential(settings) && hasJitenApiCredential(settings);
       const options = [
         { id: "all", name: this.text("allVocabularyDeck") },
@@ -62060,6 +62239,22 @@ ${entry.url}`),
         selected: option.id === selected
       }, deckOptionLabel(option))));
       select2.value = selected;
+    }
+    primeDeckSelector(select2, selected, label) {
+      const existing = Array.from(select2.options).find((option) => option.value === selected);
+      if (existing && existing.textContent?.trim()) {
+        select2.value = selected;
+        return;
+      }
+      const optionLabel = label.trim() || selected || this.text("allVocabularyDeck");
+      replaceChildrenWith(select2, el("option", { value: selected, selected: true }, optionLabel));
+      select2.value = selected;
+    }
+    deckSelectorFallbackLabel(selected) {
+      if (selected === "all" || selected === JPDB_ALL_DECKS) return this.text("allVocabularyDeck");
+      if (selected === "provider:jpdb") return "JPDB";
+      if (selected === "provider:jiten") return "Jiten";
+      return selected;
     }
     async toggleTheme(root) {
       const settings = this.dependencies.getSettings();
@@ -62915,8 +63110,27 @@ ${entry.url}`),
       this.dependencies = dependencies;
     }
     loadingRequest = 0;
+    inFlightTermAudio;
+    lastAutoTermAudio;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
+      const key = termAudioRequestKey(card, options);
+      if (this.inFlightTermAudio?.key === key) {
+        await this.inFlightTermAudio.promise;
+        return;
+      }
+      const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
+      if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
+      const promise = this.playTermAudioOnce(card, options);
+      this.inFlightTermAudio = { key, promise };
+      try {
+        const played = await promise;
+        if (options.autoPlay && played) this.lastAutoTermAudio = { key: autoKey, at: Date.now() };
+      } finally {
+        if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = void 0;
+      }
+    }
+    async playTermAudioOnce(card, options = {}) {
       const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
       const loadingPopover = this.dependencies.getActivePopover();
       const loadingRequest = ++this.loadingRequest;
@@ -62924,13 +63138,21 @@ ${entry.url}`),
       try {
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
-        if (!played) return;
+        return played;
       } catch (error) {
         log$2.warn("Term audio playback failed", { term: card.spelling }, error);
         this.dependencies.toast(this.audioErrorMessage(error));
+        return false;
       } finally {
         this.clearLoading(loadingPopover, loadingRequest);
       }
+    }
+    consumeRecentAutoTermAudio(key) {
+      const recent = this.lastAutoTermAudio;
+      if (!recent || recent.key !== key) return false;
+      if (Date.now() - recent.at > 250) return false;
+      this.lastAutoTermAudio = { key, at: Date.now() };
+      return true;
     }
     async playSentenceAudio(sentence) {
       if (!this.ensureAudioEnabled()) return;
@@ -62974,6 +63196,21 @@ ${entry.url}`),
       delete popover.dataset.audioLoading;
       delete popover.dataset.audioLoadingRequest;
     }
+  }
+  function termAudioRequestKey(card, options) {
+    return [
+      card.source ?? "",
+      String(card.vid ?? ""),
+      String(card.sid ?? ""),
+      String(card.rid ?? ""),
+      card.spelling,
+      card.reading,
+      options.userGesture ? "gesture" : "auto",
+      options.hoverLookupGeneration === void 0 ? "" : String(options.hoverLookupGeneration)
+    ].join("\0");
+  }
+  function termAudioAutoRequestKey(card) {
+    return card.spelling;
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;

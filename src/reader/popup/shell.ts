@@ -23,6 +23,8 @@ const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
 const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
 const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
 const FORCED_POPOVER_SURFACE_DATA_KEY = 'jpdbReaderForcedPopoverSurface';
+export const MINING_DRAWER_HANDLE_SELECTOR = '.jpdb-reader-mining-drawer-handle';
+export const MINING_DRAWER_POINTER_TARGET_SELECTOR = '.jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter';
 const POPOVER_BODY_ACTION_SELECTOR = [
     'button',
     '[role="button"]',
@@ -709,16 +711,37 @@ export function installMiningDrawerHandle(
     root.dataset.jpdbReaderMiningDrawerHandleInstalled = 'true';
 
     let suppressNextHandleClick = false;
+    let cleanedUp = false;
 
-    const getHandleFromEvent = (event: EventTarget | null): HTMLButtonElement | null => {
-        if (!(event instanceof Element)) return null;
-        const target = event.closest<HTMLElement>('.jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter');
+    const getHandleFromElement = (event: Element): HTMLButtonElement | null => {
+        const target = event.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR);
         if (!target || !root.contains(target)) return null;
-        const handle = target.matches('.jpdb-reader-mining-drawer-handle')
+        const handle = target.matches(MINING_DRAWER_HANDLE_SELECTOR)
             ? target as HTMLButtonElement
-            : target.querySelector<HTMLButtonElement>('.jpdb-reader-mining-drawer-handle');
+            : target.querySelector<HTMLButtonElement>(MINING_DRAWER_HANDLE_SELECTOR);
         if (!handle) return null;
         return handle;
+    };
+    const getHandleFromEventTarget = (event: EventTarget | null): HTMLButtonElement | null => {
+        return event instanceof Element ? getHandleFromElement(event) : null;
+    };
+    const getHandleFromPoint = (x: number, y: number): HTMLButtonElement | null => {
+        if (typeof document.elementsFromPoint !== 'function') return null;
+        for (const element of document.elementsFromPoint(x, y)) {
+            const handle = getHandleFromElement(element);
+            if (handle) return handle;
+        }
+        return null;
+    };
+    const getHandleFromPointerEvent = (event: PointerEvent | MouseEvent): HTMLButtonElement | null => {
+        return getHandleFromEventTarget(event.target)
+            ?? (eventHasPointTarget(event) ? getHandleFromPoint(event.clientX, event.clientY) : null);
+    };
+    const getHandleFromTouchEvent = (event: TouchEvent): HTMLButtonElement | null => {
+        const direct = getHandleFromEventTarget(event.target);
+        if (direct) return direct;
+        const touch = firstChangedTouch(event);
+        return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
     };
     const miningDrag = createHandleDragController<HTMLButtonElement>({
         tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
@@ -738,31 +761,54 @@ export function installMiningDrawerHandle(
         },
     });
 
-    root.addEventListener('click', event => {
-        const handle = getHandleFromEvent(event.target);
+    const cleanup = (): void => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        document.removeEventListener('click', handleClick, true);
+        document.removeEventListener('pointerdown', handlePointerDown, true);
+        document.removeEventListener('touchstart', handleTouchStart, true);
+        miningDrag.cleanupListeners();
+    };
+    const rootIsConnected = (): boolean => {
+        if (root.isConnected) return true;
+        cleanup();
+        return false;
+    };
+    const toggleHandle = (handle: HTMLButtonElement): void => {
+        setExpanded(handle, handle.getAttribute('aria-expanded') !== 'true');
+    };
+    function handleClick(event: MouseEvent): void {
+        if (!rootIsConnected()) return;
+        const handle = getHandleFromPointerEvent(event);
         if (!handle) return;
-        if (suppressNextHandleClick) {
-            suppressNextHandleClick = false;
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-        }
-        const target = event.target;
-        if (target instanceof Element && target.closest('.jpdb-reader-mining-drawer-handle') === handle) return;
         event.preventDefault();
         event.stopPropagation();
-        handle.click();
-    }, true);
-    root.addEventListener('pointerdown', event => {
-        const handle = getHandleFromEvent(event.target);
+        if (suppressNextHandleClick) {
+            suppressNextHandleClick = false;
+            return;
+        }
+        toggleHandle(handle);
+    }
+    function handlePointerDown(event: PointerEvent): void {
+        if (!rootIsConnected()) return;
+        const handle = getHandleFromPointerEvent(event);
         if (!handle) return;
         miningDrag.pointerDown(handle, event);
-    });
-    root.addEventListener('touchstart', event => {
-        const handle = getHandleFromEvent(event.target);
+    }
+    function handleTouchStart(event: TouchEvent): void {
+        if (!rootIsConnected()) return;
+        const handle = getHandleFromTouchEvent(event);
         if (!handle) return;
         miningDrag.touchStart(handle, event);
-    }, { capture: true, passive: false });
+    }
+
+    document.addEventListener('click', handleClick, true);
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true, passive: false });
+    document.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false });
+}
+
+function eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
+    return event.type !== 'click' || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
 }
 
 export function shouldUseSheet(settings: ReaderSettings): boolean {

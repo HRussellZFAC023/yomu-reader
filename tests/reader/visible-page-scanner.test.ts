@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { withViewport } from './helpers/browser-fixtures';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -97,6 +98,41 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('keeps the larger first-pass target cap for YouTube on narrow no-key viewports', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://m.youtube.com/',
+            origin: 'https://m.youtube.com',
+            hostname: 'm.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytm-browse>
+                ${Array.from({ length: 90 }, (_, index) => `
+                    <ytm-rich-item-renderer>
+                        <a class="compact-media-item-headline" href="/watch?v=${index}">日本語動画${index}</a>
+                    </ytm-rich-item-renderer>
+                `).join('')}
+            </ytm-browse>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '' }),
+            parseJapanese,
+        });
+
+        try {
+            await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
+            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
+            expect(parsedText).toContain('日本語動画0');
+            expect(parsedText).toContain('日本語動画89');
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('starts fallback pitch and ruby enrichment before applying visible page tokens', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
@@ -138,6 +174,42 @@ describe('VisiblePageScanner', () => {
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.querySelector('rt')?.textContent).toBe('せんせい');
         } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('repairs clipped ruby rows as each apply chunk lands during a long scan', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const laterParse = deferred<JPDBToken[][]>();
+        document.body.innerHTML = `
+            <div id="title" style="overflow:hidden;height:22px;line-height:22px">日本語の動画0</div>
+            ${Array.from({ length: 89 }, (_, index) => `<p>日本語の動画${index + 1}</p>`).join('')}
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockOverflow(title, 36, 22);
+        let parseCallCount = 0;
+        const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {
+            parseCallCount += 1;
+            const tokens = paragraphs.map(text => [rubyToken(text, '日本語', 'にほんご', 0, 3)]);
+            return parseCallCount === 1 ? Promise.resolve(tokens) : laterParse.promise;
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+
+            expect(title.querySelector('rt')).not.toBeNull();
+            expect(title.style.height).toBe('36px');
+
+            laterParse.resolve(parseJapanese.mock.calls[1]![0].map((text: string) => [rubyToken(text, '日本語', 'にほんご', 0, 3)]));
+            await scan;
+        } finally {
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -207,6 +279,30 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(document.querySelector('p')?.textContent).toBe('英語の文です。');
         } finally {
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('lets hover lookups interrupt an in-flight visible page scan', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>日本語の文です。</p>';
+        const parsed = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            scanner.interruptVisiblePageScan();
+            parsed.resolve([[rubyToken('日本語の文です。', '日本語', 'にほんご', 0, 3)]]);
+            await scan;
+
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('p')?.textContent).toBe('日本語の文です。');
+        } finally {
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -841,6 +937,11 @@ function mockVisibleElementRects(): () => void {
     return () => {
         HTMLElement.prototype.getBoundingClientRect = originalRect;
     };
+}
+
+function mockOverflow(el: HTMLElement, scrollHeight: number, clientHeight: number): void {
+    Object.defineProperty(el, 'scrollHeight', { value: scrollHeight, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true });
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

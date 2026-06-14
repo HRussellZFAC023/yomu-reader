@@ -104,6 +104,12 @@ export class VisiblePageScanner {
         this.clampSweepTimer = undefined;
     }
 
+    interruptVisiblePageScan(): void {
+        this.scanGeneration++;
+        this.scanPending = false;
+        this.scanPendingSilent = true;
+    }
+
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
         this.scanGeneration++;
@@ -267,7 +273,7 @@ export class VisiblePageScanner {
             const applyAnkiColors = this.shouldEnrichAnkiWords()
                 ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
                 : undefined;
-            const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings);
+            const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
             applyAnkiColors?.(changedRoots);
             this.preloadParsed(parsed, changedRoots, {
                 skipAnki: Boolean(applyAnkiColors),
@@ -278,24 +284,27 @@ export class VisiblePageScanner {
         return parsedAnyTokens;
     }
 
-    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings): Promise<ParentNode[]> {
+    private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation?: number): Promise<ParentNode[]> {
         const allChangedRoots = new Set<ParentNode>();
         const applyBatchSize = visibleScanApplyBatchSize(scanStartSettings);
         for (let index = 0; index < targets.length; index += applyBatchSize) {
-            if (this.destroyed) return [...allChangedRoots];
+            if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
             const start = index;
             const batch = targets.slice(start, start + applyBatchSize);
             this.dependencies.pauseMutationObserver(() => {
-                if (this.destroyed) return;
+                if (this.shouldStopApplyingTokens(generation)) return;
                 const changedRoots = new Set<ParentNode>();
                 const applyPlans = scanApplyPlans(batch, parsed, start);
                 applyPlans.forEach(({ target, tokens }) => {
-                    if (this.destroyed) return;
+                    if (this.shouldStopApplyingTokens(generation)) return;
                     if (!isCurrentScanTarget(target)) return;
                     applyTokensToScanTarget(target, tokens, this.dependencies.getSettings());
                     changedRoots.add(target.parent);
                 });
-                changedRoots.forEach(root => allChangedRoots.add(root));
+                changedRoots.forEach(root => {
+                    allChangedRoots.add(root);
+                    makeRoomForRubyInCroppedRows(root);
+                });
             });
             if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
@@ -303,6 +312,10 @@ export class VisiblePageScanner {
         // chunk forced repeated style recalcs on the same containers.
         allChangedRoots.forEach(root => this.dependencies.refreshWordContrast?.(root));
         return [...allChangedRoots];
+    }
+
+    private shouldStopApplyingTokens(generation: number | undefined): boolean {
+        return this.destroyed || (generation !== undefined && this.isStaleScan(generation));
     }
 
     private preloadParsed(parsed: JPDBToken[][], changedRoots: ParentNode[] = [], options: { skipAnki?: boolean; skipPitch?: boolean } = {}): void {
@@ -372,6 +385,7 @@ function visibleScanParseCharBudget(settings: ReaderSettings): number {
 
 function visibleScanTargetCollectionLimit(settings: ReaderSettings): number {
     if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_COLLECTION_LIMIT;
+    if (isYouTubeVisibleScanHost()) return VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT;
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
 }
 
@@ -387,6 +401,10 @@ function visibleScanApplyBatchSize(settings: ReaderSettings): number {
 
 function isNarrowVisibleScanViewport(): boolean {
     return typeof window !== 'undefined' && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
+}
+
+function isYouTubeVisibleScanHost(hostname = location.hostname): boolean {
+    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
 function hasJpdbParseApiKey(settings: ReaderSettings): boolean {
