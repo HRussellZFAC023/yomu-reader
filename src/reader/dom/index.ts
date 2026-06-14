@@ -130,6 +130,23 @@ const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
     'a[href]',
     '[role="button"]',
 ].join(',');
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
+    'script',
+    'style',
+    'noscript',
+    'textarea',
+    'input',
+    'select',
+    'option',
+    'svg',
+    'use',
+    '[hidden]',
+    '[aria-hidden="true"]',
+    '[contenteditable="true"]',
+    '.jpdb-reader-word',
+    '.subsection-pitch-accent .subsection',
+    '[data-jpdb-reader-root]',
+].join(',');
 const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
@@ -157,6 +174,17 @@ const PASSIVE_INTERACTION_SELECTOR = [
 const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
     '[onclick]',
     '[tabindex]:not([tabindex="-1"])',
+    '[class*="audio" i]',
+    '[class*="button" i]',
+    '[class*="control" i]',
+    '[class*="play" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="toggle" i]',
+].join(',');
+const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = [
+    PASSIVE_INTERACTION_SELECTOR,
+    COMPACT_PASSIVE_INTERACTION_SELECTOR,
 ].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
@@ -267,6 +295,7 @@ interface FragmentTextTargetCollectionOptions {
     includeUiChrome?: boolean;
     includeFormChrome?: boolean;
     includeTabChrome?: boolean;
+    includePassiveInteractions?: boolean;
     heading?: boolean;
     mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
@@ -510,6 +539,7 @@ function fragmentTextTargetFrom(
 
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
+    if (!options.includeReaderRoot && isShortCenteredDisplayHeading(parent, text)) return null;
     return {
         text,
         parent,
@@ -695,6 +725,7 @@ function shouldSkipFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
+    if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
     if (options.includeTabChrome) return safeElementMatches(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
     return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
@@ -704,8 +735,32 @@ function isFragmentParagraphBoundary(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    return (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName))
+    return isPassiveInteractionBoundaryElement(element, options)
+        || (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName))
         || isParagraphBoundary(element);
+}
+
+function isPassiveInteractionBoundaryElement(
+    element: HTMLElement,
+    options: FragmentTextTargetCollectionOptions,
+): boolean {
+    if (!options.includePassiveInteractions) return false;
+    const explicitInteraction = safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR);
+    if (!explicitInteraction
+        && safeElementMatches(element, COMPACT_PASSIVE_INTERACTION_SELECTOR)
+        && !isCompactPassiveInteractionElement(element)) {
+        return false;
+    }
+    if (!safeElementMatches(element, PASSIVE_INTERACTION_BOUNDARY_SELECTOR)) return false;
+    return !isInlineProsePassiveLink(element);
+}
+
+function isInlineProsePassiveLink(element: HTMLElement): boolean {
+    if (!element.matches('a[href],[role="link"]')) return false;
+    const parent = element.parentElement;
+    return Boolean(parent
+        && isLikelyProseElement(parent)
+        && element.closest('article, main, [role="main"]'));
 }
 
 function isInlineSentenceListItem(element: HTMLElement): boolean {
@@ -736,8 +791,14 @@ export function isPassiveInteractionElement(element: Element): boolean {
     if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
     const compactInteraction = element.closest<HTMLElement>(COMPACT_PASSIVE_INTERACTION_SELECTOR);
     if (!compactInteraction) return false;
-    const text = compactInteraction.textContent?.replace(/\s+/g, '').trim() ?? '';
-    return text.length > 0 && text.length <= COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT;
+    if (!isCompactPassiveInteractionElement(compactInteraction)) return false;
+    return true;
+}
+
+function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
+    const text = element.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!text || text.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+    return element.childElementCount <= 4;
 }
 
 function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {
@@ -765,6 +826,7 @@ const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
 
 function isLayoutSensitiveTextBox(element: HTMLElement): boolean {
     const style = safeComputedStyle(element);
+    if (isReadablePrimaryDisplayHeadingElement(element)) return false;
     if (hasLineClamp(style)) return true;
     if (isEllipsisTextRow(style)) return true;
     if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
@@ -2246,6 +2308,12 @@ function isReadablePrimaryDisplayHeadingText(element: HTMLElement, text: string)
     const heading = closestDisplayHeading(element);
     if (!heading || heading.tagName !== 'H1') return false;
     if (compactLength(text) < 4) return false;
+    return isReadablePrimaryDisplayHeadingElement(heading);
+}
+
+function isReadablePrimaryDisplayHeadingElement(element: HTMLElement): boolean {
+    const heading = closestDisplayHeading(element);
+    if (!heading || heading.tagName !== 'H1') return false;
     if (heading.closest('header, nav, footer, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]')) return false;
     return Boolean(heading.closest('main, [role="main"]'));
 }

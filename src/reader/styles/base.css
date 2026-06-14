@@ -120,6 +120,8 @@
   --jpdb-reader-accent-readable: var(--jpdb-reader-theme-dark-accent-readable);
   --jpdb-reader-accent-text: var(--jpdb-reader-theme-accent-text);
   --jpdb-reader-accent-soft: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
+  --jpdb-reader-selection-bg: color-mix(in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-surface-2));
+  --jpdb-reader-selection-text: var(--jpdb-reader-text);
   --jpdb-reader-danger: var(--jpdb-reader-theme-danger);
   --jpdb-reader-danger-readable: var(--jpdb-reader-theme-dark-danger-readable);
   --jpdb-reader-hover: rgba(255,255,255,.08);
@@ -150,6 +152,7 @@
     --jpdb-reader-danger-readable: var(--jpdb-reader-theme-light-danger-readable);
     --jpdb-reader-hover: rgba(37,52,73,.08);
     --jpdb-reader-backdrop: rgba(37,52,73,.24);
+    --jpdb-reader-selection-bg: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
     --jpdb-reader-example-target-bg: color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent);
     --jpdb-reader-example-target-underline: color-mix(in srgb, var(--jpdb-reader-accent) 58%, transparent);
     --jpdb-reader-shadow: rgba(25,37,52,.18);
@@ -175,6 +178,7 @@
   --jpdb-reader-danger-readable: var(--jpdb-reader-theme-dark-danger-readable);
   --jpdb-reader-hover: rgba(255,255,255,.08);
   --jpdb-reader-backdrop: rgba(12,16,22,.74);
+  --jpdb-reader-selection-bg: color-mix(in srgb, var(--jpdb-reader-accent) 38%, var(--jpdb-reader-surface-2));
   --jpdb-reader-example-target-bg: color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
   --jpdb-reader-example-target-underline: color-mix(in srgb, var(--jpdb-reader-accent) 62%, transparent);
   --jpdb-reader-shadow: rgba(0,0,0,.34);
@@ -199,6 +203,7 @@
   --jpdb-reader-danger-readable: var(--jpdb-reader-theme-light-danger-readable);
   --jpdb-reader-hover: rgba(37,52,73,.08);
   --jpdb-reader-backdrop: rgba(37,52,73,.24);
+  --jpdb-reader-selection-bg: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));
   --jpdb-reader-example-target-bg: color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent);
   --jpdb-reader-example-target-underline: color-mix(in srgb, var(--jpdb-reader-accent) 58%, transparent);
   --jpdb-reader-shadow: rgba(25,37,52,.18);
@@ -243,6 +248,12 @@
 [data-jpdb-reader-root] *::after {
   background: transparent;
   color: inherit;
+}
+[data-jpdb-reader-root]::selection,
+[data-jpdb-reader-root] *::selection {
+  background-color: var(--jpdb-reader-selection-bg);
+  color: var(--jpdb-reader-selection-text);
+  text-shadow: none;
 }
 [data-jpdb-reader-root]:where(a),
 [data-jpdb-reader-root] :where(a) {

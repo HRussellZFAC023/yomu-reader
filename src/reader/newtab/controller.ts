@@ -6695,6 +6695,7 @@ export class NewTabController {
             );
             section.append(kanjiDetail);
             this.renderNewTabUchisen(kanjiDetail, item.kanji);
+            this.renderNewTabKanjiImmersion(kanjiDetail, item.kanji);
         });
         return section;
     }
@@ -6710,6 +6711,7 @@ export class NewTabController {
             card.kanjiKeyword = details.jiten?.meanings[0] ?? newTabKanjiKeyword(card, fullInfo, details.rtk, uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6));
             replaceChildrenWith(existing, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
             this.renderNewTabUchisen(existing, kanji);
+            this.renderNewTabKanjiImmersion(existing, kanji);
             void this.dependencies.parseContent?.(existing);
         }).catch(error => {
             log.warn('New tab search kanji detail failed', { kanji }, error);
@@ -7003,6 +7005,7 @@ export class NewTabController {
     private searchViewContext(): NewTabSearchViewContext {
         return {
             language: this.language(),
+            settings: this.dependencies.getSettings(),
             text: key => this.text(key),
         };
     }

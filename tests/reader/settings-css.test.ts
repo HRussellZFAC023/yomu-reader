@@ -32,6 +32,8 @@ describe('settings CSS', () => {
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root] { all: initial; box-sizing: border-box; color: var(--jpdb-reader-text); color-scheme: normal; direction: ltr; font: 14px/1.45 var(--jpdb-reader-font); letter-spacing: 0; text-transform: none; unicode-bidi: isolate; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root], [data-jpdb-reader-root] *, [data-jpdb-reader-root]::before, [data-jpdb-reader-root]::after, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { box-sizing: border-box; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root] *, [data-jpdb-reader-root] *::before, [data-jpdb-reader-root] *::after { background: transparent; color: inherit; }');
+        expect(normalizedBaseCss).toContain('--jpdb-reader-selection-bg: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface-2));');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]::selection, [data-jpdb-reader-root] *::selection { background-color: var(--jpdb-reader-selection-bg); color: var(--jpdb-reader-selection-text); text-shadow: none; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(button), [data-jpdb-reader-root] :where(button) { appearance: none;');
         expect(normalizedBaseCss).toContain('height: auto; min-height: 0; width: auto; min-width: 0; max-width: none; line-height: normal; margin: 0; padding: 0; text-align: inherit;');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(input, select, textarea), [data-jpdb-reader-root] :where(input, select, textarea) { appearance: auto;');

@@ -84,7 +84,6 @@ import {
 } from '../popup/render';
 import { updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
-import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -119,6 +118,7 @@ import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/type
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { addWindowEventListener } from '../platform/window-events';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
+import type { RtkClient, RtkInfo } from '../kanji/rtk';
 
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -892,7 +892,6 @@ export class NewTabRuntime {
         const language = this.settings.interfaceLanguage;
         const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
         const sourceMounts = this.renderKanjiLookupSourceMounts(kanji, language);
-        const companionNotice = this.renderKanjiStudyCompanionNotice(language);
         return `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
@@ -915,7 +914,6 @@ export class NewTabRuntime {
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-                    ${companionNotice}
                     ${sourceMounts}
                 </div>
             </div>
@@ -933,15 +931,6 @@ export class NewTabRuntime {
             sourceTitle: sourceId => this.kanjiSourceTitle(sourceId),
             renderImmersionMount: () => this.renderKanjiLookupImmersionMount(),
         });
-    }
-
-    private renderKanjiStudyCompanionNotice(language: ReaderSettings['interfaceLanguage']): string {
-        if (this.kanjiCompanion) return '';
-        return `
-            <div class="jpdb-reader-local jpdb-reader-source-card" role="note">
-                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiStudyCompanionMissing'))}</div>
-            </div>
-        `;
     }
 
     private renderKanjiLookupImmersionMount(): string {
@@ -1144,7 +1133,8 @@ export class NewTabRuntime {
 
         const renderKanjiVG = () => {
             if (!kanjiVGInfo || !this.isCurrentLookupRender(popover, requestId)) return;
-            const stage = popover.querySelector<HTMLElement>(`.jpdb-reader-doodle-stage[data-kanji="${CSS.escape(kanji)}"]`);
+            const stage = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-doodle-stage'))
+                .find(candidate => candidate.dataset.kanji === kanji);
             const ghost = stage?.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
             const help = stage?.closest('.jpdb-reader-kanjivg')?.querySelector<HTMLElement>('.jpdb-reader-help');
             if (ghost) setInnerHtml(ghost, kanjiVGInfo.svg);

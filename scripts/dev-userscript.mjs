@@ -82,7 +82,7 @@ const devMetadata = () => {
         metadataLine('version', `${pkg.version}.dev.${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}`),
         metadataLine('author', 'Henry'),
         metadataLine('description', 'Local development build for よむ.'),
-        metadataLine('license', 'GPL-3.0-or-later'),
+        metadataLine('license', 'MIT'),
         metadataLine('icon', userscriptIcon),
         metadataLine('icon64', userscriptIcon),
         metadataLine('homepage', docsUrl),

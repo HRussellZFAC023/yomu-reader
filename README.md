@@ -11,7 +11,7 @@
 <p>
   <a href="https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml"><img src="https://github.com/HRussellZFAC023/yomu-reader/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest"><img src="https://img.shields.io/github/v/release/HRussellZFAC023/yomu-reader?color=5ea780&label=release" alt="Latest release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/HRussellZFAC023/yomu-reader?color=5ea780" alt="License: GPL-3.0-or-later" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/HRussellZFAC023/yomu-reader?color=5ea780" alt="License: MIT" /></a>
   <a href="https://github.com/HRussellZFAC023/yomu-reader/stargazers"><img src="https://img.shields.io/github/stars/HRussellZFAC023/yomu-reader?color=5ea780" alt="GitHub stars" /></a>
   <a href="https://discord.gg/WvDt57uk5"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
 </p>
@@ -32,7 +32,7 @@
 
 - 📖 **Read anything** — graded readers, easy news, ebooks, manga, web novels, YouTube, and native sites.
 - 🧩 **Every tool in one popup** — JPDB status and mining, Yomitan dictionaries, Anki cards, audio, example sentences, kanji drilldown, OCR, and subtitle mining.
-- 🆓 **Free and open source** — comparable study suites charge from $10/month. よむ does the core reading-and-mining loop for free, under GPL-3.0.
+- 🆓 **Free and open source** — comparable study suites charge from $10/month. よむ does the core reading-and-mining loop for free, under MIT.
 - 📱 **Works on iPhone and iPad** — runs in Safari through a free userscript app, with touch-first lookup.
 
 ## Contents
@@ -317,22 +317,22 @@ Donation note: よむ has already cost more in AI/API tokens than donations are 
 
 | Source | License / terms used by よむ |
 | --- | --- |
-| [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | GPL-3.0-or-later |
+| [よむ source code](https://github.com/HRussellZFAC023/yomu-reader) | MIT |
 | [KanjiVG](https://github.com/KanjiVG/kanjivg) | Creative Commons Attribution-ShareAlike 3.0 |
 | [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas) | MIT; stroke normalization and distance matching approach adapted with attribution |
 | [JMdict / JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) | JMdict data is EDRDG CC BY-SA 4.0; yomidevs packaging code is MIT; よむ downloads the ZIP into user browser storage rather than bundling it |
 | [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions; よむ avoids mnemonic-hint text and does not bundle media |
 | [The Kanji Map](https://thekanjimap.com/) / [source](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms. よむ uses it as inspiration and fetches compact public per-kanji data at runtime when enabled. |
 | [Uchisen](https://uchisen.com/) | Optional external runtime service for kanji mnemonic images, component cues, and user-published mnemonic generation; よむ does not bundle its image/story content |
-| [Yomitan](https://github.com/yomidevs/yomitan) | GPL-3.0-or-later; used for interoperable dictionary formats, structured glossary behavior, audio-source conventions, and UX reference |
+| [Yomitan](https://github.com/yomidevs/yomitan) | Upstream terms apply; used for interoperable dictionary formats, structured glossary behavior, audio-source conventions, and UX reference |
 | [fflate](https://github.com/101arrowz/fflate) | MIT; bundled locally for compressed ZIP dictionary import fallback when browser-native decompression is unavailable |
 | [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) | MIT license file; JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied |
 | [asbplayer](https://github.com/asbplayer/asbplayer) | MIT; used as a subtitle-mining and video-reader UX reference |
 | [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader) | MIT; used as a JPDB reader behavior and parser-edge-case reference |
 | [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples) | MIT; copied/adapted JPDB-side Immersion Kit userscript behavior |
 | [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | MIT; used as the Nadeshiko API and JPDB-side examples behavior reference |
-| [AnkiConnect](https://foosoft.net/projects/anki-connect/) / [source](https://github.com/FooSoft/anki-connect) | GPL-3.0-or-later; よむ talks to the local HTTP API and does not bundle AnkiConnect |
-| [YomiNinja](https://github.com/matt-m-o/YomiNinja) | GPL-3.0; used for OCR response-shape compatibility and UX reference only |
+| [AnkiConnect](https://foosoft.net/projects/anki-connect/) / [source](https://github.com/FooSoft/anki-connect) | Upstream terms apply; よむ talks to the local HTTP API and does not bundle AnkiConnect |
+| [YomiNinja](https://github.com/matt-m-o/YomiNinja) | Upstream terms apply; used for OCR response-shape compatibility and UX reference only |
 | [NihongoTube](https://www.nihongotube.app/) | Reference only for Japanese-only YouTube filtering; no public project license found, and the website footer says all rights reserved |
 | [Immersion Kit](https://www.immersionkit.com/) | External runtime service for examples and media; よむ does not bundle its corpus |
 | [Nadeshiko](https://nadeshiko.co/) | Optional external runtime service for examples and media; よむ does not bundle its corpus |

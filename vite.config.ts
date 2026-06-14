@@ -110,7 +110,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         grant: userscriptGrant,
         'inject-into': 'content',
         'run-at': 'document-start',
-        license: 'GPL-3.0-or-later',
+        license: 'MIT',
         icon: userscriptIcon,
         icon64: userscriptIcon,
         homepageURL: repoUrl,

@@ -69,7 +69,7 @@ try {
     scenarios.push(await runScenario(browser, wikipediaClickRandomDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverControlledPoolScenario()));
     scenarios.push(await runScenario(browser, wikipediaClickControlledPoolScenario()));
-    scenarios.push(await runScenario(browser, wikipediaClickInterleavedTtsScenario()));
+    scenarios.push(await runScenario(browser, wikipediaClickTtsDeprioritizedScenario()));
     scenarios.push(await runScenario(browser, ipadWikipediaTapControlledPoolScenario()));
     scenarios.push(await runScenario(browser, youtubeHoverControlledPoolScenario()));
 } finally {
@@ -80,6 +80,7 @@ function wikipediaMainPageDefaultReplayScenario() {
     return {
         name: 'wikipedia-main-page-click-replay-default',
         url: WIKIPEDIA_MAIN_PAGE_URL,
+        injectTargetText: true,
         settings: {
             ...baseSettings,
             audioEnableDefaultSources: true,
@@ -95,10 +96,11 @@ function wikipediaMainPageDefaultReplayScenario() {
         },
         assertResult: result => {
             const played = playbackIdentities(result);
-            const unique = new Set(played);
             assert(played.length >= 6, 'Wikipedia main page default replay did not record six playback attempts', result);
-            assertNoImmediateRepeats(played, 'Wikipedia main page default replay repeated the previous audio identity', result);
-            assert(unique.size >= 3, 'Wikipedia main page default replay did not enter the wider randomized audio pool', result);
+            assert(result.speech.length === 0, 'Wikipedia main page default replay used text-to-speech while recorded audio was playable', result);
+            if (new Set(played).size > 1) {
+                assertNoImmediateRepeats(played, 'Wikipedia main page default replay repeated the previous audio identity despite multiple identities being available', result);
+            }
         },
     };
 }
@@ -121,6 +123,7 @@ function wikipediaMainPageHoverControlledPoolScenario() {
 const summaryPath = path.join(ARTIFACT_DIR, 'summary.json');
 writeFileSync(summaryPath, `${JSON.stringify({ generatedAt: new Date().toISOString(), scenarios }, null, 2)}\n`);
 console.log(JSON.stringify({ summaryPath, scenarios }, null, 2));
+if (scenarios.some(scenario => scenario.status !== 'pass')) process.exitCode = 1;
 
 function wikipediaHoverDefaultScenario() {
     return {
@@ -200,9 +203,9 @@ function wikipediaClickControlledPoolScenario() {
     };
 }
 
-function wikipediaClickInterleavedTtsScenario() {
+function wikipediaClickTtsDeprioritizedScenario() {
     return {
-        name: 'wikipedia-atomic-weight-click-interleaved-tts',
+        name: 'wikipedia-atomic-weight-click-tts-deprioritized',
         url: EXACT_WIKIPEDIA_URL,
         settings: {
             ...baseSettings,
@@ -216,13 +219,12 @@ function wikipediaClickInterleavedTtsScenario() {
             await clickFirstReaderWord(page);
             await waitForAudibleAudioCount(page, 1, 'Wikipedia interleaved click-open produced no recorded audio');
             await clickPopoverAudioButton(page);
-            await waitForAudioOrSpeechCount(page, 2, 'Wikipedia interleaved replay did not enter text-to-speech');
+            await waitForAudibleAudioCount(page, 2, 'Wikipedia replay did not keep using recorded audio before TTS');
         },
         assertResult: result => {
-            const played = playbackIdentities(result);
-            assert(result.audiblePlays.some(play => (play.sourceUrl || play.src).includes('real-audio.test/interleaved.mp3')), 'interleaved scenario did not play controlled recorded audio', result);
-            assert(result.speech.length >= 1, 'interleaved scenario did not enter browser text-to-speech on replay', result);
-            assertNoImmediateRepeats(played, 'interleaved scenario repeated the recorded source before text-to-speech', result);
+            const recordedPlays = result.audiblePlays.filter(play => (play.sourceUrl || play.src).includes('real-audio.test/interleaved.mp3'));
+            assert(recordedPlays.length >= 2, 'TTS-deprioritized scenario did not keep playing controlled recorded audio', result);
+            assert(result.speech.length === 0, 'fallback mode played browser text-to-speech while recorded audio was still playable', result);
         },
     };
 }
@@ -231,6 +233,7 @@ function ipadWikipediaTapControlledPoolScenario() {
     return {
         name: 'ipad-wikipedia-atomic-weight-tap-replay-controlled-pool',
         url: EXACT_WIKIPEDIA_URL,
+        injectTargetText: true,
         contextOptions: {
             ...devices['iPad Pro 11'],
             bypassCSP: true,
@@ -264,12 +267,13 @@ function youtubeHoverControlledPoolScenario() {
         },
         injectTargetText: true,
         action: async page => {
-            await hoverSeveralReaderWords(page, 3);
-            await waitForAudibleAudioCount(page, 1, 'YouTube controlled hover produced no audio');
+            await hoverReaderWordsAndWaitForPlayback(page, 3, 'YouTube controlled hover', { requirePopover: false });
         },
         assertResult: result => {
             assert(result.hasVideo, 'YouTube scenario did not detect a page video', result);
-            assert(result.audiblePlays.length >= 1, 'YouTube hover did not play audio', result);
+            assert(result.audiblePlays.length >= 3, 'YouTube hover did not play audio for each hovered word', result);
+            assert(result.audiblePlays.every(play => (play.sourceUrl || play.src).includes('real-audio.test')), 'YouTube hover did not use controlled source-backed audio', result);
+            assert(result.audiblePlays.some(play => play.popover), 'YouTube hover audio did not happen while a popover card was open', result);
         },
     };
 }
@@ -512,7 +516,7 @@ async function hoverSeveralReaderWords(page, count) {
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
 }
 
-async function hoverReaderWordsAndWaitForPlayback(page, count, label) {
+async function hoverReaderWordsAndWaitForPlayback(page, count, label, options = {}) {
     const targets = await readerWordTargets(page, count);
     assert(targets.length >= count, `${label} found only ${targets.length} hover targets`);
     let expectedCount = await audioOrSpeechCount(page);
@@ -520,41 +524,57 @@ async function hoverReaderWordsAndWaitForPlayback(page, count, label) {
         const point = await readerWordPoint(page, target.index);
         assert(point, `${label} target disappeared before hover: ${target.text}`);
         await page.mouse.move(point.x, point.y);
-        await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+        if (options.requirePopover !== false) await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
         expectedCount += 1;
         await waitForAudioOrSpeechCount(page, expectedCount, `${label} did not play audio after hovering ${target.text}`);
     }
 }
 
 async function clickFirstReaderWord(page) {
-    const [point] = await readerWordPoints(page, 1);
-    assert(point, 'no reader word point found for click');
-    await page.mouse.click(point.x, point.y);
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+    const points = await readerWordPoints(page, 8, { minTextLength: 2, excludeLinks: true });
+    assert(points.length > 0, 'no reader word point found for click');
+    const errors = [];
+    for (const point of points) {
+        await page.mouse.click(point.x, point.y);
+        try {
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 3_000 });
+            return;
+        } catch (error) {
+            errors.push(`${point.text}: ${error.message}`);
+        }
+    }
+    throw new Error(`no reader word opened a popover for click: ${errors.join(' | ')}`);
 }
 
 async function tapFirstReaderWord(page) {
-    const [point] = await readerWordPoints(page, 1);
-    assert(point, 'no reader word point found for tap');
-    await page.tap('.jpdb-reader-word', { timeout: 10_000 }).catch(async () => {
+    const points = await readerWordPoints(page, 8, { minTextLength: 2, excludeLinks: true });
+    assert(points.length > 0, 'no reader word point found for tap');
+    const errors = [];
+    for (const point of points) {
         await page.touchscreen.tap(point.x, point.y);
-    });
-    await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+        try {
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 4_000 });
+            return;
+        } catch (error) {
+            errors.push(`${point.text}: ${error.message}`);
+        }
+    }
+    throw new Error(`no reader word opened a popover for tap: ${errors.join(' | ')}`);
 }
 
-async function readerWordPoints(page, count) {
-    const targets = await readerWordTargets(page, count);
+async function readerWordPoints(page, count, options = {}) {
+    const targets = await readerWordTargets(page, count, options);
     const points = [];
     for (const target of targets) {
-        const point = await readerWordPoint(page, target.index);
+        const point = await readerWordPoint(page, target.index, options);
         if (point) points.push({ ...point, text: target.text });
     }
     return points;
 }
 
-async function readerWordTargets(page, count) {
-    return await page.evaluate(limit => {
-        const words = pageReaderWords();
+async function readerWordTargets(page, count, options = {}) {
+    return await page.evaluate(({ limit, minTextLength, excludeLinks }) => {
+        const words = pageReaderWords(minTextLength, excludeLinks);
         const points = [];
         const seen = new Set();
         for (const [index, word] of words.entries()) {
@@ -568,28 +588,32 @@ async function readerWordTargets(page, count) {
         }
         return points;
 
-        function pageReaderWords() {
+        function pageReaderWords(minimumLength, shouldExcludeLinks) {
             return [...document.querySelectorAll('.jpdb-reader-word')]
                 .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
+                .filter(word => !shouldExcludeLinks || !word.closest('a[href]'))
                 .filter(word => word.dataset.jpdbReaderPassive !== 'true')
-                .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''));
+                .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''))
+                .filter(word => (word.textContent || '').replace(/\s+/g, '').length >= minimumLength);
         }
-    }, count);
+    }, { limit: count, minTextLength: options.minTextLength ?? 1, excludeLinks: Boolean(options.excludeLinks) });
 }
 
-async function readerWordPoint(page, index) {
-    return await page.evaluate(targetIndex => {
+async function readerWordPoint(page, index, options = {}) {
+    return await page.evaluate(({ targetIndex, minTextLength, excludeLinks }) => {
         const words = [...document.querySelectorAll('.jpdb-reader-word')]
             .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
+            .filter(word => !excludeLinks || !word.closest('a[href]'))
             .filter(word => word.dataset.jpdbReaderPassive !== 'true')
-            .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''));
+            .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''))
+            .filter(word => (word.textContent || '').replace(/\s+/g, '').length >= minTextLength);
         const word = words[targetIndex];
         if (!word) return null;
         word.scrollIntoView({ block: 'center', inline: 'center' });
         const rect = word.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return null;
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }, index);
+    }, { targetIndex: index, minTextLength: options.minTextLength ?? 1, excludeLinks: Boolean(options.excludeLinks) });
 }
 
 async function audioOrSpeechCount(page) {

@@ -14,7 +14,6 @@ import {
 import {
     audioCandidateSelectionMode,
     audioPreloadLimits,
-    audioSourceDeckState,
     cheapCandidatePreloadAudioSources,
     cloneAudioCandidates,
     getAudioBagKey,
@@ -311,20 +310,12 @@ export class AudioPlayer {
         }
 
         const realSourceSettings = sources.filter(source => !isTextToSpeechFallbackSource(source));
-        const realDeck = audioSourceDeckState(realSourceSettings, card, this.shuffledAudio);
-        if (settings.audioSelectionMode === 'random' && realDeck.exhausted) {
-            const result = await this.playOrderedSources(
-                orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio, { avoidFirstSignature: realDeck.lastPlayedSignature }),
-                context,
-            );
-            return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
-        }
-
         const realAudioSources = orderAudioSources(realSourceSettings, settings.audioSelectionMode, card, this.shuffledAudio);
         const realAudioResult = settings.audioSelectionMode === 'random'
             ? await this.playOrderedSources(realAudioSources, context)
             : await this.playGreedyAudioSources(realAudioSources, context);
         if (realAudioResult !== 'miss') return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
+        if (attemptState.skippedAvoidedIdentity) return { state: 'miss', skippedAvoidedIdentity: true };
 
         const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
         if (apiTextToSpeechResult !== 'miss') return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };

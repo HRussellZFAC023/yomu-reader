@@ -73,6 +73,7 @@ try {
     scenarios.push(await runFixtureBlockedFallbackScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureRandomCandidateScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureDuplicateNestedCandidateScenario(browser, fixture.baseUrl));
+    scenarios.push(await runFixtureFallbackTtsDeprioritizedScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureSourceOrderTtsScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureIpadBlobScenario(browser, fixture.baseUrl));
     scenarios.push(await runWikipediaScenario(browser));
@@ -200,6 +201,35 @@ async function runFixtureDuplicateNestedCandidateScenario(browser, baseUrl) {
             assert(urls.length >= 2, 'duplicate nested scenario did not play two source-backed clips', result);
             assert(urls[0] === 'https://audio.test/clip-a.mp3', 'duplicate nested scenario did not start with the expected duplicated clip', result);
             assert(urls[1] === 'https://audio.test/clip-b.mp3', 'duplicate nested replay did not skip the duplicate clip-a candidate', result);
+        },
+    });
+}
+
+async function runFixtureFallbackTtsDeprioritizedScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-fallback-tts-deprioritized-random-replay',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioViaBlob: true,
+            audioSelectionMode: 'random',
+            audioTtsMode: 'fallback',
+            audioSources: [
+                { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                { type: 'custom-json', url: 'https://audio.test/nested-json?term={term}', voice: '', enabled: true },
+            ],
+        },
+        initRandomValue: 0.99,
+        action: async page => {
+            await clickTargetWord(page);
+            await waitForAudibleAudio(page, 'fallback-priority first recorded audio did not play');
+            await page.locator('.jpdb-reader-popover [data-action="audio"]').click();
+            await waitForAudibleAudioCount(page, 2, 'fallback-priority replay used TTS or produced no recorded audio');
+        },
+        assertResult: result => {
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url.includes('/clip-'));
+            assert(urls.length >= 2, 'fallback-priority scenario did not play two recorded clips', result);
+            assert(result.speech.length === 0, 'fallback mode used browser TTS while recorded clips were playable', result);
         },
     });
 }
