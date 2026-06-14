@@ -61426,28 +61426,45 @@ ${entry.url}`),
       const details = detail.wordKanjiDetails ?? [];
       if (!details.length) return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
       details.forEach((item) => {
-        const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
-        const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
-        kanjiCard.kanjiKeyword = item.details.jiten?.meanings[0] ?? newTabKanjiKeyword(
-          kanjiCard,
-          fullInfo,
-          item.details.rtk,
-          uniqueTrimmedStrings(item.details.local.flatMap((entry) => entry.meanings)).slice(0, 6)
-        );
-        const kanjiDetail = this.renderKanjiDetails(
-          kanjiCard,
-          item.kanji,
-          item.details.jpdb,
-          item.details.jiten,
-          item.details.rtk,
-          item.details.vg,
-          item.details.local
-        );
-        section.append(kanjiDetail);
-        this.renderNewTabUchisen(kanjiDetail, item.kanji);
-        this.renderNewTabKanjiImmersion(kanjiDetail, item.kanji);
+        section.append(this.renderSearchWordKanjiItem(card, item));
       });
       return section;
+    }
+    renderSearchWordKanjiItem(card, item) {
+      const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
+      const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
+      kanjiCard.kanjiKeyword = item.details.jiten?.meanings[0] ?? newTabKanjiKeyword(
+        kanjiCard,
+        fullInfo,
+        item.details.rtk,
+        uniqueTrimmedStrings(item.details.local.flatMap((entry) => entry.meanings)).slice(0, 6)
+      );
+      const kanjiDetail = this.renderKanjiDetails(
+        kanjiCard,
+        item.kanji,
+        item.details.jpdb,
+        item.details.jiten,
+        item.details.rtk,
+        item.details.vg,
+        item.details.local
+      );
+      const itemRoot = el(
+        "section",
+        {
+          class: "jpdb-reader-newtab-search-kanji-item",
+          dataset: { searchWordKanji: item.kanji, newtabCard: cardKey(card) }
+        },
+        el(
+          "div",
+          { class: "jpdb-reader-newtab-search-kanji-item-title" },
+          el("span", { class: "jpdb-reader-newtab-search-kanji-item-char", lang: "ja" }, item.kanji),
+          kanjiCard.kanjiKeyword ? el("span", { class: "jpdb-reader-newtab-search-kanji-item-keyword" }, kanjiCard.kanjiKeyword) : null
+        ),
+        kanjiDetail
+      );
+      this.renderNewTabUchisen(kanjiDetail, item.kanji);
+      this.renderNewTabKanjiImmersion(kanjiDetail, item.kanji);
+      return itemRoot;
     }
     toggleSearchKanjiResult(button, kanji) {
       const existing = this.expandSearchResultDetail(button);
