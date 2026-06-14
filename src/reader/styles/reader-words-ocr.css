@@ -53,6 +53,11 @@
   pointer-events: none;
 }
 
+.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after,
+.VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
+  inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
+}
+
 /* Long annotated prose may wrap even when the host says nowrap — but never
    inside passive UI controls (buttons, chips, tabs): their nowrap is a layout
    contract, and re-enabling wrapping stacks CJK labels one character per line

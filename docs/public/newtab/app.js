@@ -40525,7 +40525,7 @@ ${spelling}`);
     async playPreparedSourceResult(result, context) {
       if (result.state === "superseded") return "superseded";
       if (result.state !== "ready" || !result.prepared) return "miss";
-      return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.reservedAudio).catch((error) => audioPlaybackAttemptResult(error, context.errors));
+      return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.card, context.reservedAudio).catch((error) => audioPlaybackAttemptResult(error, context.errors));
     }
     prepareSourceWithErrors(sourceEntry, context) {
       let promise;
@@ -40555,7 +40555,7 @@ ${spelling}`);
       this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
       return { state: "miss" };
     }
-    async playPreparedCandidate(prepared, settings, requestId, isCurrent, reservedAudio) {
+    async playPreparedCandidate(prepared, settings, requestId, isCurrent, card, reservedAudio) {
       let played = false;
       try {
         const audio = reservedAudio ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio) : prepared.audio;
@@ -40567,6 +40567,7 @@ ${spelling}`);
       if (!played) return "miss";
       this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
       this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
+      this.markAudioCandidatePlayed(card, prepared.candidate);
       return "played";
     }
     async playSourceWithErrors(sourceEntry, context) {

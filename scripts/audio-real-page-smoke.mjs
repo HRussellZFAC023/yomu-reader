@@ -64,6 +64,7 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', {
 
 try {
     scenarios.push(await runScenario(browser, wikipediaMainPageDefaultReplayScenario()));
+    scenarios.push(await runScenario(browser, wikipediaMainPageHoverControlledPoolScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaClickRandomDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverControlledPoolScenario()));
@@ -98,6 +99,21 @@ function wikipediaMainPageDefaultReplayScenario() {
             assert(played.length >= 6, 'Wikipedia main page default replay did not record six playback attempts', result);
             assertNoImmediateRepeats(played, 'Wikipedia main page default replay repeated the previous audio identity', result);
             assert(unique.size >= 3, 'Wikipedia main page default replay did not enter the wider randomized audio pool', result);
+        },
+    };
+}
+
+function wikipediaMainPageHoverControlledPoolScenario() {
+    return {
+        name: 'wikipedia-main-page-hover-controlled-pool',
+        url: WIKIPEDIA_MAIN_PAGE_URL,
+        settings: controlledPoolSettings(),
+        action: async page => {
+            await hoverReaderWordsAndWaitForPlayback(page, 5, 'Wikipedia main page controlled hover');
+        },
+        assertResult: result => {
+            const controlledPlays = result.audiblePlays.filter(play => (play.sourceUrl || play.src).includes('real-audio.test'));
+            assert(controlledPlays.length >= 5, 'Wikipedia main page controlled hover did not play audio for each hovered word', result);
         },
     };
 }
@@ -213,7 +229,7 @@ function wikipediaClickInterleavedTtsScenario() {
 
 function ipadWikipediaTapControlledPoolScenario() {
     return {
-        name: 'ipad-wikipedia-atomic-weight-tap-controlled-pool',
+        name: 'ipad-wikipedia-atomic-weight-tap-replay-controlled-pool',
         url: EXACT_WIKIPEDIA_URL,
         contextOptions: {
             ...devices['iPad Pro 11'],
@@ -223,9 +239,17 @@ function ipadWikipediaTapControlledPoolScenario() {
         action: async page => {
             await tapFirstReaderWord(page);
             await waitForAudibleAudioCount(page, 1, 'iPad controlled tap produced no audio');
+            await clickPopoverAudioButton(page);
+            await waitForAudibleAudioCount(page, 2, 'iPad controlled replay produced no second audio');
+            await clickPopoverAudioButton(page);
+            await waitForAudibleAudioCount(page, 3, 'iPad controlled replay produced no third audio');
         },
         assertResult: result => {
-            assert(result.audiblePlays.some(play => play.src.startsWith('blob:')), 'iPad tap did not play through a blob URL', result);
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(value => value.includes('real-audio.test'));
+            assert(result.audiblePlays.length >= 3, 'iPad tap and replay did not record three audio plays', result);
+            assert(result.audiblePlays.every(play => play.src.startsWith('blob:')), 'iPad tap/replay did not play every clip through a blob URL', result);
+            assert(urls.length >= 3, 'iPad tap/replay did not record three controlled source clips', result);
+            assertNoImmediateRepeats(urls, 'iPad tap/replay repeated the previous source clip immediately', result);
         },
     };
 }
@@ -477,13 +501,29 @@ async function waitForReaderWords(page) {
 }
 
 async function hoverSeveralReaderWords(page, count) {
-    const points = await readerWordPoints(page, count);
-    assert(points.length > 0, 'no reader word points found for hover');
-    for (const point of points) {
+    const targets = await readerWordTargets(page, count);
+    assert(targets.length > 0, 'no reader word points found for hover');
+    for (const target of targets) {
+        const point = await readerWordPoint(page, target.index);
+        assert(point, `reader word disappeared before hover: ${target.text}`);
         await page.mouse.move(point.x, point.y);
         await page.waitForTimeout(350);
     }
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+}
+
+async function hoverReaderWordsAndWaitForPlayback(page, count, label) {
+    const targets = await readerWordTargets(page, count);
+    assert(targets.length >= count, `${label} found only ${targets.length} hover targets`);
+    let expectedCount = await audioOrSpeechCount(page);
+    for (const target of targets) {
+        const point = await readerWordPoint(page, target.index);
+        assert(point, `${label} target disappeared before hover: ${target.text}`);
+        await page.mouse.move(point.x, point.y);
+        await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+        expectedCount += 1;
+        await waitForAudioOrSpeechCount(page, expectedCount, `${label} did not play audio after hovering ${target.text}`);
+    }
 }
 
 async function clickFirstReaderWord(page) {
@@ -503,24 +543,59 @@ async function tapFirstReaderWord(page) {
 }
 
 async function readerWordPoints(page, count) {
+    const targets = await readerWordTargets(page, count);
+    const points = [];
+    for (const target of targets) {
+        const point = await readerWordPoint(page, target.index);
+        if (point) points.push({ ...point, text: target.text });
+    }
+    return points;
+}
+
+async function readerWordTargets(page, count) {
     return await page.evaluate(limit => {
-        const words = [...document.querySelectorAll('.jpdb-reader-word')]
-            .filter(word => word.dataset.jpdbReaderPassive !== 'true')
-            .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''));
+        const words = pageReaderWords();
         const points = [];
         const seen = new Set();
-        for (const word of words) {
+        for (const [index, word] of words.entries()) {
             const text = (word.textContent || '').trim();
             if (!text || seen.has(text)) continue;
-            word.scrollIntoView({ block: 'center', inline: 'center' });
             const rect = word.getBoundingClientRect();
             if (rect.width <= 0 || rect.height <= 0) continue;
             seen.add(text);
-            points.push({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, text });
+            points.push({ index, text });
             if (points.length >= limit) break;
         }
         return points;
+
+        function pageReaderWords() {
+            return [...document.querySelectorAll('.jpdb-reader-word')]
+                .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
+                .filter(word => word.dataset.jpdbReaderPassive !== 'true')
+                .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''));
+        }
     }, count);
+}
+
+async function readerWordPoint(page, index) {
+    return await page.evaluate(targetIndex => {
+        const words = [...document.querySelectorAll('.jpdb-reader-word')]
+            .filter(word => !word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-sheet'))
+            .filter(word => word.dataset.jpdbReaderPassive !== 'true')
+            .filter(word => /[\u3040-\u30ff\u3400-\u9fff]/u.test(word.textContent || ''));
+        const word = words[targetIndex];
+        if (!word) return null;
+        word.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = word.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }, index);
+}
+
+async function audioOrSpeechCount(page) {
+    return await page.evaluate(() => {
+        return (window.__yomuRealAudioAudible?.().length ?? 0) + (window.__yomuRealAudio?.speech?.length ?? 0);
+    });
 }
 
 async function clickPopoverAudioButton(page) {

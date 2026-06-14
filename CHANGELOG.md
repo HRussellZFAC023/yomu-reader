@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.4] - 2026-06-14
+
+### Changed
+
+- Merged the verified 0.7.3 onboarding, host-style isolation, parser coverage, accent picker, passive contrast, and audio-source fixes back onto `main`.
+- Anki mining is opt-in on first run while existing migrated Anki setups stay deliberate and preserved.
+
+### Fixed
+
+- Audio replay selection now skips duplicated resolved media URLs and repeated browser text-to-speech voices before falling back to another available source.
+- Hosted docs hero text keeps Yomu pitch underlines aligned when words render without furigana.
+
 ## [0.7.3] - 2026-06-14
 
 ### Changed
