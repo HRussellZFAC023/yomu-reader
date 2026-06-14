@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.2
+// @version      0.7.3
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Of9qwpzZPxMzPXUVOx6Ekn+4LGH281WwbTraYTpuZ1E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-/2KVxfQejMacYFI32yTjZY9CH54KU3PUS/B44MVEqh8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-X+mVk0L56vV15A+mEx8tHw2AW74IVyd4y/HSVETolOc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-3oJdm9dZc8QtTU++6Hwx4DAJ3lgTOqO2Hmz9HqPfxfM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-X3NaDpo3vfKMlSRQZMIdu9gpZwq6Biiik2RV0goecLY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-ShT8az10gVM0CX2pQcqwj6vtxCG7kbot3rD7PbDJY+M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xOz3XyPlRAhoZmO4vFCX1lRqN1/mJMMWROsQiiFV+HA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-hG+fzosmMBECnfkxydaK3XajAcD9hnUSwMhK1eh7T00=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5850,13 +5850,13 @@
       featureText: "Text",
       featureTextBody: "Hover or tap scanned Japanese.",
       featureImages: "Images",
-      featureImagesBody: "Read image text near the viewport.",
+      featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
+      featureStudyBody: "Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -6933,13 +6933,13 @@ closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
 featureTextBody	スキャン後、日本語をホバー/タップできます。
 featureImages	画像
-featureImagesBody	近くの画像テキストを検出します。
+featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -8061,13 +8061,22 @@ recommendedJiten	jiten.moe頻度データです。
     }
     bags = /* @__PURE__ */ new Map();
     order(key, ids) {
-      if (ids.length < 2) return ids;
+      if (!ids.length) return ids;
       const signature = ids.join("\0");
       const current = this.bags.get(key);
       if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
       const next = this.buildAudioBag(ids, signature, current);
       this.bags.set(key, next);
       return audioDeckOrderWithFallbacks(next.remaining, ids);
+    }
+    isExhausted(key, ids) {
+      if (!ids.length) return false;
+      const current = this.bags.get(key);
+      return Boolean(current?.signature === ids.join("\0") && current.remaining.length === 0 && current.lastPlayed);
+    }
+    lastPlayed(key, ids) {
+      const current = this.bags.get(key);
+      return current?.signature === ids.join("\0") ? current.lastPlayed : void 0;
     }
     buildAudioBag(ids, signature, current) {
       const remaining = this.shuffle(ids);
@@ -8164,13 +8173,33 @@ recommendedJiten	jiten.moe頻度データです。
   function audioCandidateSelectionMode(sourceType, mode) {
     return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
   }
-  function orderAudioSources(sources, mode, card, shuffledAudio) {
+  function orderAudioSources(sources, mode, card, shuffledAudio, options = {}) {
     const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(sources.map((source, index) => ({
-      source,
-      id: getAudioSourceDeckId(source, index),
-      bagKey
-    })), mode, bagKey, shuffledAudio);
+    const ordered = orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+    rotateAvoidedAudioSourceLead(ordered, options.avoidFirstSignature);
+    return ordered;
+  }
+  function audioSourceDeckState(sources, card, shuffledAudio) {
+    const bagKey = getAudioSourceBagKey(sources, card);
+    const entries = audioSourceDeckEntries(sources, bagKey);
+    const ids = entries.map((source) => source.id);
+    const lastPlayed = shuffledAudio.lastPlayed(bagKey, ids);
+    return {
+      exhausted: shuffledAudio.isExhausted(bagKey, ids),
+      lastPlayed,
+      lastPlayedSignature: entries.find((entry) => entry.id === lastPlayed)?.signature
+    };
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
   }
   function isBrowserTextToSpeechSource(source) {
     return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
@@ -8240,7 +8269,7 @@ recommendedJiten	jiten.moe頻度データです。
     ].join("\0");
   }
   function orderAudioDeckEntries(entries, mode, bagKey, shuffledAudio) {
-    if (mode !== "random" || entries.length < 2) return entries;
+    if (mode !== "random" || !entries.length) return entries;
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
     const ordered = [];
     for (const id of shuffledAudio.order(bagKey, entries.map((entry) => entry.id))) {
@@ -8248,6 +8277,9 @@ recommendedJiten	jiten.moe頻度データです。
       if (entry) ordered.push(entry);
     }
     return ordered;
+  }
+  function rotateAvoidedAudioSourceLead(sources, avoidFirstSignature) {
+    if (avoidFirstSignature && sources.length > 1 && sources[0]?.signature === avoidFirstSignature) sources.push(sources.shift());
   }
   function getAudioSourceBagKey(sources, card) {
     return [
@@ -8257,8 +8289,8 @@ recommendedJiten	jiten.moe頻度データです。
       ...sources.map(getAudioSourceSignature)
     ].join("");
   }
-  function getAudioSourceDeckId(source, index) {
-    return `${index}\0${getAudioSourceSignature(source)}`;
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
   }
   function getAudioSourceSignature(source) {
     return [
@@ -9379,6 +9411,7 @@ recommendedJiten	jiten.moe頻度データです。
   const READY_AUDIO_CACHE_LIMIT = 160;
   const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
   const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
+  const LAST_AUDIO_IDENTITY_LIMIT = 400;
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
@@ -9405,6 +9438,7 @@ recommendedJiten	jiten.moe頻度データです。
     jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     readyAudioCache = /* @__PURE__ */ new Map();
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
+    lastAudioIdentityByCard = /* @__PURE__ */ new Map();
     gestureReservation;
     clearCaches() {
       this.candidateCache.clear();
@@ -9486,20 +9520,39 @@ recommendedJiten	jiten.moe頻度データです。
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
       const errors = [];
+      const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
+      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity);
+      if (result.state === "miss" && result.skippedAvoidedIdentity) {
+        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio);
+        return { state: retry.state, errors };
+      }
+      return { state: result.state, errors };
+    }
+    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity) {
       const triedUrls = /* @__PURE__ */ new Set();
-      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio };
+      const attemptState = { skippedAvoidedIdentity: false };
+      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
       const fallbackContext = { ...context, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
         const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), context);
-        return { state: result, errors };
+        return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       }
-      const realAudioSources = orderAudioSources(sources.filter((source) => !isTextToSpeechFallbackSource(source)), settings.audioSelectionMode, card, this.shuffledAudio);
+      const realSourceSettings = sources.filter((source) => !isTextToSpeechFallbackSource(source));
+      const realDeck = audioSourceDeckState(realSourceSettings, card, this.shuffledAudio);
+      if (settings.audioSelectionMode === "random" && realDeck.exhausted) {
+        const result = await this.playOrderedSources(
+          orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio, { avoidFirstSignature: realDeck.lastPlayedSignature }),
+          context
+        );
+        return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
+      }
+      const realAudioSources = orderAudioSources(realSourceSettings, settings.audioSelectionMode, card, this.shuffledAudio);
       const realAudioResult = settings.audioSelectionMode === "random" ? await this.playOrderedSources(realAudioSources, context) : await this.playGreedyAudioSources(realAudioSources, context);
-      if (realAudioResult !== "miss") return { state: realAudioResult, errors };
+      if (realAudioResult !== "miss") return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, errors };
+      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      return { state: textToSpeechResult, errors };
+      return { state: textToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
     }
     async playOrderedSources(sources, context) {
       for (const sourceEntry of sources) {
@@ -9578,7 +9631,7 @@ recommendedJiten	jiten.moe頻度データです。
         return "superseded";
       }
       try {
-        const played = await this.playFromSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.reservedAudio);
+        const played = await this.playFromSource(sourceEntry, context);
         const result = this.audioSourceAttemptResult(played, context.requestId, context.isCurrent);
         if (result === "played") this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
         else if (result === "miss") this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
@@ -9733,33 +9786,46 @@ recommendedJiten	jiten.moe頻度データです。
       this.gestureReservation = void 0;
       if (this.current === audio) this.stopCurrent();
     }
-    async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
+    async playFromSource(sourceEntry, context) {
+      const { card, settings, requestId, isCurrent } = context;
       const { source } = sourceEntry;
-      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
+      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
-      return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
+      return await this.playFromAudioCandidates(candidates, source.type, context, bagKey);
     }
-    async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
+    async playFromTextToSpeechSource(source, context) {
+      const { card, settings, requestId, isCurrent } = context;
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const text2 = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
-      await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings));
-      return this.isPlaybackCurrent(requestId, isCurrent);
+      const played = await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings), {
+        avoidIdentity: context.avoidIdentity,
+        onAvoided: () => {
+          context.attemptState.skippedAvoidedIdentity = true;
+        },
+        onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity)
+      });
+      return played && this.isPlaybackCurrent(requestId, isCurrent);
     }
-    async playFromAudioCandidates(candidates, sourceType, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio) {
+    async playFromAudioCandidates(candidates, sourceType, context, bagKey) {
+      const { card, settings, requestId, triedUrls, isCurrent, reservedAudio } = context;
       const playableCandidates = this.availableAudioCandidates(sourceType, candidates);
       for (const { candidate, id } of orderAudioCandidates(playableCandidates, audioCandidateSelectionMode(sourceType, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
         if (!registerAudioAttempt(triedUrls, candidate)) {
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio)) return true;
+        if (this.shouldDeferRepeatedAudioCandidate(candidate, context)) {
+          this.shuffledAudio.markSkipped(bagKey, id);
+          continue;
+        }
+        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio)) return true;
         this.shuffledAudio.markSkipped(bagKey, id);
       }
       return false;
     }
-    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio) {
+    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio) {
       let audio;
       try {
         audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -9776,7 +9842,32 @@ recommendedJiten	jiten.moe頻度データです。
       }
       if (!played) return false;
       this.shuffledAudio.markPlayed(bagKey, id);
+      this.markAudioCandidatePlayed(card, candidate);
       return true;
+    }
+    shouldDeferRepeatedAudioCandidate(candidate, context) {
+      const identity = audioCandidatePlaybackIdentity(candidate);
+      if (!identity || identity !== context.avoidIdentity) return false;
+      context.attemptState.skippedAvoidedIdentity = true;
+      return true;
+    }
+    lastPlayedAudioIdentity(card) {
+      return this.lastAudioIdentityByCard.get(audioIdentityCardKey(card));
+    }
+    markAudioCandidatePlayed(card, candidate) {
+      const identity = audioCandidatePlaybackIdentity(candidate);
+      if (!identity) return;
+      this.markAudioIdentityPlayed(card, identity);
+    }
+    markAudioIdentityPlayed(card, identity) {
+      const key = audioIdentityCardKey(card);
+      this.lastAudioIdentityByCard.delete(key);
+      this.lastAudioIdentityByCard.set(key, identity);
+      while (this.lastAudioIdentityByCard.size > LAST_AUDIO_IDENTITY_LIMIT) {
+        const oldest = this.lastAudioIdentityByCard.keys().next().value;
+        if (!oldest) break;
+        this.lastAudioIdentityByCard.delete(oldest);
+      }
     }
     availableAudioCandidates(sourceType, candidates) {
       if (sourceType !== "jpdb-tts") return candidates;
@@ -9919,7 +10010,7 @@ recommendedJiten	jiten.moe頻度データです。
       const settings = this.getSettings();
       return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
-    playTextToSpeech(text2, voiceName, deckKey) {
+    playTextToSpeech(text2, voiceName, deckKey, options = {}) {
       const settings = this.getSettings();
       if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
       return new Promise((resolve, reject) => {
@@ -9927,10 +10018,18 @@ recommendedJiten	jiten.moe頻度データです。
         utterance.lang = "ja-JP";
         const voices = speechSynthesis.getVoices();
         const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        const identity = textToSpeechPlaybackIdentity(text2, choice.voice);
+        if (identity === options.avoidIdentity) {
+          this.markTextToSpeechVoiceSkipped(choice);
+          options.onAvoided?.();
+          resolve(false);
+          return;
+        }
         utterance.voice = choice.voice;
         utterance.onend = () => {
           this.markTextToSpeechVoicePlayed(choice);
-          resolve();
+          options.onPlayed?.(identity);
+          resolve(true);
         };
         utterance.onerror = () => {
           this.markTextToSpeechVoiceSkipped(choice);
@@ -10018,6 +10117,24 @@ recommendedJiten	jiten.moe頻度データです。
       voice.lang,
       String(index)
     ].join("\0");
+  }
+  function audioCandidatePlaybackIdentity(candidate) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return normalizeAttemptedAudioUrl(candidate.url);
+  }
+  function textToSpeechPlaybackIdentity(text2, voice) {
+    return [
+      "text-to-speech",
+      voice?.voiceURI || voice?.name || "default",
+      voice?.lang || "",
+      text2
+    ].join("");
+  }
+  function audioIdentityCardKey(card) {
+    return [
+      card.spelling,
+      card.reading
+    ].join("");
   }
   class AudioSourcePreparationRace {
     constructor(sources, prepare) {
@@ -31288,6 +31405,9 @@ ${glossaryKey}`;
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]',
     '[role="option"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
     '[role="tab"]'
   ];
   const SCOPED_SAFE_UI_CHROME_ROOTS = [
@@ -31306,6 +31426,10 @@ ${glossaryKey}`;
     "article a[href]",
     "button",
     "summary",
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
     '[role="menuitem"]',
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]'
@@ -31332,11 +31456,7 @@ ${glossaryKey}`;
     "rp",
     "[disabled]",
     '[aria-disabled="true"]',
-    "[title]",
     '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
     "[data-audio]",
     '[class*="audio" i]',
     '[class*="control" i]',
@@ -33441,6 +33561,21 @@ ${glossaryKey}`;
     ".footer"
   ].join(",");
   const SETTINGS_SELECT_OPTIONS_META_SELECTOR = "[data-settings-select-options-meta]";
+  const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
+    ".jpdb-reader-theme-title",
+    '.jpdb-reader-settings-tabs [role="tab"]'
+  ].join(",");
+  const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
+    "[hidden]",
+    '[aria-hidden="true"]',
+    "input",
+    "option",
+    "select",
+    "svg",
+    "textarea",
+    "use",
+    ".jpdb-reader-word"
+  ].join(",");
   const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
     SETTINGS_PARSE_EXCLUDE_SELECTOR,
     SETTINGS_SELECT_OPTIONS_META_SELECTOR
@@ -33451,7 +33586,8 @@ ${glossaryKey}`;
     "[data-settings-panel]:not([hidden]) label",
     "[data-settings-panel]:not([hidden]) .jpdb-reader-local-title",
     "[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)",
-    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`
+    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
     const parseRoots = root.matches(PARSEABLE_SELECTOR) ? [root] : Array.from(root.querySelectorAll(PARSEABLE_SELECTOR));
@@ -33469,20 +33605,31 @@ ${glossaryKey}`;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.filter((parseRoot) => !parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
+    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
       parseRoot,
       limit,
       false,
-      parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR,
+      settingsParseExcludeSelector(parseRoot),
       {
         includeReaderRoot: true,
         includeFormChrome: true,
         allowUiText: true,
         heading: true,
-        minLength: 2
+        minLength: 2,
+        readerRootPassiveInteractions: true
       }
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  }
+  function isExcludedSettingsParseRoot(parseRoot) {
+    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+  }
+  function settingsParseExcludeSelector(parseRoot) {
+    if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+  }
+  function isSettingsChromeParseRoot(parseRoot) {
+    return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);
   }
   function nestedParseAlreadyScheduled(root, parseKey) {
     return root.dataset.jpdbReaderParseLoadingKey === parseKey || root.dataset.jpdbReaderParseKey === parseKey;
@@ -33556,6 +33703,8 @@ ${glossaryKey}`;
     languageSelect;
     themeSwitch;
     accentColorInput;
+    pendingAccentPreviewColor;
+    accentPreviewFrame;
     youtubeImmersionInput;
     preferJapaneseSiteLanguageInput;
     async showIfNeeded() {
@@ -33655,7 +33804,8 @@ ${glossaryKey}`;
       this.accentColorInput.name = "accentColor";
       this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
       this.accentColorInput.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor"));
-      this.accentColorInput.addEventListener("input", () => this.applyAccentChoice(this.accentColorInput?.value));
+      this.accentColorInput.addEventListener("input", () => this.previewAccentChoice(this.accentColorInput?.value));
+      this.accentColorInput.addEventListener("change", () => this.applyAccentChoice(this.accentColorInput?.value));
       customAccent.append(customAccentText, this.accentColorInput);
       accentPicker.append(accentLegend, swatches, customAccent);
       const basics = document.createElement("div");
@@ -33781,6 +33931,7 @@ ${glossaryKey}`;
       else if (openSettings) this.options.showSettings("api");
     }
     close() {
+      this.cancelAccentPreviewFrame();
       this.panel?.remove();
       this.backdrop?.remove();
       this.panel = void 0;
@@ -33833,6 +33984,7 @@ ${glossaryKey}`;
       return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
     applyAccentChoice(value) {
+      this.cancelAccentPreviewFrame();
       const current = this.options.getSettings();
       const accentColor = sanitizeAccentColor(value, current.accentColor);
       this.options.setSettings({ ...current, accentColor });
@@ -33840,6 +33992,26 @@ ${glossaryKey}`;
         this.accentColorInput.value = accentColor;
       }
       this.syncAccentPicker(accentColor);
+    }
+    previewAccentChoice(value) {
+      const current = this.options.getSettings();
+      const accentColor = sanitizeAccentColor(value, current.accentColor);
+      this.pendingAccentPreviewColor = accentColor;
+      this.syncAccentPicker(accentColor);
+      if (this.accentPreviewFrame !== void 0) return;
+      this.accentPreviewFrame = requestOnboardingFrame(() => {
+        this.accentPreviewFrame = void 0;
+        const pendingColor = this.pendingAccentPreviewColor;
+        this.pendingAccentPreviewColor = void 0;
+        if (!pendingColor || !this.panel?.isConnected) return;
+        this.options.setSettings({ ...this.options.getSettings(), accentColor: pendingColor });
+      });
+    }
+    cancelAccentPreviewFrame() {
+      if (this.accentPreviewFrame === void 0) return;
+      cancelOnboardingFrame(this.accentPreviewFrame);
+      this.accentPreviewFrame = void 0;
+      this.pendingAccentPreviewColor = void 0;
     }
     syncAccentPicker(color) {
       const selectedColor = sanitizeAccentColor(color);
@@ -33888,6 +34060,16 @@ ${glossaryKey}`;
   }
   function onboardingAccentLabel(language, color) {
     return `${uiText(language, "onboardingAccentColor")} ${color.toUpperCase()}`;
+  }
+  function requestOnboardingFrame(callback) {
+    if (typeof window.requestAnimationFrame === "function") {
+      return window.requestAnimationFrame(() => callback());
+    }
+    return window.setTimeout(callback, 16);
+  }
+  function cancelOnboardingFrame(id) {
+    if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+    else window.clearTimeout(id);
   }
   function closeIcon() {
     return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
@@ -35126,14 +35308,15 @@ ${glossaryKey}`;
     word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
     const preserveHostPaint = word.classList.contains("jpdb-reader-passive-word");
     const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
+    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
     const sourceText = cssColorToHex(m.color, accessibleRgba);
-    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
     const textSource = word.classList.contains("jpdb-reader-passive-word") ? nativeText : sourceText ?? nativeText;
-    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, accessibleHex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
     if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-word-accessible-underline");

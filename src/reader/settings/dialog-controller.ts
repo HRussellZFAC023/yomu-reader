@@ -317,6 +317,18 @@ function requestFrame(callback: () => void): void {
     window.setTimeout(callback, 16);
 }
 
+function requestCancelableFrame(callback: () => void): number {
+    if (typeof window.requestAnimationFrame === 'function') {
+        return window.requestAnimationFrame(() => callback());
+    }
+    return window.setTimeout(callback, 16);
+}
+
+function cancelCancelableFrame(id: number): void {
+    if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id);
+    else window.clearTimeout(id);
+}
+
 function scrollSettingsControlIntoView(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
     const geometry = settingsControlScrollGeometry(form, control);
     if (geometry) applySettingsControlScroll(geometry);
@@ -709,13 +721,47 @@ export class SettingsDialogController {
 
     private bindLivePreview(form: HTMLFormElement): void {
         const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
-        form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
-            const accentColor = (event.currentTarget as HTMLInputElement).value;
+        let pendingAccentColor: string | undefined;
+        let accentPreviewFrame: number | undefined;
+        const flushAccentPreview = () => {
+            accentPreviewFrame = undefined;
+            const accentColor = pendingAccentColor;
+            pendingAccentColor = undefined;
+            if (!accentColor || !form.isConnected) return;
+            this.dependencies.applyAccentColor(accentColor);
+        };
+        const scheduleAccentPreview = (accentColor: string) => {
+            pendingAccentColor = accentColor;
+            if (accentPreviewFrame !== undefined) return;
+            accentPreviewFrame = requestCancelableFrame(flushAccentPreview);
+        };
+        const commitAccentPreview = (accentColor: string) => {
+            if (accentPreviewFrame !== undefined) {
+                cancelCancelableFrame(accentPreviewFrame);
+                accentPreviewFrame = undefined;
+            }
+            pendingAccentColor = undefined;
             this.dependencies.applyAccentColor(accentColor);
             publishSettingsChange({ accentColor }, { preview: true });
+        };
+        form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('input', event => {
+            const accentColor = (event.currentTarget as HTMLInputElement).value;
+            scheduleAccentPreview(accentColor);
         });
+        form.querySelector<HTMLInputElement>('input[name="accentColor"]')?.addEventListener('change', event => {
+            const accentColor = (event.currentTarget as HTMLInputElement).value;
+            commitAccentPreview(accentColor);
+        });
+        let wordColorPreviewFrame: number | undefined;
+        const scheduleWordColorPreview = () => {
+            if (wordColorPreviewFrame !== undefined) return;
+            wordColorPreviewFrame = requestCancelableFrame(() => {
+                wordColorPreviewFrame = undefined;
+                if (form.isConnected) this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings));
+            });
+        };
         form.querySelectorAll<HTMLInputElement>('input[name^="wordColor"], input[name^="pitchColor"]').forEach(input => {
-            input.addEventListener('input', () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+            input.addEventListener('input', scheduleWordColorPreview);
         });
         const autoPlayAudio = form.querySelector<HTMLInputElement>('input[name="autoPlayAudio"]');
         const audioAutoPlayMode = form.querySelector<HTMLSelectElement>('select[name="audioAutoPlayMode"]');

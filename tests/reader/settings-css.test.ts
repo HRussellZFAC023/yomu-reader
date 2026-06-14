@@ -35,6 +35,7 @@ describe('settings CSS', () => {
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(button), [data-jpdb-reader-root] :where(button) { appearance: none;');
         expect(normalizedBaseCss).toContain('height: auto; min-height: 0; width: auto; min-width: 0; max-width: none; line-height: normal; margin: 0; padding: 0; text-align: inherit;');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(input, select, textarea), [data-jpdb-reader-root] :where(input, select, textarea) { appearance: auto;');
+        expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(input[type="checkbox"], input[type="radio"]), [data-jpdb-reader-root] :where(input[type="checkbox"], input[type="radio"]) { accent-color: var(--jpdb-reader-accent) !important; }');
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6), [data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) { background: transparent; color: inherit;');
     });
 
@@ -59,8 +60,10 @@ describe('settings CSS', () => {
         expect(normalizedPopoverCss).toContain('pointer-events: auto !important;');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover-body, .jpdb-reader-word-pills, .jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill), .jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) { pointer-events: auto !important; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-onboarding { position: fixed; display: block;');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-onboarding h2 { margin: 0 0 8px -0.06em; padding: 0; border: 0 !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings { left: 50%; top: 50%; transform: translate(-50%, -50%);');
         expect(normalizedSettingsCss).toContain('padding: 0; display: flex; flex-direction: column;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display { width: 100%; box-sizing: border-box; min-height: 38px; border-radius: 7px; border: 1px solid var(--jpdb-reader-border) !important; background-color: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-text) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; background: transparent;');
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-player { position: fixed; display: block;');
         expect(normalizedLocalDictionaryCss).toContain('.yomu-jpdb-page-addon { display: block;');

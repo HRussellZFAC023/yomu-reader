@@ -324,3 +324,7 @@
   letter-spacing: 0;
   text-transform: none;
 }
+[data-jpdb-reader-root]:where(input[type="checkbox"], input[type="radio"]),
+[data-jpdb-reader-root] :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--jpdb-reader-accent) !important;
+}

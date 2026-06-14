@@ -2124,13 +2124,13 @@
       featureText: "Text",
       featureTextBody: "Hover or tap scanned Japanese.",
       featureImages: "Images",
-      featureImagesBody: "Read image text near the viewport.",
+      featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
+      featureStudyBody: "Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -3188,13 +3188,13 @@ closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
 featureTextBody	スキャン後、日本語をホバー/タップできます。
 featureImages	画像
-featureImagesBody	近くの画像テキストを検出します。
+featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語

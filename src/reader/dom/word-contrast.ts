@@ -147,15 +147,22 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     const preserveHostPaint = word.classList.contains('jpdb-reader-passive-word');
     const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
 
+    // Passive words keep the host's own paint/tint, so their label text sits on the
+    // host background, not on our preserved highlight tint. Measuring text contrast
+    // against the subtle tint can flip a host's near-passing white label all the way
+    // to black on a mid-tone control (the green "Install よむ" button); evaluate text
+    // against the host background so the word keeps the surrounding label's color.
+    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
+
     const sourceText = cssColorToHex(m.color, accessibleRgba);
-    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
     const textSource = word.classList.contains('jpdb-reader-passive-word') ? nativeText : (sourceText ?? nativeText);
 
-    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(textSource, accessibleHex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-highlight-text', readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
+    word.style.setProperty('--jpdb-reader-word-accessible-color', readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');

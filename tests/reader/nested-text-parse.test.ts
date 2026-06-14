@@ -149,6 +149,12 @@ describe('nested text parse plans', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
+                <span class="jpdb-reader-theme-title">テーマ</span>
+                <div class="jpdb-reader-settings-tabs" role="tablist">
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">外観</button>
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">API</button>
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">学習</button>
+                </div>
                 <div data-settings-panel="basics">
                     <fieldset><legend>基本</legend></fieldset>
                     <label>設定言語<select><option>日本語</option></select><div data-settings-select-options-meta>選択肢: 自動 / 日本語</div></label>
@@ -180,11 +186,46 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('選択肢: 自動 / 日本語');
         expect(texts.filter(text => text === '選択肢: 自動 / 日本語')).toHaveLength(1);
         expect(texts).toContain('新規タブ');
+        expect(texts).toContain('テーマ');
+        expect(texts).toContain('外観');
+        expect(texts).toContain('学習');
         expect(texts).not.toContain('日本語');
+        expect(texts).not.toContain('API');
         expect(texts).not.toContain('隠れた設定');
         expect(texts).not.toContain('隠れた説明');
         expect(texts).not.toContain('保存');
         expect(texts).not.toContain('詳細');
+    });
+
+    it('renders reader-owned settings chrome labels as passive parsed words', () => {
+        document.body.innerHTML = `
+            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
+                <span class="jpdb-reader-theme-title">テーマ</span>
+                <div class="jpdb-reader-settings-tabs" role="tablist">
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">外観</button>
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">API</button>
+                    <button class="jpdb-reader-settings-tab" type="button" role="tab">学習</button>
+                </div>
+                <button type="button">保存</button>
+            </form>
+        `;
+        const root = document.body.querySelector<HTMLElement>('form')!;
+
+        const plan = nestedSettingsTextParsePlan(root, 24)!;
+        expect(plan.targets.map(target => target.text)).toEqual(['テーマ', '外観', '学習']);
+
+        applyNestedParsePlan(plan, plan.targets.map(target => {
+            if (target.text === 'テーマ') return [token('テーマ', 0)];
+            if (target.text === '外観') return [token('外観', 0, 'がいかん', 'heiban')];
+            return [token('学習', 0, 'がくしゅう', 'heiban')];
+        }), { ...DEFAULT_SETTINGS, furiganaMode: 'all', ankiEnabled: false });
+
+        const themeWord = document.querySelector<HTMLElement>('.jpdb-reader-theme-title .jpdb-reader-word')!;
+        const tabWord = document.querySelector<HTMLElement>('.jpdb-reader-settings-tab .jpdb-reader-word')!;
+        expect(themeWord.classList.contains('jpdb-not-in-deck')).toBe(true);
+        expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
+        expect(document.querySelector('button[type="button"]:not(.jpdb-reader-settings-tab) .jpdb-reader-word')).toBeNull();
     });
 
     it('clears stale parse markers before replacing parseable content', () => {

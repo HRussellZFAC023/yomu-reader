@@ -38,6 +38,7 @@ describe('OnboardingController', () => {
         const defaultAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]');
         const blueAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#2563eb"]');
         const featureItems = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li'));
+        const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => item.textContent);
         expect(youtubeFilter?.checked).toBe(true);
         expect(siteLanguage?.checked).toBe(true);
         expect(accentColor?.value).toBe(DEFAULT_SETTINGS.accentColor);
@@ -46,6 +47,8 @@ describe('OnboardingController', () => {
         expect(themeSwitch?.getAttribute('aria-labelledby')).toBe('jpdb-reader-onboarding-theme-label');
         expect(defaultAccentSwatch?.getAttribute('aria-pressed')).toBe('true');
         expect(featureItems).toHaveLength(5);
+        expect(featureText()).toContain('Read any image by tapping it.');
+        expect(featureText()).toContain('Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.');
         expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
         youtubeFilter!.checked = false;
@@ -58,6 +61,8 @@ describe('OnboardingController', () => {
         expect(settings.accentColor).toBe('#2563eb');
         accentColor!.value = '#336699';
         accentColor!.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(settings.accentColor).toBe('#2563eb');
+        accentColor!.dispatchEvent(new Event('change', { bubbles: true }));
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
         await settleAsyncHandlers();
 

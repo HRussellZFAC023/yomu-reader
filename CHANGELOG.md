@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.3] - 2026-06-14
+
+### Changed
+
+- The first-run welcome screen copy is shorter: image OCR now says to tap any image, and the built-in study page description is a single concise sentence.
+
+### Fixed
+
+- The welcome screen no longer shows an internal scrollbar on tall desktop viewports just because of the old 720px height cap.
+- Host-page heading styles, including Wikipedia-style borders, no longer add a horizontal rule under the `よむ` title on the welcome screen.
+- The welcome screen now leaves a clearer gap between the immersion default checkboxes and the action divider.
+- The custom accent color picker now previews rapid drags once per animation frame and only publishes the selected color when the picker commits, preventing preset/custom color churn and sluggishness while trying many colors quickly.
+- Host-page styles can no longer force Yomu settings inputs, number fields, selects, textareas, checkboxes, or onboarding checkboxes into site colors such as Discourse's dark controls or blue checkmarks.
+- Reader-owned settings chrome, including the theme label and settings tabs, now receives the same nested ruby and colorized word rendering as settings labels and help text.
+- Passive site UI chrome coverage now includes role tabs, checkbox/radio/switch controls, titled controls, and Wikipedia Vector pinnable buttons so visible Japanese labels keep ruby, underlines, highlights, and text-color classes without stealing native clicks.
+
 ## [0.7.2] - 2026-06-14
 
 ### Fixed

@@ -5243,13 +5243,13 @@
       featureText: "Text",
       featureTextBody: "Hover or tap scanned Japanese.",
       featureImages: "Images",
-      featureImagesBody: "Read image text near the viewport.",
+      featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
+      featureStudyBody: "Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -6326,13 +6326,13 @@ closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
 featureTextBody	スキャン後、日本語をホバー/タップできます。
 featureImages	画像
-featureImagesBody	近くの画像テキストを検出します。
+featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -24689,6 +24689,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     window.setTimeout(callback, 16);
   }
+  function requestCancelableFrame(callback) {
+    if (typeof window.requestAnimationFrame === "function") {
+      return window.requestAnimationFrame(() => callback());
+    }
+    return window.setTimeout(callback, 16);
+  }
+  function cancelCancelableFrame(id) {
+    if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+    else window.clearTimeout(id);
+  }
   function scrollSettingsControlIntoView(form, control) {
     const geometry = settingsControlScrollGeometry(form, control);
     if (geometry) applySettingsControlScroll(geometry);
@@ -25019,13 +25029,47 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     bindLivePreview(form) {
       const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
-      form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
-        const accentColor = event.currentTarget.value;
+      let pendingAccentColor;
+      let accentPreviewFrame;
+      const flushAccentPreview = () => {
+        accentPreviewFrame = void 0;
+        const accentColor = pendingAccentColor;
+        pendingAccentColor = void 0;
+        if (!accentColor || !form.isConnected) return;
+        this.dependencies.applyAccentColor(accentColor);
+      };
+      const scheduleAccentPreview = (accentColor) => {
+        pendingAccentColor = accentColor;
+        if (accentPreviewFrame !== void 0) return;
+        accentPreviewFrame = requestCancelableFrame(flushAccentPreview);
+      };
+      const commitAccentPreview = (accentColor) => {
+        if (accentPreviewFrame !== void 0) {
+          cancelCancelableFrame(accentPreviewFrame);
+          accentPreviewFrame = void 0;
+        }
+        pendingAccentColor = void 0;
         this.dependencies.applyAccentColor(accentColor);
         publishSettingsChange({ accentColor }, { preview: true });
+      };
+      form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
+        const accentColor = event.currentTarget.value;
+        scheduleAccentPreview(accentColor);
       });
+      form.querySelector('input[name="accentColor"]')?.addEventListener("change", (event) => {
+        const accentColor = event.currentTarget.value;
+        commitAccentPreview(accentColor);
+      });
+      let wordColorPreviewFrame;
+      const scheduleWordColorPreview = () => {
+        if (wordColorPreviewFrame !== void 0) return;
+        wordColorPreviewFrame = requestCancelableFrame(() => {
+          wordColorPreviewFrame = void 0;
+          if (form.isConnected) this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings));
+        });
+      };
       form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
-        input2.addEventListener("input", () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+        input2.addEventListener("input", scheduleWordColorPreview);
       });
       const autoPlayAudio = form.querySelector('input[name="autoPlayAudio"]');
       const audioAutoPlayMode = form.querySelector('select[name="audioAutoPlayMode"]');
@@ -38981,13 +39025,22 @@ ${spelling}`);
     }
     bags = /* @__PURE__ */ new Map();
     order(key, ids) {
-      if (ids.length < 2) return ids;
+      if (!ids.length) return ids;
       const signature = ids.join("\0");
       const current = this.bags.get(key);
       if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
       const next = this.buildAudioBag(ids, signature, current);
       this.bags.set(key, next);
       return audioDeckOrderWithFallbacks(next.remaining, ids);
+    }
+    isExhausted(key, ids) {
+      if (!ids.length) return false;
+      const current = this.bags.get(key);
+      return Boolean(current?.signature === ids.join("\0") && current.remaining.length === 0 && current.lastPlayed);
+    }
+    lastPlayed(key, ids) {
+      const current = this.bags.get(key);
+      return current?.signature === ids.join("\0") ? current.lastPlayed : void 0;
     }
     buildAudioBag(ids, signature, current) {
       const remaining = this.shuffle(ids);
@@ -39084,13 +39137,33 @@ ${spelling}`);
   function audioCandidateSelectionMode(sourceType, mode) {
     return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
   }
-  function orderAudioSources(sources, mode, card, shuffledAudio) {
+  function orderAudioSources(sources, mode, card, shuffledAudio, options = {}) {
     const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(sources.map((source, index) => ({
-      source,
-      id: getAudioSourceDeckId(source, index),
-      bagKey
-    })), mode, bagKey, shuffledAudio);
+    const ordered = orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+    rotateAvoidedAudioSourceLead(ordered, options.avoidFirstSignature);
+    return ordered;
+  }
+  function audioSourceDeckState(sources, card, shuffledAudio) {
+    const bagKey = getAudioSourceBagKey(sources, card);
+    const entries = audioSourceDeckEntries(sources, bagKey);
+    const ids = entries.map((source) => source.id);
+    const lastPlayed = shuffledAudio.lastPlayed(bagKey, ids);
+    return {
+      exhausted: shuffledAudio.isExhausted(bagKey, ids),
+      lastPlayed,
+      lastPlayedSignature: entries.find((entry) => entry.id === lastPlayed)?.signature
+    };
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
   }
   function isBrowserTextToSpeechSource(source) {
     return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
@@ -39160,7 +39233,7 @@ ${spelling}`);
     ].join("\0");
   }
   function orderAudioDeckEntries(entries, mode, bagKey, shuffledAudio) {
-    if (mode !== "random" || entries.length < 2) return entries;
+    if (mode !== "random" || !entries.length) return entries;
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
     const ordered = [];
     for (const id of shuffledAudio.order(bagKey, entries.map((entry) => entry.id))) {
@@ -39168,6 +39241,9 @@ ${spelling}`);
       if (entry) ordered.push(entry);
     }
     return ordered;
+  }
+  function rotateAvoidedAudioSourceLead(sources, avoidFirstSignature) {
+    if (avoidFirstSignature && sources.length > 1 && sources[0]?.signature === avoidFirstSignature) sources.push(sources.shift());
   }
   function getAudioSourceBagKey(sources, card) {
     return [
@@ -39177,8 +39253,8 @@ ${spelling}`);
       ...sources.map(getAudioSourceSignature)
     ].join("");
   }
-  function getAudioSourceDeckId(source, index) {
-    return `${index}\0${getAudioSourceSignature(source)}`;
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
   }
   function getAudioSourceSignature(source) {
     return [
@@ -40278,6 +40354,7 @@ ${spelling}`);
   const READY_AUDIO_CACHE_LIMIT = 160;
   const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
   const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
+  const LAST_AUDIO_IDENTITY_LIMIT = 400;
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
@@ -40304,6 +40381,7 @@ ${spelling}`);
     jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
     readyAudioCache = /* @__PURE__ */ new Map();
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
+    lastAudioIdentityByCard = /* @__PURE__ */ new Map();
     gestureReservation;
     clearCaches() {
       this.candidateCache.clear();
@@ -40385,20 +40463,39 @@ ${spelling}`);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
       const errors = [];
+      const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
+      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity);
+      if (result.state === "miss" && result.skippedAvoidedIdentity) {
+        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio);
+        return { state: retry.state, errors };
+      }
+      return { state: result.state, errors };
+    }
+    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity) {
       const triedUrls = /* @__PURE__ */ new Set();
-      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio };
+      const attemptState = { skippedAvoidedIdentity: false };
+      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
       const fallbackContext = { ...context, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
         const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), context);
-        return { state: result, errors };
+        return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       }
-      const realAudioSources = orderAudioSources(sources.filter((source) => !isTextToSpeechFallbackSource(source)), settings.audioSelectionMode, card, this.shuffledAudio);
+      const realSourceSettings = sources.filter((source) => !isTextToSpeechFallbackSource(source));
+      const realDeck = audioSourceDeckState(realSourceSettings, card, this.shuffledAudio);
+      if (settings.audioSelectionMode === "random" && realDeck.exhausted) {
+        const result = await this.playOrderedSources(
+          orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio, { avoidFirstSignature: realDeck.lastPlayedSignature }),
+          context
+        );
+        return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
+      }
+      const realAudioSources = orderAudioSources(realSourceSettings, settings.audioSelectionMode, card, this.shuffledAudio);
       const realAudioResult = settings.audioSelectionMode === "random" ? await this.playOrderedSources(realAudioSources, context) : await this.playGreedyAudioSources(realAudioSources, context);
-      if (realAudioResult !== "miss") return { state: realAudioResult, errors };
+      if (realAudioResult !== "miss") return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, errors };
+      if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
-      return { state: textToSpeechResult, errors };
+      return { state: textToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
     }
     async playOrderedSources(sources, context) {
       for (const sourceEntry of sources) {
@@ -40477,7 +40574,7 @@ ${spelling}`);
         return "superseded";
       }
       try {
-        const played = await this.playFromSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.reservedAudio);
+        const played = await this.playFromSource(sourceEntry, context);
         const result = this.audioSourceAttemptResult(played, context.requestId, context.isCurrent);
         if (result === "played") this.shuffledAudio.markPlayed(sourceEntry.bagKey, sourceEntry.id);
         else if (result === "miss") this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
@@ -40632,33 +40729,46 @@ ${spelling}`);
       this.gestureReservation = void 0;
       if (this.current === audio) this.stopCurrent();
     }
-    async playFromSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, reservedAudio) {
+    async playFromSource(sourceEntry, context) {
+      const { card, settings, requestId, isCurrent } = context;
       const { source } = sourceEntry;
-      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, card, settings, requestId, isCurrent);
+      if (isBrowserTextToSpeechSource(source)) return await this.playFromTextToSpeechSource(source, context);
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const bagKey = getAudioBagKey(source, card);
-      return await this.playFromAudioCandidates(candidates, source.type, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio);
+      return await this.playFromAudioCandidates(candidates, source.type, context, bagKey);
     }
-    async playFromTextToSpeechSource(source, card, settings, requestId, isCurrent) {
+    async playFromTextToSpeechSource(source, context) {
+      const { card, settings, requestId, isCurrent } = context;
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const text2 = source.type === "text-to-speech-reading" ? card.reading : card.spelling;
-      await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings));
-      return this.isPlaybackCurrent(requestId, isCurrent);
+      const played = await this.playTextToSpeech(text2, source.voice, this.textToSpeechSourceBagKey(source, card, settings), {
+        avoidIdentity: context.avoidIdentity,
+        onAvoided: () => {
+          context.attemptState.skippedAvoidedIdentity = true;
+        },
+        onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity)
+      });
+      return played && this.isPlaybackCurrent(requestId, isCurrent);
     }
-    async playFromAudioCandidates(candidates, sourceType, settings, requestId, triedUrls, isCurrent, bagKey, reservedAudio) {
+    async playFromAudioCandidates(candidates, sourceType, context, bagKey) {
+      const { card, settings, requestId, triedUrls, isCurrent, reservedAudio } = context;
       const playableCandidates = this.availableAudioCandidates(sourceType, candidates);
       for (const { candidate, id } of orderAudioCandidates(playableCandidates, audioCandidateSelectionMode(sourceType, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
         if (!registerAudioAttempt(triedUrls, candidate)) {
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio)) return true;
+        if (this.shouldDeferRepeatedAudioCandidate(candidate, context)) {
+          this.shuffledAudio.markSkipped(bagKey, id);
+          continue;
+        }
+        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio)) return true;
         this.shuffledAudio.markSkipped(bagKey, id);
       }
       return false;
     }
-    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, reservedAudio) {
+    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio) {
       let audio;
       try {
         audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -40675,7 +40785,32 @@ ${spelling}`);
       }
       if (!played) return false;
       this.shuffledAudio.markPlayed(bagKey, id);
+      this.markAudioCandidatePlayed(card, candidate);
       return true;
+    }
+    shouldDeferRepeatedAudioCandidate(candidate, context) {
+      const identity = audioCandidatePlaybackIdentity(candidate);
+      if (!identity || identity !== context.avoidIdentity) return false;
+      context.attemptState.skippedAvoidedIdentity = true;
+      return true;
+    }
+    lastPlayedAudioIdentity(card) {
+      return this.lastAudioIdentityByCard.get(audioIdentityCardKey(card));
+    }
+    markAudioCandidatePlayed(card, candidate) {
+      const identity = audioCandidatePlaybackIdentity(candidate);
+      if (!identity) return;
+      this.markAudioIdentityPlayed(card, identity);
+    }
+    markAudioIdentityPlayed(card, identity) {
+      const key = audioIdentityCardKey(card);
+      this.lastAudioIdentityByCard.delete(key);
+      this.lastAudioIdentityByCard.set(key, identity);
+      while (this.lastAudioIdentityByCard.size > LAST_AUDIO_IDENTITY_LIMIT) {
+        const oldest = this.lastAudioIdentityByCard.keys().next().value;
+        if (!oldest) break;
+        this.lastAudioIdentityByCard.delete(oldest);
+      }
     }
     availableAudioCandidates(sourceType, candidates) {
       if (sourceType !== "jpdb-tts") return candidates;
@@ -40818,7 +40953,7 @@ ${spelling}`);
       const settings = this.getSettings();
       return createPageMediaUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, settings.corsProxyUrl, settings.interfaceLanguage), url);
     }
-    playTextToSpeech(text2, voiceName, deckKey) {
+    playTextToSpeech(text2, voiceName, deckKey, options = {}) {
       const settings = this.getSettings();
       if (!("speechSynthesis" in window)) throw new Error(uiText(settings.interfaceLanguage, "textToSpeechUnavailable"));
       return new Promise((resolve, reject) => {
@@ -40826,10 +40961,18 @@ ${spelling}`);
         utterance.lang = "ja-JP";
         const voices = speechSynthesis.getVoices();
         const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        const identity = textToSpeechPlaybackIdentity(text2, choice.voice);
+        if (identity === options.avoidIdentity) {
+          this.markTextToSpeechVoiceSkipped(choice);
+          options.onAvoided?.();
+          resolve(false);
+          return;
+        }
         utterance.voice = choice.voice;
         utterance.onend = () => {
           this.markTextToSpeechVoicePlayed(choice);
-          resolve();
+          options.onPlayed?.(identity);
+          resolve(true);
         };
         utterance.onerror = () => {
           this.markTextToSpeechVoiceSkipped(choice);
@@ -40917,6 +41060,24 @@ ${spelling}`);
       voice.lang,
       String(index)
     ].join("\0");
+  }
+  function audioCandidatePlaybackIdentity(candidate) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return normalizeAttemptedAudioUrl(candidate.url);
+  }
+  function textToSpeechPlaybackIdentity(text2, voice) {
+    return [
+      "text-to-speech",
+      voice?.voiceURI || voice?.name || "default",
+      voice?.lang || "",
+      text2
+    ].join("");
+  }
+  function audioIdentityCardKey(card) {
+    return [
+      card.spelling,
+      card.reading
+    ].join("");
   }
   class AudioSourcePreparationRace {
     constructor(sources, prepare) {
@@ -51398,6 +51559,21 @@ ${normalizedReading}`;
     ".footer"
   ].join(",");
   const SETTINGS_SELECT_OPTIONS_META_SELECTOR = "[data-settings-select-options-meta]";
+  const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
+    ".jpdb-reader-theme-title",
+    '.jpdb-reader-settings-tabs [role="tab"]'
+  ].join(",");
+  const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
+    "[hidden]",
+    '[aria-hidden="true"]',
+    "input",
+    "option",
+    "select",
+    "svg",
+    "textarea",
+    "use",
+    ".jpdb-reader-word"
+  ].join(",");
   const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
     SETTINGS_PARSE_EXCLUDE_SELECTOR,
     SETTINGS_SELECT_OPTIONS_META_SELECTOR
@@ -51408,7 +51584,8 @@ ${normalizedReading}`;
     "[data-settings-panel]:not([hidden]) label",
     "[data-settings-panel]:not([hidden]) .jpdb-reader-local-title",
     "[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)",
-    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`
+    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
     const parseRoots = root.matches(PARSEABLE_SELECTOR) ? [root] : Array.from(root.querySelectorAll(PARSEABLE_SELECTOR));
@@ -51426,20 +51603,31 @@ ${normalizedReading}`;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.filter((parseRoot) => !parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
+    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
       parseRoot,
       limit,
       false,
-      parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR,
+      settingsParseExcludeSelector(parseRoot),
       {
         includeReaderRoot: true,
         includeFormChrome: true,
         allowUiText: true,
         heading: true,
-        minLength: 2
+        minLength: 2,
+        readerRootPassiveInteractions: true
       }
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  }
+  function isExcludedSettingsParseRoot(parseRoot) {
+    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+  }
+  function settingsParseExcludeSelector(parseRoot) {
+    if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+  }
+  function isSettingsChromeParseRoot(parseRoot) {
+    return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);
   }
   function nestedParseAlreadyScheduled(root, parseKey) {
     return root.dataset.jpdbReaderParseLoadingKey === parseKey || root.dataset.jpdbReaderParseKey === parseKey;
