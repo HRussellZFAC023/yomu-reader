@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.15] - 2026-06-14
+
+### Fixed
+
+- Hosted docs and new-tab Japanese UI text now receive ruby, pitch colorization, and pitch underlines across hero text, cards, install links, buttons, headings, and settings controls.
+- Pitch accent underlines now use a consistent baseline across inline text, cards, buttons, headings, and settings surfaces, including words that render without furigana.
+- Furigana settings are now respected exactly in hosted new-tab search terms, and default/difficult-kanji modes no longer inflate line spacing when ruby is suppressed.
+- Added smoke coverage for enhancement coverage and underline baselines on hosted docs and new-tab fixtures.
+
 ## [0.7.14] - 2026-06-14
 
 ### Fixed

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards } from '../../src/reader/newtab/browse-view';
+import { renderSearchWordResults } from '../../src/reader/newtab/search-view';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard } from '../../src/reader/app/types';
 
 function card(spelling: string, states: CardState[], overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -114,4 +116,25 @@ describe('study-page card browser (SH-3)', () => {
         const list = renderBrowseList([], 0, 'en', { empty: 'No cards match this filter yet.', previous: 'p', next: 'n', showing: () => '' });
         expect(list.textContent).toBe('No cards match this filter yet.');
     });
+
+    it('respects furigana mode exactly in search result terms', () => {
+        const difficult = card('鬱', ['not-in-deck'], { reading: 'うつ' });
+        const easy = card('日本語', ['not-in-deck'], { reading: 'にほんご' });
+        const off = renderSearchWordResults([difficult], searchContext('off'));
+        const difficultOnly = renderSearchWordResults([difficult, easy], searchContext('difficult-kanji'));
+        const all = renderSearchWordResults([easy], searchContext('all'));
+
+        expect(off.querySelector('rt')).toBeNull();
+        expect(difficultOnly.querySelector('[data-expression="鬱"] rt')?.textContent).toBe('うつ');
+        expect(difficultOnly.querySelector('[data-expression="日本語"] rt')).toBeNull();
+        expect(all.querySelector('[data-expression="日本語"] rt')?.textContent).toBe('にほんご');
+    });
 });
+
+function searchContext(furiganaMode: typeof DEFAULT_SETTINGS.furiganaMode) {
+    return {
+        language: 'en' as const,
+        settings: { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode },
+        text: (key: 'words' | 'kanji' | 'dictionary') => key,
+    };
+}

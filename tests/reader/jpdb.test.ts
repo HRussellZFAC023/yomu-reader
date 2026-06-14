@@ -3375,8 +3375,8 @@ describe('reader helpers', () => {
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
         expect(normalizedCss).toContain('--jpdb-reader-word-inline-gap: 0.08em; --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset)); border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
-        expect(normalizedCss).toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after, .VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after { inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5); }');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
+        expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');
+        expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
@@ -3491,7 +3491,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
-        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
+        expect(normalizedCss).not.toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
         expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
 

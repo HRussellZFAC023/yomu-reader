@@ -8399,7 +8399,7 @@ describe('new tab review helpers', () => {
             }),
         ];
         const controller = new NewTabController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, immersionKitEnabled: false }),
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, immersionKitEnabled: false, furiganaMode: 'all' }),
             anki: {} as never,
             jpdb: {} as never,
             jpdbKanji: {} as never,

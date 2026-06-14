@@ -129,7 +129,7 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
         pitchClass: '',
         sentence: spelling,
     };
-    return renderTokensToHtml(spelling, [token], { ...settings, showFurigana: true, furiganaMode: 'all' });
+    return renderTokensToHtml(spelling, [token], settings);
 }
 
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
