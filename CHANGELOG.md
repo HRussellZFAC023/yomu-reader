@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2026-06-14
+
+### Fixed
+
+- Re-published the Discord strict-content-security-policy pitch accent stylesheet fallback on the `0.7.x` release line. The userscript version now reflects the current release train while preserving the fix that keeps pitch accent colorization and pitch underlines available when full reader CSS has to load through the fallback path.
+
 ## [0.6.201] - 2026-06-14
 
 ### Fixed
