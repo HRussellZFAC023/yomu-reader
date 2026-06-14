@@ -1376,19 +1376,34 @@ function stubKanjiDoodleBrowserApis(): () => void {
 }
 
 async function withKanjiStudyCompanionMissing<T>(callback: () => Promise<T>): Promise<T> {
-    const target = globalThis as typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
-    const previous = target.__yomuCompanions;
-    target.__yomuCompanions = {
-        ...(previous ?? {}),
-        kanjiStudy: undefined,
-    };
+    const targets = [
+        globalThis,
+        typeof window === 'undefined' ? null : window,
+    ].filter((target, index, all): target is typeof globalThis & { __yomuCompanions?: Record<string, unknown> } => Boolean(target && all.indexOf(target) === index));
+    const previous = targets.map(target => ({
+        target,
+        hadRegistry: Object.prototype.hasOwnProperty.call(target, '__yomuCompanions'),
+        registry: target.__yomuCompanions,
+    }));
+    for (const target of targets) {
+        const registry = { ...(target.__yomuCompanions ?? {}) };
+        delete registry.kanjiStudy;
+        Object.defineProperty(target, '__yomuCompanions', {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: registry,
+        });
+    }
     try {
         return await callback();
     } finally {
-        if (previous) {
-            target.__yomuCompanions = previous;
-        } else {
-            delete target.__yomuCompanions;
+        for (const entry of previous) {
+            if (entry.hadRegistry) {
+                entry.target.__yomuCompanions = entry.registry;
+            } else {
+                delete entry.target.__yomuCompanions;
+            }
         }
     }
 }
@@ -8353,6 +8368,132 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
+    it('renders standalone search result terms with ruby from card readings', async () => {
+        const publicCards = [
+            newTabTestCard({
+                vid: 2414420,
+                sid: 0,
+                spelling: '好',
+                reading: 'こう',
+                meanings: [{ glosses: ['good'], partOfSpeech: [] }],
+                source: 'jpdb',
+            }),
+            newTabTestCard({
+                vid: 1605820,
+                sid: 0,
+                spelling: '好い',
+                reading: 'よい',
+                meanings: [{ glosses: ['good; excellent'], partOfSpeech: [] }],
+                source: 'jpdb',
+            }),
+        ];
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, immersionKitEnabled: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => publicCards) },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = renderPerformedNewTabSearch(controller, '好', 'dictionary');
+
+        try {
+            await waitForExpect(() => {
+                const terms = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-search-term'));
+                expect(terms).toHaveLength(2);
+                expect(terms[0]?.querySelector('rt')?.textContent).toBe('こう');
+                expect(terms[1]?.querySelector('rt')?.textContent).toBe('よ');
+                expect(terms[1]?.textContent).toContain('い');
+            });
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('hydrates Kanji Immersion Kit inside expanded standalone search kanji details', async () => {
+        const example: ImmersionKitExample = {
+            id: 'ik-like',
+            sentence: '好きを集める。',
+            sentenceWithFurigana: '',
+            translation: 'Collect what you like.',
+            sourceTitle: 'Standalone Search',
+            titleSlug: 'standalone-search',
+            category: 'anime',
+            soundFile: '',
+            imageFile: '',
+            soundUrl: '',
+            imageUrl: '',
+        };
+        const search = vi.fn(async () => [example]);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                immersionKitEnabled: true,
+                kanjiImmersionKitEnabled: true,
+                immersionKitShowImages: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                uchisenEnabled: false,
+                similarKanjiWords: false,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: { lookup: vi.fn(async () => null) } as never,
+            kanjiVG: { lookup: vi.fn(async () => null) } as never,
+            rtk: { lookup: vi.fn(async () => null) } as never,
+            immersionKit: {
+                search,
+                mediaUrls: vi.fn(() => []),
+            } as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => []) },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = renderPerformedNewTabSearch(controller, '好', 'dictionary');
+
+        try {
+            await waitForExpect(() => expect(root.querySelector('[data-newtab-action="search-result-kanji"]')).not.toBeNull());
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-kanji"]')?.click();
+            await waitForExpect(() => expect(root.querySelector('[data-newtab-kanji-immersion-details]')).not.toBeNull());
+
+            const details = root.querySelector<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]')!;
+            details.open = true;
+            details.dispatchEvent(new Event('toggle'));
+
+            await waitForExpect(() => {
+                const body = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
+                expect(body?.textContent).toContain('好きを集める。');
+                expect(body?.textContent).not.toContain('Loading examples');
+            });
+            expect(search).toHaveBeenCalledWith('好', expect.anything(), expect.objectContaining({ fastFirst: true }));
+        } finally {
+            root.remove();
+        }
+    });
+
     it('searches parsed words clicked inside search entry details', async () => {
         const publicSearch = vi.fn(async () => []);
         const lookupText = vi.fn();
@@ -9579,7 +9720,13 @@ describe('new tab review helpers', () => {
                 await internals.showKanjiLookupCard(card, '漢', '漢字です。');
                 const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
 
-                expect(popover.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+                await waitForExpect(() => {
+                    expect(popover.textContent).toContain('Install or update the Yomu Kanji/Study companion');
+                    expect(popover.querySelector('.jpdb-reader-jpdb-kanji')).toBeNull();
+                    expect(popover.querySelector('.jpdb-reader-rtk')).toBeNull();
+                    expect(popover.querySelector('.jpdb-reader-kanjivg-svg')).toBeNull();
+                    expect(popover.querySelector('.jpdb-reader-origin-graph-wrap')).toBeNull();
+                });
             } finally {
                 runtime.destroy();
                 restoreCanvas();

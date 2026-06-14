@@ -5,7 +5,7 @@ import { el } from '../dom/builder';
 import { uiText } from '../app/i18n';
 import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
-import { escapeHtml, htmlToFirstElement } from '../dom';
+import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
 import { ANKI_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { normalizedJapaneseCardReading } from '../cards/highlight';
 import { renderAnkiExistingSection } from '../anki/render';
@@ -23,7 +23,7 @@ import { SEARCH_CARD_STATE_LABEL_KEYS } from './controller-config';
 import type { CardRenderData } from '../cards/render-data';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
-import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
+import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export interface NewTabSearchKanjiResult {
     character: string;
@@ -35,6 +35,7 @@ export interface NewTabSearchKanjiResult {
 
 export interface NewTabSearchViewContext {
     language: ReaderSettings['interfaceLanguage'];
+    settings: ReaderSettings;
     text: (key: 'words' | 'kanji' | 'dictionary') => string;
 }
 
@@ -91,11 +92,19 @@ function renderSearchWordResult(card: JPDBCard, context: NewTabSearchViewContext
             dataset: { newtabAction: 'search-result-word', newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
             'aria-expanded': 'false',
         },
-        el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' }, card.spelling),
+        renderSearchWordTerm(card, context),
         el('span', { class: 'jpdb-reader-newtab-search-meta', dataset: { searchWordMeta: cardKey(card) }, hidden: !meta }, meta),
         meaning ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, meaning) : null),
         el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
     );
+}
+
+function renderSearchWordTerm(card: JPDBCard, context: NewTabSearchViewContext): HTMLElement {
+    const term = el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' });
+    const html = renderSearchCardRubyHtml(card, context.settings);
+    if (html) setInnerHtml(term, html);
+    else term.textContent = card.spelling;
+    return term;
 }
 
 export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], context: NewTabSearchViewContext): HTMLElement {
@@ -105,6 +114,22 @@ export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], con
             results.map(result => renderSearchKanjiResult(result)),
         ),
     );
+}
+
+function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): string {
+    const spelling = card.spelling.trim();
+    const reading = newTabCardOptionalReading(card);
+    if (!settings.showFurigana || settings.furiganaMode === 'off' || !spelling || !reading) return '';
+    const token: JPDBToken = {
+        card: { ...card, reading },
+        start: 0,
+        end: spelling.length,
+        length: spelling.length,
+        rubies: [],
+        pitchClass: '',
+        sentence: spelling,
+    };
+    return renderTokensToHtml(spelling, [token], { ...settings, showFurigana: true, furiganaMode: 'all' });
 }
 
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {

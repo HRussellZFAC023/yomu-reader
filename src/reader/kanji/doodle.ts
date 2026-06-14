@@ -38,7 +38,13 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     if (!elements) return;
     const { stage, canvas, ghost } = elements;
 
-    const context = canvas.getContext('2d');
+    let context: CanvasRenderingContext2D | null = null;
+    try {
+        context = canvas.getContext('2d');
+    } catch (error) {
+        log.warn('Kanji doodle install failed', { reason: '2d-context-error' }, error);
+        return;
+    }
     if (!context) {
         log.warn('Kanji doodle install failed', { reason: 'missing-2d-context' });
         return;

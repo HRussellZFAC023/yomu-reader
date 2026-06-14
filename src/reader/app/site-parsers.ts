@@ -12,7 +12,7 @@ export interface SiteParserProfile {
     description: string;
     roots: string[];
     exclude?: string;
-    passiveInteraction?: string;
+    passiveInteractionExclude?: string;
     allowUiText?: boolean;
     minLength?: number;
     includeUiChrome?: boolean;
@@ -25,6 +25,7 @@ export interface SiteParserProfile {
     scanLimit?: number;
     heading?: boolean;
     singlePassScan?: boolean;
+    includePassiveInteractionRoots?: boolean;
     matches(url: URL): boolean;
 }
 
@@ -41,71 +42,23 @@ const COMMON_EXCLUDE = [
     '.jpdb-reader-word',
 ].join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
-const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
-    'a[href]',
-    '[role="link"]',
-].join(',');
-const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
-    'yt-button-shape button',
-    'ytd-button-renderer button',
-    'yt-chip-cloud-chip-renderer button[role="tab"]',
-    'yt-chip-cloud-chip-renderer [role="tab"]',
-].join(',');
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     '#movie_player',
     '.html5-video-player',
-    '#secondary',
-    '#related',
-    'ytd-compact-video-renderer',
-    'ytm-item-section-renderer',
-    '.ytp-chrome-top',
-    '.ytp-chrome-bottom',
+    '#chips-content',
+    'iron-selector#chips',
     '.ytp-tooltip',
+    'ytd-feed-filter-chip-bar-renderer',
+    'ytd-guide-renderer',
+    'ytd-masthead',
+    'ytd-mini-guide-renderer',
+    'yt-chip-cloud-renderer',
+    'ytm-feed-filter-chip-bar-renderer',
+    'ytm-mobile-topbar-renderer',
+    'ytm-pivot-bar-renderer',
     'tp-yt-paper-tooltip',
-    'button',
-    'summary',
-    '[role="button"]',
-    '[role="menuitem"]',
-    '[role="menuitemcheckbox"]',
-    '[role="menuitemradio"]',
-    '[role="tab"]',
-    '[role="slider"]',
-    '[slot="more-button"]',
-    '.more-button',
-    '#more',
-    '#less',
-    '.slim-video-metadata-info',
-    '#metadata-line',
-    'yt-button-shape',
-    'tp-yt-paper-button',
-    'ytd-subscribe-button-renderer',
-    'ytd-toggle-button-renderer',
-    'ytd-button-renderer',
-    'ytm-button-renderer',
-    'ytm-toggle-button-renderer',
-    'ytm-subscribe-button-renderer',
-    'ytm-compact-link-renderer',
-    '.yt-spec-button-shape-next',
-    'yt-chip-cloud-renderer',
-    'yt-chip-cloud-chip-renderer',
-    'iron-selector#chips',
 ].join(',');
-const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = new Set([
-    'button',
-    '[role="button"]',
-    '[role="tab"]',
-    'yt-button-shape',
-    'ytd-button-renderer',
-    '.yt-spec-button-shape-next',
-    'yt-chip-cloud-renderer',
-    'yt-chip-cloud-chip-renderer',
-    'iron-selector#chips',
-]);
-const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE
-    .split(',')
-    .filter(entry => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry))
-    .join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
     'main h1',
@@ -205,6 +158,24 @@ const SAFE_UI_CHROME_CONTROL_SELECTORS = [
     '[role="switch"]',
     '[role="tab"]',
 ];
+const PASSIVE_INTERACTION_ROOTS = [
+    ...SAFE_UI_CHROME_CONTROL_SELECTORS,
+    '[aria-controls]',
+    '[aria-expanded]',
+    '[slot="more-button"]',
+    '.more-button',
+    '#more',
+    '#less',
+    '[onclick]',
+    '[tabindex]:not([tabindex="-1"])',
+    '[class*="audio" i]',
+    '[class*="button" i]',
+    '[class*="control" i]',
+    '[class*="play" i]',
+    '[class*="sound" i]',
+    '[class*="speaker" i]',
+    '[class*="toggle" i]',
+].join(',');
 const SCOPED_SAFE_UI_CHROME_ROOTS = [
     ...SAFE_UI_CHROME_SCOPE_SELECTORS,
     ...SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => (
@@ -231,7 +202,7 @@ const SAFE_UI_CHROME_ROOTS = [
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]',
 ].join(',');
-const PROFILE_SAFE_UI_CHROME_ROOTS = SCOPED_SAFE_UI_CHROME_ROOTS.join(',');
+const PROFILE_SAFE_UI_CHROME_ROOTS = SAFE_UI_CHROME_ROOTS;
 const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
     '[role="menuitem"]',
     '[role="menuitemcheckbox"]',
@@ -254,15 +225,6 @@ const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     '[disabled]',
     '[aria-disabled="true"]',
     '[contenteditable="true"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="control" i]',
-    '[class*="player" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="toggle" i]',
-    '[class*="tts" i]',
-    '[class*="voice" i]',
 ];
 const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(',');
 const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES
@@ -297,29 +259,9 @@ const SAFE_FORM_CHROME_EXCLUDE = [
     '[role="menuitemradio"]',
     '[role="option"]',
     '[role="tab"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="control" i]',
-    '[class*="player" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="toggle" i]',
-    '[class*="tts" i]',
-    '[class*="voice" i]',
 ].join(',');
 const DICTIONARY_SITE_EXCLUDE = [
     COMMON_EXCLUDE,
-    'nav',
-    'header',
-    'footer',
-    'aside',
-    'form',
-    'fieldset',
-    'legend',
-    'label',
-    'button',
-    'summary',
-    'a[role="button"]',
     'input',
     'select',
     'textarea',
@@ -332,21 +274,6 @@ const DICTIONARY_SITE_EXCLUDE = [
     'rp',
     '[hidden]',
     '[aria-hidden="true"]',
-    '[aria-controls]',
-    '[aria-expanded]',
-    '[data-audio]',
-    '[onclick]',
-    '[role="button"]',
-    '[role="tab"]',
-    '[aria-label*="audio" i]',
-    '[aria-label*="tts" i]',
-    '[aria-label*="音声" i]',
-    '[class*="audio" i]',
-    '[class*="control" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="tts" i]',
-    '[class*="voice" i]',
     '.pi',
     '.p-button-icon',
 ].join(',');
@@ -371,13 +298,6 @@ const YOMU_HOSTED_DOCS_ROOTS = [
     '.yomu-link-grid',
     '.vp-doc',
 ];
-const YOMU_HOSTED_DOCS_PASSIVE_INTERACTION = [
-    'a[href]',
-    'button',
-    'summary',
-    '[role="button"]',
-    '[role="link"]',
-].join(',');
 const YOMU_VIDEO_PLAYER_ROOTS = [
     '.brand strong',
     '[data-yomu-video-frame] .empty strong',
@@ -387,13 +307,6 @@ const YOMU_VIDEO_PLAYER_ROOTS = [
     '[data-settings-trigger]',
     '[data-overflow-menu]',
 ];
-const YOMU_VIDEO_PLAYER_PASSIVE_INTERACTION = [
-    'a[href]',
-    'button',
-    'label',
-    'summary',
-    '[role="button"]',
-].join(',');
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
     '#rso',
@@ -415,8 +328,6 @@ const GOOGLE_SEARCH_EXCLUDE = [
     'input',
     'textarea',
     'select',
-    'button',
-    '[role="button"]',
     '[aria-hidden="true"]',
 ].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
@@ -426,7 +337,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         description: 'Hosted Yomu docs Japanese text.',
         roots: YOMU_HOSTED_DOCS_ROOTS,
         exclude: COMMON_EXCLUDE,
-        passiveInteraction: YOMU_HOSTED_DOCS_PASSIVE_INTERACTION,
         allowUiText: true,
         heading: true,
         minLength: 1,
@@ -441,7 +351,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         description: 'Hosted Yomu video-player Japanese controls and empty-state text.',
         roots: YOMU_VIDEO_PLAYER_ROOTS,
         exclude: COMMON_EXCLUDE,
-        passiveInteraction: YOMU_VIDEO_PLAYER_PASSIVE_INTERACTION,
         allowUiText: true,
         heading: true,
         minLength: 1,
@@ -487,9 +396,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '.subsection-label',
             '.subsection-immersion-kit',
             '[class*="immersion" i]',
-            '.vocabulary-audio',
-            '.icon-link',
-            '[data-audio]',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -679,25 +585,26 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Watch metadata, description, comments, live-chat, and stable
-            // chrome. Feed/recommendation title renderers are deliberately
-            // left to YouTube: their virtualized link/title DOM rejects inline
-            // ruby and can leave only furigana visible after hydration.
-            'ytd-masthead',
-            'ytd-mini-guide-renderer',
-            'ytd-feed-filter-chip-bar-renderer',
-            'yt-chip-cloud-renderer',
-            'iron-selector#chips',
+            // Watch metadata, descriptions, comments, live-chat, and feed
+            // cards. Homepage/topbar/navigation/chip chrome is deliberately
+            // excluded below so hover lookup stays focused on video text.
+            'ytd-rich-grid-renderer',
+            'ytd-rich-item-renderer',
+            'ytd-video-renderer',
+            'yt-lockup-view-model',
+            'ytm-rich-grid-renderer',
+            'ytm-video-with-context-renderer',
+            'ytm-shorts-lockup-view-model',
+            'ytm-item-section-renderer',
+            'ytd-watch-next-secondary-results-renderer',
+            'ytd-compact-video-renderer',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
-            'ytm-slim-video-metadata-section-renderer',
+            'ytm-slim-video-metadata-section-renderer h1',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
-            'ytm-comment-thread-renderer',
-            'ytm-comment-renderer',
-            'ytd-comment-view-model',
             '#content-text',
             'yt-live-chat-text-message-renderer #author-name',
             'yt-live-chat-text-message-renderer #message',
@@ -705,17 +612,14 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'yt-live-chat-paid-message-renderer #message',
             'yt-live-chat-membership-item-renderer #author-name',
             'yt-live-chat-membership-item-renderer #message',
-            'yt-live-chat-text-message-renderer',
-            'yt-live-chat-paid-message-renderer',
-            'yt-live-chat-membership-item-renderer',
             'yt-live-chat-viewer-engagement-message-renderer',
             'yt-live-chat-ticker-renderer',
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
         includeUiChrome: true,
-        passiveInteraction: YOUTUBE_PASSIVE_INTERACTION_SELECTOR,
         singlePassScan: true,
+        includePassiveInteractionRoots: false,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -730,8 +634,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: [
             COMMON_EXCLUDE,
-            '.cue-button',
-            '.btn',
             'svg',
         ].join(','),
         allowUiText: true,
@@ -775,7 +677,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'Satori Reader',
         description: 'Satori Reader article text.',
         roots: ['#article-content'],
-        exclude: [COMMON_EXCLUDE, '.play-button-container', '.notes-button-container', '.fg', '.wpr'].join(','),
+        exclude: [COMMON_EXCLUDE, '.fg', '.wpr'].join(','),
         allowUiText: true,
         minLength: 1,
         matches: url => url.hostname.endsWith('.satorireader.com') && url.pathname.includes('/articles/'),
@@ -790,6 +692,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         exclude: [
             '#loading',
             '.article-top-tool',
+            '.article-share',
+        ].join(','),
+        passiveInteractionExclude: [
+            '#loading',
             '.article-share',
         ].join(','),
         allowUiText: true,
@@ -816,12 +722,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             '[class*="related" i]',
             '[class*="recommend" i]',
             '[class*="ranking" i]',
-            '.soundButton',
-            '.js-sound',
-            '.js-play',
-            '.player',
-            '[onclick]',
-            '[data-audio]',
         ].join(','),
         fallbackToWholePage: true,
         matches: url => (
@@ -878,14 +778,19 @@ function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScan
         if (!siteScanHasRoom(context)) break;
         collectRootScanTargets(profile, root, context);
     }
+    if (profile.includePassiveInteractionRoots !== false) {
+        collectProfilePassiveInteractionTargets(profile, context);
+    }
 }
 
-function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
-    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, siteScanExcludeSelector(profile), {
-        allowUiText: profile.allowUiText,
+function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
+        allowUiText: true,
         minLength: profile.minLength,
-        includeUiChrome: profile.includeUiChrome,
-        includeFormChrome: profile.includeFormChrome,
+        includeUiChrome: true,
+        includeFormChrome: true,
+        includeTabChrome: true,
+        includePassiveInteractions: true,
         mergeBlockFragments: profile.mergeBlockFragments,
         heading: profile.heading,
     });
@@ -893,134 +798,57 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
         if (!siteScanHasRoom(context)) break;
     }
-    collectPassiveInteractionScanTargets(profile, root, context);
+}
+
+function collectProfilePassiveInteractionTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+    if (!siteScanHasRoom(context)) return;
+    for (const root of queryProfilePassiveInteractionRoots(profile)) {
+        if (!siteScanHasRoom(context)) break;
+        collectRootScanTargets(profile, root, context, siteScanPassiveInteractionExcludeSelector(profile));
+    }
+}
+
+function queryProfilePassiveInteractionRoots(profile: SiteParserProfile): HTMLElement[] {
+    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(PASSIVE_INTERACTION_ROOTS))
+        .filter(root => isUsefulProfilePassiveInteractionRoot(profile, root)));
+}
+
+function isUsefulProfilePassiveInteractionRoot(profile: SiteParserProfile, root: HTMLElement): boolean {
+    const exclude = siteScanPassiveInteractionExcludeSelector(profile);
+    if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
+    if (!isVisibleSafeUiChromeRoot(root)) return false;
+    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
+    return text.length >= 1 && text.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
 }
 
 function siteScanExcludeSelector(profile: SiteParserProfile): string {
-    const base = profile.exclude ?? COMMON_EXCLUDE;
-    return profile.passiveInteraction ? `${base},${profile.passiveInteraction}` : base;
+    return profile.exclude ?? COMMON_EXCLUDE;
 }
 
-function collectPassiveInteractionScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext): void {
-    const selector = profile.passiveInteraction;
-    if (selector && siteScanHasRoom(context)) {
-        collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
-    }
-    if (shouldCollectYouTubePassiveChrome(profile, root) && siteScanHasRoom(context)) {
-        collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, YOUTUBE_PASSIVE_CHROME_SELECTOR), context, { chrome: true });
-    }
-}
-
-function shouldCollectYouTubePassiveChrome(profile: SiteParserProfile, root: Element): boolean {
-    return profile.id === 'youtube-comments-parser'
-        && root.matches('ytd-masthead,ytd-feed-filter-chip-bar-renderer,yt-chip-cloud-renderer,iron-selector#chips');
-}
-
-function collectPassiveInteractionRoots(
-    profile: SiteParserProfile,
-    roots: Element[],
-    context: SiteScanContext,
-    options: { chrome?: boolean } = {},
-): void {
-    for (const passiveRoot of roots) {
-        if (!siteScanHasRoom(context)) break;
-        collectPassiveInteractionRootTargets(profile, passiveRoot, context, options);
-    }
-}
-
-function collectPassiveInteractionRootTargets(
-    profile: SiteParserProfile,
-    passiveRoot: Element,
-    context: SiteScanContext,
-    options: { chrome?: boolean } = {},
-): void {
-    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, passiveInteractionExcludeSelector(profile, options), {
-        allowUiText: true,
-        minLength: profile.minLength,
-        includeUiChrome: true,
-        includeTabChrome: true,
-        includeFormChrome: profile.includeFormChrome,
-        mergeBlockFragments: profile.mergeBlockFragments,
-        heading: profile.heading,
-    });
-    for (const target of collected) {
-        if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
-        if (!siteScanHasRoom(context)) break;
-    }
-}
-
-function passiveInteractionExcludeSelector(profile: SiteParserProfile, _options: { chrome?: boolean }): string {
-    return profile.id === 'youtube-comments-parser'
-        ? YOUTUBE_PASSIVE_CHROME_EXCLUDE
-        : profile.exclude ?? COMMON_EXCLUDE;
-}
-
-function passiveInteractionRoots(root: Element, selector: string): Element[] {
-    const candidates = [
-        ...(root.matches(selector) ? [root] : []),
-        ...Array.from(root.querySelectorAll(selector)),
-    ];
-    if (candidates.length <= 1) return candidates;
-    // Keep only the outermost matches (drop any candidate contained by another).
-    // querySelectorAll already returns unique, document-ordered descendants, so
-    // this is an ancestor-membership walk — O(n·depth) — instead of the old
-    // O(n²) nested native `contains`, which dominated the page auto-scan on
-    // YouTube's churning DOM during playback (live-profiled).
-    const candidateSet = new Set<Element>(candidates);
-    const result: Element[] = [];
-    for (const candidate of candidates) {
-        let containedByCandidate = false;
-        for (let ancestor = candidate.parentElement; ancestor; ancestor = ancestor.parentElement) {
-            if (candidateSet.has(ancestor)) { containedByCandidate = true; break; }
-            if (ancestor === root) break;
-        }
-        if (!containedByCandidate) result.push(candidate);
-    }
-    return result;
+function siteScanPassiveInteractionExcludeSelector(profile: SiteParserProfile): string {
+    return profile.passiveInteractionExclude ?? siteScanExcludeSelector(profile);
 }
 
 function addUniqueSiteScanTarget(
     profile: SiteParserProfile,
     target: FragmentTextTarget,
     context: SiteScanContext,
-    options: { passiveInteraction?: boolean } = {},
 ): boolean {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some(node => context.seen.has(node))) return false;
     nodes.forEach(node => context.seen.add(node));
-    context.targets.push(siteScanTargetWithProfileOptions(profile, target, options));
+    context.targets.push(siteScanTargetWithProfileOptions(profile, target));
     return true;
 }
 
-function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget, options: { passiveInteraction?: boolean }): FragmentTextTarget {
+function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const baseTarget = {
         ...target,
         parserId: profile.id,
         singlePassScan: profile.singlePassScan || undefined,
     };
-    const profiledTarget = !options.passiveInteraction ? baseTarget : {
-        ...baseTarget,
-        passiveInteraction: true,
-    };
-    const normalizedTarget = profile.plainScan ? plainScanTarget(profiledTarget) : profiledTarget;
-    return shouldActivateJpdbPageTarget(profile, options)
-        ? activeJpdbPageTarget(profiledTarget)
-        : normalizedTarget;
-}
-
-function shouldActivateJpdbPageTarget(profile: SiteParserProfile, options: { passiveInteraction?: boolean }): boolean {
-    return profile.id === JPDB_PARSER_ID && !options.passiveInteraction;
-}
-
-function activeJpdbPageTarget(target: FragmentTextTarget): FragmentTextTarget {
-    return {
-        ...target,
-        passiveInteraction: false,
-        fragments: target.fragments.map(fragment => ({
-            ...fragment,
-            passiveInteraction: false,
-        })),
-    };
+    return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
 
 function plainScanTarget(target: FragmentTextTarget): FragmentTextTarget {
@@ -1095,6 +923,10 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
     const targets = collectFragmentTextTargetsIn(document.body, limit, true, '', {
         allowUiText: true,
         includeUiChrome: true,
+        includeFormChrome: true,
+        includeTabChrome: true,
+        includePassiveInteractions: true,
+        heading: true,
         minLength: 1,
     });
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
@@ -1134,8 +966,9 @@ function collectProfileSafeUiChromeTargets(
 
     const extraExclude = profiles.map(p => p.exclude).filter(Boolean).join(',');
 
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+    const parserId = profiles.length === 1 ? profiles[0].id : 'safe-ui-chrome-parser';
+    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId);
+    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId);
 
     return collection.targets;
 }
@@ -1154,9 +987,14 @@ function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarg
     return collection.targets;
 }
 
-function collectSafeUiChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection, extraExclude = ''): void {
+function collectSafeUiChromeRootTargets(
+    roots: HTMLElement[],
+    collection: GenericProseCollection,
+    extraExclude = '',
+    parserId = 'safe-ui-chrome-parser',
+): void {
     for (const root of roots) {
-        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude);
+        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1173,20 +1011,26 @@ function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
     return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));
 }
 
-function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection, extraExclude = ''): void {
+function collectSafeUiChromeTargetsFromRoot(
+    root: HTMLElement,
+    collection: GenericProseCollection,
+    extraExclude = '',
+    parserId = 'safe-ui-chrome-parser',
+): void {
     const baseExclude = safeUiChromeExcludeForRoot(root);
     const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
     const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, {
         allowUiText: true,
         includeUiChrome: true,
         includeTabChrome: true,
+        includePassiveInteractions: true,
         heading: true,
         minLength: 1,
     });
     for (const target of collected) {
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
-            parserId: 'safe-ui-chrome-parser',
+            parserId,
             passiveInteraction: true,
         });
         if (genericProseCollectionFull(collection)) break;
@@ -1199,9 +1043,13 @@ function safeUiChromeExcludeForRoot(root: HTMLElement): string {
         : SAFE_UI_CHROME_EXCLUDE;
 }
 
-function collectSafeFormChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection): void {
+function collectSafeFormChromeRootTargets(
+    roots: HTMLElement[],
+    collection: GenericProseCollection,
+    parserId = 'safe-ui-chrome-parser',
+): void {
     for (const root of roots) {
-        collectSafeFormChromeTargetsFromRoot(root, collection);
+        collectSafeFormChromeTargetsFromRoot(root, collection, parserId);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1211,17 +1059,22 @@ function safeFormChromeRoots(): HTMLElement[] {
         .filter(root => isUsefulSafeFormChromeRoot(root)));
 }
 
-function collectSafeFormChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
+function collectSafeFormChromeTargetsFromRoot(
+    root: HTMLElement,
+    collection: GenericProseCollection,
+    parserId = 'safe-ui-chrome-parser',
+): void {
     const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_FORM_CHROME_EXCLUDE, {
         allowUiText: true,
         includeFormChrome: true,
+        includePassiveInteractions: true,
         heading: true,
         minLength: 1,
     });
     for (const target of collected) {
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
-            parserId: 'safe-ui-chrome-parser',
+            parserId,
             passiveInteraction: true,
         });
         if (genericProseCollectionFull(collection)) break;
@@ -1333,4 +1186,12 @@ function elementDepth(element: Element): number {
 function documentPositionOrder(a: Node, b: Node): number {
     if (a === b) return 0;
     return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
+}
+
+function safeElementMatches(element: HTMLElement, selector: string): boolean {
+    try {
+        return element.matches(selector);
+    } catch {
+        return false;
+    }
 }

@@ -26,12 +26,6 @@ export interface OrderedAudioSource {
     signature: string;
 }
 
-export interface AudioSourceDeckState {
-    exhausted: boolean;
-    lastPlayed?: string;
-    lastPlayedSignature?: string;
-}
-
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech'];
 
 export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
@@ -111,28 +105,9 @@ export function orderAudioSources(
     mode: AudioSelectionMode,
     card: JPDBCard,
     shuffledAudio: ShuffledAudioDeck,
-    options: { avoidFirstSignature?: string } = {},
 ): OrderedAudioSource[] {
     const bagKey = getAudioSourceBagKey(sources, card);
-    const ordered = orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
-    rotateAvoidedAudioSourceLead(ordered, options.avoidFirstSignature);
-    return ordered;
-}
-
-export function audioSourceDeckState(
-    sources: AudioSourceSetting[],
-    card: JPDBCard,
-    shuffledAudio: ShuffledAudioDeck,
-): AudioSourceDeckState {
-    const bagKey = getAudioSourceBagKey(sources, card);
-    const entries = audioSourceDeckEntries(sources, bagKey);
-    const ids = entries.map(source => source.id);
-    const lastPlayed = shuffledAudio.lastPlayed(bagKey, ids);
-    return {
-        exhausted: shuffledAudio.isExhausted(bagKey, ids),
-        lastPlayed,
-        lastPlayedSignature: entries.find(entry => entry.id === lastPlayed)?.signature,
-    };
+    return orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
 }
 
 function audioSourceDeckEntries(sources: AudioSourceSetting[], bagKey: string): OrderedAudioSource[] {
@@ -240,10 +215,6 @@ function orderAudioDeckEntries<T extends { id: string }>(
         if (entry) ordered.push(entry);
     }
     return ordered;
-}
-
-function rotateAvoidedAudioSourceLead(sources: OrderedAudioSource[], avoidFirstSignature: string | undefined): void {
-    if (avoidFirstSignature && sources.length > 1 && sources[0]?.signature === avoidFirstSignature) sources.push(sources.shift()!);
 }
 
 function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): string {

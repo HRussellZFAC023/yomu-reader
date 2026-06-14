@@ -999,9 +999,9 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
-    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1017,11 +1017,26 @@
     { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
+  const PREVIOUS_DEFAULT_LOOKUP_LINK_IDS = [
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ];
   function normalizeDictionaryLookupLinkSettings(value) {
     const links = normalizeDictionaryLookupLinks(
       value?.dictionaryLookupLinks,
       !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim())
     );
+    if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
   }
   function normalizeDictionaryPreferences(value) {
@@ -1062,8 +1077,15 @@
     const links = normalizeLegacyLookupLinkSet(value);
     return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
   }
+  function isPreviousDefaultLookupLinkSet(value) {
+    const links = normalizeLookupLinkSet(value, PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.length);
+    return Boolean(links && PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.every((id, index) => links[index]?.id === id));
+  }
   function normalizeLegacyLookupLinkSet(value) {
-    if (!Array.isArray(value) || value.length !== LEGACY_DEFAULT_LOOKUP_LINK_SET.length) return null;
+    return normalizeLookupLinkSet(value, LEGACY_DEFAULT_LOOKUP_LINK_SET.length);
+  }
+  function normalizeLookupLinkSet(value, length) {
+    if (!Array.isArray(value) || value.length !== length) return null;
     const links = value.map(normalizeDictionaryLookupLink);
     return links.every(isDictionaryLookupLink) ? links : null;
   }
@@ -1093,6 +1115,10 @@
   }
   function defaultLookupLinkMode(preferJpdb) {
     return preferJpdb ? "jpdb" : "local";
+  }
+  function savedLookupLinksInDefaultOrder(links) {
+    const linkById = new Map(links.map((link) => [link.id, link]));
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink);
   }
   function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
     for (const builtIn of builtIns) {

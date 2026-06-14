@@ -337,13 +337,19 @@ export class ReaderParser {
 
     private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
         const fallbackTokens = this.parseSegmentedText(text);
+        const repairedFallbackTokens = fallbackRepairTokens(text, fallbackTokens, tokens);
         const replacementTokens = fallbackTokens
             .filter(fallback => shouldPreferInflectedFallbackToken(fallback, tokens));
-        const keptTokens = replacementTokens.length
-            ? tokens.filter(token => !replacementTokens.some(fallback => tokenInsideRange(token, fallback.start, fallback.end)))
+        const replacementRanges = [
+            ...fallbackRepairRanges(repairedFallbackTokens),
+            ...replacementTokens.map(fallback => ({ start: fallback.start, end: fallback.end })),
+        ];
+        const keptTokens = replacementRanges.length
+            ? tokens.filter(token => !replacementRanges.some(range => tokenInsideRange(token, range.start, range.end)))
             : tokens;
         const extraFallbackTokens = fallbackTokens
             .filter(fallback => replacementTokens.includes(fallback)
+                || repairedFallbackTokens.includes(fallback)
                 || !keptTokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
         return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
     }
@@ -560,6 +566,70 @@ function shouldPreferInflectedFallbackToken(fallback: JPDBToken, tokens: JPDBTok
     const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     return overlapping.length === 1
         && overlapping.every(token => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
+}
+
+function fallbackRepairTokens(text: string, fallbackTokens: JPDBToken[], tokens: JPDBToken[]): JPDBToken[] {
+    const repaired = new Set<JPDBToken>();
+    for (const fallback of fallbackTokens) {
+        const group = fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens);
+        group?.forEach(token => repaired.add(token));
+    }
+    return [...repaired].sort(compareTokensByOffset);
+}
+
+function fallbackRepairGroupForToken(
+    text: string,
+    fallback: JPDBToken,
+    fallbackTokens: JPDBToken[],
+    tokens: JPDBToken[],
+): JPDBToken[] | null {
+    if (!isCompleteFallbackRepairCandidate(fallback)) return null;
+    if (!rangeHasUncoveredJapaneseText(text, fallback.start, fallback.end, tokens)) return null;
+    const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
+    if (!overlapping.length) return null;
+    const start = Math.min(fallback.start, ...overlapping.map(token => token.start));
+    const end = Math.max(fallback.end, ...overlapping.map(token => token.end));
+    if (!tokens.every(token => !rangesOverlap(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
+    return fallbackTokensCoveringRange(fallbackTokens, start, end);
+}
+
+function isCompleteFallbackRepairCandidate(fallback: JPDBToken): boolean {
+    const surface = fallback.card.spelling;
+    return Boolean(fallback.card.fallbackLookupTerms?.length)
+        || (/^[\u3040-\u309fー]{3,}$/u.test(surface))
+        || (/[\u3400-\u9fff々〆ヵヶ]/u.test(surface) && surface.length >= 2);
+}
+
+function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
+    for (let index = start; index < end; index += 1) {
+        if (!JAPANESE_CHARACTER_RE.test(text[index] ?? '')) continue;
+        if (!tokens.some(token => token.start <= index && index < token.end)) return true;
+    }
+    return false;
+}
+
+function fallbackTokensCoveringRange(fallbackTokens: JPDBToken[], start: number, end: number): JPDBToken[] | null {
+    const group = fallbackTokens.filter(token => token.start >= start && token.end <= end);
+    if (!group.length) return null;
+    group.sort(compareTokensByOffset);
+    if (group[0]?.start !== start || group[group.length - 1]?.end !== end) return null;
+    for (let index = 1; index < group.length; index += 1) {
+        if (group[index - 1]?.end !== group[index]?.start) return null;
+    }
+    return group;
+}
+
+function fallbackRepairRanges(tokens: JPDBToken[]): Array<{ start: number; end: number }> {
+    const ranges: Array<{ start: number; end: number }> = [];
+    for (const token of tokens) {
+        const previous = ranges[ranges.length - 1];
+        if (previous && previous.end === token.start) {
+            previous.end = token.end;
+            continue;
+        }
+        ranges.push({ start: token.start, end: token.end });
+    }
+    return ranges;
 }
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {

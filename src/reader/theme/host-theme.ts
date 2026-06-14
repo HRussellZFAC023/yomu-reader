@@ -1,10 +1,13 @@
+import { isYomuHostedAppUrl } from '../app/pages-url';
+
 export type HostTheme = 'light' | 'dark';
-type ThemeHostKind = 'jpdb' | 'jiten';
+type ThemeHostKind = 'jpdb' | 'jiten' | 'yomu-hosted';
 
 const HOST_DARK_CLASS = 'dark-mode';
 const JITEN_THEME_COOKIE = 'jiten-theme-mode';
 
 function currentThemeHost(): ThemeHostKind | null {
+    if (isYomuHostedAppUrl(location.href)) return 'yomu-hosted';
     const host = location.hostname;
     if (host === 'jpdb.io' || host.endsWith('.jpdb.io')) return 'jpdb';
     if (host === 'jiten.moe' || host.endsWith('.jiten.moe')) return 'jiten';
@@ -15,11 +18,16 @@ export function isThemeSyncHost(): boolean {
     return currentThemeHost() !== null;
 }
 
+export function isHostThemeAuthoritative(): boolean {
+    return currentThemeHost() === 'yomu-hosted';
+}
+
 function prefersDark(): boolean {
     return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 export function detectHostTheme(): HostTheme {
+    if (currentThemeHost() === 'yomu-hosted') return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     if (document.documentElement.classList.contains(HOST_DARK_CLASS)) return 'dark';
     if (currentThemeHost() === 'jiten') {
         const mode = readJitenThemeCookie();
@@ -31,6 +39,11 @@ export function detectHostTheme(): HostTheme {
 
 export function applyHostTheme(theme: HostTheme): void {
     const root = document.documentElement;
+    if (currentThemeHost() === 'yomu-hosted') {
+        root.classList.toggle('dark', theme === 'dark');
+        root.style.colorScheme = theme;
+        return;
+    }
     root.classList.toggle(HOST_DARK_CLASS, theme === 'dark');
     root.style.colorScheme = theme;
     if (currentThemeHost() === 'jiten') writeJitenThemeCookie(theme);
