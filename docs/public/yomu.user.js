@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-X3NaDpo3vfKMlSRQZMIdu9gpZwq6Biiik2RV0goecLY=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-ShT8az10gVM0CX2pQcqwj6vtxCG7kbot3rD7PbDJY+M=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xOz3XyPlRAhoZmO4vFCX1lRqN1/mJMMWROsQiiFV+HA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nXjItJDGqD2Ee3Y2ehHBtHGaGUv7vSBe9Xi9ItRfNR0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-v1P/np+3QL4s2rtXzaXPsSpaCez71JXsx4SKDGMwk1I=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -32270,7 +32270,9 @@ ${glossaryKey}`;
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     "a[href]",
-    '[role="link"]'
+    '[role="link"]',
+    "ytd-comment-view-model .more-button",
+    "yt-live-chat-text-message-renderer button"
   ].join(",");
   const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
     "yt-button-shape button",
@@ -32285,6 +32287,10 @@ ${glossaryKey}`;
     // without stealing native clicks.
     "#movie_player",
     ".html5-video-player",
+    "#secondary",
+    "#related",
+    "ytd-compact-video-renderer",
+    "ytm-item-section-renderer",
     ".ytp-chrome-top",
     ".ytp-chrome-bottom",
     ".ytp-tooltip",
@@ -32326,7 +32332,9 @@ ${glossaryKey}`;
     ".yt-spec-button-shape-next",
     "yt-chip-cloud-renderer",
     "yt-chip-cloud-chip-renderer",
-    "iron-selector#chips"
+    "iron-selector#chips",
+    ".more-button",
+    '[slot="more-button"]'
   ]);
   const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
@@ -32896,34 +32904,16 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // Watch, feed, sidebar, live-chat, and recommendation text. Video
-        // title links are collected as passive hover targets so native
-        // YouTube clicks keep working. Stable masthead/nav/filter labels
-        // get the same passive treatment without scanning arbitrary player
-        // or comment controls.
+        // Watch metadata, description, comments, live-chat, and stable
+        // chrome. Feed/recommendation title renderers are deliberately
+        // left to YouTube: their virtualized link/title DOM rejects inline
+        // ruby and can leave only furigana visible after hydration.
         "ytd-masthead",
         "ytd-mini-guide-renderer",
         "ytd-feed-filter-chip-bar-renderer",
         "yt-chip-cloud-renderer",
         "iron-selector#chips",
-        "ytd-watch-metadata h1",
-        "ytd-watch-metadata #description-inline-expander",
-        "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
-        "ytd-rich-item-renderer",
-        "ytd-video-renderer",
-        "ytd-compact-video-renderer",
-        "ytd-grid-video-renderer",
-        "ytd-reel-item-renderer",
-        "ytd-reel-video-renderer",
-        "yt-lockup-view-model",
-        "yt-lockup-metadata-view-model",
-        "ytm-rich-item-renderer",
-        "ytm-video-with-context-renderer",
-        "ytm-compact-video-renderer",
-        "ytm-video-card-renderer",
-        "ytm-shorts-lockup-view-model",
-        "ytm-shorts-lockup-view-model-v2",
         "ytm-slim-video-metadata-section-renderer",
         "ytm-expandable-video-description-body-renderer",
         "ytm-structured-description-content-renderer",
@@ -33115,7 +33105,7 @@ ${glossaryKey}`;
       collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
     }
     if (shouldCollectYouTubePassiveChrome(profile, root) && siteScanHasRoom(context)) {
-      collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, YOUTUBE_PASSIVE_CHROME_SELECTOR), context, { chrome: true });
+      collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, YOUTUBE_PASSIVE_CHROME_SELECTOR), context, {});
     }
   }
   function shouldCollectYouTubePassiveChrome(profile, root) {
@@ -33128,7 +33118,7 @@ ${glossaryKey}`;
     }
   }
   function collectPassiveInteractionRootTargets(profile, passiveRoot, context, options = {}) {
-    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, passiveInteractionExcludeSelector(profile, options), {
+    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, passiveInteractionExcludeSelector(profile), {
       allowUiText: true,
       minLength: profile.minLength,
       includeUiChrome: true,
@@ -33142,8 +33132,8 @@ ${glossaryKey}`;
       if (!siteScanHasRoom(context)) break;
     }
   }
-  function passiveInteractionExcludeSelector(profile, options) {
-    return profile.id === "youtube-comments-parser" && options.chrome ? YOUTUBE_PASSIVE_CHROME_EXCLUDE : profile.exclude ?? COMMON_EXCLUDE;
+  function passiveInteractionExcludeSelector(profile, _options) {
+    return profile.id === "youtube-comments-parser" ? YOUTUBE_PASSIVE_CHROME_EXCLUDE : profile.exclude ?? COMMON_EXCLUDE;
   }
   function passiveInteractionRoots(root, selector) {
     const candidates = [
@@ -33224,7 +33214,7 @@ ${glossaryKey}`;
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
-    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0);
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
     const uiChromeTargets = collectSafeUiChromeTargets(
@@ -33280,14 +33270,15 @@ ${glossaryKey}`;
       return [target.node];
     }));
   }
-  function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true) {
+  function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true, profiles = []) {
     if (!enabled || limit <= 0) return [];
     const collection = {
       targets: [],
       seen: seenTextNodes(existingTargets),
       limit
     };
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(), collection);
+    const extraExclude = profiles.map((p) => p.exclude).filter(Boolean).join(",");
+    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude);
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
     return collection.targets;
   }
@@ -33302,20 +33293,24 @@ ${glossaryKey}`;
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
     return collection.targets;
   }
-  function collectSafeUiChromeRootTargets(roots, collection) {
+  function collectSafeUiChromeRootTargets(roots, collection, extraExclude = "") {
     for (const root of roots) {
-      collectSafeUiChromeTargetsFromRoot(root, collection);
+      collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude);
       if (genericProseCollectionFull(collection)) break;
     }
   }
   function safeUiChromeRoots() {
     return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root)));
   }
-  function profileSafeUiChromeRoots() {
-    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(PROFILE_SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root)));
+  function profileSafeUiChromeRoots(extraExclude = "") {
+    const roots = Array.from(document.querySelectorAll(PROFILE_SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root));
+    if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
+    return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
   }
-  function collectSafeUiChromeTargetsFromRoot(root, collection) {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, safeUiChromeExcludeForRoot(root), {
+  function collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude = "") {
+    const baseExclude = safeUiChromeExcludeForRoot(root);
+    const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, {
       allowUiText: true,
       includeUiChrome: true,
       includeTabChrome: true,
