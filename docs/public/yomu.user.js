@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.5
+// @version      0.7.6
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-X3NaDpo3vfKMlSRQZMIdu9gpZwq6Biiik2RV0goecLY=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-ShT8az10gVM0CX2pQcqwj6vtxCG7kbot3rD7PbDJY+M=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xOz3XyPlRAhoZmO4vFCX1lRqN1/mJMMWROsQiiFV+HA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-hG+fzosmMBECnfkxydaK3XajAcD9hnUSwMhK1eh7T00=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-nXjItJDGqD2Ee3Y2ehHBtHGaGUv7vSBe9Xi9ItRfNR0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -12012,6 +12012,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -24956,6 +24957,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
   const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
@@ -25514,7 +25516,10 @@ ${spelling}`);
     return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface);
+    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
   }
   function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
     const first = segments[startIndex]?.surface ?? "";
@@ -25555,8 +25560,11 @@ ${spelling}`);
     const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
     return uniqueStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
   }
+  function fallbackDictionaryLookupTermsForText(text2) {
+    return dictionaryFirstFallbackLookupTerms(fallbackLookupTermsForText(text2));
+  }
   function fallbackLookupTermsForCard(card) {
-    return uniqueStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(uniqueStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
   }
   function isUsefulFallbackLookupCandidate(candidate) {
     return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
@@ -25571,9 +25579,18 @@ ${spelling}`);
     if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
     return 3;
   }
+  function dictionaryFirstFallbackLookupTerms(terms) {
+    const [source, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueStrings$1([...terminal, ...candidates, source ?? ""]);
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
   function uniqueStrings$1(values) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
+      if (!value) return false;
       if (seen.has(value)) return false;
       seen.add(value);
       return true;
@@ -37223,6 +37240,10 @@ ${glossaryKey}`;
 .VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
   inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
 }
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after {
+  border-block-end-color: transparent;
+}
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
@@ -38538,6 +38559,7 @@ ${glossaryKey}`;
       const shouldShowWelcome = await this.loadInitialSettings(options);
       await this.installCoreSurfaces();
       await this.initReaderPage(shouldShowWelcome);
+      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings, preview: true }));
       done();
     }
     async loadInitialSettings(options) {
@@ -40632,7 +40654,7 @@ ${glossaryKey}`;
       return surface === spelling || surface === reading;
     }
     async showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options) {
-      const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+      const spans = this.publicJpdbPointerLookupCandidates(candidate);
       if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
       for (const span of spans) {
         const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
@@ -40642,6 +40664,15 @@ ${glossaryKey}`;
         return true;
       }
       return false;
+    }
+    publicJpdbPointerLookupCandidates(candidate) {
+      const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+      const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
+      if (!fallbackRange) return spans;
+      const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
+      const fallbackSurfaceKey = normalizedLookupText(fallbackSurface);
+      const deinflectedSpans = fallbackDictionaryLookupTermsForText(fallbackSurface).filter((term) => normalizedLookupText(term) !== fallbackSurfaceKey).map((term) => ({ term, start: fallbackRange.start, end: fallbackRange.end }));
+      return uniquePointerTextSpans([...deinflectedSpans, ...spans]);
     }
     canUsePublicJpdbPointerLookup() {
       return !hasJpdbApiCredential(this.settings);
@@ -43394,6 +43425,17 @@ ${glossaryKey}`;
     if (reading) return cards.find((card) => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find((card) => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? void 0 : cards[0]);
+  }
+  function uniquePointerTextSpans(spans) {
+    const seen = /* @__PURE__ */ new Set();
+    return spans.filter((span) => {
+      const key = `${span.term}
+${span.start}
+${span.end}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   function cardHasContextPitch(card) {
     if (!card.pitchAccent.length) return false;

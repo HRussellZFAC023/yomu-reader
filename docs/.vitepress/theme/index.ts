@@ -1487,6 +1487,7 @@ function syncHostedAccent(source?: unknown): void {
     root.style.setProperty('--vp-button-brand-active-text', accentText);
     root.style.setProperty('--vp-home-hero-name-color', brandReadable);
     root.style.setProperty('--jpdb-reader-accent', accent);
+    root.style.setProperty('--jpdb-reader-accent-readable', brandReadable);
     root.style.setProperty('--jpdb-reader-accent-text', accentText);
     root.style.setProperty('--jpdb-reader-accent-soft', brandSoft);
 

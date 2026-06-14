@@ -9180,6 +9180,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -27456,6 +27457,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
   const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
@@ -27996,7 +27998,10 @@ ${spelling}`);
     return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface);
+    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
   }
   function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
     const first2 = segments[startIndex]?.surface ?? "";
@@ -28038,7 +28043,7 @@ ${spelling}`);
     return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
   }
   function fallbackLookupTermsForCard(card) {
-    return uniqueStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(uniqueStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
   }
   function isUsefulFallbackLookupCandidate(candidate) {
     return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
@@ -28053,9 +28058,18 @@ ${spelling}`);
     if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
     return 3;
   }
+  function dictionaryFirstFallbackLookupTerms(terms) {
+    const [source, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueStrings([...terminal, ...candidates, source ?? ""]);
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
   function uniqueStrings(values) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
+      if (!value) return false;
       if (seen.has(value)) return false;
       seen.add(value);
       return true;

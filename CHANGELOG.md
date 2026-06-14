@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.6] - 2026-06-14
+
+### Fixed
+
+- The settings dialog on the documentation page now respects the pink accent color setting on startup and during subsequent mode transitions instead of overriding it to the default green.
+- JPDB pointer candidate generation now resolves deinflected dictionary terms correctly when performing public dictionary lookups.
+
 ## [0.7.5] - 2026-06-14
 
 ### Fixed

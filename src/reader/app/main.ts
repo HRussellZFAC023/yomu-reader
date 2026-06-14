@@ -272,7 +272,7 @@ import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReader
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeImageReadingPage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
-import { ReaderParser, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
     isValidRenderedWordKey,
@@ -725,6 +725,7 @@ export class ReaderApp {
         const shouldShowWelcome = await this.loadInitialSettings(options);
         await this.installCoreSurfaces();
         await this.initReaderPage(shouldShowWelcome);
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings, preview: true }));
         done();
     }
 
@@ -3250,7 +3251,7 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<boolean> {
-        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+        const spans = this.publicJpdbPointerLookupCandidates(candidate);
         if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
         for (const span of spans) {
             const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
@@ -3260,6 +3261,18 @@ export class ReaderApp {
             return true;
         }
         return false;
+    }
+
+    private publicJpdbPointerLookupCandidates(candidate: PointerTextLookup): PointerTextSpanCandidate[] {
+        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+        const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
+        if (!fallbackRange) return spans;
+        const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
+        const fallbackSurfaceKey = normalizedLookupText(fallbackSurface);
+        const deinflectedSpans = fallbackDictionaryLookupTermsForText(fallbackSurface)
+            .filter(term => normalizedLookupText(term) !== fallbackSurfaceKey)
+            .map(term => ({ term, start: fallbackRange.start, end: fallbackRange.end }));
+        return uniquePointerTextSpans([...deinflectedSpans, ...spans]);
     }
 
     private canUsePublicJpdbPointerLookup(): boolean {
@@ -6723,6 +6736,16 @@ function publicLookupCardFromResults(cards: JPDBCard[], term: string, exact: boo
     if (reading) return cards.find(card => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find(card => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? undefined : cards[0]);
+}
+
+function uniquePointerTextSpans(spans: PointerTextSpanCandidate[]): PointerTextSpanCandidate[] {
+    const seen = new Set<string>();
+    return spans.filter(span => {
+        const key = `${span.term}\n${span.start}\n${span.end}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 // "Has pitch" for enrichment means a pattern that actually fits the card's

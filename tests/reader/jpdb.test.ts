@@ -48,7 +48,7 @@ import { NewTabController } from '../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
-import { ReaderParser, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
+import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../src/reader/kanji/rtk';
 import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
 
@@ -3472,6 +3472,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
+        expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
         expect(normalizedCss).not.toContain('} .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal;');
     });
 
@@ -6141,6 +6142,16 @@ describe('reader helpers', () => {
             expect(tokens[2]?.card.fallbackLookupTerms).toContain('読む');
             expect(tokens.map(token => token.card.spelling)).not.toContain('した');
         });
+    });
+
+    it('stops inflected fallback spans before surrounding grammar chunks', () => {
+        const suspicion = '異世界転生疑ってたわけじゃないけどこれは実際に';
+        const seen = '目にしてみないとわからない';
+
+        expect(fallbackLookupTermAtOffset(suspicion, suspicion.indexOf('疑'))).toBe('疑ってた');
+        expect(fallbackDictionaryLookupTermsForText('疑ってた')[0]).toBe('疑う');
+        expect(fallbackLookupTermAtOffset(seen, seen.indexOf('目'))).toBe('目にして');
+        expect(fallbackDictionaryLookupTermsForText('目にして')[0]).toBe('目にする');
     });
 
     it('does not merge polite YouTube comment runs into one fallback word', async () => {
@@ -16164,6 +16175,70 @@ describe('reader helpers', () => {
         }
     });
 
+    it('tries deinflected public JPDB pointer terms before falling back to surface text', async () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = '<p>異世界転生疑ってたわけじゃないけどこれは実際に</p>';
+        const paragraph = document.querySelector<HTMLElement>('p')!;
+        const sentence = paragraph.textContent!;
+        const lookupCard = testPublicCard({
+            vid: 1495000,
+            spelling: '疑う',
+            reading: 'うたがう',
+            pitchAccent: ['LHLL'],
+        });
+        const parse = vi.fn(async () => [[]]);
+        const publicLookupCard = vi.fn(async (term: string) => term === '疑う' ? lookupCard : undefined);
+        const showLocalPointerTextCandidate = vi.fn(async () => true);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const candidate = pointerTextCandidate(sentence, paragraph, sentence.indexOf('疑'));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean; cacheCards(cards: JPDBCard[]): void };
+            publicLookupCard: typeof publicLookupCard;
+            showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
+            showPointerTextCard: typeof showPointerTextCard;
+            showFirstPointerTextCandidate(
+                candidate: TestPointerTextCandidate,
+                sentence: string,
+                trigger: TestPointerTextTrigger,
+                options: TestPointerTextOptions,
+            ): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jpdbDefinitionsEnabled: true,
+            localDictionariesEnabled: true,
+        };
+        internals.parser = {
+            parse,
+            cacheCards: vi.fn(),
+            isJpdbBackedCard: testIsJpdbBackedCard,
+        };
+        internals.publicLookupCard = publicLookupCard;
+        internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
+        internals.showPointerTextCard = showPointerTextCard;
+
+        try {
+            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
+
+            expect(publicLookupCard.mock.calls[0]).toEqual(['疑う', true, expect.objectContaining({ allowCandidateLookup: true })]);
+            expect(internals.parser.cacheCards).toHaveBeenCalledWith([lookupCard]);
+            expect(showLocalPointerTextCandidate).not.toHaveBeenCalled();
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                lookupCard,
+                sentence,
+                candidate,
+                { term: '疑う', start: 5, end: 9 },
+                'modal',
+                { userGesture: true },
+            );
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('resolves kana-only rendered word fragments through public JPDB before showing the cached fragment card', async () => {
         for (const fragment of ['に', 'ほん', 'ご']) {
             const app = new ReaderApp();
@@ -24743,8 +24818,8 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token]);
 
-            expect(search).toHaveBeenCalledWith('読みました', 1);
             expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(search).not.toHaveBeenCalledWith('読みました', 1);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(word.dataset.expression).toBe('読む');
