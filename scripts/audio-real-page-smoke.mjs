@@ -17,6 +17,7 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
 loadDotEnv(path.join(ROOT, '.env'));
 
 const EXACT_WIKIPEDIA_URL = 'https://ja.wikipedia.org/wiki/%E5%8E%9F%E5%AD%90%E9%87%8F';
+const WIKIPEDIA_MAIN_PAGE_URL = 'https://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8';
 const YOUTUBE_URL = process.env.YOMU_AUDIO_YOUTUBE_URL || 'https://www.youtube.com/watch?v=f2Q5tPfiSAE';
 const ARTIFACT_DIR = path.join(ARTIFACTS_ROOT, 'audio-real-page', 'latest');
 const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
@@ -62,14 +63,43 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', {
 });
 
 try {
+    scenarios.push(await runScenario(browser, wikipediaMainPageDefaultReplayScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaClickRandomDefaultScenario()));
     scenarios.push(await runScenario(browser, wikipediaHoverControlledPoolScenario()));
     scenarios.push(await runScenario(browser, wikipediaClickControlledPoolScenario()));
+    scenarios.push(await runScenario(browser, wikipediaClickInterleavedTtsScenario()));
     scenarios.push(await runScenario(browser, ipadWikipediaTapControlledPoolScenario()));
     scenarios.push(await runScenario(browser, youtubeHoverControlledPoolScenario()));
 } finally {
     await browser.close().catch(() => undefined);
+}
+
+function wikipediaMainPageDefaultReplayScenario() {
+    return {
+        name: 'wikipedia-main-page-click-replay-default',
+        url: WIKIPEDIA_MAIN_PAGE_URL,
+        settings: {
+            ...baseSettings,
+            audioEnableDefaultSources: true,
+            audioSources: [],
+        },
+        action: async page => {
+            await clickFirstReaderWord(page);
+            await waitForAudioOrSpeechCount(page, 1, 'Wikipedia main page default click-open produced no audio');
+            for (let index = 0; index < 5; index++) {
+                await clickPopoverAudioButton(page);
+                await waitForAudioOrSpeechCount(page, index + 2, `Wikipedia main page replay ${index + 1} produced no audio`);
+            }
+        },
+        assertResult: result => {
+            const played = playbackIdentities(result);
+            const unique = new Set(played);
+            assert(played.length >= 6, 'Wikipedia main page default replay did not record six playback attempts', result);
+            assertNoImmediateRepeats(played, 'Wikipedia main page default replay repeated the previous audio identity', result);
+            assert(unique.size >= 3, 'Wikipedia main page default replay did not enter the wider randomized audio pool', result);
+        },
+    };
 }
 
 const summaryPath = path.join(ARTIFACT_DIR, 'summary.json');
@@ -150,6 +180,33 @@ function wikipediaClickControlledPoolScenario() {
             const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(value => value.includes('real-audio.test'));
             assert(urls.length >= 3, 'controlled click scenario did not record three controlled clips', result);
             assert(urls[0] !== urls[1], 'controlled click scenario repeated the previous clip immediately', result);
+        },
+    };
+}
+
+function wikipediaClickInterleavedTtsScenario() {
+    return {
+        name: 'wikipedia-atomic-weight-click-interleaved-tts',
+        url: EXACT_WIKIPEDIA_URL,
+        settings: {
+            ...baseSettings,
+            audioEnableDefaultSources: false,
+            audioSources: [
+                { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                { type: 'custom', url: 'https://real-audio.test/interleaved.mp3', voice: '', enabled: true },
+            ],
+        },
+        action: async page => {
+            await clickFirstReaderWord(page);
+            await waitForAudibleAudioCount(page, 1, 'Wikipedia interleaved click-open produced no recorded audio');
+            await clickPopoverAudioButton(page);
+            await waitForAudioOrSpeechCount(page, 2, 'Wikipedia interleaved replay did not enter text-to-speech');
+        },
+        assertResult: result => {
+            const played = playbackIdentities(result);
+            assert(result.audiblePlays.some(play => (play.sourceUrl || play.src).includes('real-audio.test/interleaved.mp3')), 'interleaved scenario did not play controlled recorded audio', result);
+            assert(result.speech.length >= 1, 'interleaved scenario did not enter browser text-to-speech on replay', result);
+            assertNoImmediateRepeats(played, 'interleaved scenario repeated the recorded source before text-to-speech', result);
         },
     };
 }
@@ -520,10 +577,28 @@ async function safeEvidence(page) {
 }
 
 function playbackIdentities(result) {
+    return playbackTimeline(result).map(item => item.identity);
+}
+
+function playbackTimeline(result) {
     return [
-        ...result.audiblePlays.map(play => play.sourceUrl || play.src),
-        ...result.speech.map(item => `speech:${item.voice}:${item.text}`),
-    ].filter(Boolean);
+        ...result.audiblePlays.map(play => ({
+            identity: play.sourceUrl || play.src,
+            time: play.time ?? 0,
+        })),
+        ...result.speech.map(item => ({
+            identity: `speech:${item.voice}:${item.text}`,
+            time: item.time ?? 0,
+        })),
+    ]
+        .filter(item => item.identity)
+        .sort((a, b) => a.time - b.time);
+}
+
+function assertNoImmediateRepeats(values, message, context) {
+    for (let index = 1; index < values.length; index++) {
+        assert(values[index] !== values[index - 1], message, { ...context, repeated: values[index], index });
+    }
 }
 
 async function injectTargetText(page) {

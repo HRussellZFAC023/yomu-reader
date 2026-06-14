@@ -90,8 +90,8 @@
 .jpdb-reader-settings input,
 .jpdb-reader-settings select,
 .jpdb-reader-settings textarea {
-  box-shadow: none;
-  transform: none;
+  box-shadow: none !important;
+  transform: none !important;
 }
 .jpdb-reader-settings input:hover,
 .jpdb-reader-settings input:focus,
@@ -345,26 +345,32 @@
 }
 .jpdb-reader-settings input,
 .jpdb-reader-settings select,
+.jpdb-reader-settings textarea,
 .jpdb-reader-field-display {
   width: 100%;
   box-sizing: border-box;
   min-height: 38px;
   border-radius: 7px;
-  border: 1px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 700 12px/1.2 var(--jpdb-reader-font);
+  border: 1px solid var(--jpdb-reader-border) !important;
+  background-color: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  font: 700 12px/1.2 var(--jpdb-reader-font) !important;
   height: 38px;
   min-width: 0;
   padding: 8px;
 }
+.jpdb-reader-settings input::placeholder,
+.jpdb-reader-settings textarea::placeholder {
+  color: var(--jpdb-reader-faint) !important;
+  opacity: 1;
+}
 .jpdb-reader-settings select {
-  appearance: none;
-  -webkit-appearance: none;
+  appearance: none !important;
+  -webkit-appearance: none !important;
   padding-right: 34px;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
+    linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 12px) 50%;
@@ -508,8 +514,8 @@
 }
 .jpdb-reader-settings input[type="checkbox"],
 .jpdb-reader-settings input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
+  appearance: none !important;
+  -webkit-appearance: none !important;
   width: 24px;
   height: 24px;
   min-width: 24px;
@@ -518,8 +524,10 @@
   place-content: center;
   margin: 0;
   padding: 0;
-  border: 1.5px solid var(--jpdb-reader-border);
-  background: var(--jpdb-reader-surface-2);
+  border: 1.5px solid var(--jpdb-reader-border) !important;
+  background-color: var(--jpdb-reader-surface-2) !important;
+  background-image: none !important;
+  accent-color: var(--jpdb-reader-accent) !important;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 6%, transparent);
 }
 .jpdb-reader-settings input[type="checkbox"] {
@@ -530,23 +538,23 @@
 }
 .jpdb-reader-settings input[type="checkbox"]:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:enabled:hover {
-  border-color: var(--jpdb-reader-accent);
-  background: color-mix(
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: color-mix(
     in srgb,
     var(--jpdb-reader-surface-2) 82%,
     var(--jpdb-reader-accent) 18%
-  );
+  ) !important;
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked,
 .jpdb-reader-settings input[type="radio"]:checked {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: var(--jpdb-reader-accent) !important;
   box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
 }
 .jpdb-reader-settings input[type="checkbox"]:checked:enabled:hover,
 .jpdb-reader-settings input[type="radio"]:checked:enabled:hover {
-  background: var(--jpdb-reader-accent);
+  background-color: var(--jpdb-reader-accent) !important;
 }
 .jpdb-reader-settings input[type="checkbox"]:checked::after {
   content: "";

@@ -24,6 +24,8 @@ export class OnboardingController {
     private languageSelect?: HTMLSelectElement;
     private themeSwitch?: HTMLButtonElement;
     private accentColorInput?: HTMLInputElement;
+    private pendingAccentPreviewColor?: string;
+    private accentPreviewFrame?: number;
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
 
@@ -133,7 +135,8 @@ export class OnboardingController {
         this.accentColorInput.name = 'accentColor';
         this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
         this.accentColorInput.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'onboardingAccentColor'));
-        this.accentColorInput.addEventListener('input', () => this.applyAccentChoice(this.accentColorInput?.value));
+        this.accentColorInput.addEventListener('input', () => this.previewAccentChoice(this.accentColorInput?.value));
+        this.accentColorInput.addEventListener('change', () => this.applyAccentChoice(this.accentColorInput?.value));
         customAccent.append(customAccentText, this.accentColorInput);
         accentPicker.append(accentLegend, swatches, customAccent);
 
@@ -269,6 +272,7 @@ export class OnboardingController {
     }
 
     private close(): void {
+        this.cancelAccentPreviewFrame();
         this.panel?.remove();
         this.backdrop?.remove();
         this.panel = undefined;
@@ -327,6 +331,7 @@ export class OnboardingController {
     }
 
     private applyAccentChoice(value: string | undefined): void {
+        this.cancelAccentPreviewFrame();
         const current = this.options.getSettings();
         const accentColor = sanitizeAccentColor(value, current.accentColor);
         this.options.setSettings({ ...current, accentColor });
@@ -334,6 +339,28 @@ export class OnboardingController {
             this.accentColorInput.value = accentColor;
         }
         this.syncAccentPicker(accentColor);
+    }
+
+    private previewAccentChoice(value: string | undefined): void {
+        const current = this.options.getSettings();
+        const accentColor = sanitizeAccentColor(value, current.accentColor);
+        this.pendingAccentPreviewColor = accentColor;
+        this.syncAccentPicker(accentColor);
+        if (this.accentPreviewFrame !== undefined) return;
+        this.accentPreviewFrame = requestOnboardingFrame(() => {
+            this.accentPreviewFrame = undefined;
+            const pendingColor = this.pendingAccentPreviewColor;
+            this.pendingAccentPreviewColor = undefined;
+            if (!pendingColor || !this.panel?.isConnected) return;
+            this.options.setSettings({ ...this.options.getSettings(), accentColor: pendingColor });
+        });
+    }
+
+    private cancelAccentPreviewFrame(): void {
+        if (this.accentPreviewFrame === undefined) return;
+        cancelOnboardingFrame(this.accentPreviewFrame);
+        this.accentPreviewFrame = undefined;
+        this.pendingAccentPreviewColor = undefined;
     }
 
     private syncAccentPicker(color: string): void {
@@ -390,6 +417,18 @@ function onboardingCopyId(name: string): string {
 
 function onboardingAccentLabel(language: InterfaceLanguage, color: string): string {
     return `${uiText(language, 'onboardingAccentColor')} ${color.toUpperCase()}`;
+}
+
+function requestOnboardingFrame(callback: () => void): number {
+    if (typeof window.requestAnimationFrame === 'function') {
+        return window.requestAnimationFrame(() => callback());
+    }
+    return window.setTimeout(callback, 16);
+}
+
+function cancelOnboardingFrame(id: number): void {
+    if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id);
+    else window.clearTimeout(id);
 }
 
 function closeIcon(): string {

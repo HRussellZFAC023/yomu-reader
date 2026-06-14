@@ -2485,13 +2485,13 @@
       featureText: "Text",
       featureTextBody: "Hover or tap scanned Japanese.",
       featureImages: "Images",
-      featureImagesBody: "Read image text near the viewport.",
+      featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
       featureVideoBody: "Make subtitle words tappable.",
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "A built-in study page reviews your JPDB, Anki and Jiten cards in their exact order — learn kanji to unlock words, or turn kanji cards off in Settings.",
+      featureStudyBody: "Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -3549,13 +3549,13 @@ closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
 featureTextBody	スキャン後、日本語をホバー/タップできます。
 featureImages	画像
-featureImagesBody	近くの画像テキストを検出します。
+featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
 featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jitenのカードを本来の順序で復習。漢字を学んで単語を解放、設定で漢字カードをオフにもできます。
+featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -9716,6 +9716,16 @@ recommendedJiten	jiten.moe頻度データです。
     }
     window.setTimeout(callback, 16);
   }
+  function requestCancelableFrame(callback) {
+    if (typeof window.requestAnimationFrame === "function") {
+      return window.requestAnimationFrame(() => callback());
+    }
+    return window.setTimeout(callback, 16);
+  }
+  function cancelCancelableFrame(id) {
+    if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+    else window.clearTimeout(id);
+  }
   function scrollSettingsControlIntoView(form, control) {
     const geometry = settingsControlScrollGeometry(form, control);
     if (geometry) applySettingsControlScroll(geometry);
@@ -10046,13 +10056,47 @@ recommendedJiten	jiten.moe頻度データです。
     }
     bindLivePreview(form) {
       const applyThemePreview = () => this.dependencies.applyTheme(readFormSettings(new FormData(form), this.settings));
-      form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
-        const accentColor = event.currentTarget.value;
+      let pendingAccentColor;
+      let accentPreviewFrame;
+      const flushAccentPreview = () => {
+        accentPreviewFrame = void 0;
+        const accentColor = pendingAccentColor;
+        pendingAccentColor = void 0;
+        if (!accentColor || !form.isConnected) return;
+        this.dependencies.applyAccentColor(accentColor);
+      };
+      const scheduleAccentPreview = (accentColor) => {
+        pendingAccentColor = accentColor;
+        if (accentPreviewFrame !== void 0) return;
+        accentPreviewFrame = requestCancelableFrame(flushAccentPreview);
+      };
+      const commitAccentPreview = (accentColor) => {
+        if (accentPreviewFrame !== void 0) {
+          cancelCancelableFrame(accentPreviewFrame);
+          accentPreviewFrame = void 0;
+        }
+        pendingAccentColor = void 0;
         this.dependencies.applyAccentColor(accentColor);
         publishSettingsChange({ accentColor }, { preview: true });
+      };
+      form.querySelector('input[name="accentColor"]')?.addEventListener("input", (event) => {
+        const accentColor = event.currentTarget.value;
+        scheduleAccentPreview(accentColor);
       });
+      form.querySelector('input[name="accentColor"]')?.addEventListener("change", (event) => {
+        const accentColor = event.currentTarget.value;
+        commitAccentPreview(accentColor);
+      });
+      let wordColorPreviewFrame;
+      const scheduleWordColorPreview = () => {
+        if (wordColorPreviewFrame !== void 0) return;
+        wordColorPreviewFrame = requestCancelableFrame(() => {
+          wordColorPreviewFrame = void 0;
+          if (form.isConnected) this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings));
+        });
+      };
       form.querySelectorAll('input[name^="wordColor"], input[name^="pitchColor"]').forEach((input2) => {
-        input2.addEventListener("input", () => this.dependencies.applyWordColors(readFormSettings(new FormData(form), this.settings)));
+        input2.addEventListener("input", scheduleWordColorPreview);
       });
       const autoPlayAudio = form.querySelector('input[name="autoPlayAudio"]');
       const audioAutoPlayMode = form.querySelector('select[name="audioAutoPlayMode"]');

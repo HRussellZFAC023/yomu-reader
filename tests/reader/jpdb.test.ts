@@ -8103,7 +8103,7 @@ describe('reader helpers', () => {
             audio: { play } as unknown as AudioPlayer,
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
             getActivePopover: () => undefined,
-            getHoverLookupGeneration: () => 0,
+            getHoverLookupGeneration: () => 1,
             stopImmersionAudio: vi.fn(),
             toast: vi.fn(),
         });
@@ -8123,7 +8123,7 @@ describe('reader helpers', () => {
             audio: { play } as unknown as AudioPlayer,
             getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
             getActivePopover: () => undefined,
-            getHoverLookupGeneration: () => 1,
+            getHoverLookupGeneration: () => 0,
             stopImmersionAudio: vi.fn(),
             toast: vi.fn(),
         });
@@ -8154,7 +8154,7 @@ describe('reader helpers', () => {
         expect(play).toHaveBeenCalledTimes(2);
     });
 
-    it('does not suppress click autoplay after an unsuccessful hover autoplay', async () => {
+    it('does not suppress click autoplay after a stale hover autoplay is superseded', async () => {
         let playCount = 0;
         const play = vi.fn(async () => {
             playCount += 1;
@@ -12601,7 +12601,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries configured real audio sources before text-to-speech and caches playable audio', async () => {
+    it('tries configured real audio sources before text-to-speech on the first random pass', async () => {
         const played: string[] = [];
         const spoken: string[] = [];
         const requested: string[] = [];
@@ -12636,15 +12636,95 @@ describe('reader helpers', () => {
             }));
 
             await expect(player.play(card)).resolves.toBe(true);
-            await expect(player.play(card)).resolves.toBe(true);
 
             expect(requested).toEqual([
                 'http://x.test/missing.mp3',
                 'http://x.test/available.mp3',
-                'http://x.test/missing.mp3',
             ]);
-            expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3', 'blob:http://localhost/random-source-audio.mp3']);
+            expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3']);
             expect(spoken).toEqual([]);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('lets fallback text-to-speech enter the random replay pool after recorded sources are exhausted', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0.99,
+            objectUrl: 'blob:http://localhost/recorded-source-audio.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/available.mp3', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/available.mp3']);
+            expect(played).toEqual(['blob:http://localhost/recorded-source-audio.mp3']);
+            expect(spoken).toEqual([card.spelling]);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('avoids repeating a recorded source when text-to-speech is ordered before it', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0,
+            objectUrl: 'blob:http://localhost/interleaved-recorded-source.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/interleaved.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual(['http://x.test/interleaved.mp3']);
+            expect(played).toEqual(['blob:http://localhost/interleaved-recorded-source.mp3']);
+            expect(spoken).toEqual([card.spelling]);
         } finally {
             restoreAudio();
             vi.unstubAllGlobals();
@@ -28170,6 +28250,57 @@ describe('reader helpers', () => {
         }
     });
 
+    it('adds host role-tab and checkbox chrome labels as passive ruby scan targets', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 240, height: 40 });
+        document.body.innerHTML = `
+            <main><article><p>今日は静かな喫茶店で新しい本を読みました。</p></article></main>
+            <div role="tablist" class="site-tabs">
+                <button type="button" role="tab" title="外観">外観</button>
+                <button type="button" role="tab">API</button>
+            </div>
+            <div role="checkbox" aria-checked="true" tabindex="0">検索後もシートを開いたままにする</div>
+        `;
+
+        const targets = collectScanTargets(10, 'https://discourse.julialang.org/t/llms-and-uuids/115217/5');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '今日は静かな喫茶店で新しい本を読みました。',
+            '外観',
+            '検索後もシートを開いたままにする',
+        ]));
+        const tabTarget = targets.find(target => target.text === '外観')!;
+        const checkboxTarget = targets.find(target => target.text === '検索後もシートを開いたままにする')!;
+        expect('passiveInteraction' in tabTarget && tabTarget.passiveInteraction).toBe(true);
+        expect('passiveInteraction' in checkboxTarget && checkboxTarget.passiveInteraction).toBe(true);
+
+        applyTokensToScanTarget(tabTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '外観', reading: 'がいかん' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'がいかん', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '外観',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(checkboxTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '検索', reading: 'けんさく' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'けんさく', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '検索後もシートを開いたままにする',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const tabWord = document.querySelector<HTMLElement>('[role="tab"] .jpdb-reader-word')!;
+        const checkboxWord = document.querySelector<HTMLElement>('[role="checkbox"] .jpdb-reader-word')!;
+        expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
+        expect(checkboxWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(checkboxWord.querySelector('rt')?.textContent).toBe('けんさく');
+    });
+
     it('adds compact parser-page chrome labels after site text as passive ruby scan targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
@@ -28266,10 +28397,14 @@ describe('reader helpers', () => {
         const article = targets.find(target => target.text === '原子の質量を表す。')!;
         const edit = targets.find(target => target.text === '編集')!;
         const light = targets.find(target => target.text === 'ライト')!;
+        const pinButton = targets.find(target => target.text === 'サイドバーに移動'
+            && target.parent.closest('.vector-pinnable-header-pin-button'))!;
         expect('parserId' in article && article.parserId).toBe('wikipedia-parser');
         expect('parserId' in edit && edit.parserId).toBe('safe-ui-chrome-parser');
+        expect('parserId' in pinButton && pinButton.parserId).toBe('safe-ui-chrome-parser');
         expect('passiveInteraction' in edit && edit.passiveInteraction).toBe(true);
         expect('passiveInteraction' in light && light.passiveInteraction).toBe(true);
+        expect('passiveInteraction' in pinButton && pinButton.passiveInteraction).toBe(true);
 
         applyTokensToScanTarget(edit, [{
             card: { ...card, cardState: ['known'], spelling: '編集', reading: 'へんしゅう' },
@@ -28289,14 +28424,26 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: 'ライト',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(pinButton, [{
+            card: { ...card, cardState: ['known'], spelling: 'サイドバー', reading: 'サイドバー' },
+            start: 0,
+            end: 5,
+            length: 5,
+            rubies: [],
+            pitchClass: '',
+            sentence: 'サイドバーに移動',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const editWord = document.querySelector<HTMLElement>('#ca-edit .jpdb-reader-word')!;
         const lightWord = Array.from(document.querySelectorAll<HTMLElement>('#vector-appearance label .jpdb-reader-word'))
             .find(word => readerWordSurfaceText(word) === 'ライト')!;
+        const pinWord = document.querySelector<HTMLElement>('.vector-pinnable-header-pin-button .jpdb-reader-word')!;
         expect(editWord.dataset.jpdbReaderPassive).toBe('true');
         expect(editWord.querySelector('rt')?.textContent).toBe('へんしゅう');
         expect(lightWord.dataset.jpdbReaderPassive).toBe('true');
         expect(readerWordSurfaceText(lightWord)).toBe('ライト');
+        expect(pinWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(readerWordSurfaceText(pinWord)).toBe('サイドバー');
     });
 
     it('scans Google Docs menubar entries as passive ruby targets', () => {

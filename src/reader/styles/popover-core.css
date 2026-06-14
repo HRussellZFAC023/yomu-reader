@@ -323,7 +323,8 @@
   z-index: 2147483647;
   box-sizing: border-box;
   width: min(720px, calc(100vw - 24px));
-  max-height: min(720px, calc(100vh - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow: auto;
   padding: 42px 32px 28px;
   border: 1px solid var(--jpdb-reader-border);
@@ -340,7 +341,9 @@
   right: 12px;
 }
 .jpdb-reader-onboarding h2 {
-  margin: 4px 0 8px;
+  margin: 0 0 8px -0.06em;
+  padding: 0;
+  border: 0 !important;
   color: var(--jpdb-reader-text);
   font-size: 48px;
   line-height: 1;
@@ -422,10 +425,10 @@
   width: 100%;
   box-sizing: border-box;
   min-height: 42px;
-  border: 1px solid var(--jpdb-reader-border);
+  border: 1px solid var(--jpdb-reader-border) !important;
   border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
+  background-color: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
   padding: 8px 10px;
   font: 750 14px/1.2 var(--jpdb-reader-font);
 }
@@ -571,15 +574,16 @@
   min-width: 52px;
   height: 34px;
   padding: 2px;
-  border: 1px solid var(--jpdb-reader-border);
+  border: 1px solid var(--jpdb-reader-border) !important;
   border-radius: 8px;
-  background: var(--jpdb-reader-bg);
+  background-color: var(--jpdb-reader-bg) !important;
+  color: var(--jpdb-reader-text) !important;
   cursor: pointer;
 }
 .jpdb-reader-onboarding-options {
   display: grid;
   gap: 8px;
-  margin: 18px 0 0;
+  margin: 18px 0 10px;
   padding: 0 0 0 0;
   border: 0;
   background: transparent;
@@ -598,11 +602,50 @@
   font-size: 13px;
   font-weight: 750;
 }
-.jpdb-reader-onboarding-options input {
+.jpdb-reader-onboarding-options input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: grid;
+  place-content: center;
   width: 24px;
   height: 24px;
-  accent-color: var(--jpdb-reader-accent);
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--jpdb-reader-border) !important;
+  border-radius: 7px;
+  background-color: var(--jpdb-reader-surface-2) !important;
+  background-image: none !important;
+  accent-color: var(--jpdb-reader-accent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 6%, transparent);
   flex: 0 0 24px;
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:enabled:hover {
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface-2) 82%,
+    var(--jpdb-reader-accent) 18%
+  ) !important;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:checked {
+  border-color: var(--jpdb-reader-accent) !important;
+  background-color: var(--jpdb-reader-accent) !important;
+  box-shadow: 0 0 0 3px var(--jpdb-reader-accent-soft);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:checked::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border-left: 2.5px solid var(--jpdb-reader-accent-text);
+  border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.jpdb-reader-onboarding-options input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent);
+  outline-offset: 3px;
 }
 .jpdb-reader-onboarding-actions {
   display: flex;
