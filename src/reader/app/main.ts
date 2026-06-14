@@ -50,6 +50,7 @@ import { ImmersionPopoverController, type ImmersionSearchOptions } from '../imme
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
+import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -303,6 +304,7 @@ import {
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
+    KANJI_UCHISEN_SOURCE_ID,
     kanjiSourceLabel,
 } from '../sources/sections';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
@@ -631,6 +633,7 @@ export class ReaderApp {
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
+    private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
     private renderedWordIndexFullyScanned = false;
     private pitchEnrichmentQueue: JPDBToken[] = [];
@@ -4847,7 +4850,9 @@ export class ReaderApp {
         const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
         const rtkMount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
+        const uchisenMount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
         const definitionsMounts = Array.from(popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]'));
+        this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
 
         const renderKeyword = () => {
             if (!popover.isConnected || !keywordMount?.isConnected) return;
@@ -4933,6 +4938,62 @@ export class ReaderApp {
         }
         void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
         this.repositionActivePopover();
+    }
+
+    private renderKanjiUchisenInto(popover: HTMLElement, mount: HTMLElement | null, kanji: string, language: InterfaceLanguage): void {
+        if (!mount) return;
+        if (!this.settings.uchisenEnabled) {
+            mount.remove();
+            return;
+        }
+        const sourceAttributes = this.dictionarySourceState.attributes(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
+        void this.loadUchisenDetails(kanji).then(data => {
+            if (!popover.isConnected || !mount.isConnected) return;
+            if (!data || (!data.images.length && !data.canGenerateImages)) {
+                mount.remove();
+                this.repositionActivePopover();
+                return;
+            }
+            void installUchisenCarousel(mount, kanji, data.images, {
+                sourceAttributes,
+                detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
+                summaryClass: 'jpdb-reader-local-title',
+                bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
+                proxyUrl: this.settings.corsProxyUrl,
+                componentGroups: data.componentGroups,
+                kanjiKeyword: data.kanjiKeyword,
+                kanjiId: data.kanjiId,
+                canGenerateImages: data.canGenerateImages,
+                refreshData: () => {
+                    this.uchisenDataCache.delete(kanji);
+                    return loadUchisenData(kanji, this.settings.corsProxyUrl);
+                },
+                interfaceLanguage: language,
+            }).then(() => {
+                if (!popover.isConnected) return;
+                void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
+                this.repositionActivePopover();
+            });
+        }).catch(error => {
+            log.warn('Uchisen kanji lookup failed', { kanji }, error);
+            if (mount.isConnected) {
+                mount.remove();
+                this.repositionActivePopover();
+            }
+        });
+    }
+
+    private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
+        if (!this.settings.uchisenEnabled) return Promise.resolve(null);
+        const existing = this.uchisenDataCache.get(kanji);
+        if (existing) return existing;
+        const promise = loadUchisenData(kanji, this.settings.corsProxyUrl).catch(error => {
+            this.uchisenDataCache.delete(kanji);
+            log.warn('Uchisen kanji lookup failed', { kanji }, error);
+            return null;
+        });
+        this.uchisenDataCache.set(kanji, promise);
+        return promise;
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {

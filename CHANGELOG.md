@@ -11,6 +11,7 @@
 
 - Audio replay selection now skips duplicated resolved media URLs and repeated browser text-to-speech voices before falling back to another available source.
 - Hosted docs hero text keeps Yomu pitch underlines aligned when words render without furigana.
+- Page-reader kanji drilldown popovers now hydrate enabled Uchisen mnemonic cards instead of leaving the source mount empty.
 
 ## [0.7.3] - 2026-06-14
 
