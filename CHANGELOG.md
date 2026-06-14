@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.24] - 2026-06-14
+
+### Fixed
+
+- Page-reader scanning now uses one active/passive interaction model across supported sites, so links, tabs, summaries, buttons, and compact controls can render color, pitch underline, and ruby while native clicks still pass through.
+- JPDB search links, dictionary-site controls, settings/new-tab controls, and hosted-docs chrome now stay passive for click/tap while hover lookup remains available outside Yomu's own dictionary popover.
+- Dictionary popover summaries such as translation headings now get visual parsing but remain render-only, preserving details toggles and preventing nested popover lookup loops.
+
 ## [0.7.23] - 2026-06-14
 
 ### Fixed

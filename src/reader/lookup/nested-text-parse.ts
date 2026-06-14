@@ -2,6 +2,11 @@ import { applyTokensToScanTarget, collectFragmentTextTargetsIn, HAS_JAPANESE, is
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
+const POPOVER_SUMMARY_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-local-title';
+const NESTED_PARSE_ROOT_SELECTOR = [
+    PARSEABLE_SELECTOR,
+    POPOVER_SUMMARY_PARSE_SELECTOR,
+].join(',');
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
@@ -58,9 +63,9 @@ export interface NestedParsePlan {
 }
 
 export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedParsePlan | null {
-    const parseRoots = root.matches(PARSEABLE_SELECTOR)
+    const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR)
         ? [root]
-        : Array.from(root.querySelectorAll<HTMLElement>(PARSEABLE_SELECTOR));
+        : Array.from(root.querySelectorAll<HTMLElement>(NESTED_PARSE_ROOT_SELECTOR));
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
@@ -68,6 +73,7 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
         .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', {
             includeReaderRoot: true,
             allowUiText: true,
+            includePassiveInteractions: true,
             heading: true,
             minLength: 1,
             readerRootPassiveInteractions: true,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.23
+// @version      0.7.24
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -3662,6 +3662,7 @@
   }
   function isFragmentPassiveInteractionElement(element2, options) {
     if (isPassiveInteractionElement(element2)) return true;
+    if (options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$2) && element2.closest(".jpdb-reader-popover")) return true;
     return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$2) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
   }
   function isLayoutSensitiveScanElement(element2) {
@@ -8211,15 +8212,6 @@ recommendedJiten	jiten.moe頻度データです。
       const next = this.buildAudioBag(ids, signature, current);
       this.bags.set(key, next);
       return audioDeckOrderWithFallbacks(next.remaining, ids);
-    }
-    isExhausted(key, ids) {
-      if (!ids.length) return false;
-      const current = this.bags.get(key);
-      return Boolean(current?.signature === ids.join("\0") && current.remaining.length === 0 && current.lastPlayed);
-    }
-    lastPlayed(key, ids) {
-      const current = this.bags.get(key);
-      return current?.signature === ids.join("\0") ? current.lastPlayed : void 0;
     }
     buildAudioBag(ids, signature, current) {
       const remaining = this.shuffle(ids);
@@ -23851,7 +23843,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       info.alternativeReadings.forEach((reading) => add(jitenVocabularyReadingReference(reading, info.wordId, card.reading)));
       [...info.composedOf, ...info.usedIn].forEach((word) => add(jitenWordSummaryTextReference(word)));
     }
-    return Array.from(references.values()).filter((reference) => hasJapaneseText(reference.text)).sort((left, right) => right.text.length - left.text.length);
+    return Array.from(references.values()).filter((reference) => hasJapaneseText$1(reference.text)).sort((left, right) => right.text.length - left.text.length);
   }
   function jitenCardTextReference(card) {
     const text2 = card.spelling.trim();
@@ -23918,7 +23910,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const normalizedReading = reading.trim();
     return normalizedReading && normalizedReading !== normalizedText ? normalizedReading : "";
   }
-  function hasJapaneseText(value) {
+  function hasJapaneseText$1(value) {
     return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
   }
   function definitionSourceStateKey(sourceId) {
@@ -32455,19 +32447,31 @@ ${glossaryKey}`;
     const slack = 1;
     return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
   }
-  const COMMON_EXCLUDE = [
-    '[role="dialog"]',
-    '[aria-modal="true"]',
+  const STRUCTURAL_EXCLUDE_ENTRIES = [
     "[data-jpdb-reader-root]",
-    ".jpdb-reader-word"
-  ].join(",");
+    ".jpdb-reader-word",
+    "script",
+    "style",
+    "noscript",
+    "input",
+    "select",
+    "textarea",
+    "option",
+    "svg",
+    "use",
+    "canvas",
+    "rt",
+    "rp",
+    "[hidden]",
+    '[aria-hidden="true"]',
+    '[contenteditable="true"]'
+  ];
+  const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     "#movie_player",
     ".html5-video-player",
-    "#chips-content",
-    "iron-selector#chips",
     ".ytp-tooltip",
     "ytd-feed-filter-chip-bar-renderer",
     "ytd-guide-renderer",
@@ -32477,8 +32481,18 @@ ${glossaryKey}`;
     "ytm-feed-filter-chip-bar-renderer",
     "ytm-mobile-topbar-renderer",
     "ytm-pivot-bar-renderer",
-    "button",
-    '[role="button"]',
+    "ytd-watch-metadata button",
+    'ytd-watch-metadata [role="button"]',
+    "ytm-slim-video-metadata-section-renderer button",
+    'ytm-slim-video-metadata-section-renderer [role="button"]',
+    "yt-live-chat-text-message-renderer button",
+    'yt-live-chat-text-message-renderer [role="button"]',
+    "yt-live-chat-paid-message-renderer button",
+    'yt-live-chat-paid-message-renderer [role="button"]',
+    "yt-live-chat-membership-item-renderer button",
+    'yt-live-chat-membership-item-renderer [role="button"]',
+    "yt-live-chat-viewer-engagement-message-renderer button",
+    'yt-live-chat-viewer-engagement-message-renderer [role="button"]',
     '[slot="more-button"]',
     ".more-button",
     "tp-yt-paper-tooltip"
@@ -32631,22 +32645,9 @@ ${glossaryKey}`;
     '[role="menuitemradio"]'
   ].join(",");
   const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
-    COMMON_EXCLUDE,
-    "form",
-    "label",
-    "fieldset",
-    "legend",
-    "input",
-    "select",
-    "textarea",
-    "option",
-    "svg",
-    "use",
-    "rt",
-    "rp",
+    ...STRUCTURAL_EXCLUDE_ENTRIES,
     "[disabled]",
-    '[aria-disabled="true"]',
-    '[contenteditable="true"]'
+    '[aria-disabled="true"]'
   ];
   const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(",");
   const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.filter((entry) => entry !== '[class*="control" i]').join(",");
@@ -32655,45 +32656,12 @@ ${glossaryKey}`;
     `${scope} label`
   ]).join(",");
   const SAFE_FORM_CHROME_EXCLUDE = [
-    COMMON_EXCLUDE,
-    "script",
-    "style",
-    "noscript",
-    "input",
-    "select",
-    "textarea",
-    "option",
-    "svg",
-    "use",
-    "button",
-    "summary",
-    "a[href]",
+    ...STRUCTURAL_EXCLUDE_ENTRIES,
     "[disabled]",
-    '[aria-disabled="true"]',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    '[role="button"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="menuitemcheckbox"]',
-    '[role="menuitemradio"]',
-    '[role="option"]',
-    '[role="tab"]'
+    '[aria-disabled="true"]'
   ].join(",");
   const DICTIONARY_SITE_EXCLUDE = [
     COMMON_EXCLUDE,
-    "input",
-    "select",
-    "textarea",
-    "option",
-    "script",
-    "style",
-    "svg",
-    "canvas",
-    "rt",
-    "rp",
-    "[hidden]",
-    '[aria-hidden="true"]',
     ".pi",
     ".p-button-icon"
   ].join(",");
@@ -32738,17 +32706,8 @@ ${glossaryKey}`;
   ].join(",");
   const GOOGLE_SEARCH_EXCLUDE = [
     COMMON_EXCLUDE,
-    "script",
-    "style",
-    "svg",
-    "canvas",
     "g-img",
-    "img",
-    "form",
-    "input",
-    "textarea",
-    "select",
-    '[aria-hidden="true"]'
+    "img"
   ].join(",");
   const SITE_PARSER_PROFILES = [
     {
@@ -32810,12 +32769,8 @@ ${glossaryKey}`;
       ],
       exclude: [
         COMMON_EXCLUDE,
-        ".nav",
         ".subsection-spelling",
-        ".primary-spelling",
-        ".subsection-label",
-        ".subsection-immersion-kit",
-        '[class*="immersion" i]'
+        ".primary-spelling"
       ].join(","),
       allowUiText: true,
       minLength: 1,
@@ -32837,17 +32792,7 @@ ${glossaryKey}`;
       exclude: [
         COMMON_EXCLUDE,
         ".furigana",
-        ".english",
-        ".debug",
-        ".concept_light-status",
-        ".concept_light-tag",
-        ".concept_light-tags",
-        ".concept_light-common",
-        ".concept_light-readings .furigana",
-        ".meaning-tags",
-        ".meaning-wrapper",
-        ".links",
-        ".result_count"
+        ".concept_light-readings .furigana"
       ].join(","),
       allowUiText: true,
       minLength: 1,
@@ -32918,15 +32863,6 @@ ${glossaryKey}`;
       roots: ["#firstHeading", "#mw-content-text .mw-parser-output"],
       exclude: [
         DICTIONARY_SITE_EXCLUDE,
-        ".mw-editsection",
-        "sup.reference",
-        ".reference",
-        ".references",
-        ".toc",
-        ".navbox",
-        ".metadata",
-        ".noprint",
-        ".catlinks",
         ".thumb"
       ].join(","),
       allowUiText: true,
@@ -32984,13 +32920,7 @@ ${glossaryKey}`;
       ],
       exclude: [
         COMMON_EXCLUDE,
-        ".bd-icons",
-        ".bd-detail-wrap",
-        ".bd-desc-en",
-        ".review",
-        ".reviews",
-        ".comment",
-        ".comments"
+        ".bd-desc-en"
       ].join(","),
       allowUiText: true,
       minLength: 1,
@@ -33073,14 +33003,7 @@ ${glossaryKey}`;
       description: "Japanese Wikipedia article text and previews.",
       roots: ["#firstHeading", "#mw-content-text", ".mwe-popups-extract"],
       exclude: [
-        COMMON_EXCLUDE,
-        ".p-lang-btn",
-        ".vector-menu-heading-label",
-        ".vector-toc-toggle",
-        ".vector-page-toolbar",
-        ".mw-editsection",
-        "sup.reference",
-        ".legend"
+        COMMON_EXCLUDE
       ].join(","),
       allowUiText: true,
       minLength: 1,
@@ -33105,13 +33028,8 @@ ${glossaryKey}`;
         "body"
       ],
       exclude: [
-        "#loading",
-        ".article-top-tool",
-        ".article-share"
-      ].join(","),
-      passiveInteractionExclude: [
-        "#loading",
-        ".article-share"
+        COMMON_EXCLUDE,
+        "#loading"
       ].join(","),
       allowUiText: true,
       minLength: 1,
@@ -33129,10 +33047,7 @@ ${glossaryKey}`;
         '[data-testid*="article"]'
       ],
       exclude: [
-        COMMON_EXCLUDE,
-        '[class*="related" i]',
-        '[class*="recommend" i]',
-        '[class*="ranking" i]'
+        COMMON_EXCLUDE
       ].join(","),
       fallbackToWholePage: true,
       matches: (url) => (url.hostname === "news.web.nhk" || url.hostname.endsWith(".nhk.or.jp")) && /\/news\/html\//.test(url.pathname)
@@ -33207,17 +33122,13 @@ ${glossaryKey}`;
   }
   function isUsefulProfilePassiveInteractionRoot(profile, root) {
     const exclude = siteScanPassiveInteractionExcludeSelector(profile);
-    if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
-    if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text2 = root.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text2)) return false;
-    return text2.length >= 1 && text2.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+    return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
   }
   function siteScanExcludeSelector(profile) {
     return profile.exclude ?? COMMON_EXCLUDE;
   }
   function siteScanPassiveInteractionExcludeSelector(profile) {
-    return profile.passiveInteractionExclude ?? siteScanExcludeSelector(profile);
+    return siteScanExcludeSelector(profile);
   }
   function addUniqueSiteScanTarget(profile, target, context) {
     const nodes = textNodesForFragmentTarget(target);
@@ -33360,7 +33271,7 @@ ${glossaryKey}`;
   function collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude = "", parserId = "safe-ui-chrome-parser") {
     const baseExclude = safeUiChromeExcludeForRoot(root);
     const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, {
+    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, {
       allowUiText: true,
       includeUiChrome: true,
       includeTabChrome: true,
@@ -33368,14 +33279,6 @@ ${glossaryKey}`;
       heading: true,
       minLength: 1
     });
-    for (const target of collected) {
-      appendGenericProseTarget(collection.targets, collection.seen, {
-        ...target,
-        parserId,
-        passiveInteraction: true
-      });
-      if (genericProseCollectionFull(collection)) break;
-    }
   }
   function safeUiChromeExcludeForRoot(root) {
     return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]') ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE : SAFE_UI_CHROME_EXCLUDE;
@@ -33390,13 +33293,16 @@ ${glossaryKey}`;
     return uniqueVisibleRoots(Array.from(document.querySelectorAll(SAFE_FORM_CHROME_ROOTS)).filter((root) => isUsefulSafeFormChromeRoot(root)));
   }
   function collectSafeFormChromeTargetsFromRoot(root, collection, parserId = "safe-ui-chrome-parser") {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_FORM_CHROME_EXCLUDE, {
+    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, {
       allowUiText: true,
       includeFormChrome: true,
       includePassiveInteractions: true,
       heading: true,
       minLength: 1
     });
+  }
+  function collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, options) {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
     for (const target of collected) {
       appendGenericProseTarget(collection.targets, collection.seen, {
         ...target,
@@ -33439,23 +33345,27 @@ ${glossaryKey}`;
   }
   function isUsefulGenericProseRoot(root) {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
-    const text2 = root.textContent?.replace(/\s+/g, "").trim() ?? "";
+    const text2 = compactRootText(root);
     if (text2.length < 12) return false;
-    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text2);
+    return hasJapaneseText(text2);
   }
   function isUsefulSafeUiChromeRoot(root) {
-    if (root.closest(safeUiChromeExcludeForRoot(root))) return false;
-    if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text2 = root.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text2)) return false;
-    return text2.length >= 2 && text2.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+    return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
   }
   function isUsefulSafeFormChromeRoot(root) {
-    if (root.closest(SAFE_FORM_CHROME_EXCLUDE)) return false;
+    return isUsefulCompactJapaneseRoot(root, SAFE_FORM_CHROME_EXCLUDE, 1, SAFE_FORM_CHROME_MAX_COMPACT_LENGTH);
+  }
+  function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
+    if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text2 = root.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text2)) return false;
-    return text2.length >= 1 && text2.length <= SAFE_FORM_CHROME_MAX_COMPACT_LENGTH;
+    const text2 = compactRootText(root);
+    return hasJapaneseText(text2) && text2.length >= minLength && text2.length <= maxLength;
+  }
+  function compactRootText(root) {
+    return root.textContent?.replace(/\s+/g, "").trim() ?? "";
+  }
+  function hasJapaneseText(text2) {
+    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text2);
   }
   function isVisibleSafeUiChromeRoot(root) {
     const rect = root.getBoundingClientRect();
@@ -34293,10 +34203,11 @@ ${glossaryKey}`;
   }
   function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
     if (isOcrLineFrameWord(word)) return false;
+    if (word.closest(".jpdb-reader-popover")) return false;
     if (isNativePageLookupBlocked(word)) return false;
     if (!word.closest("[data-jpdb-reader-root]")) return true;
     if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
-    return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-popover, .jpdb-reader-settings"));
+    return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-settings"));
   }
   function currentLookupNavigationWord(words, activePopoverAnchor, keyboardActiveWord) {
     const activeAnchor = activePopoverAnchor?.isConnected ? activePopoverAnchor : void 0;
@@ -35150,6 +35061,11 @@ ${glossaryKey}`;
     }
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
+  const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
+  const NESTED_PARSE_ROOT_SELECTOR = [
+    PARSEABLE_SELECTOR,
+    POPOVER_SUMMARY_PARSE_SELECTOR
+  ].join(",");
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
@@ -35200,13 +35116,14 @@ ${glossaryKey}`;
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
-    const parseRoots = root.matches(PARSEABLE_SELECTOR) ? [root] : Array.from(root.querySelectorAll(PARSEABLE_SELECTOR));
+    const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", {
       includeReaderRoot: true,
       allowUiText: true,
+      includePassiveInteractions: true,
       heading: true,
       minLength: 1,
       readerRootPassiveInteractions: true

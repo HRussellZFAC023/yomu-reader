@@ -3469,6 +3469,7 @@
   }
   function isFragmentPassiveInteractionElement(element, options) {
     if (isPassiveInteractionElement(element)) return true;
+    if (options.readerRootPassiveInteractions && element.closest(READER_ROOT_SELECTOR) && element.closest(".jpdb-reader-popover")) return true;
     return Boolean(options.readerRootPassiveInteractions && element.closest(READER_ROOT_SELECTOR) && element.closest(PASSIVE_INTERACTION_SELECTOR));
   }
   function isLayoutSensitiveScanElement(element) {
@@ -39335,15 +39336,6 @@ ${spelling}`);
       this.bags.set(key, next);
       return audioDeckOrderWithFallbacks(next.remaining, ids);
     }
-    isExhausted(key, ids) {
-      if (!ids.length) return false;
-      const current = this.bags.get(key);
-      return Boolean(current?.signature === ids.join("\0") && current.remaining.length === 0 && current.lastPlayed);
-    }
-    lastPlayed(key, ids) {
-      const current = this.bags.get(key);
-      return current?.signature === ids.join("\0") ? current.lastPlayed : void 0;
-    }
     buildAudioBag(ids, signature, current) {
       const remaining = this.shuffle(ids);
       const lastPlayed = current?.lastPlayed;
@@ -48043,7 +48035,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const target = event.target;
     if (isKanjiLookupActionTarget(target)) return null;
     const word = target?.closest(".jpdb-reader-word");
-    return word && popover.contains(word) ? word : null;
+    return word && popover.contains(word) && word.dataset.jpdbReaderPassive !== "true" ? word : null;
   }
   function parsedWordLookupSentence(word, expression, card) {
     return word.dataset.sentence || expression || card?.spelling || "";
@@ -51798,6 +51790,11 @@ ${normalizedReading}`;
     }
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
+  const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
+  const NESTED_PARSE_ROOT_SELECTOR = [
+    PARSEABLE_SELECTOR,
+    POPOVER_SUMMARY_PARSE_SELECTOR
+  ].join(",");
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
@@ -51848,13 +51845,14 @@ ${normalizedReading}`;
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
-    const parseRoots = root.matches(PARSEABLE_SELECTOR) ? [root] : Array.from(root.querySelectorAll(PARSEABLE_SELECTOR));
+    const parseRoots = root.matches(NESTED_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(NESTED_PARSE_ROOT_SELECTOR));
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", {
       includeReaderRoot: true,
       allowUiText: true,
+      includePassiveInteractions: true,
       heading: true,
       minLength: 1,
       readerRootPassiveInteractions: true

@@ -19,17 +19,6 @@ export class ShuffledAudioDeck {
         return audioDeckOrderWithFallbacks(next.remaining, ids);
     }
 
-    isExhausted(key: string, ids: string[]): boolean {
-        if (!ids.length) return false;
-        const current = this.bags.get(key);
-        return Boolean(current?.signature === ids.join('\u0000') && current.remaining.length === 0 && current.lastPlayed);
-    }
-
-    lastPlayed(key: string, ids: string[]): string | undefined {
-        const current = this.bags.get(key);
-        return current?.signature === ids.join('\u0000') ? current.lastPlayed : undefined;
-    }
-
     private buildAudioBag(ids: string[], signature: string, current: ShuffledAudioBag | undefined): ShuffledAudioBag {
         const remaining = this.shuffle(ids);
         const lastPlayed = current?.lastPlayed;

@@ -20,15 +20,35 @@ export type JpdbKanjiClientClass = typeof import('../jpdb/jpdb-kanji').JpdbKanji
 // Consumed by the registry slot type below and the companion build.
 // fallow-ignore-next-line unused-type
 export type RenderKanjiOriginGraphFn = typeof import('../popup/origin-graph').renderKanjiOriginGraph;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderJpdbKanjiInfoFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderJpdbKanjiMiningControlsFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderKanjiPracticeFn = typeof import('../popup/kanji-practice').renderKanjiPractice;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderKanjiOriginsFn = typeof import('../popup/kanji-origin').renderKanjiOrigins;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type BuildRtkComponentSummariesFn = typeof import('../popup/rtk-info').buildRtkComponentSummaries;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderKanjiKeywordLineFn = typeof import('../popup/rtk-info').renderKanjiKeywordLine;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type RenderRtkInfoFn = typeof import('../popup/rtk-info').renderRtkInfo;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type InstallOriginGraphInteractionsFn = typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type BuildKanjiFactsFn = typeof import('../kanji/origin').buildKanjiFacts;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type BuildKanjiOriginGraphFn = typeof import('../kanji/origin').buildKanjiOriginGraph;
 export type RenderAnkiActionRowFn = typeof import('../anki/render-impl').renderAnkiActionRow;
 export type RenderAnkiExistingSectionFn = typeof import('../anki/render-impl').renderAnkiExistingSection;

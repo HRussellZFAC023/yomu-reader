@@ -9,7 +9,7 @@ import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
-export { COPY_LOOKUP_LINK, JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, YOMU_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
+export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
