@@ -37614,6 +37614,10 @@ ${spelling}`);
         this.removeChannelShelf();
         return;
       }
+      if (!this.channelShelfExpanded && !this.compactChannelRecommendations.length) {
+        this.removeChannelShelf();
+        return;
+      }
       const scope = this.currentChannelShelfScope();
       if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
       const shelf = this.ensureChannelShelf();
@@ -37706,7 +37710,7 @@ ${spelling}`);
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) {
-        elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length ? remainingChannels ? "All shown channels are already subscribed — browse all channels for more." : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.");
+        elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length ? `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.");
       }
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));

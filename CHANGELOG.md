@@ -2,6 +2,10 @@
 
 ## [0.6.198] - 2026-06-14
 
+### Changed
+
+- The YouTube channel recommendation shelf is now hidden entirely when every compact-view channel is already subscribed, instead of showing an empty list with a "browse all channels for more" message.
+
 ### Performance
 
 - YouTube feed/search/description scans no longer fan out background public JPDB pitch lookups while the page is mutating. Ruby/text rendering stays first, hover lookups remain urgent, and desktop/mobile profiles now keep public pitch requests to the hovered words instead of hundreds of background scans.
