@@ -442,8 +442,8 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain('--jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));');
         expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word { --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-pitch-highlight, transparent); --jpdb-reader-word-highlight-shadow-source: var(--jpdb-reader-source-pitch-highlight-shadow, none); }');
-        expect(normalizedCss).toContain(') .jpdb-reader-word { --jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important; text-shadow: var(--jpdb-reader-word-contrast-shadow, none); }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; }');
+        expect(normalizedCss).toContain(') .jpdb-reader-word { --jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important; -webkit-text-fill-color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ); text-shadow: var(--jpdb-reader-word-contrast-shadow, none); }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is( .jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku ) { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor); }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-underline-jpdb .jpdb-ocr-layer');
@@ -566,6 +566,57 @@ describe('OCR sentence focus', () => {
             });
         } finally {
             controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not auto-scan or hover-scan YouTube thumbnail images', async () => {
+        stubInstantIntersectionObserver();
+        const parseJapanese = vi.fn(async () => [parsedToken('サムネイルの文字')]);
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <ytd-thumbnail>
+                    <a href="/watch?v=thumb">
+                        <img src="https://i.ytimg.com/vi/thumb/hqdefault.jpg" alt="">
+                    </a>
+                </ytd-thumbnail>
+            </ytd-rich-item-renderer>
+        `;
+        const image = document.querySelector<HTMLImageElement>('img')!;
+        image.dataset.ocrLines = JSON.stringify([
+            { text: 'サムネイルの文字', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1280 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 720 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: false,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese,
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+            dispatchPointerEvent(image, 'pointerover');
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-layer')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
             document.body.replaceChildren();
         }
     });

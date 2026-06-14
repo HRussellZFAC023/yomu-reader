@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.19] - 2026-06-14
+
+### Fixed
+
+- YouTube feed, Shorts gallery, watch title, sidebar, transcript, caption, comment, and live-chat text now keep Yomu ruby, pitch underlines, and source colors on signed-in-style surfaces while preserving YouTube title/ruby layout protections.
+- YouTube thumbnail images are excluded from automatic and hover OCR scheduling, preventing thumbnail OCR status overlays and reducing feed-scroll work.
+- YouTube virtualized feed filtering no longer blanks visible pending cards or collapses filtered cards immediately, reducing black rows and scroll content-shift while still hiding offscreen pending items.
+- YouTube comment and live-chat controls stay unwrapped while surrounding Japanese text remains parseable.
+
 ## [0.7.18] - 2026-06-14
 
 ### Fixed

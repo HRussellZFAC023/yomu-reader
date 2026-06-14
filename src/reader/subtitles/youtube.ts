@@ -592,11 +592,17 @@ export class YoutubeImmersionFilter {
         if (card.classList.contains(YOUTUBE_FILTERED_CLASS)) return;
         card.classList.add(YOUTUBE_PENDING_CLASS);
         card.dataset.yomuYoutubePending = 'true';
+        if (shouldHidePendingYouTubeCard(card)) {
+            card.dataset.yomuYoutubePendingHidden = 'true';
+        } else {
+            delete card.dataset.yomuYoutubePendingHidden;
+        }
     }
 
     private clearPendingCard(card: HTMLElement): void {
         card.classList.remove(YOUTUBE_PENDING_CLASS);
         delete card.dataset.yomuYoutubePending;
+        delete card.dataset.yomuYoutubePendingHidden;
     }
 
     private prepareFilteredCard(card: HTMLElement): void {
@@ -2239,6 +2245,16 @@ function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
 
 function isYouTubeWatchPage(): boolean {
     return location.pathname === '/watch';
+}
+
+function shouldHidePendingYouTubeCard(card: HTMLElement): boolean {
+    if (typeof window === 'undefined') return false;
+    const rect = card.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return false;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (viewportHeight <= 0) return false;
+    const preloadMargin = Math.max(360, viewportHeight * 0.75);
+    return rect.bottom < -preloadMargin || rect.top > viewportHeight + preloadMargin;
 }
 
 function shouldShowFilterNoticeForRoute(): boolean {

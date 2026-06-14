@@ -116,6 +116,11 @@ const VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR = [
     'a[href*="/watch"]',
     'a[href*="/shorts/"]',
 ].join(',');
+const OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR = [
+    VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR,
+    'yt-image',
+    '.yt-core-image',
+].join(',');
 
 export { normalizeOcrResult, parseGoogleLensUploadHtml };
 export type { OcrResult };
@@ -357,7 +362,8 @@ export class ImageOcrController {
 
     async scanVisible(): Promise<void> {
         this.refresh({ userRequested: true });
-        const images = [...this.states.keys()].filter(image => isNearViewport(image, 120));
+        const settings = this.options.getSettings();
+        const images = [...this.states.keys()].filter(image => isCandidateImage(image, settings) && isNearViewport(image, 120));
         if (!images.length) {
             this.options.onToast(uiText(this.options.getSettings().interfaceLanguage, 'ocrNoReadableImages'));
             return;
@@ -397,7 +403,7 @@ export class ImageOcrController {
                 const image = entry.target as HTMLImageElement;
                 this.positionState(image);
                 const current = this.options.getSettings();
-                if (current.ocrAutoScanImages && shouldObserveImage(image, current)) this.enqueue(image);
+                if (current.ocrAutoScanImages && isCandidateImage(image, current) && shouldObserveImage(image, current)) this.enqueue(image);
             }
         }, { rootMargin });
     }
@@ -428,6 +434,7 @@ export class ImageOcrController {
     }
 
     private enqueue(image: HTMLImageElement, userRequested = false): void {
+        if (isYouTubeThumbnailImage(image)) return;
         const state = this.states.get(image) ?? this.ensureState(image);
         if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
         this.queueOcrRequest(image);
@@ -1594,7 +1601,12 @@ function pointerEventImageAtPoint(event: Event & Pick<PointerEvent, 'clientX' | 
 function isIgnoredOcrImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest('[data-jpdb-reader-root]')
         || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]')
-        || image.closest('[aria-hidden="true"], [hidden], .slick-cloned'));
+        || image.closest('[aria-hidden="true"], [hidden], .slick-cloned')
+        || isYouTubeThumbnailImage(image));
+}
+
+function isYouTubeThumbnailImage(image: HTMLImageElement): boolean {
+    return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
 }
 
 function isVisibleOcrImage(image: HTMLImageElement): boolean {

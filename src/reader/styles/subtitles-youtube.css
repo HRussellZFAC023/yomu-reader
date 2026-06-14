@@ -218,6 +218,7 @@
   background-image: none !important;
   box-shadow: none;
   color: var(--subtitle-color) !important;
+  -webkit-text-fill-color: var(--subtitle-color);
   --jpdb-reader-word-underline: transparent;
   --jpdb-reader-word-underline-offset: .15em;
   --jpdb-reader-word-underline-thickness: .08em;
@@ -276,6 +277,7 @@
   background-image: none !important;
   box-shadow: none;
   color: var(--jpdb-reader-subtitle-fallback, currentColor) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-subtitle-fallback, currentColor);
   text-decoration-line: none !important;
   text-decoration-color: transparent !important;
 }
@@ -369,6 +371,7 @@
 }
 :is(.jpdb-reader-subtitle-text-status, .jpdb-reader-subtitle-text-jpdb, .jpdb-reader-subtitle-text-anki, .jpdb-reader-subtitle-text-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word {
   color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor)) !important;
+  -webkit-text-fill-color: var(--jpdb-reader-subtitle-text, var(--jpdb-reader-subtitle-fallback, currentColor));
 }
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   :is(.jpdb-reader-newtab-immersion, [data-immersion-kit])
@@ -378,6 +381,10 @@
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor))
   ) !important;
+  -webkit-text-fill-color: var(
+    --jpdb-reader-word-accessible-color,
+    var(--jpdb-reader-word-color-source, var(--jpdb-reader-subtitle-fallback, currentColor))
+  );
 }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending { opacity: .42; }
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken {

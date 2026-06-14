@@ -651,7 +651,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('masks newly appended videos before the delayed filter scan collapses them', async () => {
+    it('marks newly appended visible videos pending without blanking them before the delayed filter scan', async () => {
         const { filter } = await startYoutubeFilter({
             html: '<main></main>',
             oEmbedTitles: {},
@@ -666,6 +666,7 @@ describe('YouTube immersion filter', () => {
         await settlePromises();
 
         expect(card('late-english').classList.contains('jpdb-youtube-filter-pending')).toBe(true);
+        expect(card('late-english').dataset.yomuYoutubePendingHidden).toBeUndefined();
         expect(card('late-english').classList.contains('jpdb-youtube-filtered')).toBe(false);
 
         await vi.advanceTimersByTimeAsync(90);
@@ -680,6 +681,35 @@ describe('YouTube immersion filter', () => {
         expect(card('late-english').classList.contains('jpdb-youtube-filter-collapsed')).toBe(true);
 
         filter.destroy();
+    });
+
+    it('may hide newly appended pending videos that are far outside the viewport', async () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockRect(this: HTMLElement) {
+            if (this.dataset.case === 'late-offscreen') {
+                return { left: 0, right: 320, top: 3000, bottom: 3240, width: 320, height: 240, x: 0, y: 3000, toJSON: () => ({}) } as DOMRect;
+            }
+            return { left: 0, right: 320, top: 0, bottom: 240, width: 320, height: 240, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        });
+        const { filter } = await startYoutubeFilter({
+            html: '<main></main>',
+            oEmbedTitles: {},
+            wait: 'none',
+        });
+
+        try {
+            document.querySelector('main')!.insertAdjacentHTML('beforeend', `
+                <ytd-rich-item-renderer data-case="late-offscreen">
+                    <a id="video-title" href="/watch?v=late-offscreen">Desk setup tour</a>
+                </ytd-rich-item-renderer>
+            `);
+            await settlePromises();
+
+            expect(card('late-offscreen').classList.contains('jpdb-youtube-filter-pending')).toBe(true);
+            expect(card('late-offscreen').dataset.yomuYoutubePendingHidden).toBe('true');
+        } finally {
+            filter.destroy();
+            rectSpy.mockRestore();
+        }
     });
 
     it('keeps filtered videos as spacers while scrolling is still active', async () => {
@@ -1840,6 +1870,12 @@ describe('YouTube immersion filter', () => {
         // item gets a full-width flex basis instead of filling a partial row.
         const continuationRule = css.match(/ytd-continuation-item-renderer\s*\{[^}]*\}/)?.[0] ?? '';
         expect(continuationRule).toContain('flex-basis: 100%');
+        expect(css).toContain('.jpdb-youtube-filter-pending[data-yomu-youtube-pending-hidden="true"]');
+        const filteredRule = [...css.matchAll(/\.jpdb-youtube-filtered\s*\{[^}]*\}/g)]
+            .map(match => match[0])
+            .find(rule => rule.includes('visibility')) ?? '';
+        expect(filteredRule).toContain('visibility: hidden');
+        expect(filteredRule).not.toContain('height: 0');
     });
 
     it('rescans when YouTube re-asserts its row-layout flags', () => {
