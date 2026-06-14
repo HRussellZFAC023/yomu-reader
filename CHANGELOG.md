@@ -1,10 +1,12 @@
 # Changelog
 
-## [0.6.198] - 2026-06-14
+## [0.7.0] - 2026-06-14
 
 ### Changed
 
 - The YouTube channel recommendation shelf is now hidden entirely when every compact-view channel is already subscribed, instead of showing an empty list with a "browse all channels for more" message.
+
+## [0.6.198] - 2026-06-14
 
 ### Performance
 
