@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.24
+// @version      0.7.25
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-b3H+LeRNeChLe2DsPEVmwhQUB+POCDE+BaTgBy84lfs=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-1637rxRNVo4HlxptArxrfYNEGxk24d9QCB2qeFcsECw=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-qdM0T6G+EkU9UxFIvjwIFrBzddSSLA+g0zWbcTz3C2U=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-+TJzAsBb2GZ4ikKA9XHGjipwZ1rg2eG3sgvZ7z+a2Ds=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-H3DCL6H/oGdP6hh+1/Q3IHLhT3Oz1m2H5Y1OCT4geIs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -25675,6 +25675,7 @@ ${spelling}`);
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
+    if (segments.at(-1)?.end !== offset + text2.length) return fallbackJapaneseRunSegment(text2, offset);
     return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
   }
   function mergeSegmenterCompoundOverrides(segments) {
@@ -34555,6 +34556,7 @@ ${glossaryKey}`;
     const context = renderedSelectionDisplayContext(words, selected, callbacks.displayState);
     if (!context) return false;
     const sentence = renderedSelectionSentence(words, getSelectionSentence() || context.selected, callbacks);
+    if (context.selected[13]) return false;
     showRenderedSelectionTokens(tokens, context, sentence, callbacks);
     return true;
   }
@@ -40471,11 +40473,7 @@ ${glossaryKey}`;
     }
     selectionLookupText() {
       const selected = getSelectionText();
-      if (selected.length < 1) return "";
-      if (selected.length > 120) return "";
-      if (!HAS_JAPANESE$1.test(selected)) return "";
-      if (document.activeElement?.closest?.("[data-jpdb-reader-root]")) return "";
-      return selected;
+      return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
     }
     async lookupText(text2, sentence = text2, options = {}) {
       const context = this.textLookupDisplayContext(text2, options);

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.25] - 2026-06-15
+
+### Fixed
+
+- Japanese parsing now repairs incomplete kana spans inside continuous text, preventing dangling stems like `やや さし` and keeping context words such as `読んで` and `読み取る` coherent across JPDB, Jiten, local dictionary, and fallback parses.
+- Selected sentence lookup now reparses long or fragmented rendered selections with sentence context, so large selections still open a popup and sentences like `好きなものを読んで日本語を学ぶ` keep coherent token choices.
+
 ## [0.7.24] - 2026-06-14
 
 ### Fixed

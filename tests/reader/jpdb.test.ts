@@ -2384,6 +2384,35 @@ function tokenSpellings(tokens: JPDBToken[]): string[] {
     return tokens.map(token => token.card.spelling);
 }
 
+function parsedProviderToken(
+    sentence: string,
+    surface: string,
+    start: number,
+    source: JPDBCard['source'],
+    spelling = surface,
+): JPDBToken {
+    return {
+        card: {
+            ...card,
+            vid: source === 'fallback' ? -stableTestId(spelling) : stableTestId(spelling),
+            sid: source === 'fallback' ? -stableTestId(`${spelling}:sid`) : stableTestId(`${spelling}:sid`),
+            spelling,
+            reading: spelling,
+            source,
+        },
+        start,
+        end: start + surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: '',
+        sentence,
+    };
+}
+
+function stableTestId(value: string): number {
+    return Array.from(value).reduce((sum, character) => sum + character.codePointAt(0)!, 1);
+}
+
 function lookupCandidateFromPoint(
     app: ReaderApp,
     x: number,
@@ -6167,6 +6196,146 @@ describe('reader helpers', () => {
             expect(tokens[2]?.card.fallbackLookupTerms).toContain('読む');
             expect(tokens.map(token => token.card.spelling)).not.toContain('した');
         });
+    });
+
+    it('uses sentence fallback coverage when Segmenter leaves a dangling kana stem', async () => {
+        await withFakeSegmenter([
+            { segment: 'やや', index: 0, isWordLike: true },
+            { segment: 'さし', index: 2, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse(['ややさしい'], { allowSegmentedFallback: true });
+
+            expect(tokenSpellings(tokens)).toEqual(['ややさしい']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 5]]);
+            expect(tokenSpellings(tokens)).not.toContain('さし');
+        });
+    });
+
+    it('repairs partial JPDB and Jiten kana stems with sentence-context fallback tokens', async () => {
+        const text = 'ややさしい';
+        const brokenRemoteTokens = (source: 'jpdb' | 'jiten') => [
+            parsedProviderToken(text, 'やや', 0, source),
+            parsedProviderToken(text, 'さし', 2, source, 'さす'),
+        ];
+        const segmenter = [
+            { segment: 'や', index: 0, isWordLike: true },
+            { segment: 'やさしい', index: 1, isWordLike: true },
+        ];
+
+        await withFakeSegmenter(segmenter, async parser => {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokenSpellings(tokens)).toEqual(['や', 'やさしい']);
+            expect(tokenSpellings(tokens)).not.toContain('さす');
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 5]]);
+        }, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: false }),
+            jpdb: { parse: vi.fn().mockResolvedValue([brokenRemoteTokens('jpdb')]) } as never,
+            dictionaries: {} as never,
+        });
+
+        await withFakeSegmenter(segmenter, async parser => {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokenSpellings(tokens)).toEqual(['や', 'やさしい']);
+            expect(tokenSpellings(tokens)).not.toContain('さす');
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 5]]);
+        }, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_test', localDictionariesEnabled: false }),
+            jpdb: {} as never,
+            jiten: { parse: vi.fn().mockResolvedValue([brokenRemoteTokens('jiten')]) } as never,
+            dictionaries: {} as never,
+        });
+    });
+
+    it('repairs partial local dictionary kana stems with sentence-context fallback tokens', async () => {
+        const text = 'ややさしい';
+        const findTermMatches = vi.fn().mockResolvedValue([
+            {
+                entry: {
+                    id: 1,
+                    sequence: 1,
+                    expression: 'やや',
+                    reading: 'やや',
+                    glossary: ['slightly'],
+                    dictionary: 'Local',
+                },
+                start: 0,
+                end: 2,
+                surface: 'やや',
+            },
+            {
+                entry: {
+                    id: 2,
+                    sequence: 2,
+                    expression: 'さす',
+                    reading: 'さす',
+                    glossary: ['to point'],
+                    dictionary: 'Local',
+                },
+                start: 2,
+                end: 4,
+                surface: 'さし',
+                deinflected: { term: 'さす', rules: ['v5s'], reasons: ['synthetic stem'], depth: 1 },
+            },
+        ]);
+
+        const tokens = await parseSegmentedFallbackTokens([
+            { segment: 'や', index: 0, isWordLike: true },
+            { segment: 'やさしい', index: 1, isWordLike: true },
+        ], text, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        expect(tokenSpellings(tokens)).toEqual(['や', 'やさしい']);
+        expect(tokenSpellings(tokens)).not.toContain('さす');
+        expect(tokens.every(token => token.card.source === 'fallback')).toBe(true);
+    });
+
+    it('keeps common continuous sentence words coherent instead of exposing stems', async () => {
+        await withFakeSegmenter([
+            { segment: '好き', index: 0, isWordLike: true },
+            { segment: 'な', index: 2, isWordLike: true },
+            { segment: 'もの', index: 3, isWordLike: true },
+            { segment: 'を', index: 5, isWordLike: true },
+            { segment: '読', index: 6, isWordLike: true },
+            { segment: 'んで', index: 7, isWordLike: true },
+            { segment: '日本語', index: 9, isWordLike: true },
+            { segment: 'を', index: 12, isWordLike: true },
+            { segment: '学ぶ', index: 13, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse(['好きなものを読んで日本語を学ぶ'], { allowSegmentedFallback: true });
+
+            expect(tokenSpellings(tokens)).toEqual(['好き', 'な', 'もの', 'を', '読んで', '日本語', 'を', '学ぶ']);
+            expect(tokenSpellings(tokens)).not.toContain('読');
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 3], [3, 5], [5, 6], [6, 9], [9, 12], [12, 13], [13, 15]]);
+        });
+    });
+
+    it('keeps compound verbs like 読み取る together when a local match only covers the stem', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([{
+            entry: {
+                id: 1,
+                sequence: 1,
+                expression: '読み',
+                reading: 'よみ',
+                glossary: ['reading'],
+                dictionary: 'Local',
+            },
+            start: 0,
+            end: 2,
+            surface: '読み',
+        }]);
+        const tokens = await parseSegmentedFallbackTokens([{ segment: '読み取る', index: 0, isWordLike: true }], '読み取る', {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+
+        expect(tokenSpellings(tokens)).toEqual(['読み取る']);
+        expect(tokens[0]?.card.source).toBe('fallback');
     });
 
     it('stops inflected fallback spans before surrounding grammar chunks', () => {
@@ -17348,6 +17517,117 @@ describe('reader helpers', () => {
             expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling)).toEqual(['今日', '静か']);
             expect(showTokenList.mock.calls[0]?.[1]).toBe(selectedText);
             expect(showTokenList.mock.calls[0]?.[1]).toContain('です。');
+        } finally {
+            selection.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('reparses long rendered sentence selections instead of reusing fragmented page spans', async () => {
+        const app = new ReaderApp();
+        const sentence = '好きなものを読んで日本語を学ぶ';
+        document.body.innerHTML = `
+            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="好き" data-sentence="${sentence}">好き</span><span class="jpdb-reader-word" data-vid="502" data-sid="502" data-expression="な" data-sentence="${sentence}">な</span><span class="jpdb-reader-word" data-vid="503" data-sid="503" data-expression="もの" data-sentence="${sentence}">もの</span><span class="jpdb-reader-word" data-vid="504" data-sid="504" data-expression="を" data-sentence="${sentence}">を</span><span class="jpdb-reader-word" data-vid="505" data-sid="505" data-expression="読む" data-sentence="${sentence}">読</span><span class="jpdb-reader-word" data-vid="506" data-sid="506" data-expression="んで" data-sentence="${sentence}">んで</span><span class="jpdb-reader-word" data-vid="507" data-sid="507" data-expression="日本語" data-sentence="${sentence}">日本語</span><span class="jpdb-reader-word" data-vid="508" data-sid="508" data-expression="を" data-sentence="${sentence}">を</span><span class="jpdb-reader-word" data-vid="509" data-sid="509" data-expression="学ぶ" data-sentence="${sentence}">学ぶ</span></p>
+        `;
+        const paragraph = document.querySelector('p')!;
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const parsedTokens = [
+            parsedProviderToken(sentence, '好き', 0, 'jpdb'),
+            parsedProviderToken(sentence, 'な', 2, 'jpdb'),
+            parsedProviderToken(sentence, 'もの', 3, 'jpdb'),
+            parsedProviderToken(sentence, 'を', 5, 'jpdb'),
+            parsedProviderToken(sentence, '読んで', 6, 'jpdb', '読む'),
+            parsedProviderToken(sentence, '日本語', 9, 'jpdb'),
+            parsedProviderToken(sentence, 'を', 12, 'jpdb'),
+            parsedProviderToken(sentence, '学ぶ', 13, 'jpdb'),
+        ];
+        const parse = vi.fn(async () => [parsedTokens]);
+        const showTokenList = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: {
+                parse: typeof parse;
+                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+                fallbackCardFromText(text: string): JPDBCard;
+                isJpdbBackedCard(card: JPDBCard): boolean;
+            };
+            showTokenList: typeof showTokenList;
+            lookupSelection(): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: true };
+        internals.parser = {
+            parse,
+            getCachedCard: () => undefined,
+            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
+            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
+        };
+        internals.showTokenList = showTokenList;
+
+        try {
+            await internals.lookupSelection();
+
+            expect(parse).toHaveBeenCalledWith([sentence], expect.objectContaining({ allowSegmentedFallback: true }));
+            expect(showTokenList).toHaveBeenCalledTimes(1);
+            expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling))
+                .toEqual(['好き', 'な', 'もの', 'を', '読む', '日本語', 'を', '学ぶ']);
+            expect(showTokenList.mock.calls[0]?.[1]).toBe(sentence);
+        } finally {
+            selection.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('shows a popup for selected Japanese sentences longer than the old selection cap', async () => {
+        const app = new ReaderApp();
+        const repeated = '好きなものを読んで日本語を学ぶ。'.repeat(9);
+        document.body.innerHTML = `<p>${repeated}</p>`;
+        const paragraph = document.querySelector('p')!;
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const parse = vi.fn(async () => [[
+            parsedProviderToken(repeated, '好き', 0, 'jpdb'),
+            parsedProviderToken(repeated, '読んで', 6, 'jpdb', '読む'),
+            parsedProviderToken(repeated, '日本語', 9, 'jpdb'),
+            parsedProviderToken(repeated, '学ぶ', 13, 'jpdb'),
+        ]]);
+        const showTokenList = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: {
+                parse: typeof parse;
+                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+                fallbackCardFromText(text: string): JPDBCard;
+                isJpdbBackedCard(card: JPDBCard): boolean;
+            };
+            showTokenList: typeof showTokenList;
+            lookupSelection(): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', localDictionariesEnabled: true };
+        internals.parser = {
+            parse,
+            getCachedCard: () => undefined,
+            fallbackCardFromText: text => ({ ...card, vid: -1, sid: -1, spelling: text, reading: '', source: 'fallback' }),
+            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
+        };
+        internals.showTokenList = showTokenList;
+
+        try {
+            await internals.lookupSelection();
+
+            expect(repeated.length).toBeGreaterThan(120);
+            expect(parse).toHaveBeenCalledWith([repeated], expect.objectContaining({ allowSegmentedFallback: true }));
+            expect(showTokenList).toHaveBeenCalledTimes(1);
         } finally {
             selection.removeAllRanges();
             app.destroy();
