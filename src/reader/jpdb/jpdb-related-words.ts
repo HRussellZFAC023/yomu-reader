@@ -1,7 +1,7 @@
 import { readerWordSurfaceText } from '../dom';
 import type { JPDBCard, JPDBToken } from '../app/types';
 
-export const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
+const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
 export const JPDB_RELATED_WORD_STATE = 'not-in-deck';
 export const JPDB_RELATED_WORD_PITCH_CLASS = 'unknown';
 

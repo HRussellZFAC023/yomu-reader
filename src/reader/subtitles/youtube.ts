@@ -748,6 +748,12 @@ export class YoutubeImmersionFilter {
             this.removeChannelShelf();
             return;
         }
+        // In compact mode, hide the shelf entirely when every shown channel is
+        // already subscribed rather than displaying an empty list.
+        if (!this.channelShelfExpanded && !this.compactChannelRecommendations.length) {
+            this.removeChannelShelf();
+            return;
+        }
 
         const scope = this.currentChannelShelfScope();
         if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
@@ -849,9 +855,6 @@ export class YoutubeImmersionFilter {
         elements.copy.textContent = this.channelShelfExpanded
             ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
             : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
-        // Explicit all-subscribed state: the buttons and status must say what
-        // is left rather than offering "Subscribe all 100" against an empty
-        // list — the shelf never disappears or goes inert ambiguously.
         const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
         elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
         elements.subscribeVisible.hidden = !renderedRecommendations.length;
@@ -864,9 +867,7 @@ export class YoutubeImmersionFilter {
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
         if (!this.subscriptionBusy) {
             elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length
-                ? (remainingChannels
-                    ? 'All shown channels are already subscribed — browse all channels for more.'
-                    : `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.`)
+                ? `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.`
                 : readYouTubeClientConfig() ? 'Previews load from YouTube on this page.' : 'Subscribe here when YouTube session data is available.');
         }
 
