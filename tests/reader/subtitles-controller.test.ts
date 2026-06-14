@@ -1910,7 +1910,11 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss)
             .not.toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight');
         expect(normalizedCss)
-            .toContain('background: var(--jpdb-reader-subtitle-highlight, transparent) !important;');
+            .toContain('--jpdb-reader-word-highlight-paint: var(--jpdb-reader-subtitle-highlight, transparent);');
+        expect(normalizedCss)
+            .toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
+        expect(normalizedCss)
+            .toContain('background-size: var(--jpdb-reader-word-highlight-size) 100% !important;');
         expect(normalizedCss)
             .not.toContain('background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
     });

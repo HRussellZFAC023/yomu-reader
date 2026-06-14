@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.5] - 2026-06-14
+
+### Fixed
+
+- Word highlights and underlines now leave a visible break between adjacent same-status words across page text, ruby-enhanced text, subtitle overlays/transcripts, settings previews, and OCR active lines.
+
 ## [0.7.4] - 2026-06-14
 
 ### Changed

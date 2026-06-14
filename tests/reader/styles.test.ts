@@ -51,6 +51,8 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);');
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
+        expect(css).toContain('--jpdb-reader-word-inline-gap: 0.08em;');
+        expect(css).toContain('inset-inline: var(--jpdb-reader-word-inline-gap);');
         expect(css).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);');
     });
 
