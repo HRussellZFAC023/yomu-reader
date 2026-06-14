@@ -6340,6 +6340,46 @@ describe('reader helpers', () => {
         expect(tokens.find(token => token.card.spelling === '下')?.card.source).toBe('fallback');
     });
 
+    it('repairs incomplete remote kana spans with segmented fallback coverage', async () => {
+        const text = 'ややさしい';
+        const badRemoteTokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: 81, sid: 81, spelling: 'やや', reading: 'やや', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+            {
+                card: { ...card, vid: 82, sid: 82, spelling: '指す', reading: 'さす', cardState: ['not-in-deck'], pitchAccent: [], source: 'jpdb' },
+                start: 2,
+                end: 4,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ];
+        const tokens = await parseSegmentedFallbackTokens([
+            { segment: 'や', index: 0, isWordLike: true },
+            { segment: 'やさしい', index: 1, isWordLike: true },
+        ], text, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: false }),
+            jpdb: { parse: vi.fn().mockResolvedValue([badRemoteTokens]) } as never,
+            dictionaries: {} as never,
+        });
+
+        expect(tokenSpellings(tokens)).toEqual(['や', 'やさしい']);
+        expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 5]]);
+        expect(tokens.map(token => token.card.source)).toEqual(['fallback', 'fallback']);
+
+        document.body.innerHTML = renderTokensToHtml(text, tokens, DEFAULT_SETTINGS);
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['や', 'やさしい']);
+    });
+
     it('skips local term matching when dictionaries are enabled but no term dictionaries are installed', async () => {
         const findTermMatches = vi.fn().mockResolvedValue([]);
         const hasTermDictionaries = vi.fn().mockResolvedValue(false);
