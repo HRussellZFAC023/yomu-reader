@@ -19,6 +19,8 @@ const MOBILE_HOME_URL = 'https://m.youtube.com/';
 const SHORTS_GALLERY_URL = 'https://www.youtube.com/feed/shorts';
 const SHORTS_WATCH_URL = 'https://www.youtube.com/shorts/watch-en';
 const LONG_CHANNEL_PREVIEW_DESCRIPTION = 'This actual YouTube channel description is intentionally long enough to mimic a hydrated channel profile bio and must not replace the compact Yomu recommendation summary.';
+const THUMBNAIL_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const THUMBNAIL_OCR_LINES = '[{"text":"日本語サムネ","box":{"left":0.1,"top":0.2,"width":0.45,"height":0.18}}]';
 
 const baseSettings = {
     onboardingSeen: true,
@@ -38,6 +40,13 @@ const baseSettings = {
     subtitleHighlightColorSource: 'jpdb',
     subtitleUnderlineColorSource: 'pitch',
     subtitleTextColorSource: 'jpdb',
+    ocrEnabled: true,
+    ocrAutoScanImages: true,
+    ocrShowTextOverlay: true,
+    ocrProvider: 'google-lens',
+    ocrMinImageArea: 1,
+    ocrMaxImagesPerPage: 5,
+    ocrPrefetchMargin: 0,
 };
 
 const youtubeTimedText = `<timedtext><body>
@@ -75,7 +84,8 @@ function youtubeHomeHtml() {
     #chips button { border: 0; border-radius: 8px; padding: 8px 14px; color: white; background: #333; }
     ytd-rich-grid-renderer { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 28px 20px; padding: 0 24px 64px; }
     ytd-rich-item-renderer { display: block; min-height: 260px; }
-    .thumb { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #3b3b3b; }
+    .thumb { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #3b3b3b; overflow: hidden; }
+    .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
     #video-title-link { display: block; margin-top: 12px; color: #f1f1f1; text-decoration: none; font-size: 18px; line-height: 1.35; font-weight: 600; }
     .meta { color: #aaa; margin-top: 6px; }
   </style>
@@ -97,22 +107,22 @@ function youtubeHomeHtml() {
     <div id="chips"><button>All</button><button>Podcasts</button><button>Japanese</button></div>
     <ytd-rich-grid-renderer>
       <ytd-rich-item-renderer data-case="jp">
-        <a class="thumb" href="/watch?v=jp"></a>
+        ${desktopThumbnail('jp')}
         <a id="video-title-link" href="/watch?v=jp" aria-label="服代が月1万から20万円！？東京の春コーデ">服代が月1万から20万円！？東京の春コーデ</a>
         <div class="meta">JAPAN STREET STYLE</div>
       </ytd-rich-item-renderer>
       <ytd-rich-item-renderer data-case="english">
-        <a class="thumb" href="/watch?v=en"></a>
+        ${desktopThumbnail('en')}
         <a id="video-title-link" href="/watch?v=en" aria-label="Minimal desk setup tour">Minimal desk setup tour</a>
         <div class="meta">Desk Channel</div>
       </ytd-rich-item-renderer>
       <ytd-rich-item-renderer data-case="mixed">
-        <a class="thumb" href="/watch?v=mix"></a>
+        ${desktopThumbnail('mix')}
         <a id="video-title-link" href="/watch?v=mix" aria-label="弱いままの自分で大丈夫 Japanese Podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
         <div class="meta">Emma Japanese</div>
       </ytd-rich-item-renderer>
       <ytd-rich-item-renderer data-case="grammar">
-        <a class="thumb" href="/watch?v=grammar"></a>
+        ${desktopThumbnail('grammar')}
         <a id="video-title-link" href="/watch?v=grammar" aria-label="JLPT N4 course しかない">JLPT N4 course「しかない」</a>
         <div class="meta">Nihongo Mori</div>
       </ytd-rich-item-renderer>
@@ -120,6 +130,10 @@ function youtubeHomeHtml() {
   </ytd-app>
 </body>
 </html>`;
+}
+
+function desktopThumbnail(videoId) {
+    return `<ytd-thumbnail><a class="thumb" href="/watch?v=${videoId}"><img src="${THUMBNAIL_DATA_URL}" alt="" data-ocr-lines='${THUMBNAIL_OCR_LINES}'></a></ytd-thumbnail>`;
 }
 
 function youtubeWatchHtml() {
@@ -559,6 +573,8 @@ async function installUserscriptContext(context) {
             return {
                 cards: queryCount('ytd-rich-item-renderer'),
                 readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
+                ocrLines: queryCount('.jpdb-ocr-line'),
+                ocrLayers: queryCount('.jpdb-ocr-layer'),
                 filteredEnglish: elementHasClass('ytd-rich-item-renderer[data-case="english"]', 'jpdb-youtube-filtered'),
                 englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
                 visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
@@ -700,6 +716,10 @@ async function installRoutes(page) {
         }),
         contentType: 'application/json',
     }));
+    await page.route('https://lensfrontend-pa.googleapis.com/**', route => route.fulfill({
+        body: '{}',
+        contentType: 'application/json',
+    }));
 }
 
 const YOUTUBE_OEMBED_TITLES = {
@@ -737,7 +757,8 @@ async function runHomepageCheck(page) {
 
     const beforeReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(beforeReveal.cards >= 4, 'YouTube homepage recommendations did not render', beforeReveal);
-    assert(beforeReveal.readerWordsInGrid > 0, 'Yomu did not scan/wrap YouTube homepage recommendation titles', beforeReveal);
+    assert(beforeReveal.readerWordsInGrid > 0, 'Yomu did not enhance YouTube homepage Japanese recommendation titles', beforeReveal);
+    assert(beforeReveal.ocrLines === 0 && beforeReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays', beforeReveal);
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
     assert(beforeReveal.noticeText.includes('hid'), 'YouTube filter notice did not summarize hidden videos', beforeReveal);
@@ -756,7 +777,8 @@ async function runHomepageCheck(page) {
     await page.waitForTimeout(800);
     const afterReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(afterReveal.englishVisible === true, 'YouTube filter reveal did not show hidden recommendations', afterReveal);
-    assert(afterReveal.readerWordsInGrid > 0, 'Yomu did not keep homepage titles wrapped after reveal', afterReveal);
+    assert(afterReveal.readerWordsInGrid >= beforeReveal.readerWordsInGrid, 'Yomu lost enhanced homepage titles after reveal', afterReveal);
+    assert(afterReveal.ocrLines === 0 && afterReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays after reveal', afterReveal);
 
     return { beforeReveal, afterReveal };
 }
@@ -886,7 +908,7 @@ async function runMobileHomeLoadingCheck(page) {
     await page.waitForTimeout(350);
 
     const mobileHome = await page.evaluate(() => window.__yomuFeatureReadMobileHomeState());
-    assert(mobileHome.readerWordsInGrid > 0, 'Yomu did not parse mobile YouTube recommendation titles', mobileHome);
+    assert(mobileHome.readerWordsInGrid > 0, 'Yomu did not enhance mobile YouTube recommendation titles', mobileHome);
     assert(mobileHome.continuationNudges >= 1, 'YouTube mobile feed did not request more cards after filtering', mobileHome);
     assert(mobileHome.visibleJapanese >= 5, 'YouTube mobile feed did not refill with enough Japanese-looking cards', mobileHome);
     assert(mobileHome.visibleNonJapanese === 0, 'YouTube mobile feed still shows non-Japanese-looking cards', mobileHome);
@@ -909,7 +931,7 @@ async function runShortsGalleryCheck(page) {
 
     const shortsGallery = await page.evaluate(() => window.__yomuFeatureReadShortsGalleryState());
     assert(shortsGallery.shelfVisible === true && shortsGallery.shelfFiltered === false, 'Shorts gallery shelf was hidden instead of filtering child Shorts', shortsGallery);
-    assert(shortsGallery.readerWordsInGrid > 0, 'Yomu did not parse Shorts gallery titles', shortsGallery);
+    assert(shortsGallery.readerWordsInGrid > 0, 'Yomu did not enhance Shorts gallery titles', shortsGallery);
     assert(shortsGallery.visibleJapanese >= 3, 'Shorts gallery did not keep Japanese-looking Shorts visible', shortsGallery);
     assert(shortsGallery.visibleNonJapanese === 0, 'Shorts gallery still shows non-Japanese-looking Shorts', shortsGallery);
     assert(includesText(shortsGallery.hiddenCases.join(','), 'gallery-en'), 'Desktop English Short was not hidden', shortsGallery);
@@ -1059,7 +1081,7 @@ function assertWatchPageParsing(initial) {
 function assertWatchTextExclusions(initial) {
     assert(initial.titleWords > 0, 'Yomu did not parse the YouTube watch title', initial);
     assert(initial.watchTitleText.includes('日本の習慣'), 'YouTube watch title text is missing or incorrect', initial);
-    assert(initial.sidebarReaderWords > 0, 'Yomu did not parse YouTube sidebar recommendation text', initial);
+    assert(initial.sidebarReaderWords > 0, 'Yomu did not enhance YouTube sidebar recommendation text', initial);
 }
 
 function assertWatchRowPresentation(initial) {

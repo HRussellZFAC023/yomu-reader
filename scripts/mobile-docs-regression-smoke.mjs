@@ -432,8 +432,8 @@ function docsTryMeSnapshotFromDom() {
         const word = [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
             .find(item => compactText(item).includes('下'));
         if (!word) return null;
-        const hit = readerWordAtCenter(word);
         const rect = word.getBoundingClientRect();
+        const hit = readerWordAtCenter(word);
         return {
             text: compactText(word),
             expression: word.getAttribute('data-expression') ?? '',

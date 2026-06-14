@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.21] - 2026-06-14
+
+### Fixed
+
+- YouTube channel recommendations now disappear entirely once every curated channel is already subscribed, instead of showing an empty/all-subscribed shelf.
+
 ## [0.7.20] - 2026-06-14
 
 ### Fixed
