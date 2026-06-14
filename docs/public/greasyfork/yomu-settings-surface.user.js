@@ -462,6 +462,7 @@
     const setValue = asyncGmSetValue();
     if (setValue) {
       await setValue(key, value);
+      mirrorManagedValueToHostedStorage(key, value);
       return;
     }
     localStorageSet(key, value);
@@ -470,7 +471,10 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) return;
+        if (!isPromiseLike(result)) {
+          mirrorManagedValueToHostedStorage(key, value);
+          return;
+        }
       } catch (error) {
         debugStorageError("GM storage sync write failed", key, error);
       }
@@ -602,6 +606,23 @@
   function webStorageHasKey(storage, key) {
     try {
       return storage.getItem(key) !== null;
+    } catch {
+      return false;
+    }
+  }
+  function mirrorManagedValueToHostedStorage(key, value) {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+  }
+  function shouldMirrorManagedValueToHostedStorage(key) {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+  }
+  function isHostedYomuOrigin() {
+    try {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
       return false;
     }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.15
+// @version      0.7.16
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-t3Pv5iRFdZod2j8EFh/dNB7rRcTwFlwYIyWK9/mslpk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-xA4ldFu6C+86pEOzIFceybXyClMokLpiCxiEbwdMeLg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-OEjFs7u3zC/zykF1xmCMnTaWjRnkDmcidzt7EeXy85Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LH5F50DS5O386o9QNJlY6PwESMuRQTVJpIX2d1N7Upo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-mmOTndYJD8MaRBQIi2WhqafNCEIaqwKoKCJlBuD5NZw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rjdLSjSXij20cIrURNeCL1/v3N8fW8D9A55M9Pk39HA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-fm5QgQ/lk/Xi3Btu1upe3qeBFjGTNRdL7PlyAPnNE8o=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-cvB0WQhMq9P+rMp3CblvcqLgg3Y5dAMTDwLOVtHmstk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1035,6 +1035,7 @@
     const setValue = asyncGmSetValue();
     if (setValue) {
       await setValue(key, value);
+      mirrorManagedValueToHostedStorage(key, value);
       return;
     }
     localStorageSet(key, value);
@@ -1043,7 +1044,10 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) return;
+        if (!isPromiseLike$1(result)) {
+          mirrorManagedValueToHostedStorage(key, value);
+          return;
+        }
       } catch (error) {
         debugStorageError("GM storage sync write failed", key, error);
       }
@@ -1218,6 +1222,23 @@
   function webStorageHasKey(storage, key) {
     try {
       return storage.getItem(key) !== null;
+    } catch {
+      return false;
+    }
+  }
+  function mirrorManagedValueToHostedStorage(key, value) {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+  }
+  function shouldMirrorManagedValueToHostedStorage(key) {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+  }
+  function isHostedYomuOrigin() {
+    try {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
       return false;
     }

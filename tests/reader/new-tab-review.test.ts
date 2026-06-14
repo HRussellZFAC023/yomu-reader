@@ -1327,6 +1327,7 @@ function createDictionarySearchModeFixture() {
             })),
         } as never,
         dictionaries: {
+            hasDictionaries: vi.fn(async () => true),
             summary: vi.fn(async () => ({ dictionaries: [{ title: 'Local', alias: 'Local', enabled: true, priority: 0 }], terms: 2, kanji: 0, termMeta: 0, kanjiMeta: 0 })),
             searchTerms,
         } as never,
@@ -5758,6 +5759,46 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('loads Jiten cards through the auto new-tab review source', async () => {
+        const jitenCard = newTabTestCard({
+            vid: 42,
+            sid: 2,
+            rid: 9001,
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 42,
+            jitenReadingIndex: 2,
+            cardState: ['due'],
+        });
+        const listStudyBatchCards = vi.fn(async () => [jitenCard]);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            newTabSource: 'auto',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        }, {
+            anki: { listNewTabCards: vi.fn(async () => []) } as never,
+            jpdb: { listDeckCards: vi.fn(async () => []) } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+            jpdbReviewBridge: disconnectedJpdbReviewBridge(),
+        });
+
+        const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+        expect(result.sourceLabel).toBe('Jiten');
+        expect(result.reviewCountMode).toBe(true);
+        expect(result.cards).toEqual([expect.objectContaining({
+            spelling: '日本語',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+        })]);
+        expect(listStudyBatchCards).toHaveBeenCalledWith(180);
+    });
+
     it('interleaves JPDB and Jiten SRS cards through the shared new-tab API source', async () => {
         const jpdbCard = newTabTestCard({
             spelling: '復習',
@@ -9282,6 +9323,23 @@ describe('new tab review helpers', () => {
                 expect(newTabSearchAutocompleteText(root)).toContain('面白い');
             });
             expect(searchTerms).toHaveBeenCalledWith('おもし', expect.any(Number), settings.dictionaryPreferences, expect.any(Object));
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('does not search local dictionaries when the hosted store is empty', async () => {
+        const { searchTerms, root, searchApi } = createDictionarySearchModeFixture();
+        (searchApi as unknown as { dependencies: { dictionaries: { hasDictionaries: () => Promise<boolean> } } })
+            .dependencies.dictionaries.hasDictionaries = vi.fn(async () => false);
+
+        try {
+            searchApi.performSearch(root, 'cat');
+
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-search-results]')?.textContent ?? '').not.toContain('猫');
+            });
+            expect(searchTerms).not.toHaveBeenCalled();
         } finally {
             root.remove();
         }

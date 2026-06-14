@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.16] - 2026-06-14
+
+### Fixed
+
+- New-tab review now keeps Jiten available anywhere it is enabled, including auto-source review queues and Jiten-only source labels without requiring an unrelated JPDB API key.
+- Hosted docs/newtab settings now mirror managed userscript settings back to same-origin app storage, keeping source settings and local dictionary preferences coherent where the hosted store can be shared.
+- Hosted search now checks the actual local dictionary store before searching it, so imported Yomitan dictionaries appear when present and empty installs show the add-dictionary state instead of stale local results.
+
 ## [0.7.15] - 2026-06-14
 
 ### Fixed
