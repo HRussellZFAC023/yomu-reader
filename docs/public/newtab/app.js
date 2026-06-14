@@ -63253,6 +63253,8 @@ ${entry.url}`),
     lastAutoTermAudio;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
+      const isCurrent = this.termAudioCurrentGuard(options);
+      if (this.isStaleTermAudioRequest(isCurrent)) return;
       const key = termAudioRequestKey(card, options);
       const inFlight = this.inFlightTermAudio;
       if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
@@ -63261,7 +63263,7 @@ ${entry.url}`),
       }
       const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
       if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
-      const promise = this.playTermAudioOnce(card, options);
+      const promise = this.playTermAudioOnce(card, { ...options, isCurrent });
       this.inFlightTermAudio = { key, promise };
       try {
         const played = await promise;
@@ -63274,10 +63276,9 @@ ${entry.url}`),
       return Boolean(options.autoPlay && inFlight?.key === key);
     }
     async playTermAudioOnce(card, options = {}) {
-      const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
-      const loadingPopover = this.dependencies.getActivePopover();
-      const loadingRequest = ++this.loadingRequest;
-      this.setLoading(loadingPopover, loadingRequest);
+      const isCurrent = this.termAudioCurrentGuard(options);
+      const loading = this.beginLoadingAudioRequest(isCurrent);
+      if (!loading) return false;
       try {
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
@@ -63287,8 +63288,21 @@ ${entry.url}`),
         this.dependencies.toast(this.audioErrorMessage(error));
         return false;
       } finally {
-        this.clearLoading(loadingPopover, loadingRequest);
+        this.clearLoading(loading.popover, loading.requestId);
       }
+    }
+    termAudioCurrentGuard(options) {
+      return options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
+    }
+    isStaleTermAudioRequest(isCurrent) {
+      return Boolean(isCurrent && !isCurrent());
+    }
+    beginLoadingAudioRequest(isCurrent) {
+      if (this.isStaleTermAudioRequest(isCurrent)) return null;
+      const requestId = ++this.loadingRequest;
+      const popover = this.dependencies.getActivePopover();
+      this.setLoading(popover, requestId);
+      return { popover, requestId };
     }
     consumeRecentAutoTermAudio(key) {
       const recent = this.lastAutoTermAudio;
@@ -63353,7 +63367,14 @@ ${entry.url}`),
     ].join("\0");
   }
   function termAudioAutoRequestKey(card) {
-    return card.spelling;
+    return [
+      card.source ?? "",
+      String(card.vid ?? ""),
+      String(card.sid ?? ""),
+      String(card.rid ?? ""),
+      card.spelling,
+      card.reading
+    ].join("\0");
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;
