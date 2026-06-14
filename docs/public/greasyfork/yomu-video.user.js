@@ -9106,7 +9106,7 @@ ${spelling}`);
     const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
     if (playerVideoId && playerVideoId !== currentVideoId) {
-      if (player?.id === "movie_player" || video.classList.contains("html5-main-video")) return true;
+      if (video.classList.contains("html5-main-video")) return true;
       return isLikelyVisibleYouTubeWatchVideo(video);
     }
     return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);

@@ -9180,6 +9180,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -31583,7 +31584,7 @@ ${spelling}`);
     const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
     if (playerVideoId && playerVideoId !== currentVideoId) {
-      if (player?.id === "movie_player" || video.classList.contains("html5-main-video")) return true;
+      if (video.classList.contains("html5-main-video")) return true;
       return isLikelyVisibleYouTubeWatchVideo(video);
     }
     return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
@@ -52994,9 +52995,6 @@ ${newTabCardReading(card)}`;
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    // The video player owns captions and most chrome; the settings popover is
-    // re-added below as passive UI so its Japanese menu labels can be hovered
-    // without stealing native clicks.
     "#movie_player",
     ".html5-video-player",
     "#secondary",
@@ -53044,9 +53042,7 @@ ${newTabCardReading(card)}`;
     ".yt-spec-button-shape-next",
     "yt-chip-cloud-renderer",
     "yt-chip-cloud-chip-renderer",
-    "iron-selector#chips",
-    ".more-button",
-    '[slot="more-button"]'
+    "iron-selector#chips"
   ]);
   YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const TWO_BUTTON_REVIEW_SHORTCUTS = [

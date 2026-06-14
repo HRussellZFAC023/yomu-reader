@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.6
+// @version      0.7.7
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-X3NaDpo3vfKMlSRQZMIdu9gpZwq6Biiik2RV0goecLY=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-ShT8az10gVM0CX2pQcqwj6vtxCG7kbot3rD7PbDJY+M=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xOz3XyPlRAhoZmO4vFCX1lRqN1/mJMMWROsQiiFV+HA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-v1P/np+3QL4s2rtXzaXPsSpaCez71JXsx4SKDGMwk1I=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-YvKa0Nppp6nznsd3jfq0cvdlPry+wzQtV7yjy9Nd61U=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -12012,6 +12012,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -32270,9 +32271,7 @@ ${glossaryKey}`;
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     "a[href]",
-    '[role="link"]',
-    "ytd-comment-view-model .more-button",
-    "yt-live-chat-text-message-renderer button"
+    '[role="link"]'
   ].join(",");
   const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
     "yt-button-shape button",
@@ -32282,9 +32281,6 @@ ${glossaryKey}`;
   ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    // The video player owns captions and most chrome; the settings popover is
-    // re-added below as passive UI so its Japanese menu labels can be hovered
-    // without stealing native clicks.
     "#movie_player",
     ".html5-video-player",
     "#secondary",
@@ -32332,9 +32328,7 @@ ${glossaryKey}`;
     ".yt-spec-button-shape-next",
     "yt-chip-cloud-renderer",
     "yt-chip-cloud-chip-renderer",
-    "iron-selector#chips",
-    ".more-button",
-    '[slot="more-button"]'
+    "iron-selector#chips"
   ]);
   const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
@@ -32913,6 +32907,9 @@ ${glossaryKey}`;
         "ytd-feed-filter-chip-bar-renderer",
         "yt-chip-cloud-renderer",
         "iron-selector#chips",
+        "ytd-watch-metadata h1",
+        "ytd-watch-metadata #description-inline-expander",
+        "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
         "ytm-slim-video-metadata-section-renderer",
         "ytm-expandable-video-description-body-renderer",
