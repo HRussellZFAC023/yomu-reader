@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.13] - 2026-06-14
+
+### Fixed
+
+- New-tab search kanji cards are now compact while staying touch-friendly, so kanji results no longer dominate the result grid.
+- Expanded new-tab kanji details now use clearer section headers, compact component buttons, and per-kanji grouping for multi-kanji words so readings/components, RTK, component graph, Uchisen, and Immersion Kit sections remain scannable.
+
 ## [0.7.12] - 2026-06-14
 
 ### Fixed

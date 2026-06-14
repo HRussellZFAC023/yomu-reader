@@ -1538,6 +1538,17 @@ describe('new tab review helpers', () => {
         expect(rule).toContain('width: min(320px, 80vw);');
     });
 
+    it('keeps new-tab kanji search cards compact and touch reachable', () => {
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-search-kanji-grid { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));');
+        expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card'))
+            .toContain('min-height: 58px;');
+        expect(newTabCssRule('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-kanji-char'))
+            .toContain('font-size: 34px;');
+        expect(NORMALIZED_NEW_TAB_CSS)
+            .toContain('.jpdb-reader-newtab-search-card, .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card > summary.jpdb-reader-local-title, .jpdb-reader-newtab-kanji-details .jpdb-reader-component-button, .jpdb-reader-newtab-kanji-vocab > button, .jpdb-reader-newtab-mini-action, .jpdb-reader-newtab-install { min-height: 44px !important; }');
+    });
+
     it('keeps the mobile new-tab mode switch on its own compact header row', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
 
@@ -9007,6 +9018,7 @@ describe('new tab review helpers', () => {
             });
             const kanjiSource = wordDetail()?.querySelector<HTMLElement>('details.jpdb-reader-newtab-search-inline-kanji');
             expect(kanjiSource?.querySelector(':scope > summary.jpdb-reader-local-title')?.textContent).toContain('Kanji');
+            expect(kanjiSource?.querySelector<HTMLElement>('[data-search-word-kanji="猫"] .jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('cat radical');
             expect(wordDetail()?.querySelector('.jpdb-reader-definition-stack > details.jpdb-reader-newtab-search-inline-kanji')).toBe(kanjiSource);
             expect(loadCardRenderData).toHaveBeenCalledWith(catCard);
             expect(jpdbKanjiLookup).toHaveBeenCalledWith('猫');
@@ -9030,6 +9042,88 @@ describe('new tab review helpers', () => {
         } finally {
             root.remove();
         }
+    });
+
+    it('groups each word kanji detail under a compact character heading', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }, {
+            parser: { fallbackCardFromText: vi.fn(newTabFallbackCardFromText) } as never,
+        });
+        const internals = controller as unknown as {
+            renderSearchWordKanjiItem(card: JPDBCard, item: {
+                kanji: string;
+                details: {
+                    jpdb: unknown;
+                    jiten: null;
+                    rtk: null;
+                    vg: null;
+                    local: [];
+                };
+            }): HTMLElement;
+        };
+        const sourceWord = newTabTestCard({ spelling: '読み取る', reading: 'よみとる' });
+        const read = internals.renderSearchWordKanjiItem(sourceWord, {
+            kanji: '読',
+            details: {
+                jpdb: {
+                    kanji: '読',
+                    keyword: 'read',
+                    frequency: '',
+                    type: '',
+                    kanken: '',
+                    heisig: '',
+                    oldForms: [],
+                    readings: [{ reading: 'よ.む', share: '', common: true }],
+                    components: [{ kanji: '言', keyword: 'say' }],
+                    usedInKanji: [],
+                    mnemonic: '',
+                    vocabulary: [],
+                    actions: [],
+                    loggedIn: false,
+                    kanjiReviewsEnabled: false,
+                },
+                jiten: null,
+                rtk: null,
+                vg: null,
+                local: [],
+            },
+        });
+        const take = internals.renderSearchWordKanjiItem(sourceWord, {
+            kanji: '取',
+            details: {
+                jpdb: {
+                    kanji: '取',
+                    keyword: 'take',
+                    frequency: '',
+                    type: '',
+                    kanken: '',
+                    heisig: '',
+                    oldForms: [],
+                    readings: [{ reading: 'と.る', share: '', common: true }],
+                    components: [{ kanji: '耳', keyword: 'ear' }],
+                    usedInKanji: [],
+                    mnemonic: '',
+                    vocabulary: [],
+                    actions: [],
+                    loggedIn: false,
+                    kanjiReviewsEnabled: false,
+                },
+                jiten: null,
+                rtk: null,
+                vg: null,
+                local: [],
+            },
+        });
+
+        const mount = document.createElement('div');
+        mount.append(read, take);
+
+        expect(Array.from(mount.querySelectorAll<HTMLElement>('[data-search-word-kanji]')).map(item => item.dataset.searchWordKanji))
+            .toEqual(['読', '取']);
+        expect(read.querySelector('.jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('読');
+        expect(read.querySelector('.jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('read');
+        expect(take.querySelector('.jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('take');
+        expect(read.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
+        expect(take.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
     });
 
     it('keeps the search detail speaker on lookup audio for the rendered card', () => {
