@@ -5816,11 +5816,11 @@
     if (Array.isArray(headers)) return Object.fromEntries(headers);
     return headers;
   }
-  async function requestText$2(url, options = {}) {
+  async function requestText$3(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "text" });
     return typeof value === "string" ? value : String(value ?? "");
   }
-  async function requestBlob$2(url, options = {}) {
+  async function requestBlob$3(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "blob" });
     if (value instanceof Blob) return value;
     if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
@@ -8316,7 +8316,7 @@ recommendedJiten	jiten.moe頻度データです。
       failureLabel: uiText(language, "audioRequest"),
       timeoutLabel: uiText(language, "audioRequestTimedOut")
     };
-    return responseType === "blob" ? requestBlob$2(responseUrl, requestOptions) : requestText$2(responseUrl, requestOptions);
+    return responseType === "blob" ? requestBlob$3(responseUrl, requestOptions) : requestText$3(responseUrl, requestOptions);
   }
   function shouldPreferFetchForAudioRequests() {
     return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
@@ -9399,6 +9399,9 @@ recommendedJiten	jiten.moe頻度データです。
     if (type && type !== "application/octet-stream" && type !== "binary/octet-stream") return blob;
     const extension = sourceUrl.split(/[?#]/)[0]?.split(".").pop()?.toLowerCase() ?? "";
     return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
+  }
+  function revokePageMediaUrl(url) {
+    if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
   }
   function shouldUseDataUrlForPageMedia() {
     if (typeof location === "undefined") return false;
@@ -10995,7 +10998,7 @@ ${candidate.depth}`;
     const precision = unit === 0 || size >= 10 ? 0 : 1;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
-  async function requestBlob$1(url, proxyUrl, onProgress, language = "en") {
+  async function requestBlob$2(url, proxyUrl, onProgress, language = "en") {
     const done = log$m.time("Dictionary download", { host: safeHost(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
@@ -12836,7 +12839,7 @@ ${scopedInner}
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
       log$l.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
-      const blob = await requestBlob$1(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
+      const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
       log$l.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
@@ -24482,8 +24485,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isImmersionKitRateLimitError(error) {
     return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
   }
-  function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
-    return requestBlob$2(url, {
+  function requestBlob$1(url, timeoutMs, proxyUrl = "", language = "en") {
+    return requestBlob$3(url, {
       proxyUrl,
       timeoutMs,
       allowDirectCrossOrigin: true,
@@ -24503,7 +24506,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let lastError;
     for (const candidate of candidates) {
       try {
-        return await requestBlob(candidate, timeoutMs, proxyUrl, language);
+        return await requestBlob$1(candidate, timeoutMs, proxyUrl, language);
       } catch (error) {
         lastError = error;
       }
@@ -27588,11 +27591,11 @@ ${spelling}`);
     };
   }
   function jitenReviewButtonLabel(record, meta) {
-    return firstString(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
+    return firstString$1(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
   }
   function jitenReviewIntervalLabel(value, record) {
     if (typeof value === "string") return normalizeIntervalLabel(value);
-    const explicit = firstString(record, [
+    const explicit = firstString$1(record, [
       "intervalLabel",
       "nextReviewLabel",
       "nextIntervalLabel",
@@ -27618,10 +27621,10 @@ ${spelling}`);
   function jitenReviewRatingMetaFromRecord(record) {
     const rating = finiteJitenInteger(record.rating) ?? finiteJitenInteger(record.ease) ?? finiteJitenInteger(record.button) ?? finiteJitenInteger(record.value);
     if (rating !== void 0) return JITEN_REVIEW_RATINGS.find((meta) => meta.rating === rating);
-    const label = firstString(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
+    const label = firstString$1(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
     return label ? JITEN_REVIEW_RATINGS.find((meta) => meta.keys.includes(normalizeJitenReviewKey(label))) : void 0;
   }
-  function firstString(record, keys) {
+  function firstString$1(record, keys) {
     if (!record) return null;
     for (const key of keys) {
       const value = record[key];
@@ -27793,6 +27796,1056 @@ ${spelling}`);
   }
   function isAbortError$1(error) {
     return error instanceof DOMException && error.name === "AbortError";
+  }
+  const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
+  const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+  const JPDB_BASE_URL = "https://jpdb.io";
+  const JAPANESE_RUN_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3005\u3006\u3007々〆ヶー]+/u;
+  function cleanText(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function decodePathPart$1(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function absoluteJpdbUrl(value, fallback = "") {
+    try {
+      return new URL(value || "/", JPDB_BASE_URL).toString();
+    } catch {
+      return fallback;
+    }
+  }
+  function parseJpdbVocabularyUrl(value) {
+    if (!value) return null;
+    try {
+      return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
+    } catch {
+      return null;
+    }
+  }
+  function parseJpdbVocabularyPath(pathname) {
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts[0] !== "vocabulary") return null;
+    const vid = Number.parseInt(parts[1] ?? "", 10);
+    const reading = decodePathPart$1(parts[3] ?? "");
+    return {
+      vid: Number.isFinite(vid) ? vid : 0,
+      expression: decodePathPart$1(parts[2] ?? ""),
+      reading: JAPANESE_RE.test(reading) ? reading : ""
+    };
+  }
+  function decodeEntities(value) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+  function canonicalUchisenUrl(value) {
+    let url = value.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      if (url.startsWith("/")) url = `https://ik.imagekit.io/uchisen${url}`;
+      else if (url.startsWith("generated_")) url = `https://ik.imagekit.io/uchisen/generated/saved/${url}`;
+      else url = `https://ik.imagekit.io/uchisen/${url}`;
+    }
+    try {
+      const parsed = new URL(url);
+      parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
+      parsed.search = "";
+      parsed.hash = "";
+      return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      return url.replace(/\/{2,}/g, "/").split(/[?#]/)[0];
+    }
+  }
+  function firstJapaneseRunOrEmpty(value) {
+    return cleanText(value.match(JAPANESE_RUN_RE$1)?.[0] ?? "");
+  }
+  function firstReviewGlyph(text2) {
+    const direct = text2.match(KANJI_RE);
+    if (direct) return direct[0];
+    try {
+      return decodeURIComponent(text2).match(KANJI_RE)?.[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const imagePromptReplacementDefs = [
+    [
+      "\\bblood(y|ied|ing)?\\b",
+      "red festival paint"
+    ],
+    [
+      "\\bbleed(ing)?\\b",
+      "red festival paint"
+    ],
+    [
+      "\\bwounds?\\b",
+      "patched cloth"
+    ],
+    [
+      "\\binjur(y|ies|ed)?\\b",
+      "tired mishap"
+    ],
+    [
+      "\\bsick(ness)?\\b",
+      "restful"
+    ],
+    [
+      "\\bill(ness)?\\b",
+      "restful"
+    ],
+    [
+      "\\bmedicine\\b",
+      "helpful bundle"
+    ],
+    [
+      "\\bmedical\\b",
+      "helpful"
+    ],
+    [
+      "\\bdoctor\\b",
+      "kind helper"
+    ],
+    [
+      "\\bpatient\\b",
+      "visitor"
+    ],
+    [
+      "\\bdisease\\b",
+      "gloomy cloud"
+    ],
+    [
+      "\\bhospital\\b",
+      "quiet rest house"
+    ],
+    [
+      "\\bweapons?\\b",
+      "ceremonial props"
+    ],
+    [
+      "\\bswords?\\b",
+      "ceremonial wooden practice sword"
+    ],
+    [
+      "\\bknives?\\b",
+      "small wooden craft tool"
+    ],
+    [
+      "\\bdaggers?\\b",
+      "small wooden craft tool"
+    ],
+    [
+      "\\bblades?\\b",
+      "shiny craft edge"
+    ],
+    [
+      "\\bspears?\\b",
+      "slender festival pole"
+    ],
+    [
+      "\\barrows?\\b",
+      "paper arrow charm"
+    ],
+    [
+      "\\bguns?\\b",
+      "toy popper"
+    ],
+    [
+      "\\brifles?\\b",
+      "toy popper"
+    ],
+    [
+      "\\bcannons?\\b",
+      "festival drum"
+    ],
+    [
+      "\\bbombs?\\b",
+      "round festival lantern"
+    ],
+    [
+      "\\bdynamite\\b",
+      "firecracker bundle"
+    ],
+    [
+      "\\bexplos(ive|ion)s?\\b",
+      "bursting confetti"
+    ],
+    [
+      "\\bbattles?\\b",
+      "festival contest"
+    ],
+    [
+      "\\bfight(ing|s)?\\b",
+      "tugging contest"
+    ],
+    [
+      "\\bwars?\\b",
+      "old tale"
+    ],
+    [
+      "\\battack(s|ing)?\\b",
+      "surprising pounce"
+    ],
+    [
+      "\\bstab(s|bing|bed)?\\b",
+      "poke"
+    ],
+    [
+      "\\bkill(s|ing|ed)?\\b",
+      "stop"
+    ],
+    [
+      "\\bdead\\b",
+      "still"
+    ],
+    [
+      "\\bdeath\\b",
+      "quiet ending"
+    ],
+    [
+      "\\bcorpse\\b",
+      "old puppet"
+    ],
+    [
+      "\\bpoison\\b",
+      "mysterious purple dye"
+    ],
+    [
+      "\\bcriminals?\\b",
+      "mischief maker"
+    ],
+    [
+      "\\bcrimes?\\b",
+      "mischief"
+    ],
+    [
+      "\\bprison\\b",
+      "locked toy box"
+    ],
+    [
+      "\\bjail\\b",
+      "locked toy box"
+    ],
+    [
+      "\\bpunish(ment|ed|ing)?\\b",
+      "scold"
+    ],
+    [
+      "\\btorture\\b",
+      "awkward training"
+    ],
+    [
+      "\\bexecution\\b",
+      "ceremony"
+    ],
+    [
+      "\\bnoose\\b",
+      "rope loop"
+    ],
+    [
+      "\\bdemons?\\b",
+      "festival mask"
+    ],
+    [
+      "\\bdevils?\\b",
+      "festival mask"
+    ],
+    [
+      "\\bhell\\b",
+      "smoky folk-tale cave"
+    ],
+    [
+      "\\bghosts?\\b",
+      "paper lantern spirit"
+    ],
+    [
+      "\\bspirits?\\b",
+      "paper lantern spirit"
+    ],
+    [
+      "\\bskulls?\\b",
+      "round white mask"
+    ],
+    [
+      "\\bbones?\\b",
+      "ivory-colored toy sticks"
+    ]
+  ];
+  const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
+  const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
+  const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
+  function parseUchisenData(html) {
+    if (!html.trim()) return emptyUchisenData();
+    const doc = parseHtmlDocument(html);
+    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
+    return {
+      images: parseUchisenImagesFromDocument(doc),
+      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
+      kanjiId,
+      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
+    };
+  }
+  function emptyUchisenData() {
+    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
+  }
+  function parseUchisenImagesFromDocument(doc) {
+    const images = [];
+    const mainImage = mainUchisenImageUrl(doc);
+    const mainStory = cleanText(doc.querySelector("#mnemonic_story")?.textContent ?? "");
+    if (mainImage) {
+      const url = canonicalUchisenUrl(mainImage);
+      images.push({
+        url,
+        story: mainStory || "No story available",
+        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
+      });
+    }
+    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+      const image = uchisenCardImage(card, mainStory);
+      if (image) images.push(image);
+    });
+    return orderedUchisenImages(images);
+  }
+  function parseUchisenComponentGroupsFromDocument(doc) {
+    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
+    if (!root) return [];
+    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
+  }
+  function parseUchisenKanjiKeywordFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("#kanji_keyword_container > span")?.textContent,
+      doc.querySelector("#kanji_keyword_container")?.textContent,
+      doc.querySelector(".kanji_name > span")?.textContent,
+      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
+    ];
+    for (const candidate of candidates) {
+      const keyword = uchisenKanjiKeyword(candidate ?? "");
+      if (keyword) return keyword;
+    }
+    return null;
+  }
+  function parseUchisenKanjiIdFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("input#kanji_id")?.value,
+      doc.querySelector("input#showing_kanji_id")?.value,
+      doc.querySelector('input[name="kanji_id"]')?.value
+    ];
+    return cleanText(candidates.find(Boolean) ?? "");
+  }
+  function parseUchisenCanGenerateFromDocument(doc) {
+    const userId = cleanText(doc.querySelector("input#user_id")?.value ?? "");
+    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
+    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
+  }
+  function uchisenKanjiKeyword(value) {
+    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText(value));
+    if (!match) return null;
+    const kanji = cleanText(match[1].replace(/[「」]/g, ""));
+    const keyword = cleanText(match[2]);
+    if (!kanji || !keyword) return null;
+    return {
+      kanji,
+      keyword,
+      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
+    };
+  }
+  function uchisenComponentGroup(group) {
+    const components = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
+    if (!components.length) return null;
+    return {
+      title: uchisenComponentGroupTitle(group),
+      components
+    };
+  }
+  function uchisenComponentGroupTitle(group) {
+    if (group.querySelector(".prime_label")) return "Kanji Primes";
+    if (group.querySelector(".compound_label")) return "Compound Kanji";
+    return cleanText(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
+  }
+  function uchisenComponent(item) {
+    const link = item.querySelector("a[href]");
+    if (!link) return null;
+    const symbol = cleanText(link.querySelector(".component_symbol")?.textContent ?? "");
+    const name = uchisenComponentName(link, symbol);
+    return {
+      name,
+      symbol,
+      url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
+    };
+  }
+  function uchisenComponentName(link, symbol) {
+    const text2 = cleanText((link.textContent ?? "").replace(/\u00a0/g, " "));
+    const withoutSymbol = symbol ? cleanText(text2.replace(symbol, "")) : text2;
+    return cleanText(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
+  }
+  function absoluteUchisenUrl(value) {
+    try {
+      return new URL(value, "https://uchisen.com").href;
+    } catch {
+      return value;
+    }
+  }
+  function orderedUchisenImages(images) {
+    const seen = /* @__PURE__ */ new Set();
+    const deduped = images.filter((item) => {
+      const key = uchisenImageDedupeKey(item);
+      if (!item.url || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [
+      ...deduped.filter((item) => !item.paywall),
+      ...deduped.filter((item) => item.paywall)
+    ].map(({ url, story }) => ({ url, story }));
+  }
+  function uchisenImageDedupeKey(item) {
+    return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
+  }
+  function mainUchisenImageUrl(doc) {
+    const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
+    return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
+  }
+  function uchisenCardImage(card, mainStory) {
+    const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
+    if (!rawUrl) return null;
+    const url = canonicalUchisenUrl(rawUrl);
+    const story = uchisenCardStory(card, mainStory);
+    return {
+      url,
+      story,
+      paywall: isUchisenPaywallCard(card, url, story)
+    };
+  }
+  function uchisenCardStory(card, mainStory) {
+    const rawStory = card.querySelector("input.story")?.value ?? "";
+    const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+    return story || mainStory || "No story available";
+  }
+  function isUchisenPaywallCard(card, url, story) {
+    const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
+    return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
+  }
+  function isUchisenPaywallImage(url) {
+    try {
+      return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
+    } catch {
+      return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
+    }
+  }
+  function isUchisenPaywallStory(story) {
+    return UCHISEN_PAYWALL_STORY_RE.test(cleanText(story));
+  }
+  async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
+    const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
+    return parseUchisenData(html);
+  }
+  async function installUchisenCarousel(container, kanji, images, options = {}) {
+    let currentImages = images.slice();
+    let currentComponentGroups = options.componentGroups ?? [];
+    let currentKanjiKeyword = options.kanjiKeyword ?? null;
+    let currentKanjiId = options.kanjiId ?? "";
+    let canGenerateImages = Boolean(currentKanjiId && options.canGenerateImages);
+    const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
+    let index = preferredUchisenIndex(storedIndex, currentImages);
+    if (!isValidUchisenIndex(index, currentImages)) index = 0;
+    const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    const language = options.interfaceLanguage ?? "en";
+    let generateOpen = false;
+    let generateBusy = false;
+    let generateStatus = null;
+    let generateFields = defaultUchisenGenerateFields(kanji, currentKanjiKeyword, currentComponentGroups);
+    let currentImageUrl = "";
+    const cleanup = () => {
+      if (!currentImageUrl) return;
+      revokePageMediaUrl(currentImageUrl);
+      currentImageUrl = "";
+    };
+    const render = () => {
+      index = validUchisenRenderIndex(index, currentImages);
+      const model = uchisenCarouselRenderModel(kanji, index, currentImages, {
+        options,
+        canGenerateImages,
+        generateOpen,
+        generateBusy,
+        generateStatus,
+        generateFields,
+        currentComponentGroups,
+        currentKanjiKeyword
+      });
+      setInnerHtml(container, renderUchisenCarouselHtml(model));
+      attachRenderedUchisenImage(container, model.item, index, currentImages, proxyUrl, cleanup, (url) => {
+        currentImageUrl = url;
+      });
+    };
+    const syncGenerateFields = () => {
+      generateFields = {
+        mnemonic: container.querySelector('[data-uchisen-generate-field="mnemonic"]')?.value ?? generateFields.mnemonic,
+        imagePrompt: container.querySelector('[data-uchisen-generate-field="imagePrompt"]')?.value ?? generateFields.imagePrompt
+      };
+    };
+    const refreshAfterGenerate = async (result) => {
+      const fresh = await options.refreshData?.().catch(() => null);
+      if (fresh) {
+        currentImages = fresh.images;
+        currentComponentGroups = fresh.componentGroups;
+        currentKanjiKeyword = fresh.kanjiKeyword;
+        currentKanjiId = fresh.kanjiId || currentKanjiId;
+        canGenerateImages = Boolean(currentKanjiId && fresh.canGenerateImages);
+      } else {
+        currentImages = orderedUchisenImages([
+          ...currentImages.map((item) => ({ ...item, paywall: isUchisenPaywallItem(item) })),
+          { url: result.imageUrl, story: result.story, paywall: false }
+        ]);
+      }
+      const generatedIndex = findUchisenImageIndex(currentImages, result.imageUrl);
+      index = generatedIndex >= 0 ? generatedIndex : Math.max(0, currentImages.length - 1);
+      void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+    };
+    const generateAndRefresh = async () => {
+      if (!canStartUchisenGeneration(generateBusy, canGenerateImages, currentKanjiId)) return;
+      syncGenerateFields();
+      generateBusy = true;
+      generateStatus = uchisenGenerateStatus("neutral", uiText(language, "uchisenGeneratingImage"));
+      render();
+      try {
+        const result = await generateAndPublishUchisenMnemonic(kanji, {
+          kanjiId: currentKanjiId,
+          mnemonic: generateFields.mnemonic,
+          imagePrompt: generateFields.imagePrompt
+        }, proxyUrl, (message) => {
+          generateStatus = uchisenGenerateStatus("neutral", message);
+          render();
+        }, language);
+        await refreshAfterGenerate(result);
+        generateStatus = uchisenGenerateStatus("success", uiText(language, "uchisenGeneratedImage"));
+        generateOpen = false;
+      } catch (error) {
+        generateStatus = uchisenGenerateErrorStatus(error, language);
+      } finally {
+        generateBusy = false;
+        render();
+      }
+    };
+    const toggleGeneratePanel = () => {
+      generateOpen = !generateOpen;
+      generateStatus = uchisenGenerateToggleStatus(canGenerateImages, language);
+      render();
+    };
+    const updateCarouselIndex = (nextIndex) => {
+      index = nextIndex;
+      void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
+      render();
+    };
+    const handleAction = (action) => {
+      if (action === "generate-toggle") {
+        toggleGeneratePanel();
+        return;
+      }
+      if (action === "generate-submit") {
+        void generateAndRefresh();
+        return;
+      }
+      const nextIndex = nextUchisenCarouselIndex(action, index, currentImages.length);
+      if (nextIndex !== null) updateCarouselIndex(nextIndex);
+    };
+    container.addEventListener("click", (event) => {
+      const action = uchisenActionFromClick(event);
+      if (!action) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handleAction(action);
+    });
+    container.addEventListener("input", (event) => {
+      const field = event.target.closest("[data-uchisen-generate-field]");
+      if (!field) return;
+      syncGenerateFields();
+    });
+    render();
+    return cleanup;
+  }
+  function validUchisenRenderIndex(index, images) {
+    return isValidUchisenIndex(index, images) ? index : 0;
+  }
+  function canStartUchisenGeneration(generateBusy, canGenerateImages, kanjiId) {
+    return !generateBusy && canGenerateImages && Boolean(kanjiId);
+  }
+  function uchisenGenerateStatus(tone, text2) {
+    return { tone, text: text2 };
+  }
+  function uchisenGenerateErrorStatus(error, language) {
+    return uchisenGenerateStatus("error", uchisenGenerateErrorMessage(error, language));
+  }
+  function uchisenGenerateErrorMessage(error, language) {
+    if (error instanceof Error) {
+      const message = error.message.trim();
+      if (message) return message;
+    }
+    return uiText(language, "uchisenGenerateFailed");
+  }
+  function uchisenGenerateToggleStatus(canGenerateImages, language) {
+    return canGenerateImages ? null : uchisenGenerateStatus("error", uiText(language, "uchisenLoginRequired"));
+  }
+  function uchisenActionFromClick(event) {
+    return event.target.closest("[data-uchisen-action]")?.dataset.uchisenAction ?? "";
+  }
+  function nextUchisenCarouselIndex(action, currentIndex, total) {
+    if (!total) return null;
+    if (action === "previous") return (currentIndex - 1 + total) % total;
+    if (action === "next") return (currentIndex + 1) % total;
+    return null;
+  }
+  function uchisenCarouselRenderModel(kanji, index, images, inputs) {
+    const total = images.length;
+    const language = inputs.options.interfaceLanguage ?? "en";
+    return {
+      kanji,
+      item: images[index] ?? null,
+      index,
+      total,
+      language,
+      canGenerateImages: inputs.canGenerateImages,
+      generateOpen: inputs.generateOpen,
+      generateBusy: inputs.generateBusy,
+      generateStatus: inputs.generateStatus,
+      generateFields: inputs.generateFields,
+      componentGroups: inputs.currentComponentGroups,
+      kanjiKeyword: inputs.currentKanjiKeyword,
+      sourceAttributes: inputs.options.sourceAttributes ?? "open",
+      detailsClass: inputs.options.detailsClass ?? "jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source",
+      summaryClass: inputs.options.summaryClass ?? "jpdb-reader-local-head",
+      bodyClass: inputs.options.bodyClass ?? "jpdb-reader-local-glossary yomu-jpdb-uchisen-body",
+      summaryHtml: uchisenSummaryHtml(inputs.options, index, total),
+      bodyMeta: uchisenBodyMetaHtml(inputs.options, index, total)
+    };
+  }
+  function uchisenSummaryHtml(options, index, total) {
+    return options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
+        <span class="yomu-jpdb-uchisen-summary-main">
+            <span>Uchisen</span>
+            <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
+        </span>
+    `;
+  }
+  function uchisenBodyMetaHtml(options, index, total) {
+    return options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
+  }
+  function renderUchisenCarouselHtml(model) {
+    return `
+        <details class="${model.detailsClass}" ${model.sourceAttributes}>
+            <summary class="${model.summaryClass}">
+                ${model.summaryHtml}
+            </summary>
+            <div class="${model.bodyClass}">
+                ${renderUchisenToolbar(model)}
+                ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
+                ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
+                ${renderUchisenImageOrEmpty(model)}
+            </div>
+        </details>
+    `;
+  }
+  function renderUchisenToolbar(model) {
+    return `
+        <div class="yomu-jpdb-uchisen-toolbar">
+            ${model.bodyMeta}
+            ${renderUchisenLinkRow(model)}
+            ${renderUchisenNavigationControls(model)}
+        </div>
+    `;
+  }
+  function renderUchisenLinkRow(model) {
+    return `
+        <span class="yomu-jpdb-uchisen-link-row">
+            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml$1(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
+            ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
+        </span>
+    `;
+  }
+  function renderUchisenGenerateToggle(model) {
+    return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml$1(uiText(model.language, "generateUchisenImage"))}">${escapeHtml$1(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
+  }
+  function renderUchisenNavigationControls(model) {
+    if (!model.total) return "";
+    const previousLabel = uiText(model.language, "previousExample");
+    const nextLabel = uiText(model.language, "nextExample");
+    return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml$1(uiText(model.language, "uchisenMnemonicImages"))}">
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml$1(previousLabel)}" aria-label="${escapeHtml$1(previousLabel)}">&lsaquo;</button>
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml$1(nextLabel)}" aria-label="${escapeHtml$1(nextLabel)}">&rsaquo;</button>
+    </span>`;
+  }
+  function renderUchisenImageOrEmpty(model) {
+    if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml$1(uiText(model.language, "noUchisenImagesYet"))}</div>`;
+    const story = model.item.story && model.item.story !== "No story available" ? model.item.story : uiText(model.language, "noStoryAvailable");
+    const alt = formatUchisenTemplate(uiText(model.language, "uchisenMnemonicFor"), { kanji: model.kanji });
+    return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml$1(alt)}" data-uchisen-image src="${escapeHtml$1(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
+        <div class="yomu-jpdb-story">${escapeHtml$1(story)}</div>`;
+  }
+  function attachRenderedUchisenImage(container, item, index, currentImages, proxyUrl, cleanup, setCurrentImageUrl) {
+    const image = container.querySelector("[data-uchisen-image]");
+    if (!image || !item) return;
+    const srcUrl = item.url;
+    let blobSettled = false;
+    let directFailed = false;
+    const removeBrokenDirectImage = () => {
+      directFailed = true;
+      if (blobSettled && image.isConnected) image.remove();
+    };
+    image.addEventListener("error", removeBrokenDirectImage);
+    requestBlobUrl(srcUrl, 9e3, proxyUrl).then((url) => {
+      if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
+        revokePageMediaUrl(url);
+        return;
+      }
+      blobSettled = true;
+      image.removeEventListener("error", removeBrokenDirectImage);
+      cleanup();
+      setCurrentImageUrl(url);
+      image.addEventListener("error", () => {
+        if (image.isConnected) image.remove();
+      }, { once: true });
+      image.src = url;
+    }).catch(() => {
+      if (!image.isConnected || currentImages[index]?.url !== srcUrl) return;
+      blobSettled = true;
+      if (directFailed) image.remove();
+      else if (image.getAttribute("src") !== srcUrl) image.src = srcUrl;
+    });
+  }
+  async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL, onStatus, language = "en") {
+    const kanjiId = request.kanjiId.trim();
+    const mnemonic = request.mnemonic.trim();
+    const imagePrompt = request.imagePrompt.trim();
+    const storyBackedPrompt = storyBackedUchisenImagePrompt(mnemonic, imagePrompt);
+    const safeImagePrompt = safeUchisenImagePrompt(storyBackedPrompt);
+    if (!kanjiId || !mnemonic || !imagePrompt) throw new Error("Missing Uchisen generation fields.");
+    const referrer = `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;
+    onStatus?.(uiText(language, "uchisenGeneratingImage"));
+    const { generation, imagePrompt: publishedImagePrompt } = await generateUchisenImageWithRetry(
+      kanjiId,
+      imagePrompt,
+      storyBackedPrompt,
+      safeImagePrompt,
+      referrer,
+      proxyUrl
+    );
+    onStatus?.(uiText(language, "uchisenPublishingMnemonic"));
+    await postUchisenForm("https://uchisen.com/save_mnemonic.php", {
+      img_src: generation.imageFilename,
+      kanji_id: kanjiId,
+      formatted_mnemonic: formatUchisenMnemonicHtml(mnemonic),
+      current_image_prompt: publishedImagePrompt,
+      redirect: `/kanji/${encodeURIComponent(kanji)}`,
+      mnemonic,
+      image_prompt: publishedImagePrompt,
+      start_blurred: "no"
+    }, referrer, proxyUrl, "Uchisen mnemonic publish", 12e4);
+    return {
+      imageFilename: generation.imageFilename,
+      imageUrl: generation.imageUrl,
+      story: plainUchisenMnemonic(mnemonic)
+    };
+  }
+  async function generateUchisenImageWithRetry(kanjiId, imagePrompt, storyBackedPrompt, safeImagePrompt, referrer, proxyUrl) {
+    const attempts = uniqueUchisenPrompts([imagePrompt, storyBackedPrompt, safeImagePrompt]);
+    let lastError;
+    for (const prompt of attempts) {
+      try {
+        const generationText = await postUchisenForm("https://uchisen.com/generateimage", {
+          prompt: uchisenPromptFieldValue(prompt),
+          kanji_id: kanjiId
+        }, referrer, proxyUrl, "Uchisen image generation", 12e4);
+        return { generation: parseUchisenGenerationResponse(generationText), imagePrompt: prompt };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Uchisen image generation failed.");
+  }
+  function storyBackedUchisenImagePrompt(mnemonic, imagePrompt) {
+    const story = plainUchisenMnemonic(mnemonic).replace(/\s+/g, " ").trim();
+    if (!story) return imagePrompt;
+    return fitUchisenImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
+  }
+  function uniqueUchisenPrompts(prompts) {
+    const seen = /* @__PURE__ */ new Set();
+    const unique2 = [];
+    for (const prompt of prompts) {
+      const trimmed = prompt.trim();
+      if (!trimmed || seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      unique2.push(trimmed);
+    }
+    return unique2;
+  }
+  function fitUchisenImagePrompt(prompt) {
+    const maxLength = 400;
+    if (prompt.length <= maxLength) return prompt;
+    const noTextSuffix = /;\s*no text or signage$/i.test(prompt) ? "; no text or signage" : "";
+    const targetLength = noTextSuffix ? maxLength - noTextSuffix.length : maxLength;
+    return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, "")}${noTextSuffix}`;
+  }
+  function renderUchisenGeneratePanel(fields, status, busy, language) {
+    const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml$1(status.tone)}">${escapeHtml$1(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "uchisenGenerateHint"))}</div>`;
+    return `
+        <div class="yomu-jpdb-uchisen-generator">
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml$1(uiText(language, "uchisenMnemonicStory"))}</span>
+                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.mnemonic)}</textarea>
+            </label>
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml$1(uiText(language, "uchisenImagePrompt"))}</span>
+                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml$1(fields.imagePrompt)}</textarea>
+            </label>
+            <div class="yomu-jpdb-uchisen-generator-footer">
+                ${statusHtml}
+                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml$1(uiText(language, "generateUchisenImage"))}</button>
+            </div>
+        </div>
+    `;
+  }
+  function defaultUchisenGenerateFields(kanji, keyword, groups) {
+    const keywordText = keyword?.keyword || kanji;
+    const components = uniqueUchisenComponents(groups);
+    const componentStory = components.length ? components.map((component) => `#${component.name}#`).join(" and ") : "#component#";
+    const componentPrompt = components.length ? components.map((component) => `${component.name}${component.symbol ? ` (${component.symbol})` : ""}`).join(", ") : "simple component props";
+    return {
+      mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
+      imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
+    };
+  }
+  function uniqueUchisenComponents(groups) {
+    const seen = /* @__PURE__ */ new Set();
+    const components = [];
+    for (const group of groups) {
+      for (const component of group.components) {
+        const key = component.name || component.symbol;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        components.push(component);
+      }
+    }
+    return components;
+  }
+  function findUchisenImageIndex(images, imageUrl) {
+    const canonical = canonicalUchisenUrl(imageUrl);
+    return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
+  }
+  function parseUchisenGenerationResponse(text2) {
+    const json = parseJsonObjectFromText(text2);
+    if (!json || isUchisenGenerationFailure(json)) {
+      throw new Error(uchisenGenerationErrorMessage(json, text2));
+    }
+    const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
+    const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
+    const imageFilename = normalizeUchisenImageFilename(rawFilename);
+    if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
+    return {
+      imageFilename,
+      imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
+    };
+  }
+  function uchisenPromptFieldValue(value) {
+    return escapeHtml$1(value).replace(/'/g, "&#039;");
+  }
+  function safeUchisenImagePrompt(value) {
+    let prompt = value;
+    for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
+      prompt = prompt.replace(pattern, replacement);
+    }
+    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
+    if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+    return prompt;
+  }
+  const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
+  function parseJsonObjectFromText(text2) {
+    try {
+      return JSON.parse(text2);
+    } catch {
+      const match = /\{[\s\S]*\}/.exec(text2);
+      if (!match) return null;
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return null;
+      }
+    }
+  }
+  function isUchisenGenerationFailure(json) {
+    if (json.success === false || json.success === 0 || json.success === "0") return true;
+    if (typeof json.error_message === "string" && json.error_message.trim()) return true;
+    if (typeof json.error === "string" && json.error.trim()) return true;
+    return false;
+  }
+  function uchisenGenerationErrorMessage(json, text2) {
+    const message = firstString(json?.error_message, json?.error);
+    if (/must be logged|not logged|login required/i.test(message)) return message;
+    if (message) return `Uchisen image backend rejected generation: ${message}`;
+    return `Uchisen image backend rejected generation: ${snippet(text2)}`;
+  }
+  function firstString(...values) {
+    for (const value of values) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return "";
+  }
+  function normalizeUchisenImageFilename(value) {
+    if (!value) return "";
+    try {
+      const url = new URL(value);
+      return url.pathname.split("/").filter(Boolean).pop() ?? value;
+    } catch {
+      return value.split("/").filter(Boolean).pop() ?? value;
+    }
+  }
+  function snippet(text2) {
+    return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
+  }
+  function formatUchisenMnemonicHtml(value) {
+    return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
+  }
+  function plainUchisenMnemonic(value) {
+    return cleanText(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
+  }
+  function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
+    const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
+    const visibleGroups = [
+      ...keywordGroup ? [keywordGroup] : [],
+      ...groups.filter((group) => group.components.length)
+    ];
+    if (!visibleGroups.length) return "";
+    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml$1(uiText(language, "readingsComponents"))}">
+        ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
+            <span class="yomu-jpdb-component-group-label">${escapeHtml$1(localizedUchisenComponentGroupTitle(group.title, language))}</span>
+            <div class="yomu-jpdb-component-list">
+                ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
+            </div>
+        </div>`).join("")}
+    </div>`;
+  }
+  function uchisenKanjiKeywordGroup(keyword) {
+    if (!keyword || !keyword.kanji && !keyword.keyword) return null;
+    return {
+      title: "Kanji Keyword",
+      components: [{
+        name: keyword.keyword,
+        symbol: keyword.kanji,
+        url: keyword.url
+      }]
+    };
+  }
+  function localizedUchisenComponentGroupTitle(title, language) {
+    if (resolveUiLanguage(language) !== "ja") return title;
+    if (title === "Kanji Keyword") return "漢字キーワード";
+    if (title === "Kanji Primes") return "漢字パーツ";
+    if (title === "Compound Kanji") return "複合漢字";
+    if (title === "Components") return "部品";
+    return title;
+  }
+  function uchisenExternalLinkLabel(language) {
+    return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
+  }
+  function formatUchisenTemplate(template, values) {
+    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+  }
+  function renderUchisenComponentChip(component) {
+    const label = [component.name, component.symbol].filter(Boolean).join(": ");
+    const content = `
+        ${component.symbol ? `<strong>${escapeHtml$1(component.symbol)}</strong>` : ""}
+        ${component.name ? `<span>${escapeHtml$1(component.name)}</span>` : ""}
+    `;
+    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml$1(component.url)}" target="_blank" rel="noopener" title="${escapeHtml$1(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml$1(label)}">${content}</span>`;
+  }
+  function preferredUchisenIndex(storedIndex, images) {
+    if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
+    const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
+    return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
+  }
+  function isValidUchisenIndex(index, images) {
+    return Number.isInteger(index) && index >= 0 && index < images.length;
+  }
+  function isUchisenPaywallItem(item) {
+    return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
+  }
+  async function requestUchisenPageText(url, timeout, proxyUrl) {
+    try {
+      return await requestText$3(url, {
+        timeoutMs: timeout,
+        failureLabel: "Uchisen request",
+        timeoutLabel: "Uchisen request timed out.",
+        credentials: "include",
+        anonymous: false,
+        withCredentials: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        allowDirectCrossOrigin: false
+      });
+    } catch {
+      return requestText$2(url, timeout, proxyUrl);
+    }
+  }
+  function requestText$2(url, timeout, proxyUrl) {
+    return requestText$3(url, {
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel: "Uchisen request",
+      timeoutLabel: "Uchisen request timed out."
+    });
+  }
+  function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
+    return requestText$3(url, {
+      method: "POST",
+      data: encodedForm(fields),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html, */*; q=0.01",
+        Origin: "https://uchisen.com",
+        Referer: referrer
+      },
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel,
+      timeoutLabel: `${failureLabel} timed out.`,
+      credentials: "include",
+      anonymous: false,
+      withCredentials: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      allowDirectCrossOrigin: true
+    }).then((text2) => {
+      const json = parseJsonObjectFromText(text2);
+      const message = firstString(json?.error_message, json?.error);
+      if (message && !/generateimage$/i.test(url)) throw new Error(message);
+      if (isUchisenAuthFailure(text2)) {
+        throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
+      }
+      return text2;
+    });
+  }
+  function isUchisenAuthFailure(text2) {
+    return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
+  }
+  function encodedForm(fields) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(fields)) params.set(key, value);
+    return params.toString();
+  }
+  function requestBlobUrl(url, timeout, proxyUrl) {
+    return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
+  }
+  function requestBlob(url, timeout, proxyUrl) {
+    return requestBlob$3(url, {
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel: "Uchisen image request",
+      timeoutLabel: "Uchisen image request timed out."
+    });
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
   const CARD_STATES = /* @__PURE__ */ new Set([
@@ -28881,58 +29934,6 @@ ${spelling}`);
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";
   }
-  const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
-  const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
-  const JPDB_BASE_URL = "https://jpdb.io";
-  const JAPANESE_RUN_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3005\u3006\u3007々〆ヶー]+/u;
-  function cleanText(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function decodePathPart$1(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-  function absoluteJpdbUrl(value, fallback = "") {
-    try {
-      return new URL(value || "/", JPDB_BASE_URL).toString();
-    } catch {
-      return fallback;
-    }
-  }
-  function parseJpdbVocabularyUrl(value) {
-    if (!value) return null;
-    try {
-      return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
-    } catch {
-      return null;
-    }
-  }
-  function parseJpdbVocabularyPath(pathname) {
-    const parts = pathname.split("/").filter(Boolean);
-    if (parts[0] !== "vocabulary") return null;
-    const vid = Number.parseInt(parts[1] ?? "", 10);
-    const reading = decodePathPart$1(parts[3] ?? "");
-    return {
-      vid: Number.isFinite(vid) ? vid : 0,
-      expression: decodePathPart$1(parts[2] ?? ""),
-      reading: JAPANESE_RE.test(reading) ? reading : ""
-    };
-  }
-  function firstJapaneseRunOrEmpty(value) {
-    return cleanText(value.match(JAPANESE_RUN_RE$1)?.[0] ?? "");
-  }
-  function firstReviewGlyph(text2) {
-    const direct = text2.match(KANJI_RE);
-    if (direct) return direct[0];
-    try {
-      return decodeURIComponent(text2).match(KANJI_RE)?.[0] ?? null;
-    } catch {
-      return null;
-    }
-  }
   const JPDB_SEARCH_URL = "https://jpdb.io/search";
   const REQUEST_BACKOFF_INITIAL_MS = 3e4;
   const REQUEST_BACKOFF_MAX_MS = 5 * 6e4;
@@ -28979,7 +29980,7 @@ ${spelling}`);
     return Boolean(normalize(spelling) || normalize(reading));
   }
   function requestPublicJpdbText(url, options) {
-    return requestText$2(url, options);
+    return requestText$3(url, options);
   }
   function unique(values) {
     return [...new Set(values)];
@@ -37451,6 +38452,7 @@ ${glossaryKey}`;
     pitchEnrichmentLocalCache = /* @__PURE__ */ new Map();
     resolvedFallbackVocabularyCache = /* @__PURE__ */ new Map();
     fallbackVocabularyResolutionCache = /* @__PURE__ */ new Map();
+    uchisenDataCache = /* @__PURE__ */ new Map();
     renderedWordIndex = /* @__PURE__ */ new Map();
     renderedWordIndexFullyScanned = false;
     pitchEnrichmentQueue = [];
@@ -40814,7 +41816,9 @@ ${glossaryKey}`;
       const miningMount = popover.querySelector("[data-kanji-mining-mount]");
       const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
       const rtkMount = popover.querySelector("[data-kanji-rtk-mount]");
+      const uchisenMount = popover.querySelector("[data-kanji-uchisen-mount]");
       const definitionsMounts = Array.from(popover.querySelectorAll("[data-kanji-definitions-mount]"));
+      this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
       const renderKeyword = () => {
         if (!popover.isConnected || !keywordMount?.isConnected) return;
         setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
@@ -40888,6 +41892,60 @@ ${glossaryKey}`;
       }
       void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
       this.repositionActivePopover();
+    }
+    renderKanjiUchisenInto(popover, mount, kanji, language) {
+      if (!mount) return;
+      if (!this.settings.uchisenEnabled) {
+        mount.remove();
+        return;
+      }
+      const sourceAttributes = this.dictionarySourceState.attributes(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
+      void this.loadUchisenDetails(kanji).then((data) => {
+        if (!popover.isConnected || !mount.isConnected) return;
+        if (!data || !data.images.length && !data.canGenerateImages) {
+          mount.remove();
+          this.repositionActivePopover();
+          return;
+        }
+        void installUchisenCarousel(mount, kanji, data.images, {
+          sourceAttributes,
+          detailsClass: "jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source",
+          summaryClass: "jpdb-reader-local-title",
+          bodyClass: "jpdb-reader-local-entry yomu-jpdb-uchisen-body",
+          proxyUrl: this.settings.corsProxyUrl,
+          componentGroups: data.componentGroups,
+          kanjiKeyword: data.kanjiKeyword,
+          kanjiId: data.kanjiId,
+          canGenerateImages: data.canGenerateImages,
+          refreshData: () => {
+            this.uchisenDataCache.delete(kanji);
+            return loadUchisenData(kanji, this.settings.corsProxyUrl);
+          },
+          interfaceLanguage: language
+        }).then(() => {
+          if (!popover.isConnected) return;
+          void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
+          this.repositionActivePopover();
+        });
+      }).catch((error) => {
+        log.warn("Uchisen kanji lookup failed", { kanji }, error);
+        if (mount.isConnected) {
+          mount.remove();
+          this.repositionActivePopover();
+        }
+      });
+    }
+    loadUchisenDetails(kanji) {
+      if (!this.settings.uchisenEnabled) return Promise.resolve(null);
+      const existing = this.uchisenDataCache.get(kanji);
+      if (existing) return existing;
+      const promise = loadUchisenData(kanji, this.settings.corsProxyUrl).catch((error) => {
+        this.uchisenDataCache.delete(kanji);
+        log.warn("Uchisen kanji lookup failed", { kanji }, error);
+        return null;
+      });
+      this.uchisenDataCache.set(kanji, promise);
+      return promise;
     }
     waitForIdle(timeoutMs = 75) {
       return waitForIdle(timeoutMs);
