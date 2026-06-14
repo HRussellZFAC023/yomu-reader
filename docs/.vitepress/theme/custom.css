@@ -147,22 +147,22 @@
 }
 
 .dark .VPButton.brand {
-  border-color: #25573d !important;
-  background-color: #25573d !important;
-  color: #ffffff !important;
+  border-color: var(--vp-button-brand-border) !important;
+  background-color: var(--vp-button-brand-bg) !important;
+  color: var(--vp-button-brand-text) !important;
 }
 
 .dark .VPButton.brand:hover,
 .dark .VPButton.brand:focus-visible {
-  border-color: #3f7659 !important;
-  background-color: #3f7659 !important;
-  color: #ffffff !important;
+  border-color: var(--vp-button-brand-hover-border) !important;
+  background-color: var(--vp-button-brand-hover-bg) !important;
+  color: var(--vp-button-brand-hover-text) !important;
 }
 
 .dark .VPButton.brand:active {
-  border-color: #1f4933 !important;
-  background-color: #1f4933 !important;
-  color: #ffffff !important;
+  border-color: var(--vp-button-brand-active-border) !important;
+  background-color: var(--vp-button-brand-active-bg) !important;
+  color: var(--vp-button-brand-active-text) !important;
 }
 
 .VPSwitch {
