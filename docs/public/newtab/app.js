@@ -56385,6 +56385,7 @@ ${entry.url}`),
     searchGeneration = 0;
     searchDebounce;
     searchQuery = "";
+    handlingSearchPopstate = false;
     searchActiveSuggestionIndex = -1;
     searchWordCardCache = /* @__PURE__ */ new Map();
     searchHandwritingStrokes = [];
@@ -56890,7 +56891,7 @@ ${entry.url}`),
         shouldStart: () => this.canSwipeCurrentStudyCard(),
         onSwipe: (action) => this.handleNewTabSwipe(root, action)
       });
-      window.addEventListener("popstate", () => this.handleCardPopstate(root), { signal: controller.signal });
+      window.addEventListener("popstate", () => this.handleLocationPopstate(root), { signal: controller.signal });
       const syncQueuedGrades = () => {
         void this.flushQueuedGrades();
       };
@@ -57304,6 +57305,9 @@ ${entry.url}`),
       if (action === "anki-media-audio") {
         return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
       }
+      if (action === "copy-word" || action === "anki" || action === "anki-edit") {
+        return this.handleNestedCardAction(actionTarget, event);
+      }
       return false;
     }
     handleNestedKanjiAction(root, actionTarget, event) {
@@ -57386,6 +57390,14 @@ ${entry.url}`),
       void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
       return true;
     }
+    handleNestedCardAction(actionTarget, event) {
+      const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
+      const card = this.nestedCardActionCard(actionTarget);
+      if (!button || !card || !this.dependencies.performCardAction) return false;
+      consumeNestedLookupEvent(event);
+      void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
+      return true;
+    }
     nestedCardActionCard(target) {
       const key = cleanNestedLookupValue(target.closest("[data-newtab-card]")?.dataset.newtabCard);
       if (key) {
@@ -57404,7 +57416,7 @@ ${entry.url}`),
     }
     handleNestedAnkiMediaAudioAction(actionTarget, event) {
       const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest("button");
-      const card = this.visibleWords[this.index];
+      const card = this.nestedCardActionCard(actionTarget);
       if (!button || !card || !this.dependencies.performCardAction) return false;
       consumeNestedLookupEvent(event);
       void this.dependencies.performCardAction(button, card, sentenceForCard(card), button);
@@ -60766,10 +60778,6 @@ ${entry.url}`),
           event.preventDefault();
           this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
           return true;
-        case "search-copy":
-          event.preventDefault();
-          this.copySearchActionQuery(target);
-          return true;
         case "browse-filter": {
           event.preventDefault();
           const filter = target.closest("[data-browse-filter]")?.dataset.browseFilter ?? "all";
@@ -60832,10 +60840,6 @@ ${entry.url}`),
     }
     searchActionQuery(target) {
       return target.closest("[data-query]")?.dataset.query ?? "";
-    }
-    copySearchActionQuery(target) {
-      const query = cleanNestedLookupValue(target.closest("[data-query]")?.dataset.query);
-      if (query) void copyText(query);
     }
     handleSearchResultWordClick(root, target, event) {
       event.preventDefault();
@@ -61007,6 +61011,7 @@ ${entry.url}`),
       this.clearSearchDebounce();
       this.searchActiveSuggestionIndex = -1;
       this.setSearchQuery(root, "");
+      this.syncSearchUrl("");
       this.clearSearchHandwriting(root);
       this.renderSearchIdle(root);
       this.searchInput(root)?.focus();
@@ -61182,6 +61187,7 @@ ${entry.url}`),
       this.clearSearchDebounce();
       const query = normalizeSearchQuery(rawQuery);
       this.setSearchQuery(root, query);
+      this.syncSearchUrl(query);
       if (!query) {
         this.searchGeneration++;
         this.renderSearchIdle(root);
@@ -61764,7 +61770,6 @@ ${entry.url}`),
       results.dataset.searchQuery = query;
       replaceChildrenWith(
         results,
-        this.renderExternalSearchLinks(query),
         el("div", { class: "jpdb-reader-newtab-search-message" }, this.text("searching"))
       );
     }
@@ -61777,7 +61782,6 @@ ${entry.url}`),
       this.renderSearchAutocomplete(root, results.query, results.suggestions);
       replaceChildrenWith(
         mount,
-        this.renderExternalSearchLinks(results.query),
         results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
         results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
         resultCount ? null : this.renderSearchNoResults(results)
@@ -61811,22 +61815,8 @@ ${entry.url}`),
       this.searchWordCardCache.clear();
       replaceChildrenWith(
         results,
-        this.renderExternalSearchLinks(query),
         el("div", { class: "jpdb-reader-newtab-search-message" }, this.text("searchLocalDictionariesFailed"))
       );
-    }
-    renderExternalSearchLinks(query) {
-      const context = searchLookupLinkContext(query);
-      const configuredLinks = this.dependencies.getSettings().dictionaryLookupLinks.filter((link) => link.enabled);
-      const links = configuredLinks.map((link) => {
-        if (link.action === "copy" || link.id === "copy") {
-          return el("button", { type: "button", dataset: { newtabAction: "search-copy", query } }, link.label || this.text("copyWord"));
-        }
-        const url = formatLookupUrl(link.urlTemplate, context);
-        if (url && isYomuNewTabUrl(url)) return null;
-        return url ? el("a", { href: url, target: "_blank", rel: "noopener" }, link.label) : null;
-      }).filter((link) => Boolean(link));
-      return links.length ? el("div", { class: "jpdb-reader-newtab-search-links", role: "group", "aria-label": this.text("externalDictionarySearch") }, links) : null;
     }
     searchViewContext() {
       return {
@@ -62913,6 +62903,48 @@ ${entry.url}`),
         this.handlingCardPopstate = false;
       }
     }
+    handleLocationPopstate(root) {
+      if (this.handleSearchPopstate(root)) return;
+      this.handleCardPopstate(root);
+    }
+    handleSearchPopstate(root) {
+      const mode = newTabRouteMode();
+      const query = newTabRouteSearchQueryFromLocation();
+      if (mode !== "search" && this.state.mode !== "search") return false;
+      this.handlingSearchPopstate = true;
+      try {
+        if (this.state.mode !== "search") {
+          this.state = { ...this.state, mode: "search", revealAnswer: false };
+          this.persistState();
+          this.setSearchQuery(root, query);
+          this.renderSearch(root);
+          return true;
+        }
+        this.setSearchQuery(root, query);
+        if (query) this.performSearch(root, query);
+        else {
+          this.searchGeneration++;
+          this.clearSearchDebounce();
+          this.renderSearchIdle(root);
+        }
+        return true;
+      } finally {
+        this.handlingSearchPopstate = false;
+      }
+    }
+    syncSearchUrl(query) {
+      if (this.handlingSearchPopstate || typeof history === "undefined") return;
+      if (!isYomuNewTabUrl(location.href)) return;
+      const url = newSearchUrl(query);
+      if (!url) return;
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${location.pathname}${location.search}${location.hash}`;
+      if (next === current) return;
+      try {
+        history.pushState(null, "", next);
+      } catch {
+      }
+    }
     writeStoredWordKey(card) {
       try {
         sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
@@ -63084,14 +63116,18 @@ ${entry.url}`),
     const examples = info?.examples ?? [];
     return examples.map((example) => normalizePromptContextSentence(example.sentence, card)).find(Boolean) ?? "";
   }
-  function searchLookupLinkContext(query) {
-    return {
-      query,
-      word: query,
-      reading: query,
-      vid: "0",
-      sid: "0"
-    };
+  function newSearchUrl(query) {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete("query");
+      url.searchParams.delete("search");
+      if (query) url.searchParams.set("q", query);
+      else url.searchParams.delete("q");
+      if (/[#&]card=/u.test(url.hash)) url.hash = "";
+      return url;
+    } catch {
+      return null;
+    }
   }
   function sentencePromptTarget(card, sentence) {
     const reading = newTabCardOptionalReading(card);

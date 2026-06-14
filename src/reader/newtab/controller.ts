@@ -13,7 +13,6 @@ import {
     type NewTabSearchWordDetailData,
 } from './search-view';
 import { primaryCardState } from '../cards/state';
-import { copyText } from '../ui/browser';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord, normalizedJapaneseCardReading } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
@@ -58,7 +57,6 @@ import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from 
 import { renderAnkiRenderedCardStudyBody } from '../anki/render';
 import { assessKanjiStrokes, rankKanjiStrokeCandidates, type KanjiShapeCandidate, type KanjiStrokeAssessment } from '../kanji/stroke-grader';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
-import { formatLookupUrl } from '../dictionaries/display';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
@@ -653,6 +651,7 @@ export class NewTabController {
     private searchGeneration = 0;
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
+    private handlingSearchPopstate = false;
     private searchActiveSuggestionIndex = -1;
     private searchWordCardCache = new Map<string, JPDBCard>();
     private searchHandwritingStrokes: DoodleStroke[] = [];
@@ -1183,7 +1182,7 @@ export class NewTabController {
             onSwipe: action => this.handleNewTabSwipe(root, action),
         });
 
-        window.addEventListener('popstate', () => this.handleCardPopstate(root), { signal: controller.signal });
+        window.addEventListener('popstate', () => this.handleLocationPopstate(root), { signal: controller.signal });
 
         const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
         window.addEventListener('online', syncQueuedGrades, { signal: controller.signal });
@@ -1666,6 +1665,9 @@ export class NewTabController {
         if (action === 'anki-media-audio') {
             return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
         }
+        if (action === 'copy-word' || action === 'anki' || action === 'anki-edit') {
+            return this.handleNestedCardAction(actionTarget, event);
+        }
         return false;
     }
 
@@ -1758,6 +1760,15 @@ export class NewTabController {
         return true;
     }
 
+    private handleNestedCardAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
+        const card = this.nestedCardActionCard(actionTarget);
+        if (!button || !card || !this.dependencies.performCardAction) return false;
+        consumeNestedLookupEvent(event);
+        void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
+        return true;
+    }
+
     private nestedCardActionCard(target: HTMLElement): JPDBCard | undefined {
         const key = cleanNestedLookupValue(target.closest<HTMLElement>('[data-newtab-card]')?.dataset.newtabCard);
         if (key) {
@@ -1780,7 +1791,7 @@ export class NewTabController {
 
     private handleNestedAnkiMediaAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
         const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
-        const card = this.visibleWords[this.index];
+        const card = this.nestedCardActionCard(actionTarget);
         if (!button || !card || !this.dependencies.performCardAction) return false;
         consumeNestedLookupEvent(event);
         void this.dependencies.performCardAction(button, card, sentenceForCard(card), button);
@@ -5837,10 +5848,6 @@ export class NewTabController {
                 event.preventDefault();
                 this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
                 return true;
-            case 'search-copy':
-                event.preventDefault();
-                this.copySearchActionQuery(target);
-                return true;
             case 'browse-filter': {
                 event.preventDefault();
                 const filter = (target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter ?? 'all') as BrowseFilter;
@@ -5906,11 +5913,6 @@ export class NewTabController {
 
     private searchActionQuery(target: HTMLElement): string {
         return target.closest<HTMLElement>('[data-query]')?.dataset.query ?? '';
-    }
-
-    private copySearchActionQuery(target: HTMLElement): void {
-        const query = cleanNestedLookupValue(target.closest<HTMLElement>('[data-query]')?.dataset.query);
-        if (query) void copyText(query);
     }
 
     private handleSearchResultWordClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
@@ -6109,6 +6111,7 @@ export class NewTabController {
         this.clearSearchDebounce();
         this.searchActiveSuggestionIndex = -1;
         this.setSearchQuery(root, '');
+        this.syncSearchUrl('');
         this.clearSearchHandwriting(root);
         this.renderSearchIdle(root);
         this.searchInput(root)?.focus();
@@ -6306,6 +6309,7 @@ export class NewTabController {
         this.clearSearchDebounce();
         const query = normalizeSearchQuery(rawQuery);
         this.setSearchQuery(root, query);
+        this.syncSearchUrl(query);
         if (!query) {
             this.searchGeneration++;
             this.renderSearchIdle(root);
@@ -6946,7 +6950,6 @@ export class NewTabController {
         if (!results) return;
         results.dataset.searchQuery = query;
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searching')),
         );
     }
@@ -6959,7 +6962,6 @@ export class NewTabController {
         const resultCount = results.words.length + results.kanji.length;
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
-            this.renderExternalSearchLinks(results.query),
             results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
             results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
             resultCount ? null : this.renderSearchNoResults(results),
@@ -6995,28 +6997,8 @@ export class NewTabController {
         results.dataset.searchQuery = query;
         this.searchWordCardCache.clear();
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searchLocalDictionariesFailed')),
         );
-    }
-
-    private renderExternalSearchLinks(query: string): HTMLElement | null {
-        const context = searchLookupLinkContext(query);
-        const configuredLinks = this.dependencies.getSettings().dictionaryLookupLinks
-            .filter(link => link.enabled);
-        const links = configuredLinks
-            .map(link => {
-                if (link.action === 'copy' || link.id === 'copy') {
-                    return el('button', { type: 'button', dataset: { newtabAction: 'search-copy', query } }, link.label || this.text('copyWord'));
-                }
-                const url = formatLookupUrl(link.urlTemplate, context);
-                if (url && isYomuNewTabUrl(url)) return null;
-                return url ? el('a', { href: url, target: '_blank', rel: 'noopener' }, link.label) : null;
-            })
-            .filter((link): link is HTMLButtonElement | HTMLAnchorElement => Boolean(link));
-        return links.length
-            ? el('div', { class: 'jpdb-reader-newtab-search-links', role: 'group', 'aria-label': this.text('externalDictionarySearch') }, links)
-            : null;
     }
 
     private searchViewContext(): NewTabSearchViewContext {
@@ -8275,6 +8257,52 @@ export class NewTabController {
         }
     }
 
+    private handleLocationPopstate(root: HTMLElement): void {
+        if (this.handleSearchPopstate(root)) return;
+        this.handleCardPopstate(root);
+    }
+
+    private handleSearchPopstate(root: HTMLElement): boolean {
+        const mode = newTabRouteMode();
+        const query = newTabRouteSearchQueryFromLocation();
+        if (mode !== 'search' && this.state.mode !== 'search') return false;
+        this.handlingSearchPopstate = true;
+        try {
+            if (this.state.mode !== 'search') {
+                this.state = { ...this.state, mode: 'search', revealAnswer: false };
+                this.persistState();
+                this.setSearchQuery(root, query);
+                this.renderSearch(root);
+                return true;
+            }
+            this.setSearchQuery(root, query);
+            if (query) this.performSearch(root, query);
+            else {
+                this.searchGeneration++;
+                this.clearSearchDebounce();
+                this.renderSearchIdle(root);
+            }
+            return true;
+        } finally {
+            this.handlingSearchPopstate = false;
+        }
+    }
+
+    private syncSearchUrl(query: string): void {
+        if (this.handlingSearchPopstate || typeof history === 'undefined') return;
+        if (!isYomuNewTabUrl(location.href)) return;
+        const url = newSearchUrl(query);
+        if (!url) return;
+        const next = `${url.pathname}${url.search}${url.hash}`;
+        const current = `${location.pathname}${location.search}${location.hash}`;
+        if (next === current) return;
+        try {
+            history.pushState(null, '', next);
+        } catch {
+            // History can be unavailable in sandboxed frames.
+        }
+    }
+
     private writeStoredWordKey(card: JPDBCard): void {
         try {
             sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
@@ -8509,14 +8537,18 @@ function jpdbExampleSentenceForPrompt(info: JpdbVocabularyInfo | null, card: JPD
         .find(Boolean) ?? '';
 }
 
-function searchLookupLinkContext(query: string): { query: string; word: string; reading: string; vid: string; sid: string } {
-    return {
-        query,
-        word: query,
-        reading: query,
-        vid: '0',
-        sid: '0',
-    };
+function newSearchUrl(query: string): URL | null {
+    try {
+        const url = new URL(location.href);
+        url.searchParams.delete('query');
+        url.searchParams.delete('search');
+        if (query) url.searchParams.set('q', query);
+        else url.searchParams.delete('q');
+        if (/[#&]card=/u.test(url.hash)) url.hash = '';
+        return url;
+    } catch {
+        return null;
+    }
 }
 
 function sentencePromptTarget(card: JPDBCard, sentence: string): string {

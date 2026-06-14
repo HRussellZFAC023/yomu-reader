@@ -42,6 +42,7 @@ function newTabCssRule(selector: string): string {
 
 beforeEach(() => {
     vi.stubGlobal('BroadcastChannel', undefined);
+    localStorage.removeItem(NEW_TAB_UI_KEY);
 });
 
 afterEach(() => {
@@ -49,6 +50,8 @@ afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.removeItem(NEW_TAB_GRADE_QUEUE_KEY);
     localStorage.removeItem(NEW_TAB_CACHE_KEY);
+    localStorage.removeItem(NEW_TAB_UI_KEY);
+    window.history.replaceState(null, '', '/');
 });
 
 function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -8952,7 +8955,13 @@ describe('new tab review helpers', () => {
         const playJpdbExampleAudio = vi.fn();
         const playWordAudio = vi.fn();
         const performCardAction = vi.fn();
-        const renderSearchWordPills = vi.fn(() => '<div class="jpdb-reader-word-pills">Freq Local 1600</div>');
+        const renderSearchWordPills = vi.fn(() => `
+            <div class="jpdb-reader-word-pills">
+                <button type="button" data-action="copy-word">Copy</button>
+                <button type="button" data-action="anki">Anki</button>
+                <span>Freq Local 1600</span>
+            </div>
+        `);
         const lookupDictionaryReference = vi.fn();
         const jpdbKanjiLookup = vi.fn(async () => ({
             kanji: '猫',
@@ -9073,6 +9082,14 @@ describe('new tab review helpers', () => {
             const jitenAudio = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
             jitenAudio.click();
             expect(performCardAction).toHaveBeenCalledWith(jitenAudio, catCard, '猫が鳴く。', jitenAudio);
+
+            const copyPill = root.querySelector<HTMLButtonElement>('[data-action="copy-word"]')!;
+            copyPill.click();
+            expect(performCardAction).toHaveBeenCalledWith(copyPill, catCard, '猫', copyPill);
+
+            const ankiPill = root.querySelector<HTMLButtonElement>('[data-action="anki"]')!;
+            ankiPill.click();
+            expect(performCardAction).toHaveBeenCalledWith(ankiPill, catCard, '猫', ankiPill);
 
             root.querySelector<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]')?.click();
             await waitForExpect(() => {
@@ -9266,7 +9283,40 @@ describe('new tab review helpers', () => {
         expect(internals.searchQuery).toBe('mum');
     });
 
-    it('searches English glossary text and enabled lookup links in search mode', async () => {
+    it('syncs search query params and restores browser history searches', async () => {
+        window.history.replaceState(null, '', '/newtab/index.html');
+        const { root, searchApi } = createDictionarySearchModeFixture();
+
+        try {
+            searchApi.performSearch(root, 'cat');
+            await waitForExpect(() => expect(newTabSearchResultsText(root)).toContain('猫'));
+            expect(new URL(window.location.href).searchParams.get('q')).toBe('cat');
+
+            searchApi.performSearch(root, 'おもし');
+            await waitForExpect(() => expect(newTabSearchResultsText(root)).toContain('面白い'));
+            expect(new URL(window.location.href).searchParams.get('q')).toBe('おもし');
+
+            window.history.back();
+            await waitForExpect(() => {
+                expect(newTabSearchInput(root).value).toBe('cat');
+                expect(newTabSearchResultsText(root)).toContain('猫');
+            });
+
+            window.history.forward();
+            await waitForExpect(() => {
+                expect(newTabSearchInput(root).value).toBe('おもし');
+                expect(newTabSearchResultsText(root)).toContain('面白い');
+            });
+
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="search-clear"]')?.click();
+            expect(new URL(window.location.href).searchParams.has('q')).toBe(false);
+        } finally {
+            root.remove();
+            window.history.replaceState(null, '', '/');
+        }
+    });
+
+    it('searches English glossary text without redundant global lookup links in search mode', async () => {
         const { settings, searchTerms, root, searchApi } = createDictionarySearchModeFixture();
 
         try {
@@ -9280,14 +9330,12 @@ describe('new tab review helpers', () => {
             const suggestion = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-suggestion"]')!;
             expect(input.getAttribute('aria-activedescendant')).toBeNull();
             expect(suggestion.dataset.active).toBeUndefined();
-            expect(newTabSearchResultsText(root)).toContain('Takoboto');
-            expect(newTabSearchResultsText(root)).toContain('Copy');
+            expect(root.querySelector('.jpdb-reader-newtab-search-links')).toBeNull();
+            expect(newTabSearchResultsText(root)).not.toContain('Takoboto');
+            expect(newTabSearchResultsText(root)).not.toContain('Copy');
             expect(newTabSearchResultsText(root)).not.toContain('JPDB');
             expect(newTabSearchResultsText(root)).not.toContain('Jisho');
             expect(newTabSearchResultsText(root)).not.toContain('Yomu');
-            expect(root.querySelector<HTMLAnchorElement>('.jpdb-reader-newtab-search-links a')?.href).toContain('takoboto.jp/?q=cat');
-            expect(Array.from(root.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-newtab-search-links a')).map(link => link.href))
-                .not.toEqual(expect.arrayContaining([expect.stringContaining('/yomu-reader/newtab/')]));
 
             const submitEnterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
             input.dispatchEvent(submitEnterEvent);
