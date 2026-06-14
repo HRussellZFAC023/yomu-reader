@@ -428,6 +428,11 @@
   overflow-wrap: anywhere;
 }
 
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after {
+  border-block-end-color: transparent;
+}
+
 .jpdb-reader-word.jpdb-reader-passive-word {
   cursor: inherit;
 }

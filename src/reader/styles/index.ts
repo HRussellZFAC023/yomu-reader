@@ -158,6 +158,10 @@ export const CRITICAL_READER_CSS = `
 .VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
   inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
 }
+.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after,
+.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after {
+  border-block-end-color: transparent;
+}
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);

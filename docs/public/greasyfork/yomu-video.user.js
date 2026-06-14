@@ -5525,7 +5525,10 @@ ${candidate.depth}`;
     return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface);
+    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
   }
   function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
     const first = segments[startIndex]?.surface ?? "";
@@ -5582,6 +5585,7 @@ ${candidate.depth}`;
   function uniqueStrings$1(values) {
     const seen = /* @__PURE__ */ new Set();
     return values.filter((value) => {
+      if (!value) return false;
       if (seen.has(value)) return false;
       seen.add(value);
       return true;
