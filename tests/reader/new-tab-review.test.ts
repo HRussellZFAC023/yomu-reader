@@ -597,7 +597,7 @@ function ankiNumberListParam(params: Record<string, unknown>, key: string): numb
 }
 
 function stubAnkiConnectFetch(responder: AnkiConnectResponder): void {
-    vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+    const respond = async (init?: RequestInit): Promise<Response> => {
         const request = parseAnkiConnectRequest(init);
         const result = await responder(request, {
             query: String(request.params.query ?? ''),
@@ -605,6 +605,17 @@ function stubAnkiConnectFetch(responder: AnkiConnectResponder): void {
             notes: ankiNumberListParam(request.params, 'notes'),
         });
         return new Response(JSON.stringify({ result, error: null }), { status: 200 });
+    };
+    vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => respond(init));
+    vi.stubGlobal('GM_xmlhttpRequest', async (details: Parameters<UserscriptHttpRequest>[0]) => {
+        const response = await respond({ body: details.data as BodyInit | null | undefined });
+        const json = await response.json();
+        details.onload?.({
+            status: response.status,
+            response: json,
+            responseText: JSON.stringify(json),
+        });
+        return { abort: vi.fn() };
     });
 }
 
@@ -2231,6 +2242,7 @@ describe('new tab review helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         const { settings, client } = newTabAnkiClient({
+            ankiConnectUrl: window.location.origin,
             ankiModel: '',
         });
 

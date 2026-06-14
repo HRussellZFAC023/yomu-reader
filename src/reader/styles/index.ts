@@ -1,4 +1,5 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
+import { getUserscriptHttpRequest } from '../userscript/index';
 
 const READER_CSS_RESOURCE = 'yomuCss';
 const READER_CSS_RESOURCE_URL = 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css';
@@ -126,6 +127,65 @@ export const CRITICAL_READER_CSS = `
   border-radius: 999px;
   background: var(--jpdb-reader-faint, #687384);
 }
+.jpdb-reader-word {
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
+  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-style: solid;
+  --jpdb-reader-word-underline-thickness: 2px;
+  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
+  --jpdb-reader-source-pitch-decoration: transparent;
+  position: relative;
+  text-decoration-line: underline !important;
+  text-decoration-style: var(--jpdb-reader-word-underline-style) !important;
+  text-decoration-color: transparent !important;
+  text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
+  text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
+  text-decoration-skip-ink: none !important;
+}
+.jpdb-reader-word::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
+  border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
+  pointer-events: none;
+}
+.jpdb-reader-word.jpdb-pitch-heiban {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
+}
+.jpdb-reader-word.jpdb-pitch-atamadaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-atamadaka-readable);
+}
+.jpdb-reader-word.jpdb-pitch-nakadaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-nakadaka-readable);
+}
+.jpdb-reader-word.jpdb-pitch-odaka {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
+}
+.jpdb-reader-word.jpdb-pitch-kifuku {
+  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku);
+  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-kifuku-readable);
+}
+.jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
+}
+.jpdb-reader-word-underline-pitch .jpdb-reader-word {
+  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
+}
+.jpdb-reader-word-text-pitch .jpdb-reader-word {
+  --jpdb-reader-word-color-source: var(--jpdb-reader-source-pitch-color, currentColor);
+  color: var(--jpdb-reader-word-color-source, currentColor) !important;
+}
+.jpdb-reader-word-underline-pitch .jpdb-reader-word {
+  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
+}
 `.trim();
 
 export function initialReaderCss(css = READER_CSS): string {
@@ -148,9 +208,7 @@ export async function loadReaderCssFallback(
 async function refreshReaderCssFallback(fetcher: typeof fetch, href: string): Promise<string> {
     for (const url of readerCssFallbackUrls(href)) {
         try {
-            const response = await fetcher(url, { credentials: 'omit', cache: 'force-cache' });
-            if (!response.ok) continue;
-            const css = await response.text();
+            const css = await fetchReaderCssFallbackUrl(url, fetcher);
             if (isFullReaderCss(css)) {
                 await gmStorageSet(READER_CSS_CACHE_KEY, css);
                 return css;
@@ -160,6 +218,47 @@ async function refreshReaderCssFallback(fetcher: typeof fetch, href: string): Pr
         }
     }
     return '';
+}
+
+async function fetchReaderCssFallbackUrl(url: string, fetcher: typeof fetch): Promise<string> {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+        try {
+            return await requestReaderCssViaUserscript(url, userscriptRequest);
+        } catch {
+            // Strict sites such as Discord may block page fetch; userscript HTTP
+            // is preferred, but a broken/limited bridge should not prevent the
+            // normal CORS-enabled fetch fallback from trying next.
+        }
+    }
+    const response = await fetcher(url, { credentials: 'omit', cache: 'force-cache' });
+    if (!response.ok) return '';
+    return await response.text();
+}
+
+function requestReaderCssViaUserscript(url: string, request: UserscriptHttpRequest): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const handleLoad = (response: UserscriptHttpResponse) => {
+            if (response.status < 200 || response.status >= 300) {
+                reject(new Error(`Reader CSS request failed (${response.status}).`));
+                return;
+            }
+            resolve(String(response.responseText ?? response.response ?? ''));
+        };
+        const result = request({
+            method: 'GET',
+            url,
+            responseType: 'text',
+            timeout: 6000,
+            anonymous: true,
+            onload: handleLoad,
+            onerror: error => reject(error instanceof Error ? error : new Error('Reader CSS request failed.')),
+            ontimeout: () => reject(new Error('Reader CSS request timed out.')),
+        });
+        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error('Reader CSS request failed.')));
+        }
+    });
 }
 
 export function readerCssNeedsFallback(css = READER_CSS): boolean {
