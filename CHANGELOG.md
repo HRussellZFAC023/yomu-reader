@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.7] - 2026-06-14
+
+### Fixed
+
+- YouTube watch titles, descriptions, comments, OCR text, and subtitles keep ruby/pitch rendering while virtualized homepage, sidebar, and Shorts gallery title chrome stays native to prevent the "only furigana remains" DOM corruption.
+- YouTube comment "more" buttons, live-chat reply buttons, and recommendation chrome are no longer parsed as hover dictionary targets.
+- Paused-frame OCR overlays, status cards, and rail resume buttons are torn down on YouTube SPA navigation so homepage preview frames cannot stick over the next watch page or add duplicate play controls.
+- Subtitle detection is retried immediately on YouTube video load/metadata changes and the first cue renders during the initial lead-in, reducing blank overlay/sidebar time on short-form clips.
+- YouTube Shorts filtering now recognizes reel overlay/card video ids more reliably and keeps non-Japanese Shorts out of desktop and mobile galleries.
+- The YouTube smoke suite now covers homepage-to-watch OCR cleanup, side-panel rail/toggle visibility, player resizing, mobile feed filtering, Shorts filtering, and iPad-sized touch playback layouts.
+
+### Changed
+
+- Native subtitle blur now uses transparent text fill plus text-shadow instead of a CSS blur filter, keeping hover reveal responsive on mobile/tablet GPUs.
+- Reader underline alignment now uses a consistent line-height for non-passive reading surfaces so words with and without furigana share the same underline baseline.
+
 ## [0.7.6] - 2026-06-14
 
 ### Fixed

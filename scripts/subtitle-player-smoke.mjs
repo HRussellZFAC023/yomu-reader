@@ -55,11 +55,6 @@ function overlaps(a, b) {
     return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
 }
 
-function isEffectivelyUnblurred(filter) {
-    const blur = filter.match(/blur\(([\d.]+)px\)/);
-    return !filter || filter === 'none' || (blur && Number(blur[1]) < 0.1);
-}
-
 function secondarySubtitleLooksBlurred(style) {
     return style.className.includes('jpdb-subtitle-secondary-blurred')
         && colorIsTransparent(style.color)
@@ -351,12 +346,6 @@ async function runLocalSmoke(browser) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     page.on('pageerror', error => {
         console.error('PAGE ERROR:', error);
-    });
-    page.on('console', msg => {
-        console.log('PAGE LOG:', msg.type(), msg.text());
-    });
-    page.on('requestfailed', request => {
-        console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
     });
     await page.goto(localUrl, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.clear());
