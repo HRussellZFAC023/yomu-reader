@@ -1,4 +1,5 @@
 import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from './values';
+import { NEW_TAB_PAGE_URL } from '../app/constants';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 12;
@@ -14,6 +15,13 @@ export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jisho',
     label: 'Jisho',
     urlTemplate: 'https://jisho.org/search/{query}',
+    enabled: false,
+};
+
+export const YOMU_LOOKUP_LINK: DictionaryLookupLink = {
+    id: 'yomu-search',
+    label: 'Yomu',
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true,
 };
 
@@ -84,6 +92,7 @@ export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
 export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -101,7 +110,7 @@ type LegacyLookupLinkSpec = Pick<DictionaryLookupLink, 'id' | 'label' | 'urlTemp
 
 const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
     { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
+    { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK,
 ];
 
@@ -142,7 +151,7 @@ function normalizeDictionaryPreference(item: unknown, index: number): Dictionary
 export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({
         ...link,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'jisho' : link.enabled,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' : link.enabled,
     }));
 }
 
@@ -150,7 +159,9 @@ function legacyDefaultLookupLinksWithNewBuiltIns(links: DictionaryLookupLink[]):
     const linkById = new Map(links.map(link => [link.id, link]));
     return defaultDictionaryLookupLinks('local').map(defaultLink => {
         const link = linkById.get(defaultLink.id) ?? defaultLink;
-        return link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link;
+        if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
+        if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
+        return link;
     });
 }
 

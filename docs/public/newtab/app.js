@@ -226,6 +226,7 @@
   const LOOKUP_PILL_COLOR_TOKENS = {
     jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
     jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    "yomu-search": { bg: "#247a58", border: "#5ea780", text: CORE_COLOR_TOKENS.white },
     jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
     weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
     goo: { bg: "#b45309", border: "#f59e0b", text: CORE_COLOR_TOKENS.white },
@@ -1553,6 +1554,12 @@
     id: "jisho",
     label: "Jisho",
     urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true
   };
   const JITEN_LOOKUP_LINK = {
@@ -1613,6 +1620,7 @@
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1625,7 +1633,7 @@
   ];
   const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
     { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
+    { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
   function normalizeDictionaryLookupLinkSettings(value) {
@@ -1657,14 +1665,16 @@
   function defaultDictionaryLookupLinks(mode = "local") {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({
       ...link,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "jisho" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
     return defaultDictionaryLookupLinks("local").map((defaultLink) => {
       const link = linkById.get(defaultLink.id) ?? defaultLink;
-      return link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link;
+      if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
+      if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
+      return link;
     });
   }
   function isLegacyDefaultLookupLinkSet(value) {
@@ -9180,6 +9190,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -56169,21 +56180,38 @@ ${entry.url}`),
     try {
       const url = new URL(location.href);
       const mode = url.searchParams.get("mode") || url.searchParams.get("view") || url.hash.replace(/^#/u, "");
-      return mode === "stats" || mode === "search" || mode === "kanji" || mode === "word" ? mode : null;
+      if (mode === "stats" || mode === "search" || mode === "kanji" || mode === "word") return mode;
+      return newTabRouteSearchQuery(url) ? "search" : null;
     } catch {
       return null;
     }
+  }
+  function newTabRouteSearchQueryFromLocation() {
+    try {
+      return newTabRouteSearchQuery(new URL(location.href));
+    } catch {
+      return "";
+    }
+  }
+  function newTabRouteSearchQuery(url) {
+    for (const key of ["q", "query", "search"]) {
+      const value = normalizeSearchQuery(url.searchParams.get(key) ?? "");
+      if (value) return value;
+    }
+    return "";
   }
   class NewTabController {
     constructor(dependencies) {
       this.dependencies = dependencies;
       const saved = loadNewTabUiState();
       const routeMode = newTabRouteMode();
+      const routeSearchQuery = routeMode === "search" ? newTabRouteSearchQueryFromLocation() : "";
       this.state = {
         ...saved,
         ...routeMode ? { mode: routeMode } : {},
         source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings())
       };
+      if (routeSearchQuery) this.searchQuery = routeSearchQuery;
       this.stateChannel = createNewTabStateChannel((state) => {
         void this.applyExternalState(state);
       });
@@ -61585,7 +61613,7 @@ ${entry.url}`),
       results.dataset.searchQuery = query;
       replaceChildrenWith(
         results,
-        this.renderExternalSearchLinks(query, true),
+        this.renderExternalSearchLinks(query),
         el("div", { class: "jpdb-reader-newtab-search-message" }, this.text("searching"))
       );
     }
@@ -61598,7 +61626,7 @@ ${entry.url}`),
       this.renderSearchAutocomplete(root, results.query, results.suggestions);
       replaceChildrenWith(
         mount,
-        this.renderExternalSearchLinks(results.query, !results.hasLocalDictionaries || resultCount === 0),
+        this.renderExternalSearchLinks(results.query),
         results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
         results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
         resultCount ? null : this.renderSearchNoResults(results)
@@ -61632,19 +61660,19 @@ ${entry.url}`),
       this.searchWordCardCache.clear();
       replaceChildrenWith(
         results,
-        this.renderExternalSearchLinks(query, true),
+        this.renderExternalSearchLinks(query),
         el("div", { class: "jpdb-reader-newtab-search-message" }, this.text("searchLocalDictionariesFailed"))
       );
     }
-    renderExternalSearchLinks(query, includeBuiltInFallback = false) {
+    renderExternalSearchLinks(query) {
       const context = searchLookupLinkContext(query);
       const configuredLinks = this.dependencies.getSettings().dictionaryLookupLinks.filter((link) => link.enabled);
-      const lookupLinks = includeBuiltInFallback ? withBuiltInSearchLookupLinks(configuredLinks) : configuredLinks;
-      const links = lookupLinks.map((link) => {
+      const links = configuredLinks.map((link) => {
         if (link.action === "copy" || link.id === "copy") {
           return el("button", { type: "button", dataset: { newtabAction: "search-copy", query } }, link.label || this.text("copyWord"));
         }
         const url = formatLookupUrl(link.urlTemplate, context);
+        if (url && isYomuNewTabUrl(url)) return null;
         return url ? el("a", { href: url, target: "_blank", rel: "noopener" }, link.label) : null;
       }).filter((link) => Boolean(link));
       return links.length ? el("div", { class: "jpdb-reader-newtab-search-links", role: "group", "aria-label": this.text("externalDictionarySearch") }, links) : null;
@@ -62912,14 +62940,6 @@ ${entry.url}`),
       vid: "0",
       sid: "0"
     };
-  }
-  function withBuiltInSearchLookupLinks(links) {
-    const lookupLinks = [...links];
-    for (const link of [JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, JISHO_LOOKUP_LINK]) {
-      if (lookupLinks.some((existing) => existing.id === link.id || existing.urlTemplate === link.urlTemplate)) continue;
-      lookupLinks.push(link);
-    }
-    return lookupLinks;
   }
   function sentencePromptTarget(card, sentence) {
     const reading = newTabCardOptionalReading(card);

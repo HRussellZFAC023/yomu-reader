@@ -271,6 +271,8 @@
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const GITHUB_OWNER = "HRussellZFAC023";
   const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
@@ -2001,6 +2003,12 @@
     id: "jisho",
     label: "Jisho",
     urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true
   };
   const JITEN_LOOKUP_LINK = {
@@ -2061,6 +2069,7 @@
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -2073,7 +2082,7 @@
   ];
   [
     { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
+    { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
   Logger.scope("Settings");

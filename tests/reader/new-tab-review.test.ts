@@ -1304,6 +1304,7 @@ function createDictionarySearchModeFixture() {
         dictionaryLookupLinks: [
             { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: false },
             { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: false },
+            { id: 'yomu-search', label: 'Yomu', urlTemplate: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}', enabled: true },
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={query}', enabled: true },
             { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' as const },
         ],
@@ -8978,6 +8979,17 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('starts search mode from new-tab query params', () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=mum',
+        });
+        const controller = newTabBareController(DEFAULT_SETTINGS);
+        const internals = controller as unknown as { state: { mode: string }; searchQuery: string };
+
+        expect(internals.state.mode).toBe('search');
+        expect(internals.searchQuery).toBe('mum');
+    });
+
     it('searches English glossary text and enabled lookup links in search mode', async () => {
         const { settings, searchTerms, root, searchApi } = createDictionarySearchModeFixture();
 
@@ -8996,7 +9008,10 @@ describe('new tab review helpers', () => {
             expect(newTabSearchResultsText(root)).toContain('Copy');
             expect(newTabSearchResultsText(root)).not.toContain('JPDB');
             expect(newTabSearchResultsText(root)).not.toContain('Jisho');
+            expect(newTabSearchResultsText(root)).not.toContain('Yomu');
             expect(root.querySelector<HTMLAnchorElement>('.jpdb-reader-newtab-search-links a')?.href).toContain('takoboto.jp/?q=cat');
+            expect(Array.from(root.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-newtab-search-links a')).map(link => link.href))
+                .not.toEqual(expect.arrayContaining([expect.stringContaining('/yomu-reader/newtab/')]));
 
             const submitEnterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
             input.dispatchEvent(submitEnterEvent);
