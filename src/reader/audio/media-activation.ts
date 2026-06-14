@@ -11,8 +11,15 @@ export function canAttemptAudiblePlayback(userGesture = false): boolean {
     }
 
     const browserActivation = browserUserActivationState();
-    if (browserActivation !== undefined) return browserActivation || pageHasUserActivation;
-    if (isFirefoxLikeBrowser()) return pageHasUserActivation;
+    if (browserActivation) pageHasUserActivation = true;
+    // A false userActivation state means playback may be rejected, not that
+    // the reader should skip the attempt entirely. Some userscript managers
+    // and desktop browsers still allow extension-initiated media playback;
+    // when they do not, AudioPlayer handles the rejected play() and falls
+    // through quietly.
+    if (browserActivation !== undefined) return true;
+    if (pageHasUserActivation) return true;
+    if (isFirefoxLikeBrowser()) return true;
     return true;
 }
 

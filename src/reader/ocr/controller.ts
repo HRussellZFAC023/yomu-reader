@@ -1715,9 +1715,9 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
 }
 
 function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
-    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     // A real feed/preview tile container is unambiguous.
     if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
+    if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     // Otherwise only generic watch/shorts link wrappers are left — these also
     // wrap the MAIN player on m.youtube.com, so a player-sized video here is the
     // real player, not a hover-preview. Misclassifying it skipped the OCR pause

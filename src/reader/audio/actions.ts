@@ -24,8 +24,9 @@ export class ReaderAudioActions {
     async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean; autoPlay?: boolean } = {}): Promise<void> {
         if (!this.ensureAudioEnabled()) return;
         const key = termAudioRequestKey(card, options);
-        if (this.inFlightTermAudio?.key === key) {
-            await this.inFlightTermAudio.promise;
+        const inFlight = this.inFlightTermAudio;
+        if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
+            await inFlight.promise;
             return;
         }
         const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
@@ -39,6 +40,14 @@ export class ReaderAudioActions {
         } finally {
             if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = undefined;
         }
+    }
+
+    private shouldJoinInFlightTermAudio(
+        inFlight: { key: string; promise: Promise<boolean> } | undefined,
+        key: string,
+        options: { autoPlay?: boolean },
+    ): inFlight is { key: string; promise: Promise<boolean> } {
+        return Boolean(options.autoPlay && inFlight?.key === key);
     }
 
     private async playTermAudioOnce(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean } = {}): Promise<boolean> {

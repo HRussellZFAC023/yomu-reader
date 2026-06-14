@@ -10,6 +10,7 @@
 .jpdb-reader-settings {
   position: fixed;
   display: block;
+  pointer-events: auto !important;
   z-index: 2147483647;
   box-sizing: border-box;
   background: var(--jpdb-reader-bg);
@@ -35,6 +36,13 @@
      can never get stuck invisible. ~110ms reads as instant-with-polish, which
      keeps fast word-to-word hovering feeling immediate. */
   animation: jpdb-reader-popover-in 0.11s ease-out both;
+}
+
+.jpdb-reader-popover-body,
+.jpdb-reader-word-pills,
+.jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill),
+.jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) {
+  pointer-events: auto !important;
 }
 
 @keyframes jpdb-reader-popover-in {

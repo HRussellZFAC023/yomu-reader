@@ -45,6 +45,7 @@ import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanj
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
+import { renderedJpdbRelatedWords } from '../jpdb/jpdb-related-words';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
@@ -2014,6 +2015,7 @@ export class NewTabRuntime {
 
     private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
         if (!root.isConnected || !this.parser.canParse()) return;
+        this.enrichJpdbRelatedWords(root);
         const plan = nestedTextParsePlan(root, 160);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
@@ -2035,6 +2037,16 @@ export class NewTabRuntime {
         } finally {
             clearNestedParseLoadingKey(root, plan.parseKey, parseLoadingId);
         }
+    }
+
+    private enrichJpdbRelatedWords(root: ParentNode): void {
+        const related = renderedJpdbRelatedWords(root)
+            .filter(({ word }) => word.dataset.jpdbReaderRelatedEnqueued !== 'true');
+        if (!related.length) return;
+        related.forEach(({ word }) => { word.dataset.jpdbReaderRelatedEnqueued = 'true'; });
+        const tokens = related.map(({ token }) => token);
+        void this.enrichPitchWords(tokens);
+        void this.enrichAnkiWords(tokens, [root]);
     }
 
     private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}): Promise<JPDBToken[][]> {

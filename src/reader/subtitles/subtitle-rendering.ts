@@ -29,7 +29,7 @@ export interface SubtitlePrimaryRenderResult {
 export function renderSubtitlePrimary(input: SubtitlePrimaryRenderInput): SubtitlePrimaryRenderResult {
     const activeCue = input.cue;
     const parsedHasReaderWords = input.parsedHtml?.includes('jpdb-reader-word') ?? false;
-    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue) && !parsedHasReaderWords;
+    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue);
     const mode = subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords);
     return {
         html: renderSubtitlePrimaryHtml(input, mode),

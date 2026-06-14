@@ -56,6 +56,8 @@ describe('settings CSS', () => {
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed; display: inline-flex; align-items: center; justify-content: center;');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-backdrop { position: fixed; display: block;');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover, .jpdb-reader-settings { position: fixed; display: block;');
+        expect(normalizedPopoverCss).toContain('pointer-events: auto !important;');
+        expect(normalizedPopoverCss).toContain('.jpdb-reader-popover-body, .jpdb-reader-word-pills, .jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill), .jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) { pointer-events: auto !important; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-onboarding { position: fixed; display: block;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings { left: 50%; top: 50%; transform: translate(-50%, -50%);');
         expect(normalizedSettingsCss).toContain('padding: 0; display: flex; flex-direction: column;');

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.197
+// @version      0.6.198
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Of9qwpzZPxMzPXUVOx6Ekn+4LGH281WwbTraYTpuZ1E=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-/2KVxfQejMacYFI32yTjZY9CH54KU3PUS/B44MVEqh8=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-X+mVk0L56vV15A+mEx8tHw2AW74IVyd4y/HSVETolOc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-54EiLpfEydXRereZgEBy7lg1EhMjdG+Yoq8WhWculZs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-2Y6ftXlK8YgyLQs3b93d//rwirnPpCHL8CbLPXAv5/s=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -9242,8 +9242,10 @@ recommendedJiten	jiten.moe頻度データです。
       return true;
     }
     const browserActivation = browserUserActivationState();
-    if (browserActivation !== void 0) return browserActivation || pageHasUserActivation;
-    if (isFirefoxLikeBrowser()) return pageHasUserActivation;
+    if (browserActivation) pageHasUserActivation = true;
+    if (browserActivation !== void 0) return true;
+    if (pageHasUserActivation) return true;
+    if (isFirefoxLikeBrowser()) return true;
     return true;
   }
   function installPageActivationTracking() {
@@ -11889,6 +11891,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -21366,6 +21369,51 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return "";
     }
   }
+  const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
+  const JPDB_RELATED_WORD_STATE = "not-in-deck";
+  const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
+  function renderedJpdbRelatedWords(root) {
+    const words = root instanceof HTMLElement && root.matches(JPDB_RELATED_WORD_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR))] : Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR));
+    return words.map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
+  }
+  function renderedJpdbRelatedWord(word) {
+    const card = renderedJpdbRelatedWordCard(word);
+    if (!card) return null;
+    const surface = readerWordSurfaceText(word).trim() || card.spelling;
+    return {
+      word,
+      token: {
+        card,
+        start: 0,
+        end: surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: word.dataset.pitchClass ?? "",
+        sentence: word.dataset.sentence || surface
+      }
+    };
+  }
+  function renderedJpdbRelatedWordCard(word) {
+    const vid = Number(word.dataset.vid);
+    const sid = Number(word.dataset.sid);
+    const spelling = (word.dataset.expression ?? readerWordSurfaceText(word)).trim();
+    if (!Number.isFinite(vid) || vid <= 0 || !Number.isFinite(sid) || sid < 0 || !spelling) return null;
+    return {
+      vid,
+      sid,
+      rid: 0,
+      spelling,
+      reading: word.dataset.reading?.trim() || spelling,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [JPDB_RELATED_WORD_STATE],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: word.dataset.sentence || spelling
+    };
+  }
   function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
@@ -21413,7 +21461,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                                 data-external="false"
                             >
                                 <span class="jpdb-reader-jpdb-compound-head">
-                                    ${renderJpdbRelatedTerm(compound.term, compound.reading, "jpdb-reader-jpdb-compound-term", "", true, compound.termHtml)}
+                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: "jpdb-reader-jpdb-compound-term", termHtml: compound.termHtml })}
                                 </span>
                             </a>
                             ${compound.meaning ? `<small>${escapeHtml$1(compound.meaning)}</small>` : ""}
@@ -21481,35 +21529,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderJpdbExampleSentence(example, card) {
     return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
   }
-  function renderJpdbRelatedTerm(term, reading, className, extraAttributes = "", showReading = true, termHtml = "") {
-    const readingText2 = visibleJpdbRelatedReading(term, reading);
-    const base = `<span class="${escapeHtml$1(`${className} jpdb-reader-parseable`)}" data-dictionary="JPDB"${extraAttributes}>${termHtml || escapeHtml$1(term)}</span>`;
-    if (termHtml || !showReading || !readingText2) return base;
-    return `<span class="jpdb-reader-jpdb-term-with-reading"><span class="jpdb-reader-furi jpdb-reader-jpdb-term-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">${escapeHtml$1(readingText2)}</span>${base}</span>`;
-  }
   function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
   }
   function renderPassiveJpdbRelatedWord(term, reading, url, options = {}) {
     const vid = jpdbVocabularyVidFromUrl(url);
-    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0"`;
+    const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-pitch-class="" data-sentence="${escapeHtml$1(term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function passiveJpdbRelatedWordContent(term, reading, options) {
     const termHtml = options.termHtml?.trim() ?? "";
     const visibleReading = passiveJpdbRelatedReading(term, reading, options, termHtml);
     return {
-      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml))),
+      classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml)), options.className),
       content: termHtml || passiveJpdbRelatedPlainContent(term, visibleReading)
     };
   }
   function passiveJpdbRelatedReading(term, reading, options, termHtml) {
     return termHtml || options.showReading === false ? "" : visibleJpdbRelatedReading(term, reading);
   }
-  function passiveJpdbRelatedClasses(hasFuri) {
-    return `jpdb-reader-word jpdb-reader-passive-word${hasFuri ? " jpdb-reader-has-furi" : ""}`;
+  function passiveJpdbRelatedClasses(hasFuri, className = "") {
+    const extra = className.trim();
+    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml$1(extra)}` : ""}${hasFuri ? " jpdb-reader-has-furi" : ""}`;
   }
   function passiveJpdbRelatedPlainContent(term, visibleReading) {
     return visibleReading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(term)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(visibleReading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(term);
@@ -31093,6 +31136,12 @@ ${glossaryKey}`;
     "a[href]",
     '[role="link"]'
   ].join(",");
+  const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
+    "yt-button-shape button",
+    "ytd-button-renderer button",
+    'yt-chip-cloud-chip-renderer button[role="tab"]',
+    'yt-chip-cloud-chip-renderer [role="tab"]'
+  ].join(",");
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     // The video player owns captions and most chrome; the settings popover is
@@ -31132,6 +31181,18 @@ ${glossaryKey}`;
     "yt-chip-cloud-chip-renderer",
     "iron-selector#chips"
   ].join(",");
+  const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = /* @__PURE__ */ new Set([
+    "button",
+    '[role="button"]',
+    '[role="tab"]',
+    "yt-button-shape",
+    "ytd-button-renderer",
+    ".yt-spec-button-shape-next",
+    "yt-chip-cloud-renderer",
+    "yt-chip-cloud-chip-renderer",
+    "iron-selector#chips"
+  ]);
+  const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
   const GENERIC_PROSE_ROOTS = [
     "main h1",
@@ -31698,7 +31759,14 @@ ${glossaryKey}`;
       roots: [
         // Watch, feed, sidebar, live-chat, and recommendation text. Video
         // title links are collected as passive hover targets so native
-        // YouTube clicks keep working, but player/buttons/tabs stay native.
+        // YouTube clicks keep working. Stable masthead/nav/filter labels
+        // get the same passive treatment without scanning arbitrary player
+        // or comment controls.
+        "ytd-masthead",
+        "ytd-mini-guide-renderer",
+        "ytd-feed-filter-chip-bar-renderer",
+        "yt-chip-cloud-renderer",
+        "iron-selector#chips",
         "ytd-watch-metadata h1",
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",
@@ -31904,17 +31972,24 @@ ${glossaryKey}`;
   }
   function collectPassiveInteractionScanTargets(profile, root, context) {
     const selector = profile.passiveInteraction;
-    if (!selector || !siteScanHasRoom(context)) return;
-    collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
-  }
-  function collectPassiveInteractionRoots(profile, roots, context) {
-    for (const passiveRoot of roots) {
-      if (!siteScanHasRoom(context)) break;
-      collectPassiveInteractionRootTargets(profile, passiveRoot, context);
+    if (selector && siteScanHasRoom(context)) {
+      collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, selector), context);
+    }
+    if (shouldCollectYouTubePassiveChrome(profile, root) && siteScanHasRoom(context)) {
+      collectPassiveInteractionRoots(profile, passiveInteractionRoots(root, YOUTUBE_PASSIVE_CHROME_SELECTOR), context, { chrome: true });
     }
   }
-  function collectPassiveInteractionRootTargets(profile, passiveRoot, context) {
-    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, profile.exclude ?? COMMON_EXCLUDE, {
+  function shouldCollectYouTubePassiveChrome(profile, root) {
+    return profile.id === "youtube-comments-parser" && root.matches("ytd-masthead,ytd-feed-filter-chip-bar-renderer,yt-chip-cloud-renderer,iron-selector#chips");
+  }
+  function collectPassiveInteractionRoots(profile, roots, context, options = {}) {
+    for (const passiveRoot of roots) {
+      if (!siteScanHasRoom(context)) break;
+      collectPassiveInteractionRootTargets(profile, passiveRoot, context, options);
+    }
+  }
+  function collectPassiveInteractionRootTargets(profile, passiveRoot, context, options = {}) {
+    const collected = collectFragmentTextTargetsIn(passiveRoot, siteScanRemaining(context), profile.visibleOnly ?? true, passiveInteractionExcludeSelector(profile, options), {
       allowUiText: true,
       minLength: profile.minLength,
       includeUiChrome: true,
@@ -31927,6 +32002,9 @@ ${glossaryKey}`;
       if (!addUniqueSiteScanTarget(profile, target, context, { passiveInteraction: true })) continue;
       if (!siteScanHasRoom(context)) break;
     }
+  }
+  function passiveInteractionExcludeSelector(profile, options) {
+    return profile.id === "youtube-comments-parser" && options.chrome ? YOUTUBE_PASSIVE_CHROME_EXCLUDE : profile.exclude ?? COMMON_EXCLUDE;
   }
   function passiveInteractionRoots(root, selector) {
     const candidates = [
@@ -32242,7 +32320,9 @@ ${glossaryKey}`;
   const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
   const PITCH_ENRICHMENT_LIMIT = 12;
   const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-  const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 24;
+  const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+  const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
+  const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
   const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
   const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -34234,8 +34314,9 @@ ${glossaryKey}`;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
       const key = termAudioRequestKey(card, options);
-      if (this.inFlightTermAudio?.key === key) {
-        await this.inFlightTermAudio.promise;
+      const inFlight = this.inFlightTermAudio;
+      if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
+        await inFlight.promise;
         return;
       }
       const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
@@ -34248,6 +34329,9 @@ ${glossaryKey}`;
       } finally {
         if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = void 0;
       }
+    }
+    shouldJoinInFlightTermAudio(inFlight, key, options) {
+      return Boolean(options.autoPlay && inFlight?.key === key);
     }
     async playTermAudioOnce(card, options = {}) {
       const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
@@ -35791,6 +35875,17 @@ ${glossaryKey}`;
 [data-jpdb-reader-root] *::after {
   box-sizing: border-box;
 }
+.jpdb-reader-popover,
+.jpdb-reader-settings,
+.jpdb-reader-backdrop {
+  pointer-events: auto !important;
+}
+.jpdb-reader-popover-body,
+.jpdb-reader-word-pills,
+.jpdb-reader-popover :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action], .jpdb-reader-word, .jpdb-reader-action-pill),
+.jpdb-reader-settings :is(a[href], button, input, select, textarea, summary, [role="button"], [data-action]) {
+  pointer-events: auto !important;
+}
 [data-jpdb-reader-root]:where(button),
 [data-jpdb-reader-root] :where(button) {
   appearance: none;
@@ -36168,6 +36263,7 @@ ${glossaryKey}`;
   const VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE = 12;
   const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
+  const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1200;
   const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
   const ASB_SCAN_BATCH_LIMIT = 12;
   const ASB_SCAN_DRAIN_DELAY_MS = 80;
@@ -36455,12 +36551,15 @@ ${glossaryKey}`;
   function hasJpdbParseApiKey(settings) {
     return Boolean(settings.apiKey.trim());
   }
+  function hasRemoteParseApiKey(settings) {
+    return Boolean(settings.apiKey.trim() || settings.jitenApiKey.trim());
+  }
   function shouldStartPitchEnrichmentBeforeApply(tokens) {
     return tokens.some((token) => token.card.source === "fallback" && token.card.spelling.trim() && !token.rubies.length);
   }
-  function scanParseOptions(_settings, _targets = []) {
+  function scanParseOptions(settings, _targets = []) {
     return {
-      jpdbTimeoutMs: VISIBLE_SCAN_PARSE_TIMEOUT_MS,
+      jpdbTimeoutMs: hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS : VISIBLE_SCAN_PARSE_TIMEOUT_MS,
       allowJpdbTimeoutFallback: true,
       includeLocalPitch: false,
       allowSegmentedFallback: true
@@ -36780,6 +36879,14 @@ ${glossaryKey}`;
     '[role="tab"]',
     '[role="menuitem"]'
   ].join(",");
+  const READER_POINTER_SURFACE_SELECTOR = [
+    ".jpdb-reader-popover",
+    ".jpdb-reader-settings",
+    ".jpdb-subtitle-player",
+    ".jpdb-subtitle-list",
+    ".jpdb-ocr-layer",
+    "[data-jpdb-reader-root]"
+  ].join(",");
   function createNoopImageOcrController() {
     const noop2 = () => void 0;
     return {
@@ -36896,7 +37003,7 @@ ${glossaryKey}`;
       dictionarySourceAttributes: (key) => this.dictionarySourceState.attributes(key),
       parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
-      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
       isCurrentPopoverRoot: (root) => this.isCurrentPopoverRoot(root)
     });
@@ -36930,7 +37037,7 @@ ${glossaryKey}`;
       parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       canParseJapanese: () => this.canParseJapanese(),
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
-      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
       repositionPopover: () => this.repositionActivePopover(),
       setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -36968,7 +37075,7 @@ ${glossaryKey}`;
       parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
       pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
       preloadParsedTokens: (tokens) => this.preloadParsedTokens(tokens),
-      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
       enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
       beginAnkiWordEnrichment: (tokens) => this.beginAnkiWordEnrichment(tokens),
       prepareAnkiWordEnrichmentBeforeRender: (tokens) => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
@@ -37047,6 +37154,9 @@ ${glossaryKey}`;
     pitchEnrichmentQueuedKeys = /* @__PURE__ */ new Set();
     pitchEnrichmentUrgentKeys = /* @__PURE__ */ new Set();
     pitchEnrichmentDrain;
+    deferredPublicPitchQueue = [];
+    deferredPublicPitchQueuedKeys = /* @__PURE__ */ new Set();
+    deferredPublicPitchDrain;
     pendingSubtitleRebakeTexts = /* @__PURE__ */ new Set();
     subtitleRebakeTimer;
     cachedPublicVocabularyHydrationTimer;
@@ -38241,11 +38351,11 @@ ${glossaryKey}`;
       }
       return null;
     }
-    hoverReaderWordFromPointStack(x, y) {
+    hoverReaderWordFromPointStack(x, y, surface = null) {
       if (typeof document.elementsFromPoint !== "function") return null;
       for (const element2 of document.elementsFromPoint(x, y)) {
         const word = element2.closest?.(".jpdb-reader-word");
-        if (word && this.canHoverLookupReaderWord(word)) return word;
+        if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word)) return word;
       }
       return null;
     }
@@ -38289,9 +38399,18 @@ ${glossaryKey}`;
       return this.settings.audioEnabled;
     }
     canPreloadBackgroundReaderAudio() {
-      return this.settings.audioEnabled && this.settings.autoPlayAudio;
+      return this.settings.audioEnabled && this.settings.autoPlayAudio && !isYouTubeRuntimeHost();
+    }
+    backgroundPitchEnrichmentOptions() {
+      if (isYouTubeRuntimeHost()) return { publicLookup: false };
+      return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+    }
+    nestedPitchEnrichmentOptions() {
+      if (isYouTubeRuntimeHost()) return { publicLookup: false };
+      return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
     }
     preloadableReaderWordCard(word) {
+      if (word.dataset.jpdbReaderPassive === "true") return null;
       const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
       return card && isUsefulImmersionPreloadQuery(card.spelling) ? card : null;
     }
@@ -38443,9 +38562,16 @@ ${glossaryKey}`;
     }
     readerWordForPointerEvent(event) {
       const target = event.target instanceof Element ? event.target : null;
+      const surface = this.readerPointerSurfaceForTarget(target);
       const direct = target?.closest?.(".jpdb-reader-word");
-      if (direct) return direct;
-      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+      if (direct && this.readerWordBelongsToPointerSurface(direct, surface)) return direct;
+      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+    }
+    readerPointerSurfaceForTarget(target) {
+      return target?.closest(READER_POINTER_SURFACE_SELECTOR) ?? null;
+    }
+    readerWordBelongsToPointerSurface(word, surface) {
+      return !surface || surface.contains(word);
     }
     isMiningDrawerHandlePointerEvent(event) {
       return Boolean(this.miningDrawerHandleFromEventTarget(event.target) ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
@@ -38476,7 +38602,7 @@ ${glossaryKey}`;
     }
     readerWordFromRenderedGeometry(target, x, y) {
       const scope = this.readerWordGeometryScope(target);
-      return scope ? readerWordAtPointInScope(scope, x, y, (word) => this.canHoverLookupReaderWord(word)) : null;
+      return scope ? readerWordAtPointInScope(scope, x, y, (word) => this.canLookupReaderWord(word)) : null;
     }
     readerWordGeometryScope(target) {
       if (!target) return null;
@@ -40573,16 +40699,28 @@ ${glossaryKey}`;
     }
     async parsePopoverJapanese(popover) {
       if (!this.isCurrentPopoverRoot(popover)) return;
+      this.enrichJpdbRelatedWords(popover);
       const plan = nestedTextParsePlan(popover, 120);
       if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
       await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
     }
     async parseJpdbPageAddonJapanese(root) {
       if (!this.isJpdbPageAddonRoot(root)) return;
+      this.enrichJpdbRelatedWords(root);
       clearNestedParseState(root);
       const plan = nestedTextParsePlan(root, 120);
       if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
       await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+    }
+    enrichJpdbRelatedWords(root) {
+      const related = renderedJpdbRelatedWords(root).filter(({ word }) => word.dataset.jpdbReaderRelatedEnqueued !== "true");
+      if (!related.length) return;
+      related.forEach(({ word }) => {
+        word.dataset.jpdbReaderRelatedEnqueued = "true";
+      });
+      const tokens = related.map(({ token }) => token);
+      void this.enrichPitchWords(tokens, this.nestedPitchEnrichmentOptions());
+      this.queueAnkiWordEnrichment(tokens, [root]);
     }
     isJpdbPageAddonRoot(root) {
       return Boolean(root.isConnected && root.matches("[data-yomu-jpdb-addon]"));
@@ -40629,7 +40767,7 @@ ${glossaryKey}`;
       refreshReaderWordContrast(form);
       form.dataset.jpdbReaderParseKey = plan.parseKey;
       const tokens = parsed.flat();
-      void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+      void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
       this.queueAnkiWordEnrichment(tokens, [form]);
     }
     async parseNestedJapaneseContent(root, plan, isCurrent, options = {}) {
@@ -40692,12 +40830,12 @@ ${glossaryKey}`;
     afterNestedJapaneseParsed(parsed, root = document, pitchOptions) {
       const tokens = parsed.flat();
       this.preloadTermAudioForTokens(tokens);
-      void this.enrichPitchWords(tokens, pitchOptions ?? { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+      void this.enrichPitchWords(tokens, pitchOptions ?? this.nestedPitchEnrichmentOptions());
       this.queueAnkiWordEnrichment(tokens, [root]);
     }
     afterSubtitleJapaneseParsed(tokens, roots = []) {
       this.preloadTermAudioForTokens(tokens);
-      void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+      void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
       if (!this.shouldRunAnkiBackgroundWork()) return;
       const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
       void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
@@ -40917,6 +41055,7 @@ ${glossaryKey}`;
         const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
         const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
         const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
+        const shouldDeferPublicLookup = options.deferPublicLookup !== false;
         const localOnly = runLimited(
           deferredPublicTokens,
           LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
@@ -40924,12 +41063,12 @@ ${glossaryKey}`;
         );
         if (!publicTokens.length) {
           await localOnly;
-          this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
           return;
         }
         this.queuePitchEnrichmentTokens(publicTokens, options);
         await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
-        this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+        if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
         return;
       }
       this.queuePitchEnrichmentTokens(uniqueTokens, options);
@@ -40937,16 +41076,43 @@ ${glossaryKey}`;
     }
     scheduleDeferredPublicPitchEnrichment(tokens) {
       if (!tokens.length) return;
-      void this.waitForIdle().then(() => this.enrichPitchWords(tokens)).catch((error) => {
+      this.queueDeferredPublicPitchTokens(tokens);
+      void this.drainDeferredPublicPitchQueue().catch((error) => {
         log.warn("Deferred pitch failed", error);
       });
+    }
+    queueDeferredPublicPitchTokens(tokens) {
+      for (const token of tokens) {
+        const key = cardKey(token.card);
+        if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
+        if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
+        this.deferredPublicPitchQueuedKeys.add(key);
+        this.deferredPublicPitchQueue.push(token);
+      }
+    }
+    async drainDeferredPublicPitchQueue() {
+      if (this.deferredPublicPitchDrain) return this.deferredPublicPitchDrain;
+      this.deferredPublicPitchDrain = this.runDeferredPublicPitchQueue().finally(() => {
+        this.deferredPublicPitchDrain = void 0;
+        if (!this.isDestroyed && this.settings.showPitchAccent && this.deferredPublicPitchQueue.length) {
+          void this.drainDeferredPublicPitchQueue();
+        }
+      });
+      return this.deferredPublicPitchDrain;
+    }
+    async runDeferredPublicPitchQueue() {
+      while (!this.isDestroyed && this.settings.showPitchAccent && this.deferredPublicPitchQueue.length) {
+        await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
+        const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
+        batch.forEach((token) => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
+        await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
+      }
     }
     queuePitchEnrichmentTokens(tokens, options = {}) {
       for (const token of tokens) {
         const key = cardKey(token.card);
         if (this.pitchEnrichmentQueuedKeys.has(key)) {
           if (options.urgent) this.promoteQueuedPitchEnrichmentToken(key);
-          this.pitchEnrichmentQueue.push(token);
           continue;
         }
         this.pitchEnrichmentQueuedKeys.add(key);
@@ -41058,6 +41224,8 @@ ${glossaryKey}`;
       this.pitchEnrichmentQueue = [];
       this.pitchEnrichmentQueuedKeys.clear();
       this.pitchEnrichmentUrgentKeys.clear();
+      this.deferredPublicPitchQueue = [];
+      this.deferredPublicPitchQueuedKeys.clear();
     }
     async localPitchAccentForCard(card) {
       const pattern = await this.localPitchPatternForCard(card);
@@ -41847,6 +42015,9 @@ ${glossaryKey}`;
   }
   function nestedParseRequireApi(options, skipApi) {
     return options.requireApi ?? options.requireJpdb ?? !skipApi;
+  }
+  function isYouTubeRuntimeHost(hostname = location.hostname) {
+    return hostname === "youtu.be" || hostname === "youtube.com" || hostname.endsWith(".youtube.com");
   }
   function publicLookupCardRequest(readingOrOptions, maybeOptions) {
     return typeof readingOrOptions === "string" ? { options: maybeOptions, reading: readingOrOptions } : { options: readingOrOptions, reading: "" };

@@ -133,6 +133,29 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('waits longer for remote API parses before falling back on visible page scans', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>日本語の動画です。</p>';
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+                jpdbTimeoutMs: 1200,
+                allowJpdbTimeoutFallback: true,
+            }));
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('starts fallback pitch and ruby enrichment before applying visible page tokens', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
@@ -812,7 +835,7 @@ describe('VisiblePageScanner', () => {
             allowSegmentedFallback?: boolean;
         }) => {
             expect(options).toEqual(expect.objectContaining({
-                jpdbTimeoutMs: 450,
+                jpdbTimeoutMs: 1200,
                 allowJpdbTimeoutFallback: true,
                 allowSegmentedFallback: true,
             }));

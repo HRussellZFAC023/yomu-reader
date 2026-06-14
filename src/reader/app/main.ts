@@ -57,6 +57,7 @@ import { yomuKanjiStudyCompanion } from '../companions/registry';
 import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
+import { renderedJpdbRelatedWords } from '../jpdb/jpdb-related-words';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import {
     dictionaryPreferencePriority as jpdbPageDictionaryPreferencePriority,
@@ -134,6 +135,8 @@ import {
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
+    DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
     FALLBACK_LOOKUP_INITIAL_WAIT_MS,
     FIVE_BUTTON_REVIEW_SHORTCUTS,
@@ -343,6 +346,14 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '[role="tab"]',
     '[role="menuitem"]',
 ].join(',');
+const READER_POINTER_SURFACE_SELECTOR = [
+    '.jpdb-reader-popover',
+    '.jpdb-reader-settings',
+    '.jpdb-subtitle-player',
+    '.jpdb-subtitle-list',
+    '.jpdb-ocr-layer',
+    '[data-jpdb-reader-root]',
+].join(',');
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -475,7 +486,7 @@ export class ReaderApp {
         dictionarySourceAttributes: key => this.dictionarySourceState.attributes(key),
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         isCurrentPopoverRoot: root => this.isCurrentPopoverRoot(root),
     });
@@ -509,7 +520,7 @@ export class ReaderApp {
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         canParseJapanese: () => this.canParseJapanese(),
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         repositionPopover: () => this.repositionActivePopover(),
         setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
@@ -547,7 +558,7 @@ export class ReaderApp {
         parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         preloadParsedTokens: tokens => this.preloadParsedTokens(tokens),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT }),
+        enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
         enrichAnkiWords: (tokens, roots) => this.enrichAnkiWords(tokens, roots),
         beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
         prepareAnkiWordEnrichmentBeforeRender: tokens => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
@@ -626,6 +637,9 @@ export class ReaderApp {
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
     private pitchEnrichmentDrain?: Promise<void>;
+    private deferredPublicPitchQueue: JPDBToken[] = [];
+    private deferredPublicPitchQueuedKeys = new Set<string>();
+    private deferredPublicPitchDrain?: Promise<void>;
     private pendingSubtitleRebakeTexts = new Set<string>();
     private subtitleRebakeTimer?: number;
     private cachedPublicVocabularyHydrationTimer?: number;
@@ -2003,11 +2017,11 @@ export class ReaderApp {
         return null;
     }
 
-    private hoverReaderWordFromPointStack(x: number, y: number): HTMLElement | null {
+    private hoverReaderWordFromPointStack(x: number, y: number, surface: HTMLElement | null = null): HTMLElement | null {
         if (typeof document.elementsFromPoint !== 'function') return null;
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && this.canHoverLookupReaderWord(word)) return word;
+            if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word)) return word;
         }
         return null;
     }
@@ -2057,10 +2071,23 @@ export class ReaderApp {
     }
 
     private canPreloadBackgroundReaderAudio(): boolean {
-        return this.settings.audioEnabled && this.settings.autoPlayAudio;
+        return this.settings.audioEnabled
+            && this.settings.autoPlayAudio
+            && !isYouTubeRuntimeHost();
+    }
+
+    private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
+        if (isYouTubeRuntimeHost()) return { publicLookup: false };
+        return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+    }
+
+    private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
+        if (isYouTubeRuntimeHost()) return { publicLookup: false };
+        return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
+        if (word.dataset.jpdbReaderPassive === 'true') return null;
         const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
         return card && isUsefulImmersionPreloadQuery(card.spelling) ? card : null;
     }
@@ -2247,11 +2274,20 @@ export class ReaderApp {
 
     private readerWordForPointerEvent(event: MouseEvent): HTMLElement | null {
         const target = event.target instanceof Element ? event.target : null;
+        const surface = this.readerPointerSurfaceForTarget(target);
         const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (direct) return direct;
+        if (direct && this.readerWordBelongsToPointerSurface(direct, surface)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
-            ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY)
+            ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface)
             ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+    }
+
+    private readerPointerSurfaceForTarget(target: Element | null): HTMLElement | null {
+        return target?.closest<HTMLElement>(READER_POINTER_SURFACE_SELECTOR) ?? null;
+    }
+
+    private readerWordBelongsToPointerSurface(word: HTMLElement, surface: HTMLElement | null): boolean {
+        return !surface || surface.contains(word);
     }
 
     private isMiningDrawerHandlePointerEvent(event: MouseEvent | PointerEvent): boolean {
@@ -2292,7 +2328,7 @@ export class ReaderApp {
 
     private readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null {
         const scope = this.readerWordGeometryScope(target);
-        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canHoverLookupReaderWord(word)) : null;
+        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canLookupReaderWord(word)) : null;
     }
 
     private readerWordGeometryScope(target: Element | null): ParentNode | null {
@@ -5054,6 +5090,7 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
+        this.enrichJpdbRelatedWords(popover);
         const plan = nestedTextParsePlan(popover, 120);
         if (!plan || nestedParseAlreadyScheduled(popover, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(popover, plan, () => this.isCurrentPopoverRoot(popover));
@@ -5061,10 +5098,21 @@ export class ReaderApp {
 
     private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
         if (!this.isJpdbPageAddonRoot(root)) return;
+        this.enrichJpdbRelatedWords(root);
         clearNestedParseState(root);
         const plan = nestedTextParsePlan(root, 120);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+    }
+
+    private enrichJpdbRelatedWords(root: ParentNode): void {
+        const related = renderedJpdbRelatedWords(root)
+            .filter(({ word }) => word.dataset.jpdbReaderRelatedEnqueued !== 'true');
+        if (!related.length) return;
+        related.forEach(({ word }) => { word.dataset.jpdbReaderRelatedEnqueued = 'true'; });
+        const tokens = related.map(({ token }) => token);
+        void this.enrichPitchWords(tokens, this.nestedPitchEnrichmentOptions());
+        this.queueAnkiWordEnrichment(tokens, [root]);
     }
 
     private isJpdbPageAddonRoot(root: HTMLElement): boolean {
@@ -5119,7 +5167,7 @@ export class ReaderApp {
         refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;
         const tokens = parsed.flat();
-        void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+        void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
         this.queueAnkiWordEnrichment(tokens, [form]);
     }
 
@@ -5200,13 +5248,13 @@ export class ReaderApp {
     private afterNestedJapaneseParsed(parsed: JPDBToken[][], root: ParentNode = document, pitchOptions?: PitchEnrichmentOptions): void {
         const tokens = parsed.flat();
         this.preloadTermAudioForTokens(tokens);
-        void this.enrichPitchWords(tokens, pitchOptions ?? { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+        void this.enrichPitchWords(tokens, pitchOptions ?? this.nestedPitchEnrichmentOptions());
         this.queueAnkiWordEnrichment(tokens, [root]);
     }
 
     private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
         this.preloadTermAudioForTokens(tokens);
-        void this.enrichPitchWords(tokens, { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT });
+        void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
         if (!this.shouldRunAnkiBackgroundWork()) return;
         const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
         void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
@@ -5471,6 +5519,7 @@ export class ReaderApp {
             const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
             const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
             const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
+            const shouldDeferPublicLookup = options.deferPublicLookup !== false;
             const localOnly = runLimited(
                 deferredPublicTokens,
                 LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
@@ -5478,12 +5527,12 @@ export class ReaderApp {
             );
             if (!publicTokens.length) {
                 await localOnly;
-                this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
                 return;
             }
             this.queuePitchEnrichmentTokens(publicTokens, options);
             await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
-            this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+            if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
             return;
         }
 
@@ -5493,9 +5542,40 @@ export class ReaderApp {
 
     private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
         if (!tokens.length) return;
-        void this.waitForIdle().then(() => this.enrichPitchWords(tokens)).catch(error => {
+        this.queueDeferredPublicPitchTokens(tokens);
+        void this.drainDeferredPublicPitchQueue().catch(error => {
             log.warn('Deferred pitch failed', error);
         });
+    }
+
+    private queueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
+        for (const token of tokens) {
+            const key = cardKey(token.card);
+            if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
+            if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
+            this.deferredPublicPitchQueuedKeys.add(key);
+            this.deferredPublicPitchQueue.push(token);
+        }
+    }
+
+    private async drainDeferredPublicPitchQueue(): Promise<void> {
+        if (this.deferredPublicPitchDrain) return this.deferredPublicPitchDrain;
+        this.deferredPublicPitchDrain = this.runDeferredPublicPitchQueue().finally(() => {
+            this.deferredPublicPitchDrain = undefined;
+            if (!this.isDestroyed && this.settings.showPitchAccent && this.deferredPublicPitchQueue.length) {
+                void this.drainDeferredPublicPitchQueue();
+            }
+        });
+        return this.deferredPublicPitchDrain;
+    }
+
+    private async runDeferredPublicPitchQueue(): Promise<void> {
+        while (!this.isDestroyed && this.settings.showPitchAccent && this.deferredPublicPitchQueue.length) {
+            await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
+            const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
+            batch.forEach(token => this.deferredPublicPitchQueuedKeys.delete(cardKey(token.card)));
+            await this.enrichPitchWords(batch, { publicLookupLimit: batch.length });
+        }
     }
 
     private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: { urgent?: boolean } = {}): void {
@@ -5503,7 +5583,6 @@ export class ReaderApp {
             const key = cardKey(token.card);
             if (this.pitchEnrichmentQueuedKeys.has(key)) {
                 if (options.urgent) this.promoteQueuedPitchEnrichmentToken(key);
-                this.pitchEnrichmentQueue.push(token);
                 continue;
             }
             this.pitchEnrichmentQueuedKeys.add(key);
@@ -5633,6 +5712,8 @@ export class ReaderApp {
         this.pitchEnrichmentQueue = [];
         this.pitchEnrichmentQueuedKeys.clear();
         this.pitchEnrichmentUrgentKeys.clear();
+        this.deferredPublicPitchQueue = [];
+        this.deferredPublicPitchQueuedKeys.clear();
     }
 
     private async localPitchAccentForCard(card: JPDBCard): Promise<string[]> {
@@ -6554,6 +6635,10 @@ function nestedParseSkipApi(options: ReaderParserParseOptions): boolean {
 
 function nestedParseRequireApi(options: ReaderParserParseOptions, skipApi: boolean): boolean {
     return options.requireApi ?? options.requireJpdb ?? !skipApi;
+}
+
+function isYouTubeRuntimeHost(hostname = location.hostname): boolean {
+    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
 function publicLookupCardRequest(

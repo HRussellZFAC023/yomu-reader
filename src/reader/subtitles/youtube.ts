@@ -1522,12 +1522,51 @@ function youTubeBrowseDataShowsSubscribed(data: unknown): boolean {
     // can contain subscribeButtonRenderer entries for unrelated shelves, which
     // would mark every suggestion as subscribed and empty the shelf (breaking
     // "Subscribe all").
-    const header = recordValue(data)?.header;
+    const root = recordValue(data);
+    const header = root?.header;
     if (!header) return false;
     return findNestedYouTubeValue(header, value => {
-        const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
-        return renderer?.subscribed === true ? 'subscribed' : '';
+        if (legacyYouTubeSubscribeButtonShowsSubscribed(value)) return 'subscribed';
+        return youTubeSubscribeButtonViewModelShowsSubscribed(value, root) ? 'subscribed' : '';
     }) === 'subscribed';
+}
+
+function legacyYouTubeSubscribeButtonShowsSubscribed(value: unknown): boolean {
+    const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
+    return renderer?.subscribed === true;
+}
+
+function youTubeSubscribeButtonViewModelShowsSubscribed(value: unknown, data: Record<string, unknown>): boolean {
+    const model = recordValue(recordValue(value)?.subscribeButtonViewModel);
+    if (!model) return false;
+    const stateKey = youTubeSubscribeButtonStateKey(model);
+    if (!stateKey) return false;
+    return findYouTubeSubscriptionState(data, stateKey) === true;
+}
+
+function youTubeSubscribeButtonStateKey(model: Record<string, unknown>): string {
+    return firstStringValue(
+        model.stateEntityStoreKey,
+        recordValue(recordValue(model.subscribeButtonContent)?.subscribeState)?.key,
+        recordValue(recordValue(model.unsubscribeButtonContent)?.subscribeState)?.key,
+    );
+}
+
+function findYouTubeSubscriptionState(value: unknown, stateKey: string): boolean | undefined {
+    if (!isNestedYouTubeValue(value)) return undefined;
+    const direct = readYouTubeSubscriptionState(value, stateKey);
+    if (direct !== undefined) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+        const found = findYouTubeSubscriptionState(child, stateKey);
+        if (found !== undefined) return found;
+    }
+    return undefined;
+}
+
+function readYouTubeSubscriptionState(value: unknown, stateKey: string): boolean | undefined {
+    const entity = recordValue(recordValue(value)?.subscriptionStateEntity);
+    if (!entity || stringValue(entity.key) !== stateKey || typeof entity.subscribed !== 'boolean') return undefined;
+    return entity.subscribed;
 }
 
 function youTubeChannelMetadata(data: Record<string, unknown>): Record<string, unknown> {

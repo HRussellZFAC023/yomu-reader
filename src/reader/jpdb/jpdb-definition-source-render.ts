@@ -5,6 +5,7 @@ import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JpdbVocabularyInfo } from './jpdb-vocabulary';
+import { JPDB_RELATED_WORD_PITCH_CLASS, JPDB_RELATED_WORD_STATE } from './jpdb-related-words';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
@@ -65,7 +66,7 @@ function renderJpdbCompounds(info: JpdbVocabularyInfo, language: InterfaceLangua
                                 data-external="false"
                             >
                                 <span class="jpdb-reader-jpdb-compound-head">
-                                    ${renderJpdbRelatedTerm(compound.term, compound.reading, 'jpdb-reader-jpdb-compound-term', '', true, compound.termHtml)}
+                                    ${renderPassiveJpdbRelatedWord(compound.term, compound.reading, compound.url, { className: 'jpdb-reader-jpdb-compound-term', termHtml: compound.termHtml })}
                                 </span>
                             </a>
                             ${compound.meaning ? `<small>${escapeHtml(compound.meaning)}</small>` : ''}
@@ -138,30 +139,23 @@ function renderJpdbExampleSentence(example: JpdbVocabularyInfo['examples'][numbe
     return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
 }
 
-function renderJpdbRelatedTerm(term: string, reading: string, className: string, extraAttributes = '', showReading = true, termHtml = ''): string {
-    const readingText = visibleJpdbRelatedReading(term, reading);
-    const base = `<span class="${escapeHtml(`${className} jpdb-reader-parseable`)}" data-dictionary="JPDB"${extraAttributes}>${termHtml || escapeHtml(term)}</span>`;
-    if (termHtml || !showReading || !readingText) return base;
-    return `<span class="jpdb-reader-jpdb-term-with-reading"><span class="jpdb-reader-furi jpdb-reader-jpdb-term-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">${escapeHtml(readingText)}</span>${base}</span>`;
-}
-
 function renderJpdbUsedInTerm(term: string, reading: string, url: string, termHtml = ''): string {
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
 }
 
-function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string, options: { showReading?: boolean; termHtml?: string } = {}): string {
+function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string, options: { className?: string; showReading?: boolean; termHtml?: string } = {}): string {
     const vid = jpdbVocabularyVidFromUrl(url);
-    const identityAttributes = vid === null ? '' : ` data-vid="${vid}" data-sid="0"`;
+    const identityAttributes = vid === null ? '' : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
     const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-pitch-class="" data-sentence="${escapeHtml(term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml(term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
 
-function passiveJpdbRelatedWordContent(term: string, reading: string, options: { showReading?: boolean; termHtml?: string }): { classes: string; content: string } {
+function passiveJpdbRelatedWordContent(term: string, reading: string, options: { className?: string; showReading?: boolean; termHtml?: string }): { classes: string; content: string } {
     const termHtml = options.termHtml?.trim() ?? '';
     const visibleReading = passiveJpdbRelatedReading(term, reading, options, termHtml);
     return {
-        classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml))),
+        classes: passiveJpdbRelatedClasses(Boolean(visibleReading || /<rt\b/i.test(termHtml)), options.className),
         content: termHtml || passiveJpdbRelatedPlainContent(term, visibleReading),
     };
 }
@@ -170,8 +164,9 @@ function passiveJpdbRelatedReading(term: string, reading: string, options: { sho
     return termHtml || options.showReading === false ? '' : visibleJpdbRelatedReading(term, reading);
 }
 
-function passiveJpdbRelatedClasses(hasFuri: boolean): string {
-    return `jpdb-reader-word jpdb-reader-passive-word${hasFuri ? ' jpdb-reader-has-furi' : ''}`;
+function passiveJpdbRelatedClasses(hasFuri: boolean, className = ''): string {
+    const extra = className.trim();
+    return `jpdb-reader-word jpdb-reader-passive-word jpdb-${JPDB_RELATED_WORD_STATE} jpdb-pitch-${JPDB_RELATED_WORD_PITCH_CLASS}${extra ? ` ${escapeHtml(extra)}` : ''}${hasFuri ? ' jpdb-reader-has-furi' : ''}`;
 }
 
 function passiveJpdbRelatedPlainContent(term: string, visibleReading: string): string {

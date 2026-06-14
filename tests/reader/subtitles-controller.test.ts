@@ -1923,7 +1923,7 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss)
             .toContain(`.jpdb-reader-subtitle-underline-jpdb ${yomuSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
         expect(normalizedCss)
-            .toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${yomuSurfaces} .jpdb-reader-word { text-decoration-line: underline !important; }`);
+            .toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${yomuSurfaces} .jpdb-reader-word { text-decoration-line: none !important; }`);
         for (const source of ['status', 'jpdb', 'anki', 'pitch']) {
             expect(normalizedCss)
                 .not.toContain(`.jpdb-reader-subtitle-underline-${source} ${asbSurfaces}`);
@@ -2942,7 +2942,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('does not apply karaoke state after parsed subtitle replacement', () => {
+    it('applies karaoke state after parsed subtitle replacement', () => {
         let controller: SubtitlePlayerController | undefined;
         try {
             const cue = {
@@ -2973,13 +2973,16 @@ describe('SubtitlePlayerController', () => {
             internals.renderSerial = 7;
             internals.subtitleEl.innerHTML = '<div class="jpdb-subtitle-primary">今日読む</div>';
 
-            internals.replacePrimaryHtml('<span class="jpdb-reader-word">読む</span>', 7);
+            internals.replacePrimaryHtml(
+                '<span class="jpdb-reader-word jpdb-pitch-heiban">今日</span><span class="jpdb-reader-word jpdb-pitch-odaka">読む</span>',
+                7,
+            );
 
-            const parsedWord = document.querySelector<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word')!;
-            expect(parsedWord.textContent).toContain('読む');
-            expect(parsedWord.classList.contains('jpdb-subtitle-word-current')).toBe(false);
-            expect(parsedWord.classList.contains('jpdb-subtitle-word-spoken')).toBe(false);
-            expect(parsedWord.classList.contains('jpdb-subtitle-word-pending')).toBe(false);
+            const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word'));
+            expect(words[0]?.textContent).toContain('今日');
+            expect(words[1]?.textContent).toContain('読む');
+            expect(words[0]?.classList.contains('jpdb-subtitle-word-current')).toBe(true);
+            expect(words[1]?.classList.contains('jpdb-subtitle-word-pending')).toBe(true);
         } finally {
             controller?.destroy();
         }
