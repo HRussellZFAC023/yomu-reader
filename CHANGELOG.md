@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.17] - 2026-06-14
+
+### Fixed
+
+- YouTube channel recommendations now continue checking subscribed state through the expanded 100-channel shelf in small batches, so already-subscribed channels past the first visible preview rows are removed instead of being recommended again.
+
 ## [0.7.16] - 2026-06-14
 
 ### Fixed
