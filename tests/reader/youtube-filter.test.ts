@@ -248,6 +248,18 @@ async function settlePromises(): Promise<void> {
     await Promise.resolve();
 }
 
+async function waitForChannelSubscriptionResult(
+    bodies: unknown[],
+    expectedCount = YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
+): Promise<void> {
+    for (let i = 0; i < expectedCount * 2; i += 1) {
+        await settlePromises();
+        await vi.advanceTimersByTimeAsync(25);
+        const status = document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent ?? '';
+        if (bodies.length >= expectedCount && status.startsWith('Subscribed to ')) return;
+    }
+}
+
 describe('YouTube immersion filter', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -1119,30 +1131,30 @@ describe('YouTube immersion filter', () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
 
-        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!.click();
-        await flushPendingFilterWork();
-        // The SAPISIDHASH digest adds real-async hops, so poll until the run
-        // completes instead of assuming a fixed number of microtask turns.
-        for (let i = 0; i < YOUTUBE_CHANNEL_RECOMMENDATION_COUNT * 40 && subscriptionBodies.length < YOUTUBE_CHANNEL_RECOMMENDATION_COUNT; i += 1) {
+        try {
+            document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!.click();
+            await flushPendingFilterWork();
+            // The SAPISIDHASH digest adds real-async hops, so poll until the
+            // run completes instead of assuming a fixed number of microtask turns.
+            await waitForChannelSubscriptionResult(subscriptionBodies);
             await settlePromises();
+
+            expect(subscriptionBodies).toHaveLength(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+            expect(subscriptionBodies[0]).toMatchObject({
+                channelIds: ['UC12345678901234567890'],
+                context: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+            });
+            expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent).toBe('Subscribed to 100 channels.');
+            // The subscribe write must carry the signed-in SAPISIDHASH
+            // authorization; without it YouTube applies the call to the anonymous
+            // visitor session and the account is never actually subscribed.
+            expect(subscriptionHeaders[0]?.Authorization).toMatch(/^SAPISIDHASH \d+_[0-9a-f]{40}$/);
+            expect(subscriptionHeaders[0]?.['X-Origin']).toBe('https://www.youtube.com');
+            expect(subscriptionHeaders[0]?.['X-Goog-AuthUser']).toBe('0');
+        } finally {
+            document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            filter.destroy();
         }
-        await settlePromises();
-
-        expect(subscriptionBodies).toHaveLength(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
-        expect(subscriptionBodies[0]).toMatchObject({
-            channelIds: ['UC12345678901234567890'],
-            context: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
-        });
-        expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent).toBe('Subscribed to 100 channels.');
-        // The subscribe write must carry the signed-in SAPISIDHASH
-        // authorization; without it YouTube applies the call to the anonymous
-        // visitor session and the account is never actually subscribed.
-        expect(subscriptionHeaders[0]?.Authorization).toMatch(/^SAPISIDHASH \d+_[0-9a-f]{40}$/);
-        expect(subscriptionHeaders[0]?.['X-Origin']).toBe('https://www.youtube.com');
-        expect(subscriptionHeaders[0]?.['X-Goog-AuthUser']).toBe('0');
-
-        document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        filter.destroy();
     });
 
     it('filters non-Japanese community posts in the feed by their post text', async () => {
@@ -1537,7 +1549,10 @@ describe('YouTube immersion filter', () => {
 
         try {
             filter.init();
-            await flushPendingFilterWork();
+            for (let i = 0; i < 10 && clicks < 1; i += 1) {
+                await settlePromises();
+                await vi.advanceTimersByTimeAsync(i === 0 ? 0 : 25);
+            }
 
             expect(clicks).toBe(1);
             expect(locationState.pathname).toBe('/shorts/secondEnglish');
