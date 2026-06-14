@@ -103,6 +103,7 @@ const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
 // Multiple of the list's 4/2/1-column layouts so the compact shelf fills its rows.
 const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
 const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
+const YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS = 250;
 const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
 const YOUTUBE_NAVIGATION_EVENTS = [
     'yt-navigate-finish',
@@ -221,6 +222,8 @@ export class YoutubeImmersionFilter {
     private readonly channelPreviewCache = new Map<string, YouTubeChannelPreview | null>();
     private readonly channelIdCache = new Map<string, string | null>();
     private readonly pendingChannelPreviews = new Set<string>();
+    private channelPreviewBackfillQueue: YouTubeChannelRecommendation[] = [];
+    private channelPreviewBackfillTimer?: number;
     private readonly cardTimers = new WeakMap<HTMLElement, number[]>();
     private readonly compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     private readonly subscribedChannelHandles = new Set<string>();
@@ -877,7 +880,7 @@ export class YoutubeImmersionFilter {
         this.setChannelShelfBusy(this.subscriptionBusy);
         this.syncChannelShelfTheme();
         if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
-        void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+        this.hydrateRenderedChannelPreviews(renderedRecommendations);
     }
 
     // m.youtube.com does not use the desktop html[dark] attribute, so detect
@@ -1049,6 +1052,38 @@ export class YoutubeImmersionFilter {
         return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
 
+    private hydrateRenderedChannelPreviews(channels: YouTubeChannelRecommendation[]): void {
+        const missing = channels.filter(channel => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
+        void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+        if (!this.channelShelfExpanded) {
+            this.clearChannelPreviewBackfill();
+            return;
+        }
+        this.channelPreviewBackfillQueue = missing.slice(YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT);
+        this.scheduleChannelPreviewBackfill();
+    }
+
+    private scheduleChannelPreviewBackfill(): void {
+        if (!this.channelPreviewBackfillQueue.length || this.channelPreviewBackfillTimer !== undefined) return;
+        this.channelPreviewBackfillTimer = window.setTimeout(() => {
+            this.channelPreviewBackfillTimer = undefined;
+            if (this.destroyed || !this.channelShelf?.isConnected || !this.channelShelfExpanded) {
+                this.clearChannelPreviewBackfill();
+                return;
+            }
+            const batch = this.channelPreviewBackfillQueue.splice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT)
+                .filter(channel => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
+            void this.hydrateChannelPreviews(batch);
+            this.scheduleChannelPreviewBackfill();
+        }, YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS);
+    }
+
+    private clearChannelPreviewBackfill(): void {
+        window.clearTimeout(this.channelPreviewBackfillTimer);
+        this.channelPreviewBackfillTimer = undefined;
+        this.channelPreviewBackfillQueue = [];
+    }
+
     private async hydrateChannelPreviews(channels: YouTubeChannelRecommendation[]): Promise<void> {
         const config = readYouTubeClientConfig();
         if (!config) return;
@@ -1172,6 +1207,7 @@ export class YoutubeImmersionFilter {
         this.channelShelf?.remove();
         this.channelShelf = undefined;
         this.channelShelfStatusOverride = '';
+        this.clearChannelPreviewBackfill();
     }
 
     private currentChannelShelfScope(): string {
@@ -1188,6 +1224,7 @@ export class YoutubeImmersionFilter {
         window.clearTimeout(this.timer);
         window.clearTimeout(this.metadataRescanTimer);
         window.clearTimeout(this.channelShelfRefreshTimer);
+        this.clearChannelPreviewBackfill();
         this.timer = undefined;
         this.metadataRescanTimer = undefined;
         this.channelShelfRefreshTimer = undefined;

@@ -980,6 +980,40 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('keeps removing subscribed channels past the first expanded preview batch', async () => {
+        const subscribedHandle = '@meicari';
+        stubYouTubeChannelPreviewFetch(new Set([subscribedHandle]));
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+            search: '',
+        });
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+
+        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
+        await flushPendingFilterWork();
+
+        expect(Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
+            .map(row => row.dataset.yomuChannelHandle))
+            .toContain(subscribedHandle);
+
+        for (let i = 0; i < 40 && document.querySelector<HTMLElement>(`[data-yomu-channel-handle="${subscribedHandle}"]`); i += 1) {
+            await vi.advanceTimersByTimeAsync(250);
+            await flushPendingFilterWork();
+        }
+
+        const handles = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
+            .map(row => row.dataset.yomuChannelHandle);
+        expect(handles).not.toContain(subscribedHandle);
+        expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
+            .toContain('99 shown from 100 curated channels.');
+
+        filter.destroy();
+    });
+
     it('shows an explicit all-subscribed state instead of an ambiguous empty shelf', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({

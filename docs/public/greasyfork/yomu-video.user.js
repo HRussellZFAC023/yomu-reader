@@ -14632,6 +14632,7 @@ ${spelling}`);
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
   const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
+  const YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS = 250;
   const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
   const YOUTUBE_NAVIGATION_EVENTS = [
     "yt-navigate-finish",
@@ -14693,6 +14694,8 @@ ${spelling}`);
     channelPreviewCache = /* @__PURE__ */ new Map();
     channelIdCache = /* @__PURE__ */ new Map();
     pendingChannelPreviews = /* @__PURE__ */ new Set();
+    channelPreviewBackfillQueue = [];
+    channelPreviewBackfillTimer;
     cardTimers = /* @__PURE__ */ new WeakMap();
     compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     subscribedChannelHandles = /* @__PURE__ */ new Set();
@@ -15223,7 +15226,7 @@ ${spelling}`);
       this.setChannelShelfBusy(this.subscriptionBusy);
       this.syncChannelShelfTheme();
       if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
-      void this.hydrateChannelPreviews(renderedRecommendations.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+      this.hydrateRenderedChannelPreviews(renderedRecommendations);
     }
     // m.youtube.com does not use the desktop html[dark] attribute, so detect
     // the page theme from the rendered background and mirror it on the shelf.
@@ -15372,6 +15375,34 @@ ${spelling}`);
       if (!this.channelShelfExpanded) return this.compactChannelRecommendations;
       return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
+    hydrateRenderedChannelPreviews(channels) {
+      const missing = channels.filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
+      void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+      if (!this.channelShelfExpanded) {
+        this.clearChannelPreviewBackfill();
+        return;
+      }
+      this.channelPreviewBackfillQueue = missing.slice(YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT);
+      this.scheduleChannelPreviewBackfill();
+    }
+    scheduleChannelPreviewBackfill() {
+      if (!this.channelPreviewBackfillQueue.length || this.channelPreviewBackfillTimer !== void 0) return;
+      this.channelPreviewBackfillTimer = window.setTimeout(() => {
+        this.channelPreviewBackfillTimer = void 0;
+        if (this.destroyed || !this.channelShelf?.isConnected || !this.channelShelfExpanded) {
+          this.clearChannelPreviewBackfill();
+          return;
+        }
+        const batch = this.channelPreviewBackfillQueue.splice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT).filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
+        void this.hydrateChannelPreviews(batch);
+        this.scheduleChannelPreviewBackfill();
+      }, YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS);
+    }
+    clearChannelPreviewBackfill() {
+      window.clearTimeout(this.channelPreviewBackfillTimer);
+      this.channelPreviewBackfillTimer = void 0;
+      this.channelPreviewBackfillQueue = [];
+    }
     async hydrateChannelPreviews(channels) {
       const config = readYouTubeClientConfig();
       if (!config) return;
@@ -15476,6 +15507,7 @@ ${spelling}`);
       this.channelShelf?.remove();
       this.channelShelf = void 0;
       this.channelShelfStatusOverride = "";
+      this.clearChannelPreviewBackfill();
     }
     currentChannelShelfScope() {
       const routeKey = this.currentRouteKey();
@@ -15490,6 +15522,7 @@ ${spelling}`);
       window.clearTimeout(this.timer);
       window.clearTimeout(this.metadataRescanTimer);
       window.clearTimeout(this.channelShelfRefreshTimer);
+      this.clearChannelPreviewBackfill();
       this.timer = void 0;
       this.metadataRescanTimer = void 0;
       this.channelShelfRefreshTimer = void 0;
