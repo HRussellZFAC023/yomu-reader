@@ -44,6 +44,8 @@ const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-cont
 const YOUTUBE_PASSIVE_INTERACTION_SELECTOR = [
     'a[href]',
     '[role="link"]',
+    'ytd-comment-view-model .more-button',
+    'yt-live-chat-text-message-renderer button',
 ].join(',');
 const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
     'yt-button-shape button',
@@ -58,6 +60,10 @@ const YOUTUBE_TEXT_EXCLUDE = [
     // without stealing native clicks.
     '#movie_player',
     '.html5-video-player',
+    '#secondary',
+    '#related',
+    'ytd-compact-video-renderer',
+    'ytm-item-section-renderer',
     '.ytp-chrome-top',
     '.ytp-chrome-bottom',
     '.ytp-tooltip',
@@ -100,6 +106,8 @@ const YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST = new Set([
     'yt-chip-cloud-renderer',
     'yt-chip-cloud-chip-renderer',
     'iron-selector#chips',
+    '.more-button',
+    '[slot="more-button"]',
 ]);
 const YOUTUBE_PASSIVE_CHROME_EXCLUDE = YOUTUBE_TEXT_EXCLUDE
     .split(',')
@@ -678,34 +686,16 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Watch, feed, sidebar, live-chat, and recommendation text. Video
-            // title links are collected as passive hover targets so native
-            // YouTube clicks keep working. Stable masthead/nav/filter labels
-            // get the same passive treatment without scanning arbitrary player
-            // or comment controls.
+            // Watch metadata, description, comments, live-chat, and stable
+            // chrome. Feed/recommendation title renderers are deliberately
+            // left to YouTube: their virtualized link/title DOM rejects inline
+            // ruby and can leave only furigana visible after hydration.
             'ytd-masthead',
             'ytd-mini-guide-renderer',
             'ytd-feed-filter-chip-bar-renderer',
             'yt-chip-cloud-renderer',
             'iron-selector#chips',
-            'ytd-watch-metadata h1',
-            'ytd-watch-metadata #description-inline-expander',
-            'ytd-watch-metadata ytd-text-inline-expander',
             'ytd-watch-metadata #attributed-snippet-text',
-            'ytd-rich-item-renderer',
-            'ytd-video-renderer',
-            'ytd-compact-video-renderer',
-            'ytd-grid-video-renderer',
-            'ytd-reel-item-renderer',
-            'ytd-reel-video-renderer',
-            'yt-lockup-view-model',
-            'yt-lockup-metadata-view-model',
-            'ytm-rich-item-renderer',
-            'ytm-video-with-context-renderer',
-            'ytm-compact-video-renderer',
-            'ytm-video-card-renderer',
-            'ytm-shorts-lockup-view-model',
-            'ytm-shorts-lockup-view-model-v2',
             'ytm-slim-video-metadata-section-renderer',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
@@ -963,8 +953,8 @@ function collectPassiveInteractionRootTargets(
     }
 }
 
-function passiveInteractionExcludeSelector(profile: SiteParserProfile, options: { chrome?: boolean }): string {
-    return profile.id === 'youtube-comments-parser' && options.chrome
+function passiveInteractionExcludeSelector(profile: SiteParserProfile, _options: { chrome?: boolean }): string {
+    return profile.id === 'youtube-comments-parser'
         ? YOUTUBE_PASSIVE_CHROME_EXCLUDE
         : profile.exclude ?? COMMON_EXCLUDE;
 }
@@ -1066,7 +1056,7 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
-    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0);
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
     const uiChromeTargets = collectSafeUiChromeTargets(
@@ -1133,7 +1123,12 @@ function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
     }));
 }
 
-function collectProfileSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = [], enabled = true): FragmentTextTarget[] {
+function collectProfileSafeUiChromeTargets(
+    limit: number,
+    existingTargets: ScanTextTarget[] = [],
+    enabled = true,
+    profiles: SiteParserProfile[] = [],
+): FragmentTextTarget[] {
     if (!enabled || limit <= 0) return [];
     const collection: GenericProseCollection = {
         targets: [],
@@ -1141,7 +1136,9 @@ function collectProfileSafeUiChromeTargets(limit: number, existingTargets: ScanT
         limit,
     };
 
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(), collection);
+    const extraExclude = profiles.map(p => p.exclude).filter(Boolean).join(',');
+
+    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude);
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
 
     return collection.targets;
@@ -1161,9 +1158,9 @@ function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarg
     return collection.targets;
 }
 
-function collectSafeUiChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection): void {
+function collectSafeUiChromeRootTargets(roots: HTMLElement[], collection: GenericProseCollection, extraExclude = ''): void {
     for (const root of roots) {
-        collectSafeUiChromeTargetsFromRoot(root, collection);
+        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1173,13 +1170,17 @@ function safeUiChromeRoots(): HTMLElement[] {
         .filter(root => isUsefulSafeUiChromeRoot(root)));
 }
 
-function profileSafeUiChromeRoots(): HTMLElement[] {
-    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS))
-        .filter(root => isUsefulSafeUiChromeRoot(root)));
+function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
+    const roots = Array.from(document.querySelectorAll<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS))
+        .filter(root => isUsefulSafeUiChromeRoot(root));
+    if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
+    return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));
 }
 
-function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, safeUiChromeExcludeForRoot(root), {
+function collectSafeUiChromeTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection, extraExclude = ''): void {
+    const baseExclude = safeUiChromeExcludeForRoot(root);
+    const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, {
         allowUiText: true,
         includeUiChrome: true,
         includeTabChrome: true,

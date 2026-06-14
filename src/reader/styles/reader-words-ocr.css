@@ -559,6 +559,17 @@
 .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1.85;
 }
+/* Keep every reading-surface word on the same line-height as its furigana
+   neighbours. The colored underline is an ::after pinned to the box bottom
+   (inset-block-end), so a word with a shorter line-height resolves that bottom
+   higher and its underline floats above the furigana words' on the same line.
+   A mixed furigana line is already 1.85 (forced by the furigana words), so
+   non-furigana words gain no extra line-box height here — only their own box
+   bottom realigns, putting all underlines on one level. Passive host-UI words
+   are excluded so native title/button layout is never altered. */
+.jpdb-reader-word:not(.jpdb-reader-passive-word) {
+  line-height: 1.85;
+}
 .jpdb-reader-furi {
   font-size: 0.52em;
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));

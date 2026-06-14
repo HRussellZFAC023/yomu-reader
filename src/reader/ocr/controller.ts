@@ -179,6 +179,10 @@ function logOcrFailure(state: ImageState, provider: string, manualRequested: boo
     log.warn('OCR scan failed', { provider, manualRequested }, error);
 }
 
+// YouTube SPA route changes fire yt-navigate-start/finish; history navigation
+// fires popstate. Any of them means the current OCR overlays are stale.
+const OCR_NAVIGATION_EVENTS = ['yt-navigate-start', 'yt-navigate-finish', 'popstate'] as const;
+
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
     private cache = new Map<string, OcrResult>();
@@ -210,6 +214,7 @@ export class ImageOcrController {
     private readonly handleDocumentScroll = () => this.handleOcrViewportShift(120);
     private readonly handleWindowScroll = () => this.handleOcrViewportShift(240);
     private readonly handleWindowResize = () => this.handleOcrViewportShift(300);
+    private readonly handleSpaNavigation = () => this.teardownForNavigation();
 
     constructor(private readonly options: OcrControllerOptions) {}
 
@@ -229,6 +234,16 @@ export class ImageOcrController {
         document.addEventListener('scroll', this.handleDocumentScroll, { capture: true, passive: true });
         window.addEventListener('scroll', this.handleWindowScroll, { passive: true });
         window.addEventListener('resize', this.handleWindowResize, { passive: true });
+        // UT-77c: YouTube reuses its shared player <video> across SPA route
+        // changes, so a hover-preview's paused-frame OCR overlay, its rail
+        // resume control, and image overlays survive the navigation and pile
+        // onto the watch page (overlay stuck over the player, a duplicate play
+        // button in the subtitle rail). isConnected-based pruning never fires
+        // because the element is still attached. Tear everything down on
+        // navigation so the destination page re-scans from a clean slate.
+        for (const eventName of OCR_NAVIGATION_EVENTS) {
+            window.addEventListener(eventName, this.handleSpaNavigation);
+        }
         this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
         this.mutationObserver.observe(document.body, {
             childList: true,
@@ -250,6 +265,9 @@ export class ImageOcrController {
         document.removeEventListener('scroll', this.handleDocumentScroll, true);
         window.removeEventListener('scroll', this.handleWindowScroll);
         window.removeEventListener('resize', this.handleWindowResize);
+        for (const eventName of OCR_NAVIGATION_EVENTS) {
+            window.removeEventListener(eventName, this.handleSpaNavigation);
+        }
         this.releaseAllVideoFrames();
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -976,6 +994,16 @@ export class ImageOcrController {
             state.overlay.remove();
         }
         this.states.clear();
+    }
+
+    // Drop every paused-frame and image overlay when YouTube navigates so no
+    // stale OCR artifact (rail resume button, overlay over the player) carries
+    // across the SPA route change, then re-scan the destination page.
+    private teardownForNavigation(): void {
+        if (this.states.size === 0 && this.videoFrames.size === 0) return;
+        this.releaseAllVideoFrames();
+        this.clear();
+        if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
     }
 
     private pruneDisconnectedStates(): void {

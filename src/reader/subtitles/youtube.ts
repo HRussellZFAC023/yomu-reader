@@ -61,6 +61,7 @@ const TITLE_SELECTORS = [
     'yt-formatted-string#video-title',
     'h3 a',
     'h3',
+    'ytd-reel-player-overlay-renderer h2.title',
     '.yt-lockup-metadata-view-model-wiz__title',
     '.ytLockupMetadataViewModelTitle',
     '.ytLockupMetadataViewModelHeadingReset',
@@ -2025,7 +2026,7 @@ function normalizeYouTubeVideoCard(element: HTMLElement): HTMLElement | null {
 function isNormalizableYouTubeVideoCard(element: HTMLElement): boolean {
     if (shouldIgnoreYouTubeCardElement(element)) return false;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return false;
-    if (!hasYouTubeVideoLink(element)) return false;
+    if (!hasYouTubeVideoLink(element) && !element.matches(SHORTS_CARD_SELECTOR)) return false;
     if (isYouTubePlaylistLikeCard(element)) return false;
     return !isInsideExcludedYouTubeContainer(element);
 }
@@ -2097,6 +2098,10 @@ function measuredYouTubeCardHeight(card: HTMLElement): number {
 }
 
 function readYouTubeVideoId(card: HTMLElement): string {
+    const selfVideoId = card.getAttribute('video-id') || card.getAttribute('data-video-id');
+    if (selfVideoId) return selfVideoId;
+    const descendantVideoId = card.querySelector('[video-id]')?.getAttribute('video-id');
+    if (descendantVideoId) return descendantVideoId;
     const link = Array.from(card.querySelectorAll<HTMLAnchorElement>(VIDEO_LINK_SELECTORS))
         .find(candidate => extractYouTubeVideoId(candidate.getAttribute('href')));
     return link ? extractYouTubeVideoId(link.getAttribute('href')) : '';

@@ -60,6 +60,35 @@ function isEffectivelyUnblurred(filter) {
     return !filter || filter === 'none' || (blur && Number(blur[1]) < 0.1);
 }
 
+function secondarySubtitleLooksBlurred(style) {
+    return style.className.includes('jpdb-subtitle-secondary-blurred')
+        && colorIsTransparent(style.color)
+        && colorIsTransparent(style.textFillColor)
+        && !style.filter.includes('blur');
+}
+
+function secondarySubtitleLooksClear(style) {
+    return style.className.includes('jpdb-subtitle-secondary-clear')
+        || (!colorIsTransparent(style.color) && !colorIsTransparent(style.textFillColor));
+}
+
+function colorIsTransparent(color) {
+    return color === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\)/u.test(color);
+}
+
+async function readSecondarySubtitleStyle(page) {
+    return page.locator('.jpdb-subtitle-secondary').evaluate(element => {
+        const style = getComputedStyle(element);
+        return {
+            className: element.className,
+            color: style.color,
+            textFillColor: style.getPropertyValue('-webkit-text-fill-color') || style.color,
+            textShadow: style.textShadow,
+            filter: style.filter,
+        };
+    });
+}
+
 function assertDrawerLayout(layout, label) {
     assert(isUsableBox(layout.panel, 260, 80), `Expected transcript panel during ${label}`, layout);
     assert(isUsableBox(layout.video, 240, 120), `Expected usable video during ${label}`, layout);
@@ -320,6 +349,15 @@ async function installUserscriptBridge(page, css) {
 
 async function runLocalSmoke(browser) {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    page.on('pageerror', error => {
+        console.error('PAGE ERROR:', error);
+    });
+    page.on('console', msg => {
+        console.log('PAGE LOG:', msg.type(), msg.text());
+    });
+    page.on('requestfailed', request => {
+        console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
+    });
     await page.goto(localUrl, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -351,7 +389,8 @@ async function runLocalSmoke(browser) {
     await chooseSubtitleFile(page, 'load-secondary', secondaryPath);
     await showTranscriptLines(page);
     await page.evaluate(() => { document.querySelector('video').currentTime = 1.4; });
-    await page.waitForTimeout(600);
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 10000 });
+    await page.waitForTimeout(200);
 
     const subtitleState = await page.evaluate(() => {
         const rows = [...document.querySelectorAll('.jpdb-subtitle-list-row')].map(row => row.textContent?.trim() ?? '');
@@ -362,8 +401,19 @@ async function runLocalSmoke(browser) {
             karaokeWords: document.querySelectorAll('.jpdb-subtitle-karaoke-word').length,
             parsedPlayerWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
             parsedRowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
-            secondaryFilter: secondary ? getComputedStyle(secondary).filter : '',
+            secondaryStyle: secondary ? secondarySubtitleStyle(secondary) : null,
         };
+
+        function secondarySubtitleStyle(element) {
+            const style = getComputedStyle(element);
+            return {
+                className: element.className,
+                color: style.color,
+                textFillColor: style.getPropertyValue('-webkit-text-fill-color') || style.color,
+                textShadow: style.textShadow,
+                filter: style.filter,
+            };
+        }
     });
     const initial = { ...subtitleState, ...await readDrawerLayout(page) };
 
@@ -371,7 +421,7 @@ async function runLocalSmoke(browser) {
     assert(!initial.containsNativeInRows, 'Native subtitles should not appear in transcript rows', initial);
     assert(initial.karaokeWords > 0 || initial.parsedPlayerWords > 0, 'Expected parsed or karaoke word spans in the player', initial);
     assert(initial.parsedRowWords > 0, 'Expected parsed word spans in the transcript rows', initial);
-    assert(initial.secondaryFilter.includes('blur'), 'Expected native subtitle blur to default on', initial);
+    assert(secondarySubtitleLooksBlurred(initial.secondaryStyle), 'Expected native subtitle blur to default on without CSS filter', initial);
     assertDrawerLayout(initial, 'initial load');
 
     await hoverSecondarySubtitle(page);
@@ -380,20 +430,22 @@ async function runLocalSmoke(browser) {
     await page.waitForFunction(() => {
         const subtitle = document.querySelector('.jpdb-subtitle-secondary');
         if (!subtitle) return false;
-        const filter = getComputedStyle(subtitle).filter;
-        const blur = filter.match(/blur\(([\d.]+)px\)/);
-        return filter === 'none' || Boolean(blur && Number(blur[1]) < 0.1);
+        const style = getComputedStyle(subtitle);
+        const color = style.color;
+        const fill = style.getPropertyValue('-webkit-text-fill-color') || color;
+        const transparent = value => value === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\)/u.test(value);
+        return !transparent(color) && !transparent(fill);
     }, null, { timeout: 2000 });
-    const hoverFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
-    assert(isEffectivelyUnblurred(hoverFilter), 'Hover should temporarily unblur native subtitles', { hoverFilter });
+    const hoverStyle = await readSecondarySubtitleStyle(page);
+    assert(secondarySubtitleLooksClear(hoverStyle), 'Hover should temporarily unblur native subtitles', { hoverStyle });
 
     await page.locator('.jpdb-subtitle-secondary').click();
-    const clickedWhileHoveringFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
-    assert(isEffectivelyUnblurred(clickedWhileHoveringFilter), 'Click should keep native subtitles clear while hovered', { clickedWhileHoveringFilter });
+    const clickedWhileHoveringStyle = await readSecondarySubtitleStyle(page);
+    assert(secondarySubtitleLooksClear(clickedWhileHoveringStyle), 'Click should keep native subtitles clear while hovered', { clickedWhileHoveringStyle });
     await page.mouse.move(20, 20);
     await page.waitForTimeout(650);
-    const clickedFilter = await page.locator('.jpdb-subtitle-secondary').evaluate(element => getComputedStyle(element).filter);
-    assert(isEffectivelyUnblurred(clickedFilter), 'Click should persist native subtitle blur off', { clickedFilter });
+    const clickedStyle = await readSecondarySubtitleStyle(page);
+    assert(secondarySubtitleLooksClear(clickedStyle), 'Click should persist native subtitle blur off', { clickedStyle });
 
     await resizeDrawer(page, initial.placement);
     const resized = await readDrawerLayout(page);

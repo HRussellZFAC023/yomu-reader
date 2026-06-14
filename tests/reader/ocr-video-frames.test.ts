@@ -54,6 +54,36 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
     });
 
+    // UT-77c: YouTube reuses its shared player element across SPA navigations,
+    // so a hover-preview's paused frame (image, status, rail resume button)
+    // would survive the route change — leaving an overlay stuck over the watch
+    // player and a duplicate play button in the subtitle rail. A navigation
+    // event must tear all of it down.
+    it.each(['yt-navigate-start', 'yt-navigate-finish', 'popstate'])(
+        'clears paused-frame OCR artifacts on %s navigation',
+        eventName => {
+            createController();
+            const rail = document.createElement('div');
+            rail.className = 'jpdb-subtitle-player';
+            rail.dataset.jpdbReaderRoot = 'true';
+            const railInner = document.createElement('div');
+            railInner.className = 'jpdb-subtitle-rail';
+            rail.append(railInner);
+            document.body.append(rail);
+
+            const video = pausedVideo();
+            video.dispatchEvent(new Event('pause'));
+            expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-resume')).not.toBeNull();
+
+            window.dispatchEvent(new Event(eventName));
+
+            expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+        },
+    );
+
     it('shows paused-frame OCR status while reading and when text is ready', async () => {
         createController();
         const video = pausedVideo();

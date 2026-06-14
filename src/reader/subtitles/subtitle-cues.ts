@@ -1008,6 +1008,17 @@ export function findActiveSubtitleCue(cues: SubtitleCue[], time: number): Subtit
     return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
 }
 
+// Short-form clips (Shorts) often finish before the playhead crosses the first
+// cue's start, so the overlay would stay blank for the entire clip. While the
+// playhead is still in the lead-in BEFORE the first cue begins, surface that
+// first line immediately. Bounded to the pre-first-cue window so mid-video
+// gaps (after a seek) never show a stale or future cue.
+export function findInitialLeadInCue(cues: readonly SubtitleCue[], time: number): SubtitleCue | undefined {
+    const first = cues[0];
+    if (!first) return undefined;
+    return time <= first.start ? first : undefined;
+}
+
 function findActiveSubtitleCueFromIndex(cues: SubtitleCue[], time: number, index: number): SubtitleCue | undefined {
     let best: SubtitleCue | undefined;
     for (let i = index; i >= 0; i--) {

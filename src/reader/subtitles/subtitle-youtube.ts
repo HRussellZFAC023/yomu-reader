@@ -203,7 +203,10 @@ export function isYouTubeOwnedVideoElement(video: HTMLVideoElement | undefined):
     const player = video.closest<HTMLElement>(YOUTUBE_VIDEO_PLAYER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
     const owner = video.closest<HTMLElement>(YOUTUBE_VIDEO_OWNER_SELECTOR) as (HTMLElement & { getVideoData?: () => { video_id?: string } }) | null;
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
-    if (playerVideoId && playerVideoId !== currentVideoId) return isLikelyVisibleYouTubeWatchVideo(video);
+    if (playerVideoId && playerVideoId !== currentVideoId) {
+        if (player?.id === 'movie_player' || video.classList.contains('html5-main-video')) return true;
+        return isLikelyVisibleYouTubeWatchVideo(video);
+    }
     return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
 }
 

@@ -29839,7 +29839,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('.ytp-menuitem-label .jpdb-reader-word')).toBeNull();
     });
 
-    it('scans YouTube homepage and suggested video titles as passive ruby targets', () => {
+    it('leaves YouTube homepage, Shorts gallery, and suggested video titles native', () => {
         const targets = collectYouTubeTargets(`
             <ytd-app>
                 <ytd-rich-grid-renderer>
@@ -29865,30 +29865,13 @@ describe('reader helpers', () => {
             </ytd-watch-next-secondary-results-renderer>
         `, 'https://www.youtube.com/', 10);
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '服代が月1万から20万円！？東京の春コーデ',
             '弱いままの自分で大丈夫。Japanese Podcast',
             '東京散歩',
             '関連動画の発行ニュース',
         ]));
-        for (const title of targets) {
-            expect('passiveInteraction' in title && title.passiveInteraction).toBe(true);
-        }
-        const related = targets.find(target => target.text === '関連動画の発行ニュース')!;
-        applyTokensToScanTarget(related, [{
-            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが', source: 'jpdb' },
-            start: 0,
-            end: 4,
-            length: 4,
-            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
-            pitchClass: 'heiban',
-            sentence: '関連動画の発行ニュース',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.dataset.cardSource).toBe('jpdb');
-        expect(word.querySelector('rt')?.textContent).toBe('かんれんどうが');
-        expectRenderedPitchWord(word, 'heiban');
+        expect(document.querySelector('.jpdb-reader-word')).toBeNull();
     });
 
     it('scans YouTube masthead and mini-guide chrome as passive hover targets', () => {
@@ -30092,7 +30075,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans modern YouTube lockup titles as passive ruby targets', () => {
+    it('leaves modern YouTube lockup titles native', () => {
         const targets = collectYouTubeTargets(`
             <yt-lockup-view-model>
                 <a class="ytLockupViewModelContentImage" href="/watch?v=news"></a>
@@ -30109,33 +30092,14 @@ describe('reader helpers', () => {
             </ytm-shorts-lockup-view-model>
         `, 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC', 10);
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '【LIVE】朝のニュース（Japan News Digest Live）最新情報など',
             '日本語が難しい理由',
         ]));
-        for (const target of targets) {
-            expect('passiveInteraction' in target && target.passiveInteraction).toBe(true);
-        }
-
-        const lockup = targets.find(target => target.text.startsWith('【LIVE】'))!;
-        applyTokensToScanTarget(lockup, [{
-            card: { ...card, cardState: ['known'], spelling: '朝', reading: 'あさ', source: 'jpdb' },
-            start: lockup.text.indexOf('朝'),
-            end: lockup.text.indexOf('朝') + 1,
-            length: 1,
-            rubies: [{ text: 'あさ', start: lockup.text.indexOf('朝'), end: lockup.text.indexOf('朝') + 1, length: 1 }],
-            pitchClass: 'atamadaka',
-            sentence: lockup.text,
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('yt-lockup-view-model .jpdb-reader-word')!;
-        expect(word.dataset.jpdbReaderPassive).toBe('true');
-        expect(word.dataset.cardSource).toBe('jpdb');
-        expect(word.querySelector('rt')?.textContent).toBe('あさ');
-        expectRenderedPitchWord(word, 'atamadaka');
+        expect(document.querySelector('.jpdb-reader-word')).toBeNull();
     });
 
-    it('ignores aria-hidden feedback chrome while scanning visible YouTube labels', () => {
+    it('ignores aria-hidden feedback chrome without wrapping YouTube feed titles', () => {
         const targets = collectYouTubeTargets(`
             <ytd-rich-grid-renderer>
                 <ytd-rich-item-renderer>
@@ -30149,26 +30113,9 @@ describe('reader helpers', () => {
             </ytd-rich-grid-renderer>
         `, 'https://www.youtube.com/', 10);
 
-        expect(targets.map(target => target.text)).toContain('英語を話せる方法');
+        expect(targets.map(target => target.text)).not.toContain('英語を話せる方法');
         expect(targets.map(target => target.text)).not.toContain('押下中');
-
-        const title = targets.find(target => target.text === '英語を話せる方法')!;
-        expect('passiveInteraction' in title && title.passiveInteraction).toBe(true);
-        applyTokensToScanTarget(title, [{
-            card: { ...card, cardState: ['known'], spelling: '英語', reading: 'えいご', source: 'jpdb' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'えいご', start: 0, end: 2, length: 2 }],
-            pitchClass: 'heiban',
-            sentence: '英語を話せる方法',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
-        expect(readerWordSurfaceText(word)).toBe('英語');
-        expect(word.dataset.cardSource).toBe('jpdb');
-        expect(word.querySelector('rt')?.textContent).toBe('えいご');
-        expectRenderedPitchWord(word, 'heiban');
+        expect(document.querySelector('a#video-title-link .jpdb-reader-word')).toBeNull();
     });
 
     it('leaves YouTube watch buttons native while ignoring aria-hidden feedback', () => {
