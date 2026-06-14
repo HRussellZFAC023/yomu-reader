@@ -3359,6 +3359,7 @@ describe('reader helpers', () => {
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: 0; inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset)); border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
+        expect(normalizedCss).toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after, .VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after { inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5); }');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby;');
@@ -7547,6 +7548,45 @@ describe('reader helpers', () => {
 
             expect(requested).toEqual(['http://x.test/second.mp3']);
             expect(played).toEqual(['blob:http://localhost/random-preload-source']);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('remembers prepared audio identity before random replay avoidance runs', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const restoreAudio = mockHtmlAudioPlayback(played);
+        mockSpeechSynthesis(spoken);
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            audioEnableDefaultSources: false,
+            audioSelectionMode: 'first',
+            audioViaBlob: false,
+            audioFallbackChimeEnabled: false,
+            audioSources: [
+                { type: 'custom', url: 'http://x.test/repeated.mp3', voice: '', enabled: true },
+                { type: 'custom', url: 'http://x.test/unused.mp3', voice: '', enabled: true },
+            ],
+        };
+
+        try {
+            const player = new AudioPlayer(() => settings);
+
+            await expect(player.play(card)).resolves.toBe(true);
+            settings = {
+                ...settings,
+                audioSelectionMode: 'random',
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/repeated.mp3', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            };
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(played).toEqual(['http://x.test/repeated.mp3']);
+            expect(spoken).toEqual([card.spelling]);
         } finally {
             restoreAudio();
             vi.unstubAllGlobals();
@@ -12731,6 +12771,100 @@ describe('reader helpers', () => {
         }
     });
 
+    it('avoids replaying the same media URL resolved by a different audio source', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0.99,
+            objectUrl: 'blob:http://localhost/shared-recorded-source.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                if (details.responseType === 'text') {
+                    resolveUserscriptTextResponse(details, JSON.stringify({
+                        audioSources: [{ url: 'http://x.test/shared.mp3' }],
+                    }));
+                    return;
+                }
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/shared.mp3', voice: '', enabled: true },
+                    { type: 'custom-json', url: 'http://x.test/source?term={term}', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(requested).toEqual([
+                'http://x.test/shared.mp3',
+                'http://x.test/source?term=%E9%A3%9F%E3%81%B9%E3%82%8B',
+            ]);
+            expect(played).toEqual(['blob:http://localhost/shared-recorded-source.mp3']);
+            expect(spoken).toEqual([card.spelling]);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('avoids replaying the same browser text-to-speech voice before another source', async () => {
+        const played: string[] = [];
+        const spoken: string[] = [];
+        const requested: string[] = [];
+        const restoreAudio = mockAudioPlaybackEnvironment(played, {
+            randomValue: 0.99,
+            objectUrl: 'blob:http://localhost/after-tts-fallback.mp3',
+        });
+        mockSpeechSynthesis(spoken);
+        vi.stubGlobal('GM', {
+            xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+                requested.push(details.url);
+                resolveUserscriptBlobResponse(details);
+            },
+        });
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'random',
+                audioTtsMode: 'source-order',
+                audioViaBlob: true,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                    { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/after-tts.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(spoken).toEqual([card.spelling]);
+            expect(requested).toEqual(['http://x.test/after-tts.mp3']);
+            expect(played).toEqual(['blob:http://localhost/after-tts-fallback.mp3']);
+        } finally {
+            restoreAudio();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps Jiten text-to-speech behind recorded audio in fallback mode', async () => {
         const played: string[] = [];
         const spoken: string[] = [];
@@ -14563,6 +14697,73 @@ describe('reader helpers', () => {
                 document.body.replaceChildren();
             }
         });
+    });
+
+    it('renders enabled Uchisen in page-reader kanji drilldown popovers', async () => {
+        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const proxyUrl = 'https://yomu-proxy.example/fetch';
+        const uchisenTarget = 'https://uchisen.com/kanji/%E9%9D%92';
+        const imageUrl = 'https://ik.imagekit.io/uchisen/generated/saved/generated_blue.jpg';
+        const fetchMock = vi.fn((input: RequestInfo | URL) => {
+            const url = String(input);
+            const target = new URL(url).searchParams.get('url');
+            if (target === uchisenTarget) {
+                return Promise.resolve(new Response(`
+                    <div class="kanji_image_loader" data-large="${imageUrl}"></div>
+                    <div id="mnemonic_story">Blue story.</div>
+                    <input id="kanji_id" value="118">
+                    <button disabled class="generate_image_button disabled_button" type="button">Generate Image</button>
+                    <div id="kanji_keyword_container"><span>青 - Blue</span></div>
+                `, { status: 200 }));
+            }
+            if (target === imageUrl) {
+                return Promise.resolve(new Response(new Blob(['image'], { type: 'image/jpeg' }), { status: 200 }));
+            }
+            return Promise.reject(new Error(`unexpected fetch: ${url}`));
+        });
+
+        try {
+            vi.stubGlobal('location', hostedNewTabLocationStub());
+            vi.stubGlobal('fetch', fetchMock);
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                ankiEnabled: false,
+                enableReviews: false,
+                jpdbKanjiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                uchisenEnabled: true,
+                uchisenPriority: 1,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                similarKanjiWords: false,
+                immersionKitEnabled: false,
+                corsProxyUrl: proxyUrl,
+            };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            await internals.showKanjiCard({ ...card, spelling: '青空', reading: 'あおぞら' }, '青', '青空です。');
+
+            await waitForExpect(() => {
+                const source = document.querySelector<HTMLElement>('.yomu-jpdb-uchisen-source');
+                expect(source?.textContent).toContain('Uchisen');
+                expect(source?.textContent).toContain('Blue story.');
+                expect(source?.textContent).toContain('View on Uchisen');
+            });
+            expect(fetchMock.mock.calls.map(call => String(call[0]))).toContain(`${proxyUrl}?url=${encodeURIComponent(uchisenTarget)}`);
+        } finally {
+            restoreAnimationFrame();
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
     });
 
     it('keeps kanji dive back navigation inside the kanji stack before returning to the word', async () => {

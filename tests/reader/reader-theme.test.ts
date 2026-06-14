@@ -736,6 +736,7 @@ describe('reader theme', () => {
         expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
+        expect(normalizedCss).toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after, .VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after { inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5); }');
         expect(normalizedCss).toContain('pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
     });

@@ -72,6 +72,8 @@ try {
     scenarios.push(await runFixtureHoverScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureBlockedFallbackScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureRandomCandidateScenario(browser, fixture.baseUrl));
+    scenarios.push(await runFixtureDuplicateNestedCandidateScenario(browser, fixture.baseUrl));
+    scenarios.push(await runFixtureSourceOrderTtsScenario(browser, fixture.baseUrl));
     scenarios.push(await runFixtureIpadBlobScenario(browser, fixture.baseUrl));
     scenarios.push(await runWikipediaScenario(browser));
     scenarios.push(await runYouTubeScenario(browser));
@@ -176,6 +178,60 @@ async function runFixtureRandomCandidateScenario(browser, baseUrl) {
     });
 }
 
+async function runFixtureDuplicateNestedCandidateScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-random-nested-duplicate-no-repeat',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioViaBlob: true,
+            audioSelectionMode: 'random',
+            audioSources: [{ type: 'custom-json', url: 'https://audio.test/duplicate-json?term={term}', voice: '', enabled: true }],
+        },
+        initRandomValue: 0.99,
+        action: async page => {
+            await clickTargetWord(page);
+            await waitForAudibleAudio(page, 'duplicate nested first audio did not play');
+            await page.locator('.jpdb-reader-popover [data-action="audio"]').click();
+            await waitForAudibleAudioCount(page, 2, 'duplicate nested replay audio did not play');
+        },
+        assertResult: result => {
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url.includes('/clip-'));
+            assert(urls.length >= 2, 'duplicate nested scenario did not play two source-backed clips', result);
+            assert(urls[0] === 'https://audio.test/clip-a.mp3', 'duplicate nested scenario did not start with the expected duplicated clip', result);
+            assert(urls[1] === 'https://audio.test/clip-b.mp3', 'duplicate nested replay did not skip the duplicate clip-a candidate', result);
+        },
+    });
+}
+
+async function runFixtureSourceOrderTtsScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-source-order-tts-random-no-repeat',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioViaBlob: true,
+            audioSelectionMode: 'random',
+            audioTtsMode: 'source-order',
+            audioSources: [
+                { type: 'text-to-speech', url: '', voice: '', enabled: true },
+                { type: 'custom-json', url: 'https://audio.test/nested-json?term={term}', voice: '', enabled: true },
+            ],
+        },
+        initRandomValue: 0.99,
+        action: async page => {
+            await clickTargetWord(page);
+            await waitForAudioOrSpeechCount(page, 1, 'source-order TTS did not play first');
+            await page.locator('.jpdb-reader-popover [data-action="audio"]').click();
+            await waitForAudioOrSpeechCount(page, 2, 'source-order replay did not move to the recorded source');
+        },
+        assertResult: result => {
+            assert(result.speech.length >= 1, 'source-order scenario did not honor the prioritized browser TTS source', result);
+            assert(result.audiblePlays.some(play => (play.sourceUrl || play.src).includes('/clip-')), 'source-order replay did not play a recorded source after TTS', result);
+        },
+    });
+}
+
 async function runFixtureIpadBlobScenario(browser, baseUrl) {
     return await runReaderScenario(browser, {
         name: 'fixture-ipad-tap-blob',
@@ -229,9 +285,11 @@ async function runYouTubeScenario(browser) {
         settings: {
             ...baseSettings,
             suppressAutoAudioOnVideo: true,
+            audioSelectionMode: 'random',
             audioViaBlob: true,
             audioSources: [{ type: 'custom-json', url: 'https://audio.test/nested-json?term={term}', voice: '', enabled: true }],
         },
+        initRandomValue: 0,
         targetSelector: '.jpdb-reader-word',
         action: async page => {
             await clickFirstInteractiveWord(page);
@@ -242,6 +300,9 @@ async function runYouTubeScenario(browser) {
         assertResult: result => {
             assert(result.hasVideo, 'YouTube scenario did not detect a page video', result);
             assert(result.audiblePlays.length >= 2, 'YouTube click-open plus manual button did not both play audio', result);
+            const urls = result.audiblePlays.map(play => play.sourceUrl || play.src).filter(url => url.includes('/clip-'));
+            assert(urls.length >= 2, 'YouTube scenario did not record two source-backed clips', result);
+            assert(urls[0] !== urls[1], 'YouTube manual replay repeated the click-open clip immediately', result);
         },
     });
 }
@@ -332,6 +393,15 @@ function bridgeResponse(request) {
             },
         }), 'application/json; charset=utf-8');
     }
+    if (request.url.startsWith('https://audio.test/duplicate-json')) {
+        return textResponse(JSON.stringify({
+            results: [
+                { source: { url: 'https://audio.test/clip-a.mp3' } },
+                { nested: { sources: [{ src: 'https://audio.test/clip-a.mp3' }] } },
+                { audio: 'https://audio.test/clip-b.mp3' },
+            ],
+        }), 'application/json; charset=utf-8');
+    }
     if (request.url.startsWith('https://audio.test/')) return bytesResponse(SILENT_WAV_BYTES, 'audio/mpeg');
     return textResponse('', 'text/plain; charset=utf-8', 404);
 }
@@ -361,10 +431,18 @@ function bytesResponse(buffer, contentType, status = 200) {
 async function installAudioInstrumentation(page, options) {
     await page.addInitScript(({ blockedPlayPattern, initRandomValue }) => {
         if (typeof initRandomValue === 'number') Math.random = () => initRandomValue;
-        window.__yomuAudioSmoke = { plays: [], rejected: [], speech: [] };
+        window.__yomuAudioSmoke = { plays: [], rejected: [], speech: [], sourceByBlob: {} };
         const originalPlay = HTMLMediaElement.prototype.play;
         const originalLoad = HTMLMediaElement.prototype.load;
+        const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
         const originalSpeak = window.speechSynthesis?.speak?.bind(window.speechSynthesis);
+        URL.createObjectURL = object => {
+            const url = originalCreateObjectUrl(object);
+            if (object instanceof Blob) {
+                window.__yomuAudioSmoke.sourceByBlob[url] = object.__yomuSourceUrl || '';
+            }
+            return url;
+        };
         HTMLMediaElement.prototype.play = function play() {
             if (this.tagName === 'AUDIO') {
                 const event = audioEvent(this);
@@ -379,24 +457,59 @@ async function installAudioInstrumentation(page, options) {
         HTMLMediaElement.prototype.load = function load() {};
         if ('speechSynthesis' in window) {
             window.speechSynthesis.speak = utterance => {
-                window.__yomuAudioSmoke.speech.push({ text: utterance.text, lang: utterance.lang, voice: utterance.voice?.name ?? '' });
+                window.__yomuAudioSmoke.speech.push({ text: utterance.text, lang: utterance.lang, voice: utterance.voice?.name ?? '', time: Date.now() });
                 utterance.onend?.(new Event('end'));
             };
         }
         window.__yomuAudioSmokeRestore = () => {
             HTMLMediaElement.prototype.play = originalPlay;
             HTMLMediaElement.prototype.load = originalLoad;
+            URL.createObjectURL = originalCreateObjectUrl;
             if (originalSpeak && window.speechSynthesis) window.speechSynthesis.speak = originalSpeak;
         };
+        wrapUserscriptBlobRequests();
 
         function audioEvent(element) {
+            const src = element.src || element.currentSrc || '';
             return {
-                src: element.src || element.currentSrc || '',
+                src,
                 attrSrc: element.getAttribute?.('src') || '',
+                sourceUrl: window.__yomuAudioSmoke.sourceByBlob[src] || '',
                 loop: Boolean(element.loop),
                 time: Date.now(),
                 popover: document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 160) ?? '',
             };
+        }
+
+        function wrapUserscriptBlobRequests() {
+            const direct = window.GM_xmlhttpRequest;
+            if (typeof direct === 'function') window.GM_xmlhttpRequest = wrapRequest(direct);
+            if (window.GM) {
+                if (typeof window.GM.xmlHttpRequest === 'function') window.GM.xmlHttpRequest = wrapRequest(window.GM.xmlHttpRequest);
+                if (typeof window.GM.xmlhttpRequest === 'function') window.GM.xmlhttpRequest = wrapRequest(window.GM.xmlhttpRequest);
+            }
+        }
+
+        function wrapRequest(original) {
+            return request => original({
+                ...request,
+                onload: response => {
+                    annotateResponseBlob(response?.response, request.url);
+                    request.onload?.(response);
+                },
+            });
+        }
+
+        function annotateResponseBlob(value, sourceUrl) {
+            if (!(value instanceof Blob) || !sourceUrl) return;
+            try {
+                Object.defineProperty(value, '__yomuSourceUrl', {
+                    value: sourceUrl,
+                    configurable: true,
+                });
+            } catch {
+                // Blob instances can be non-extensible in some browser engines.
+            }
         }
     }, { blockedPlayPattern: options.blockedPlayPattern ?? '', initRandomValue: options.initRandomValue });
 }
@@ -438,6 +551,19 @@ async function waitForAudibleAudio(page, message) {
 async function waitForAudibleAudioCount(page, count, message) {
     await page.waitForFunction(expectedCount => {
         return audiblePlays().length >= expectedCount;
+
+        function audiblePlays() {
+            const plays = window.__yomuAudioSmoke?.plays ?? [];
+            return plays.filter(play => play.src && !play.src.includes('UklGRiYAAABX'));
+        }
+    }, count, { timeout: 10_000 }).catch(async error => {
+        throw new Error(`${message}: ${JSON.stringify(await safeEvidence(page))}: ${error.message}`);
+    });
+}
+
+async function waitForAudioOrSpeechCount(page, count, message) {
+    await page.waitForFunction(expectedCount => {
+        return audiblePlays().length + (window.__yomuAudioSmoke?.speech?.length ?? 0) >= expectedCount;
 
         function audiblePlays() {
             const plays = window.__yomuAudioSmoke?.plays ?? [];

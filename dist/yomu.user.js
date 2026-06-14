@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.3
+// @version      0.7.4
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -9582,7 +9582,7 @@ recommendedJiten	jiten.moe頻度データです。
     async playPreparedSourceResult(result, context) {
       if (result.state === "superseded") return "superseded";
       if (result.state !== "ready" || !result.prepared) return "miss";
-      return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.reservedAudio).catch((error) => audioPlaybackAttemptResult(error, context.errors));
+      return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.card, context.reservedAudio).catch((error) => audioPlaybackAttemptResult(error, context.errors));
     }
     prepareSourceWithErrors(sourceEntry, context) {
       let promise;
@@ -9612,7 +9612,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
       return { state: "miss" };
     }
-    async playPreparedCandidate(prepared, settings, requestId, isCurrent, reservedAudio) {
+    async playPreparedCandidate(prepared, settings, requestId, isCurrent, card, reservedAudio) {
       let played = false;
       try {
         const audio = reservedAudio ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio) : prepared.audio;
@@ -9624,6 +9624,7 @@ recommendedJiten	jiten.moe頻度データです。
       if (!played) return "miss";
       this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
       this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
+      this.markAudioCandidatePlayed(card, prepared.candidate);
       return "played";
     }
     async playSourceWithErrors(sourceEntry, context) {
@@ -36215,6 +36216,10 @@ ${glossaryKey}`;
   inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
   border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
   pointer-events: none;
+}
+.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after,
+.VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
+  inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
 }
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);

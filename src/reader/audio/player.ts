@@ -374,7 +374,7 @@ export class AudioPlayer {
     ): Promise<AudioSourcePlayResult['state']> {
         if (result.state === 'superseded') return 'superseded';
         if (result.state !== 'ready' || !result.prepared) return 'miss';
-        return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.reservedAudio)
+        return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.card, context.reservedAudio)
             .catch(error => audioPlaybackAttemptResult(error, context.errors));
     }
 
@@ -425,6 +425,7 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        card: JPDBCard,
         reservedAudio?: HTMLAudioElement,
     ): Promise<AudioSourcePlayResult['state']> {
         let played = false;
@@ -440,6 +441,7 @@ export class AudioPlayer {
         if (!played) return 'miss';
         this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
         this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
+        this.markAudioCandidatePlayed(card, prepared.candidate);
         return 'played';
     }
 

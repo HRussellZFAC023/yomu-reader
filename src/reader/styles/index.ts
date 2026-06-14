@@ -153,6 +153,10 @@ export const CRITICAL_READER_CSS = `
   border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
   pointer-events: none;
 }
+.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after,
+.VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
+  inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
+}
 .jpdb-reader-word.jpdb-pitch-heiban {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
