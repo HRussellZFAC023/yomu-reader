@@ -122,6 +122,44 @@ export async function copyText(text: string): Promise<void> {
     textarea.remove();
 }
 
+export function openUrlInNewTab(url: string): boolean {
+    if (!isOpenableExternalUrl(url)) return false;
+
+    const userscriptOpen = userscriptOpenInTab();
+    if (userscriptOpen) {
+        try {
+            userscriptOpen(url, { active: true, insert: true, setParent: false });
+            return true;
+        } catch {
+        }
+    }
+
+    const opened = window.open(url, '_blank', 'noopener');
+    if (opened) {
+        try {
+            opened.opener = null;
+        } catch {
+        }
+        return true;
+    }
+    return false;
+}
+
+function userscriptOpenInTab(): typeof GM_openInTab | undefined {
+    if (typeof GM_openInTab === 'function') return GM_openInTab;
+    if (typeof GM !== 'undefined' && typeof GM?.openInTab === 'function') return GM.openInTab;
+    return undefined;
+}
+
+function isOpenableExternalUrl(value: string): boolean {
+    try {
+        const url = new URL(value, location.href);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 export function normalizePressedKey(key: string): string {
     if (typeof key !== 'string' || !key) return '';
     if (key === ' ') return 'space';

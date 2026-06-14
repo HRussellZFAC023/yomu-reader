@@ -9,6 +9,7 @@ import type { ActivePointerTextLookup, PointerTextLookup } from '../lookup/point
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
 import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
+import { openUrlInNewTab } from '../ui/browser';
 import { collectSiteScanTargets } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
@@ -82,6 +83,23 @@ export function pickExactTokenForSelection(tokens: JPDBToken[] = [], selected: s
 
 export function dictionaryLookupLink(target: EventTarget | null): HTMLAnchorElement | null {
     return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]') ?? null;
+}
+
+export function actionPillLink(target: EventTarget | null): HTMLAnchorElement | null {
+    return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.jpdb-reader-action-pill[href]') ?? null;
+}
+
+export function handleReaderActionPillLink(
+    event: MouseEvent,
+    open: (url: string) => boolean = openUrlInNewTab,
+): boolean {
+    const link = actionPillLink(event.target);
+    if (!link) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const url = link.href;
+    if (!open(url)) location.href = url;
+    return true;
 }
 
 export function dictionaryLookupQuery(link: HTMLAnchorElement): string {

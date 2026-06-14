@@ -4,10 +4,12 @@ import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, OPEN_SETTINGS_EVENT, SETTING
 import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
+import { handleReaderActionPillLink } from '../../src/reader/app/main-helpers';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { openUrlInNewTab } from '../../src/reader/ui/browser';
 
 const originalRequestIdleCallback = window.requestIdleCallback;
 
@@ -72,6 +74,40 @@ describe('reader runtime helpers', () => {
 
         expect(open).toHaveBeenCalledWith('https://hrussellzfac023.github.io/yomu-reader/newtab/', '_blank');
         expect(opened.opener).toBeNull();
+    });
+
+    it('opens reader action pills without leaking the click to YouTube page handlers', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="https://jiten.moe/search?query=%E6%97%A5%E6%9C%AC%E8%AA%9E" target="_blank" rel="noopener">
+                    Jiten
+                </a>
+            </div>
+        `;
+        const pageClick = vi.fn();
+        const open = vi.fn(() => true);
+        document.addEventListener('click', pageClick);
+        const link = document.querySelector<HTMLAnchorElement>('.jpdb-reader-action-pill')!;
+        link.addEventListener('click', event => handleReaderActionPillLink(event, open));
+
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        link.dispatchEvent(click);
+
+        expect(open).toHaveBeenCalledWith('https://jiten.moe/search?query=%E6%97%A5%E6%9C%AC%E8%AA%9E');
+        expect(click.defaultPrevented).toBe(true);
+        expect(pageClick).not.toHaveBeenCalled();
+        document.removeEventListener('click', pageClick);
+    });
+
+    it('prefers userscript tab APIs for action-pill URLs', () => {
+        const openInTab = vi.fn();
+        vi.stubGlobal('GM_openInTab', openInTab);
+        const open = vi.spyOn(window, 'open').mockReturnValue(null);
+
+        expect(openUrlInNewTab('https://jpdb.io/vocabulary/1/test')).toBe(true);
+
+        expect(openInTab).toHaveBeenCalledWith('https://jpdb.io/vocabulary/1/test', { active: true, insert: true, setParent: false });
+        expect(open).not.toHaveBeenCalled();
     });
 
     it('routes runtime custom events through the supplied ReaderApp callbacks', () => {

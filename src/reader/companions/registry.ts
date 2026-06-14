@@ -1,5 +1,3 @@
-import { pageCompartmentValue } from '../platform/window-events';
-
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
@@ -85,6 +83,8 @@ type YomuCompanionWindow = typeof globalThis & {
     __yomuCompanions?: YomuCompanionRegistry;
 };
 
+let sandboxCompanions: YomuCompanionRegistry = {};
+
 export function registerYomuCompanion<K extends keyof YomuCompanionRegistry>(
     key: K,
     value: NonNullable<YomuCompanionRegistry[K]>,
@@ -120,13 +120,15 @@ export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['ka
 }
 
 function yomuCompanions(): YomuCompanionRegistry {
-    return readYomuCompanions(globalThis) ?? (typeof window === 'undefined' ? undefined : readYomuCompanions(window)) ?? {};
+    return readYomuCompanions(globalThis)
+        ?? sandboxCompanions
+        ?? (typeof window === 'undefined' ? undefined : readYomuCompanions(window))
+        ?? {};
 }
 
 function writeYomuCompanions(value: YomuCompanionRegistry): void {
-    const registry = pageCompartmentValue(value, { cloneFunctions: true, wrapReflectors: true });
-    if (writeYomuCompanionsTarget(globalThis, registry)) return;
-    if (typeof window !== 'undefined' && window !== globalThis) writeYomuCompanionsTarget(window, registry);
+    sandboxCompanions = value;
+    if (writeYomuCompanionsTarget(globalThis, value)) return;
 }
 
 function writeYomuCompanionsTarget(target: unknown, value: YomuCompanionRegistry): boolean {
