@@ -759,7 +759,7 @@ describe('settings form localization', () => {
     it('keeps mobile settings text controls at iOS no-zoom size after base input styling', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
         const baseControlFontIndex = normalizedCss.indexOf('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display');
-        const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em); } }');
+        const noZoomFontIndex = normalizedCss.indexOf('@media (hover: none), (pointer: coarse) { .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .jpdb-reader-settings select, .jpdb-reader-settings textarea { font-size: max(16px, 1em) !important; } }');
 
         expect(baseControlFontIndex).toBeGreaterThanOrEqual(0);
         expect(noZoomFontIndex).toBeGreaterThan(baseControlFontIndex);
