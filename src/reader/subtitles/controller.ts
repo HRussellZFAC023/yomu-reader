@@ -4,6 +4,7 @@ import {
     cueHasExactWordTimings,
     escapeWithBreaks,
     findActiveSubtitleCue,
+    findInitialLeadInCue,
     findAlignedCue,
     formatSubtitleTime,
     karaokeCharacterProgress,
@@ -892,7 +893,15 @@ export class SubtitlePlayerController {
         this.videoResizeObserver?.disconnect();
         this.videoResizeObserver = new ResizeObserver(() => this.scheduleAlignToVideo());
         this.videoResizeObserver.observe(video);
-        video.addEventListener('loadedmetadata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+        video.addEventListener('loadstart', () => {
+            this.lastYouTubeTrackDiscoveryAt = 0;
+            void this.discoverYouTubeTracksThrottled(true);
+        }, this.eventOptions({ passive: true }));
+        video.addEventListener('loadedmetadata', () => {
+            this.lastYouTubeTrackDiscoveryAt = 0;
+            void this.discoverYouTubeTracksThrottled(true);
+            this.scheduleAlignToVideo();
+        }, this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         video.addEventListener('pause', () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
         const handlePlaybackStarted = () => {
@@ -1240,10 +1249,16 @@ export class SubtitlePlayerController {
     private updateFromLoadedCues(): void {
         if (!this.video) return;
         const time = this.video.currentTime;
-        const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : undefined;
-        const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : undefined;
+        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : undefined;
+        const secondary = this.secondaryTrackId
+            ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
+            : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
+    }
+
+    private findRenderablePrimaryCue(time: number): SubtitleCue | undefined {
+        return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
     }
 
     // A repeated seek that lands in another inter-cue gap changes no cue

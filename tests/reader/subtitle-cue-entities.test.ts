@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeCaptionText, normalizeSubtitleCues } from '../../src/reader/subtitles/subtitle-cues';
+import { findInitialLeadInCue, normalizeCaptionText, normalizeSubtitleCues } from '../../src/reader/subtitles/subtitle-cues';
 
 // UT-67: auto-translated YouTube tracks ship literal HTML entities — a
 // `&nbsp;` cue passed the word-content check and rendered as a blank row
@@ -18,5 +18,30 @@ describe('caption entity decoding', () => {
         ]);
         expect(cues).toHaveLength(1);
         expect(cues[0]?.text).toBe('日本語です。');
+    });
+});
+
+// R2: short-form clips can finish before the playhead crosses the first cue's
+// start, leaving the overlay blank for the whole clip. While the playhead is
+// still in the lead-in before the first cue, that first line is surfaced so the
+// reader sees subtitles instantly; mid-video gaps (after a seek) stay blank.
+describe('initial lead-in cue', () => {
+    const cues = [
+        { start: 1.5, end: 3, text: 'いちばん' },
+        { start: 3, end: 5, text: 'にばんめ' },
+    ];
+
+    it('returns the first cue while the playhead is before it (instant short-form paint)', () => {
+        expect(findInitialLeadInCue(cues, 0)?.text).toBe('いちばん');
+        expect(findInitialLeadInCue(cues, 1.5)?.text).toBe('いちばん');
+    });
+
+    it('returns nothing once the playhead has passed the first cue start (gaps stay blank)', () => {
+        expect(findInitialLeadInCue(cues, 1.6)).toBeUndefined();
+        expect(findInitialLeadInCue(cues, 4)).toBeUndefined();
+    });
+
+    it('returns nothing when there are no cues', () => {
+        expect(findInitialLeadInCue([], 0)).toBeUndefined();
     });
 });
