@@ -2159,6 +2159,11 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
 
 function renderRecommendedDictionary(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): string {
     const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
+    const action = dictionary.downloadUrl
+        ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
+                ${alreadyInstalled ? 'Update' : 'Install'}
+            </button>`
+        : `<a class="jpdb-reader-btn" href="${dictionary.homepage}" target="_blank" rel="noopener">Open</a>`;
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
@@ -2169,16 +2174,14 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
                 <div class="jpdb-reader-help">${escapedUiText('en', dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
-            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? 'Update' : 'Install'}
-            </button>
+            ${action}
         </div>
     `;
 }
 
 function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
     const targetName = normalizedDictionaryName(dictionary.name);
-    return installed.some(item => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
+    return installed.some(item => (dictionary.downloadUrl && item.downloadUrl === dictionary.downloadUrl) || normalizedDictionaryName(item.title).includes(targetName));
 }
 
 function normalizedDictionaryName(value: string): string {

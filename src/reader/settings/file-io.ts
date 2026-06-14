@@ -5,6 +5,7 @@ import type { ReaderSettings } from '../app/types';
 const log = Logger.scope('SettingsFileIO');
 
 export function recommendedDictionaryFilename(dictionary: RecommendedDictionary): string {
+    if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
         const parsed = new URL(dictionary.downloadUrl);
         const lastPath = parsed.pathname.split('/').filter(Boolean).pop();

@@ -8323,48 +8323,32 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   color: var(--jpdb-reader-muted);
   vertical-align: middle;
 }
-.jpdb-reader-local-glossary .gloss-image-container {
-  position: relative;
-  display: inline-block;
+.jpdb-reader-local-glossary .gloss-image {
+  display: block;
   max-width: min(100%, 20rem);
-  min-width: 3rem;
-  overflow: hidden;
+  max-height: 16rem;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 6px;
+}
+.jpdb-reader-local-glossary
+  .gloss-image-link[data-image-load-state="error"]
+  .gloss-image {
+  display: none;
+}
+.jpdb-reader-local-glossary .gloss-image-fallback {
+  display: inline-flex;
+  padding: 0.4em;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 6px;
   background: var(--jpdb-reader-surface-2);
-  vertical-align: middle;
-}
-.jpdb-reader-local-glossary .gloss-image-sizer {
-  display: block;
-}
-.jpdb-reader-local-glossary .gloss-image-background,
-.jpdb-reader-local-glossary .gloss-image-container-overlay {
-  position: absolute;
-  inset: 0;
-}
-.jpdb-reader-local-glossary .gloss-image-background {
-  background:
-    linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent) 25%,
-      transparent 25% 75%,
-      color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent) 75%
-    ),
-    linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent) 25%,
-      transparent 25% 75%,
-      color-mix(in srgb, var(--jpdb-reader-white) 6%, transparent) 75%
-    );
-  background-position:
-    0 0,
-    6px 6px;
-  background-size: 12px 12px;
-}
-.jpdb-reader-local-glossary .gloss-image-link-text,
-.jpdb-reader-local-glossary .gloss-image-description {
   color: var(--jpdb-reader-muted);
-  font-size: 0.9em;
+  font-size: 0.82em;
+  line-height: 1.2;
+}
+.jpdb-reader-local-glossary
+  .gloss-image-link[data-image-load-state="loaded"]
+  .gloss-image-fallback {
+  display: none;
 }
 .jpdb-reader-anki-existing {
   overflow: visible;

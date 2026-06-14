@@ -128,6 +128,24 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['窓が開けてあります。']);
     });
 
+    it('parses monolingual glossary text without using dictionary image fallback labels as lookup text', () => {
+        document.body.innerHTML = `
+            <section>
+                <div class="jpdb-reader-local-glossary jpdb-reader-parseable">
+                    <span>文字や文章を見て、その意味を理解する。</span>
+                    <span class="gloss-image-link" data-dictionary="日日" data-path="media/read.png">
+                        <span class="gloss-image-fallback">読書の絵</span>
+                    </span>
+                </div>
+            </section>
+        `;
+        const root = document.body.querySelector<HTMLElement>('section')!;
+
+        const plan = nestedTextParsePlan(root, 24);
+
+        expect(plan?.targets.map(target => target.text)).toEqual(['文字や文章を見て、その意味を理解する。']);
+    });
+
     it('collects lookup text from dictionary modal examples and found-in rows', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">

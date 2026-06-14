@@ -783,6 +783,7 @@ export class YomitanDictionaryStore {
                 for (const row of rows) {
                     const entry = normalize(row);
                     if (!entry) continue;
+                    if (store === 'terms') await inlineStructuredImageDataUrls(zip, (entry as unknown as YomitanTermEntry).glossary);
                     pending.push(entry);
                     summary[label]++;
                     summary.entries++;
@@ -1718,6 +1719,7 @@ export class YomitanDictionaryStore {
                 const termKanji = ensureStore(db, tx, 'termKanji');
                 ensureIndex(termKanji, 'character', 'character');
                 ensureIndex(termKanji, 'dictionary', 'dictionary');
+
             };
             request.onsuccess = () => {
                 const db = request.result;
@@ -2190,6 +2192,46 @@ async function readOptionalZipText(zip: ZipArchive, name: string): Promise<strin
 
 async function readZipText(zip: ZipArchive, name: string): Promise<string> {
     return zip.text(name);
+}
+
+async function inlineStructuredImageDataUrls(zip: ZipArchive, value: unknown): Promise<void> {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+        for (const item of value) await inlineStructuredImageDataUrls(zip, item);
+        return;
+    }
+    if (typeof value !== 'object') return;
+    const record = value as Record<string, unknown>;
+    const path = typeof record.path === 'string' ? normalizeMediaPath(record.path) : '';
+    if (path && record.type === 'image') {
+        const dataUrl = await zipImageDataUrl(zip, path);
+        if (dataUrl) record.path = dataUrl;
+    }
+    await inlineStructuredImageDataUrls(zip, record.content);
+}
+
+async function zipImageDataUrl(zip: ZipArchive, path: string): Promise<string> {
+    const bytes = await zip.bytes(path).catch(() => null);
+    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : '';
+}
+
+function imageMimeType(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.svg')) return 'image/svg+xml';
+    return 'image/png';
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+        const chunk = bytes.subarray(index, index + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
 }
 
 function normalizeZipTermRow(row: unknown, dictionary: string): YomitanTermEntry | null {
@@ -2690,6 +2732,11 @@ function ensureIndex(store: IDBObjectStore, name: string, keyPath: string): void
 function existingStores<T extends InternalStoreName>(db: IDBDatabase, names: T[]): T[] {
     return names.filter(name => db.objectStoreNames.contains(name));
 }
+
+function normalizeMediaPath(path: string): string {
+    return path.trim().replace(/^\.?\//, '').replace(/\\/g, '/');
+}
+
 
 function readwriteTransaction(db: IDBDatabase, storeNames: string | string[]): IDBTransaction {
     try {

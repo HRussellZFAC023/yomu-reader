@@ -1006,6 +1006,8 @@ const COPY = {
         recommendedJitendex: 'Japanese-English dictionary with examples and notes.',
         recommendedJmdict: 'Core Japanese-English dictionary packaged for Yomitan.',
         recommendedJmnedict: 'Japanese proper names dictionary.',
+        recommendedWtyJapaneseJapanese: 'Monolingual Wiktionary.',
+        recommendedMarvncMonolingual: 'Monolingual collection.',
         recommendedKanjidic: 'Kanji readings, meanings, strokes, levels, and frequency.',
         recommendedJpdbv2Kana: 'JPDB frequency data for local frequency chips.',
         recommendedBccwj: 'BCCWJ frequency data.',
@@ -2149,6 +2151,8 @@ sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
 recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
+recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedMarvncMonolingual	日日辞書集。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。

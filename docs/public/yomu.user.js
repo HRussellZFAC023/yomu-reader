@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.25
+// @version      0.7.26
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-b3H+LeRNeChLe2DsPEVmwhQUB+POCDE+BaTgBy84lfs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-1637rxRNVo4HlxptArxrfYNEGxk24d9QCB2qeFcsECw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-qdM0T6G+EkU9UxFIvjwIFrBzddSSLA+g0zWbcTz3C2U=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-H3DCL6H/oGdP6hh+1/Q3IHLhT3Oz1m2H5Y1OCT4geIs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nu/owJapQGpcwPVua63DP2aDkRUxzxhjNdeMhD6Ya30=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ncFLG/xflkswxTmXJI4jq02pTJzo7+WK5h5g2LPju50=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-j3WK/SDieCGN9jmKlwLQyNLe1MI2MqtjQ/KBwY3tuRE=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6983,6 +6983,8 @@
       recommendedJitendex: "Japanese-English dictionary with examples and notes.",
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
+      recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
+      recommendedMarvncMonolingual: "Monolingual collection.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, and frequency.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
@@ -8120,6 +8122,8 @@ sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
 recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
+recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedMarvncMonolingual	日日辞書集。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
@@ -11691,88 +11695,28 @@ ${candidate.depth}`;
     const path = typeof record.path === "string" ? record.path : "";
     const title = typeof record.title === "string" ? record.title : "";
     const description = structuredImageDescription(record);
-    const metrics = structuredImageMetrics(record);
-    return `${renderStructuredImageLink(record, dictionary, path, title, metrics)}${renderStructuredImageDescription(description)}`;
+    const src = structuredImageSrc(path);
+    const alt = escapeHtml(description || title || "Dictionary image");
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
+    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
   }
-  function renderStructuredImageLink(record, dictionary, path, title, metrics) {
-    return `<span${renderStructuredImageAttributes(record, dictionary, path)}>${renderStructuredImageContainer(record, title, metrics)}<span class="gloss-image-link-text">Image</span></span>`;
-  }
-  function renderStructuredImageAttributes(record, dictionary, path) {
+  function renderStructuredImageAttributes(record, dictionary) {
     return [
       ` class="gloss-image-link"`,
       dictionaryAttribute(dictionary),
-      structuredImagePathAttribute(path),
-      ...structuredImageStateAttributes(record),
-      ...structuredImageOptionalAttributes(record)
+      structuredImageStateAttribute(record)
     ].join("");
   }
-  function structuredImagePathAttribute(path) {
-    return path ? ` data-path="${escapeHtml(path)}"` : "";
+  function structuredImageStateAttribute(record) {
+    const path = typeof record.path === "string" ? record.path : "";
+    return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
   }
-  function structuredImageStateAttributes(record) {
-    return [
-      ` data-image-load-state="unloaded"`,
-      ` data-has-aspect-ratio="true"`,
-      ` data-image-rendering="${escapeHtml(structuredImageRendering(record))}"`,
-      ` data-appearance="${escapeHtml(String(record.appearance || "auto"))}"`,
-      structuredImageBooleanAttribute(record, "background", true),
-      structuredImageBooleanAttribute(record, "collapsed", false),
-      structuredImageBooleanAttribute(record, "collapsible", true)
-    ];
-  }
-  function structuredImageOptionalAttributes(record) {
-    return [
-      typeof record.verticalAlign === "string" ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : "",
-      typeof record.sizeUnits === "string" ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : ""
-    ];
-  }
-  function structuredImageBooleanAttribute(record, key, fallback) {
-    const value = typeof record[key] === "boolean" ? record[key] : fallback;
-    return ` data-${kebabCase(key)}="${value}"`;
-  }
-  function kebabCase(value) {
-    return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
-  }
-  function renderStructuredImageContainer(record, title, metrics) {
-    const containerTitle = title ? ` title="${escapeHtml(title)}"` : "";
-    return `<span class="gloss-image-container" style="${escapeHtml(renderStructuredImageContainerStyle(record, metrics.usedWidth))}"${containerTitle}>${renderStructuredImageFrame(metrics)}</span>`;
-  }
-  function renderStructuredImageContainerStyle(record, usedWidth) {
-    return [
-      `width:${formatCssNumber(usedWidth)}em;`,
-      typeof record.border === "string" ? `border:${record.border};` : "",
-      typeof record.borderRadius === "string" ? `border-radius:${record.borderRadius};` : ""
-    ].join("");
-  }
-  function renderStructuredImageFrame(metrics) {
-    return `<span class="gloss-image-sizer" style="padding-top:${formatCssNumber(metrics.invAspectRatio * 100)}%;"></span><span class="gloss-image-background"></span><span class="gloss-image-container-overlay"></span>`;
-  }
-  function renderStructuredImageDescription(description) {
-    return description ? `<span class="gloss-image-description">${escapeHtml(description)}</span>` : "";
+  function structuredImageSrc(path) {
+    return /^data:image\//i.test(path) ? path : "";
   }
   function structuredImageDescription(record) {
     if (typeof record.description === "string") return record.description;
     return typeof record.alt === "string" ? record.alt : "";
-  }
-  function structuredImageMetrics(record) {
-    const preferredWidth = numericRecordValue(record, "preferredWidth");
-    const preferredHeight = numericRecordValue(record, "preferredHeight");
-    const { width, height } = structuredImageNaturalSize(record, preferredWidth, preferredHeight);
-    const invAspectRatio = height > 0 && width > 0 ? height / width : 1;
-    const usedWidth = structuredImageUsedWidth(width, invAspectRatio, preferredWidth, preferredHeight);
-    return { invAspectRatio, usedWidth };
-  }
-  function structuredImageNaturalSize(record, preferredWidth, preferredHeight) {
-    return {
-      width: preferredWidth ?? numericRecordValue(record, "width") ?? 100,
-      height: preferredHeight ?? numericRecordValue(record, "height") ?? 100
-    };
-  }
-  function structuredImageUsedWidth(width, invAspectRatio, preferredWidth, preferredHeight) {
-    return preferredWidth ?? (preferredHeight ? preferredHeight / invAspectRatio : width);
-  }
-  function structuredImageRendering(record) {
-    return String(record.imageRendering || (record.pixelated ? "pixelated" : "auto"));
   }
   function isStructuredImageRecord(record) {
     return record.type === "image" || "path" in record;
@@ -11823,13 +11767,6 @@ ${candidate.depth}`;
     } catch {
       return "";
     }
-  }
-  function numericRecordValue(record, key) {
-    const value = record[key];
-    return typeof value === "number" && Number.isFinite(value) ? value : void 0;
-  }
-  function formatCssNumber(value) {
-    return Number.isFinite(value) ? Number(value.toFixed(4)).toString() : "0";
   }
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
@@ -12306,8 +12243,8 @@ ${scopedInner}
   const MAX_ZIP_COMMENT_BYTES = 65535;
   const textDecoder = new TextDecoder();
   class ZipArchive {
-    constructor(bytes, files) {
-      this.bytes = bytes;
+    constructor(archiveBytes, files) {
+      this.archiveBytes = archiveBytes;
       this.files = files;
     }
     entries() {
@@ -12321,9 +12258,14 @@ ${scopedInner}
       onProgress?.({ name, loaded: bytes.byteLength, total: zipEntryProgressTotal(entry) });
       return textDecoder.decode(bytes);
     }
+    async bytes(name) {
+      const entry = this.files.get(name);
+      if (!entry) throw new Error(`${name} not found.`);
+      return this.fileBytes(entry);
+    }
     async fileBytes(entry) {
       if (entry.encrypted) throw new Error(`Encrypted ZIP entries are not supported: ${entry.name}`);
-      const compressed = localFileBytes(this.bytes, entry);
+      const compressed = localFileBytes(this.archiveBytes, entry);
       if (entry.compressionMethod === ZIP_STORE_METHOD) return compressed;
       if (entry.compressionMethod === ZIP_DEFLATE_METHOD) return inflateRaw(compressed);
       throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);
@@ -13016,6 +12958,7 @@ ${scopedInner}
           for (const row of rows) {
             const entry = normalize(row);
             if (!entry) continue;
+            if (store === "terms") await inlineStructuredImageDataUrls(zip, entry.glossary);
             pending.push(entry);
             summary[label]++;
             summary.entries++;
@@ -14147,6 +14090,42 @@ ${entry.reading}`;
   async function readZipText(zip, name) {
     return zip.text(name);
   }
+  async function inlineStructuredImageDataUrls(zip, value) {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      for (const item of value) await inlineStructuredImageDataUrls(zip, item);
+      return;
+    }
+    if (typeof value !== "object") return;
+    const record = value;
+    const path = typeof record.path === "string" ? normalizeMediaPath(record.path) : "";
+    if (path && record.type === "image") {
+      const dataUrl = await zipImageDataUrl(zip, path);
+      if (dataUrl) record.path = dataUrl;
+    }
+    await inlineStructuredImageDataUrls(zip, record.content);
+  }
+  async function zipImageDataUrl(zip, path) {
+    const bytes = await zip.bytes(path).catch(() => null);
+    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : "";
+  }
+  function imageMimeType(path) {
+    const lower = path.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+    return "image/png";
+  }
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 32768;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      const chunk = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
   function normalizeZipTermRow(row, dictionary) {
     if (!Array.isArray(row)) return null;
     const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
@@ -14519,6 +14498,9 @@ ${glossaryKey}`;
   }
   function existingStores(db, names) {
     return names.filter((name) => db.objectStoreNames.contains(name));
+  }
+  function normalizeMediaPath(path) {
+    return path.trim().replace(/^\.?\//, "").replace(/\\/g, "/");
   }
   function readwriteTransaction(db, storeNames) {
     try {
@@ -23163,7 +23145,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadLocalKanjiEntries(card) {
       const settings = this.settings();
-      if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
+      if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$e.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
@@ -23427,6 +23409,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function delay$2(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  function isLocalKanjiDictionaryCard(card) {
+    const characters = Array.from(card.spelling.trim());
+    return characters.length === 1 && isKanjiCharacter(characters[0] ?? "") && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
   }
   function emptyAnkiLookupResult() {
     return { state: "not-in-deck", notes: [], primary: null };
@@ -35070,6 +35056,7 @@ ${glossaryKey}`;
   ].join(",");
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
+  const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
@@ -35122,7 +35109,7 @@ ${glossaryKey}`;
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
-    const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, "", {
+    const targets = parseRoots.flatMap((parseRoot) => collectFragmentTextTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
       allowUiText: true,
       includePassiveInteractions: true,

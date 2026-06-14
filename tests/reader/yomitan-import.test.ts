@@ -51,6 +51,45 @@ describe('Yomitan ZIP import performance path', () => {
         expect(progress).toContain('Importing Multi Bank JMdict: terms 6 entries saved...');
     });
 
+    it('imports structured-content image assets from Yomitan ZIPs', async () => {
+        const store = createStore();
+        await store.clear();
+
+        const summary = await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Jitendex Images', format: 3 },
+            'term_bank_1.json': [
+                ['図書', 'としょ', '', '', 10, [[
+                    'book',
+                    { type: 'image', path: 'media/book.png', description: '本の絵', width: 20, height: 10 },
+                ]], 1, ''],
+            ],
+            'media/book.png': 'png-bytes',
+        })], 'jitendex-images.zip', { type: 'application/zip' }));
+
+        expect(summary).toMatchObject({ dictionaries: ['Jitendex Images'], terms: 1 });
+        const [entry] = await store.lookup('図書', 'としょ', 5);
+        expect(JSON.stringify(entry?.glossary)).toContain('data:image/png;base64,cG5nLWJ5dGVz');
+    });
+
+    it('imports monolingual structured Japanese glossary content for local lookup parsing', async () => {
+        const store = createStore();
+        await store.clear();
+
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: '日日 Wiktionary', format: 3 },
+            'term_bank_1.json': [
+                ['読む', 'よむ', '', '', 10, [[
+                    { tag: 'span', content: '文字や文章を見て、その意味を理解する。' },
+                    { tag: 'ul', content: [{ tag: 'li', content: '本を読む。' }] },
+                ]], 1, ''],
+            ],
+        })], 'wty-ja-ja.zip', { type: 'application/zip' }));
+
+        const [entry] = await store.lookup('読む', 'よむ', 5);
+        expect(entry?.dictionary).toBe('日日 Wiktionary');
+        expect(JSON.stringify(entry?.glossary)).toContain('文字や文章を見て、その意味を理解する。');
+    });
+
     it('keeps ZIP term derived indexes deferred after import', async () => {
         const store = createStore();
         await store.clear();

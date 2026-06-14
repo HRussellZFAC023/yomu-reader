@@ -9,6 +9,7 @@ const NESTED_PARSE_ROOT_SELECTOR = [
 ].join(',');
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
+const NESTED_PARSE_EXCLUDE_SELECTOR = '.gloss-image-link';
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
@@ -70,7 +71,7 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, '', {
+        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
             includeReaderRoot: true,
             allowUiText: true,
             includePassiveInteractions: true,

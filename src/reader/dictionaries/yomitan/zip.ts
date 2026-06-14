@@ -40,7 +40,7 @@ const MAX_ZIP_COMMENT_BYTES = 0xffff;
 const textDecoder = new TextDecoder();
 
 export class ZipArchive {
-    constructor(private readonly bytes: Uint8Array, private readonly files: Map<string, ZipCentralEntry>) {}
+    constructor(private readonly archiveBytes: Uint8Array, private readonly files: Map<string, ZipCentralEntry>) {}
 
     entries(): ZipFileEntry[] {
         return [...this.files.values()].map(({ name, compressedSize, uncompressedSize }) => ({ name, compressedSize, uncompressedSize }));
@@ -55,9 +55,15 @@ export class ZipArchive {
         return textDecoder.decode(bytes);
     }
 
+    async bytes(name: string): Promise<Uint8Array> {
+        const entry = this.files.get(name);
+        if (!entry) throw new Error(`${name} not found.`);
+        return this.fileBytes(entry);
+    }
+
     private async fileBytes(entry: ZipCentralEntry): Promise<Uint8Array> {
         if (entry.encrypted) throw new Error(`Encrypted ZIP entries are not supported: ${entry.name}`);
-        const compressed = localFileBytes(this.bytes, entry);
+        const compressed = localFileBytes(this.archiveBytes, entry);
         if (entry.compressionMethod === ZIP_STORE_METHOD) return compressed;
         if (entry.compressionMethod === ZIP_DEFLATE_METHOD) return inflateRaw(compressed);
         throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);

@@ -17,6 +17,7 @@ type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderD
 type CardRenderDataLoaderFixture = {
     settings?: Partial<ReaderSettings>;
     lookup?: YomitanDictionaryStore['lookup'];
+    lookupKanji?: YomitanDictionaryStore['lookupKanji'];
     lookupTermMeta?: YomitanDictionaryStore['lookupTermMeta'];
     publicPitch?: JpdbPublicPitchClient['lookup'];
 };
@@ -24,6 +25,7 @@ type CardRenderDataLoaderFixture = {
 function createCardRenderDataLoader({
     settings,
     lookup = vi.fn(async () => []),
+    lookupKanji = vi.fn(async () => []),
     lookupTermMeta = vi.fn(async () => []),
     publicPitch = vi.fn(async () => []),
 }: CardRenderDataLoaderFixture = {}): CardRenderDataLoader {
@@ -40,7 +42,7 @@ function createCardRenderDataLoader({
         }),
         dictionaries: {
             lookup,
-            lookupKanji: vi.fn(async () => []),
+            lookupKanji,
             lookupTermMeta,
         } as unknown as YomitanDictionaryStore,
         jpdbPublicPitch: { lookup: publicPitch } as unknown as JpdbPublicPitchClient,
@@ -89,6 +91,44 @@ describe('performance cache bounds', () => {
 
         expect(lookupCard.pitchAccent).toEqual(['LHHHH']);
         expect(publicPitch).not.toHaveBeenCalled();
+    });
+
+    it('keeps kanji dictionaries out of ordinary word definition cards', async () => {
+        const lookupKanji = vi.fn(async () => [{
+            character: '読',
+            onyomi: ['ドク'],
+            kunyomi: ['よ.む'],
+            tags: [],
+            meanings: ['read'],
+            dictionary: 'KANJIDIC',
+        }]);
+        const loader = createCardRenderDataLoader({
+            settings: { localDictionaryShowKanji: true },
+            lookupKanji,
+        });
+
+        await expect(loader.load({ ...cardFor(1), spelling: '読む', reading: 'よむ' }).all)
+            .resolves.toMatchObject({ kanjiEntries: [] });
+        expect(lookupKanji).not.toHaveBeenCalled();
+    });
+
+    it('shows kanji dictionaries for single-kanji study/detail cards', async () => {
+        const lookupKanji = vi.fn(async () => [{
+            character: '読',
+            onyomi: ['ドク'],
+            kunyomi: ['よ.む'],
+            tags: [],
+            meanings: ['read'],
+            dictionary: 'KANJIDIC',
+        }]);
+        const loader = createCardRenderDataLoader({
+            settings: { localDictionaryShowKanji: true },
+            lookupKanji,
+        });
+
+        await expect(loader.load({ ...cardFor(1), spelling: '読', reading: '読', kanjiKeyword: 'read' }).all)
+            .resolves.toMatchObject({ kanjiEntries: [{ dictionary: 'KANJIDIC' }] });
+        expect(lookupKanji).toHaveBeenCalledWith('読', expect.any(Number), expect.any(Array));
     });
 
     it('does not let slow local pitch metadata delay public pitch fallback', async () => {

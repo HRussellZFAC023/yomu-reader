@@ -425,6 +425,11 @@ function readerWordSurfaceText(word: HTMLElement): string {
     return clone.textContent ?? '';
 }
 
+function isSearchLocalKanjiDictionaryCard(card: JPDBCard): boolean {
+    const characters = Array.from(card.spelling.trim());
+    return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
+}
+
 function shouldResolveInitialWordIndex(poolChanged: boolean, preferStoredWord: boolean): boolean {
     return poolChanged || preferStoredWord;
 }
@@ -6598,7 +6603,7 @@ export class NewTabController {
     }
 
     private loadSearchKanjiEntries(card: JPDBCard, settings: ReaderSettings): Promise<YomitanKanjiEntry[]> {
-        if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
+        if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isSearchLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
         return this.localSearchWithTimeout(
             this.dependencies.dictionaries.lookupKanji?.(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences) ?? Promise.resolve([]),
             [] as YomitanKanjiEntry[],

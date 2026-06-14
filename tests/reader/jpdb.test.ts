@@ -18262,7 +18262,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('ships the JMdict recommended dictionary download from Yomitan', () => {
+    it('ships recommended dictionary downloads and monolingual homepages', () => {
         const dictionary = findRecommendedDictionary('jmdict');
         expect(dictionary?.downloadUrl).toContain('JMdict_english.zip');
         expect(dictionary?.homepage).toContain('jmdict-yomitan');
@@ -18270,6 +18270,8 @@ describe('reader helpers', () => {
             'Jitendex',
             'JMdict',
             'JMnedict',
+            'WTY JA-JA',
+            'MarvNC JA-JA',
             'KANJIDIC',
             'JPDBv2㋕',
             'BCCWJ',
@@ -19246,13 +19248,7 @@ describe('reader helpers', () => {
 
         expect(html).toContain('class="gloss-image-link"');
         expect(html).toContain('data-dictionary="Daijisen"');
-        expect(html).toContain('data-path="scan.png"');
-        expect(html).toContain('data-image-rendering="pixelated"');
-        expect(html).toContain('data-collapsed="true"');
-        expect(html).toContain('data-collapsible="false"');
-        expect(html).toContain('data-vertical-align="middle"');
-        expect(html).toContain('style="width:40em;"');
-        expect(html).toContain('padding-top:12.5%;');
+        expect(html).toContain('data-image-load-state="error"');
         expect(html).toContain('title="source scan"');
         expect(html).toContain('scan description');
     });
