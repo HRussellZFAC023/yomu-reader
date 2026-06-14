@@ -21,6 +21,7 @@ const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const PROFILE_FIXTURE_PATH = '/__yomu-profile-fixture/';
 const HOVER_WORD = '読みました';
 const CLICK_WORD = '今日';
+const EXPANDED_HOVER_WORD = '日本語';
 const NON_EMPTY_TEXT_PATTERN = String.raw`\S`;
 const KANJI_MOUNT_CHECKS = [
     { name: 'keyword', selector: '[data-kanji-keyword-mount]', completePattern: NON_EMPTY_TEXT_PATTERN, rejectPattern: 'Loading kanji details' },
@@ -364,6 +365,8 @@ if (profileTarget.skipped) {
 }
 
 const hoverProfile = await profileHoverPopover(page);
+const expandedHoverProfile = await profileExpandedSectionsHover(page, EXPANDED_HOVER_WORD, CLICK_WORD);
+await closeAnyPopover(page);
 
 const clickWord = await profileWordLocator(page, CLICK_WORD);
 await page.evaluate(() => { window.__yomuProfileEvents = []; });
@@ -423,6 +426,8 @@ console.log(JSON.stringify({
         dictionaryClickToDetailsComplete: dictionaryDetails.at ? Math.round(dictionaryDetails.at - clickAt) : null,
         clickToLocalDictionary: localDictionaryAt ? Math.round(localDictionaryAt - clickAt) : null,
         clickToAudioPlayAttempt: audioAt ? Math.round(audioAt - clickAt) : null,
+        expandedSectionsHoverToShell: expandedHoverProfile.shellAt ? Math.round(expandedHoverProfile.shellAt - expandedHoverProfile.startedAt) : null,
+        expandedSectionsHoverToContent: expandedHoverProfile.contentAt ? Math.round(expandedHoverProfile.contentAt - expandedHoverProfile.startedAt) : null,
         kanjiClickToShell: Math.round(kanjiShellAt - kanjiClickAt),
         kanjiClickToDetailsComplete: kanjiDetails.completeAt ? Math.round(kanjiDetails.completeAt - kanjiClickAt) : null,
         kanjiMounts: kanjiDetails.mounts,
@@ -436,6 +441,7 @@ console.log(JSON.stringify({
     slowRequests,
     pendingSlowRequests,
     hoverProfile,
+    expandedHoverProfile,
     dictionaryShellDebug,
     hoverCloseDebug: hoverProfile.closeDebug,
     localDictionaryDebug,
@@ -516,6 +522,114 @@ async function skipHoverProfile(page, profile, reason) {
     profile.skipped = true;
     profile.reason = reason;
     profile.debug = await collectPageDebug(page).catch(error => ({ error: String(error?.message || error) }));
+}
+
+async function profileExpandedSectionsHover(page, sourceWord, targetWord) {
+    const profile = createExpandedSectionsHoverProfile(sourceWord, targetWord);
+    try {
+        await (await profileWordLocator(page, sourceWord)).hover({ timeout: 5000 });
+    } catch (error) {
+        await skipHoverProfile(page, profile, `Could not hover the expanded-section source word: ${String(error?.message || error)}`);
+        return profile;
+    }
+    const sourceReady = await page.waitForFunction(expandedHoverSourceReadyInPage, sourceWord, { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+    if (!sourceReady) {
+        await skipHoverProfile(page, profile, 'Expanded-section source popover did not open before profiling.');
+        return profile;
+    }
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover [data-card-details-loading]'), null, { timeout: SLOW_MS + 6000 })
+        .catch(() => {});
+    profile.expansion = await expandCurrentPopoverSections(page);
+    if (!profile.expansion.popoverPresent) {
+        await skipHoverProfile(page, profile, 'No popover was open before expanded-section hover profiling.');
+        return profile;
+    }
+    await page.waitForTimeout(50);
+    await page.evaluate(target => {
+        window.__yomuProfileEvents = [];
+        window.__yomuExpandedHoverProfile = {
+            target,
+            startedAt: performance.now(),
+            shellAt: null,
+            contentAt: null,
+        };
+    }, targetWord);
+    profile.startedAt = await page.evaluate(() => window.__yomuExpandedHoverProfile?.startedAt ?? performance.now());
+    try {
+        await (await profileWordLocator(page, targetWord)).hover({ timeout: 5000 });
+    } catch (error) {
+        await skipHoverProfile(page, profile, `Could not hover the expanded-section target word: ${String(error?.message || error)}`);
+        return profile;
+    }
+    const completed = await page.waitForFunction(expandedHoverCompleteInPage, targetWord, { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+    const result = await page.evaluate(() => window.__yomuExpandedHoverProfile ?? null);
+    profile.shellAt = result?.shellAt ?? null;
+    profile.contentAt = result?.contentAt ?? null;
+    profile.completed = completed;
+    profile.debug = completed ? null : await popoverDebugSnapshot(page);
+    return profile;
+}
+
+function createExpandedSectionsHoverProfile(sourceWord, targetWord) {
+    return {
+        sourceWord,
+        word: targetWord,
+        startedAt: null,
+        shellAt: null,
+        contentAt: null,
+        completed: false,
+        expansion: null,
+        debug: null,
+        skipped: false,
+        reason: '',
+    };
+}
+
+function expandedHoverSourceReadyInPage(sourceWord) {
+    const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+    return spelling.startsWith(sourceWord);
+}
+
+async function expandCurrentPopoverSections(page) {
+    return await page.evaluate(() => {
+        const popover = document.querySelector('.jpdb-reader-popover');
+        if (!popover) return { popoverPresent: false, details: 0, opened: 0, textLength: 0 };
+        const details = Array.from(popover.querySelectorAll('details'));
+        let opened = 0;
+        for (const detail of details) {
+            if (detail.open) continue;
+            detail.open = true;
+            opened += 1;
+            detail.dispatchEvent(new Event('toggle', { bubbles: true }));
+        }
+        return {
+            popoverPresent: true,
+            details: details.length,
+            opened,
+            textLength: popover.textContent?.length ?? 0,
+        };
+    });
+}
+
+function expandedHoverCompleteInPage(targetWord) {
+    const profile = window.__yomuExpandedHoverProfile;
+    const popover = document.querySelector('.jpdb-reader-popover');
+    if (!profile) return false;
+    if (!popover) return false;
+    const spelling = popover.querySelector('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '').trim() ?? '';
+    if (!spelling.startsWith(targetWord)) return false;
+    profile.shellAt = profile.shellAt ?? performance.now();
+    profile.contentAt = profile.contentAt ?? performance.now();
+    return true;
+}
+
+async function closeAnyPopover(page) {
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 1500 }).catch(() => {});
 }
 
 async function hoverCloseDebugSnapshot(page) {

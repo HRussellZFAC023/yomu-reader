@@ -25,6 +25,7 @@ import {
 import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
 const { assertNoRemoteExecutableMetadata } = require('./lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
@@ -32,6 +33,7 @@ const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hr
 const EXPECTED_LIVE_VERSION = process.env.YOMU_LIVE_EXPECT_VERSION
     || (process.env.YOMU_LIVE_EXPECT_PACKAGE_VERSION === '1' ? pkg.version : '');
 const USERSCRIPT_PATH = path.join(DIST, 'yomu.user.js');
+const COMPANION_SCRIPT_PATHS = GREASY_FORK_LIBRARIES.map(library => path.join(DIST, greasyForkLibraryPath(library.fileName)));
 const CSS_PATH = path.join(DIST, 'yomu.css');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const ANKI_URL = process.env.YOMU_ANKI_CONNECT_URL || 'http://127.0.0.1:8765';
@@ -93,7 +95,7 @@ const HOSTED_ANKI_STATUS_TERMS = ['Anki', 'Mining', '12'];
 const HOSTED_ANKI_RENDERED_TERMS = ['to read'];
 const HOSTED_ANKI_RAW_FIELD_TERMS = ['今日は本を読む', 'Sentence'];
 
-const BUILT_ARTIFACTS = [USERSCRIPT_PATH, CSS_PATH];
+const BUILT_ARTIFACTS = [USERSCRIPT_PATH, CSS_PATH, ...COMPANION_SCRIPT_PATHS];
 
 function createFixtureServer() {
     const html = `<!doctype html>
@@ -285,7 +287,7 @@ async function runJishoAudioSmoke(browser, fixture) {
 
     try {
         await page.goto(`${fixture.baseUrl}/jisho.html`, { waitUntil: 'domcontentloaded' });
-        await page.addScriptTag({ path: USERSCRIPT_PATH });
+        await injectLocalUserscriptRuntime(page);
         await page.waitForSelector('.jpdb-reader-word[data-expression="下"][data-reading="した"]', { timeout: 12_000 });
         await page.locator('.jpdb-reader-word[data-expression="下"][data-reading="した"]').first().click();
         await waitFor(() => bridgeRequests.some(request => request.url === 'https://jisho.org/search/%E4%B8%8B'), 15_000, 'Jisho search request did not go through the userscript bridge');
@@ -477,7 +479,7 @@ async function runHostedAnkiBridgeSmoke(browser, browserName) {
     await addGmXmlHttpRequestBridgeInitScript(page, { requestBridgeName: '__yomuLiveSmokeAnkiRequest' });
     try {
         await page.goto(`${LIVE_ORIGIN}/newtab/index.html?yomu-anki-bridge-smoke=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-        await page.addScriptTag({ path: USERSCRIPT_PATH });
+        await injectLocalUserscriptRuntime(page);
         await page.waitForFunction(() => document.documentElement.dataset.yomuUserscriptHttpBridge === 'true', { timeout: 10_000 });
         const result = await page.evaluate(async ({ ankiUrl, requestEvent, responseEvent }) => {
             const id = `live-anki-${Date.now()}`;
@@ -548,7 +550,7 @@ async function runHostedClickedWordAnkiStatusSmoke(browser, browserName) {
             document.body.innerHTML = html;
             document.title = 'Yomu hosted Anki status smoke';
         }, hostedAnkiStatusFixtureHtml);
-        await page.addScriptTag({ path: USERSCRIPT_PATH });
+        await injectLocalUserscriptRuntime(page);
         await page.waitForFunction(() => document.documentElement.dataset.yomuUserscriptHttpBridge === 'true', { timeout: 10_000 });
         await page.waitForSelector(HOSTED_ANKI_STATUS_WORD_SELECTOR, { timeout: 12_000 });
         await page.waitForFunction(selector => {
@@ -588,6 +590,11 @@ async function runHostedClickedWordAnkiStatusSmoke(browser, browserName) {
     } finally {
         await context.close();
     }
+}
+
+async function injectLocalUserscriptRuntime(page) {
+    for (const scriptPath of COMPANION_SCRIPT_PATHS) await page.addScriptTag({ path: scriptPath });
+    await page.addScriptTag({ path: USERSCRIPT_PATH });
 }
 
 async function newHostedAnkiSmokePage(browser, contextOptions) {

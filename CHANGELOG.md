@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2] - 2026-06-14
+
+### Fixed
+
+- Hover dictionary autoplay now ignores stale hover lookups before they start playback or mark the popover as loading. Moving quickly between words no longer leaves old audio work competing with the current card.
+- Immediate autoplay de-duplication now uses the full card identity instead of only the visible spelling, so distinct same-spelling lookup cards can still play their own hover audio.
+- The performance profiler now includes word-to-word hover timing while the current popover's inner sections are expanded, covering the laggy dictionary case that does not show up when sections stay collapsed.
+
 ## [0.7.1] - 2026-06-14
 
 ### Fixed

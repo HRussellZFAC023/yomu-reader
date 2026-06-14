@@ -597,25 +597,31 @@ function ankiNumberListParam(params: Record<string, unknown>, key: string): numb
 }
 
 function stubAnkiConnectFetch(responder: AnkiConnectResponder): void {
-    const respond = async (init?: RequestInit): Promise<Response> => {
-        const request = parseAnkiConnectRequest(init);
+    const respond = async (body: string): Promise<{ result: unknown; error: null }> => {
+        const request = parseAnkiConnectRequest({ body });
         const result = await responder(request, {
             query: String(request.params.query ?? ''),
             cards: ankiNumberListParam(request.params, 'cards'),
             notes: ankiNumberListParam(request.params, 'notes'),
         });
-        return new Response(JSON.stringify({ result, error: null }), { status: 200 });
+        return { result, error: null };
     };
-    vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => respond(init));
+    vi.stubGlobal('fetch', vi.fn(async () => {
+        throw new Error('New-tab AnkiConnect tests should use the userscript bridge.');
+    }));
     vi.stubGlobal('GM_xmlhttpRequest', async (details: Parameters<UserscriptHttpRequest>[0]) => {
-        const response = await respond({ body: details.data as BodyInit | null | undefined });
-        const json = await response.json();
+        const json = await respond(String(details.data ?? '{}'));
         details.onload?.({
-            status: response.status,
+            status: 200,
             response: json,
             responseText: JSON.stringify(json),
         });
         return { abort: vi.fn() };
+    });
+    vi.stubGlobal('GM', {
+        xmlHttpRequest: vi.fn(async (options: { data?: string }) => {
+            return { status: 200, response: await respond(options.data ?? '{}') };
+        }),
     });
 }
 
