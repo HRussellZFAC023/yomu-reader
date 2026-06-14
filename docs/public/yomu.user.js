@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.11
+// @version      0.7.12
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nKq+3MsNmqStvbhgHjxwv74e16ByeRXNZZ5XrSz30+k=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-XrTk3rLu8Ow3839QWroHPxJe9YfL3Afzhq23ak/xrmI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-HeXAVAv1IfzxCe0H8KAnvx5Diwo6d0r2Z/l84ijV5kM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-vA34BWy7xinDPHdmHzvuhsCKzPccMwWjjT/wAwYZiFI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-t3Pv5iRFdZod2j8EFh/dNB7rRcTwFlwYIyWK9/mslpk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-xA4ldFu6C+86pEOzIFceybXyClMokLpiCxiEbwdMeLg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-OEjFs7u3zC/zykF1xmCMnTaWjRnkDmcidzt7EeXy85Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LH5F50DS5O386o9QNJlY6PwESMuRQTVJpIX2d1N7Upo=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -34,6 +34,7 @@
 // @grant        GM.deleteValue
 // @grant        GM.getValue
 // @grant        GM.listValues
+// @grant        GM.openInTab
 // @grant        GM.registerMenuCommand
 // @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
@@ -42,6 +43,7 @@
 // @grant        GM_getResourceText
 // @grant        GM_getValue
 // @grant        GM_listValues
+// @grant        GM_openInTab
 // @grant        GM_registerMenuCommand
 // @grant        GM_removeValueChangeListener
 // @grant        GM_setValue
@@ -17895,6 +17897,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
+  let sandboxCompanions = {};
   function yomuSettingsDialogController() {
     return yomuCompanions().settings?.SettingsDialogController;
   }
@@ -17914,7 +17917,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return yomuCompanions().kanjiStudy;
   }
   function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
   }
   function readYomuCompanions(target) {
     if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
@@ -18028,6 +18031,39 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
+  }
+  function openUrlInNewTab(url) {
+    if (!isOpenableExternalUrl(url)) return false;
+    const userscriptOpen = userscriptOpenInTab();
+    if (userscriptOpen) {
+      try {
+        userscriptOpen(url, { active: true, insert: true, setParent: false });
+        return true;
+      } catch {
+      }
+    }
+    const opened = window.open(url, "_blank", "noopener");
+    if (opened) {
+      try {
+        opened.opener = null;
+      } catch {
+      }
+      return true;
+    }
+    return false;
+  }
+  function userscriptOpenInTab() {
+    if (typeof GM_openInTab === "function") return GM_openInTab;
+    if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
+    return void 0;
+  }
+  function isOpenableExternalUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
   }
   function normalizePressedKey(key) {
     if (typeof key !== "string" || !key) return "";
@@ -33460,6 +33496,18 @@ ${glossaryKey}`;
   function dictionaryLookupLink(target) {
     return target?.closest?.("a.gloss-link[data-dictionary-lookup]") ?? null;
   }
+  function actionPillLink(target) {
+    return target?.closest?.("a.jpdb-reader-action-pill[href]") ?? null;
+  }
+  function handleReaderActionPillLink(event, open = openUrlInNewTab) {
+    const link = actionPillLink(event.target);
+    if (!link) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const url = link.href;
+    if (!open(url)) location.href = url;
+    return true;
+  }
   function dictionaryLookupQuery(link) {
     return normalizedLookupText(link.dataset.dictionaryLookup ?? "");
   }
@@ -41554,6 +41602,7 @@ ${glossaryKey}`;
       if (select && popover.contains(select)) updatePopoverReviewTargetSelection(select);
     }
     handleCardPopoverClick(event, card, sentence, anchor, trigger) {
+      if (handleReaderActionPillLink(event)) return;
       if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
       const target = event.target;
       const kanjiButton = target.closest('[data-action="kanji"]');
@@ -41736,6 +41785,7 @@ ${glossaryKey}`;
       popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
     }
     handleKanjiCardActionClick(event, card, kanji, sentence, anchor) {
+      if (handleReaderActionPillLink(event)) return;
       if (this.handleDictionaryLookupLink(event, anchor, "modal")) return;
       const actionButton = event.target.closest("[data-action]");
       if (!actionButton?.dataset.action) return;

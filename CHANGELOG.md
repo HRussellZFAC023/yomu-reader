@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.12] - 2026-06-14
+
+### Fixed
+
+- YouTube popover action pills now own their clicks and open Jiten, JPDB, Yomu, and custom lookup links through userscript-safe tab APIs without leaking the click to YouTube's native navigation handlers.
+- Firefox/Tampermonkey no longer needs to define the companion registry on YouTube page globals, avoiding XrayWrapper console errors from Yomu's own startup path.
+
 ## [0.7.11] - 2026-06-14
 
 ### Fixed

@@ -16006,6 +16006,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!/^[A-Z0-9\s]+$/.test(cleaned) || !/[A-Z]/.test(cleaned)) return cleaned;
     return cleaned.toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
   }
+  let sandboxCompanions = {};
   function registerYomuCompanion(key, value) {
     writeYomuCompanions({
       ...yomuCompanions(),
@@ -16019,12 +16020,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return yomuCompanions().kanjiStudy;
   }
   function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
   }
   function writeYomuCompanions(value) {
-    const registry = pageCompartmentValue(value, { cloneFunctions: true, wrapReflectors: true });
-    if (writeYomuCompanionsTarget(globalThis, registry)) return;
-    if (typeof window !== "undefined" && window !== globalThis) writeYomuCompanionsTarget(window, registry);
+    sandboxCompanions = value;
+    if (writeYomuCompanionsTarget(globalThis, value)) return;
   }
   function writeYomuCompanionsTarget(target, value) {
     if (!target || typeof target !== "object" && typeof target !== "function") return false;
