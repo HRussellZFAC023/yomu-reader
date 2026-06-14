@@ -172,6 +172,7 @@ import {
     dictionaryLookupNestedWord,
     dictionaryLookupQuery,
     dictionaryLookupWordMatchesLink,
+    handleReaderActionPillLink,
     eventElement,
     evictOldestStringKeysWhileOverLimit,
     hasBlockedJpdbReviewState,
@@ -4523,6 +4524,7 @@ export class ReaderApp {
     }
 
     private handleCardPopoverClick(event: MouseEvent, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
+        if (handleReaderActionPillLink(event)) return;
         if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
         const target = event.target as HTMLElement;
         const kanjiButton = target.closest<HTMLButtonElement>('[data-action="kanji"]');
@@ -4739,6 +4741,7 @@ export class ReaderApp {
     }
 
     private handleKanjiCardActionClick(event: MouseEvent, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): void {
+        if (handleReaderActionPillLink(event)) return;
         if (this.handleDictionaryLookupLink(event, anchor, 'modal')) return;
         const actionButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
         if (!actionButton?.dataset.action) return;

@@ -504,6 +504,7 @@ declare global {
         listValues?: () => string[] | Promise<string[]>;
         xmlHttpRequest?: UserscriptHttpRequest;
         xmlhttpRequest?: UserscriptHttpRequest;
+        openInTab?: (url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown;
         registerMenuCommand?: (name: string, fn: () => void) => void;
     };
     const GM_info: undefined | Record<string, unknown>;
@@ -518,4 +519,5 @@ declare global {
     const GM_removeValueChangeListener: undefined | ((listenerId: number) => void);
     const GM_getResourceText: undefined | ((name: string) => string);
     const GM_registerMenuCommand: undefined | ((name: string, fn: () => void) => void);
+    const GM_openInTab: undefined | ((url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown);
 }
