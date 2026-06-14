@@ -185,6 +185,8 @@ import {
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
     shouldPauseVideoForSubtitleHover,
+    visibleAutoScanInitialDelay,
+    visibleAutoScanMutationDelay,
     type CardDisplayOptions,
     type DismissOptions,
     type KanjiDetailPromises,
@@ -242,7 +244,7 @@ import {
     type PointerTextSpanCandidate,
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
+import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
     buildRtkComponentSummaries,
@@ -368,6 +370,28 @@ const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     'button[name="r"]',
     'input[name="r"]',
 ].join(',');
+
+type FullscreenDocument = Document & {
+    webkitFullscreenElement?: Element | null;
+    mozFullScreenElement?: Element | null;
+    msFullscreenElement?: Element | null;
+};
+
+function currentFullscreenElement(): Element | null {
+    const fullscreenDocument = document as FullscreenDocument;
+    return document.fullscreenElement
+        ?? fullscreenDocument.webkitFullscreenElement
+        ?? fullscreenDocument.mozFullScreenElement
+        ?? fullscreenDocument.msFullscreenElement
+        ?? null;
+}
+
+function fullscreenPopoverMountParent(anchor?: HTMLElement): HTMLElement | undefined {
+    const fullscreenElement = currentFullscreenElement();
+    if (!(fullscreenElement instanceof HTMLElement) || fullscreenElement instanceof HTMLVideoElement) return undefined;
+    if (anchor && fullscreenElement.contains(anchor)) return fullscreenElement;
+    return undefined;
+}
 
 export class ReaderApp {
     private abortController = new AbortController();
@@ -659,6 +683,7 @@ export class ReaderApp {
         }
         return new Controller({
             getSettings: () => this.settings,
+            setVideoFrameStatusCardVisible: visible => this.setOcrVideoFrameStatusCardVisible(visible),
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
@@ -824,6 +849,15 @@ export class ReaderApp {
         await saveSettings(this.settings);
         this.youtube.refresh();
         log.info('YouTube channel recommendations changed', { visible });
+    }
+
+    private setOcrVideoFrameStatusCardVisible(visible: boolean): void {
+        if (this.settings.ocrVideoFrameStatusCard === visible) return;
+        this.settings = { ...this.settings, ocrVideoFrameStatusCard: visible };
+        document.querySelectorAll<HTMLInputElement>('input[name="ocrVideoFrameStatusCard"]').forEach(input => {
+            input.checked = visible;
+        });
+        void saveSettings(this.settings);
     }
 
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
@@ -1304,7 +1338,7 @@ export class ReaderApp {
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
-                this.scheduleAutoScan(450);
+                this.scheduleAutoScan(visibleAutoScanMutationDelay());
             }
             if (isJitenHost()) {
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
@@ -1314,13 +1348,13 @@ export class ReaderApp {
         });
         this.observeAutoScanMutations();
         window.addEventListener('scroll', () => {
-            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(160, { force: true });
+            if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true });
         }, { passive: true });
         window.addEventListener('resize', () => {
             if (allowsFrequentVisibleAutoScan()) this.scheduleAutoScan(250, { force: true });
         }, { passive: true });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
-        if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(600);
+        if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
     }
 
     private observeAutoScanMutations(): void {
@@ -1420,6 +1454,7 @@ export class ReaderApp {
         }, { capture: true });
 
         document.addEventListener('pointerdown', event => {
+            if (this.isMiningDrawerHandlePointerEvent(event)) return;
             this.suppressHoverAfterPenContact(event);
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
@@ -1493,6 +1528,7 @@ export class ReaderApp {
 
     private handleDocumentClick(event: MouseEvent): void {
         if (this.isDestroyed) return;
+        if (this.isMiningDrawerHandlePointerEvent(event)) return;
         const target = event.target as HTMLElement;
         if (shouldIgnoreDocumentClickTarget(target)) return;
 
@@ -1802,6 +1838,13 @@ export class ReaderApp {
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
+        this.primeLookupAudioFromGesture();
+    }
+
+    private primeLookupAudioFromGesture(): void {
+        if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+        if (this.settings.audioAutoPlayMode === 'hover') return;
+        this.audio.primeUserGesture();
     }
 
     private createPressLookup(event: PointerEvent, isMiddleScan: boolean): PressLookupState {
@@ -2211,6 +2254,37 @@ export class ReaderApp {
             ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
     }
 
+    private isMiningDrawerHandlePointerEvent(event: MouseEvent | PointerEvent): boolean {
+        return Boolean(this.miningDrawerHandleFromEventTarget(event.target)
+            ?? (this.eventHasPointTarget(event) ? this.miningDrawerHandleFromPoint(event.clientX, event.clientY) : null));
+    }
+
+    private eventHasPointTarget(event: MouseEvent | PointerEvent): boolean {
+        return event.type !== 'click' || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
+    }
+
+    private miningDrawerHandleFromEventTarget(target: EventTarget | null): HTMLButtonElement | null {
+        return target instanceof Element ? this.miningDrawerHandleFromElement(target) : null;
+    }
+
+    private miningDrawerHandleFromPoint(x: number, y: number): HTMLButtonElement | null {
+        if (typeof document.elementsFromPoint !== 'function') return null;
+        for (const element of document.elementsFromPoint(x, y)) {
+            const handle = this.miningDrawerHandleFromElement(element);
+            if (handle) return handle;
+        }
+        return null;
+    }
+
+    private miningDrawerHandleFromElement(element: Element): HTMLButtonElement | null {
+        const target = element.closest<HTMLElement>(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+        const handle = target?.matches(MINING_DRAWER_HANDLE_SELECTOR)
+            ? target as HTMLButtonElement
+            : target?.querySelector<HTMLButtonElement>(MINING_DRAWER_HANDLE_SELECTOR) ?? null;
+        if (!handle?.isConnected) return null;
+        return handle.closest('[data-jpdb-reader-root], .jpdb-reader-popover') ? handle : null;
+    }
+
     private ocrLineWordForPointer(target: Element | null, x: number, y: number): HTMLElement | null {
         const line = target?.closest?.('.jpdb-ocr-line') as HTMLElement | null;
         return line ? ocrLineWordAtPoint(line, x, y) : null;
@@ -2234,6 +2308,7 @@ export class ReaderApp {
         this.cancelMissingPointerTextCandidate(candidate);
         this.scheduleInactiveHoverClose();
         if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
+        this.pageScanner.interruptVisiblePageScan();
         this.rememberHoverPopoverPointer(event);
         this.schedulePointerTextLookup(candidate, event);
     }
@@ -2269,6 +2344,7 @@ export class ReaderApp {
             return;
         }
         if (!this.shouldLookupOnHover(event)) return;
+        this.pageScanner.interruptVisiblePageScan();
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
     }
@@ -2946,6 +3022,7 @@ export class ReaderApp {
         if (!nestedWord || !this.shouldLookupNestedDictionaryWord(nestedWord, query)) return false;
         event.preventDefault();
         event.stopPropagation();
+        this.primeLookupAudioFromGesture();
         void this.showWord(nestedWord, {
             trigger: 'click',
             navigation: trigger === 'modal' ? 'push-current' : 'reset',
@@ -3057,6 +3134,7 @@ export class ReaderApp {
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
+        if (trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
         if (!sentence) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
@@ -3356,6 +3434,7 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: RenderedWordLookupOptions = {}): Promise<void> {
+        if (options.trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
@@ -3885,6 +3964,10 @@ export class ReaderApp {
         }
 
         try {
+            if (trigger === 'hover') {
+                await waitForHoverCardInitialPaint();
+                if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
+            }
             renderData = loadRenderData();
             const renderState = { fullRenderCompleted: false };
             this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
@@ -4063,6 +4146,7 @@ export class ReaderApp {
             hoverLookupGeneration: context.hoverLookupGeneration,
             userGesture: context.options.userGesture,
             isCurrent: context.trigger === 'hover' ? context.isCurrentHoverCard : undefined,
+            autoPlay: true,
         });
     }
 
@@ -6034,7 +6118,8 @@ export class ReaderApp {
         const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
         const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : undefined;
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
-        return { mode, backdrop, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+        const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
+        return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
     }
 
     private settingsStackForMountedPopover(options: MountPopoverOptions): SettingsDialogStack | undefined {
@@ -6067,9 +6152,10 @@ export class ReaderApp {
 
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
         const useBackdrop = Boolean(state.backdrop);
+        const mountParent = state.mountParent ?? document.body;
         popover.setAttribute('aria-modal', String(useBackdrop));
-        if (state.backdrop) document.body.append(state.backdrop, popover);
-        else document.body.append(popover);
+        if (state.backdrop) mountParent.append(state.backdrop, popover);
+        else mountParent.append(popover);
     }
 
     private activateMountedPopover(popover: HTMLElement, state: PopoverMountState, options: MountPopoverOptions): void {
@@ -6452,6 +6538,10 @@ function normalizedNestedParseOptions(options: ReaderParserParseOptions, setting
 
 function nestedParseApiTimeoutMs(options: ReaderParserParseOptions): number {
     return options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? 1_200;
+}
+
+function waitForHoverCardInitialPaint(): Promise<void> {
+    return new Promise(resolve => window.requestAnimationFrame(() => resolve()));
 }
 
 function nestedParseAllowApiTimeoutFallback(options: ReaderParserParseOptions): boolean {

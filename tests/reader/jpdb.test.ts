@@ -43,7 +43,7 @@ import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidat
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
-import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, allowsFrequentVisibleAutoScan } from '../../src/reader/app/main-helpers';
+import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, allowsFrequentVisibleAutoScan, allowsGenericVisibleAutoScan, visibleAutoScanInitialDelay, visibleAutoScanMutationDelay } from '../../src/reader/app/main-helpers';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
@@ -3805,6 +3805,51 @@ describe('reader helpers', () => {
         }
     });
 
+    it('mounts anchored popovers inside the active fullscreen player tree', () => {
+        const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+        let fullscreenElement: Element | null = null;
+        Object.defineProperty(document, 'fullscreenElement', {
+            configurable: true,
+            get: () => fullscreenElement,
+        });
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupMode: 'popover' as const,
+            popoverBackdropEnabled: true,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+        };
+        internals.settings = settings;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+
+        try {
+            const frame = document.createElement('section');
+            const anchor = document.createElement('span');
+            frame.append(anchor);
+            document.body.append(frame);
+            fullscreenElement = frame;
+
+            const popover = createReaderPopover('よむ', settings);
+            internals.mountPopover(popover, anchor, { mode: 'modal' });
+
+            expect(popover.parentElement).toBe(frame);
+            expect(document.querySelector('.jpdb-reader-backdrop')?.parentElement).toBe(frame);
+            expect(popover.getAttribute('aria-modal')).toBe('true');
+        } finally {
+            vi.unstubAllGlobals();
+            if (descriptor) Object.defineProperty(document, 'fullscreenElement', descriptor);
+            else delete (document as unknown as { fullscreenElement?: unknown }).fullscreenElement;
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('coalesces popover resize repositioning into one animation frame', () => {
         const app = new ReaderApp();
         const settings = {
@@ -5667,6 +5712,84 @@ describe('reader helpers', () => {
 
         expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
         expect(handle.getAttribute('aria-expanded')).toBe('true');
+        popover.remove();
+    });
+
+    it('routes pass-through mining drawer gestures instead of opening words underneath', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
+                <div class="jpdb-reader-actions-gutter">
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                </div>
+                <span class="jpdb-reader-word" data-expression="食べる" data-reading="たべる" data-sentence="食べる。">食べる</span>
+                <div class="jpdb-reader-mining-details"></div>
+            </div>
+        `;
+        document.body.append(popover);
+
+        const actions = popover.querySelector<HTMLElement>('.jpdb-reader-actions')!;
+        const handle = popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
+        const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal';
+            settings: typeof DEFAULT_SETTINGS;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        const setExpanded = (button: HTMLButtonElement, expanded: boolean): void => {
+            actions.classList.toggle('jpdb-reader-actions-mining-collapsed', !expanded);
+            button.setAttribute('aria-expanded', String(expanded));
+        };
+        installMiningDrawerHandle(popover, setExpanded);
+
+        const originalElementsFromPoint = document.elementsFromPoint;
+        Object.defineProperty(document, 'elementsFromPoint', {
+            configurable: true,
+            value: vi.fn(() => [handle, word]),
+        });
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 180 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(showWord).not.toHaveBeenCalled();
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
+            expect(handle.getAttribute('aria-expanded')).toBe('true');
+
+            const dragDownStart = Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 180, pointerId: 21, button: 0 });
+            const dragDownMove = Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 226, pointerId: 21 });
+            const dragDownEnd = Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientX: 80, clientY: 226, pointerId: 21 });
+            word.dispatchEvent(dragDownStart);
+            document.dispatchEvent(dragDownMove);
+            document.dispatchEvent(dragDownEnd);
+
+            expect(dragDownStart.defaultPrevented).toBe(true);
+            expect(showWord).not.toHaveBeenCalled();
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+            expect(handle.getAttribute('aria-expanded')).toBe('false');
+        } finally {
+            if (originalElementsFromPoint) {
+                Object.defineProperty(document, 'elementsFromPoint', {
+                    configurable: true,
+                    value: originalElementsFromPoint,
+                });
+            } else {
+                delete (document as unknown as { elementsFromPoint?: typeof document.elementsFromPoint }).elementsFromPoint;
+            }
+            app.destroy();
+            popover.remove();
+        }
     });
 
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
@@ -7137,6 +7260,162 @@ describe('reader helpers', () => {
         }
     });
 
+    it('continues to the next source when a media element cannot start playback', async () => {
+        const played: string[] = [];
+        const rejected: string[] = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            if (this.src.includes('blocked.mp3')) {
+                rejected.push(this.src);
+                return Promise.reject(new Error('NotAllowedError'));
+            }
+            played.push(this.src);
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/blocked.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/fallback.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            await expect(player.play(card)).resolves.toBe(true);
+
+            expect(rejected).toEqual(['http://x.test/blocked.mp3']);
+            expect(played).toEqual(['http://x.test/fallback.mp3']);
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
+    it('does not retry the blocked source when reserved gesture audio falls back', async () => {
+        const played: string[] = [];
+        const rejected: string[] = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            if (this.src.includes('data:audio/wav')) return Promise.resolve();
+            if (this.src.includes('blocked.mp3')) {
+                rejected.push(this.src);
+                return Promise.reject(new Error('NotAllowedError'));
+            }
+            played.push(this.src);
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/blocked.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/fallback.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            expect(player.primeUserGesture()).toBe(true);
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            expect(rejected).toEqual(['http://x.test/blocked.mp3']);
+            expect(played).toEqual(['http://x.test/fallback.mp3']);
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
+    it('does not duplicate blocked fallback playback after prepared audio preload', async () => {
+        const played: string[] = [];
+        const rejected: string[] = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            if (this.src.includes('data:audio/wav')) return Promise.resolve();
+            if (this.src.includes('blocked.mp3')) {
+                rejected.push(this.src);
+                return Promise.reject(new Error('NotAllowedError'));
+            }
+            played.push(this.src);
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [
+                    { type: 'custom', url: 'http://x.test/blocked.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/fallback.mp3', voice: '', enabled: true },
+                ],
+            }));
+
+            expect(player.preload(card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: true })).toBe(true);
+            await Promise.resolve();
+            expect(player.primeUserGesture()).toBe(true);
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            expect(rejected).toEqual(['http://x.test/blocked.mp3']);
+            expect(played).toEqual(['http://x.test/fallback.mp3']);
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
+    it('reuses a tap-time audio reservation after delayed lookup rendering', async () => {
+        const plays: Array<{ element: HTMLMediaElement; loop: boolean; src: string }> = [];
+        const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            plays.push({ element: this, loop: this.loop, src: this.src });
+            return Promise.resolve();
+        });
+        const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const loadSpy = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/tapped-word.mp3', voice: '', enabled: true }],
+            }));
+
+            expect(player.primeUserGesture()).toBe(true);
+            await Promise.resolve();
+            await expect(player.play(card, { userGesture: true })).resolves.toBe(true);
+
+            expect(plays).toHaveLength(2);
+            expect(plays[0]?.loop).toBe(true);
+            expect(plays[0]?.src).toContain('data:audio/wav;base64,');
+            expect(plays[1]?.element).toBe(plays[0]?.element);
+            expect(plays[1]?.loop).toBe(false);
+            expect(plays[1]?.src).toBe('http://x.test/tapped-word.mp3');
+        } finally {
+            playSpy.mockRestore();
+            pauseSpy.mockRestore();
+            loadSpy.mockRestore();
+        }
+    });
+
     it('honors shuffled source order even when a later source prepares faster', async () => {
         const played: string[] = [];
         const requested: string[] = [];
@@ -7534,7 +7813,8 @@ describe('reader helpers', () => {
         };
 
         try {
-            expect(internals.shouldAutoPlay(card, 'modal', true)).toBe(false);
+            expect(internals.shouldAutoPlay(card, 'hover', false)).toBe(false);
+            expect(internals.shouldAutoPlay(card, 'modal', true)).toBe(true);
 
             internals.settings = { ...internals.settings, suppressAutoAudioOnVideo: false };
 
@@ -7717,6 +7997,71 @@ describe('reader helpers', () => {
 
         expect(play).not.toHaveBeenCalled();
         expect(toast).toHaveBeenCalledWith('Audio playback is disabled.');
+    });
+
+    it('coalesces duplicate in-flight term audio requests for the same card', async () => {
+        let resolvePlay!: (played: boolean) => void;
+        const play = vi.fn(() => new Promise<boolean>(resolve => { resolvePlay = resolve; }));
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => 0,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        const first = actions.playTermAudio(card, { userGesture: true });
+        const second = actions.playTermAudio(card, { userGesture: true });
+
+        expect(play).toHaveBeenCalledTimes(1);
+
+        resolvePlay(true);
+        await Promise.all([first, second]);
+        const third = actions.playTermAudio(card, { userGesture: true });
+        resolvePlay(true);
+        await third;
+
+        expect(play).toHaveBeenCalledTimes(2);
+    });
+
+    it('suppresses immediate duplicate term autoplay without blocking manual replay', async () => {
+        const play = vi.fn(async () => true);
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => 0,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        await actions.playTermAudio(card, { hoverLookupGeneration: 1, autoPlay: true });
+        await actions.playTermAudio({ ...card, vid: card.vid + 1, reading: '' }, { userGesture: true, autoPlay: true });
+        await actions.playTermAudio(card, { userGesture: true });
+
+        expect(play).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not suppress click autoplay after a stale hover autoplay is superseded', async () => {
+        let playCount = 0;
+        const play = vi.fn(async () => {
+            playCount += 1;
+            return playCount > 1;
+        });
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => 0,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        await actions.playTermAudio(card, { hoverLookupGeneration: 1, autoPlay: true });
+        await actions.playTermAudio(card, { userGesture: true, autoPlay: true });
+
+        expect(play).toHaveBeenCalledTimes(2);
     });
 
     it('does not play sentence audio when audio playback is disabled', async () => {
@@ -8324,7 +8669,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not fall through to browser text-to-speech when an available JapanesePod101 clip cannot start playback', async () => {
+    it('falls through to browser text-to-speech when an available JapanesePod101 clip cannot start playback', async () => {
         const spoken: string[] = [];
         const requested: string[] = [];
         const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new DOMException('Playback blocked', 'NotAllowedError'));
@@ -8349,11 +8694,11 @@ describe('reader helpers', () => {
                 ],
             }));
 
-            await expect(player.play({ ...card, spelling: '月光', reading: 'げっこう' })).resolves.toBe(false);
+            await expect(player.play({ ...card, spelling: '月光', reading: 'げっこう' })).resolves.toBe(true);
 
             expect(requested).toHaveLength(1);
             expect(requested[0]).toContain('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php');
-            expect(spoken).toEqual([]);
+            expect(spoken).toEqual(['月光']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -28218,6 +28563,19 @@ describe('reader helpers', () => {
         expect(mutationMayContainJapaneseText(mutation)).toBe(false);
     });
 
+    it('detects newly streamed YouTube feed text for visible rescans', () => {
+        const card = document.createElement('ytd-rich-item-renderer');
+        card.innerHTML = '<a id="video-title-link" href="/watch?v=next">新しい日本語動画</a>';
+        const mutation = {
+            type: 'childList',
+            target: document.body,
+            addedNodes: [card],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationMayContainJapaneseText(mutation)).toBe(true);
+    });
+
     it('does not recreate JPDB page addons for attribute-only JPDB mutations', () => {
         const result = document.createElement('div');
         result.className = 'result vocabulary';
@@ -28468,7 +28826,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytd-watch-metadata #description-inline-expander .jpdb-reader-word.jpdb-known')?.textContent).toBe('アプリ');
     });
 
-    it('keeps frequent visible page auto-scans off on YouTube watch pages', () => {
+    it('keeps YouTube generic scans off while allowing frequent site-parser rescans', () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
             origin: 'https://www.youtube.com',
@@ -28476,7 +28834,10 @@ describe('reader helpers', () => {
         });
 
         try {
-            expect(allowsFrequentVisibleAutoScan()).toBe(false);
+            expect(allowsGenericVisibleAutoScan()).toBe(false);
+            expect(allowsFrequentVisibleAutoScan()).toBe(true);
+            expect(visibleAutoScanMutationDelay()).toBe(120);
+            expect(visibleAutoScanInitialDelay()).toBe(160);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -28489,6 +28850,8 @@ describe('reader helpers', () => {
 
         try {
             expect(allowsFrequentVisibleAutoScan()).toBe(true);
+            expect(visibleAutoScanMutationDelay()).toBe(450);
+            expect(visibleAutoScanInitialDelay()).toBe(600);
         } finally {
             vi.unstubAllGlobals();
         }

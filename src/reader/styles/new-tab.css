@@ -3670,6 +3670,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 /* Study-hub parity SH-6: in-page JPDB deck scope for the study queue. */
 .jpdb-reader-newtab-deck {
+  box-sizing: border-box;
+  width: min(320px, 80vw);
   max-width: min(320px, 80vw);
   margin: 6px auto 0;
   padding: 4px 10px;

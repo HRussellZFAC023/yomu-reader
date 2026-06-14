@@ -1,6 +1,8 @@
 import { ensureTextTrackReadable } from './subtitle-track-loader';
 import { isYouTubePage } from './subtitle-youtube';
 
+const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = 'jpdb-subtitle-native-captions-suppressed';
+
 export interface SubtitleNativeTrackModeOption {
     id: string;
     label: string;
@@ -29,6 +31,7 @@ export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeO
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || (state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent)));
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
+    document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
 
@@ -46,6 +49,7 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
         if (yomuCaptionsActive) option.track.mode = 'disabled';
     }
     if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove('jpdb-subtitle-yomu-captions-active');
     return false;
 }
@@ -82,6 +86,18 @@ interface GenericCaptionPlayer {
     toggleCaptions?: (active: boolean) => unknown;
 }
 
+interface VidstackTextTrack {
+    mode?: string;
+}
+
+interface VidstackTextTrackList extends Iterable<VidstackTextTrack> {
+    selected?: VidstackTextTrack | null;
+}
+
+interface VidstackMediaPlayer extends HTMLElement {
+    textTracks?: VidstackTextTrackList;
+}
+
 function suppressGenericCaptionPlayerUi(video?: HTMLVideoElement): void {
     for (const player of genericCaptionPlayersForVideo(video)) {
         try {
@@ -90,6 +106,7 @@ function suppressGenericCaptionPlayerUi(video?: HTMLVideoElement): void {
             // Third-party player APIs are best-effort.
         }
     }
+    suppressVidstackCaptionPlayers(video);
     suppressPressedCaptionButtons(video);
 }
 
@@ -126,10 +143,50 @@ function isGenericCaptionPlayer(value: unknown): value is GenericCaptionPlayer {
         && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === 'number');
 }
 
+function suppressVidstackCaptionPlayers(video?: HTMLVideoElement): void {
+    for (const player of vidstackCaptionPlayersForVideo(video)) {
+        const tracks = player.textTracks;
+        if (!tracks) continue;
+        try {
+            if (tracks.selected) tracks.selected.mode = 'disabled';
+            for (const track of Array.from(tracks)) {
+                if (track.mode && track.mode !== 'disabled') track.mode = 'disabled';
+            }
+        } catch {
+            // Vidstack's custom element API is page-owned; leave native track
+            // modes and CSS suppression as the fallback if it refuses writes.
+        }
+    }
+}
+
+function vidstackCaptionPlayersForVideo(video?: HTMLVideoElement): VidstackMediaPlayer[] {
+    const scope = genericCaptionButtonScope(video);
+    const scopedPlayer = scope instanceof Element && isVidstackMediaPlayer(scope) ? [scope] : [];
+    return [
+        ...scopedPlayer,
+        ...Array.from(scope.querySelectorAll<VidstackMediaPlayer>('media-player, [data-media-player]')).filter(isVidstackMediaPlayer),
+    ].filter((player, index, players) => players.indexOf(player) === index);
+}
+
+function isVidstackMediaPlayer(value: unknown): value is VidstackMediaPlayer {
+    return value instanceof HTMLElement
+        && (value.localName === 'media-player' || value.hasAttribute('data-media-player'))
+        && Boolean((value as VidstackMediaPlayer).textTracks);
+}
+
 function suppressPressedCaptionButtons(video?: HTMLVideoElement): void {
     const scope = genericCaptionButtonScope(video);
     const buttons = Array.from(scope.querySelectorAll<HTMLElement>(
-        '[data-plyr="captions"][aria-pressed="true"], [data-plyr="captions"].plyr__control--pressed',
+        [
+            '[data-plyr="captions"][aria-pressed="true"]',
+            '[data-plyr="captions"].plyr__control--pressed',
+            'media-caption-button[aria-pressed="true"]',
+            'media-caption-button[data-pressed]',
+            '[data-media-tooltip="caption"][aria-pressed="true"]',
+            '[data-media-tooltip="caption"][data-pressed]',
+            '[aria-label*="caption" i][aria-pressed="true"]',
+            '[title*="caption" i][aria-pressed="true"]',
+        ].join(', '),
     ));
     for (const button of buttons) {
         try {
@@ -142,5 +199,5 @@ function suppressPressedCaptionButtons(video?: HTMLVideoElement): void {
 }
 
 function genericCaptionButtonScope(video?: HTMLVideoElement): ParentNode {
-    return video?.closest('.plyr, [class*="player" i], [class*="video" i]') ?? document;
+    return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
 }

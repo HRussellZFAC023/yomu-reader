@@ -16,11 +16,32 @@ export interface ReaderAudioActionsDependencies {
 
 export class ReaderAudioActions {
     private loadingRequest = 0;
+    private inFlightTermAudio?: { key: string; promise: Promise<boolean> };
+    private lastAutoTermAudio?: { key: string; at: number };
 
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
-    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean } = {}): Promise<void> {
+    async playTermAudio(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean; autoPlay?: boolean } = {}): Promise<void> {
         if (!this.ensureAudioEnabled()) return;
+        const key = termAudioRequestKey(card, options);
+        if (this.inFlightTermAudio?.key === key) {
+            await this.inFlightTermAudio.promise;
+            return;
+        }
+        const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
+        if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
+
+        const promise = this.playTermAudioOnce(card, options);
+        this.inFlightTermAudio = { key, promise };
+        try {
+            const played = await promise;
+            if (options.autoPlay && played) this.lastAutoTermAudio = { key: autoKey, at: Date.now() };
+        } finally {
+            if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = undefined;
+        }
+    }
+
+    private async playTermAudioOnce(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean; isCurrent?: () => boolean } = {}): Promise<boolean> {
         const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === undefined
             ? undefined
             : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
@@ -30,13 +51,22 @@ export class ReaderAudioActions {
         try {
             this.dependencies.stopImmersionAudio();
             const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
-            if (!played) return;
+            return played;
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
             this.dependencies.toast(this.audioErrorMessage(error));
+            return false;
         } finally {
             this.clearLoading(loadingPopover, loadingRequest);
         }
+    }
+
+    private consumeRecentAutoTermAudio(key: string): boolean {
+        const recent = this.lastAutoTermAudio;
+        if (!recent || recent.key !== key) return false;
+        if (Date.now() - recent.at > 250) return false;
+        this.lastAutoTermAudio = { key, at: Date.now() };
+        return true;
     }
 
     async playSentenceAudio(sentence?: string): Promise<void> {
@@ -87,4 +117,21 @@ export class ReaderAudioActions {
         delete popover.dataset.audioLoading;
         delete popover.dataset.audioLoadingRequest;
     }
+}
+
+function termAudioRequestKey(card: JPDBCard, options: { hoverLookupGeneration?: number; userGesture?: boolean }): string {
+    return [
+        card.source ?? '',
+        String(card.vid ?? ''),
+        String(card.sid ?? ''),
+        String(card.rid ?? ''),
+        card.spelling,
+        card.reading,
+        options.userGesture ? 'gesture' : 'auto',
+        options.hoverLookupGeneration === undefined ? '' : String(options.hoverLookupGeneration),
+    ].join('\u0000');
+}
+
+function termAudioAutoRequestKey(card: JPDBCard): string {
+    return card.spelling;
 }

@@ -2430,6 +2430,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens (recommended)",
       cloudVision: "Google Cloud Vision",
@@ -2791,6 +2792,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
+      ocrHidePausedFrameStatusCard: "Hide status card",
       ocrPausedFrameScanning: "Reading paused frame...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
@@ -3481,6 +3483,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
+ocrHidePausedFrameStatusCard	ステータスカードを非表示
 ocrPausedFrameScanning	一時停止フレームを読み取り中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
@@ -3923,6 +3926,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens (おすすめ)
 cloudVision	Google Cloud Vision
@@ -5755,6 +5759,7 @@ ${candidate.depth}`;
       }
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
+        this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
         return;
       }
@@ -5764,6 +5769,7 @@ ${candidate.depth}`;
       for (const image of images) {
         this.observeRefreshImage(image, settings);
       }
+      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
       this.schedulePosition();
     }
     shouldSkipRefresh(settings, options) {
@@ -6163,21 +6169,64 @@ ${candidate.depth}`;
       element.dataset.jpdbReaderSurfaceIgnore = "true";
       element.setAttribute("role", "status");
       element.setAttribute("aria-live", "polite");
+      const text = document.createElement("span");
+      text.className = "jpdb-ocr-video-frame-status-text";
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "jpdb-ocr-video-frame-status-dismiss";
+      setInnerHtml(dismiss, closeStatusCardIcon());
+      const label = uiText(this.options.getSettings().interfaceLanguage, "ocrHidePausedFrameStatusCard");
+      dismiss.setAttribute("aria-label", label);
+      dismiss.setAttribute("title", label);
+      dismiss.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.setVideoFrameStatusCardVisible(false);
+      });
+      element.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (target instanceof Node && dismiss.contains(target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        element.classList.add("jpdb-ocr-video-frame-status-reveal-dismiss");
+      });
+      element.append(text, dismiss);
       this.setVideoFrameStatus(element, status);
       document.body.append(element);
       return element;
     }
     setVideoFrameStatus(element, status) {
       const language = this.options.getSettings().interfaceLanguage;
+      const label = uiText(language, videoFrameStatusTextKey(status));
       element.dataset.status = status;
       element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
-      element.textContent = uiText(language, videoFrameStatusTextKey(status));
+      element.querySelector(".jpdb-ocr-video-frame-status-text")?.replaceChildren(label);
+      element.setAttribute("aria-label", label);
+      const dismiss = element.querySelector(".jpdb-ocr-video-frame-status-dismiss");
+      const dismissLabel = uiText(language, "ocrHidePausedFrameStatusCard");
+      dismiss?.setAttribute("aria-label", dismissLabel);
+      dismiss?.setAttribute("title", dismissLabel);
+      this.syncVideoFrameStatusCardMode(element);
     }
     updateVideoFrameStatusForImage(image, status) {
       const video = this.videoFrameVideos.get(image);
       if (!video) return;
       const element = this.videoFrameStatuses.get(video);
       if (element) this.setVideoFrameStatus(element, status);
+    }
+    setVideoFrameStatusCardVisible(visible) {
+      const settings = this.options.getSettings();
+      if (this.options.setVideoFrameStatusCardVisible) {
+        void this.options.setVideoFrameStatusCardVisible(visible);
+      } else if (settings.ocrVideoFrameStatusCard !== visible) {
+        settings.ocrVideoFrameStatusCard = visible;
+      }
+      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
+    }
+    syncVideoFrameStatusCardMode(element) {
+      const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
+      element.classList.toggle("jpdb-ocr-video-frame-status-compact", compact);
+      if (compact) element.classList.remove("jpdb-ocr-video-frame-status-reveal-dismiss");
     }
     refreshVideoFrameAfterSeek(target) {
       if (!(target instanceof HTMLVideoElement) || !target.paused) return;
@@ -6971,6 +7020,9 @@ ${spelling}`);
   }
   function playVideoIcon() {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+  }
+  function closeStatusCardIcon() {
+    return `<svg class="jpdb-ocr-video-frame-status-dismiss-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;
@@ -9918,11 +9970,13 @@ ${spelling}`);
     if (trackCount === 1) return uiText(language, "subtitleTrackDetectedSingular");
     return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
   }
+  const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
   function applySubtitleNativeTrackModes(state) {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
     const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
+    document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
   }
   function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
@@ -9936,6 +9990,7 @@ ${spelling}`);
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
     if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
@@ -9960,6 +10015,7 @@ ${spelling}`);
       } catch {
       }
     }
+    suppressVidstackCaptionPlayers(video);
     suppressPressedCaptionButtons(video);
   }
   function genericCaptionPlayersForVideo(video) {
@@ -9987,10 +10043,43 @@ ${spelling}`);
     const player = value;
     return typeof player.toggleCaptions === "function" && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === "number");
   }
+  function suppressVidstackCaptionPlayers(video) {
+    for (const player of vidstackCaptionPlayersForVideo(video)) {
+      const tracks = player.textTracks;
+      if (!tracks) continue;
+      try {
+        if (tracks.selected) tracks.selected.mode = "disabled";
+        for (const track of Array.from(tracks)) {
+          if (track.mode && track.mode !== "disabled") track.mode = "disabled";
+        }
+      } catch {
+      }
+    }
+  }
+  function vidstackCaptionPlayersForVideo(video) {
+    const scope = genericCaptionButtonScope(video);
+    const scopedPlayer = scope instanceof Element && isVidstackMediaPlayer(scope) ? [scope] : [];
+    return [
+      ...scopedPlayer,
+      ...Array.from(scope.querySelectorAll("media-player, [data-media-player]")).filter(isVidstackMediaPlayer)
+    ].filter((player, index, players) => players.indexOf(player) === index);
+  }
+  function isVidstackMediaPlayer(value) {
+    return value instanceof HTMLElement && (value.localName === "media-player" || value.hasAttribute("data-media-player")) && Boolean(value.textTracks);
+  }
   function suppressPressedCaptionButtons(video) {
     const scope = genericCaptionButtonScope(video);
     const buttons = Array.from(scope.querySelectorAll(
-      '[data-plyr="captions"][aria-pressed="true"], [data-plyr="captions"].plyr__control--pressed'
+      [
+        '[data-plyr="captions"][aria-pressed="true"]',
+        '[data-plyr="captions"].plyr__control--pressed',
+        'media-caption-button[aria-pressed="true"]',
+        "media-caption-button[data-pressed]",
+        '[data-media-tooltip="caption"][aria-pressed="true"]',
+        '[data-media-tooltip="caption"][data-pressed]',
+        '[aria-label*="caption" i][aria-pressed="true"]',
+        '[title*="caption" i][aria-pressed="true"]'
+      ].join(", ")
     ));
     for (const button of buttons) {
       try {
@@ -10000,7 +10089,7 @@ ${spelling}`);
     }
   }
   function genericCaptionButtonScope(video) {
-    return video?.closest('.plyr, [class*="player" i], [class*="video" i]') ?? document;
+    return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
   }
   function mutationNodes(mutation, options = {}) {
     const nodes = [
@@ -11484,6 +11573,7 @@ ${spelling}`);
     tickSubtitlePlayer(settings) {
       this.refreshSubtitleSourcesForTick();
       this.refreshNativeCueLists();
+      this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.syncPlayerChromeIdleState();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
@@ -14126,7 +14216,7 @@ ${spelling}`);
       return document.body;
     }
     shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
-      return Boolean(fullscreenElement instanceof HTMLElement && this.video && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
+      return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
     }
     scheduleAlignToVideo() {
       if (this.alignFrame) cancelAnimationFrame(this.alignFrame);

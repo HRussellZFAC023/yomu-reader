@@ -8032,11 +8032,12 @@ export class NewTabController {
 
     private async populateAnkiDeckSelector(select: HTMLSelectElement): Promise<void> {
         const invoke = this.dependencies.anki.invoke;
+        const selected = this.state.ankiDeck || 'all';
+        this.primeDeckSelector(select, selected, selected === 'all' ? this.text('allVocabularyDeck') : selected);
         const names = typeof invoke === 'function'
             ? await invoke<string[]>('deckNames').catch((): string[] => [])
             : [];
         if (!select.isConnected) return;
-        const selected = this.state.ankiDeck || 'all';
         // UT-46: per-deck due counts straight from Anki's own scheduler
         // search — pick a deck knowing what's waiting in it.
         const dueByDeck = await this.ankiDeckDueCounts(names.filter(Boolean));
@@ -8083,6 +8084,8 @@ export class NewTabController {
     }
 
     private async populateDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): Promise<void> {
+        const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
+        this.primeDeckSelector(select, selected, this.deckSelectorFallbackLabel(selected));
         const key = effectiveJpdbApiKey(settings);
         if (this.deckSelectorDecks?.key !== key) {
             const listDecks = typeof this.dependencies.jpdb.listDecks === 'function'
@@ -8093,7 +8096,6 @@ export class NewTabController {
         const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([] as JPDBDeck[]));
         const jitenDecks = await this.jitenDeckSelectorOptions(settings);
         if (!select.isConnected) return;
-        const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
         const bothProviders = hasJpdbApiCredential(settings) && hasJitenApiCredential(settings);
         const options = [
             { id: 'all', name: this.text('allVocabularyDeck') },
@@ -8111,6 +8113,24 @@ export class NewTabController {
             selected: option.id === selected,
         }, deckOptionLabel(option))));
         select.value = selected;
+    }
+
+    private primeDeckSelector(select: HTMLSelectElement, selected: string, label: string): void {
+        const existing = Array.from(select.options).find(option => option.value === selected);
+        if (existing && existing.textContent?.trim()) {
+            select.value = selected;
+            return;
+        }
+        const optionLabel = label.trim() || selected || this.text('allVocabularyDeck');
+        replaceChildrenWith(select, el('option', { value: selected, selected: true }, optionLabel));
+        select.value = selected;
+    }
+
+    private deckSelectorFallbackLabel(selected: string): string {
+        if (selected === 'all' || selected === JPDB_ALL_DECKS) return this.text('allVocabularyDeck');
+        if (selected === 'provider:jpdb') return 'JPDB';
+        if (selected === 'provider:jiten') return 'Jiten';
+        return selected;
     }
 
     private async toggleTheme(root: HTMLElement): Promise<void> {

@@ -49,6 +49,7 @@ interface OcrRenderableMediaMutationSummary {
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
+    setVideoFrameStatusCardVisible?: (visible: boolean) => void | Promise<void>;
     parseJapanese: (text: string, options?: ReaderParserParseOptions) => Promise<JPDBToken[]>;
     parseJapaneseBatch?: (texts: string[], options?: ReaderParserParseOptions) => Promise<JPDBToken[][]>;
     onToast: (message: string) => void;
@@ -263,6 +264,7 @@ export class ImageOcrController {
         }
         if (this.shouldSkipRefresh(settings, options)) {
             this.pruneDisconnectedStates();
+            this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
             this.schedulePosition();
             return;
         }
@@ -274,6 +276,7 @@ export class ImageOcrController {
         for (const image of images) {
             this.observeRefreshImage(image, settings);
         }
+        this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
     }
 
@@ -776,6 +779,28 @@ export class ImageOcrController {
         element.dataset.jpdbReaderSurfaceIgnore = 'true';
         element.setAttribute('role', 'status');
         element.setAttribute('aria-live', 'polite');
+        const text = document.createElement('span');
+        text.className = 'jpdb-ocr-video-frame-status-text';
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'jpdb-ocr-video-frame-status-dismiss';
+        setInnerHtml(dismiss, closeStatusCardIcon());
+        const label = uiText(this.options.getSettings().interfaceLanguage, 'ocrHidePausedFrameStatusCard');
+        dismiss.setAttribute('aria-label', label);
+        dismiss.setAttribute('title', label);
+        dismiss.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.setVideoFrameStatusCardVisible(false);
+        });
+        element.addEventListener('pointerdown', event => {
+            const target = event.target;
+            if (target instanceof Node && dismiss.contains(target)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            element.classList.add('jpdb-ocr-video-frame-status-reveal-dismiss');
+        });
+        element.append(text, dismiss);
         this.setVideoFrameStatus(element, status);
         document.body.append(element);
         return element;
@@ -783,9 +808,16 @@ export class ImageOcrController {
 
     private setVideoFrameStatus(element: HTMLElement, status: OcrVideoFrameStatus): void {
         const language = this.options.getSettings().interfaceLanguage;
+        const label = uiText(language, videoFrameStatusTextKey(status));
         element.dataset.status = status;
         element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
-        element.textContent = uiText(language, videoFrameStatusTextKey(status));
+        element.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status-text')?.replaceChildren(label);
+        element.setAttribute('aria-label', label);
+        const dismiss = element.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status-dismiss');
+        const dismissLabel = uiText(language, 'ocrHidePausedFrameStatusCard');
+        dismiss?.setAttribute('aria-label', dismissLabel);
+        dismiss?.setAttribute('title', dismissLabel);
+        this.syncVideoFrameStatusCardMode(element);
     }
 
     private updateVideoFrameStatusForImage(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
@@ -793,6 +825,22 @@ export class ImageOcrController {
         if (!video) return;
         const element = this.videoFrameStatuses.get(video);
         if (element) this.setVideoFrameStatus(element, status);
+    }
+
+    private setVideoFrameStatusCardVisible(visible: boolean): void {
+        const settings = this.options.getSettings();
+        if (this.options.setVideoFrameStatusCardVisible) {
+            void this.options.setVideoFrameStatusCardVisible(visible);
+        } else if (settings.ocrVideoFrameStatusCard !== visible) {
+            settings.ocrVideoFrameStatusCard = visible;
+        }
+        this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
+    }
+
+    private syncVideoFrameStatusCardMode(element: HTMLElement): void {
+        const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
+        element.classList.toggle('jpdb-ocr-video-frame-status-compact', compact);
+        if (compact) element.classList.remove('jpdb-ocr-video-frame-status-reveal-dismiss');
     }
 
     private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
@@ -1770,6 +1818,10 @@ function updateSubtitleRailResumeState(root: HTMLElement | null): void {
 
 function playVideoIcon(): string {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
+}
+
+function closeStatusCardIcon(): string {
+    return `<svg class="jpdb-ocr-video-frame-status-dismiss-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
 }
 
 function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {

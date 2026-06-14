@@ -112,10 +112,22 @@ export function allowsGenericVisibleAutoScan(): boolean {
 }
 
 export function allowsFrequentVisibleAutoScan(): boolean {
-    return !isYouTubeHostForAutoScan();
+    // YouTube still opts out of the generic visible-text fallback above, but
+    // its site parser is narrow enough to rescan on mutations/scroll. Keeping
+    // frequent scans enabled is what makes homepage/feed titles annotate as
+    // cards stream in instead of waiting for a manual scan or one capped pass.
+    return true;
 }
 
-function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
+export function visibleAutoScanMutationDelay(defaultDelay = 450): number {
+    return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
+}
+
+export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
+    return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
+}
+
+export function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
     return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
@@ -357,6 +369,7 @@ export interface DismissOptions {
 export interface PopoverMountState {
     mode: 'modal' | 'hover';
     backdrop?: HTMLElement;
+    mountParent?: HTMLElement;
     resolvedAnchor?: HTMLElement;
     anchorRect?: DOMRect;
     previousPopoverRect?: DOMRect;

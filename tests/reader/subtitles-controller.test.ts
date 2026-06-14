@@ -632,6 +632,28 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('does not mount the subtitle overlay inside a fullscreen video element', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        const fullscreen = stubFullscreenElement(null);
+        try {
+            const video = document.createElement('video');
+            document.body.append(video);
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 640, 360) });
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const internals = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+
+            fullscreen.set(video);
+            internals.syncFullscreenState();
+
+            expect(root.parentElement).toBe(document.body);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+        } finally {
+            fullscreen.restore();
+            controller.destroy();
+        }
+    });
+
     it('does not move the subtitle overlay into unrelated fullscreen elements', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreen = stubFullscreenElement(null);

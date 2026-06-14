@@ -983,10 +983,62 @@
   box-shadow: 0 12px 30px var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.35));
   backdrop-filter: blur(14px);
   font: 750 12px/1.2 var(--jpdb-reader-font, system-ui);
-  pointer-events: none;
+  pointer-events: auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.jpdb-ocr-video-frame-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jpdb-ocr-video-frame-status-dismiss {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-right: -5px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.jpdb-ocr-video-frame-status:hover .jpdb-ocr-video-frame-status-dismiss,
+.jpdb-ocr-video-frame-status:focus-within .jpdb-ocr-video-frame-status-dismiss,
+.jpdb-ocr-video-frame-status-reveal-dismiss .jpdb-ocr-video-frame-status-dismiss {
+  opacity: 0.88;
+  pointer-events: auto;
+}
+
+.jpdb-ocr-video-frame-status-dismiss:hover,
+.jpdb-ocr-video-frame-status-dismiss:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.jpdb-ocr-video-frame-status-dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.jpdb-ocr-video-frame-status-dismiss-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .jpdb-ocr-video-frame-status::before {
@@ -1030,6 +1082,26 @@
 
 .jpdb-ocr-video-frame-status-failed::before {
   background: var(--jpdb-reader-state-failed, #f87171);
+}
+
+.jpdb-ocr-video-frame-status-compact {
+  justify-content: center;
+  width: 24px;
+  min-width: 24px;
+  max-width: 24px !important;
+  min-height: 24px;
+  padding: 0;
+  gap: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.jpdb-ocr-video-frame-status-compact .jpdb-ocr-video-frame-status-text,
+.jpdb-ocr-video-frame-status-compact .jpdb-ocr-video-frame-status-dismiss {
+  display: none;
 }
 
 @keyframes jpdb-ocr-video-frame-status-spin {
@@ -9308,6 +9380,20 @@ html.jpdb-subtitle-yomu-captions-active .ytp-caption-window-container,
 html.jpdb-subtitle-yomu-captions-active .caption-window,
 html.jpdb-subtitle-yomu-captions-active .ytp-caption-segment {
   display: none !important;
+}
+html.jpdb-subtitle-native-captions-suppressed media-captions,
+html.jpdb-subtitle-native-captions-suppressed .vds-captions,
+html.jpdb-subtitle-native-captions-suppressed .plyr__captions,
+html.jpdb-subtitle-native-captions-suppressed .jw-captions,
+html.jpdb-subtitle-native-captions-suppressed .vjs-text-track-display,
+html.jpdb-subtitle-native-captions-suppressed .mejs__captions-layer {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.jpdb-subtitle-native-captions-suppressed video::cue {
+  visibility: hidden;
+  opacity: 0;
 }
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #secondary,
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #secondary,

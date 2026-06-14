@@ -79,6 +79,51 @@ describe('paused-video OCR frames', () => {
         });
     });
 
+    it('dismisses the paused-frame status card into compact indicator mode', () => {
+        const settings: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrVideoFrameStatusCard: true };
+        let persisted: boolean | undefined;
+        controller = new ImageOcrController({
+            getSettings: () => settings,
+            setVideoFrameStatusCardVisible: visible => {
+                persisted = visible;
+                settings.ocrVideoFrameStatusCard = visible;
+            },
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
+        });
+        controller.init();
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+
+        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+        const dismiss = status.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-status-dismiss')!;
+        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(false);
+        expect(dismiss.getAttribute('title')).toBe('Hide status card');
+
+        status.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+        expect(status.classList.contains('jpdb-ocr-video-frame-status-reveal-dismiss')).toBe(true);
+
+        dismiss.click();
+
+        expect(persisted).toBe(false);
+        expect(settings.ocrVideoFrameStatusCard).toBe(false);
+        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(true);
+        expect(status.textContent).toBe('Reading paused frame...');
+    });
+
+    it('starts paused-frame status in compact mode when the card is hidden in settings', () => {
+        createController({ ocrVideoFrameStatusCard: false });
+        const video = pausedVideo();
+
+        video.dispatchEvent(new Event('pause'));
+
+        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
+        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(true);
+        expect(status.getAttribute('aria-label')).toBe('Reading paused frame...');
+    });
+
     it('shows paused-frame OCR status when no text is found', async () => {
         createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' });
         const video = pausedVideo();
