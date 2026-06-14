@@ -2894,11 +2894,10 @@ export class ReaderApp {
 
     private selectionLookupText(): string {
         const selected = getSelectionText();
-        if (selected.length < 1) return '';
-        if (selected.length > 120) return '';
-        if (!HAS_JAPANESE.test(selected)) return '';
-        if ((document.activeElement as HTMLElement | null)?.closest?.('[data-jpdb-reader-root]')) return '';
-        return selected;
+        return (!selected
+            || selected.length > 500
+            || !HAS_JAPANESE.test(selected)
+            || (document.activeElement as HTMLElement | null)?.closest?.('[data-jpdb-reader-root]')) ? '' : selected;
     }
 
     private async lookupText(text: string, sentence = text, options: TextLookupOptions = {}): Promise<void> {

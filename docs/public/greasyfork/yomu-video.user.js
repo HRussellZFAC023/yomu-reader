@@ -5485,6 +5485,7 @@ ${candidate.depth}`;
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
+    if (segments.at(-1)?.end !== offset + text.length) return fallbackJapaneseRunSegment(text, offset);
     return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
   }
   function mergeSegmenterCompoundOverrides(segments) {

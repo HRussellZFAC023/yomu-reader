@@ -93,6 +93,7 @@ export function lookupRenderedSelection(selected: string, callbacks: RenderedSel
     const context = renderedSelectionDisplayContext(words, selected, callbacks.displayState);
     if (!context) return false;
     const sentence = renderedSelectionSentence(words, getSelectionSentence() || context.selected, callbacks);
+    if (context.selected[13]) return false;
     showRenderedSelectionTokens(tokens, context, sentence, callbacks);
     return true;
 }
