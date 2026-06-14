@@ -4,28 +4,28 @@ import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from 
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 12;
 
-export const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
+const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jpdb',
     label: 'JPDB',
     urlTemplate: 'https://jpdb.io/search?q={query}',
     enabled: true,
 };
 
-export const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
+const JISHO_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jisho',
     label: 'Jisho',
     urlTemplate: 'https://jisho.org/search/{query}',
     enabled: false,
 };
 
-export const YOMU_LOOKUP_LINK: DictionaryLookupLink = {
+const YOMU_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'yomu-search',
     label: 'Yomu',
     urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true,
 };
 
-export const JITEN_LOOKUP_LINK: DictionaryLookupLink = {
+const JITEN_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jiten',
     label: 'Jiten',
     urlTemplate: 'https://jiten.moe/parse?text={query}',

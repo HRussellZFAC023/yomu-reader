@@ -85,7 +85,7 @@ export function dictionaryLookupLink(target: EventTarget | null): HTMLAnchorElem
     return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]') ?? null;
 }
 
-export function actionPillLink(target: EventTarget | null): HTMLAnchorElement | null {
+function actionPillLink(target: EventTarget | null): HTMLAnchorElement | null {
     return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.jpdb-reader-action-pill[href]') ?? null;
 }
 

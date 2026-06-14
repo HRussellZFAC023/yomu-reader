@@ -803,6 +803,9 @@ function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
 
 function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {
     if (isPassiveInteractionElement(element)) return true;
+    if (options.readerRootPassiveInteractions
+        && element.closest(READER_ROOT_SELECTOR)
+        && element.closest('.jpdb-reader-popover')) return true;
     return Boolean(options.readerRootPassiveInteractions
         && element.closest(READER_ROOT_SELECTOR)
         && element.closest(PASSIVE_INTERACTION_SELECTOR));

@@ -28709,7 +28709,7 @@ describe('reader helpers', () => {
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
         expect(linkWord.querySelector('rt')?.textContent).toBe('あおぞら');
-        expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(proseWord.dataset.jpdbReaderPassive).toBe('true');
         expect(proseWord.tabIndex).toBe(-1);
         expect(proseWord.querySelector('rt')?.textContent).toBe('よ');
 
@@ -28978,13 +28978,16 @@ describe('reader helpers', () => {
             '検索履歴を管理する',
             '設定を保存する',
             '続きを読む',
+            '登録する',
         ]);
         const uiTarget = targets.find(target => target.text === '検索履歴を管理する')!;
         const buttonTarget = targets.find(target => target.text === '設定を保存する')!;
         const summaryTarget = targets.find(target => target.text === '続きを読む')!;
-        expect('passiveInteraction' in uiTarget && uiTarget.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in buttonTarget && buttonTarget.passiveInteraction).toBe(true);
-        expect('passiveInteraction' in summaryTarget && summaryTarget.passiveInteraction).toBe(true);
+        const submitTarget = targets.find(target => target.text === '登録する')!;
+        expect(uiTarget).toMatchObject({ passiveInteraction: true });
+        expect(buttonTarget).toMatchObject({ passiveInteraction: true });
+        expect(summaryTarget).toMatchObject({ passiveInteraction: true });
+        expect(submitTarget).toMatchObject({ passiveInteraction: true });
 
         applyTokensToScanTarget(uiTarget, [{
             card: { ...card, cardState: ['known'], spelling: '検索履歴', reading: 'けんさくりれき' },
@@ -29013,22 +29016,36 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '続きを読む',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(submitTarget, [{
+            card: { ...card, cardState: ['known'], spelling: '登録', reading: 'とうろく' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'とうろく', start: 0, end: 2, length: 2 }],
+            pitchClass: '',
+            sentence: '登録する',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const word = document.querySelector<HTMLElement>('a[href="/history"] .jpdb-reader-word')!;
         const buttonWord = document.querySelector<HTMLElement>('button[type="button"] .jpdb-reader-word')!;
         const summaryWord = document.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
+        const submitWord = document.querySelector<HTMLElement>('button[type="submit"] .jpdb-reader-word')!;
         expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
         expect(word.classList.contains('jpdb-reader-scan-word')).toBe(true);
         expect(word.tabIndex).toBe(-1);
         expect(word.querySelector('rt')?.textContent).toBe('けんさくりれき');
-        for (const controlWord of [buttonWord, summaryWord]) {
-            expect(controlWord.dataset.jpdbReaderPassive).toBe('true');
-            expect(controlWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
-            expect(controlWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
-            expect(controlWord.tabIndex).toBe(-1);
-        }
+        expect(buttonWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(buttonWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(buttonWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(buttonWord.tabIndex).toBe(-1);
+        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(summaryWord.classList.contains('jpdb-reader-scan-word')).toBe(true);
+        expect(summaryWord.tabIndex).toBe(-1);
         expect(buttonWord.querySelector('rt')?.textContent).toBe('せってい');
         expect(summaryWord.querySelector('rt')?.textContent).toBe('つづ');
+        expect(submitWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(submitWord.querySelector('rt')?.textContent).toBe('とうろく');
         const app = new ReaderApp();
         const readerWordAccess = app as unknown as {
             canLookupReaderWord: (word: HTMLElement) => boolean;
@@ -29708,11 +29725,11 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual([
             '東京でニュースを読む',
-            '今日は本を読みます。',
             'ニュースを聞く',
             '漢字の読み方を消す',
             '漢字の読み方を消す',
             '音声',
+            '今日は本を読みます。',
         ]);
         expect(targets.find(target => target.text === 'ニュースを聞く')).toMatchObject({ passiveInteraction: true });
         expect(targets.filter(target => target.text === '漢字の読み方を消す')).toHaveLength(2);
@@ -29721,7 +29738,7 @@ describe('reader helpers', () => {
         expect(targets.find(target => target.text === '音声')).toMatchObject({ passiveInteraction: true });
     });
 
-    it('does not scan JPDB native Immersion Kit examples or audio controls', () => {
+    it('scans JPDB native Immersion Kit examples and passive audio controls', () => {
         const visibleRect = {
             left: 0,
             right: 800,
@@ -29749,7 +29766,9 @@ describe('reader helpers', () => {
         const targets = collectScanTargets(10, 'https://jpdb.io/vocabulary/1/%E4%BB%8A%E6%97%A5/%E3%81%8D%E3%82%87%E3%81%86');
         rectSpy.mockRestore();
 
-        expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。']);
+        expect(targets.map(target => target.text)).toEqual(['今日は本を読みます。', '音声を聞く', '今日は忙しいです。']);
+        expect(targets.find(target => target.text === '音声を聞く')).toMatchObject({ passiveInteraction: true });
+        expect(targets.find(target => target.text === '今日は忙しいです。')).not.toMatchObject({ passiveInteraction: true });
     });
 
     it('keeps scanned JPDB native links and controls passive so clicks pass through', () => {

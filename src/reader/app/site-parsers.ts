@@ -12,7 +12,6 @@ export interface SiteParserProfile {
     description: string;
     roots: string[];
     exclude?: string;
-    passiveInteractionExclude?: string;
     allowUiText?: boolean;
     minLength?: number;
     includeUiChrome?: boolean;
@@ -35,19 +34,31 @@ interface GenericProseCollection {
     limit: number;
 }
 
-const COMMON_EXCLUDE = [
-    '[role="dialog"]',
-    '[aria-modal="true"]',
+const STRUCTURAL_EXCLUDE_ENTRIES = [
     '[data-jpdb-reader-root]',
     '.jpdb-reader-word',
-].join(',');
+    'script',
+    'style',
+    'noscript',
+    'input',
+    'select',
+    'textarea',
+    'option',
+    'svg',
+    'use',
+    'canvas',
+    'rt',
+    'rp',
+    '[hidden]',
+    '[aria-hidden="true"]',
+    '[contenteditable="true"]',
+];
+const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     '#movie_player',
     '.html5-video-player',
-    '#chips-content',
-    'iron-selector#chips',
     '.ytp-tooltip',
     'ytd-feed-filter-chip-bar-renderer',
     'ytd-guide-renderer',
@@ -57,8 +68,18 @@ const YOUTUBE_TEXT_EXCLUDE = [
     'ytm-feed-filter-chip-bar-renderer',
     'ytm-mobile-topbar-renderer',
     'ytm-pivot-bar-renderer',
-    'button',
-    '[role="button"]',
+    'ytd-watch-metadata button',
+    'ytd-watch-metadata [role="button"]',
+    'ytm-slim-video-metadata-section-renderer button',
+    'ytm-slim-video-metadata-section-renderer [role="button"]',
+    'yt-live-chat-text-message-renderer button',
+    'yt-live-chat-text-message-renderer [role="button"]',
+    'yt-live-chat-paid-message-renderer button',
+    'yt-live-chat-paid-message-renderer [role="button"]',
+    'yt-live-chat-membership-item-renderer button',
+    'yt-live-chat-membership-item-renderer [role="button"]',
+    'yt-live-chat-viewer-engagement-message-renderer button',
+    'yt-live-chat-viewer-engagement-message-renderer [role="button"]',
     '[slot="more-button"]',
     '.more-button',
     'tp-yt-paper-tooltip',
@@ -213,22 +234,9 @@ const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
     '[role="menuitemradio"]',
 ].join(',');
 const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
-    COMMON_EXCLUDE,
-    'form',
-    'label',
-    'fieldset',
-    'legend',
-    'input',
-    'select',
-    'textarea',
-    'option',
-    'svg',
-    'use',
-    'rt',
-    'rp',
+    ...STRUCTURAL_EXCLUDE_ENTRIES,
     '[disabled]',
     '[aria-disabled="true"]',
-    '[contenteditable="true"]',
 ];
 const SAFE_UI_CHROME_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES.join(',');
 const SAFE_UI_CHROME_ARIA_MENU_EXCLUDE = SAFE_UI_CHROME_EXCLUDE_ENTRIES
@@ -239,45 +247,12 @@ const SAFE_FORM_CHROME_ROOTS = SAFE_UI_CHROME_SCOPE_SELECTORS.flatMap(scope => [
     `${scope} label`,
 ]).join(',');
 const SAFE_FORM_CHROME_EXCLUDE = [
-    COMMON_EXCLUDE,
-    'script',
-    'style',
-    'noscript',
-    'input',
-    'select',
-    'textarea',
-    'option',
-    'svg',
-    'use',
-    'button',
-    'summary',
-    'a[href]',
+    ...STRUCTURAL_EXCLUDE_ENTRIES,
     '[disabled]',
     '[aria-disabled="true"]',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    '[role="button"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="menuitemcheckbox"]',
-    '[role="menuitemradio"]',
-    '[role="option"]',
-    '[role="tab"]',
 ].join(',');
 const DICTIONARY_SITE_EXCLUDE = [
     COMMON_EXCLUDE,
-    'input',
-    'select',
-    'textarea',
-    'option',
-    'script',
-    'style',
-    'svg',
-    'canvas',
-    'rt',
-    'rp',
-    '[hidden]',
-    '[aria-hidden="true"]',
     '.pi',
     '.p-button-icon',
 ].join(',');
@@ -322,17 +297,8 @@ const GOOGLE_SEARCH_ROOTS = [
 ].join(',');
 const GOOGLE_SEARCH_EXCLUDE = [
     COMMON_EXCLUDE,
-    'script',
-    'style',
-    'svg',
-    'canvas',
     'g-img',
     'img',
-    'form',
-    'input',
-    'textarea',
-    'select',
-    '[aria-hidden="true"]',
 ].join(',');
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
@@ -394,12 +360,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: [
             COMMON_EXCLUDE,
-            '.nav',
             '.subsection-spelling',
             '.primary-spelling',
-            '.subsection-label',
-            '.subsection-immersion-kit',
-            '[class*="immersion" i]',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -421,17 +383,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         exclude: [
             COMMON_EXCLUDE,
             '.furigana',
-            '.english',
-            '.debug',
-            '.concept_light-status',
-            '.concept_light-tag',
-            '.concept_light-tags',
-            '.concept_light-common',
             '.concept_light-readings .furigana',
-            '.meaning-tags',
-            '.meaning-wrapper',
-            '.links',
-            '.result_count',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -502,15 +454,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         roots: ['#firstHeading', '#mw-content-text .mw-parser-output'],
         exclude: [
             DICTIONARY_SITE_EXCLUDE,
-            '.mw-editsection',
-            'sup.reference',
-            '.reference',
-            '.references',
-            '.toc',
-            '.navbox',
-            '.metadata',
-            '.noprint',
-            '.catlinks',
             '.thumb',
         ].join(','),
         allowUiText: true,
@@ -570,13 +513,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: [
             COMMON_EXCLUDE,
-            '.bd-icons',
-            '.bd-detail-wrap',
             '.bd-desc-en',
-            '.review',
-            '.reviews',
-            '.comment',
-            '.comments',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -663,13 +600,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         roots: ['#firstHeading', '#mw-content-text', '.mwe-popups-extract'],
         exclude: [
             COMMON_EXCLUDE,
-            '.p-lang-btn',
-            '.vector-menu-heading-label',
-            '.vector-toc-toggle',
-            '.vector-page-toolbar',
-            '.mw-editsection',
-            'sup.reference',
-            '.legend',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -694,13 +624,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'body',
         ],
         exclude: [
+            COMMON_EXCLUDE,
             '#loading',
-            '.article-top-tool',
-            '.article-share',
-        ].join(','),
-        passiveInteractionExclude: [
-            '#loading',
-            '.article-share',
         ].join(','),
         allowUiText: true,
         minLength: 1,
@@ -723,9 +648,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: [
             COMMON_EXCLUDE,
-            '[class*="related" i]',
-            '[class*="recommend" i]',
-            '[class*="ranking" i]',
         ].join(','),
         fallbackToWholePage: true,
         matches: url => (
@@ -819,11 +741,7 @@ function queryProfilePassiveInteractionRoots(profile: SiteParserProfile): HTMLEl
 
 function isUsefulProfilePassiveInteractionRoot(profile: SiteParserProfile, root: HTMLElement): boolean {
     const exclude = siteScanPassiveInteractionExcludeSelector(profile);
-    if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
-    if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
-    return text.length >= 1 && text.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+    return isUsefulCompactJapaneseRoot(root, exclude, 1, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
 }
 
 function siteScanExcludeSelector(profile: SiteParserProfile): string {
@@ -831,7 +749,7 @@ function siteScanExcludeSelector(profile: SiteParserProfile): string {
 }
 
 function siteScanPassiveInteractionExcludeSelector(profile: SiteParserProfile): string {
-    return profile.passiveInteractionExclude ?? siteScanExcludeSelector(profile);
+    return siteScanExcludeSelector(profile);
 }
 
 function addUniqueSiteScanTarget(
@@ -1023,7 +941,7 @@ function collectSafeUiChromeTargetsFromRoot(
 ): void {
     const baseExclude = safeUiChromeExcludeForRoot(root);
     const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, {
+    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, {
         allowUiText: true,
         includeUiChrome: true,
         includeTabChrome: true,
@@ -1031,14 +949,6 @@ function collectSafeUiChromeTargetsFromRoot(
         heading: true,
         minLength: 1,
     });
-    for (const target of collected) {
-        appendGenericProseTarget(collection.targets, collection.seen, {
-            ...target,
-            parserId,
-            passiveInteraction: true,
-        });
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function safeUiChromeExcludeForRoot(root: HTMLElement): string {
@@ -1068,13 +978,23 @@ function collectSafeFormChromeTargetsFromRoot(
     collection: GenericProseCollection,
     parserId = 'safe-ui-chrome-parser',
 ): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, SAFE_FORM_CHROME_EXCLUDE, {
+    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, {
         allowUiText: true,
         includeFormChrome: true,
         includePassiveInteractions: true,
         heading: true,
         minLength: 1,
     });
+}
+
+function collectPassiveChromeTargetsFromRoot(
+    root: HTMLElement,
+    collection: GenericProseCollection,
+    exclude: string,
+    parserId: string,
+    options: Parameters<typeof collectFragmentTextTargetsIn>[4],
+): void {
+    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
     for (const target of collected) {
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
@@ -1125,25 +1045,32 @@ function textNodesForFragmentTarget(target: FragmentTextTarget): Text[] {
 
 function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
-    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
+    const text = compactRootText(root);
     if (text.length < 12) return false;
-    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
+    return hasJapaneseText(text);
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
-    if (root.closest(safeUiChromeExcludeForRoot(root))) return false;
-    if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
-    return text.length >= 2 && text.length <= SAFE_UI_CHROME_MAX_COMPACT_LENGTH;
+    return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
 }
 
 function isUsefulSafeFormChromeRoot(root: HTMLElement): boolean {
-    if (root.closest(SAFE_FORM_CHROME_EXCLUDE)) return false;
+    return isUsefulCompactJapaneseRoot(root, SAFE_FORM_CHROME_EXCLUDE, 1, SAFE_FORM_CHROME_MAX_COMPACT_LENGTH);
+}
+
+function isUsefulCompactJapaneseRoot(root: HTMLElement, exclude: string, minLength: number, maxLength: number): boolean {
+    if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
-    const text = root.textContent?.replace(/\s+/g, '').trim() ?? '';
-    if (!/[\u3040-\u30ff\u3400-\u9fff]/u.test(text)) return false;
-    return text.length >= 1 && text.length <= SAFE_FORM_CHROME_MAX_COMPACT_LENGTH;
+    const text = compactRootText(root);
+    return hasJapaneseText(text) && text.length >= minLength && text.length <= maxLength;
+}
+
+function compactRootText(root: HTMLElement): string {
+    return root.textContent?.replace(/\s+/g, '').trim() ?? '';
+}
+
+function hasJapaneseText(text: string): boolean {
+    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
 }
 
 function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {

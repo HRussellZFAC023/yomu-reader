@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { canHoverLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -145,6 +147,43 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
+    it('renders dictionary popover summaries as passive render-only words', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <details open>
+                    <summary class="jpdb-reader-local-title">翻訳</summary>
+                    <div>Translation text.</div>
+                </details>
+            </div>
+        `;
+        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const details = popover.querySelector<HTMLDetailsElement>('details')!;
+        const plan = nestedTextParsePlan(popover, 24)!;
+
+        expect(plan.targets.map(target => target.text)).toEqual(['翻訳']);
+        applyNestedParsePlan(plan, [[token('翻訳', 0, 'ほんやく', 'heiban')]], {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            furiganaMode: 'all',
+        });
+
+        const summaryWord = popover.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
+        let parsedWord: HTMLElement | null = null;
+        popover.addEventListener('click', event => {
+            parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
+        });
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        summaryWord.dispatchEvent(click);
+
+        expect(readerWordSurfaceText(summaryWord)).toBe('翻訳');
+        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(summaryWord.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(summaryWord.querySelector('rt')?.textContent).toBe('ほんやく');
+        expect(parsedWord).toBeNull();
+        expect(click.defaultPrevented).toBe(false);
+        expect(details.open).toBe(false);
+    });
+
     it('collects Japanese settings labels, headings, help prose, and select metadata without parsing status lines or hidden controls', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
@@ -226,6 +265,41 @@ describe('nested text parse plans', () => {
         expect(tabWord.dataset.jpdbReaderPassive).toBe('true');
         expect(tabWord.querySelector('rt')?.textContent).toBe('がいかん');
         expect(document.querySelector('button[type="button"]:not(.jpdb-reader-settings-tab) .jpdb-reader-word')).toBeNull();
+    });
+
+    it('renders reader-owned action buttons as passive hoverable words without cancelling clicks', () => {
+        document.body.innerHTML = `
+            <section class="jpdb-reader-newtab" data-jpdb-reader-root="true">
+                <button class="jpdb-reader-parseable" type="button" data-action="copy-newtab-url">新規タブURLをコピー</button>
+            </section>
+        `;
+        const root = document.body.querySelector<HTMLElement>('.jpdb-reader-newtab')!;
+        const button = root.querySelector<HTMLButtonElement>('button')!;
+        let clicks = 0;
+        button.addEventListener('click', () => {
+            clicks += 1;
+        });
+
+        const plan = nestedTextParsePlan(root, 24)!;
+        expect(plan.targets.map(target => target.text)).toEqual(['新規タブURLをコピー']);
+        applyNestedParsePlan(plan, [[token('新規', 0, 'しんき', 'heiban')]], {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            furiganaMode: 'all',
+        });
+
+        const word = button.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        word.dispatchEvent(click);
+
+        expect(readerWordSurfaceText(word)).toBe('新規');
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(word.querySelector('rt')?.textContent).toBe('しんき');
+        expect(canHoverLookupReaderWordElement(word, true)).toBe(true);
+        expect(click.defaultPrevented).toBe(false);
+        expect(clicks).toBe(1);
     });
 
     it('clears stale parse markers before replacing parseable content', () => {

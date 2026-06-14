@@ -119,7 +119,7 @@ export function lookupPopoverParsedWordElement(event: MouseEvent, popover: HTMLE
     const target = event.target as HTMLElement | null;
     if (isKanjiLookupActionTarget(target)) return null;
     const word = target?.closest<HTMLElement>('.jpdb-reader-word');
-    return word && popover.contains(word) ? word : null;
+    return word && popover.contains(word) && word.dataset.jpdbReaderPassive !== 'true' ? word : null;
 }
 
 export function parsedWordLookupSentence(word: HTMLElement, expression: string, card: Pick<JPDBCard, 'spelling'> | undefined): string {

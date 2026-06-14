@@ -4,5 +4,5 @@ export { renderKanjiPractice } from './kanji-practice';
 export { renderKanjiOrigins } from './kanji-origin';
 export { installOriginGraphInteractions } from './origin-graph-interactions';
 export { buildRtkComponentSummaries, renderKanjiKeywordLine, renderRtkInfo } from './rtk-info';
-export { cardPronunciationReading, isKanjiCharacter, renderExpressionComponentPitches, renderPitch, uniqueKanji } from './pitch';
+export { cardPronunciationReading, isKanjiCharacter, renderExpressionComponentPitches, renderPitch } from './pitch';
 export { pickTokenForSelection, tokensOverlappingSelection } from './token-selection';
