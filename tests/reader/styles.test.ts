@@ -47,6 +47,11 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-popover .jpdb-reader-icon-btn svg');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
+        expect(css).toContain('.jpdb-reader-word.jpdb-pitch-heiban');
+        expect(css).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);');
+        expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
+        expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
+        expect(css).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);');
     });
 
     it('uses the full reader CSS when the userscript resource is available', () => {
@@ -64,6 +69,33 @@ describe('reader stylesheet loading', () => {
             cache: 'force-cache',
             credentials: 'omit',
         }));
+        expect([...stored.values()]).toContain(FULL_READER_CSS);
+    });
+
+    it('loads hosted full reader CSS through the userscript HTTP bridge before page fetch', async () => {
+        const stored = stubGmStorage();
+        const fetcher = vi.fn(async () => {
+            throw new Error('Discord-style page fetch blocked by CSP');
+        });
+        const userscriptRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({
+                status: 200,
+                response: FULL_READER_CSS,
+                responseText: FULL_READER_CSS,
+            });
+        });
+        vi.stubGlobal('GM_xmlhttpRequest', userscriptRequest);
+
+        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://discord.com/channels/@me/1'))
+            .resolves.toBe(FULL_READER_CSS);
+
+        expect(userscriptRequest).toHaveBeenCalledWith(expect.objectContaining({
+            anonymous: true,
+            method: 'GET',
+            responseType: 'text',
+            url: 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css',
+        }));
+        expect(fetcher).not.toHaveBeenCalled();
         expect([...stored.values()]).toContain(FULL_READER_CSS);
     });
 

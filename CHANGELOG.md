@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.201] - 2026-06-14
+
+### Fixed
+
+- Discord and other strict-content-security-policy pages now keep pitch accent colorization and pitch underlines when the full reader stylesheet has to be loaded through the fallback path. Yomu now asks the userscript HTTP bridge for the hosted stylesheet before trying page `fetch`, and the critical inline stylesheet includes the minimal pitch word paint rules needed while the full CSS is unavailable.
+
 ## [0.6.200] - 2026-06-14
 
 ### Fixed
