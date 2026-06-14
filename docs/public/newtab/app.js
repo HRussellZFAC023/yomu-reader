@@ -28176,6 +28176,7 @@ ${spelling}`);
     }
     log$m.warn("OCR scan failed", { provider, manualRequested }, error);
   }
+  const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
   class ImageOcrController {
     constructor(options) {
       this.options = options;
@@ -28210,6 +28211,7 @@ ${spelling}`);
     handleDocumentScroll = () => this.handleOcrViewportShift(120);
     handleWindowScroll = () => this.handleOcrViewportShift(240);
     handleWindowResize = () => this.handleOcrViewportShift(300);
+    handleSpaNavigation = () => this.teardownForNavigation();
     init() {
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
@@ -28223,6 +28225,9 @@ ${spelling}`);
       document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
       window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
       window.addEventListener("resize", this.handleWindowResize, { passive: true });
+      for (const eventName of OCR_NAVIGATION_EVENTS) {
+        window.addEventListener(eventName, this.handleSpaNavigation);
+      }
       this.mutationObserver = new MutationObserver((mutations) => this.handleRenderableMediaMutations(mutations));
       this.mutationObserver.observe(document.body, {
         childList: true,
@@ -28243,6 +28248,9 @@ ${spelling}`);
       document.removeEventListener("scroll", this.handleDocumentScroll, true);
       window.removeEventListener("scroll", this.handleWindowScroll);
       window.removeEventListener("resize", this.handleWindowResize);
+      for (const eventName of OCR_NAVIGATION_EVENTS) {
+        window.removeEventListener(eventName, this.handleSpaNavigation);
+      }
       this.releaseAllVideoFrames();
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -28840,6 +28848,15 @@ ${spelling}`);
         state.overlay.remove();
       }
       this.states.clear();
+    }
+    // Drop every paused-frame and image overlay when YouTube navigates so no
+    // stale OCR artifact (rail resume button, overlay over the player) carries
+    // across the SPA route change, then re-scan the destination page.
+    teardownForNavigation() {
+      if (this.states.size === 0 && this.videoFrames.size === 0) return;
+      this.releaseAllVideoFrames();
+      this.clear();
+      if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
     }
     pruneDisconnectedStates() {
       for (const [image, state] of this.states) {
@@ -30466,6 +30483,11 @@ ${spelling}`);
   function findActiveSubtitleCue(cues, time) {
     return findActiveSubtitleCueFromIndex(cues, time, latestSubtitleCueStartIndex(cues, time));
   }
+  function findInitialLeadInCue(cues, time) {
+    const first2 = cues[0];
+    if (!first2) return void 0;
+    return time <= first2.start ? first2 : void 0;
+  }
   function findActiveSubtitleCueFromIndex(cues, time, index) {
     let best;
     for (let i2 = index; i2 >= 0; i2--) {
@@ -31560,7 +31582,10 @@ ${spelling}`);
     const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
     const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
     const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
-    if (playerVideoId && playerVideoId !== currentVideoId) return isLikelyVisibleYouTubeWatchVideo(video);
+    if (playerVideoId && playerVideoId !== currentVideoId) {
+      if (player?.id === "movie_player" || video.classList.contains("html5-main-video")) return true;
+      return isLikelyVisibleYouTubeWatchVideo(video);
+    }
     return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
   }
   function shouldRefreshYouTubeTrackUrl(next, current) {
@@ -34022,7 +34047,15 @@ ${spelling}`);
       this.videoResizeObserver?.disconnect();
       this.videoResizeObserver = new ResizeObserver(() => this.scheduleAlignToVideo());
       this.videoResizeObserver.observe(video);
-      video.addEventListener("loadedmetadata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+      video.addEventListener("loadstart", () => {
+        this.lastYouTubeTrackDiscoveryAt = 0;
+        void this.discoverYouTubeTracksThrottled(true);
+      }, this.eventOptions({ passive: true }));
+      video.addEventListener("loadedmetadata", () => {
+        this.lastYouTubeTrackDiscoveryAt = 0;
+        void this.discoverYouTubeTracksThrottled(true);
+        this.scheduleAlignToVideo();
+      }, this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
       const handlePlaybackStarted = () => {
@@ -34315,10 +34348,13 @@ ${spelling}`);
     updateFromLoadedCues() {
       if (!this.video) return;
       const time = this.video.currentTime;
-      const cue = this.selectedTrackId ? findActiveSubtitleCue(this.cues, time) : void 0;
-      const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) : void 0;
+      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : void 0;
+      const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
       else this.warmParseOnGapAnchorJump();
+    }
+    findRenderablePrimaryCue(time) {
+      return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
     }
     // A repeated seek that lands in another inter-cue gap changes no cue
     // state, so afterLoadedCueStateChanged never fires; re-anchor the parse
@@ -37148,6 +37184,7 @@ ${spelling}`);
     "yt-formatted-string#video-title",
     "h3 a",
     "h3",
+    "ytd-reel-player-overlay-renderer h2.title",
     ".yt-lockup-metadata-view-model-wiz__title",
     ".ytLockupMetadataViewModelTitle",
     ".ytLockupMetadataViewModelHeadingReset",
@@ -38701,7 +38738,7 @@ ${spelling}`);
   function isNormalizableYouTubeVideoCard(element) {
     if (shouldIgnoreYouTubeCardElement(element)) return false;
     if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return false;
-    if (!hasYouTubeVideoLink(element)) return false;
+    if (!hasYouTubeVideoLink(element) && !element.matches(SHORTS_CARD_SELECTOR)) return false;
     if (isYouTubePlaylistLikeCard(element)) return false;
     return !isInsideExcludedYouTubeContainer(element);
   }
@@ -38762,6 +38799,10 @@ ${spelling}`);
     return Math.max(rect.height, card.offsetHeight, card.scrollHeight, 0);
   }
   function readYouTubeVideoId(card) {
+    const selfVideoId = card.getAttribute("video-id") || card.getAttribute("data-video-id");
+    if (selfVideoId) return selfVideoId;
+    const descendantVideoId = card.querySelector("[video-id]")?.getAttribute("video-id");
+    if (descendantVideoId) return descendantVideoId;
     const link = Array.from(card.querySelectorAll(VIDEO_LINK_SELECTORS)).find((candidate) => extractYouTubeVideoId(candidate.getAttribute("href")));
     return link ? extractYouTubeVideoId(link.getAttribute("href")) : "";
   }
@@ -52958,6 +52999,10 @@ ${newTabCardReading(card)}`;
     // without stealing native clicks.
     "#movie_player",
     ".html5-video-player",
+    "#secondary",
+    "#related",
+    "ytd-compact-video-renderer",
+    "ytm-item-section-renderer",
     ".ytp-chrome-top",
     ".ytp-chrome-bottom",
     ".ytp-tooltip",
@@ -52999,7 +53044,9 @@ ${newTabCardReading(card)}`;
     ".yt-spec-button-shape-next",
     "yt-chip-cloud-renderer",
     "yt-chip-cloud-chip-renderer",
-    "iron-selector#chips"
+    "iron-selector#chips",
+    ".more-button",
+    '[slot="more-button"]'
   ]);
   YOUTUBE_TEXT_EXCLUDE.split(",").filter((entry) => !YOUTUBE_PASSIVE_CHROME_EXCLUDE_ALLOWLIST.has(entry)).join(",");
   const TWO_BUTTON_REVIEW_SHORTCUTS = [

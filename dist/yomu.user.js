@@ -12012,7 +12012,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -33133,7 +33132,7 @@ ${glossaryKey}`;
       if (!siteScanHasRoom(context)) break;
     }
   }
-  function passiveInteractionExcludeSelector(profile, options) {
+  function passiveInteractionExcludeSelector(profile, _options) {
     return profile.id === "youtube-comments-parser" ? YOUTUBE_PASSIVE_CHROME_EXCLUDE : profile.exclude ?? COMMON_EXCLUDE;
   }
   function passiveInteractionRoots(root, selector) {
