@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.4
+// @version      0.7.5
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -37195,6 +37195,7 @@ ${glossaryKey}`;
 .jpdb-reader-word {
   --jpdb-reader-word-color-source: currentColor;
   --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   --jpdb-reader-word-underline-offset: 0.16em;
   --jpdb-reader-word-underline-style: solid;
@@ -37213,7 +37214,7 @@ ${glossaryKey}`;
   content: "";
   position: absolute;
   z-index: 1;
-  inset-inline: 0;
+  inset-inline: var(--jpdb-reader-word-inline-gap);
   inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
   border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
   pointer-events: none;

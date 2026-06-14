@@ -272,14 +272,19 @@
   word-break: normal;
   overflow-wrap: normal !important;
   color: inherit !important;
-  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   text-decoration-color: transparent !important;
   text-decoration-thickness: 1px !important;
   text-underline-offset: 0.18em !important;
 }
 .jpdb-reader-settings .jpdb-reader-word:hover,
 .jpdb-reader-settings .jpdb-reader-word:focus-visible {
-  background: var(--jpdb-reader-hover) !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)) !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
 }
 .jpdb-reader-settings .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: inherit;
@@ -2195,10 +2200,15 @@
     --jpdb-reader-word-accessible-color,
     var(--jpdb-reader-word-color-source, currentColor)
   ) !important;
-  background: var(
+  --jpdb-reader-word-highlight-paint: var(
     --jpdb-reader-word-accessible-highlight,
     var(--jpdb-reader-word-highlight-source, transparent)
-  ) !important;
+  );
+  background-color: transparent !important;
+  background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   text-decoration-color: transparent !important;
   text-decoration-thickness: .09em !important;
