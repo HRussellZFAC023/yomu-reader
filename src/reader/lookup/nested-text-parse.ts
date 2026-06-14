@@ -23,6 +23,21 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.footer',
 ].join(',');
 const SETTINGS_SELECT_OPTIONS_META_SELECTOR = '[data-settings-select-options-meta]';
+const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
+    '.jpdb-reader-theme-title',
+    '.jpdb-reader-settings-tabs [role="tab"]',
+].join(',');
+const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
+    '[hidden]',
+    '[aria-hidden="true"]',
+    'input',
+    'option',
+    'select',
+    'svg',
+    'textarea',
+    'use',
+    '.jpdb-reader-word',
+].join(',');
 const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
     SETTINGS_PARSE_EXCLUDE_SELECTOR,
     SETTINGS_SELECT_OPTIONS_META_SELECTOR,
@@ -34,6 +49,7 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
     '[data-settings-panel]:not([hidden]) .jpdb-reader-local-title',
     '[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)',
     `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
 ].join(',');
 
 export interface NestedParsePlan {
@@ -65,23 +81,39 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         ? [root]
         : Array.from(root.querySelectorAll<HTMLElement>(SETTINGS_PARSE_ROOT_SELECTOR));
     const targets = parseRoots
-        .filter(parseRoot => !parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR))
+        .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
         .filter(parseRoot => !parseRoot.closest('[hidden], [aria-hidden="true"]'))
         .flatMap(parseRoot => collectFragmentTextTargetsIn(
             parseRoot,
             limit,
             false,
-            parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR,
+            settingsParseExcludeSelector(parseRoot),
             {
                 includeReaderRoot: true,
                 includeFormChrome: true,
                 allowUiText: true,
                 heading: true,
                 minLength: 2,
+                readerRootPassiveInteractions: true,
             },
         ))
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
+function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
+    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+}
+
+function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
+    if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR)
+        ? SETTINGS_PARSE_EXCLUDE_SELECTOR
+        : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+}
+
+function isSettingsChromeParseRoot(parseRoot: HTMLElement): boolean {
+    return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);
 }
 
 export function nestedParseAlreadyScheduled(root: HTMLElement, parseKey: string): boolean {

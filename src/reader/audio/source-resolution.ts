@@ -23,6 +23,13 @@ export interface OrderedAudioSource {
     source: AudioSourceSetting;
     id: string;
     bagKey: string;
+    signature: string;
+}
+
+export interface AudioSourceDeckState {
+    exhausted: boolean;
+    lastPlayed?: string;
+    lastPlayedSignature?: string;
 }
 
 const REQUIRED_JA_AUDIO_SOURCES: AudioSourceType[] = ['jpod101', 'language-pod-101', 'jisho', 'jiten-tts', 'jpdb-tts', 'text-to-speech'];
@@ -104,13 +111,40 @@ export function orderAudioSources(
     mode: AudioSelectionMode,
     card: JPDBCard,
     shuffledAudio: ShuffledAudioDeck,
+    options: { avoidFirstSignature?: string } = {},
 ): OrderedAudioSource[] {
     const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(sources.map((source, index) => ({
-        source,
-        id: getAudioSourceDeckId(source, index),
-        bagKey,
-    })), mode, bagKey, shuffledAudio);
+    const ordered = orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+    rotateAvoidedAudioSourceLead(ordered, options.avoidFirstSignature);
+    return ordered;
+}
+
+export function audioSourceDeckState(
+    sources: AudioSourceSetting[],
+    card: JPDBCard,
+    shuffledAudio: ShuffledAudioDeck,
+): AudioSourceDeckState {
+    const bagKey = getAudioSourceBagKey(sources, card);
+    const entries = audioSourceDeckEntries(sources, bagKey);
+    const ids = entries.map(source => source.id);
+    const lastPlayed = shuffledAudio.lastPlayed(bagKey, ids);
+    return {
+        exhausted: shuffledAudio.isExhausted(bagKey, ids),
+        lastPlayed,
+        lastPlayedSignature: entries.find(entry => entry.id === lastPlayed)?.signature,
+    };
+}
+
+function audioSourceDeckEntries(sources: AudioSourceSetting[], bagKey: string): OrderedAudioSource[] {
+    return sources.map((source, index) => {
+        const signature = getAudioSourceSignature(source);
+        return {
+            source,
+            id: getAudioSourceDeckId(signature, index),
+            bagKey,
+            signature,
+        };
+    });
 }
 
 export function isBrowserTextToSpeechSource(source: AudioSourceSetting): boolean {
@@ -197,7 +231,7 @@ function orderAudioDeckEntries<T extends { id: string }>(
     bagKey: string,
     shuffledAudio: ShuffledAudioDeck,
 ): T[] {
-    if (mode !== 'random' || entries.length < 2) return entries;
+    if (mode !== 'random' || !entries.length) return entries;
 
     const byId = new Map(entries.map(entry => [entry.id, entry]));
     const ordered: T[] = [];
@@ -206,6 +240,10 @@ function orderAudioDeckEntries<T extends { id: string }>(
         if (entry) ordered.push(entry);
     }
     return ordered;
+}
+
+function rotateAvoidedAudioSourceLead(sources: OrderedAudioSource[], avoidFirstSignature: string | undefined): void {
+    if (avoidFirstSignature && sources.length > 1 && sources[0]?.signature === avoidFirstSignature) sources.push(sources.shift()!);
 }
 
 function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): string {
@@ -217,8 +255,8 @@ function getAudioSourceBagKey(sources: AudioSourceSetting[], card: JPDBCard): st
     ].join('\u0001');
 }
 
-function getAudioSourceDeckId(source: AudioSourceSetting, index: number): string {
-    return `${index}\u0000${getAudioSourceSignature(source)}`;
+function getAudioSourceDeckId(signature: string, index: number): string {
+    return `${index}\u0000${signature}`;
 }
 
 function getAudioSourceSignature(source: AudioSourceSetting): string {

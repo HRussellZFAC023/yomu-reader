@@ -189,6 +189,10 @@ function flushPromises(): Promise<void> {
     return Promise.resolve();
 }
 
+function settlePreviewFrame(): Promise<void> {
+    return new Promise(resolve => window.setTimeout(resolve, 20));
+}
+
 function testRect(top: number, bottom: number, width = 320): DOMRect {
     return {
         x: 0,
@@ -457,7 +461,7 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
-    it('publishes shared accent preview changes', () => {
+    it('coalesces accent picker previews and publishes only committed color changes', async () => {
         const events: Array<CustomEvent<{ preview?: boolean; settings?: { accentColor?: unknown } }>> = [];
         const controller = new AbortController();
         window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
@@ -469,9 +473,22 @@ describe('settings dialog keyboard dismissal', () => {
         try {
             input.value = '#123456';
             input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.value = '#654321';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
 
-            expect(dependencies.applyAccentColor).toHaveBeenCalledWith('#123456');
-            expect(events.at(-1)?.detail.settings?.accentColor).toBe('#123456');
+            expect(dependencies.applyAccentColor).not.toHaveBeenCalled();
+            expect(events).toHaveLength(0);
+
+            await settlePreviewFrame();
+
+            expect(dependencies.applyAccentColor).toHaveBeenCalledTimes(1);
+            expect(dependencies.applyAccentColor).toHaveBeenCalledWith('#654321');
+            expect(events).toHaveLength(0);
+
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+
+            expect(dependencies.applyAccentColor).toHaveBeenCalledTimes(2);
+            expect(events.at(-1)?.detail.settings?.accentColor).toBe('#654321');
             expect(events.at(-1)?.detail.preview).toBe(true);
         } finally {
             controller.abort();
