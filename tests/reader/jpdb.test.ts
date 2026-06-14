@@ -17009,6 +17009,62 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps large selection popovers open when sentence spacing prevents direct offset matching', async () => {
+        const app = new ReaderApp();
+        const sentence = '今日は 静かです。';
+        const tokens: JPDBToken[] = [
+            {
+                card: { ...card, vid: 601, sid: 601, spelling: '今日', reading: 'きょう', cardState: ['not-in-deck'], source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+            {
+                card: { ...card, vid: 602, sid: 602, spelling: '静か', reading: 'しずか', cardState: ['not-in-deck'], source: 'jpdb' },
+                start: 4,
+                end: 6,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence,
+            },
+        ];
+        const parse = vi.fn(async () => [tokens]);
+        const showTokenList = vi.fn();
+        const showLocalOrFallbackLookupCard = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
+            showTokenList: typeof showTokenList;
+            showLocalOrFallbackLookupCard: typeof showLocalOrFallbackLookupCard;
+            lookupText(text: string, sentence?: string, options?: { source?: 'lookup' | 'selection' }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'api-key',
+        };
+        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.showTokenList = showTokenList;
+        internals.showLocalOrFallbackLookupCard = showLocalOrFallbackLookupCard;
+
+        try {
+            await internals.lookupText('今日は静かです', sentence, { source: 'selection' });
+
+            expect(showLocalOrFallbackLookupCard).not.toHaveBeenCalled();
+            expect(showTokenList).toHaveBeenCalledWith(
+                tokens,
+                '今日は静かです',
+                undefined,
+                expect.objectContaining({ source: 'selection' }),
+            );
+        } finally {
+            app.destroy();
+        }
+    });
+
     it('uses segmented fallback for selected text even when local dictionaries are enabled without an API key', async () => {
         const app = new ReaderApp();
         const sentence = '今日は静かな喫茶店で新しい本を読みました。';
@@ -17161,6 +17217,89 @@ describe('reader helpers', () => {
         }
     });
 
+    it('renders configured selection action pills on token choice popovers', () => {
+        const app = new ReaderApp();
+        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb' };
+        const token: JPDBToken = {
+            card: tokenCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語訳',
+        };
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+        };
+
+        try {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
+
+            expect(wrapper.querySelector('.jpdb-reader-selection-pills')).not.toBeNull();
+            expect([...wrapper.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-selection-pills a')].map(link => link.textContent?.trim())).toEqual(expect.arrayContaining(['Yomu', 'Jiten', 'JPDB']));
+            expect(wrapper.querySelector<HTMLButtonElement>('.jpdb-reader-selection-pills [data-action="copy-selection"]')).not.toBeNull();
+            expect(wrapper.querySelector<HTMLButtonElement>('button[data-token-choice][data-vid="20"][data-sid="30"]')).not.toBeNull();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('copies the whole selected text from token choice popovers', async () => {
+        const app = new ReaderApp();
+        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb' };
+        const token: JPDBToken = {
+            card: tokenCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語訳',
+        };
+        const writeText = vi.fn(async () => undefined);
+        const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText },
+        });
+        const popover = document.createElement('div');
+        document.body.append(popover);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
+            installTokenListHandlers(
+                popover: HTMLElement,
+                tokens: JPDBToken[],
+                anchor: HTMLElement | undefined,
+                context: { trigger: 'modal' | 'hover'; navigation: 'reset' | 'preserve' | 'push-current' },
+            ): void;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+        };
+        popover.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
+        internals.installTokenListHandlers(popover, [token], undefined, { trigger: 'modal', navigation: 'reset' });
+
+        try {
+            popover.querySelector<HTMLButtonElement>('[data-action="copy-selection"]')!.click();
+
+            await waitForExpect(() => expect(writeText).toHaveBeenCalledWith('日本語訳'));
+        } finally {
+            if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
+            else Reflect.deleteProperty(navigator, 'clipboard');
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('uses already rendered parsed words for multi-word page selections', async () => {
         const app = new ReaderApp();
         const firstCard: JPDBCard = { ...card, vid: 501, sid: 501, spelling: '今日', reading: 'きょう', source: 'jpdb' };
@@ -17199,6 +17338,7 @@ describe('reader helpers', () => {
             isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
         };
         internals.showTokenList = showTokenList;
+        const selectedText = selection.toString().replace(/\s+/g, ' ').trim();
 
         try {
             await internals.lookupSelection();
@@ -17206,7 +17346,8 @@ describe('reader helpers', () => {
             expect(parse).not.toHaveBeenCalled();
             expect(showTokenList).toHaveBeenCalledTimes(1);
             expect(showTokenList.mock.calls[0]?.[0].map((token: JPDBToken) => token.card.spelling)).toEqual(['今日', '静か']);
-            expect(showTokenList.mock.calls[0]?.[1]).toBe('今日静か');
+            expect(showTokenList.mock.calls[0]?.[1]).toBe(selectedText);
+            expect(showTokenList.mock.calls[0]?.[1]).toContain('です。');
         } finally {
             selection.removeAllRanges();
             app.destroy();

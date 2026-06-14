@@ -42,10 +42,47 @@ export function renderWordPills(options: WordPillRenderOptions): string {
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
 }
 
+export function renderSelectionLookupPills(selected: string, settings: ReaderSettings): string {
+    const query = selected.trim();
+    if (!query) return '';
+    const context: WordPillContext = {
+        query,
+        word: query,
+        reading: query,
+        vid: '0',
+        sid: '0',
+    };
+    const language = settings.interfaceLanguage;
+    const pills = settings.dictionaryLookupLinks
+        .filter(link => link.enabled)
+        .map(link => renderSelectionLookupPill(context, language, link))
+        .filter(Boolean);
+    return pills.length ? `<div class="jpdb-reader-word-pills jpdb-reader-selection-pills">${pills.join('')}</div>` : '';
+}
+
 export function updateHeadingWordPills(popover: HTMLElement, options: WordPillRenderOptions): void {
     const heading = popover.querySelector<HTMLElement>('.jpdb-reader-heading');
     if (!heading) return;
     replaceOptionalElement(heading, '.jpdb-reader-word-pills', renderWordPills(options));
+}
+
+function renderSelectionLookupPill(
+    context: WordPillContext,
+    language: ReaderSettings['interfaceLanguage'],
+    link: ReaderSettings['dictionaryLookupLinks'][number],
+): string {
+    const style = lookupPillStyle(link.id || link.label);
+    if (link.action === 'copy' || link.id === 'copy') return renderSelectionCopyPill(language, context.query, style);
+    const url = formatLookupUrl(link.urlTemplate, context);
+    if (!url) return '';
+    const title = lookupSelectionPillTitle(language, link);
+    return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${context.query}`)}">${escapeHtml(link.label)} ${externalLinkIcon()}</a>`;
+}
+
+function lookupSelectionPillTitle(language: ReaderSettings['interfaceLanguage'], link: ReaderSettings['dictionaryLookupLinks'][number]): string {
+    return link.id === 'jpdb'
+        ? uiText(language, 'openOnJpdb')
+        : uiText(language, 'openOnLookup').replace('{label}', link.label);
 }
 
 function renderLookupLinkPill(
@@ -158,6 +195,12 @@ function ankiPillButton(options: {
 
 function lookupPillStyleAttribute(style: string): string {
     return style ? ` style="${style}"` : '';
+}
+
+function renderSelectionCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy')): string {
+    const copyTitle = uiText(language, 'copyWordTitle');
+    const styleAttribute = style ? ` style="${style}"` : '';
+    return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button"${styleAttribute} title="${escapeHtml(copyTitle)}" aria-label="${escapeHtml(`${copyTitle}: ${query}`)}">${escapeHtml(uiText(language, 'copyWord'))} ${copyIcon()}</button>`;
 }
 
 function renderCopyPill(language: ReaderSettings['interfaceLanguage'], query: string, style = lookupPillStyle('copy'), inert = false): string {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.18] - 2026-06-14
+
+### Fixed
+
+- Large Japanese text selections now keep the selection popover open, remain sentence-aware, and show the configured Yomu/Jiten/JPDB/copy action pills on desktop and mobile.
+
 ## [0.7.17] - 2026-06-14
 
 ### Fixed

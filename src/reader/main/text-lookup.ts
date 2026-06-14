@@ -57,6 +57,7 @@ export function createTextLookupDisplayContext(
     const navigation = options.navigation ?? 'reset';
     return {
         selected,
+        displaySelected: options.displaySelected ?? text,
         anchor: options.anchor ?? connectedElement(state.activePopoverAnchor),
         trigger,
         navigation,
@@ -110,7 +111,12 @@ export async function showTextLookupResult(
         return;
     }
     if (relevantTokens.length) {
-        callbacks.showTokenList(relevantTokens, context.selected, context.anchor, textLookupTokenListOptions(context));
+        callbacks.showTokenList(relevantTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
+        return;
+    }
+    const fallbackTokens = sentenceSelectionFallbackTokens(parsedTokens, context.selected, sentence, context.source);
+    if (fallbackTokens.length) {
+        callbacks.showTokenList(fallbackTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
         return;
     }
     if (sentence !== context.selected && await showSelectedTextParsedLookupResult(context, callbacks)) return;
@@ -129,7 +135,7 @@ async function showSelectedTextParsedLookupResult(
         return true;
     }
     if (parsedTokens.length) {
-        callbacks.showTokenList(parsedTokens, context.selected, context.anchor, textLookupTokenListOptions(context));
+        callbacks.showTokenList(parsedTokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
         return true;
     }
     return false;
@@ -171,6 +177,7 @@ function renderedSelectionDisplayContext(
     return createTextLookupDisplayContext(renderedSelectionLookupText(words, selected), {
         anchor: words[0],
         source: 'selection',
+        displaySelected: selected,
     }, state);
 }
 
@@ -181,7 +188,7 @@ function showRenderedSelectionTokens(
     callbacks: TextLookupUiCallbacks,
 ): void {
     if (showRenderedSelectionSingleToken(tokens, context, sentence, callbacks)) return;
-    callbacks.showTokenList(tokens, context.selected, context.anchor, textLookupTokenListOptions(context));
+    callbacks.showTokenList(tokens, context.displaySelected, context.anchor, textLookupTokenListOptions(context));
 }
 
 function showRenderedSelectionSingleToken(
@@ -239,4 +246,20 @@ function lookupResultTokens(tokens: JPDBToken[] = [], isJpdbBackedCard: (card: J
         || token.card.source === 'jiten'
         || token.card.source === 'local'
         || token.card.source === 'fallback');
+}
+
+function sentenceSelectionFallbackTokens(
+    tokens: JPDBToken[],
+    selected: string,
+    sentence: string,
+    source: TextLookupDisplayContext['source'],
+): JPDBToken[] {
+    if (source !== 'selection' || !tokens.length || sentence === selected) return [];
+    const compactSelected = compactLookupText(selected);
+    if (!compactSelected || !compactLookupText(sentence).includes(compactSelected)) return [];
+    return tokens.filter(token => {
+        const spelling = compactLookupText(token.card.spelling);
+        const reading = compactLookupText(token.card.reading);
+        return Boolean((spelling && compactSelected.includes(spelling)) || (reading && compactSelected.includes(reading)));
+    });
 }
