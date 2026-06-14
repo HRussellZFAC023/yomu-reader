@@ -9180,6 +9180,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -11951,11 +11952,12 @@ ${entry.reading || ""}`;
     return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
   async function postAnkiJson(url, body, timeoutMs) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
-    if (!canFetchAnkiConnect(url)) {
-      return Promise.reject(new Error("AnkiConnect URL must be HTTP or HTTPS."));
+    if (!canDirectFetchAnkiConnect(url)) {
+      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
     }
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -12015,14 +12017,15 @@ ${entry.reading || ""}`;
       }
     });
   }
-  function canFetchAnkiConnect(url) {
-    return canFetchAnkiConnectFrom(url, safeLocationHref$1());
+  function canDirectFetchAnkiConnect(url) {
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
   }
-  function canFetchAnkiConnectFrom(url, currentHref) {
+  function canDirectFetchAnkiConnectFrom(url, currentHref) {
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    return Boolean(target && isHttpUrl(target));
+    if (!target || !isHttpUrl(target)) return false;
+    return target.origin === current.origin;
   }
   function readAnkiUrl(value, base) {
     try {
@@ -63251,6 +63254,8 @@ ${entry.url}`),
     lastAutoTermAudio;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
+      const isCurrent = this.termAudioCurrentGuard(options);
+      if (this.isStaleTermAudioRequest(isCurrent)) return;
       const key = termAudioRequestKey(card, options);
       const inFlight = this.inFlightTermAudio;
       if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
@@ -63259,7 +63264,7 @@ ${entry.url}`),
       }
       const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
       if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
-      const promise = this.playTermAudioOnce(card, options);
+      const promise = this.playTermAudioOnce(card, { ...options, isCurrent });
       this.inFlightTermAudio = { key, promise };
       try {
         const played = await promise;
@@ -63272,10 +63277,9 @@ ${entry.url}`),
       return Boolean(options.autoPlay && inFlight?.key === key);
     }
     async playTermAudioOnce(card, options = {}) {
-      const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
-      const loadingPopover = this.dependencies.getActivePopover();
-      const loadingRequest = ++this.loadingRequest;
-      this.setLoading(loadingPopover, loadingRequest);
+      const isCurrent = this.termAudioCurrentGuard(options);
+      const loading = this.beginLoadingAudioRequest(isCurrent);
+      if (!loading) return false;
       try {
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
@@ -63285,8 +63289,21 @@ ${entry.url}`),
         this.dependencies.toast(this.audioErrorMessage(error));
         return false;
       } finally {
-        this.clearLoading(loadingPopover, loadingRequest);
+        this.clearLoading(loading.popover, loading.requestId);
       }
+    }
+    termAudioCurrentGuard(options) {
+      return options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
+    }
+    isStaleTermAudioRequest(isCurrent) {
+      return Boolean(isCurrent && !isCurrent());
+    }
+    beginLoadingAudioRequest(isCurrent) {
+      if (this.isStaleTermAudioRequest(isCurrent)) return null;
+      const requestId = ++this.loadingRequest;
+      const popover = this.dependencies.getActivePopover();
+      this.setLoading(popover, requestId);
+      return { popover, requestId };
     }
     consumeRecentAutoTermAudio(key) {
       const recent = this.lastAutoTermAudio;
@@ -63351,7 +63368,14 @@ ${entry.url}`),
     ].join("\0");
   }
   function termAudioAutoRequestKey(card) {
-    return card.spelling;
+    return [
+      card.source ?? "",
+      String(card.vid ?? ""),
+      String(card.sid ?? ""),
+      String(card.rid ?? ""),
+      card.spelling,
+      card.reading
+    ].join("\0");
   }
   const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
   const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;

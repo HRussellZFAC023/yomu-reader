@@ -5,12 +5,23 @@ interface UserscriptHttpResponse {
     response: unknown;
 }
 
+// "request bridge" keeps isAnkiConnectAvailabilityError() matching this, so a
+// bridge-less cross-origin endpoint is treated as a normal unavailable state
+// (cooldown + "needs bridge" UI) rather than a hard error.
+const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = 'AnkiConnect needs the userscript request bridge for cross-origin endpoints.';
+
 export async function postAnkiJson<T>(url: string, body: string, timeoutMs: number): Promise<T> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript<T>(userscriptRequest, url, body, timeoutMs);
 
-    if (!canFetchAnkiConnect(url)) {
-        return Promise.reject(new Error('AnkiConnect URL must be HTTP or HTTPS.'));
+    // Without the userscript/extension request bridge, only a same-origin
+    // AnkiConnect endpoint is reachable. The usual http://127.0.0.1:8765 from a
+    // hosted page (the yomu site, a content page, …) is cross-origin, so the
+    // browser blocks it and logs "Cross-Origin Request Blocked" for every
+    // attempt even though we catch the rejection. Skip the doomed fetch and
+    // surface a caught availability error instead of spamming the console.
+    if (!canDirectFetchAnkiConnect(url)) {
+        return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
     }
 
     const controller = new AbortController();
@@ -86,15 +97,20 @@ function postAnkiJsonWithUserscript<T>(
     });
 }
 
-function canFetchAnkiConnect(url: string): boolean {
-    return canFetchAnkiConnectFrom(url, safeLocationHref());
+function canDirectFetchAnkiConnect(url: string): boolean {
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref());
 }
 
-export function canFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
+// A bridge-less AnkiConnect request only escapes the browser's cross-origin
+// block when the endpoint is same-origin with the current page. Everything else
+// (the usual loopback endpoint reached from a hosted/content page) needs the
+// userscript/extension request bridge.
+export function canDirectFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    return Boolean(target && isHttpUrl(target));
+    if (!target || !isHttpUrl(target)) return false;
+    return target.origin === current.origin;
 }
 
 function readAnkiUrl(value: string, base?: string): URL | null {

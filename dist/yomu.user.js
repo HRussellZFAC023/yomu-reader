@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.6.198
+// @version      0.6.199
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -11891,6 +11891,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -14417,11 +14418,12 @@ ${entry.reading || ""}`;
     return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
   async function postAnkiJson(url, body, timeoutMs) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
-    if (!canFetchAnkiConnect(url)) {
-      return Promise.reject(new Error("AnkiConnect URL must be HTTP or HTTPS."));
+    if (!canDirectFetchAnkiConnect(url)) {
+      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
     }
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -14472,14 +14474,15 @@ ${entry.reading || ""}`;
       }
     });
   }
-  function canFetchAnkiConnect(url) {
-    return canFetchAnkiConnectFrom(url, safeLocationHref$2());
+  function canDirectFetchAnkiConnect(url) {
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$2());
   }
-  function canFetchAnkiConnectFrom(url, currentHref) {
+  function canDirectFetchAnkiConnectFrom(url, currentHref) {
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);
-    return Boolean(target && isHttpUrl(target));
+    if (!target || !isHttpUrl(target)) return false;
+    return target.origin === current.origin;
   }
   function readAnkiUrl(value, base) {
     try {
@@ -34312,6 +34315,8 @@ ${glossaryKey}`;
     lastAutoTermAudio;
     async playTermAudio(card, options = {}) {
       if (!this.ensureAudioEnabled()) return;
+      const isCurrent = this.termAudioCurrentGuard(options);
+      if (this.isStaleTermAudioRequest(isCurrent)) return;
       const key = termAudioRequestKey(card, options);
       const inFlight = this.inFlightTermAudio;
       if (this.shouldJoinInFlightTermAudio(inFlight, key, options)) {
@@ -34320,7 +34325,7 @@ ${glossaryKey}`;
       }
       const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
       if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
-      const promise = this.playTermAudioOnce(card, options);
+      const promise = this.playTermAudioOnce(card, { ...options, isCurrent });
       this.inFlightTermAudio = { key, promise };
       try {
         const played = await promise;
@@ -34333,10 +34338,9 @@ ${glossaryKey}`;
       return Boolean(options.autoPlay && inFlight?.key === key);
     }
     async playTermAudioOnce(card, options = {}) {
-      const isCurrent = options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
-      const loadingPopover = this.dependencies.getActivePopover();
-      const loadingRequest = ++this.loadingRequest;
-      this.setLoading(loadingPopover, loadingRequest);
+      const isCurrent = this.termAudioCurrentGuard(options);
+      const loading = this.beginLoadingAudioRequest(isCurrent);
+      if (!loading) return false;
       try {
         this.dependencies.stopImmersionAudio();
         const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
@@ -34346,8 +34350,21 @@ ${glossaryKey}`;
         this.dependencies.toast(this.audioErrorMessage(error));
         return false;
       } finally {
-        this.clearLoading(loadingPopover, loadingRequest);
+        this.clearLoading(loading.popover, loading.requestId);
       }
+    }
+    termAudioCurrentGuard(options) {
+      return options.isCurrent ?? (options.hoverLookupGeneration === void 0 ? void 0 : () => this.dependencies.getHoverLookupGeneration() === options.hoverLookupGeneration);
+    }
+    isStaleTermAudioRequest(isCurrent) {
+      return Boolean(isCurrent && !isCurrent());
+    }
+    beginLoadingAudioRequest(isCurrent) {
+      if (this.isStaleTermAudioRequest(isCurrent)) return null;
+      const requestId = ++this.loadingRequest;
+      const popover = this.dependencies.getActivePopover();
+      this.setLoading(popover, requestId);
+      return { popover, requestId };
     }
     consumeRecentAutoTermAudio(key) {
       const recent = this.lastAutoTermAudio;
@@ -34412,7 +34429,14 @@ ${glossaryKey}`;
     ].join("\0");
   }
   function termAudioAutoRequestKey(card) {
-    return card.spelling;
+    return [
+      card.source ?? "",
+      String(card.vid ?? ""),
+      String(card.sid ?? ""),
+      String(card.rid ?? ""),
+      card.spelling,
+      card.reading
+    ].join("\0");
   }
   function canAttemptReaderAutoAudio(options) {
     if (!options.settings.audioEnabled || !options.settings.autoPlayAudio) return false;
@@ -35103,14 +35127,15 @@ ${glossaryKey}`;
     word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
     const preserveHostPaint = word.classList.contains("jpdb-reader-passive-word");
     const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
+    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
     const sourceText = cssColorToHex(m.color, accessibleRgba);
-    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(accessibleHex);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
     const textSource = word.classList.contains("jpdb-reader-passive-word") ? nativeText : sourceText ?? nativeText;
-    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, accessibleHex, TEXT_CONTRAST));
-    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, accessibleHex, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, accessibleHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
     if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-word-accessible-underline");

@@ -112,7 +112,7 @@ export type {
     AnkiMergeYomuResult,
     AnkiRenderedCard,
 } from './types';
-export { canFetchAnkiConnectFrom, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from './transport';
+export { canDirectFetchAnkiConnectFrom, isAnkiConnectAvailabilityError, hasUserscriptAnkiBridge } from './transport';
 export {
     ANKI_EXPRESSION_FIELD_NAMES,
     ANKI_MEANING_FIELD_NAMES,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AnkiConnectClient, buildYomuAnkiPreviewFields, canFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
+import { AnkiConnectClient, buildYomuAnkiPreviewFields, canDirectFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { applyComputedAnkiNextReviews, reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
 import { applyNewCardStepPreviews } from '../../src/reader/anki/new-tab';
@@ -140,20 +140,6 @@ function stubBrowserAnkiConnectCheck(href: string): {
     vi.stubGlobal('fetch', fetchMock);
     const client = new AnkiConnectClient(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }));
     return { client, fetchMock };
-}
-
-async function expectDirectAnkiConnectFetch(href: string): Promise<void> {
-    const { client, fetchMock } = stubBrowserAnkiConnectCheck(href);
-
-    try {
-        await expect(client.isConnected()).resolves.toBe(true);
-        expect(fetchMock).toHaveBeenCalledWith(
-            'http://127.0.0.1:8765',
-            expect.objectContaining({ method: 'POST' }),
-        );
-    } finally {
-        vi.unstubAllGlobals();
-    }
 }
 
 function stubHostedLoopbackBridgeMocks(message = 'hosted bridge requests should not direct-fetch loopback AnkiConnect') {
@@ -448,64 +434,44 @@ describe('AnkiConnect browser fetch eligibility', () => {
         }
     });
 
-    it('allows hosted pages to fetch loopback AnkiConnect directly', () => {
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html',
-        )).toBe(true);
-        expect(canFetchAnkiConnectFrom(
-            'http://localhost:8765',
+    it('treats same-origin AnkiConnect endpoints as directly fetchable without a bridge', () => {
+        expect(canDirectFetchAnkiConnectFrom(
+            'https://hrussellzfac023.github.io/anki-connect',
             'https://hrussellzfac023.github.io/yomu-reader/newtab/',
         )).toBe(true);
-    });
-
-    it('lets the hosted new-tab app contact a non-local configured AnkiConnect endpoint', () => {
-        expect(canFetchAnkiConnectFrom(
-            'http://tailscale-host.ts.net:8765',
-            'https://hrussellzfac023.github.io/yomu-reader/newtab/',
+        expect(canDirectFetchAnkiConnectFrom(
+            'http://127.0.0.1:8765',
+            'http://127.0.0.1:8765/',
         )).toBe(true);
     });
 
-    it('allows arbitrary content pages to fetch configured AnkiConnect endpoints directly', () => {
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'https://example.com/article',
-        )).toBe(true);
+    it('requires the bridge for cross-origin AnkiConnect endpoints so hosted pages do not spam CORS errors', () => {
+        // Hosted yomu-site page -> loopback AnkiConnect (the reported case).
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html')).toBe(false);
+        // Hosted new-tab -> non-local configured endpoint.
+        expect(canDirectFetchAnkiConnectFrom('http://tailscale-host.ts.net:8765', 'https://hrussellzfac023.github.io/yomu-reader/newtab/')).toBe(false);
+        // Arbitrary content page -> loopback.
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'https://example.com/article')).toBe(false);
+        // Local dev page on a different port is still cross-origin.
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'http://127.0.0.1:5174/newtab/')).toBe(false);
+        expect(canDirectFetchAnkiConnectFrom('http://127.0.0.1:8765', 'file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html')).toBe(false);
+        // Non-http endpoints are never directly fetchable.
+        expect(canDirectFetchAnkiConnectFrom('ftp://127.0.0.1:8765', 'http://127.0.0.1:8765/')).toBe(false);
     });
 
-    it('keeps local development pages able to fetch AnkiConnect directly', () => {
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'http://127.0.0.1:5174/newtab/',
-        )).toBe(true);
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'http://0.0.0.0:5174/yomu-reader/newtab/',
-        )).toBe(true);
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'http://0.0.0.0:5174/yomu-reader/',
-        )).toBe(true);
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html',
-        )).toBe(true);
-        expect(canFetchAnkiConnectFrom(
-            'http://127.0.0.1:8765',
-            'http://0.0.0.0:5174/article',
-        )).toBe(true);
-    });
-
-    it('uses direct fetch for local file-preview AnkiConnect checks when no bridge exists', async () => {
-        await expectDirectAnkiConnectFetch('file:///Users/heru/Documents/Projects/yomu/apps/yomu-reader/public/newtab/index.html');
-    });
-
-    it('uses direct fetch for local app-root AnkiConnect checks when no bridge exists', async () => {
-        await expectDirectAnkiConnectFetch('http://0.0.0.0:5174/yomu-reader/');
-    });
-
-    it('uses direct fetch for hosted loopback AnkiConnect checks when no bridge exists', async () => {
+    it('skips the cross-origin AnkiConnect request when no bridge exists, reporting not connected without a fetch', async () => {
         const { client, fetchMock } = stubBrowserAnkiConnectCheck('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html');
+
+        try {
+            await expect(client.isConnected()).resolves.toBe(false);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('still direct-fetches a same-origin AnkiConnect endpoint when no bridge exists', async () => {
+        const { client, fetchMock } = stubBrowserAnkiConnectCheck('http://127.0.0.1:8765/');
 
         try {
             await expect(client.isConnected()).resolves.toBe(true);

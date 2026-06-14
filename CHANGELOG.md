@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.199] - 2026-06-14
+
+### Fixed
+
+- AnkiConnect is no longer contacted by a direct cross-origin `fetch` when the userscript/extension request bridge is absent. Opening the hosted yomu site (or any content page) without the userscript installed used to fire a doomed request to the default `http://127.0.0.1:8765`, which the browser blocks and logs as "Cross-Origin Request Blocked" on every attempt. Yomu now skips that request and reports Anki as needing the bridge instead. Same-origin endpoints and bridge-backed requests (Tampermonkey/Violentmonkey and the browser extension) are unchanged, so configured Anki setups keep working on hosted pages.
+
 ## [0.6.198] - 2026-06-14
 
 ### Changed
