@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.20] - 2026-06-14
+
+### Fixed
+
+- Hosted new-tab searches now keep the `q` query parameter in sync for typed searches, nested modal lookups, handwriting candidates, and cleared searches, so browser back/forward restores the searched term and rendered results.
+- New-tab search results no longer render the redundant global external-search link row when each expanded dictionary entry already has its own lookup pills.
+- Search-result entry pills now dispatch Copy, Yomu, JPDB/Jiten, and Anki actions through the shared card-action path; the Anki pill now gives the same success/error feedback in new-tab search details as it does in lookup popovers.
+
 ## [0.7.19] - 2026-06-14
 
 ### Fixed
