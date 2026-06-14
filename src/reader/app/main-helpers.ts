@@ -315,10 +315,12 @@ export interface TextLookupOptions {
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
     source?: TokenListSource;
+    displaySelected?: string;
 }
 
 export interface TextLookupDisplayContext {
     selected: string;
+    displaySelected: string;
     anchor?: HTMLElement;
     trigger: 'modal' | 'hover';
     navigation: CardNavigationMode;

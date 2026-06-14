@@ -3923,7 +3923,7 @@ export class ReaderApp {
     }
 
     private renderTokenListHtml(tokens: JPDBToken[], selected: string, source: TokenListSource, previousNavigationEntry?: PopupNavigationEntry): string {
-        return renderTokenListMarkup(tokens, selected, source, previousNavigationEntry, this.settings.interfaceLanguage);
+        return renderTokenListMarkup(tokens, selected, source, previousNavigationEntry, this.settings);
     }
 
     private installTokenListHandlers(
@@ -3935,7 +3935,13 @@ export class ReaderApp {
         installTokenListClickHandlers(popover, tokens, anchor, context, {
             showPrevious: (previousAnchor, previousContext) => void this.showTokenListPrevious(previousAnchor, previousContext),
             showCard: (button, nextTokens, cardAnchor, cardContext) => this.showTokenListCard(button, nextTokens, cardAnchor, cardContext),
+            copySelected: selected => void this.copyTokenListSelection(selected),
         });
+    }
+
+    private async copyTokenListSelection(selected: string): Promise<void> {
+        await copyText(selected);
+        this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord'));
     }
 
     private async showTokenListPrevious(
