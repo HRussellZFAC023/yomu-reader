@@ -2,7 +2,6 @@ import { IMMERSION_KIT_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom/index';
 import { kanjiSourceStateKey } from '../sources/definition-render';
 import { uiText } from '../app/i18n';
-import { renderKanjiPractice } from '../popup/render';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -60,11 +59,31 @@ function renderKanjiSourceMount(sourceId: string, options: KanjiSourceMountRende
 
     const sourceStateKey = kanjiSourceStateKey(sourceId);
     if (sourceId === KANJI_STROKE_SOURCE_ID) {
-        return renderKanjiPractice(null, options.kanji, options.language, options.isSourceOpen(sourceStateKey), sourceStateKey, options.sourceTitle(sourceId));
+        return renderKanjiPracticeShell(options, sourceStateKey);
     }
     if (sourceId === IMMERSION_KIT_SOURCE_ID) return options.renderImmersionMount?.() ?? '';
     const dictionaryName = kanjiDictionaryNameFromSourceId(sourceId);
     return dictionaryName
         ? `<div data-kanji-definitions-mount data-kanji-dictionary="${escapeHtml(dictionaryName)}" data-kanji-source-id="${escapeHtml(sourceId)}"></div>`
         : '';
+}
+
+function renderKanjiPracticeShell(options: KanjiSourceMountRendererOptions, sourceStateKey: string): string {
+    const title = options.sourceTitle(KANJI_STROKE_SOURCE_ID);
+    const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true"><div class="jpdb-reader-doodle-text-ghost">${escapeHtml(options.kanji)}</div></div>
+                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(options.language, 'practiceDrawing')} ${options.kanji}`)}"></canvas>
+            </div>
+            <div class="jpdb-reader-doodle-tools">
+                <span class="jpdb-reader-help">${escapeHtml(uiText(options.language, 'textTrace'))}</span>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml(uiText(options.language, 'hideTrace'))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml(uiText(options.language, 'clear'))}</button>
+            </div>
+            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
+        </details>
+    `;
 }
