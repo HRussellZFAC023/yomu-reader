@@ -56,6 +56,7 @@
     "smoke:anki": "node scripts/anki-mining-smoke.mjs",
     "smoke:anki-template": "node scripts/anki-template-render-smoke.mjs",
     "smoke:anki-wikipedia": "node scripts/anki-wikipedia-smoke.mjs",
+    "smoke:audio-popover": "node scripts/audio-popover-smoke.mjs",
     "smoke:feedback": "node scripts/feedback-smoke.mjs",
     "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
     "smoke:keyless-popover": "node scripts/keyless-word-popover-smoke.mjs",

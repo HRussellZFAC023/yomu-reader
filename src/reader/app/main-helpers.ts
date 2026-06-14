@@ -127,7 +127,7 @@ export function visibleAutoScanInitialDelay(defaultDelay = 600): number {
     return isYouTubeHostForAutoScan() ? 160 : defaultDelay;
 }
 
-export function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
+function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
     return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
 }
 
