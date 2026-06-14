@@ -935,6 +935,12 @@
     id: "jisho",
     label: "Jisho",
     urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true
   };
   const JITEN_LOOKUP_LINK = {
@@ -995,6 +1001,7 @@
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1007,7 +1014,7 @@
   ];
   const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
     { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
+    { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
   function normalizeDictionaryLookupLinkSettings(value) {
@@ -1039,14 +1046,16 @@
   function defaultDictionaryLookupLinks(mode = "local") {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({
       ...link,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "jisho" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
     return defaultDictionaryLookupLinks("local").map((defaultLink) => {
       const link = linkById.get(defaultLink.id) ?? defaultLink;
-      return link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link;
+      if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
+      if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
+      return link;
     });
   }
   function isLegacyDefaultLookupLinkSet(value) {

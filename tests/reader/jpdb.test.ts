@@ -4814,9 +4814,11 @@ describe('reader helpers', () => {
 
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
-        expect(html).toContain('>Jisho ');
+        expect(html).toContain('>Yomu ');
+        expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
+        expect(html).toContain('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=');
         expect(html).toContain('--chip-bg:#13845f');
         expect(html).not.toContain('>Immersion Kit ');
         expect(html).not.toContain('>Uchisen ');
@@ -4838,7 +4840,8 @@ describe('reader helpers', () => {
 
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
-        expect(html).toContain('>Jisho ');
+        expect(html).toContain('>Yomu ');
+        expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
         expect(html).toContain('role="link" aria-disabled="true" tabindex="-1"');
         expect(html).toContain('role="button" aria-disabled="true" tabindex="-1"');
@@ -9941,7 +9944,8 @@ describe('reader helpers', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
             ['jpdb', true],
-            ['jisho', true],
+            ['yomu-search', true],
+            ['jisho', false],
             ['weblio', false],
             ['goo', false],
             ['kotobank', false],
@@ -9954,7 +9958,8 @@ describe('reader helpers', () => {
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
             ['jiten', true],
             ['jpdb', true],
-            ['jisho', true],
+            ['yomu-search', true],
+            ['jisho', false],
             ['weblio', false],
             ['goo', false],
             ['kotobank', false],
@@ -9967,6 +9972,7 @@ describe('reader helpers', () => {
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
+            ['yomu-search', 'Yomu', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}'],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
             ['goo', 'goo', 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/'],
@@ -9983,6 +9989,7 @@ describe('reader helpers', () => {
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
             { id: 'jiten' },
             { id: 'jpdb' },
+            { id: 'yomu-search' },
             { id: 'jisho' },
             { id: 'weblio' },
             { id: 'goo' },
@@ -10012,7 +10019,8 @@ describe('reader helpers', () => {
             expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
                 ['jiten', true],
                 ['jpdb', true],
-                ['jisho', true],
+                ['yomu-search', true],
+                ['jisho', false],
                 ['weblio', false],
                 ['goo', false],
                 ['kotobank', false],
