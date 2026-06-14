@@ -16333,6 +16333,7 @@ ${spelling}`);
     if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
     return Boolean(element.closest(VIDEO_CARD_SELECTOR));
   }
+  let sandboxCompanions = {};
   function registerYomuCompanion(key, value) {
     writeYomuCompanions({
       ...yomuCompanions(),
@@ -16340,12 +16341,11 @@ ${spelling}`);
     });
   }
   function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
   }
   function writeYomuCompanions(value) {
-    const registry = pageCompartmentValue(value, { cloneFunctions: true, wrapReflectors: true });
-    if (writeYomuCompanionsTarget(globalThis, registry)) return;
-    if (typeof window !== "undefined" && window !== globalThis) writeYomuCompanionsTarget(window, registry);
+    sandboxCompanions = value;
+    if (writeYomuCompanionsTarget(globalThis, value)) return;
   }
   function writeYomuCompanionsTarget(target, value) {
     if (!target || typeof target !== "object" && typeof target !== "function") return false;
