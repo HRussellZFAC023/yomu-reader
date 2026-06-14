@@ -166,7 +166,7 @@ export class CardRenderDataLoader {
 
     private loadLocalKanjiEntries(card: JPDBCard): Promise<YomitanKanjiEntry[]> {
         const settings = this.settings();
-        if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji) return Promise.resolve([]);
+        if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local kanji dictionary', this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(error => {
             log.warn('Local kanji lookup failed', { term: card.spelling }, error);
             return [];
@@ -483,6 +483,11 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
 
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function isLocalKanjiDictionaryCard(card: JPDBCard): boolean {
+    const characters = Array.from(card.spelling.trim());
+    return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
 }
 
 function emptyAnkiLookupResult(): AnkiLookupResult {

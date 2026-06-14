@@ -18,11 +18,6 @@ interface StructuredKanjiReference {
     kanji: string;
 }
 
-interface StructuredImageMetrics {
-    invAspectRatio: number;
-    usedWidth: number;
-}
-
 type DirectGlossaryRecordRenderer = (record: Record<string, unknown>, context: StructuredRenderContext) => string | null;
 
 const STRUCTURED_CONTENT_TAGS = new Set([
@@ -384,104 +379,32 @@ function renderStructuredImage(record: Record<string, unknown>, dictionary: stri
     const path = typeof record.path === 'string' ? record.path : '';
     const title = typeof record.title === 'string' ? record.title : '';
     const description = structuredImageDescription(record);
-    const metrics = structuredImageMetrics(record);
-    return `${renderStructuredImageLink(record, dictionary, path, title, metrics)}${renderStructuredImageDescription(description)}`;
+    const src = structuredImageSrc(path);
+    const alt = escapeHtml(description || title || 'Dictionary image');
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : '';
+    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ''} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
 }
 
-function renderStructuredImageLink(record: Record<string, unknown>, dictionary: string, path: string, title: string, metrics: StructuredImageMetrics): string {
-    return `<span${renderStructuredImageAttributes(record, dictionary, path)}>${renderStructuredImageContainer(record, title, metrics)}<span class="gloss-image-link-text">Image</span></span>`;
-}
-
-function renderStructuredImageAttributes(record: Record<string, unknown>, dictionary: string, path: string): string {
+function renderStructuredImageAttributes(record: Record<string, unknown>, dictionary: string): string {
     return [
         ` class="gloss-image-link"`,
         dictionaryAttribute(dictionary),
-        structuredImagePathAttribute(path),
-        ...structuredImageStateAttributes(record),
-        ...structuredImageOptionalAttributes(record),
+        structuredImageStateAttribute(record),
     ].join('');
 }
 
-function structuredImagePathAttribute(path: string): string {
-    return path ? ` data-path="${escapeHtml(path)}"` : '';
+function structuredImageStateAttribute(record: Record<string, unknown>): string {
+    const path = typeof record.path === 'string' ? record.path : '';
+    return ` data-image-load-state="${structuredImageSrc(path) ? 'loaded' : 'error'}"`;
 }
 
-function structuredImageStateAttributes(record: Record<string, unknown>): string[] {
-    return [
-        ` data-image-load-state="unloaded"`,
-        ` data-has-aspect-ratio="true"`,
-        ` data-image-rendering="${escapeHtml(structuredImageRendering(record))}"`,
-        ` data-appearance="${escapeHtml(String(record.appearance || 'auto'))}"`,
-        structuredImageBooleanAttribute(record, 'background', true),
-        structuredImageBooleanAttribute(record, 'collapsed', false),
-        structuredImageBooleanAttribute(record, 'collapsible', true),
-    ];
-}
-
-function structuredImageOptionalAttributes(record: Record<string, unknown>): string[] {
-    return [
-        typeof record.verticalAlign === 'string' ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : '',
-        typeof record.sizeUnits === 'string' ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : '',
-    ];
-}
-
-function structuredImageBooleanAttribute(record: Record<string, unknown>, key: string, fallback: boolean): string {
-    const value = typeof record[key] === 'boolean' ? record[key] : fallback;
-    return ` data-${kebabCase(key)}="${value}"`;
-}
-
-function kebabCase(value: string): string {
-    return value.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
-}
-
-function renderStructuredImageContainer(record: Record<string, unknown>, title: string, metrics: StructuredImageMetrics): string {
-    const containerTitle = title ? ` title="${escapeHtml(title)}"` : '';
-    return `<span class="gloss-image-container" style="${escapeHtml(renderStructuredImageContainerStyle(record, metrics.usedWidth))}"${containerTitle}>${renderStructuredImageFrame(metrics)}</span>`;
-}
-
-function renderStructuredImageContainerStyle(record: Record<string, unknown>, usedWidth: number): string {
-    return [
-        `width:${formatCssNumber(usedWidth)}em;`,
-        typeof record.border === 'string' ? `border:${record.border};` : '',
-        typeof record.borderRadius === 'string' ? `border-radius:${record.borderRadius};` : '',
-    ].join('');
-}
-
-function renderStructuredImageFrame(metrics: StructuredImageMetrics): string {
-    return `<span class="gloss-image-sizer" style="padding-top:${formatCssNumber(metrics.invAspectRatio * 100)}%;"></span><span class="gloss-image-background"></span><span class="gloss-image-container-overlay"></span>`;
-}
-
-function renderStructuredImageDescription(description: string): string {
-    return description ? `<span class="gloss-image-description">${escapeHtml(description)}</span>` : '';
+function structuredImageSrc(path: string): string {
+    return /^data:image\//i.test(path) ? path : '';
 }
 
 function structuredImageDescription(record: Record<string, unknown>): string {
     if (typeof record.description === 'string') return record.description;
     return typeof record.alt === 'string' ? record.alt : '';
-}
-
-function structuredImageMetrics(record: Record<string, unknown>): StructuredImageMetrics {
-    const preferredWidth = numericRecordValue(record, 'preferredWidth');
-    const preferredHeight = numericRecordValue(record, 'preferredHeight');
-    const { width, height } = structuredImageNaturalSize(record, preferredWidth, preferredHeight);
-    const invAspectRatio = height > 0 && width > 0 ? height / width : 1;
-    const usedWidth = structuredImageUsedWidth(width, invAspectRatio, preferredWidth, preferredHeight);
-    return { invAspectRatio, usedWidth };
-}
-
-function structuredImageNaturalSize(record: Record<string, unknown>, preferredWidth: number | undefined, preferredHeight: number | undefined): { width: number; height: number } {
-    return {
-        width: preferredWidth ?? numericRecordValue(record, 'width') ?? 100,
-        height: preferredHeight ?? numericRecordValue(record, 'height') ?? 100,
-    };
-}
-
-function structuredImageUsedWidth(width: number, invAspectRatio: number, preferredWidth: number | undefined, preferredHeight: number | undefined): number {
-    return preferredWidth ?? (preferredHeight ? preferredHeight / invAspectRatio : width);
-}
-
-function structuredImageRendering(record: Record<string, unknown>): string {
-    return String(record.imageRendering || (record.pixelated ? 'pixelated' : 'auto'));
 }
 
 function isStructuredImageRecord(record: Record<string, unknown>): boolean {
@@ -541,15 +464,6 @@ function locationOrigin(): string {
     } catch {
         return '';
     }
-}
-
-function numericRecordValue(record: Record<string, unknown>, key: string): number | undefined {
-    const value = record[key];
-    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function formatCssNumber(value: number): string {
-    return Number.isFinite(value) ? Number(value.toFixed(4)).toString() : '0';
 }
 
 function camelToKebabCase(value: string): string {

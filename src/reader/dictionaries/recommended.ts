@@ -8,7 +8,7 @@ export interface RecommendedDictionary {
     name: string;
     descriptionKey: UiCopyKey;
     homepage: string;
-    downloadUrl: string;
+    downloadUrl?: string;
 }
 
 export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
@@ -35,6 +35,20 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         descriptionKey: 'recommendedJmnedict',
         homepage: 'https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan',
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip',
+    },
+    {
+        id: 'wty-ja-ja',
+        category: 'terms',
+        name: 'WTY JA-JA',
+        descriptionKey: 'recommendedWtyJapaneseJapanese',
+        homepage: 'https://github.com/yomidevs/wiktionary-to-yomitan',
+    },
+    {
+        id: 'marvnc-monolingual',
+        category: 'terms',
+        name: 'MarvNC JA-JA',
+        descriptionKey: 'recommendedMarvncMonolingual',
+        homepage: 'https://github.com/MarvNC/yomitan-dictionaries',
     },
     {
         id: 'kanjidic',

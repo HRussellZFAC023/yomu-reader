@@ -3554,6 +3554,8 @@
       recommendedJitendex: "Japanese-English dictionary with examples and notes.",
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
+      recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
+      recommendedMarvncMonolingual: "Monolingual collection.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, and frequency.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
@@ -4672,6 +4674,8 @@ sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
 recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
+recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedMarvncMonolingual	日日辞書集。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
@@ -5329,6 +5333,20 @@ recommendedJiten	jiten.moe頻度データです。
       descriptionKey: "recommendedJmnedict",
       homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "wty-ja-ja",
+      category: "terms",
+      name: "WTY JA-JA",
+      descriptionKey: "recommendedWtyJapaneseJapanese",
+      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
+    },
+    {
+      id: "marvnc-monolingual",
+      category: "terms",
+      name: "MarvNC JA-JA",
+      descriptionKey: "recommendedMarvncMonolingual",
+      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
     },
     {
       id: "kanjidic",
@@ -9535,6 +9553,9 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderRecommendedDictionary(dictionary, installed) {
     const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
+    const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
+                ${alreadyInstalled ? "Update" : "Install"}
+            </button>` : `<a class="jpdb-reader-btn" href="${dictionary.homepage}" target="_blank" rel="noopener">Open</a>`;
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
@@ -9545,21 +9566,20 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-help">${escapedUiText("en", dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
-            <button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? "Update" : "Install"}
-            </button>
+            ${action}
         </div>
     `;
   }
   function isRecommendedDictionaryInstalled(dictionary, installed) {
     const targetName = normalizedDictionaryName(dictionary.name);
-    return installed.some((item) => item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
+    return installed.some((item) => dictionary.downloadUrl && item.downloadUrl === dictionary.downloadUrl || normalizedDictionaryName(item.title).includes(targetName));
   }
   function normalizedDictionaryName(value) {
     return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
   }
   const log$1 = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
+    if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
       const parsed = new URL(dictionary.downloadUrl);
       const lastPath = parsed.pathname.split("/").filter(Boolean).pop();
@@ -11222,16 +11242,18 @@ recommendedJiten	jiten.moe頻度データです。
       this.dependencies.scheduleDictionaryRescan();
     }
     async downloadRecommendedDictionary(dictionary, control, setStatus) {
+      if (!dictionary.downloadUrl) return null;
+      const downloadUrl = dictionary.downloadUrl;
       try {
-        return await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
+        return await this.dependencies.dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), (message) => setStatus(message));
       } catch (error) {
-        return this.handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error);
+        return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
       }
     }
-    handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error) {
+    handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
       const message = errorMessage(error, uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed"));
       control?.removeAttribute("disabled");
-      if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
+      if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) throw error;
       const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
       setStatus(status);
       this.dependencies.toast(status);

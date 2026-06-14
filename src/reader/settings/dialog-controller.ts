@@ -1935,22 +1935,25 @@ export class SettingsDialogController {
         control: HTMLElement | null | undefined,
         setStatus: SettingsStatusSetter,
     ): Promise<ImportSummary | null> {
+        if (!dictionary.downloadUrl) return null;
+        const downloadUrl = dictionary.downloadUrl;
         try {
-            return await this.dependencies.dictionaries.importFromUrl(dictionary.downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+            return await this.dependencies.dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
         } catch (error) {
-            return this.handleRecommendedDictionaryDownloadError(dictionary, control, setStatus, error);
+            return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
         }
     }
 
     private handleRecommendedDictionaryDownloadError(
         dictionary: RecommendedDictionary,
+        downloadUrl: string,
         control: HTMLElement | null | undefined,
         setStatus: SettingsStatusSetter,
         error: unknown,
     ): null {
         const message = errorMessage(error, uiText(this.settings.interfaceLanguage, 'dictionaryDownloadFailed'));
         control?.removeAttribute('disabled');
-        if (!this.shouldPromptManualDictionaryDownload(error, dictionary.downloadUrl)) throw error;
+        if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) throw error;
         const status = `${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`;
         setStatus(status);
         this.dependencies.toast(status);

@@ -1567,6 +1567,8 @@
       recommendedJitendex: "Japanese-English dictionary with examples and notes.",
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
+      recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
+      recommendedMarvncMonolingual: "Monolingual collection.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, and frequency.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
@@ -2704,6 +2706,8 @@ sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
 recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
+recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
+recommendedMarvncMonolingual	日日辞書集。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
@@ -3299,88 +3303,28 @@ recommendedJiten	jiten.moe頻度データです。
     const path = typeof record.path === "string" ? record.path : "";
     const title = typeof record.title === "string" ? record.title : "";
     const description = structuredImageDescription(record);
-    const metrics = structuredImageMetrics(record);
-    return `${renderStructuredImageLink(record, dictionary, path, title, metrics)}${renderStructuredImageDescription(description)}`;
+    const src = structuredImageSrc(path);
+    const alt = escapeHtml(description || title || "Dictionary image");
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
+    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
   }
-  function renderStructuredImageLink(record, dictionary, path, title, metrics) {
-    return `<span${renderStructuredImageAttributes(record, dictionary, path)}>${renderStructuredImageContainer(record, title, metrics)}<span class="gloss-image-link-text">Image</span></span>`;
-  }
-  function renderStructuredImageAttributes(record, dictionary, path) {
+  function renderStructuredImageAttributes(record, dictionary) {
     return [
       ` class="gloss-image-link"`,
       dictionaryAttribute(dictionary),
-      structuredImagePathAttribute(path),
-      ...structuredImageStateAttributes(record),
-      ...structuredImageOptionalAttributes(record)
+      structuredImageStateAttribute(record)
     ].join("");
   }
-  function structuredImagePathAttribute(path) {
-    return path ? ` data-path="${escapeHtml(path)}"` : "";
+  function structuredImageStateAttribute(record) {
+    const path = typeof record.path === "string" ? record.path : "";
+    return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
   }
-  function structuredImageStateAttributes(record) {
-    return [
-      ` data-image-load-state="unloaded"`,
-      ` data-has-aspect-ratio="true"`,
-      ` data-image-rendering="${escapeHtml(structuredImageRendering(record))}"`,
-      ` data-appearance="${escapeHtml(String(record.appearance || "auto"))}"`,
-      structuredImageBooleanAttribute(record, "background", true),
-      structuredImageBooleanAttribute(record, "collapsed", false),
-      structuredImageBooleanAttribute(record, "collapsible", true)
-    ];
-  }
-  function structuredImageOptionalAttributes(record) {
-    return [
-      typeof record.verticalAlign === "string" ? ` data-vertical-align="${escapeHtml(record.verticalAlign)}"` : "",
-      typeof record.sizeUnits === "string" ? ` data-size-units="${escapeHtml(record.sizeUnits)}"` : ""
-    ];
-  }
-  function structuredImageBooleanAttribute(record, key, fallback) {
-    const value = typeof record[key] === "boolean" ? record[key] : fallback;
-    return ` data-${kebabCase(key)}="${value}"`;
-  }
-  function kebabCase(value) {
-    return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
-  }
-  function renderStructuredImageContainer(record, title, metrics) {
-    const containerTitle = title ? ` title="${escapeHtml(title)}"` : "";
-    return `<span class="gloss-image-container" style="${escapeHtml(renderStructuredImageContainerStyle(record, metrics.usedWidth))}"${containerTitle}>${renderStructuredImageFrame(metrics)}</span>`;
-  }
-  function renderStructuredImageContainerStyle(record, usedWidth) {
-    return [
-      `width:${formatCssNumber(usedWidth)}em;`,
-      typeof record.border === "string" ? `border:${record.border};` : "",
-      typeof record.borderRadius === "string" ? `border-radius:${record.borderRadius};` : ""
-    ].join("");
-  }
-  function renderStructuredImageFrame(metrics) {
-    return `<span class="gloss-image-sizer" style="padding-top:${formatCssNumber(metrics.invAspectRatio * 100)}%;"></span><span class="gloss-image-background"></span><span class="gloss-image-container-overlay"></span>`;
-  }
-  function renderStructuredImageDescription(description) {
-    return description ? `<span class="gloss-image-description">${escapeHtml(description)}</span>` : "";
+  function structuredImageSrc(path) {
+    return /^data:image\//i.test(path) ? path : "";
   }
   function structuredImageDescription(record) {
     if (typeof record.description === "string") return record.description;
     return typeof record.alt === "string" ? record.alt : "";
-  }
-  function structuredImageMetrics(record) {
-    const preferredWidth = numericRecordValue(record, "preferredWidth");
-    const preferredHeight = numericRecordValue(record, "preferredHeight");
-    const { width, height } = structuredImageNaturalSize(record, preferredWidth, preferredHeight);
-    const invAspectRatio = height > 0 && width > 0 ? height / width : 1;
-    const usedWidth = structuredImageUsedWidth(width, invAspectRatio, preferredWidth, preferredHeight);
-    return { invAspectRatio, usedWidth };
-  }
-  function structuredImageNaturalSize(record, preferredWidth, preferredHeight) {
-    return {
-      width: preferredWidth ?? numericRecordValue(record, "width") ?? 100,
-      height: preferredHeight ?? numericRecordValue(record, "height") ?? 100
-    };
-  }
-  function structuredImageUsedWidth(width, invAspectRatio, preferredWidth, preferredHeight) {
-    return preferredWidth ?? (preferredHeight ? preferredHeight / invAspectRatio : width);
-  }
-  function structuredImageRendering(record) {
-    return String(record.imageRendering || (record.pixelated ? "pixelated" : "auto"));
   }
   function isStructuredImageRecord(record) {
     return record.type === "image" || "path" in record;
@@ -3431,13 +3375,6 @@ recommendedJiten	jiten.moe頻度データです。
     } catch {
       return "";
     }
-  }
-  function numericRecordValue(record, key) {
-    const value = record[key];
-    return typeof value === "number" && Number.isFinite(value) ? value : void 0;
-  }
-  function formatCssNumber(value) {
-    return Number.isFinite(value) ? Number(value.toFixed(4)).toString() : "0";
   }
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);

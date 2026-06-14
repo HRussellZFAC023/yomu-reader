@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.26] - 2026-06-15
+
+### Changed
+
+- Recommended local dictionary downloads now include Japanese monolingual homepage entries for WTY JA-JA and the MarvNC monolingual collection.
+- Local kanji-only dictionaries now stay scoped to kanji drilldowns and kanji-oriented study/detail cards instead of appearing on ordinary word definition cards.
+
+### Fixed
+
+- Yomitan structured-content dictionary images are imported as inline image data and rendered with alt/fallback text when available.
+- Monolingual structured Japanese glossary content remains parseable by the reader scanner without turning dictionary image fallback labels into nested lookup targets.
+
 ## [0.7.25] - 2026-06-15
 
 ### Fixed
