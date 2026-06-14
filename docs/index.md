@@ -49,7 +49,7 @@ features:
   <div class="yomu-install-steps" aria-label="Install steps">
     <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
     <a class="yomu-install-step-link" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-    <a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
+    <a class="yomu-install-step-link" href="/yomu-reader/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
   </div>
 </div>
 
@@ -85,27 +85,27 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
 ## Next Steps
 
 <div class="yomu-link-grid yomu-next-grid">
-  <a class="yomu-link-card" href="/getting-started">
+  <a class="yomu-link-card" href="/yomu-reader/getting-started">
     <strong>Set up よむ</strong>
     <span>Install a userscript manager, add よむ, and try your first lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/features">
+  <a class="yomu-link-card" href="/yomu-reader/features">
     <strong>See the tools</strong>
     <span>Lookup, OCR, subtitles, kanji pages, JPDB, dictionaries, and Anki.</span>
   </a>
-  <a class="yomu-link-card" href="/newtab/index.html">
+  <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
     <strong>Open study app</strong>
     <span>Review JPDB, Anki, or imported dictionary cards from the study app.</span>
   </a>
-  <a class="yomu-link-card" href="/video-player/index.html">
+  <a class="yomu-link-card" href="/yomu-reader/video-player/index.html">
     <strong>Open video player</strong>
     <span>Use local browser-supported videos and subtitle files with よむ lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/local-audio">
+  <a class="yomu-link-card" href="/yomu-reader/local-audio">
     <strong>Add audio</strong>
     <span>Use hosted Yomitan audio first, or self-host files when you need them.</span>
   </a>
-  <a class="yomu-link-card" href="/support">
+  <a class="yomu-link-card" href="/yomu-reader/support">
     <strong>Get support</strong>
     <span>Report a bug, join Discord, donate, or reinstall the userscript.</span>
   </a>

@@ -386,7 +386,7 @@
   .jpdb-reader-settings input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
   .jpdb-reader-settings select,
   .jpdb-reader-settings textarea {
-    font-size: max(16px, 1em);
+    font-size: max(16px, 1em) !important;
   }
 }
 .jpdb-reader-btn {

@@ -42,6 +42,17 @@ describe('interface language resolution', () => {
         expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
         expect(japaneseCopySource).not.toContain("'未翻訳'");
     });
+
+    it('keeps Japanese new-tab copy keys in sync with English copy keys', () => {
+        const source = readFileSync('src/reader/newtab/i18n.ts', 'utf8');
+        const englishKeys = copyKeys(between(source, '    en: {', '    },\n} as const'));
+        const japaneseCopySource = between(source, 'const JA_NEW_TAB_COPY', 'const NEW_TAB_COPY_BY_LANGUAGE');
+        const japaneseKeys = new Set(copyKeys(japaneseCopySource));
+
+        expect(englishKeys.filter(key => !japaneseKeys.has(key))).toEqual([]);
+        expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
+        expect(japaneseCopySource).not.toContain("'未翻訳'");
+    });
 });
 
 function between(source: string, startMarker: string, endMarker: string): string {

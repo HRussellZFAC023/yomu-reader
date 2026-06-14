@@ -11,6 +11,24 @@
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
+    <script>
+      (() => {
+        const settingsKey = 'jpdb-popup-reader-settings';
+        const titles = { en: 'Yomu New Tab', ja: 'よむ 学習' };
+        const readLanguage = () => {
+          try {
+            const stored = JSON.parse(localStorage.getItem(settingsKey) || '{}').interfaceLanguage;
+            return stored === 'en' ? 'en' : 'ja';
+          } catch {
+            return 'ja';
+          }
+        };
+        const language = readLanguage();
+        document.documentElement.lang = language;
+        document.title = titles[language];
+        window.__yomuNewTabStaticLanguage = language;
+      })();
+    </script>
     <style>
       :root {
         color-scheme: light dark;
@@ -307,11 +325,11 @@
     <script>
       (() => {
         const words = [
-          ['読む', 'よむ', 'to read'], ['見る', 'みる', 'to see'], ['聞く', 'きく', 'to listen'],
-          ['話す', 'はなす', 'to speak'], ['書く', 'かく', 'to write'], ['使う', 'つかう', 'to use'],
-          ['思う', 'おもう', 'to think'], ['知る', 'しる', 'to know'], ['食べる', 'たべる', 'to eat'],
-          ['飲む', 'のむ', 'to drink'], ['行く', 'いく', 'to go'], ['来る', 'くる', 'to come'],
-          ['今日', 'きょう', 'today'], ['明日', 'あした', 'tomorrow'], ['時間', 'じかん', 'time'], ['日本語', 'にほんご', 'Japanese']
+          ['読む', 'よむ', 'to read', '読むこと'], ['見る', 'みる', 'to see', '見ること'], ['聞く', 'きく', 'to listen', '聞くこと'],
+          ['話す', 'はなす', 'to speak', '話すこと'], ['書く', 'かく', 'to write', '書くこと'], ['使う', 'つかう', 'to use', '使うこと'],
+          ['思う', 'おもう', 'to think', '思うこと'], ['知る', 'しる', 'to know', '知ること'], ['食べる', 'たべる', 'to eat', '食べること'],
+          ['飲む', 'のむ', 'to drink', '飲むこと'], ['行く', 'いく', 'to go', '行くこと'], ['来る', 'くる', 'to come', '来ること'],
+          ['今日', 'きょう', 'today', 'きょう'], ['明日', 'あした', 'tomorrow', 'あした'], ['時間', 'じかん', 'time', '時間'], ['日本語', 'にほんご', 'Japanese', '日本語']
         ];
         const root = document.querySelector('[data-jpdb-reader-root]');
         const prompt = root.querySelector('[data-newtab-prompt]');
@@ -331,6 +349,7 @@
         const settingsKey = 'jpdb-popup-reader-settings';
         const copy = {
           en: {
+            title: 'Yomu New Tab',
             modeLabel: 'Study mode',
             word: 'Word',
             kanji: 'Kanji',
@@ -343,6 +362,7 @@
             openYomu: 'Open Yomu'
           },
           ja: {
+            title: 'よむ 学習',
             modeLabel: '学習モード',
             word: '単語',
             kanji: '漢字',
@@ -359,11 +379,12 @@
         let mode = 'word';
         let shown = false;
         const readLanguage = () => {
+          if (window.__yomuNewTabStaticLanguage === 'en' || window.__yomuNewTabStaticLanguage === 'ja') return window.__yomuNewTabStaticLanguage;
           try {
             const stored = JSON.parse(localStorage.getItem(settingsKey) || '{}').interfaceLanguage;
-            return stored === 'ja' ? 'ja' : 'en';
+            return stored === 'en' ? 'en' : 'ja';
           } catch {
-            return 'en';
+            return 'ja';
           }
         };
         let language = readLanguage();
@@ -387,6 +408,7 @@
           languageToggle.setAttribute('aria-label', next === 'ja' ? text.switchToJapanese : text.switchToEnglish);
           reveal.textContent = shown ? text.hide : text.reveal;
           document.documentElement.lang = language;
+          document.title = text.title;
         };
         const kanji = value => Array.from(new Set(Array.from(value).filter(char => /[\u3400-\u9fff々〆]/u.test(char))));
         const draw = () => {
@@ -397,7 +419,8 @@
           root.classList.toggle('jpdb-reader-newtab-kanji-mode', mode === 'kanji');
           prompt.textContent = mode === 'kanji' ? k : item[0];
           reading.textContent = shown ? (mode === 'kanji' ? item[0] : item[1]) : '';
-          meaning.textContent = shown ? (mode === 'kanji' ? `${item[1]} · ${item[2]}` : item[2]) : '';
+          const gloss = language === 'ja' ? item[3] : item[2];
+          meaning.textContent = shown ? (mode === 'kanji' ? `${item[1]} · ${gloss}` : gloss) : '';
           count.textContent = `${(index % words.length) + 1} / ${words.length}`;
           reveal.textContent = shown ? text.hide : text.reveal;
           sessionStorage.setItem('yomu-demo-word', String(index));

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.11] - 2026-06-14
+
+### Fixed
+
+- Hosted docs links now stay under the `/yomu-reader/` GitHub Pages base, including the Getting Started and study-app paths that were escaping to root-level 404s.
+- The docs landing hero has stronger responsive spacing on desktop, tablet, and mobile so the icon, copy, actions, and following install panel remain readable.
+- The hosted new-tab fallback shell now opens in Japanese by default, localizes its document title and visible chrome, and keeps fallback card meanings localized before the full app hydrates.
+
+### Changed
+
+- New-tab Japanese localization now has a parity test so future visible study-page copy cannot silently fall back to English.
+
 ## [0.7.10] - 2026-06-14
 
 ### Changed
