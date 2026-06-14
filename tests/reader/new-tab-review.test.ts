@@ -2322,6 +2322,20 @@ describe('new tab review helpers', () => {
         expect(queries[0]).not.toContain('Japanese::New');
     });
 
+    it('treats the Anki all-decks selector value as the whole enabled collection', async () => {
+        const queries = stubAnkiDeckSearch(['Core', 'Mining']);
+        const { settings, client } = newTabAnkiClient({
+            ankiDeck: 'Mining',
+            ankiModel: '',
+        });
+
+        await expect(listNewTabAnkiCards(client, settings, 10, 'all')).resolves.toEqual([]);
+
+        expect(queries[0]).toContain('deck:"Core"');
+        expect(queries[0]).toContain('deck:"Mining"');
+        expect(queries[0]).not.toContain('deck:"all"');
+    });
+
     it('filters disabled Anki subdeck cards returned by a parent deck search', async () => {
         stubAnkiConnectFetch((request, { query, cards, notes }) => {
             if (request.action === 'deckNames') return ['Mining', 'Mining::Old', 'Core'];
@@ -4223,6 +4237,58 @@ describe('new tab review helpers', () => {
             select.dispatchEvent(new Event('change', { bubbles: true }));
             await waitForExpect(() => {
                 expect(listDeckCards).toHaveBeenCalledWith('89', expect.anything(), expect.anything());
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('scopes the study queue to a Jiten deck from the in-page deck selector', async () => {
+        resetNewTabReviewStorage();
+        const first = newTabTestCard({
+            spelling: '日本語',
+            reading: 'にほんご',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 42,
+            jitenReadingIndex: 0,
+        });
+        const second = newTabTestCard({
+            spelling: '勉強',
+            reading: 'べんきょう',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 43,
+            jitenReadingIndex: 0,
+        });
+        const listStudyBatchCards = vi.fn(async () => [first, second]);
+        const listStudyDecks = vi.fn(async () => [{ id: '7', name: 'Persona' }]);
+        const studyDeckWordKeys = vi.fn(async () => new Set(['43:0']));
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        }, {
+            jiten: { listStudyBatchCards, listStudyDecks, studyDeckWordKeys, reviewCard: vi.fn() } as never,
+        });
+
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-deck-select]')!;
+            await waitForExpect(() => {
+                expect(select.hidden).toBe(false);
+                expect([...select.options].map(option => option.value)).toContain('jiten:7');
+            });
+
+            select.value = 'jiten:7';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+
+            await waitForExpect(() => {
+                expect(studyDeckWordKeys).toHaveBeenCalledWith(7);
+                expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('勉強');
             });
         } finally {
             resetNewTabReviewStorage();
@@ -12896,6 +12962,28 @@ describe('new tab review helpers', () => {
 
             await controller.renderPage();
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('uses keyless fallback material for the Kanji tab instead of rendering the loading empty state', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        const internals = controller as unknown as {
+            state: NewTabRenderedState['state'];
+            kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[];
+            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
+        };
+        internals.state = { ...internals.state, mode: 'kanji', revealAnswer: true };
+
+        try {
+            const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
+            expect(internals.kanjiStudyCardsFromSourceCards(result.cards).length).toBeGreaterThan(0);
+
+            await controller.renderPage();
+            const prompt = document.querySelector('[data-newtab-prompt] [data-kanji]')?.textContent ?? '';
+            expect(prompt).toMatch(/^[一-龯]$/u);
+            expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('Looking for more kanji...');
         } finally {
             resetNewTabReviewStorage();
         }

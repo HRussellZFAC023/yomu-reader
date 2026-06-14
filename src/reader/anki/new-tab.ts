@@ -134,7 +134,7 @@ export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: R
         const allDeckNames = await newTabAnkiDeckNames(client, settings);
         // In-page deck selector scope (study-hub parity SH-6): one deck plus
         // its subdecks, still honoring the disabled-deck toggles.
-        const scope = deckScope.trim();
+        const scope = normalizeNewTabAnkiDeckScope(deckScope);
         const deckNames = scope
             ? allDeckNames.filter(deck => deck === scope || deck.startsWith(`${scope}::`))
             : allDeckNames;
@@ -252,6 +252,11 @@ async function newTabAnkiDeckNames(client: AnkiConnectClient, settings: ReaderSe
 
 function isAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolean {
     return disabledDecks.some(disabled => deck === disabled || Boolean(disabled && deck.startsWith(`${disabled}::`)));
+}
+
+function normalizeNewTabAnkiDeckScope(deckScope: string): string {
+    const scope = deckScope.trim();
+    return scope === 'all' ? '' : scope;
 }
 
 async function loadReviewableNewTabAnkiCards(client: AnkiConnectClient, candidateCardIds: number[], kind: AnkiNewTabQueryKind, deckNames: string[], limit = candidateCardIds.length): Promise<AnkiCardInfo[]> {
