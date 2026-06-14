@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.8
+// @version      0.7.9
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      GPL-3.0-or-later
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-X3NaDpo3vfKMlSRQZMIdu9gpZwq6Biiik2RV0goecLY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-ShT8az10gVM0CX2pQcqwj6vtxCG7kbot3rD7PbDJY+M=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xOz3XyPlRAhoZmO4vFCX1lRqN1/mJMMWROsQiiFV+HA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-YvKa0Nppp6nznsd3jfq0cvdlPry+wzQtV7yjy9Nd61U=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-tHaDmM6wE6fo3YvIHiNJ8/+/THoqvfCo52Thrx6h/CU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-wR+fP486IcXnCPgAqGSglPgaUD4b6xRmOpGWPPc1LFQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-TOX++d0o8krfO0Qa6AayPZltpihmcff8bPuCWNEPUS8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-m4UV9KQQm9TDxfrysyRZAho39KddBKOxp01GHleSFyo=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -244,6 +244,7 @@
   const LOOKUP_PILL_COLOR_TOKENS = {
     jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
     jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    "yomu-search": { bg: "#247a58", border: "#5ea780", text: CORE_COLOR_TOKENS.white },
     jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
     weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
     goo: { bg: "#b45309", border: "#f59e0b", text: CORE_COLOR_TOKENS.white },
@@ -1598,6 +1599,12 @@
     id: "jisho",
     label: "Jisho",
     urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
     enabled: true
   };
   const JITEN_LOOKUP_LINK = {
@@ -1658,6 +1665,7 @@
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1670,7 +1678,7 @@
   ];
   const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
     { ...JPDB_LOOKUP_LINK, enabled: false },
-    JISHO_LOOKUP_LINK,
+    { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
   function normalizeDictionaryLookupLinkSettings(value) {
@@ -1702,14 +1710,16 @@
   function defaultDictionaryLookupLinks(mode = "local") {
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({
       ...link,
-      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "jisho" : link.enabled
+      enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" : link.enabled
     }));
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
     return defaultDictionaryLookupLinks("local").map((defaultLink) => {
       const link = linkById.get(defaultLink.id) ?? defaultLink;
-      return link.id === JPDB_LOOKUP_LINK.id ? { ...link, enabled: true } : link;
+      if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
+      if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
+      return link;
     });
   }
   function isLegacyDefaultLookupLinkSet(value) {
@@ -12012,6 +12022,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

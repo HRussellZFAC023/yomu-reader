@@ -292,7 +292,6 @@ import {
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
-import { JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK } from '../settings';
 import { combinedApiCredentialLabel, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
@@ -591,10 +590,27 @@ function newTabRouteMode(): NewTabMode | null {
     try {
         const url = new URL(location.href);
         const mode = url.searchParams.get('mode') || url.searchParams.get('view') || url.hash.replace(/^#/u, '');
-        return mode === 'stats' || mode === 'search' || mode === 'kanji' || mode === 'word' ? mode : null;
+        if (mode === 'stats' || mode === 'search' || mode === 'kanji' || mode === 'word') return mode;
+        return newTabRouteSearchQuery(url) ? 'search' : null;
     } catch {
         return null;
     }
+}
+
+function newTabRouteSearchQueryFromLocation(): string {
+    try {
+        return newTabRouteSearchQuery(new URL(location.href));
+    } catch {
+        return '';
+    }
+}
+
+function newTabRouteSearchQuery(url: URL): string {
+    for (const key of ['q', 'query', 'search']) {
+        const value = normalizeSearchQuery(url.searchParams.get(key) ?? '');
+        if (value) return value;
+    }
+    return '';
 }
 
 export class NewTabController {
@@ -698,11 +714,13 @@ export class NewTabController {
     constructor(private readonly dependencies: NewTabControllerDependencies) {
         const saved = loadNewTabUiState();
         const routeMode = newTabRouteMode();
+        const routeSearchQuery = routeMode === 'search' ? newTabRouteSearchQueryFromLocation() : '';
         this.state = {
             ...saved,
             ...(routeMode ? { mode: routeMode } : {}),
             source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings()),
         };
+        if (routeSearchQuery) this.searchQuery = routeSearchQuery;
         this.stateChannel = createNewTabStateChannel(state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
     }
@@ -6909,7 +6927,7 @@ export class NewTabController {
         if (!results) return;
         results.dataset.searchQuery = query;
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query, true),
+            this.renderExternalSearchLinks(query),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searching')),
         );
     }
@@ -6922,7 +6940,7 @@ export class NewTabController {
         const resultCount = results.words.length + results.kanji.length;
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
-            this.renderExternalSearchLinks(results.query, !results.hasLocalDictionaries || resultCount === 0),
+            this.renderExternalSearchLinks(results.query),
             results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
             results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
             resultCount ? null : this.renderSearchNoResults(results),
@@ -6958,24 +6976,22 @@ export class NewTabController {
         results.dataset.searchQuery = query;
         this.searchWordCardCache.clear();
         replaceChildrenWith(results,
-            this.renderExternalSearchLinks(query, true),
+            this.renderExternalSearchLinks(query),
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.text('searchLocalDictionariesFailed')),
         );
     }
 
-    private renderExternalSearchLinks(query: string, includeBuiltInFallback = false): HTMLElement | null {
+    private renderExternalSearchLinks(query: string): HTMLElement | null {
         const context = searchLookupLinkContext(query);
         const configuredLinks = this.dependencies.getSettings().dictionaryLookupLinks
             .filter(link => link.enabled);
-        const lookupLinks = includeBuiltInFallback
-            ? withBuiltInSearchLookupLinks(configuredLinks)
-            : configuredLinks;
-        const links = lookupLinks
+        const links = configuredLinks
             .map(link => {
                 if (link.action === 'copy' || link.id === 'copy') {
                     return el('button', { type: 'button', dataset: { newtabAction: 'search-copy', query } }, link.label || this.text('copyWord'));
                 }
                 const url = formatLookupUrl(link.urlTemplate, context);
+                if (url && isYomuNewTabUrl(url)) return null;
                 return url ? el('a', { href: url, target: '_blank', rel: 'noopener' }, link.label) : null;
             })
             .filter((link): link is HTMLButtonElement | HTMLAnchorElement => Boolean(link));
@@ -8481,15 +8497,6 @@ function searchLookupLinkContext(query: string): { query: string; word: string; 
         vid: '0',
         sid: '0',
     };
-}
-
-function withBuiltInSearchLookupLinks(links: ReaderSettings['dictionaryLookupLinks']): ReaderSettings['dictionaryLookupLinks'] {
-    const lookupLinks = [...links];
-    for (const link of [JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, JISHO_LOOKUP_LINK]) {
-        if (lookupLinks.some(existing => existing.id === link.id || existing.urlTemplate === link.urlTemplate)) continue;
-        lookupLinks.push(link);
-    }
-    return lookupLinks;
 }
 
 function sentencePromptTarget(card: JPDBCard, sentence: string): string {

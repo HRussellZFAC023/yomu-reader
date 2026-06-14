@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.9] - 2026-06-14
+
+### Changed
+
+- The default lookup pills now open Yomu search instead of Jisho, while Jisho remains available as an optional disabled pill.
+- The hosted search page reads `q`, `query`, and `search` URL parameters and renders search links from the user's enabled lookup pills, excluding the redundant Yomu self-search link.
+
+### Fixed
+
+- Hosted search results load again from query-param searches, including public JPDB fallback results when no local dictionary result matches.
+
 ## [0.7.8] - 2026-06-14
 
 ### Fixed
