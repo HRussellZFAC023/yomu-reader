@@ -1044,7 +1044,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('shows an explicit all-subscribed state instead of an ambiguous empty shelf', async () => {
+    it('hides the channel shelf when every curated channel is already subscribed', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: {
@@ -1060,19 +1060,10 @@ describe('YouTube immersion filter', () => {
         const handles = allYouTubeChannelRecommendations().map(channel => channel.handle);
         const subscribed = (filter as unknown as { subscribedChannelHandles: Set<string> }).subscribedChannelHandles;
         handles.forEach(handle => subscribed.add(handle));
-        (filter as unknown as { renderChannelShelf: (elements: unknown) => void; channelShelfElements: (shelf: HTMLElement) => unknown; channelShelf?: HTMLElement }).renderChannelShelf(
-            (filter as unknown as { channelShelfElements: (shelf: HTMLElement) => unknown }).channelShelfElements(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!),
-        );
+        filter.refresh();
+        await flushPendingFilterWork();
 
-        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
-        expect(shelf).not.toBeNull();
-        const subscribeAll = shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!;
-        expect(subscribeAll.textContent).toContain('All 100 subscribed');
-        expect(subscribeAll.disabled).toBe(true);
-        const subscribeVisible = shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')!;
-        expect(subscribeVisible.hidden).toBe(true);
-        expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent)
-            .toContain('subscribed to all 100 curated channels');
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         filter.destroy();
     });

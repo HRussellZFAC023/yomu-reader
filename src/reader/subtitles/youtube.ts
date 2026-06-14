@@ -758,6 +758,10 @@ export class YoutubeImmersionFilter {
             this.removeChannelShelf();
             return;
         }
+        if (!this.unsubscribedChannels(allYouTubeChannelRecommendations()).length) {
+            this.removeChannelShelf();
+            return;
+        }
         // In compact mode, hide the shelf entirely when every shown channel is
         // already subscribed rather than displaying an empty list.
         if (!this.channelShelfExpanded && !this.compactChannelRecommendations.length) {

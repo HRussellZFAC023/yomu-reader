@@ -15139,6 +15139,10 @@ ${spelling}`);
         this.removeChannelShelf();
         return;
       }
+      if (!this.unsubscribedChannels(allYouTubeChannelRecommendations()).length) {
+        this.removeChannelShelf();
+        return;
+      }
       if (!this.channelShelfExpanded && !this.compactChannelRecommendations.length) {
         this.removeChannelShelf();
         return;
