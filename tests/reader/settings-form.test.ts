@@ -731,12 +731,12 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-tabs { flex-wrap: wrap; overflow-x: visible; }');
         expect(normalizedCss).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: stretch;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-toggle-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px 14px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-control-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); gap: 12px 14px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px 14px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); gap: 12px 14px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) { display: flex; flex-direction: column;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-toggle-grid > label.inline { align-self: start; align-items: center; min-height: 38px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline { align-self: start; align-items: center; min-height: 38px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent);');
@@ -754,8 +754,8 @@ describe('settings form localization', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
 
         const audioPanel = form.querySelector<HTMLElement>('[data-legend-key="audio"]')!;
-        const audioToggleGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-toggle-grid')!;
-        const audioControlGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-control-grid')!;
+        const audioToggleGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-tgrid')!;
+        const audioControlGrid = audioPanel.querySelector<HTMLElement>('.jpdb-reader-settings-cgrid')!;
 
         expect(audioToggleGrid.querySelector('input[name="audioEnabled"]')).not.toBeNull();
         expect(audioToggleGrid.querySelector('select[name="audioAutoPlayMode"]')).toBeNull();
@@ -763,11 +763,11 @@ describe('settings form localization', () => {
         expect(audioControlGrid.querySelector('input[name="corsProxyUrl"]')).not.toBeNull();
 
         const immersionPanel = form.querySelector<HTMLElement>('[data-legend-key="immersionKit"]')!;
-        const immersionGrids = Array.from(immersionPanel.querySelectorAll<HTMLElement>('.jpdb-reader-settings-toggle-grid, .jpdb-reader-settings-control-grid'));
+        const immersionGrids = Array.from(immersionPanel.querySelectorAll<HTMLElement>('.jpdb-reader-settings-tgrid, .jpdb-reader-settings-cgrid'));
 
-        expect(immersionGrids[0]?.classList.contains('jpdb-reader-settings-toggle-grid')).toBe(true);
+        expect(immersionGrids[0]?.classList.contains('jpdb-reader-settings-tgrid')).toBe(true);
         expect(immersionGrids[0]?.querySelector('input[name="immersionKitEnabled"]')).not.toBeNull();
-        expect(immersionGrids[1]?.classList.contains('jpdb-reader-settings-control-grid')).toBe(true);
+        expect(immersionGrids[1]?.classList.contains('jpdb-reader-settings-cgrid')).toBe(true);
         expect(immersionGrids[1]?.querySelector('select[name="immersionKitExampleSource"]')).not.toBeNull();
         expect(immersionGrids[1]?.querySelector('select[name="immersionKitSort"]')).not.toBeNull();
         expect(immersionGrids[2]?.querySelector('input[name="immersionKitPlayOnImageClick"]')).not.toBeNull();
@@ -1659,20 +1659,9 @@ describe('settings form localization', () => {
         expect(meta.textContent).toContain('ブラウザ読み上げ');
 
         const plan = nestedSettingsTextParsePlan(form, 640)!;
-        const targetIndex = plan.targets.findIndex(target => target.text === meta.textContent);
-        expect(targetIndex).toBeGreaterThanOrEqual(0);
-        const parsed = plan.targets.map(() => [] as JPDBToken[]);
-        const browserStart = meta.textContent!.indexOf('ブラウザ読み上げ');
-        parsed[targetIndex] = [
-            settingsToken('選択肢', 0, 'せんたくし'),
-            settingsToken('ブラウザ', browserStart),
-            settingsToken('読み上げ', browserStart + 'ブラウザ'.length, 'よみあげ'),
-        ];
-
-        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
-
+        expect(plan.targets.some(target => target.text.includes('ブラウザ読み上げ'))).toBe(false);
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
-        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
+        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(0);
     });
 
     it('renders fixed voice selectors for Jiten and JPDB text-to-speech sources', () => {
