@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.67] - 2026-06-15
+
+### Fixed
+
+- YouTube transcript sidebars now open with a lightweight preview first and defer the full transcript render/hydration, removing the long synchronous panel-open pause on iPad/tablet watch pages while keeping Auto pause-panel reopening immediate.
+- Left-side YouTube transcript placement now anchors YouTube's flex watch columns to the viewport start and shifts only the primary watch column, so the video, title, and actions sit against the panel instead of sliding too far left or underneath it. The Playwright iPad/mobile/desktop layout matrix now asserts this flex anchoring, preview render path, resize behavior, Auto behavior, and bottom safe-area alignment.
+
+## [0.7.66] - 2026-06-15
+
+### Fixed
+
+- Corrected keyless Jiten dictionary rendering so the Jiten source uses the same real vocabulary-detail renderer as API-key mode, including readings, meanings, example sentences, composed-of / used-in words, and speech-bubble audio buttons. The keyless path no longer renders the local Jitendex inner substitute card or the `Jitenで開く` / `Open in Jiten` button inside the Jiten source.
+- New-tab search detail fallback loading now fetches Jiten vocabulary details when the full card-render data loader is unavailable, so keyless dictionary searches still hydrate the real Jiten panel.
+
 ## [0.7.65] - 2026-06-15
 
 ### Fixed

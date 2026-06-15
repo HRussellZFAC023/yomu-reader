@@ -33686,6 +33686,7 @@ ${spelling}`);
       }
       const metrics = videoInsetMetrics(options);
       if (metrics.signature === this.lastSignature) return false;
+      captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
       this.lastSignature = metrics.signature;
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-left", options.side === "left");
       document.documentElement.classList.toggle("jpdb-subtitle-video-inset-right", options.side === "right");
@@ -33789,6 +33790,12 @@ ${spelling}`);
   function createSubtitleVideoInsetAdapter() {
     return new SubtitleVideoInsetAdapter();
   }
+  function visibleViewportWidth() {
+    return Math.max(1, Math.round(window.visualViewport?.width ?? window.innerWidth));
+  }
+  function visibleViewportHeight() {
+    return Math.max(1, Math.round(window.visualViewport?.height ?? window.innerHeight));
+  }
   function subtitleVideoLayoutRect(video) {
     if (isYouTubePage$1()) {
       const scopedRect = video ? youtubePlayerRectForVideo(video) : void 0;
@@ -33796,7 +33803,7 @@ ${spelling}`);
       const rect = youtubeVisiblePlayerRect();
       if (rect) return rect;
     }
-    return subtitleVideoLayoutTarget(video)?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    return subtitleVideoLayoutTarget(video)?.getBoundingClientRect() ?? new DOMRect(0, 0, visibleViewportWidth(), visibleViewportHeight());
   }
   function subtitleVideoLayoutTarget(video) {
     if (!video) return void 0;
@@ -33819,7 +33826,7 @@ ${spelling}`);
     return usableVideoRect(rect) && rectContainsRect(rect, videoRect, 2) && !isViewportSizedVideoRect(rect) && hasMeaningfulVideoInsetSpace(rect, videoRect) && isLikelyGenericPlayerFrame(element) && (video.controls || hasLikelyPlayerChrome(element));
   }
   function isViewportSizedVideoRect(rect) {
-    return rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.9;
+    return rect.width > visibleViewportWidth() * 0.92 || rect.height > visibleViewportHeight() * 0.9;
   }
   function hasMeaningfulVideoInsetSpace(rect, videoRect) {
     return rect.width - videoRect.width >= 180 || rect.height - videoRect.height >= 80;
@@ -33833,9 +33840,11 @@ ${spelling}`);
   }
   function applyYouTubePlayerInset(side, width, inset, height) {
     const watchFlexy = document.querySelector("ytd-watch-flexy");
+    const containers = youtubePlayerContainers(side);
+    captureYouTubePlayerContainerBaseRects(containers);
     applyYouTubeWatchFlexyInset(watchFlexy, side, width, height);
-    applyYouTubeWatchContentInset(side, inset);
-    for (const element of youtubePlayerContainers(side)) {
+    applyYouTubeWatchContentInset();
+    for (const element of containers) {
       applyYouTubePlayerContainerInset(element, side, width, inset, bottomInsetHeight(side, height));
     }
   }
@@ -33844,15 +33853,24 @@ ${spelling}`);
     if (height) watchFlexy?.style.setProperty("--ytd-watch-flexy-player-height", `${height}px`);
     if (side === "bottom" && height) watchFlexy?.style.setProperty("--ytd-watch-flexy-min-player-height", `${height}px`);
   }
-  function applyYouTubeWatchContentInset(side, inset) {
+  function applyYouTubeWatchContentInset(_side, _inset) {
     const columns = document.querySelector("ytd-watch-flexy #columns");
     if (!columns) return;
-    setStylePropertyIfChanged(columns, "margin-left", side === "left" ? `${Math.max(0, Math.round(inset))}px` : "0px");
+    setStylePropertyIfChanged(columns, "margin-left", "");
   }
   function bottomInsetHeight(side, height) {
     return side === "bottom" ? height : 0;
   }
   const youtubePlayerContainerBaseRects = /* @__PURE__ */ new WeakMap();
+  function captureYouTubePlayerContainerBaseRects(elements) {
+    const viewportWidth = visibleViewportWidth();
+    for (const element of elements) {
+      const baseRect = youtubePlayerContainerBaseRects.get(element);
+      if (baseRect?.viewportWidth === viewportWidth) continue;
+      const rect = element.getBoundingClientRect();
+      youtubePlayerContainerBaseRects.set(element, { left: rect.left, right: rect.right, viewportWidth });
+    }
+  }
   function youtubePlayerContainers(side) {
     if (!isYouTubePage$1()) return [];
     const selectors = side === "bottom" ? [
@@ -33899,19 +33917,27 @@ ${spelling}`);
     let baseRect = youtubePlayerContainerBaseRects.get(element);
     if (!baseRect) {
       const rect = element.getBoundingClientRect();
-      baseRect = { left: rect.left, right: rect.right };
+      baseRect = { left: rect.left, right: rect.right, viewportWidth: visibleViewportWidth() };
       youtubePlayerContainerBaseRects.set(element, baseRect);
     }
     const widthValue = `${width}px`;
     setStylePropertyIfChanged(element, "width", widthValue);
     setStylePropertyIfChanged(element, "max-width", widthValue);
     setStylePropertyIfChanged(element, "min-width", "0px");
-    const margin = side === "left" ? leftYouTubePlayerMargin(inset, baseRect) : `${Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)))}px`;
+    const margin = side === "left" ? leftYouTubePlayerMargin(inset, element) : `${Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)))}px`;
     setStylePropertyIfChanged(element, side === "left" ? "margin-left" : "margin-right", margin);
     setStylePropertyIfChanged(element, side === "left" ? "margin-right" : "margin-left", "0px");
   }
-  function leftYouTubePlayerMargin(inset, baseRect) {
-    return document.querySelector("ytd-watch-flexy #columns") ? "0px" : `${Math.max(0, Math.round(inset - baseRect.left))}px`;
+  function leftYouTubePlayerMargin(inset, element) {
+    if (element.matches("#primary-inner")) return "0px";
+    const columns = element.closest("#columns");
+    if (columns && getComputedStyle(columns).display.includes("flex")) {
+      return `${Math.max(0, Math.round(inset))}px`;
+    }
+    const rect = element.getBoundingClientRect();
+    const currentMargin = Number.parseFloat(element.style.marginLeft) || 0;
+    const naturalLeft = rect.left - currentMargin;
+    return `${Math.max(0, Math.round(inset - naturalLeft))}px`;
   }
   function youtubeVisiblePlayerRect() {
     const rects = [
@@ -33942,10 +33968,12 @@ ${spelling}`);
     return rectViewportIntersectionArea(b) - rectViewportIntersectionArea(a) || rectArea(b) - rectArea(a);
   }
   function rectViewportIntersectionArea(rect) {
-    const left = Math.max(0, Math.min(window.innerWidth, rect.left));
-    const top = Math.max(0, Math.min(window.innerHeight, rect.top));
-    const right = Math.max(left, Math.min(window.innerWidth, rect.right));
-    const bottom = Math.max(top, Math.min(window.innerHeight, rect.bottom));
+    const viewportWidth = visibleViewportWidth();
+    const viewportHeight = visibleViewportHeight();
+    const left = Math.max(0, Math.min(viewportWidth, rect.left));
+    const top = Math.max(0, Math.min(viewportHeight, rect.top));
+    const right = Math.max(left, Math.min(viewportWidth, rect.right));
+    const bottom = Math.max(top, Math.min(viewportHeight, rect.bottom));
     return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
   function rectArea(rect) {
@@ -34086,7 +34114,7 @@ ${spelling}`);
     const rect = target.getBoundingClientRect();
     const baseRect = genericVideoInsetBaseRects.get(target) ?? rect;
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue("--jpdb-subtitle-video-inset")) || 0;
-    const margin = side === "left" ? Math.max(0, Math.round(inset - baseRect.left)) : Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)));
+    const margin = side === "left" ? Math.max(0, Math.round(inset - baseRect.left)) : Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)));
     const stableHeight = sideInsetStableHeight(target, height);
     setStylePropertyIfChanged(target, "width", `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, "max-width", `${Math.round(size)}px`);
@@ -36360,6 +36388,7 @@ ${spelling}`);
   const SUBTITLE_TICK_ACTIVE_MS = 250;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
+  const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const TRANSCRIPT_PROGRAMMATIC_SCROLL_WINDOW_MS = 350;
   const YOUTUBE_CAPTION_ACTIVATION_RETRY_MS = 2e3;
@@ -36537,7 +36566,7 @@ ${spelling}`);
       load: () => this.openSubtitleFilePicker("primary"),
       "load-secondary": () => this.openSubtitleFilePicker("secondary"),
       panel: () => this.toggleTranscriptDrawer(),
-      "panel-lines": () => this.openLinesPanel(),
+      "panel-lines": () => this.openLinesPanel({ deferRender: true }),
       "panel-tracks": () => this.openTracksPanel(),
       "close-panel": () => this.closeTranscriptPanel(),
       "transcript-placement": (target) => this.changeTranscriptPlacement(target),
@@ -37173,7 +37202,8 @@ ${spelling}`);
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     syncShortsReelNavigation() {
-      if (!location?.pathname?.startsWith("/shorts/")) {
+      const pathname = (typeof window !== "undefined" ? window.location?.pathname : void 0) || "";
+      if (!pathname.startsWith("/shorts/")) {
         this.lastShortsNavVideoId = "";
         return;
       }
@@ -37199,7 +37229,12 @@ ${spelling}`);
       const layout = subtitleOverlayLayout(rect);
       this.root.classList.toggle("jpdb-subtitle-compact-video", layout.width < 560 || layout.height < 260);
       if (rect.width < 120 || rect.height < 80) {
-        applyElementLayout(this.root, { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+        applyElementLayout(this.root, {
+          left: 0,
+          top: 0,
+          width: this.transcriptViewportWidth(),
+          height: this.transcriptViewportHeight()
+        });
         this.positionTranscriptPanel();
         this.fitSubtitleTextToVideo();
         return;
@@ -37925,7 +37960,7 @@ ${spelling}`);
       const placement = this.transcriptPlacementFromTarget(target);
       if (!placement) return;
       const settings = this.options.getSettings();
-      const compact = shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth));
+      const compact = shouldUseCompactSubtitleDrawer(this.transcriptViewportWidth());
       const effectivePlacement = compact ? "bottom" : settings.subtitleTranscriptPlacement;
       if (placement === effectivePlacement) {
         this.closeTranscriptPanel();
@@ -38577,7 +38612,8 @@ ${spelling}`);
       }
     }
     async discoverYouTubeTracks() {
-      if (!location.hostname.includes("youtube.com")) return;
+      const hostname = (typeof window !== "undefined" ? window.location?.hostname : void 0) || "";
+      if (!hostname.includes("youtube.com")) return;
       const videoId = getYouTubeVideoId();
       if (!videoId) return;
       this.updateYouTubeDiscoveryVideo(videoId);
@@ -38793,7 +38829,7 @@ ${spelling}`);
         return;
       }
       if (this.preferredTranscriptDrawerMode() === "tracks") this.openTracksPanel();
-      else this.openLinesPanel();
+      else this.openLinesPanel({ deferRender: true });
     }
     showTranscriptPanelElement() {
       const panel = this.transcriptPanel;
@@ -38854,16 +38890,15 @@ ${spelling}`);
         this.options.getSettings().subtitleTranscriptVisible = true;
         this.options.onSettingsChange();
       }
-      if (options.deferRender) {
+      const deferRender = options.deferRender === true;
+      if (deferRender) {
         this.renderTranscriptPanelPreview();
-        this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
         this.scheduleDeferredTranscriptPanelRender();
         return;
       }
       this.clearDeferredTranscriptPanelRender();
       this.renderTranscriptPanel(true);
-      this.positionTranscriptPanel({ realignAfterInset: true });
       this.syncControls();
     }
     toggleNativeSubtitleBlur(target) {
@@ -38887,7 +38922,7 @@ ${spelling}`);
       if (settings.subtitlePausePanel) {
         settings.subtitleTranscriptVisible = false;
         if (this.video && this.video.paused && !this.video.ended && this.hasTranscriptSurface()) {
-          this.openLinesPanel({ persist: false, autoPause: true });
+          this.openLinesPanel({ persist: false, autoPause: true, deferRender: true });
         } else if (this.isTranscriptPanelOpen()) {
           this.closeTranscriptPanel({ persist: false, autoPause: true });
         }
@@ -39001,7 +39036,7 @@ ${spelling}`);
       const state = this.transcriptPanelPreviewState(fullState);
       this.lastTranscriptSignature = "";
       setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-      this.afterTranscriptPanelRender(state, { warmupRows: fullState.rows });
+      this.afterTranscriptPanelRender(state);
     }
     transcriptPanelPreviewState(state) {
       const rowCount = state.rows.length;
@@ -39026,9 +39061,8 @@ ${spelling}`);
           this.transcriptDeferredRenderTimer = void 0;
           if (this.destroyed || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
           this.renderTranscriptPanel(true);
-          this.positionTranscriptPanel({ realignAfterInset: true });
           this.syncControls();
-        }, 0);
+        }, TRANSCRIPT_DEFERRED_RENDER_DELAY_MS);
       });
     }
     renderableTranscriptPanel() {
@@ -39195,7 +39229,7 @@ ${spelling}`);
       let resizeFrame;
       const onMove = (moveEvent) => {
         Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
-          bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+          bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
           currentX: moveEvent.clientX,
           currentY: moveEvent.clientY,
           placement,
@@ -39239,7 +39273,7 @@ ${spelling}`);
       event.preventDefault();
       event.stopPropagation();
       Object.assign(this.transcriptPanelSize, transcriptResizePatchForKeyboard({
-        bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+        bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
         direction,
         panelRect: panel.getBoundingClientRect(),
         placement
@@ -39251,7 +39285,7 @@ ${spelling}`);
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
       if (!handle) return;
       const metrics = transcriptResizeHandleMetrics({
-        bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+        bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
         layout,
         panelRect: this.transcriptPanel?.getBoundingClientRect(),
         placement: this.effectiveTranscriptPlacement
@@ -39625,8 +39659,8 @@ ${spelling}`);
         return;
       }
       const panel = this.transcriptPanel;
-      const viewportWidth = Math.max(320, window.innerWidth);
-      const viewportHeight = Math.max(240, window.innerHeight);
+      const viewportWidth = this.transcriptViewportWidth();
+      const viewportHeight = this.transcriptViewportHeight();
       const settings = this.options.getSettings();
       const reuseDragRect = options.skipInset && this.transcriptLayoutReferenceRect;
       const referenceVideoRect = reuseDragRect ? this.transcriptLayoutReferenceRect : this.transcriptLayoutReferenceVideoRect(viewportWidth, viewportHeight);
@@ -39685,15 +39719,22 @@ ${spelling}`);
       return Math.floor(options.viewportWidth - videoRect.left - margin * 2 - minimumPlayerWidth);
     }
     clampStoredSideWidthForCurrentVideo(placement) {
+      const viewportWidth = this.transcriptViewportWidth();
       const constrained = this.constrainedSideTranscriptWidth(placement, {
-        viewportWidth: Math.max(320, window.innerWidth),
-        viewportHeight: Math.max(240, window.innerHeight),
+        viewportWidth,
+        viewportHeight: this.transcriptViewportHeight(),
         anchorTop: this.transcriptAnchorRect().top,
-        compactPanel: shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth)),
+        compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
         preferredPlacement: placement,
         size: this.transcriptPanelSize
       });
       if (constrained !== void 0) this.transcriptPanelSize.sideWidth = constrained;
+    }
+    transcriptViewportWidth() {
+      return Math.max(320, Math.round(window.visualViewport?.width ?? window.innerWidth));
+    }
+    transcriptViewportHeight() {
+      return Math.max(240, Math.round(window.visualViewport?.height ?? window.innerHeight));
     }
     shouldUseBottomTranscriptLayout(layout, videoRect = this.videoLayoutRect()) {
       if (!isYouTubePage()) return false;
@@ -39738,7 +39779,8 @@ ${spelling}`);
       return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);
     }
     availablePlayerWidthForSideLayout(layout, videoRect) {
-      return layout.placement === "left" ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
+      const viewportWidth = this.transcriptViewportWidth();
+      return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
       const fullscreenElement = currentFullscreenElement();
@@ -46150,15 +46192,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!open(url)) location.href = url;
     return true;
   }
-  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", localEntries = []) {
-    const localJitenEntries = jitenLocalDefinitionEntries(localEntries);
+  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
-    const localDefinitions = !info ? renderJitenLocalDefinitions(localJitenEntries, card) : "";
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    const hasDetails = Boolean(meanings || localDefinitions || extras);
+    const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return "";
-    const headword = renderJitenDefinitionHeadword(card, info, localJitenEntries);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${localDefinitions}${extras}${renderJitenExternalLookup(card, language)}`;
+    const headword = renderJitenDefinitionHeadword(card, info);
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}`;
     if (!body.trim()) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
@@ -46167,65 +46207,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </details>
     `;
   }
-  function renderJitenDefinitionHeadword(card, info, localEntries = []) {
-    const reference = jitenDefinitionHeadwordReference(card, info, localEntries);
+  function renderJitenDefinitionHeadword(card, info) {
+    const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return "";
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
   }
-  function renderJitenExternalLookup(card, language) {
-    const query = (card.spelling || card.reading).trim();
-    if (!query) return "";
-    const url = `https://jiten.moe/parse?text=${encodeURIComponent(query)}`;
-    const label = language === "ja" ? "Jitenで開く" : "Open in Jiten";
-    return `<div class="jpdb-reader-help jpdb-reader-jiten-external-lookup">
-        <a class="jpdb-reader-btn" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(label)}</a>
-    </div>`;
-  }
-  function jitenDefinitionHeadwordReference(card, info, localEntries = []) {
-    const localEntry = localEntries.find((entry) => (entry.expression || entry.reading).trim());
-    const text2 = (info?.mainReading?.text || localEntry?.expression || card.spelling || localEntry?.reading || card.reading).trim();
+  function jitenDefinitionHeadwordReference(card, info) {
+    const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();
     if (!text2 || !hasJapaneseText(text2)) return null;
     return {
       text: text2,
-      reading: card.reading || localEntry?.reading || text2,
+      reading: card.reading || text2,
       wordId: info?.wordId ?? card.jitenWordId,
       readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
     };
-  }
-  function jitenLocalDefinitionEntries(entries) {
-    return entries.filter((entry) => /(?:^|[^a-z])(?:jitendex|jiten)(?:[^a-z]|$)/i.test(entry.dictionary));
-  }
-  function renderJitenLocalDefinitions(entries, card) {
-    const groups = groupTermEntriesByHeadword(entries).slice(0, 6);
-    if (!groups.length) return "";
-    return `<div class="jpdb-reader-jiten-local-definitions">${groups.map((group) => renderJitenLocalDefinitionGroup(group, card)).join("")}</div>`;
-  }
-  function renderJitenLocalDefinitionGroup(group, card) {
-    const head = renderJitenLocalDefinitionHead(group, card);
-    const body = group.entries.map((entry, index) => renderJitenLocalGlossaryEntry(entry, group.entries.length > 1 ? index + 1 : 0)).filter(Boolean).join("");
-    if (!body) return "";
-    return `<article class="jpdb-reader-local-entry jpdb-reader-jiten-local-entry">
-        ${head}
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(group.entries[0]?.dictionary ?? "Jitendex")}">
-            ${body}
-        </div>
-    </article>`;
-  }
-  function renderJitenLocalDefinitionHead(group, card) {
-    const repeatsLookup = group.expression === card.spelling && (!card.reading || group.reading === card.reading || group.reading === group.expression);
-    if (repeatsLookup) return "";
-    return `<div class="jpdb-reader-local-head">
-        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
-        ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : ""}
-    </div>`;
-  }
-  function renderJitenLocalGlossaryEntry(entry, index) {
-    const content = entry.glossary.map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
-    if (!content) return "";
-    return `<div class="jpdb-reader-local-glossary-entry ${index ? "" : "no-index"}">
-        ${index ? `<span class="jpdb-reader-local-sense-index">${index}</span>` : ""}
-        <div>${content}</div>
-    </div>`;
   }
   function jitenDefinitionMeanings(card, info) {
     const groups = jitenDefinitionMeaningGroups(card, info);
@@ -46592,8 +46587,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       context.card,
       params.sourceAttributes,
       context.jitenVocabularyInfo,
-      params.jpdbLanguage ?? params.settings.interfaceLanguage,
-      params.entries
+      params.jpdbLanguage ?? params.settings.interfaceLanguage
     );
   }
   function renderAnkiDefinitionSourceSection(context) {
@@ -54073,8 +54067,8 @@ ${newTabCardReading(card)}`;
         return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
       }
       if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
-        if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo) && !detail.localEntries.length) return "";
-        return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage, detail.localEntries);
+        if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo)) return "";
+        return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
       }
       if (sourceId === ANKI_SOURCE_ID) {
         return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : "";
@@ -62386,13 +62380,14 @@ ${entry.url}`),
       const renderedData = await this.loadRenderedSearchWordDetail(card);
       if (renderedData) return searchWordDetailFromRenderedData(renderedData);
       const settings = this.dependencies.getSettings();
-      const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo] = await Promise.all([
+      const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo] = await Promise.all([
         this.loadSearchLocalEntries(card, settings),
         this.loadSearchKanjiEntries(card, settings),
         this.loadSearchMetaEntries(card, settings),
-        this.loadSearchJpdbVocabularyInfo(card)
+        this.loadSearchJpdbVocabularyInfo(card),
+        this.loadSearchJitenVocabularyInfo(card, settings)
       ]);
-      return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo };
+      return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo };
     }
     async loadRenderedSearchWordDetail(card) {
       return await this.dependencies.loadCardRenderData?.(card).catch((error) => {
@@ -62429,6 +62424,14 @@ ${entry.url}`),
         this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "JPDB vocabulary lookup timed out."
+      ).catch(() => null);
+    }
+    loadSearchJitenVocabularyInfo(card, settings) {
+      if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      return promiseWithTimeout(
+        this.dependencies.jiten.lookupVocabularyInfoForCard(card),
+        NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
+        "Jiten vocabulary lookup timed out."
       ).catch(() => null);
     }
     shouldLoadSearchWordKanjiDetails(card) {

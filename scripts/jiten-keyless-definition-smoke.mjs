@@ -8,6 +8,7 @@ import {
     assertBuiltArtifacts,
     closeSmokeBrowserAndServer,
     createSmokePaths,
+    jsonHttpResponse,
     launchSmokeBrowser,
     serveFile,
     startLoopbackServer,
@@ -16,11 +17,12 @@ import {
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_SUFFIX = (process.env.YOMU_JITEN_KEYLESS_ARTIFACT_SUFFIX || '').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-|-$/g, '');
-const ARTIFACT_DIR = path.join(ARTIFACTS, ['jiten-keyless-definition', ARTIFACT_SUFFIX].filter(Boolean).join('-'));
-const EXPECT_CONTENT = process.env.YOMU_JITEN_KEYLESS_EXPECT !== 'baseline';
+const ARTIFACT_DIR = path.join(ARTIFACTS, ['jiten-full-definition', ARTIFACT_SUFFIX].filter(Boolean).join('-'));
 const TERM = '復習';
 const READING = 'ふくしゅう';
-const REQUEST_BRIDGE_NAME = '__yomuJitenKeylessDefinitionSmokeRequest';
+const REQUEST_BRIDGE_NAME = '__yomuJitenFullDefinitionSmokeRequest';
+const JITEN_WORD_ID = 1500800;
+const JITEN_READING_INDEX = 0;
 const BUILT_ARTIFACTS = [
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
@@ -38,13 +40,12 @@ const STATIC_ROUTES = new Map([
     ['/favicon-32x32.png', [path.join(DIST, 'favicon-32x32.png'), 'image/png']],
 ]);
 
-const keylessSettings = {
+const baseSettings = {
     onboardingSeen: true,
     newTabEnabled: true,
     newTabSource: 'dictionary',
     interfaceLanguage: 'ja',
     apiKey: '',
-    jitenApiKey: '',
     jpdbDefinitionsEnabled: false,
     jitenDefinitionsEnabled: true,
     localDictionariesEnabled: true,
@@ -62,33 +63,62 @@ const keylessSettings = {
     enableLogging: false,
 };
 
+const scenarios = [
+    {
+        id: 'no-key',
+        label: 'No Jiten API key',
+        settings: { ...baseSettings, jitenApiKey: '' },
+        expectAuthorization: false,
+        expectReaderParse: false,
+    },
+    {
+        id: 'with-key',
+        label: 'With Jiten API key',
+        settings: { ...baseSettings, jitenApiKey: 'jiten-smoke-key' },
+        expectAuthorization: true,
+        expectReaderParse: true,
+    },
+];
+
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
 
-const server = await startLoopbackServer(serveRequest, 'Could not bind Jiten keyless definition smoke server');
+const server = await startLoopbackServer(serveRequest, 'Could not bind Jiten full definition smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
-const externalRequests = [];
+const scenarioReports = [];
 
 try {
-    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1100, height: 820 } });
+    for (const scenario of scenarios) {
+        scenarioReports.push(await runScenario(scenario));
+    }
+    const report = {
+        ok: true,
+        term: TERM,
+        reading: READING,
+        scenarios: scenarioReports,
+        artifactDir: ARTIFACT_DIR,
+    };
+    writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report, null, 2));
+} finally {
+    await closeSmokeBrowserAndServer(browser, server.server);
+}
+
+async function runScenario(scenario) {
+    const requests = [];
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1100, height: 920 } });
     const page = await context.newPage();
-    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => {
-        externalRequests.push(request.url);
-        return { status: 503, responseText: '' };
-    });
+    await page.exposeFunction(REQUEST_BRIDGE_NAME, request => handleSmokeRequest(request, scenario, requests, 'gm'));
     await addGmStorageBridgeInitScript(page, {
         key: YOMU_SETTINGS_KEY,
-        value: keylessSettings,
+        value: scenario.settings,
         requestBridgeName: REQUEST_BRIDGE_NAME,
     });
-    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*jpdb\.io|[^/]*workers\.dev)\//, route => {
-        externalRequests.push(route.request().url());
-        return route.abort();
-    });
+    await page.route(/https?:\/\/(?:[^/]*api\.jiten\.moe|[^/]*jpdb\.io|[^/]*workers\.dev)\//, route => handleSmokeRoute(route, scenario, requests));
 
     await page.goto(`${server.origin}/seed`, { waitUntil: 'domcontentloaded' });
     await seedJitendexDictionary(page);
-    await page.goto(`${server.origin}/newtab/index.html?smoke=jiten-keyless-${Date.now()}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}/newtab/index.html?smoke=jiten-full-${scenario.id}-${Date.now()}`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-newtab-action="mode"][data-mode="search"]').click({ timeout: 90_000 });
     await page.locator('[data-newtab-search-input]').fill(TERM);
     await page.locator('[data-newtab-search]').evaluate(form => form.requestSubmit());
@@ -99,70 +129,240 @@ try {
 
     const detail = page.locator('[data-newtab-search-detail]:not([hidden])').first();
     await detail.waitFor({ state: 'visible', timeout: 40_000 });
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.png'), fullPage: true });
-    const beforeDom = await detail.evaluate(node => ({
-        text: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-        hasJiten: Boolean(node.querySelector('[data-source="jiten"]')),
-        loading: Boolean(node.querySelector('[data-card-details-loading]')),
-    }));
-    writeFileSync(path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.json'), JSON.stringify(beforeDom, null, 2));
+    await page.screenshot({ path: artifactPath(scenario.id, 'before-jiten-detail.png'), fullPage: true });
+    const beforeDom = await detail.evaluate(summarizeDetailDom);
+    writeFileSync(artifactPath(scenario.id, 'before-jiten-detail.json'), JSON.stringify(beforeDom, null, 2));
 
     await detail.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 60_000 });
     await detail.locator('[data-source="jiten"]').evaluate(node => node.setAttribute('open', ''));
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.png'), fullPage: true });
-    const afterDom = await detail.evaluate(node => {
-        const jiten = node.querySelector('[data-source="jiten"]');
-        return {
-            detailText: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-            jitenText: jiten?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-            sourceTitles: Array.from(node.querySelectorAll('.jpdb-reader-source-card > summary, .jpdb-reader-local-title'))
-                .map(summary => summary.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-                .filter(Boolean),
-            hasJiten: Boolean(jiten),
-            hasExternalOnlyReplacement: Boolean(jiten) && !/review; revision|毎日復習する/.test(jiten?.textContent ?? ''),
-            reading: jiten?.querySelector('.jpdb-reader-jiten-headword rt')?.textContent ?? '',
-            externalLabel: jiten?.querySelector('.jpdb-reader-jiten-external-lookup')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-            localGlossaryHtml: jiten?.querySelector('.jpdb-reader-jiten-local-definitions')?.innerHTML ?? '',
-        };
-    });
-    writeFileSync(path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.json'), JSON.stringify(afterDom, null, 2));
+    await page.screenshot({ path: artifactPath(scenario.id, 'after-jiten-detail.png'), fullPage: true });
+    const afterDom = await detail.evaluate(summarizeDetailDom);
+    writeFileSync(artifactPath(scenario.id, 'after-jiten-detail.json'), JSON.stringify(afterDom, null, 2));
 
-    assert(afterDom.hasJiten, 'No-key search detail did not render a Jiten source', afterDom);
-    assert(!externalRequests.some(url => /api\.jiten\.moe\/api\/(?:reader|srs)\//.test(url)), 'No-key smoke unexpectedly called authenticated Jiten API endpoints', { externalRequests });
-    if (EXPECT_CONTENT) {
-        assert(afterDom.jitenText.includes('review; revision'), 'No-key Jiten source did not render the Jitendex meaning', afterDom);
-        assert(afterDom.jitenText.includes('毎日復習する'), 'No-key Jiten source did not render the Jitendex example', afterDom);
-        assert(afterDom.reading === READING || afterDom.jitenText.includes(READING), 'No-key Jiten source did not render the reading', afterDom);
-        assert(!afterDom.hasExternalOnlyReplacement, 'No-key Jiten source still rendered an external button as replacement content', afterDom);
-    }
+    const jitenRequests = requests.filter(request => request.host === 'api.jiten.moe');
+    assert(afterDom.hasJiten, `${scenario.label}: search detail did not render a Jiten source`, afterDom);
+    assert(afterDom.jitenText.includes('review; revision'), `${scenario.label}: Jiten source did not render meanings`, afterDom);
+    assert(afterDom.jitenText.includes('復習会'), `${scenario.label}: Jiten source did not render used-in words`, afterDom);
+    assert(/毎日.*復習.*する/u.test(afterDom.jitenText), `${scenario.label}: Jiten source did not render example sentences`, afterDom);
+    assert(afterDom.jitenText.includes(READING), `${scenario.label}: Jiten source did not render the reading`, afterDom);
+    assert(afterDom.audioButtonCount >= 3, `${scenario.label}: Jiten source did not render TTS/audio buttons`, afterDom);
+    assert(!afterDom.hasLocalFallbackCard, `${scenario.label}: Jiten source still rendered the inner local fallback card`, afterDom);
+    assert(!afterDom.hasExternalOpenButton, `${scenario.label}: Jiten source still rendered the external open button`, afterDom);
+    assert(!afterDom.jitenText.includes('Jitenで開く'), `${scenario.label}: Jiten source still contained the external open label`, afterDom);
+    assert(jitenRequests.some(request => request.path.includes('/vocabulary/search') || request.path.includes('/reader/parse')), `${scenario.label}: no Jiten lookup request was recorded`, jitenRequests);
+    assert(jitenRequests.some(request => request.path.includes(`/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`)), `${scenario.label}: no Jiten info request was recorded`, jitenRequests);
+    assert(jitenRequests.some(request => request.path.includes('/random-example-sentences')), `${scenario.label}: no Jiten examples request was recorded`, jitenRequests);
+    assert(jitenRequests.some(request => request.path.includes('/reader/parse')) === scenario.expectReaderParse, `${scenario.label}: unexpected reader/parse request state`, jitenRequests);
+    assert(jitenRequests.every(request => request.hasAuthorization === scenario.expectAuthorization), `${scenario.label}: Authorization header state was wrong`, jitenRequests);
 
-    const report = {
-        ok: true,
-        term: TERM,
-        expectation: EXPECT_CONTENT ? 'content' : 'baseline',
-        settings: keylessSettings,
+    await context.close();
+    return {
+        id: scenario.id,
+        label: scenario.label,
+        settings: scenario.settings,
         sourceState: {
-            newTabSource: keylessSettings.newTabSource,
-            jpdbDefinitionsEnabled: keylessSettings.jpdbDefinitionsEnabled,
-            jitenDefinitionsEnabled: keylessSettings.jitenDefinitionsEnabled,
-            localDictionariesEnabled: keylessSettings.localDictionariesEnabled,
-            dictionaryPreferences: keylessSettings.dictionaryPreferences,
+            newTabSource: scenario.settings.newTabSource,
+            jpdbDefinitionsEnabled: scenario.settings.jpdbDefinitionsEnabled,
+            jitenDefinitionsEnabled: scenario.settings.jitenDefinitionsEnabled,
+            localDictionariesEnabled: scenario.settings.localDictionariesEnabled,
+            dictionaryPreferences: scenario.settings.dictionaryPreferences,
         },
+        expectedAuthorization: scenario.expectAuthorization,
         beforeDom,
         afterDom,
-        externalRequests,
+        jitenRequests,
         artifacts: {
-            beforeScreenshot: path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.png'),
-            beforeDom: path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.json'),
-            afterScreenshot: path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.png'),
-            afterDom: path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.json'),
+            beforeScreenshot: artifactPath(scenario.id, 'before-jiten-detail.png'),
+            beforeDom: artifactPath(scenario.id, 'before-jiten-detail.json'),
+            afterScreenshot: artifactPath(scenario.id, 'after-jiten-detail.png'),
+            afterDom: artifactPath(scenario.id, 'after-jiten-detail.json'),
         },
     };
-    writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
-    console.log(JSON.stringify(report, null, 2));
-    await context.close();
-} finally {
-    await closeSmokeBrowserAndServer(browser, server.server);
+}
+
+function artifactPath(scenarioId, filename) {
+    return path.join(ARTIFACT_DIR, `${scenarioId}-${filename}`);
+}
+
+function summarizeDetailDom(node) {
+    const jiten = node.querySelector('[data-source="jiten"]');
+    return {
+        detailText: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        jitenText: jiten?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        sourceTitles: Array.from(node.querySelectorAll('.jpdb-reader-source-card > summary, .jpdb-reader-local-title'))
+            .map(summary => summary.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+            .filter(Boolean),
+        hasJiten: Boolean(jiten),
+        hasLocalFallbackCard: Boolean(jiten?.querySelector('.jpdb-reader-jiten-local-definitions, .jpdb-reader-jiten-local-entry')),
+        hasExternalOpenButton: Boolean(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')) || /Jitenで開く|Open in Jiten/.test(jiten?.textContent ?? ''),
+        reading: jiten?.querySelector('.jpdb-reader-jiten-headword rt')?.textContent ?? '',
+        meaningText: jiten?.querySelector('.jpdb-reader-jiten-meaning')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        relatedGroupCount: jiten?.querySelectorAll('.jpdb-reader-jiten-related-group').length ?? 0,
+        hasComposedOf: Boolean(jiten?.textContent?.includes('復')),
+        hasUsedIn: Boolean(jiten?.textContent?.includes('復習会')),
+        hasExampleSentence: /毎日.*復習.*する/u.test(jiten?.textContent ?? ''),
+        audioButtonCount: jiten?.querySelectorAll('.jpdb-reader-jiten-audio').length ?? 0,
+        exampleAudioButton: Boolean(jiten?.querySelector('.jpdb-reader-jiten-example-row .jpdb-reader-jiten-audio')),
+    };
+}
+
+function handleSmokeRoute(route, scenario, requests) {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+        return route.fulfill({
+            status: 204,
+            headers: corsHeaders(),
+        });
+    }
+    const response = handleSmokeRequest({
+        method: request.method(),
+        url: request.url(),
+        headers: request.headers(),
+        data: request.postData() ?? '',
+        responseType: 'json',
+    }, scenario, requests, 'fetch');
+    return route.fulfill({
+        status: response.status,
+        headers: corsHeaders(),
+        contentType: response.contentType ?? 'application/json; charset=utf-8',
+        body: response.responseText ?? '',
+    });
+}
+
+function handleSmokeRequest(request, scenario, requests, transport) {
+    const summary = requestSummary(request, transport);
+    requests.push(summary);
+    if (summary.host === 'api.jiten.moe') return mockJitenResponse(summary, scenario);
+    return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
+}
+
+function requestSummary(request, transport) {
+    const url = new URL(request.url);
+    const authorization = authorizationHeader(request.headers);
+    return {
+        transport,
+        method: request.method ?? 'GET',
+        url: request.url,
+        host: url.host,
+        path: `${url.pathname}${url.search}`,
+        hasAuthorization: Boolean(authorization),
+        authorizationScheme: authorization ? authorization.split(/\s+/)[0] : '',
+    };
+}
+
+function authorizationHeader(headers = {}) {
+    const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === 'authorization');
+    return entry ? String(entry[1]) : '';
+}
+
+function mockJitenResponse(request, scenario) {
+    if (request.path.startsWith('/api/reader/parse')) {
+        if (!scenario.expectAuthorization) return textResponse(403, 'unexpected keyless reader parse');
+        return jsonHttpResponse({
+            tokens: [[{ wordId: JITEN_WORD_ID, readingIndex: JITEN_READING_INDEX, start: 0, end: TERM.length, length: TERM.length }]],
+            vocabulary: [{
+                wordId: JITEN_WORD_ID,
+                readingIndex: JITEN_READING_INDEX,
+                spelling: TERM,
+                reading: '復[ふく]習[しゅう]',
+                frequencyRank: 12435,
+                partsOfSpeech: ['n', 'vs'],
+                meaningsChunks: [['review; revision']],
+                meaningsPartOfSpeech: [['n']],
+                knownState: [0],
+                pitchAccents: [0],
+            }],
+        });
+    }
+    if (request.path.startsWith('/api/vocabulary/search')) {
+        return jsonHttpResponse({
+            results: [{
+                wordId: JITEN_WORD_ID,
+                readingIndex: JITEN_READING_INDEX,
+                text: TERM,
+                rubyText: '復[ふく]習[しゅう]',
+                frequencyRank: 12435,
+                partsOfSpeech: ['n', 'vs'],
+                meanings: ['review; revision'],
+            }],
+        });
+    }
+    if (request.path === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`) {
+        return jsonHttpResponse(jitenVocabularyInfoPayload());
+    }
+    if (request.path === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/random-example-sentences`) {
+        return jsonHttpResponse(jitenExamplePayload());
+    }
+    return textResponse(404, 'unknown Jiten smoke endpoint');
+}
+
+function jitenVocabularyInfoPayload() {
+    return {
+        wordId: JITEN_WORD_ID,
+        mainReading: { text: TERM, readingIndex: JITEN_READING_INDEX, frequencyRank: 12435, usedInMediaAmount: 123 },
+        alternativeReadings: [],
+        partsOfSpeech: ['noun', 'suru verb'],
+        definitions: [{
+            senseIndex: 0,
+            englishMeanings: ['review; revision'],
+            pos: ['noun'],
+        }],
+        pitchAccents: [0],
+        knownStates: [],
+        composedOf: [{
+            wordId: 101,
+            readingIndex: 0,
+            reading: '復',
+            readingFurigana: '復[ふく]',
+            mainDefinition: 'again; restore',
+            frequencyRank: null,
+            matchSurface: '復',
+            audioUrls: ['https://audio.example.test/fuku.mp3'],
+        }, {
+            wordId: 102,
+            readingIndex: 0,
+            reading: '習',
+            readingFurigana: '習[しゅう]',
+            mainDefinition: 'learn',
+            frequencyRank: null,
+            matchSurface: '習',
+        }],
+        usedIn: [{
+            wordId: 103,
+            readingIndex: 0,
+            reading: '復習会',
+            readingFurigana: '復習会[ふくしゅうかい]',
+            mainDefinition: 'review session',
+            frequencyRank: 32000,
+            matchSurface: '復習会',
+            audioUrls: ['https://audio.example.test/fukushukai.mp3'],
+        }],
+        usedInTotal: 1,
+    };
+}
+
+function jitenExamplePayload() {
+    return [{
+        sentenceId: 99,
+        text: '毎日復習する。',
+        wordPosition: 2,
+        wordLength: 2,
+        difficulty: null,
+        sourceTitle: 'Jiten examples',
+        audioUrls: ['https://audio.example.test/review-sentence.mp3'],
+    }];
+}
+
+function textResponse(status, responseText) {
+    return { status, responseText, contentType: 'text/plain; charset=utf-8' };
+}
+
+function corsHeaders() {
+    return {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'content-type, authorization',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+    };
 }
 
 function serveRequest(request, response) {
@@ -232,8 +432,8 @@ async function seedJitendexDictionary(page) {
                 expression: term,
                 reading,
                 glossary: [
-                    'review; revision',
-                    { type: 'structured-content', content: { tag: 'div', content: '毎日復習する。' } },
+                    'local Jitendex fixture; should not appear inside the Jiten source',
+                    { type: 'structured-content', content: { tag: 'div', content: 'ローカル辞書の例。' } },
                 ],
                 score: 10,
                 dictionary: 'Jitendex',

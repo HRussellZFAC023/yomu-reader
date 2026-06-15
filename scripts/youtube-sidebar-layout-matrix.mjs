@@ -23,6 +23,7 @@ const headed = process.env.YOMU_YOUTUBE_SIDEBAR_HEADED === '1';
 const placements = ['right', 'left', 'bottom'];
 const viewports = [
     { name: 'ipad-pro-portrait', viewport: { width: 1024, height: 1366 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+    { name: 'ipad-pro-landscape', viewport: { width: 1366, height: 1024 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
     { name: 'mobile-iphone-13', ...devices['iPhone 13'] },
     { name: 'desktop-1440', viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 ];
@@ -83,9 +84,14 @@ async function runScenario(browser, viewport, placement) {
         const afterOpen = await snapshot(page);
         assertLayout(afterOpen, viewport.name, placement, 'open');
         await page.screenshot({ path: join(outputDir, `${label}-open.png`), fullPage: false });
+        await waitForFullTranscriptRender(page);
+        const afterFullRender = await snapshot(page);
+        assert(afterOpen.rowCount <= 4, `panel open did not use the lightweight preview path in ${label}`, compactSnapshot(afterOpen));
+        assert(afterFullRender.rowCount >= 50, `full transcript did not render after the preview in ${label}`, compactSnapshot(afterFullRender));
+        assertLayout(afterFullRender, viewport.name, placement, 'full-render');
 
         const resizeTiming = await timePageAction(page, async () => {
-            await resizeTranscriptPanelByKeyboard(page, afterOpen.placement);
+            await resizeTranscriptPanelByKeyboard(page, afterFullRender.placement);
         });
         const afterResize = await snapshot(page);
         assertLayout(afterResize, viewport.name, placement, 'resize');
@@ -94,6 +100,9 @@ async function runScenario(browser, viewport, placement) {
         const switchTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
             ? await runSwitchSequence(page)
             : null;
+        const autoTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
+            ? await runAutoSequence(page)
+            : null;
 
         return {
             label,
@@ -101,7 +110,10 @@ async function runScenario(browser, viewport, placement) {
             effectivePlacement: afterOpen.placement,
             openMs: openTiming.durationMs,
             resizeMs: resizeTiming.durationMs,
+            previewRows: afterOpen.rowCount,
+            fullRows: afterFullRender.rowCount,
             switchTiming,
+            autoTiming,
             beforeSetSizeCount: afterOpen.setSizeCalls.length,
             afterResizeSetSizeCount: afterResize.setSizeCalls.length,
             resizeEvents: afterResize.resizeEvents,
@@ -111,6 +123,59 @@ async function runScenario(browser, viewport, placement) {
     } finally {
         await context.close();
     }
+}
+
+async function runAutoSequence(page) {
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        Object.defineProperty(video, 'paused', { configurable: true, value: true });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+    });
+    const enableTiming = await timePageAction(page, async () => {
+        await page.locator('[data-action="toggle-pause-panel"]').first().click();
+        await page.waitForFunction(() => {
+            const panel = document.querySelector('.jpdb-subtitle-list');
+            const button = document.querySelector('[data-action="toggle-pause-panel"]');
+            return panel instanceof HTMLElement
+                && !panel.hidden
+                && button?.getAttribute('aria-pressed') === 'true';
+        }, null, { timeout: 2000 });
+    });
+    const closeTiming = await timePageAction(page, async () => {
+        await page.evaluate(() => {
+            const video = document.querySelector('video');
+            Object.defineProperty(video, 'paused', { configurable: true, value: false });
+            video.dispatchEvent(new Event('playing'));
+        });
+        await page.waitForFunction(() => {
+            const panel = document.querySelector('.jpdb-subtitle-list');
+            return panel instanceof HTMLElement && panel.hidden;
+        }, null, { timeout: 3000 });
+    });
+    const reopenTiming = await timePageAction(page, async () => {
+        await page.evaluate(() => {
+            const video = document.querySelector('video');
+            Object.defineProperty(video, 'paused', { configurable: true, value: true });
+            video.dispatchEvent(new Event('pause'));
+        });
+        await page.waitForFunction(() => {
+            const panel = document.querySelector('.jpdb-subtitle-list');
+            const button = document.querySelector('[data-action="toggle-pause-panel"]');
+            return panel instanceof HTMLElement
+                && !panel.hidden
+                && button?.getAttribute('aria-pressed') === 'true'
+                && document.querySelectorAll('.jpdb-subtitle-list-row').length > 0;
+        }, null, { timeout: 3000 });
+    });
+    const state = await snapshot(page);
+    assertLayout(state, 'ipad-pro-portrait', state.placement, 'auto-reopen');
+    await page.screenshot({ path: join(outputDir, 'ipad-pro-portrait-auto-reopen.png'), fullPage: false });
+    return {
+        enableMs: enableTiming.durationMs,
+        closeOnPlayMs: closeTiming.durationMs,
+        reopenOnPauseMs: reopenTiming.durationMs,
+        state: compactSnapshot(state),
+    };
 }
 
 async function runSwitchSequence(page) {
@@ -184,6 +249,12 @@ async function waitForPanelOpen(page) {
     }, null, { timeout: 8000 });
 }
 
+async function waitForFullTranscriptRender(page) {
+    await page.waitForFunction(() => {
+        return document.querySelectorAll('.jpdb-subtitle-list-row').length > 20;
+    }, null, { timeout: 4000 }).catch(() => undefined);
+}
+
 async function timePageAction(page, action) {
     const started = await page.evaluate(() => performance.now());
     await action();
@@ -228,6 +299,17 @@ async function snapshot(page) {
                 marginRight: element.style.marginRight,
             };
         };
+        const computed = selector => {
+            const element = document.querySelector(selector);
+            if (!(element instanceof HTMLElement)) return null;
+            const styles = getComputedStyle(element);
+            return {
+                display: styles.display,
+                justifyContent: styles.justifyContent,
+                marginLeft: styles.marginLeft,
+                marginRight: styles.marginRight,
+            };
+        };
         return {
             placement: document.querySelector('.jpdb-subtitle-player')?.getAttribute('data-transcript-placement')
                 || document.querySelector('.jpdb-subtitle-list')?.getAttribute('data-transcript-placement')
@@ -240,12 +322,14 @@ async function snapshot(page) {
             title: rect('ytd-watch-metadata h1'),
             actions: rect('#actions'),
             secondary: rect('#secondary'),
+            rowCount: document.querySelectorAll('.jpdb-subtitle-list-row').length,
             panelStyle: style('.jpdb-subtitle-list'),
             primaryStyle: style('#primary'),
             primaryInnerStyle: style('#primary-inner'),
             playerStyle: style('#player'),
             moviePlayerStyle: style('#movie_player'),
             columnsStyle: style('#columns'),
+            columnsComputed: computed('#columns'),
             insetClasses: document.documentElement.className,
             insetValue: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
             setSizeCalls: globalThis.__yomuSetSizeCalls ?? [],
@@ -269,13 +353,18 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
         return;
     }
     assert(state.placement === requestedPlacement, `unexpected side placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
+    assert(state.columnsComputed?.justifyContent === 'flex-start', `side docking did not anchor YouTube columns to the viewport start in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     if (requestedPlacement === 'left') {
         assert(state.panel.right <= state.video.left + 1, `left panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.panel.right <= state.title.left + 1, `left panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
-        assert(state.columnsStyle?.marginLeft && state.columnsStyle.marginLeft !== '0px', `left docking did not shift YouTube columns in ${viewportName}/${phase}`, compactSnapshot(state));
+        assert(state.primaryStyle?.marginLeft && state.primaryStyle.marginLeft !== '0px', `left docking did not shift YouTube primary column in ${viewportName}/${phase}`, compactSnapshot(state));
+        assert(!state.columnsStyle?.marginLeft, `left docking shifted centered YouTube columns in ${viewportName}/${phase}`, compactSnapshot(state));
+        assert(sideDockGap(state.panel, state.video, 'left') <= 80, `left video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
+        assert(sideDockGap(state.panel, state.title, 'left') <= 80, `left title is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
     } else {
         assert(state.video.right <= state.panel.left + 1, `right panel covers video in ${viewportName}/${phase}`, compactSnapshot(state));
         assert(state.title.right <= state.panel.left + 1, `right panel covers title area in ${viewportName}/${phase}`, compactSnapshot(state));
+        assert(sideDockGap(state.panel, state.video, 'right') <= 80, `right video is not docked against the panel in ${viewportName}/${phase}`, compactSnapshot(state));
     }
 }
 
@@ -287,7 +376,9 @@ function compactSnapshot(state) {
         video: roundRect(state.video),
         title: roundRect(state.title),
         actions: roundRect(state.actions),
+        rowCount: state.rowCount,
         columnsStyle: state.columnsStyle,
+        columnsComputed: state.columnsComputed,
         primaryStyle: state.primaryStyle,
         primaryInnerStyle: state.primaryInnerStyle,
         playerStyle: state.playerStyle,
@@ -305,17 +396,31 @@ function overlaps(a, b) {
     return Boolean(a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top);
 }
 
+function sideDockGap(panel, target, side) {
+    if (!panel || !target) return Number.POSITIVE_INFINITY;
+    return side === 'left'
+        ? Math.max(0, target.left - panel.right)
+        : Math.max(0, panel.left - target.right);
+}
+
 function roundRect(rect) {
     if (!rect) return null;
     return Object.fromEntries(['left', 'top', 'right', 'bottom', 'width', 'height'].map(key => [key, Math.round(rect[key])]));
 }
 
 function youtubeTimedText() {
-    return `<timedtext><body>
-<p t="1000" d="2400"><s t="0">今日は</s><s t="600">日本語</s><s t="1200">字幕</s><s t="1700">を</s><s t="1900">確認</s><s t="2200">します</s></p>
-<p t="4100" d="2600"><s t="0">左側</s><s t="500">でも</s><s t="900">動画</s><s t="1300">を</s><s t="1600">隠しません</s></p>
-<p t="7200" d="3000"><s t="0">下側</s><s t="500">では</s><s t="900">説明</s><s t="1300">と</s><s t="1600">操作</s><s t="2100">を</s><s t="2400">広げません</s></p>
-</body></timedtext>`;
+    const lines = [
+        ['今日は', '日本語', '字幕', 'を', '確認', 'します'],
+        ['左側', 'でも', '動画', 'を', '隠しません'],
+        ['下側', 'では', '説明', 'と', '操作', 'を', '広げません'],
+    ];
+    const body = Array.from({ length: 123 }, (_, index) => {
+        const words = lines[index % lines.length];
+        const start = 1000 + index * 2100;
+        const segments = words.map((word, wordIndex) => `<s t="${wordIndex * 280}">${word}</s>`).join('');
+        return `<p t="${start}" d="1900">${segments}</p>`;
+    }).join('\n');
+    return `<timedtext><body>${body}</body></timedtext>`;
 }
 
 const vocabulary = [
@@ -353,7 +458,7 @@ function youtubeFixtureHtml() {
   <style>
     html, body { margin: 0; background: #0f0f0f; color: #f1f1f1; font-family: Roboto, Arial, sans-serif; overflow-x: hidden; }
     ytd-watch-flexy { display: block; }
-    #columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 24px; padding: 72px 24px 32px; box-sizing: border-box; align-items: start; }
+    #columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 24px; max-width: 1720px; margin: 0 auto; padding: 72px 24px 32px; box-sizing: border-box; align-items: start; }
     #primary, #primary-inner { min-width: 0; box-sizing: border-box; }
     #player, #player-container-outer, #player-container-inner, ytd-player { display: block; min-width: 0; }
     #movie_player { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px; background: #000; overflow: hidden; }

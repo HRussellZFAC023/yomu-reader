@@ -379,6 +379,7 @@ const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
 const SUBTITLE_TICK_ACTIVE_MS = 250;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
+const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 // Window after a programmatic scroll during which scroll events are treated as
 // self-induced (scrollIntoView fires async), not as a user scroll.
@@ -598,7 +599,7 @@ export class SubtitlePlayerController {
         load: () => this.openSubtitleFilePicker('primary'),
         'load-secondary': () => this.openSubtitleFilePicker('secondary'),
         panel: () => this.toggleTranscriptDrawer(),
-        'panel-lines': () => this.openLinesPanel(),
+        'panel-lines': () => this.openLinesPanel({ deferRender: true }),
         'panel-tracks': () => this.openTracksPanel(),
         'close-panel': () => this.closeTranscriptPanel(),
         'transcript-placement': target => this.changeTranscriptPlacement(target),
@@ -1361,7 +1362,12 @@ export class SubtitlePlayerController {
         const layout = subtitleOverlayLayout(rect);
         this.root.classList.toggle('jpdb-subtitle-compact-video', layout.width < 560 || layout.height < 260);
         if (rect.width < 120 || rect.height < 80) {
-            applyElementLayout(this.root, { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+            applyElementLayout(this.root, {
+                left: 0,
+                top: 0,
+                width: this.transcriptViewportWidth(),
+                height: this.transcriptViewportHeight(),
+            });
             this.positionTranscriptPanel();
             this.fitSubtitleTextToVideo();
             return;
@@ -2247,7 +2253,7 @@ export class SubtitlePlayerController {
         const placement = this.transcriptPlacementFromTarget(target);
         if (!placement) return;
         const settings = this.options.getSettings();
-        const compact = shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth));
+        const compact = shouldUseCompactSubtitleDrawer(this.transcriptViewportWidth());
         const effectivePlacement = compact ? 'bottom' : settings.subtitleTranscriptPlacement;
         if (placement === effectivePlacement) {
             // Re-pressing the active placement toggles the panel closed.
@@ -3274,7 +3280,7 @@ export class SubtitlePlayerController {
             return;
         }
         if (this.preferredTranscriptDrawerMode() === 'tracks') this.openTracksPanel();
-        else this.openLinesPanel();
+        else this.openLinesPanel({ deferRender: true });
     }
 
     private showTranscriptPanelElement(): void {
@@ -3343,16 +3349,15 @@ export class SubtitlePlayerController {
             this.options.getSettings().subtitleTranscriptVisible = true;
             this.options.onSettingsChange();
         }
-        if (options.deferRender) {
+        const deferRender = options.deferRender === true;
+        if (deferRender) {
             this.renderTranscriptPanelPreview();
-            this.positionTranscriptPanel({ realignAfterInset: true });
             this.syncControls();
             this.scheduleDeferredTranscriptPanelRender();
             return;
         }
         this.clearDeferredTranscriptPanelRender();
         this.renderTranscriptPanel(true);
-        this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
     }
 
@@ -3383,7 +3388,7 @@ export class SubtitlePlayerController {
         if (settings.subtitlePausePanel) {
             settings.subtitleTranscriptVisible = false;
             if (this.video && this.video.paused && !this.video.ended && this.hasTranscriptSurface()) {
-                this.openLinesPanel({ persist: false, autoPause: true });
+                this.openLinesPanel({ persist: false, autoPause: true, deferRender: true });
             } else if (this.isTranscriptPanelOpen()) {
                 this.closeTranscriptPanel({ persist: false, autoPause: true });
             }
@@ -3517,7 +3522,7 @@ export class SubtitlePlayerController {
         const state = this.transcriptPanelPreviewState(fullState);
         this.lastTranscriptSignature = '';
         setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-        this.afterTranscriptPanelRender(state, { warmupRows: fullState.rows });
+        this.afterTranscriptPanelRender(state);
     }
 
     private transcriptPanelPreviewState(state: TranscriptPanelRenderState): TranscriptPanelRenderState {
@@ -3544,9 +3549,8 @@ export class SubtitlePlayerController {
                 this.transcriptDeferredRenderTimer = undefined;
                 if (this.destroyed || !this.isTranscriptPanelOpen() || this.panelMode !== 'lines') return;
                 this.renderTranscriptPanel(true);
-                this.positionTranscriptPanel({ realignAfterInset: true });
                 this.syncControls();
-            }, 0);
+            }, TRANSCRIPT_DEFERRED_RENDER_DELAY_MS);
         });
     }
 
@@ -3746,7 +3750,7 @@ export class SubtitlePlayerController {
         let resizeFrame: number | undefined;
         const onMove = (moveEvent: PointerEvent) => {
             Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
-                bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+                bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
                 currentX: moveEvent.clientX,
                 currentY: moveEvent.clientY,
                 placement,
@@ -3794,7 +3798,7 @@ export class SubtitlePlayerController {
         event.stopPropagation();
 
         Object.assign(this.transcriptPanelSize, transcriptResizePatchForKeyboard({
-            bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+            bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
             direction,
             panelRect: panel.getBoundingClientRect(),
             placement,
@@ -3807,7 +3811,7 @@ export class SubtitlePlayerController {
         const handle = this.transcriptPanel?.querySelector<HTMLElement>('[data-resize-transcript]');
         if (!handle) return;
         const metrics = transcriptResizeHandleMetrics({
-            bounds: transcriptResizeBounds(window.innerWidth, window.innerHeight),
+            bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
             layout,
             panelRect: this.transcriptPanel?.getBoundingClientRect(),
             placement: this.effectiveTranscriptPlacement,
@@ -4241,8 +4245,8 @@ export class SubtitlePlayerController {
             return;
         }
         const panel = this.transcriptPanel;
-        const viewportWidth = Math.max(320, window.innerWidth);
-        const viewportHeight = Math.max(240, window.innerHeight);
+        const viewportWidth = this.transcriptViewportWidth();
+        const viewportHeight = this.transcriptViewportHeight();
         const settings = this.options.getSettings();
         // During a resize drag (skipInset) reuse the already-latched reference
         // rect instead of re-running the
@@ -4328,15 +4332,24 @@ export class SubtitlePlayerController {
     }
 
     private clampStoredSideWidthForCurrentVideo(placement: Exclude<ReaderSettings['subtitleTranscriptPlacement'], 'bottom'>): void {
+        const viewportWidth = this.transcriptViewportWidth();
         const constrained = this.constrainedSideTranscriptWidth(placement, {
-            viewportWidth: Math.max(320, window.innerWidth),
-            viewportHeight: Math.max(240, window.innerHeight),
+            viewportWidth,
+            viewportHeight: this.transcriptViewportHeight(),
             anchorTop: this.transcriptAnchorRect().top,
-            compactPanel: shouldUseCompactSubtitleDrawer(Math.max(320, window.innerWidth)),
+            compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
             preferredPlacement: placement,
             size: this.transcriptPanelSize,
         });
         if (constrained !== undefined) this.transcriptPanelSize.sideWidth = constrained;
+    }
+
+    private transcriptViewportWidth(): number {
+        return Math.max(320, Math.round(window.visualViewport?.width ?? window.innerWidth));
+    }
+
+    private transcriptViewportHeight(): number {
+        return Math.max(240, Math.round(window.visualViewport?.height ?? window.innerHeight));
     }
 
     private shouldUseBottomTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
@@ -4398,13 +4411,15 @@ export class SubtitlePlayerController {
 
     private availablePlayerWidthForSideLayout(layout: TranscriptPanelLayout, videoRect: DOMRect): number {
         // For left docking the player shifts right toward the viewport edge, so
-        // measure the room from the panel's right edge to the viewport — not the
-        // player's current (pre-shift) right edge, which under-counted and forced
-        // the bottom fallback on smaller screens.
+        // measure the room from the panel's right edge to the viewport. Live
+        // YouTube can report an oversized pre-inset player rect during iPad
+        // layout/bootstrap, so using videoRect.right here can make the shifted
+        // player spill far past the visible viewport.
         // The extra margin matches the doubled left-side inset gap applied by
         // the video inset adapter so the shifted player still fits on screen.
+        const viewportWidth = this.transcriptViewportWidth();
         return layout.placement === 'left'
-            ? Math.max(window.innerWidth, videoRect.right) - (layout.left + layout.width + layout.margin * 2)
+            ? viewportWidth - (layout.left + layout.width + layout.margin * 2)
             : layout.left - videoRect.left - layout.margin;
     }
 

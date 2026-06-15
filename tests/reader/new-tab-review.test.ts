@@ -9092,10 +9092,53 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
-    it('renders no-key Jiten search details from local Jitendex entries for 復習', async () => {
-        const jitenLookup = vi.fn(async () => {
-            throw new Error('Jiten API should not be called without a key');
-        });
+    it('renders no-key Jiten search details from public Jiten info for 復習', async () => {
+        const jitenLookup = vi.fn(async () => ({
+            wordId: 1500800,
+            mainReading: { text: '復習', readingIndex: 0, frequencyRank: 12435, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: ['noun', 'suru verb'],
+            definitions: [{
+                index: 0,
+                meanings: ['review; revision'],
+                partsOfSpeech: ['noun'],
+                field: [],
+                dial: [],
+                misc: [],
+                restrictedToReadingIndices: [],
+            }],
+            pitchAccents: [],
+            knownStates: ['not-in-deck'],
+            composedOf: [{
+                wordId: 101,
+                readingIndex: 0,
+                reading: '復',
+                readingFurigana: '復[ふく]',
+                mainDefinition: 'again; restore',
+                frequencyRank: null,
+                matchSurface: '復',
+                audioUrls: ['https://audio.example.test/fuku.mp3'],
+            }],
+            usedIn: [{
+                wordId: 102,
+                readingIndex: 0,
+                reading: '復習会',
+                readingFurigana: '復習会[ふくしゅうかい]',
+                mainDefinition: 'review session',
+                frequencyRank: 32000,
+                matchSurface: '復習会',
+            }],
+            usedInTotal: 1,
+            examples: [{
+                sentenceId: 99,
+                text: '毎日復習する。',
+                wordPosition: 2,
+                wordLength: 2,
+                difficulty: null,
+                sourceTitle: 'Jiten examples',
+                audioUrls: ['https://audio.example.test/review-sentence.mp3'],
+            }],
+        }));
         const publicCard = newTabTestCard({
             vid: 1776400,
             sid: 0,
@@ -9172,12 +9215,23 @@ describe('new tab review helpers', () => {
             await waitForExpect(() => {
                 const jiten = detail()?.querySelector<HTMLElement>('[data-source="jiten"]');
                 expect(jiten).not.toBeNull();
+                const jitenText = jiten?.textContent ?? '';
                 expect(jiten?.textContent).toContain('review; revision');
-                expect(jiten?.textContent).toContain('毎日復習する。');
+                expect(jiten?.textContent).toContain('復習会');
+                expect(jitenText).toContain('毎日');
+                expect(jitenText).toContain('復習');
+                expect(jitenText).toContain('する。');
                 expect(jiten?.textContent).toContain('ふくしゅう');
-                expect(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')).not.toBeNull();
+                expect(jiten?.querySelector('.jpdb-reader-jiten-example-row.has-audio')).not.toBeNull();
+                expect(jiten?.querySelectorAll('.jpdb-reader-jiten-audio')).toHaveLength(3);
+                expect(jiten?.querySelector('.jpdb-reader-jiten-local-definitions')).toBeNull();
+                expect(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')).toBeNull();
+                expect(jiten?.textContent).not.toContain('Jitenで開く');
             });
-            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(jitenLookup).toHaveBeenCalledWith(expect.objectContaining({
+                spelling: '復習',
+                reading: 'ふくしゅう',
+            }));
         } finally {
             root.remove();
         }
