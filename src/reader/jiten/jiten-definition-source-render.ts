@@ -32,6 +32,7 @@ export function renderJitenDefinitionSource(
 ): string {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
+    if (info && !meanings && !extras) return '';
     const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return '';
     const headword = renderJitenDefinitionHeadword(card, info);
