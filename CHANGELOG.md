@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.40] - 2026-06-15
+
+### Fixed
+
+- Japanese new-tab chrome keeps native actions after reader ruby/pitch parsing. Clicking the parsed `設定` overflow item now opens settings instead of searching for nested parsed text, while stats chart gap taps still select the nearest day.
+
 ## [0.7.39] - 2026-06-15
 
 ### Fixed

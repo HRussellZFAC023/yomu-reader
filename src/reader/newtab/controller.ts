@@ -1219,6 +1219,7 @@ export class NewTabController {
         if (!request.action) {
             this.dependencies.dismissLookup?.();
             if (this.handleRootImmersionClick(root, request.target, event)) return;
+            if (this.handleRootClickActions(root, request.target, event, request.action)) return;
         }
         if (this.shouldIgnoreRootStudyClick(root)) return;
         if (this.handleRootStudyActionClick(root, request.target, event, request.action)) return;
