@@ -4223,6 +4223,36 @@ describe('reader helpers', () => {
         expect(click.defaultPrevented).toBe(true);
     });
 
+    it('keeps enhanced Immersion Kit source labels out of stretched flex summary layout', () => {
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit>
+                <summary class="jpdb-reader-local-title">
+                    <span class="jpdb-reader-word">イ</span><span class="jpdb-reader-word">マージ</span><span class="jpdb-reader-word">ョ</span><span class="jpdb-reader-word">ン</span><span class="jpdb-reader-word">キット</span>
+                </summary>
+                <div class="jpdb-reader-help">Loading examples...</div>
+            </details>
+        `;
+        document.body.append(popover);
+
+        try {
+            const summary = popover.querySelector<HTMLElement>('summary.jpdb-reader-local-title')!;
+            expect(Array.from(summary.children).filter(child => child.matches('.jpdb-reader-word'))).toHaveLength(5);
+            expect(readerWordSurfaceText(summary).trim()).toBe('イマージョンキット');
+            expect(summary.textContent?.replace(/\s+/g, '')).toContain('イマージョンキット');
+            const sourceCss = readFileSync('src/reader/styles/local-dictionaries.css', 'utf8');
+            const sourceSummaryRule = sourceCss.match(/\.jpdb-reader-source-card > summary\.jpdb-reader-local-title,[\s\S]*?list-style: none;\n}/)?.[0] ?? '';
+            expect(sourceSummaryRule).toContain('display: block;');
+            expect(sourceSummaryRule).toContain('padding: 6px 32px 6px 0;');
+            expect(sourceSummaryRule).not.toContain('justify-content: space-between;');
+            expect(sourceCss).toContain('position: absolute;');
+            expect(sourceCss).toContain('inset-inline-end: 0;');
+        } finally {
+            popover.remove();
+        }
+    });
+
     it('remembers collapsed source state for later renders', () => {
         const onStateChange = vi.fn();
         const popover = document.createElement('div');

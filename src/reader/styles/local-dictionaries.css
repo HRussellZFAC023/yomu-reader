@@ -48,12 +48,9 @@
 }
 .jpdb-reader-source-card > summary.jpdb-reader-local-title,
 .jpdb-reader-study-source > summary.jpdb-reader-local-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  display: block;
   min-height: 34px;
-  padding: 6px 0;
+  padding: 6px 32px 6px 0;
   position: relative;
   cursor: pointer;
   list-style: none;
@@ -69,6 +66,9 @@
   content: "+";
   display: inline-grid;
   place-items: center;
+  position: absolute;
+  inset-inline-end: 0;
+  top: 50%;
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
@@ -76,6 +76,7 @@
   color: var(--jpdb-reader-muted);
   font-size: 15px;
   line-height: 1;
+  transform: translateY(-50%);
 }
 .jpdb-reader-source-card[open] > summary.jpdb-reader-local-title::after,
 .jpdb-reader-study-source[open] > summary.jpdb-reader-local-title::after {
@@ -181,7 +182,8 @@
   text-transform: uppercase;
 }
 .jpdb-reader-source-status {
-  margin-left: auto;
+  float: right;
+  margin-left: 8px;
   color: var(--jpdb-reader-faint);
   font-size: 11px;
   font-weight: 700;
