@@ -299,6 +299,42 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
     });
 
+    it('ignores the body-level inline hover preview (ytd-video-preview) that reuses player markup', () => {
+        // Regression: YouTube's desktop hover preview renders in a body-level
+        // <ytd-video-preview> (outside any feed tile) whose inner markup is the
+        // real player (#player-container / ytd-player / #movie_player). The
+        // player selector matched first, so the preview was treated as the main
+        // player and OCR'd — leaving a "No text found" card pinned over a feed
+        // thumbnail. The preview wrapper must classify as a thumbnail instead.
+        createController();
+        document.body.innerHTML = `
+            <div id="video-preview">
+                <ytd-video-preview>
+                    <div id="media-container">
+                        <a id="media-container-link">
+                            <div id="player-container">
+                                <ytd-player id="inline-player">
+                                    <div id="movie_player" class="html5-video-player">
+                                        <video></video>
+                                    </div>
+                                </ytd-player>
+                            </div>
+                        </a>
+                    </div>
+                </ytd-video-preview>
+            </div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 320, 180);
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+    });
+
     it('still snapshots the m.youtube main player even when wrapped in a /watch link', () => {
         // Regression (v0.6.182): the mobile main player is wrapped by a generic
         // <a href="/watch"> with no ytd-thumbnail/renderer container. The broad

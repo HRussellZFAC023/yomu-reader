@@ -94,14 +94,27 @@ const VIDEO_FRAME_PLAYER_SELECTOR = [
     '#player-container-outer',
     '[data-yomu-video-frame]',
 ].join(',');
-// Strong thumbnail containers: a video inside one of these is unambiguously a
-// feed/preview tile, never the main player.
+// YouTube feed/preview tile containers. A <video> OR thumbnail <img> inside one
+// of these is unambiguously a feed/preview surface, never the main watch player,
+// so OCR must skip it: neither the paused-frame snapshot card nor the image
+// auto-scan should fire on a thumbnail. `ytd-video-preview` is YouTube's
+// body-level inline hover preview — it reuses the real player markup
+// (#movie_player / ytd-player / #player-container), so without naming the
+// preview wrapper here its <video> matches VIDEO_FRAME_PLAYER_SELECTOR and gets
+// read as the main player. The `yt-*-view-model` tags wrap modern feed/Shorts
+// thumbnail images.
 const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
     'ytd-thumbnail',
     'ytd-rich-item-renderer',
+    'ytd-rich-grid-media',
     'ytd-video-renderer',
     'ytd-compact-video-renderer',
     'ytd-grid-video-renderer',
+    'ytd-reel-item-renderer',
+    'ytd-playlist-thumbnail',
+    'ytd-video-preview',
+    'yt-thumbnail-view-model',
+    'yt-lockup-view-model',
     'ytm-rich-item-renderer',
     'ytm-compact-video-renderer',
     'ytm-video-card-renderer',
@@ -1755,7 +1768,9 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
 }
 
 function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
-    // A real feed/preview tile container is unambiguous.
+    // A real feed/preview tile container (incl. the inline hover preview) is
+    // unambiguous — checked before the player selector so YouTube's preview,
+    // which reuses player markup, is still treated as a thumbnail.
     if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
     if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     // Otherwise only generic watch/shorts link wrappers are left — these also

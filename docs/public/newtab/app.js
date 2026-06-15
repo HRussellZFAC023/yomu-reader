@@ -9259,6 +9259,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -28308,9 +28309,15 @@ ${spelling}`);
   const VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR = [
     "ytd-thumbnail",
     "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
     "ytd-video-renderer",
     "ytd-compact-video-renderer",
     "ytd-grid-video-renderer",
+    "ytd-reel-item-renderer",
+    "ytd-playlist-thumbnail",
+    "ytd-video-preview",
+    "yt-thumbnail-view-model",
+    "yt-lockup-view-model",
     "ytm-rich-item-renderer",
     "ytm-compact-video-renderer",
     "ytm-video-card-renderer",

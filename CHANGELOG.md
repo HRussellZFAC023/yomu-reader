@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.28] - 2026-06-15
+
+### Fixed
+
+- YouTube no longer runs OCR on feed thumbnails. The inline hover preview (`ytd-video-preview`) reuses the real player markup, so it was being treated as the main player and snapshotted — leaving a "No text found" card pinned over a thumbnail; it is now classified as a thumbnail and skipped. Static feed/Shorts thumbnail images are likewise excluded from image OCR, so the extension no longer auto-sends YouTube thumbnails to the OCR provider. Paused-frame OCR on the actual watch-page player is unaffected.
+
 ## [0.7.27] - 2026-06-15
 
 ### Fixed
