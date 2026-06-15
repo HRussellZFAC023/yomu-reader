@@ -9298,6 +9298,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -44304,7 +44305,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
   function renderedJpdbRelatedWords(root) {
     const words = root instanceof HTMLElement && root.matches(JPDB_RELATED_WORD_SELECTOR) ? [root, ...Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR))] : Array.from(root.querySelectorAll(JPDB_RELATED_WORD_SELECTOR));
-    return words.map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
+    return words.filter((word) => !word.closest(".jpdb-reader-jpdb-example, .jpdb-reader-jpdb-examples-group")).map((word) => renderedJpdbRelatedWord(word)).filter((entry) => entry !== null);
   }
   function renderedJpdbRelatedWord(word) {
     const card = renderedJpdbRelatedWordCard(word);
@@ -44457,7 +44458,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return audio ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="jpdb-example-audio" data-jpdb-audio="${escapeHtml$1(audio)}" data-jpdb-example-sentence="${escapeHtml$1(sentence)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>` : "";
   }
   function renderJpdbExampleSentence(example, card) {
-    return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
+    if (example.sentenceHtml) return example.sentenceHtml;
+    return renderJpdbPlainExampleSentence(example.sentence, card);
+  }
+  function renderJpdbPlainExampleSentence(sentence, card) {
+    const term = card.spelling.trim();
+    const start = term ? sentence.indexOf(term) : -1;
+    if (start < 0) return renderCardHighlightedTextHtml(sentence, card);
+    const before = sentence.slice(0, start);
+    const after = sentence.slice(start + term.length);
+    const url = Number.isFinite(card.vid) && card.vid > 0 ? `/vocabulary/${card.vid}` : "";
+    return `${escapeHtml$1(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? "", url, { sentence })}${escapeHtml$1(after)}`;
   }
   function renderJpdbUsedInTerm(term, reading, url, termHtml = "") {
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;

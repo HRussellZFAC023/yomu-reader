@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.57] - 2026-06-15
+
+### Fixed
+
+- Restored green CI by reconciling two contradictory JPDB definition-source tests. Example sentences render the headword occurrence as a rich passive JPDB word (ruby/pitch + identity for accurate lookup), and `renderedJpdbRelatedWords` scopes example headwords out so only used-in vocabulary is enriched/counted as related words.
+
 ## [0.7.56] - 2026-06-15
 
 ### Fixed
