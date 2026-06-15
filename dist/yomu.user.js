@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.37
+// @version      0.7.38
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -32975,9 +32975,9 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // Watch metadata, descriptions, comments, live-chat, and feed
-        // cards. Homepage/topbar/navigation/chip chrome is deliberately
-        // excluded below so hover lookup stays focused on video text.
+        // Watch metadata, descriptions, comments, live-chat, feed cards,
+        // and transcript rows. Player/topbar/navigation/chip chrome is
+        // handled by the dedicated passive YouTube chrome parser above.
         "ytd-rich-grid-renderer",
         "ytd-rich-item-renderer",
         "ytd-video-renderer",
@@ -32988,6 +32988,7 @@ ${glossaryKey}`;
         "ytm-item-section-renderer",
         "ytd-watch-next-secondary-results-renderer",
         "ytd-compact-video-renderer",
+        "ytd-transcript-segment-renderer",
         "ytd-watch-metadata h1",
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata ytd-text-inline-expander",

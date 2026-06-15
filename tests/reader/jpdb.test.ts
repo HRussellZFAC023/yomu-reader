@@ -30766,6 +30766,8 @@ describe('reader helpers', () => {
                 <ytd-rich-grid-renderer>
                     <ytd-rich-item-renderer>
                         <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
+                        <ytd-channel-name><a href="/@tokyo">東京散歩チャンネル</a></ytd-channel-name>
+                        <div id="metadata-line"><span>3日前</span></div>
                     </ytd-rich-item-renderer>
                     <ytd-rich-item-renderer>
                         <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
@@ -30791,6 +30793,8 @@ describe('reader helpers', () => {
             '弱いままの自分で大丈夫。Japanese Podcast',
             '東京散歩',
             '関連動画の発行ニュース',
+            '東京散歩チャンネル',
+            '3日前',
         ]));
 
         const title = targets.find(target => target.text === '服代が月1万から20万円！？東京の春コーデ')!;
@@ -30809,7 +30813,47 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
     });
 
-    it('keeps YouTube masthead and mini-guide chrome out of hover targets', () => {
+    it('scans YouTube transcript rows while leaving native caption overlays untouched', () => {
+        const targets = collectYouTubeWatchTargets(`
+            <div id="movie_player" class="html5-video-player">
+                <div class="ytp-caption-window-container">
+                    <span class="ytp-caption-segment">先生いつもありがとうございました。</span>
+                </div>
+            </div>
+            <ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+                <ytd-transcript-renderer>
+                    <ytd-transcript-body-renderer>
+                        <ytd-transcript-segment-renderer>
+                            <div class="segment-timestamp">0:12</div>
+                            <yt-formatted-string class="segment-text">日本語の字幕を確認します。</yt-formatted-string>
+                        </ytd-transcript-segment-renderer>
+                    </ytd-transcript-body-renderer>
+                </ytd-transcript-renderer>
+            </ytd-engagement-panel-section-list-renderer>
+        `);
+
+        expect(targets.map(target => target.text)).toContain('日本語の字幕を確認します。');
+        expect(targets.map(target => target.text)).not.toContain('先生いつもありがとうございました。');
+
+        const transcript = targets.find(target => target.text === '日本語の字幕を確認します。')!;
+        applyTokensToScanTarget(transcript, [{
+            card: { ...card, cardState: ['known'], spelling: '字幕', reading: 'じまく', source: 'jpdb' },
+            start: 4,
+            end: 6,
+            length: 2,
+            rubies: [{ text: 'じまく', start: 4, end: 6, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '日本語の字幕を確認します。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('字幕');
+        expect(word.querySelector('rt')?.textContent).toBe('じまく');
+        expectRenderedPitchWord(word, 'heiban');
+        expect(document.querySelector('.ytp-caption-segment .jpdb-reader-word')).toBeNull();
+    });
+
+    it('scans YouTube masthead and mini-guide chrome passively', () => {
         const targets = collectYouTubeTargets(`
             <ytd-masthead>
                 <yt-button-shape>
@@ -30842,17 +30886,33 @@ describe('reader helpers', () => {
             </ytd-mini-guide-renderer>
         `, 'https://www.youtube.com/', 10);
 
-        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '作成',
             'ホーム',
             '登録チャンネル',
+        ]));
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '押下中',
         ]));
-        expect(document.querySelector('ytd-masthead .jpdb-reader-word')).toBeNull();
-        expect(document.querySelector('ytd-mini-guide-entry-renderer .jpdb-reader-word')).toBeNull();
+
+        const create = targets.find(target => target.text === '作成')!;
+        applyTokensToScanTarget(create, [{
+            card: { ...card, cardState: ['known'], spelling: '作成', reading: 'さくせい', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'さくせい', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '作成',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const createWord = document.querySelector<HTMLElement>('ytd-masthead .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(createWord)).toBe('作成');
+        expect(createWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(createWord.tabIndex).toBe(-1);
     });
 
-    it('keeps YouTube chip cloud tabs out of hover targets', () => {
+    it('scans YouTube chip cloud tabs passively while ignoring feedback chrome', () => {
         const targets = collectYouTubeTargets(`
             <iron-selector id="chips" role="tablist" selected-attribute="selected">
                 <yt-chip-cloud-chip-renderer selected="">
@@ -30888,13 +30948,28 @@ describe('reader helpers', () => {
             </iron-selector>
         `, YOUTUBE_WATCH_TEST_URL, 10);
 
-        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             'すべて',
             '関連動画',
             '最近アップロードされた動画',
-            '押下中',
         ]));
-        expect(document.querySelector('yt-chip-cloud-chip-renderer .jpdb-reader-word')).toBeNull();
+        expect(targets.map(target => target.text)).not.toContain('押下中');
+
+        const related = targets.find(target => target.text === '関連動画')!;
+        applyTokensToScanTarget(related, [{
+            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが', source: 'jpdb' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: '関連動画',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const chipWord = document.querySelector<HTMLElement>('yt-chip-cloud-chip-renderer .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(chipWord)).toBe('関連動画');
+        expect(chipWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(chipWord.tabIndex).toBe(-1);
 
         const feedTargets = collectYouTubeTargets(`
             <div id="chips-content" class="style-scope ytd-feed-filter-chip-bar-renderer">
@@ -30917,13 +30992,28 @@ describe('reader helpers', () => {
             </div>
         `, 'https://www.youtube.com/', 10);
 
-        expect(feedTargets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+        expect(feedTargets.map(target => target.text)).toEqual(expect.arrayContaining([
             'すべて',
             '観光',
             '新しい動画の発見',
-            '前へ',
         ]));
-        expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word, #chips-content .jpdb-reader-word')).toBeNull();
+        expect(feedTargets.map(target => target.text)).not.toContain('前へ');
+
+        const sightseeing = feedTargets.find(target => target.text === '観光')!;
+        applyTokensToScanTarget(sightseeing, [{
+            card: { ...card, cardState: ['known'], spelling: '観光', reading: 'かんこう', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'かんこう', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '観光',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const feedChipWord = document.querySelector<HTMLElement>('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word, #chips-content .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(feedChipWord)).toBe('観光');
+        expect(feedChipWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(feedChipWord.tabIndex).toBe(-1);
     });
 
     it('scans modern YouTube lockup titles without hiding title text', () => {
